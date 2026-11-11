@@ -1,5 +1,6 @@
-//! Palette originale du jeu : crépuscule violet / corail / jaune pâle
-//! sur une nuit profonde. 16 couleurs maximum, figée.
+//! Palette de PÉPIN : « orage → soleil ». Ardoise et bleu nuit qui
+//! s'éclaircissent jusqu'à l'or du soleil, parapluie corail, pluie cyan.
+//! 16 couleurs maximum, figée.
 
 /// Couleur RGB opaque, 8 bits par canal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -21,57 +22,57 @@ impl Couleur {
     }
 }
 
-/// Fond du ciel, le plus sombre de la palette.
-pub const NUIT_PROFONDE: Couleur = Couleur::new(0x16, 0x0F, 0x2A);
-/// Ciel nocturne un peu plus clair, pour les aplats lointains.
-pub const NUIT_MOYENNE: Couleur = Couleur::new(0x2A, 0x1B, 0x4A);
-/// Silhouettes lointaines, relief du second plan.
-pub const PRUNE_SOMBRE: Couleur = Couleur::new(0x3D, 0x24, 0x5E);
-/// Violet principal : décor et plateformes.
-pub const VIOLET: Couleur = Couleur::new(0x6B, 0x3F, 0xA0);
-/// Violet clair pour les arêtes et les reflets de plateformes.
-pub const VIOLET_CLAIR: Couleur = Couleur::new(0x9A, 0x6F, 0xD1);
-/// Lavande douce : brume et horizon.
-pub const LAVANDE: Couleur = Couleur::new(0xC9, 0xA8, 0xE8);
-/// Magenta profond : transition entre violet et corail.
-pub const MAGENTA: Couleur = Couleur::new(0xA8, 0x3A, 0x7E);
-/// Rose crépusculaire : lueur basse à l'horizon.
-pub const ROSE_CREPUSCULE: Couleur = Couleur::new(0xE0, 0x5A, 0x8C);
-/// Corail vif : héros, éléments dangereux ou à saisir.
-pub const CORAIL: Couleur = Couleur::new(0xFF, 0x6B, 0x5E);
-/// Corail clair : reflets sur le corail.
-pub const CORAIL_CLAIR: Couleur = Couleur::new(0xFF, 0x9A, 0x82);
-/// Orange brûlé : ombres chaudes et braises.
-pub const ORANGE_BRULE: Couleur = Couleur::new(0xD9, 0x5B, 0x2E);
-/// Jaune pâle : lumière, pièces, interface.
-pub const JAUNE_PALE: Couleur = Couleur::new(0xFF, 0xE9, 0x9A);
-/// Jaune doré : étincelles et points forts.
-pub const JAUNE_DORE: Couleur = Couleur::new(0xF5, 0xC2, 0x4B);
-/// Blanc chaud lunaire : texte et étoiles.
-pub const BLANC_LUNE: Couleur = Couleur::new(0xFF, 0xF6, 0xE0);
-/// Pourpre nuit : ombres portées sur le violet.
-pub const POURPRE_NUIT: Couleur = Couleur::new(0x4A, 0x1F, 0x4F);
-/// Brume rosée : voiles translucides de fond.
-pub const BRUME_ROSEE: Couleur = Couleur::new(0x7A, 0x4A, 0x8C);
+/// Ombre la plus profonde : contours, ombres portées, noir du ciel d'orage.
+pub const ARDOISE_OMBRE: Couleur = Couleur::new(0x10, 0x14, 0x1F);
+/// Fond de l'orage : ciel nocturne chargé de pluie.
+pub const ARDOISE_NUIT: Couleur = Couleur::new(0x1C, 0x23, 0x36);
+/// Ardoise : grands nuages sombres et plateformes de pierre.
+pub const ARDOISE: Couleur = Couleur::new(0x2D, 0x3A, 0x54);
+/// Ardoise éclaircie : relief des nuages et du décor lointain.
+pub const ARDOISE_CLAIRE: Couleur = Couleur::new(0x46, 0x58, 0x7A);
+/// Bleu-gris moyen : le ciel commence à se dégager.
+pub const ARDOISE_PALE: Couleur = Couleur::new(0x7F, 0x93, 0xB5);
+/// Brume : voiles légers entre les nuages et l'horizon.
+pub const BRUME: Couleur = Couleur::new(0xA9, 0xB8, 0xD0);
+/// Nuage clair : bords éclairés par la lumière qui revient.
+pub const NUAGE: Couleur = Couleur::new(0xC3, 0xD1, 0xE6);
+/// Blanc cassé : texte, éclats d'écume et reflets.
+pub const BLANC_CASSE: Couleur = Couleur::new(0xF3, 0xF1, 0xEA);
+/// Corail vif : le parapluie de Pépin, couleur du héros.
+pub const CORAIL: Couleur = Couleur::new(0xFF, 0x5A, 0x4F);
+/// Corail clair : reflets sur le parapluie.
+pub const CORAIL_CLAIR: Couleur = Couleur::new(0xFF, 0x9A, 0x7A);
+/// Orange soleil : lueur à l'horizon quand l'orage s'éloigne.
+pub const ORANGE_SOLEIL: Couleur = Couleur::new(0xFF, 0xB3, 0x47);
+/// Or : soleil, pièces et points forts.
+pub const OR: Couleur = Couleur::new(0xFF, 0xD8, 0x4A);
+/// Or pâle : halo du soleil et lumière douce.
+pub const OR_PALE: Couleur = Couleur::new(0xFF, 0xF1, 0xA8);
+/// Cyan de la pluie : gouttes et flaques éclairées.
+pub const PLUIE: Couleur = Couleur::new(0x62, 0xD0, 0xE8);
+/// Cyan sombre : eau profonde et gouttes au second plan.
+pub const PLUIE_SOMBRE: Couleur = Couleur::new(0x2F, 0x8F, 0x9D);
+/// Violet d'orage : nuages électriques et éclairs lointains.
+pub const VIOLET_ORAGE: Couleur = Couleur::new(0x5B, 0x4A, 0x8A);
 
-/// Liste complète des couleurs de la palette (16 au maximum).
+/// Liste complète des couleurs de la palette (16 au maximum), de l'orage vers le soleil.
 pub const TOUTES: [Couleur; 16] = [
-    NUIT_PROFONDE,
-    NUIT_MOYENNE,
-    PRUNE_SOMBRE,
-    VIOLET,
-    VIOLET_CLAIR,
-    LAVANDE,
-    MAGENTA,
-    ROSE_CREPUSCULE,
+    ARDOISE_OMBRE,
+    ARDOISE_NUIT,
+    ARDOISE,
+    ARDOISE_CLAIRE,
+    ARDOISE_PALE,
+    BRUME,
+    NUAGE,
+    BLANC_CASSE,
     CORAIL,
     CORAIL_CLAIR,
-    ORANGE_BRULE,
-    JAUNE_PALE,
-    JAUNE_DORE,
-    BLANC_LUNE,
-    POURPRE_NUIT,
-    BRUME_ROSEE,
+    ORANGE_SOLEIL,
+    OR,
+    OR_PALE,
+    PLUIE,
+    PLUIE_SOMBRE,
+    VIOLET_ORAGE,
 ];
 
 #[cfg(test)]
@@ -88,9 +89,9 @@ mod tests {
     }
 
     #[test]
-    fn la_nuit_est_la_couleur_la_plus_sombre() {
+    fn l_ombre_est_la_couleur_la_plus_sombre() {
         let lum = |c: Couleur| c.r as u32 + c.g as u32 + c.b as u32;
-        assert!(TOUTES.iter().all(|&c| lum(c) >= lum(NUIT_PROFONDE)));
+        assert!(TOUTES.iter().all(|&c| lum(c) >= lum(ARDOISE_OMBRE)));
     }
 
     #[test]

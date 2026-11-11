@@ -3,7 +3,7 @@
 use super::*;
 
 /// Phrase de recette du jeu : doit s'afficher entièrement, sans repli.
-const PHRASE_TEST: &str = "Où êtes-vous allé, Lucas ? Œuvre, façade, été.";
+const PHRASE_TEST: &str = "Où êtes-vous allé, Pépin ? Œuvre, façade, été.";
 
 /// Rend un texte en art ASCII (utile pour vérifier les formes à l'œil).
 fn rendu_ascii(texte: &str) -> Vec<String> {

@@ -2,8 +2,8 @@
 name = "game"
 version = "0.1.0"
 edition = "2021"
-description = "Binaire macroquad du jeu elsay-game"
+description = "Jeu de plateformes PÉPIN (rendu macroquad)"
 
 [dependencies]
-elsay_core = { package = "core", path = "../core" }
+pepin_core = { package = "core", path = "../core" }
 macroquad = { version = "0.4", default-features = false }

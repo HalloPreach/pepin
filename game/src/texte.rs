@@ -1,11 +1,11 @@
-//! Dessin de texte pixel par pixel avec la police bitmap 5x7 de `elsay_core::font`.
+//! Dessin de texte pixel par pixel avec la police bitmap 5x7 de `pepin_core::font`.
 //!
 //! Tout est dessiné en coordonnées logiques (320x180) : chaque pixel allumé
 //! du glyphe devient un carré de `echelle` x `echelle` pixels logiques.
 
-use elsay_core::font::{self, ESPACEMENT, HAUTEUR_GLYPHE, LARGEUR_GLYPHE};
-use elsay_core::palette::Couleur;
-use elsay_core::LARGEUR_LOGIQUE;
+use pepin_core::font::{self, ESPACEMENT, HAUTEUR_GLYPHE, LARGEUR_GLYPHE};
+use pepin_core::palette::Couleur;
+use pepin_core::LARGEUR_LOGIQUE;
 use macroquad::prelude::{draw_rectangle, Color};
 
 /// Apparence d'un texte : échelle entière, couleur de palette, ombre portée facultative.
@@ -85,7 +85,7 @@ pub fn dessiner_centre(texte: &str, y: f32, style: Style) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use elsay_core::palette::{BLANC_LUNE, POURPRE_NUIT};
+    use pepin_core::palette::{BLANC_CASSE, ARDOISE_OMBRE};
 
     #[test]
     fn le_centrage_utilise_la_largeur_reelle_du_texte() {
@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn l_echelle_nulle_est_ramenee_a_un() {
-        assert_eq!(Style::simple(BLANC_LUNE, 0).echelle, 1);
-        assert_eq!(Style::simple(BLANC_LUNE, 3).avec_ombre(POURPRE_NUIT).ombre, Some(POURPRE_NUIT));
+        assert_eq!(Style::simple(BLANC_CASSE, 0).echelle, 1);
+        assert_eq!(Style::simple(BLANC_CASSE, 3).avec_ombre(ARDOISE_OMBRE).ombre, Some(ARDOISE_OMBRE));
     }
 }
