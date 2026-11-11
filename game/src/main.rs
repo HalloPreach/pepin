@@ -1,6 +1,8 @@
 //! Point d'entrée macroquad : fenêtre, fond de palette, résolution logique 320x180.
 
-use elsay_core::palette::NUIT_PROFONDE;
+mod texte;
+
+use elsay_core::palette::{BLANC_LUNE, JAUNE_PALE, NUIT_PROFONDE, POURPRE_NUIT};
 use elsay_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 use macroquad::prelude::*;
 
@@ -26,6 +28,12 @@ async fn main() {
         )));
         let [r, g, b] = NUIT_PROFONDE.en_f32();
         clear_background(Color::new(r, g, b, 1.0));
+        // Phrase de recette de la police (accents français), avec et sans ombre.
+        let titre = texte::Style::simple(JAUNE_PALE, 2).avec_ombre(POURPRE_NUIT);
+        let corps = texte::Style::simple(BLANC_LUNE, 1);
+        texte::dessiner_centre("Où êtes-vous allé, Lucas ?", 70.0, titre);
+        texte::dessiner_centre("Œuvre, façade, été.", 90.0, titre);
+        texte::dessiner_centre("ÉÈÊËÀÂÇÙÛÔÎÏ « àâçéèêëîïôùûœ » 0123456789", 120.0, corps);
         next_frame().await;
     }
 }

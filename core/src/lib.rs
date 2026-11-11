@@ -2,6 +2,7 @@
 //! entièrement testable avec `cargo test -p core`.
 
 pub mod entities;
+pub mod font;
 pub mod level;
 pub mod palette;
 pub mod physics;
