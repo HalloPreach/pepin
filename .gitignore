@@ -1,0 +1,7 @@
+# Artefacts de compilation
+target/
+# Sorties de distribution (régénérables)
+dist/
+# Cache cargo local éventuel
+cargo-home/
+.cargo-home/

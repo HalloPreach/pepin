@@ -1,0 +1,11 @@
+[package]
+name = "core"
+version = "0.1.0"
+edition = "2021"
+description = "Logique pure du jeu (sans macroquad), testable via cargo test"
+
+[dependencies]
+
+# Nom de lib distinct pour éviter toute collision avec le crate `core` de la std.
+[lib]
+name = "elsay_core"

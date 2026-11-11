@@ -1,0 +1,9 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2021"
+description = "Binaire macroquad du jeu elsay-game"
+
+[dependencies]
+elsay_core = { package = "core", path = "../core" }
+macroquad = { version = "0.4", default-features = false }
