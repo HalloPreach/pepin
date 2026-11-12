@@ -10,7 +10,9 @@ pub mod levels;
 pub mod palette;
 pub mod physics;
 pub mod player;
+pub mod sons;
 pub mod state;
+pub mod synthese;
 pub mod timestep;
 pub mod zones;
 

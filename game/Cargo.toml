@@ -7,3 +7,10 @@ description = "Jeu de plateformes PÉPIN (rendu macroquad)"
 [dependencies]
 pepin_core = { package = "core", path = "../core" }
 macroquad = { version = "0.4", default-features = false }
+
+[features]
+# Son réel (quad-snd). Sur Linux natif il demande libasound (absente de l'image
+# Docker rust:1-slim) : les tests natifs se lancent avec `--no-default-features`,
+# la version web (wasm) garde le son par défaut.
+default = ["son"]
+son = ["macroquad/audio"]

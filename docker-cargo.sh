@@ -2,6 +2,7 @@
 # Aide : exécute une commande cargo dans un conteneur rust:1-slim jetable.
 # Usage : ./docker-cargo.sh test -p core
 #         ./docker-cargo.sh build -p game --target wasm32-unknown-unknown
+#         ./docker-cargo.sh test -p game --no-default-features   (natif sans libasound : sans son réel)
 #         ./docker-cargo.sh fmt -p core         (applique rustfmt)
 #         ./docker-cargo.sh lint                (fmt --check + clippy -D warnings, core puis game)
 # Le conteneur est nommé puis supprimé avec `docker rm` (pas de --rm).
