@@ -148,6 +148,7 @@
   var debut = performance.now();
   function surveiller() {
     if (typeof wasm_exports !== "undefined" && wasm_exports) {
+      erreur.style.display = "none";
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           chargement.style.display = "none";
@@ -156,7 +157,14 @@
       });
       return;
     }
-    if (performance.now() - debut > 20000) {
+    var ecoule = performance.now() - debut;
+    if (ecoule > 25000) {
+      // Toujours rien : le jeu ne démarre pas (fichier bloqué, WebAssembly refusé…).
+      afficherErreur(null, "Le jeu n'a pas démarré après 25 secondes. Rechargez la page, " +
+        "désactivez un éventuel bloqueur de contenu pour ce site ou essayez un autre navigateur.");
+      return;
+    }
+    if (ecoule > 12000) {
       document.getElementById("chargement-texte").textContent =
         "Le chargement est plus long que prévu… Rechargez la page si rien ne s'affiche.";
     }
@@ -165,9 +173,18 @@
   requestAnimationFrame(surveiller);
 
   window.addEventListener("error", function (e) {
-    // Une panique wasm ou un script manquant : on le dit au lieu de laisser un écran figé.
-    if (chargement.style.display !== "none") {
-      afficherErreur(null, "Le jeu n'a pas pu démarrer (" + (e.message || "erreur de chargement") +
+    // On n'affiche une erreur que si elle vient VRAIMENT du jeu : un fichier à nous, ou un
+    // échec WebAssembly / WebGL. Les navigateurs (Brave, extensions de portefeuille…) injectent
+    // leurs propres scripts dans la page ; leurs erreurs (« Script error. », window.ethereum…)
+    // n'ont rien à voir avec PÉPIN et ne doivent pas masquer le jeu.
+    var message = String((e && e.message) || "");
+    var fichier = String((e && e.filename) || "");
+    var cible = e && e.target && e.target.tagName ? e.target.tagName : "";
+    var duJeu = /mq_js_bundle\.js|game\.wasm/.test(fichier) ||
+      /wasm|WebAssembly|RuntimeError|unreachable|out of memory|WebGL/i.test(message) ||
+      (cible === "SCRIPT" && /mq_js_bundle|game\.wasm/.test(String(e.target.src || "")));
+    if (duJeu && chargement.style.display !== "none" && !(typeof wasm_exports !== "undefined" && wasm_exports)) {
+      afficherErreur(null, "Le jeu n'a pas pu démarrer (" + (message || "erreur de chargement") +
         "). Rechargez la page ou essayez un autre navigateur.");
     }
   }, true);
