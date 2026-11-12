@@ -9,6 +9,8 @@
 
 mod app;
 mod audio;
+#[cfg(test)]
+mod bot_qa;
 mod camera;
 mod chrono;
 mod contenu;

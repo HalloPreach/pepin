@@ -23,6 +23,7 @@ use pepin_core::zones::{self, InfosNiveau};
 /// Durée (pas) de l'animation de réapparition de Pépin.
 pub const REAPPARITION_PAS: u16 = 18;
 
+#[derive(Clone)]
 pub struct Monde {
     pub infos: &'static InfosNiveau,
     pub niveau: Niveau,
