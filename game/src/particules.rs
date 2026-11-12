@@ -26,6 +26,8 @@ struct Particule {
     vy: f32,
     /// Pas de vie restants.
     vie: u8,
+    /// Gravité propre à la particule (négative : elle monte, comme la fumée).
+    gravite: f32,
     couleur: Couleur,
 }
 
@@ -80,15 +82,77 @@ impl Particules {
                 vx: angle * 1.1,
                 vy: -haut * force,
                 vie,
+                gravite: GRAVITE,
                 couleur,
             });
         }
     }
 
+    /// Petits nuages de poussière qui dérivent du côté `sens` (-1.0 ou 1.0) :
+    /// presque pas de gravité, vie un peu plus longue que les éclaboussures.
+    pub fn poussiere(&mut self, x: f32, y: f32, n: usize, couleur: Couleur, sens: f32) {
+        for _ in 0..n {
+            if self.liste.len() >= MAX {
+                return;
+            }
+            let vx = sens * (0.15 + self.hasard() * 0.45);
+            let vy = -(0.05 + self.hasard() * 0.3);
+            let vie = 12 + (self.hasard() * 12.0) as u8;
+            self.liste.push(Particule {
+                x,
+                y,
+                vx,
+                vy,
+                vie,
+                gravite: 0.004,
+                couleur,
+            });
+        }
+    }
+
+    /// Étincelles qui partent dans toutes les directions et retombent doucement.
+    pub fn etincelles(&mut self, x: f32, y: f32, n: usize, couleur: Couleur) {
+        for _ in 0..n {
+            if self.liste.len() >= MAX {
+                return;
+            }
+            let vx = (self.hasard() * 2.0 - 1.0) * 1.3;
+            let vy = (self.hasard() * 2.0 - 1.0) * 1.3 - 0.3;
+            let vie = 10 + (self.hasard() * 10.0) as u8;
+            self.liste.push(Particule {
+                x,
+                y,
+                vx,
+                vy,
+                vie,
+                gravite: 0.03,
+                couleur,
+            });
+        }
+    }
+
+    /// Un brin de vent qui monte dans un courant ascendant (colonne de vent visible).
+    pub fn souffle(&mut self, x: f32, y: f32, couleur: Couleur) {
+        if self.liste.len() >= MAX {
+            return;
+        }
+        let vx = (self.hasard() * 2.0 - 1.0) * 0.15;
+        let vie = 24 + (self.hasard() * 16.0) as u8;
+        self.liste.push(Particule {
+            x,
+            y,
+            vx,
+            vy: -1.2,
+            vie,
+            gravite: 0.0,
+            couleur,
+        });
+    }
+
     /// Un pas de simulation.
     pub fn actualiser(&mut self) {
         for p in &mut self.liste {
-            p.vy += GRAVITE;
+            p.vy += p.gravite;
             p.x += p.vx;
             p.y += p.vy;
             p.vie -= 1;
@@ -119,6 +183,39 @@ mod tests {
             p.actualiser();
         }
         assert!(p.is_empty(), "toutes les particules ont une vie bornée");
+    }
+
+    #[test]
+    fn poussiere_etincelles_et_souffle_ont_une_vie_bornee() {
+        let mut p = Particules::new();
+        p.poussiere(0.0, 0.0, 5, PLUIE, 1.0);
+        p.etincelles(0.0, 0.0, 5, PLUIE);
+        p.souffle(0.0, 0.0, PLUIE);
+        assert_eq!(p.len(), 11);
+        for _ in 0..60 {
+            p.actualiser();
+        }
+        assert!(p.is_empty());
+    }
+
+    #[test]
+    fn la_poussiere_derive_du_cote_demande() {
+        let mut p = Particules::new();
+        p.poussiere(100.0, 0.0, 6, PLUIE, -1.0);
+        for _ in 0..8 {
+            p.actualiser();
+        }
+        assert!(p.liste.iter().all(|q| q.x < 100.0));
+    }
+
+    #[test]
+    fn le_souffle_monte() {
+        let mut p = Particules::new();
+        p.souffle(0.0, 100.0, PLUIE);
+        for _ in 0..10 {
+            p.actualiser();
+        }
+        assert!(p.liste[0].y < 100.0 - 8.0);
     }
 
     #[test]
