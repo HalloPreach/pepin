@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>PÉPIN — un jeu de plateformes</title>
+<meta name="description" content="PÉPIN : un jeu de plateformes en pixel art. Une petite créature ronde et son grand parapluie corail grimpent de l'orage jusqu'au soleil. Cinq niveaux, du planer, des courants d'air.">
+<meta name="theme-color" content="#10141f">
+<meta property="og:type" content="website">
+<meta property="og:title" content="PÉPIN — un jeu de plateformes">
+<meta property="og:description" content="Une petite créature ronde et son grand parapluie corail grimpent de l'orage jusqu'au soleil. Cinq niveaux en pixel art, jouables au clavier ou au toucher.">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary">
+<!-- Icône intégrée (pas de fichier ni de requête en plus) : un parapluie corail. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2310141f'/%3E%3Cpath d='M2 8a6 6 0 0 1 12 0z' fill='%23ff5a4f'/%3E%3Crect x='7' y='8' width='2' height='5' fill='%23f3f1ea'/%3E%3Crect x='5' y='12' width='3' height='2' fill='%23f3f1ea'/%3E%3C/svg%3E">
+<style>
+  /* Couleurs = palette du jeu (core/src/palette.rs) : ARDOISE_OMBRE, BLANC_CASSE, CORAIL. */
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #10141f;
+    color: #f3f1ea;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  #glcanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #10141f;
+    /* Pixel art net : jamais d'interpolation lissée côté navigateur. */
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    outline: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #chargement, #erreur {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+    padding: 24px;
+    background: #10141f;
+    letter-spacing: 0.08em;
+  }
+  #chargement .titre { font-size: 28px; color: #ff5a4f; letter-spacing: 0.3em; }
+  #chargement .texte, #erreur p { font-size: 14px; margin: 0; max-width: 32em; line-height: 1.5; }
+  #erreur { display: none; }
+  #erreur h1 { margin: 0; font-size: 22px; color: #ff5a4f; }
+  /* Petit indicateur d'attente (animation désactivée si l'on préfère moins de mouvement). */
+  #chargement .point { width: 10px; height: 10px; background: #ffd84a; animation: pulse 1s steps(2) infinite; }
+  @keyframes pulse { 50% { opacity: 0.2; } }
+  @media (prefers-reduced-motion: reduce) { #chargement .point { animation: none; } }
+  /* Texte réservé aux lecteurs d'écran et aux moteurs de recherche. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>
+</head>
+<body>
+<canvas id="glcanvas" tabindex="1" aria-label="PÉPIN : zone de jeu"></canvas>
+
+<div class="sr-only">
+  <h1>PÉPIN — un jeu de plateformes</h1>
+  <p>
+    PÉPIN est un jeu de plateformes en pixel art. Pépin, une petite créature ronde
+    munie d'un grand parapluie corail, grimpe d'un orage jusqu'au soleil à travers
+    cinq niveaux : les toits, les gouttières et cheminées, le grand orage, les vents
+    d'altitude, puis le ciel au-dessus des nuages. Il court, saute, plane avec son
+    parapluie, rebondit sur les champignons, écrase les flaques et ramasse trois
+    gouttes d'or facultatives par niveau.
+  </p>
+  <p>
+    Commandes : flèches gauche et droite, ou Q et D, pour courir ; espace, flèche
+    haut ou W pour sauter, et maintenir la touche en l'air pour planer ; Échap ou P
+    pour la pause ; M pour activer ou couper le son (coupé par défaut). Sur un écran
+    tactile : boutons gauche et droite, et un grand bouton de saut (maintenu pour
+    planer).
+  </p>
+  <p>Le jeu est visuel et demande un navigateur avec WebAssembly et WebGL.</p>
+</div>
+
+<div id="chargement" role="status" aria-live="polite">
+  <div class="titre">PÉPIN</div>
+  <div class="point" aria-hidden="true"></div>
+  <div class="texte" id="chargement-texte">Chargement du jeu…</div>
+</div>
+
+<div id="erreur" role="alert">
+  <h1>Impossible de lancer PÉPIN</h1>
+  <p id="erreur-texte">
+    Ce jeu a besoin de JavaScript, de WebAssembly et de WebGL, que votre navigateur n'a pas
+    (ou n'autorise pas). Essayez avec une version récente de Firefox, Chrome, Edge ou Safari.
+  </p>
+</div>
+
+<noscript>
+  <style>#chargement { display: none; } #erreur { display: flex; }</style>
+</noscript>
+
+<script>
+(function () {
+  "use strict";
+  var chargement = document.getElementById("chargement");
+  var erreur = document.getElementById("erreur");
+  var canvas = document.getElementById("glcanvas");
+
+  function afficherErreur(titre, texte) {
+    chargement.style.display = "none";
+    if (texte) { document.getElementById("erreur-texte").textContent = texte; }
+    erreur.style.display = "flex";
+  }
+
+  // Un clic ou un toucher ne doit jamais faire perdre le clavier au jeu.
+  canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+  // Le menu contextuel (appui long tactile, clic droit) gênerait le jeu.
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {
+    afficherErreur();
+    return;
+  }
+
+  // Le chargeur de macroquad (mq_js_bundle.js) n'a pas de rappel « prêt » :
+  // on masque l'écran de chargement dès que le module wasm est instancié
+  // (la variable globale `wasm_exports` existe) et qu'une image a été dessinée.
+  var debut = performance.now();
+  function surveiller() {
+    if (typeof wasm_exports !== "undefined" && wasm_exports) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          chargement.style.display = "none";
+          canvas.focus();
+        });
+      });
+      return;
+    }
+    if (performance.now() - debut > 20000) {
+      document.getElementById("chargement-texte").textContent =
+        "Le chargement est plus long que prévu… Rechargez la page si rien ne s'affiche.";
+    }
+    requestAnimationFrame(surveiller);
+  }
+  requestAnimationFrame(surveiller);
+
+  window.addEventListener("error", function (e) {
+    // Une panique wasm ou un script manquant : on le dit au lieu de laisser un écran figé.
+    if (chargement.style.display !== "none") {
+      afficherErreur(null, "Le jeu n'a pas pu démarrer (" + (e.message || "erreur de chargement") +
+        "). Rechargez la page ou essayez un autre navigateur.");
+    }
+  }, true);
+
+  var script = document.createElement("script");
+  script.src = "mq_js_bundle.js";
+  script.onload = function () { load("game.wasm"); };
+  script.onerror = function () {
+    afficherErreur(null, "Le fichier mq_js_bundle.js est introuvable : le jeu est incomplet.");
+  };
+  document.body.appendChild(script);
+})();
+</script>
+</body>
+</html>
