@@ -109,7 +109,7 @@ fn planche(sprites: &[(&str, Image)], colonnes: usize, echelle: usize) -> (u32, 
     for y in 0..h {
         let mut rangee = Vec::with_capacity(l * echelle);
         for x in 0..l {
-            rangee.extend(std::iter::repeat(pixels[y * l + x]).take(echelle));
+            rangee.extend(std::iter::repeat_n(pixels[y * l + x], echelle));
         }
         for _ in 0..echelle {
             sortie.extend_from_slice(&rangee);

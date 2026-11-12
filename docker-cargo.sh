@@ -4,7 +4,7 @@
 #         ./docker-cargo.sh build -p game --target wasm32-unknown-unknown
 #         ./docker-cargo.sh test -p game --no-default-features   (natif sans libasound : sans son réel)
 #         ./docker-cargo.sh fmt -p core         (applique rustfmt)
-#         ./docker-cargo.sh lint                (fmt --check + clippy -D warnings, core puis game)
+#         ./docker-cargo.sh lint                (fmt --check + clippy -D warnings, core puis game wasm puis game tests)
 # Le conteneur est nommé puis supprimé avec `docker rm` (pas de --rm).
 set -u
 cd "$(dirname "$0")"
@@ -40,6 +40,8 @@ if [ "$1" = lint ]; then
   cargo clippy -p core --all-targets -- -D warnings
   echo "== clippy game (wasm32) =="
   cargo clippy -p game --target wasm32-unknown-unknown -- -D warnings
+  echo "== clippy game (natif, tests inclus, sans son) =="
+  cargo clippy -p game --all-targets --no-default-features -- -D warnings
   echo "LINT-OK"
   exit 0
 fi
