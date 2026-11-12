@@ -1,7 +1,8 @@
 //! Scène : dessine un `Monde` dans la cible 320x180, couche par couche.
 //!
 //! Ordre (arrière -> avant) : fond (ciel, silhouettes) -> tuiles -> panneaux ->
-//! plateformes -> objets -> ennemis -> Pépin -> particules -> pluie -> interface.
+//! plateformes -> objets -> ennemis -> Pépin -> particules -> pluie.
+//! L'interface (compteurs, chrono) est dessinée par `hud`, les menus par `ecrans`.
 //! Chaque sprite est posé à une position ENTIÈRE (positions interpolées puis
 //! arrondies) : aucun sous-pixel.
 
@@ -20,7 +21,6 @@ use crate::monde::{Monde, REAPPARITION_PAS};
 use crate::particules::Particules;
 use crate::rendu::couleur_mq;
 use crate::sprites::{ennemis, objets, pepin, Banque};
-use crate::texte::{self, Style};
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
@@ -249,72 +249,6 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) 
     }
 }
 
-/// Largeur maximale d'une ligne de texte d'introduction, en caractères
-/// (320 px / 6 px par caractère = 53 ; on garde une marge).
-const LIGNE_MAX: usize = 44;
-
-/// Coupe `texte` en lignes de `max` caractères au plus, en ne coupant qu'entre les mots.
-/// Un mot plus long que `max` reste seul sur sa ligne.
-pub fn couper_lignes(texte: &str, max: usize) -> Vec<String> {
-    let mut lignes: Vec<String> = Vec::new();
-    for mot in texte.split_whitespace() {
-        match lignes.last_mut() {
-            Some(ligne) if ligne.chars().count() + 1 + mot.chars().count() <= max => {
-                ligne.push(' ');
-                ligne.push_str(mot);
-            }
-            _ => lignes.push(mot.to_string()),
-        }
-    }
-    lignes
-}
-
-/// Interface : gouttes d'or ramassées et nom du niveau au début.
-fn dessiner_interface(monde: &Monde, banque: &Banque) {
-    let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
-    banque.dessiner("goutte0", 6.0, 5.0, false);
-    texte::dessiner(&format!("{}", monde.etat.gouttes), 17.0, 6.0, style);
-    if monde.pas < 240 {
-        let titre = format!("{} — {}", monde.infos.numero, monde.infos.nom);
-        texte::dessiner_centre(
-            &titre,
-            20.0,
-            Style::simple(OR_PALE, 1).avec_ombre(ARDOISE_OMBRE),
-        );
-        for (i, ligne) in couper_lignes(monde.infos.intro, LIGNE_MAX)
-            .iter()
-            .enumerate()
-        {
-            texte::dessiner_centre(ligne, 32.0 + i as f32 * 10.0, style);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pepin_core::zones::NIVEAUX;
-
-    #[test]
-    fn le_texte_est_coupe_entre_les_mots() {
-        assert_eq!(couper_lignes("un deux trois", 7), vec!["un deux", "trois"]);
-        assert_eq!(couper_lignes("", 10), Vec::<String>::new());
-        assert_eq!(couper_lignes("immensément", 4), vec!["immensément"]);
-    }
-
-    #[test]
-    fn toutes_les_introductions_tiennent_dans_l_ecran() {
-        for n in NIVEAUX {
-            let lignes = couper_lignes(n.intro, LIGNE_MAX);
-            assert!(lignes.len() <= 4, "{} : {} lignes", n.nom, lignes.len());
-            for l in lignes {
-                let largeur = pepin_core::font::largeur_texte(&l, 1);
-                assert!(largeur < LARGEUR_LOGIQUE - 8, "{} : {largeur} px", n.nom);
-            }
-        }
-    }
-}
-
 /// Dessine tout le monde dans la cible logique. `(cx, cy)` : caméra entière.
 pub fn dessiner(
     monde: &Monde,
@@ -332,5 +266,4 @@ pub fn dessiner(
     dessiner_pepin(monde, banque, alpha, cx, cy);
     particules.dessiner(cx, cy);
     decor::dessiner_avant(monde.infos.theme, monde.pas);
-    dessiner_interface(monde, banque);
 }

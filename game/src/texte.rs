@@ -89,6 +89,28 @@ pub fn dessiner_centre(texte: &str, y: f32, style: Style) {
     dessiner_centre_sur(texte, LARGEUR_LOGIQUE as f32 / 2.0, y, style);
 }
 
+/// Dessine `texte` aligné à droite : son bord droit est en `droite`, ligne du haut en `y`.
+pub fn dessiner_a_droite(texte: &str, droite: f32, y: f32, style: Style) {
+    let largeur = font::largeur_texte(texte, style.echelle) as f32;
+    dessiner(texte, droite - largeur, y, style);
+}
+
+/// Coupe `texte` en lignes de `max` caractères au plus, en ne coupant qu'entre les mots.
+/// Un mot plus long que `max` reste seul sur sa ligne.
+pub fn couper_lignes(texte: &str, max: usize) -> Vec<String> {
+    let mut lignes: Vec<String> = Vec::new();
+    for mot in texte.split_whitespace() {
+        match lignes.last_mut() {
+            Some(ligne) if ligne.chars().count() + 1 + mot.chars().count() <= max => {
+                ligne.push(' ');
+                ligne.push_str(mot);
+            }
+            _ => lignes.push(mot.to_string()),
+        }
+    }
+    lignes
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,6 +121,13 @@ mod tests {
         // « AB » à l'échelle 2 : (5 + 1 + 5) * 2 = 22 pixels, donc départ à 160 - 11.
         assert_eq!(x_centre("AB", 160.0, 2), 149.0);
         assert_eq!(x_centre("", 160.0, 2), 160.0);
+    }
+
+    #[test]
+    fn le_texte_est_coupe_entre_les_mots() {
+        assert_eq!(couper_lignes("un deux trois", 7), vec!["un deux", "trois"]);
+        assert_eq!(couper_lignes("", 10), Vec::<String>::new());
+        assert_eq!(couper_lignes("immensément", 4), vec!["immensément"]);
     }
 
     #[test]
