@@ -14,7 +14,7 @@ vrai navigateur (Chromium piloté par le protocole CDP) servi par `python3 -m ht
 | # | Point | Résultat | Chiffres / preuve |
 |---|-------|----------|-------------------|
 | 1 | Tests `core` | RÉUSSI | 143 réussis, 0 échec, 1 ignoré (régénère `police-test.png`) |
-| 1 | Tests `game` (natif, sans son) | RÉUSSI | 102 réussis, 0 échec, 1 ignoré (écrit le script du robot) |
+| 1 | Tests `game` (natif, sans son) | RÉUSSI | 112 réussis, 0 échec, 1 ignoré (écrit le script du robot) |
 | 1 | `cargo fmt --check` | RÉUSSI | `FMT-OK` |
 | 1 | `cargo clippy -D warnings` | RÉUSSI après correction | `LINT-OK` sur core, game wasm32 et game natif (tests inclus). Voir « Corrections » |
 | 2 | `./build.sh` depuis propre | RÉUSSI | `dist/` = index.html 7 397 o, mq_js_bundle.js 36 148 o, game.wasm 422 556 o ; total 466 101 o (gzip : 3 140 + 9 839 + 172 990 = 185 969 o) ; le wasm seul fait 0,42 Mo pour une limite de 2,5 Mo |
@@ -63,9 +63,34 @@ faut les rendre opaques (contour seul au repos) : petit changement dans
   s'éclairent (`24-mobile-saut-multitouch.png`).
 - Pause tactile : menu PAUSE / REPRENDRE / RECOMMENCER / SON : non / QUITTER AU TITRE
   (`26-mobile-pause.png`).
-- Portrait 390x844 (`20-mobile-portrait-titre.png`) : le jeu s'affiche en x2 (82 % de la
-  largeur) au milieu de grandes bandes sombres ; texte lisible mais petit, aucun message
-  « tournez l'écran ». Fonctionnel, pas optimal : voir « Restes à décider ».
+- Portrait 390x844 (`20-mobile-portrait-titre.png`, capture d'AVANT la correction) : le jeu
+  s'affichait en x2 au milieu de grandes bandes sombres, sans message. Corrigé : voir
+  « Portrait téléphone » ci-dessous.
+
+## Portrait téléphone (écran « Tourne ton téléphone »)
+
+Code : `game/src/orientation.rs` (décision, sprites, dessin, 10 tests), branché dans `main.rs`
+(une condition) ; `tactile.rs` expose seulement `est_actif()`. Les boutons tactiles n'ont pas été touchés.
+
+- Règle : fenêtre plus haute que large ET un toucher déjà reçu. Un navigateur de bureau
+  étroit sans toucher garde le jeu normal (`34-portrait-sans-toucher.png`, titre affiché).
+- Tactile en portrait 390x844, dpr 2 : écran plein cadre en pixel art dans la cible 320x180
+  (fond ARDOISE_NUIT, téléphone 12x20 / 20x12 qui alterne toutes les 0,9 s, flèche or, texte
+  « Tourne ton téléphone » / « pour jouer en paysage » en police 5x7 à l'échelle 2). Zone x2,
+  texte lisible (`35-...-a.png`, `36-...-b.png` : les deux images de l'animation).
+- Pause : le jeu (simulation, chrono, entrées de menu) ne bouge plus tant que l'écran est
+  en portrait. Test : partie lancée en paysage, chrono 0:03 (`38-jeu-avant-rotation.png`),
+  5 s en portrait (`39-jeu-en-portrait.png`), retour en paysage : chrono toujours 0:03 et
+  Pépin au même endroit (`40-jeu-apres-rotation.png`). Reprise automatique, sans appui.
+  Un toucher fait en portrait ne lance rien (la réaction aux appuis est suspendue).
+- Titre en paysage après retour : `37-retour-paysage.png`.
+- Pixel art mesuré (`docs/mesure-capture.py`, zone de jeu) : 0 pixel hors palette, 0 pixel
+  semi-transparent, 0 bloc flou, sur 35 et 36 (x2) et sur 37 (x4).
+- Poids : game.wasm 424 350 o (avant 422 556), dist/ 467 895 o (avant 466 101), bien sous 1,2 Mo.
+- Lint vert ; tests : 143 core, 112 game (102 + 10 nouveaux), 0 échec.
+- Limites : émulation CDP seulement (la rotation est simulée en changeant la taille de la
+  fenêtre), pas de vrai téléphone. Entre « hauteur > largeur » et un clavier virtuel ouvert,
+  un téléphone en paysage pourrait brièvement paraître en portrait : non observé ici.
 
 ## Points demandés par le coordinateur
 
@@ -90,7 +115,7 @@ faut les rendre opaques (contour seul au repos) : petit changement dans
 
 - Les 60 i/s ont été mesurés dans un Chromium piloté, sur cette machine ; pas sur un vrai téléphone ni sur Firefox/Safari. Seul Chromium a été utilisé.
 - Le chargement « < 2 s » a été mesuré avec un réseau simulé (10 Mbit/s, 40 ms) et sans compression ; avec gzip il serait plus court, mais ce n'est pas mesuré.
-- Le tactile a été émulé (événements tactiles CDP), pas testé au doigt. Le portrait est jouable mais petit.
+- Le tactile a été émulé (événements tactiles CDP), pas testé au doigt. Le portrait affiche désormais l'écran « Tourne ton téléphone ».
 - Le son n'a pas été écouté : aucune sortie audio dans cette session. Les tests de synthèse passent, et aucune erreur JavaScript n'a été capturée pendant toute la partie ; rien de plus n'est affirmé.
 - Les plateformes friables du niveau 5 sont franchies par le robot (images 10 555 à 10 619), mais je n'ai pas obtenu de capture qui distingue nettement leur état d'effritement. Le friable du niveau 2 et du niveau 3 non plus. Le comportement est couvert par les tests du cœur, pas par une capture.
 - Le robot est une preuve de faisabilité, pas de confort de jeu : il joue sans erreur, un humain peut trouver certains passages difficiles. Le jeu n'a pas été évalué du point de vue du plaisir de jeu.
@@ -98,4 +123,3 @@ faut les rendre opaques (contour seul au repos) : petit changement dans
 ## Restes à décider (aucun n'est bloquant)
 
 1. Boutons tactiles semi-transparents : les garder ou les rendre opaques (voir plus haut).
-2. Portrait sur téléphone : ajouter un message « tournez l'écran » ou laisser tel quel.

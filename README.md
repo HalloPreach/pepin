@@ -209,7 +209,7 @@ Tests :
 
 Mesure à la dernière vérification de ce README : **143 tests réussis** dans
 `core` (plus 1 test ignoré volontairement : il régénère l'image
-`docs/police-test.png`) et **102 tests réussis** dans `game` (plus 1 test
+`docs/police-test.png`) et **112 tests réussis** dans `game` (plus 1 test
 ignoré : il écrit le script du robot de QA, voir `QA.md`).
 
 Hygiène du code (format et avertissements) :

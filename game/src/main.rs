@@ -22,6 +22,7 @@ mod hud;
 mod menu;
 mod monde;
 mod navigation;
+mod orientation;
 mod particules;
 mod rendu;
 mod scene;
@@ -74,7 +75,12 @@ async fn main() {
     loop {
         let commandes = sources.lire();
         let nav = navigation.lire();
-        app.reagir(&nav, &commandes, entrees::raccourci_niveau());
+        // Téléphone tactile en portrait : message « Tourne ton téléphone » et jeu en pause.
+        let a_tourner =
+            orientation::doit_afficher(screen_width(), screen_height(), tactile.est_actif());
+        if !a_tourner {
+            app.reagir(&nav, &commandes, entrees::raccourci_niveau());
+        }
         // Le réglage son vient des menus ou de la touche M ; l'audio ne fait que l'appliquer.
         if app.son != audio.est_actif() {
             audio.regler(app.son);
@@ -83,7 +89,10 @@ async fn main() {
         let entrees = commandes.vers_entrees();
 
         // --- Simulation à pas fixe ---------------------------------------------
-        for _ in 0..pas_fixe.avancer(get_frame_time() as f64) {
+        // Le temps s'écoule quand même (sinon un retard s'accumulerait), mais en
+        // portrait aucun pas n'est simulé : ni le monde, ni le chrono n'avancent.
+        let nb_pas = pas_fixe.avancer(get_frame_time() as f64);
+        for _ in 0..if a_tourner { 0 } else { nb_pas } {
             if app.pas(&entrees) {
                 audio.apres_pas(&app.monde, app.camera.x);
             }
@@ -91,9 +100,13 @@ async fn main() {
 
         // --- Rendu interpolé, dans la cible logique -----------------------------
         cible.commencer();
-        app.dessiner(&banque, pas_fixe.alpha());
+        if a_tourner {
+            orientation::dessiner(get_time());
+        } else {
+            app.dessiner(&banque, pas_fixe.alpha());
+        }
         cible.afficher();
-        if matches!(app.ecran, Ecran::Jeu) {
+        if !a_tourner && matches!(app.ecran, Ecran::Jeu) {
             tactile.dessiner();
         }
         next_frame().await;

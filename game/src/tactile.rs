@@ -165,6 +165,11 @@ impl Tactile {
         Self::default()
     }
 
+    /// Un toucher a-t-il déjà été reçu ? (l'appareil est alors jugé tactile)
+    pub fn est_actif(&self) -> bool {
+        self.etat.get().actif
+    }
+
     /// Dessine les boutons par-dessus l'écran (à appeler après le rendu du jeu,
     /// en caméra par défaut). Sans effet tant qu'aucun toucher n'a eu lieu.
     pub fn dessiner(&self) {
