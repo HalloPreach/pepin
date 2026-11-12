@@ -208,11 +208,7 @@ impl Joueur {
 
         // --- 6. Courants ascendants ----------------------------------------
         // `iter().find` parcourt la tranche en EMPRUNTANT chaque courant.
-        if let Some(courant) = env
-            .courants
-            .iter()
-            .find(|c| c.zone.chevauche(&self.boite))
-        {
+        if let Some(courant) = env.courants.iter().find(|c| c.zone.chevauche(&self.boite)) {
             if self.vitesse.y > -VITESSE_MAX_COURANT {
                 self.vitesse.y =
                     (self.vitesse.y - courant.acceleration * DT).max(-VITESSE_MAX_COURANT);
@@ -252,6 +248,9 @@ impl Joueur {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Planer est plus lent que la course. Vérifié à la compilation.
+    const _: () = assert!(VITESSE_PLANER_X < VITESSE_COURSE);
     use crate::aabb::{GrilleTuiles, TAILLE_TUILE};
 
     /// Salle 20 × 12 tuiles : murs latéraux, sol sur la ligne 11 (haut du sol : y = 176),
@@ -348,11 +347,17 @@ mod tests {
         let env = Environnement::simple(&g);
         let mut j = au_sol(&g, 100.0);
         j.actualiser(&droite(), &env);
-        assert!((j.vitesse.x - ACCEL_SOL * DT).abs() < 1e-3, "accélère progressivement");
+        assert!(
+            (j.vitesse.x - ACCEL_SOL * DT).abs() < 1e-3,
+            "accélère progressivement"
+        );
         for _ in 0..30 {
             j.actualiser(&droite(), &env);
         }
-        assert_eq!(j.vitesse.x, VITESSE_COURSE, "plafonnée à la vitesse de course");
+        assert_eq!(
+            j.vitesse.x, VITESSE_COURSE,
+            "plafonnée à la vitesse de course"
+        );
         assert!(j.regarde_droite);
         let mut dernier = j.vitesse.x;
         for _ in 0..30 {
@@ -406,7 +411,10 @@ mod tests {
         let mut j = au_sol(&g, 100.0);
         let h = hauteur_atteinte(&mut j, &env, &[SAUT; 40]);
         let theorique = hauteur_saut_theorique();
-        assert!((h - theorique).abs() < 6.0, "h = {h}, théorique = {theorique}");
+        assert!(
+            (h - theorique).abs() < 6.0,
+            "h = {h}, théorique = {theorique}"
+        );
     }
 
     #[test]
@@ -421,7 +429,10 @@ mod tests {
         let h_court = hauteur_atteinte(&mut court, &env, &touches_court);
         assert!(h_court > 5.0, "même un appui bref décolle ({h_court})");
         assert!(h_court < 20.0, "saut court = {h_court}");
-        assert!(h_long - h_court > 30.0, "long = {h_long}, court = {h_court}");
+        assert!(
+            h_long - h_court > 30.0,
+            "long = {h_long}, court = {h_court}"
+        );
     }
 
     /// Fait marcher le joueur vers la droite jusqu'au bord d'une corniche (x = 112).
@@ -490,7 +501,10 @@ mod tests {
 
     #[test]
     fn jump_buffer_appui_juste_avant_le_sol() {
-        assert!(appui_avant_atterrissage(12.0), "appui ~3 pas avant : mémorisé");
+        assert!(
+            appui_avant_atterrissage(12.0),
+            "appui ~3 pas avant : mémorisé"
+        );
     }
 
     #[test]
@@ -523,7 +537,11 @@ mod tests {
             j.actualiser(&AUCUNE, &env);
         }
         assert_eq!(j.etat(), EtatJoueur::Chute);
-        assert!(j.vitesse.y > VITESSE_PLANER_CHUTE + 50.0, "vy = {}", j.vitesse.y);
+        assert!(
+            j.vitesse.y > VITESSE_PLANER_CHUTE + 50.0,
+            "vy = {}",
+            j.vitesse.y
+        );
     }
 
     #[test]
@@ -556,7 +574,6 @@ mod tests {
         }
         assert_eq!(j.etat(), EtatJoueur::Plane);
         assert_eq!(j.vitesse.x, VITESSE_PLANER_X, "plus lent que la course");
-        assert!(VITESSE_PLANER_X < VITESSE_COURSE);
         // Sans parapluie, la même chute permet de dépasser cette vitesse.
         let mut k = Joueur::new(60.0, 24.0);
         for _ in 0..25 {
@@ -618,7 +635,10 @@ mod tests {
         j.actualiser(&AUCUNE, &env);
         assert!(j.vitesse.y < 0.0);
         j.placer(30.0, 30.0);
-        assert_eq!((j.boite.x, j.boite.y, j.vitesse), (30.0, 30.0, Vec2::default()));
+        assert_eq!(
+            (j.boite.x, j.boite.y, j.vitesse),
+            (30.0, 30.0, Vec2::default())
+        );
     }
 
     #[test]
@@ -641,7 +661,11 @@ mod tests {
             let mut j = Joueur::new(40.0, 100.0);
             for i in 0..n {
                 let e = Entrees {
-                    direction: if i % 50 < 30 { Direction::Droite } else { Direction::Gauche },
+                    direction: if i % 50 < 30 {
+                        Direction::Droite
+                    } else {
+                        Direction::Gauche
+                    },
                     saut: i % 40 < 15,
                 };
                 j.actualiser(&e, &env);

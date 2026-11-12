@@ -182,12 +182,7 @@ mod tests {
     use crate::aabb::GrilleTuiles;
 
     fn couloir() -> GrilleTuiles {
-        GrilleTuiles::depuis_texte(&[
-            "##########",
-            "#........#",
-            "#........#",
-            "##########",
-        ])
+        GrilleTuiles::depuis_texte(&["##########", "#........#", "#........#", "##########"])
     }
 
     #[test]
@@ -202,8 +197,14 @@ mod tests {
             min_x = min_x.min(f.boite.x);
             max_x = max_x.max(f.boite.droite());
         }
-        assert!(min_x >= TAILLE_TUILE - 1e-3, "ne traverse pas le mur gauche");
-        assert!(max_x <= 9.0 * TAILLE_TUILE + 1e-3, "ne traverse pas le mur droit");
+        assert!(
+            min_x >= TAILLE_TUILE - 1e-3,
+            "ne traverse pas le mur gauche"
+        );
+        assert!(
+            max_x <= 9.0 * TAILLE_TUILE + 1e-3,
+            "ne traverse pas le mur droit"
+        );
         assert!(min_x < 17.0, "atteint bien le mur gauche : min = {min_x}");
         assert!(max_x > 143.0, "atteint bien le mur droit : max = {max_x}");
     }

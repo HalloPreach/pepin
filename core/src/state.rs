@@ -189,7 +189,10 @@ mod tests {
     #[test]
     fn recommencer_remet_les_compteurs_a_zero() {
         let (mut s, mut j) = partie();
-        s.traiter(&mut j, &[Contact::Goutte(0), Contact::Mort(CauseMort::Vide)]);
+        s.traiter(
+            &mut j,
+            &[Contact::Goutte(0), Contact::Mort(CauseMort::Vide)],
+        );
         s.appliquer(Ordre::Terminer).unwrap();
         s.appliquer(Ordre::Recommencer).unwrap();
         assert_eq!((s.score, s.gouttes, s.morts), (0, 0, 0));
@@ -199,7 +202,10 @@ mod tests {
     #[test]
     fn score_gouttes_et_ecrasements() {
         let (mut s, mut j) = partie();
-        s.traiter(&mut j, &[Contact::Goutte(0), Contact::Ecrase, Contact::Rebond]);
+        s.traiter(
+            &mut j,
+            &[Contact::Goutte(0), Contact::Ecrase, Contact::Rebond],
+        );
         assert_eq!(s.score, POINTS_GOUTTE + POINTS_ECRASEMENT);
         assert_eq!(s.gouttes, 1);
         assert_eq!(s.morts, 0);
@@ -219,7 +225,11 @@ mod tests {
         assert_eq!(s.checkpoint(), (200.0, 64.0));
         j.placer(500.0, 10.0);
         s.traiter(&mut j, &[Contact::Mort(CauseMort::Vide)]);
-        assert_eq!((j.boite.x, j.boite.y), (200.0, 64.0), "retour à la lanterne");
+        assert_eq!(
+            (j.boite.x, j.boite.y),
+            (200.0, 64.0),
+            "retour à la lanterne"
+        );
         assert_eq!(s.morts, 2);
     }
 
@@ -228,7 +238,10 @@ mod tests {
         let (mut s, mut j) = partie();
         s.appliquer(Ordre::BasculerPause).unwrap();
         j.placer(300.0, 50.0);
-        s.traiter(&mut j, &[Contact::Goutte(0), Contact::Mort(CauseMort::Vide)]);
+        s.traiter(
+            &mut j,
+            &[Contact::Goutte(0), Contact::Mort(CauseMort::Vide)],
+        );
         assert_eq!((s.score, s.morts), (0, 0));
         assert_eq!(j.boite.x, 300.0, "pas de respawn en pause");
     }

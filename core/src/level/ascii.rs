@@ -77,13 +77,25 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 'X' => arrivees.push(case),
                 'L' => entites.push(Entite::Lanterne(Lanterne::new(x + 4.0, y))),
                 'o' => {
-                    entites.push(Entite::Goutte(GoutteDor::new(gouttes as u8, x + 4.0, y + 4.0)));
+                    entites.push(Entite::Goutte(GoutteDor::new(
+                        gouttes as u8,
+                        x + 4.0,
+                        y + 4.0,
+                    )));
                     gouttes += 1;
                 }
                 '^' => entites.push(Entite::Pointe(Pointe::new(x, y + 8.0))),
                 'M' => entites.push(Entite::Champignon(Champignon::new(x, y + 8.0))),
-                'f' => entites.push(Entite::Ennemi(Ennemi::new(TypeEnnemi::Flaque, x + 2.0, y + 8.0))),
-                'c' => entites.push(Entite::Ennemi(Ennemi::new(TypeEnnemi::Corbeau, x + 2.0, y + 3.0))),
+                'f' => entites.push(Entite::Ennemi(Ennemi::new(
+                    TypeEnnemi::Flaque,
+                    x + 2.0,
+                    y + 8.0,
+                ))),
+                'c' => entites.push(Entite::Ennemi(Ennemi::new(
+                    TypeEnnemi::Corbeau,
+                    x + 2.0,
+                    y + 3.0,
+                ))),
                 'F' => entites.push(Entite::Friable(PlateformeFriable::new(Aabb::new(
                     x, y, 16.0, 8.0,
                 )))),
@@ -110,12 +122,20 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let depart_case = match departs.as_slice() {
         [] => return Err(ErreurNiveau::DepartManquant),
         [d] => *d,
-        autres => return Err(ErreurNiveau::DepartMultiple { nombre: autres.len() }),
+        autres => {
+            return Err(ErreurNiveau::DepartMultiple {
+                nombre: autres.len(),
+            })
+        }
     };
     let arrivee_case = match arrivees.as_slice() {
         [] => return Err(ErreurNiveau::ArriveeManquante),
         [a] => *a,
-        autres => return Err(ErreurNiveau::ArriveeMultiple { nombre: autres.len() }),
+        autres => {
+            return Err(ErreurNiveau::ArriveeMultiple {
+                nombre: autres.len(),
+            })
+        }
     };
     if gouttes != GOUTTES_PAR_NIVEAU {
         return Err(ErreurNiveau::NombreDeGouttes { trouve: gouttes });
@@ -142,7 +162,12 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         };
         let (pa, pb) = (px(*a), px(*b));
         let boite = Aabb::new(pa.0, pa.1, LARGEUR_MOBILE, 8.0);
-        entites.push(Entite::Mobile(PlateformeMobile::new(boite, pa, pb, VITESSE_MOBILE)));
+        entites.push(Entite::Mobile(PlateformeMobile::new(
+            boite,
+            pa,
+            pb,
+            VITESSE_MOBILE,
+        )));
     }
 
     let courants = fusionner_courants(&vent, largeur, hauteur);
@@ -153,7 +178,10 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         hauteur,
         tuiles,
         // Pépin est posé au centre de la case, les pieds au bas de la case.
-        depart: (dx + (TAILLE_TUILE - 10.0) / 2.0, dy + TAILLE_TUILE - JOUEUR_H),
+        depart: (
+            dx + (TAILLE_TUILE - 10.0) / 2.0,
+            dy + TAILLE_TUILE - JOUEUR_H,
+        ),
         // Drapeau : la case `X` et celle du dessus.
         arrivee: Aabb::new(ax, ay - TAILLE_TUILE, TAILLE_TUILE, 2.0 * TAILLE_TUILE),
         entites,

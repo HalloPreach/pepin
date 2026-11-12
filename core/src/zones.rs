@@ -11,8 +11,8 @@
 //! - `enum` sans données pour le thème ; tableau de taille fixe `[T; 5]` ;
 //! - `Result` : charger un niveau peut échouer, l'appelant décide quoi faire.
 
-use crate::levels::{gouttieres, nuages, orage, toits, vents};
 use crate::level::{ErreurNiveau, Niveau};
+use crate::levels::{gouttieres, nuages, orage, toits, vents};
 
 /// Ambiance visuelle d'un niveau. Le rendu choisit ciel, parallaxe et pluie
 /// selon cette valeur ; `luminosite` donne l'avancement de l'orage vers le soleil.
@@ -114,7 +114,9 @@ mod tests {
     #[test]
     fn tous_les_niveaux_se_chargent() {
         for n in &NIVEAUX {
-            let niv = n.charger().unwrap_or_else(|e| panic!("niveau {} : {e}", n.numero));
+            let niv = n
+                .charger()
+                .unwrap_or_else(|e| panic!("niveau {} : {e}", n.numero));
             assert_eq!(niv.hauteur(), 11, "niveau {} : 11 lignes", n.numero);
         }
     }
@@ -143,7 +145,14 @@ mod tests {
     #[test]
     fn niveau_1_exige_de_planer() {
         let niv = NIVEAUX[0].charger().unwrap();
-        let r = analyser(&niv, niv.depart, Options { planer: false, ..Options::default() });
+        let r = analyser(
+            &niv,
+            niv.depart,
+            Options {
+                planer: false,
+                ..Options::default()
+            },
+        );
         println!("sans planer : {:?}", r);
         assert!(!r.arrivee, "le grand vide doit exiger le parapluie");
     }
@@ -152,7 +161,14 @@ mod tests {
     fn niveau_4_exige_les_courants_ascendants() {
         let niv = NIVEAUX[3].charger().unwrap();
         assert!(!niv.courants.is_empty());
-        let r = analyser(&niv, niv.depart, Options { courants: false, ..Options::default() });
+        let r = analyser(
+            &niv,
+            niv.depart,
+            Options {
+                courants: false,
+                ..Options::default()
+            },
+        );
         assert!(!r.arrivee, "sans vent le niveau 4 doit être bloqué");
     }
 
@@ -163,15 +179,41 @@ mod tests {
         let niv = infos.charger().unwrap();
         let r = analyser(&niv, niv.depart, Options::default());
         let n = infos.numero;
-        println!("niveau {n} : {:.1} s en course rapide, {} états", r.pas_arrivee.unwrap_or(0) as f32 / 60.0, r.etats);
-        assert!(r.arrivee, "niveau {n} : arrivée inatteignable (x max {} en {:?})", r.x_max, r.dernier_etat);
+        println!(
+            "niveau {n} : {:.1} s en course rapide, {} états",
+            r.pas_arrivee.unwrap_or(0) as f32 / 60.0,
+            r.etats
+        );
+        assert!(
+            r.arrivee,
+            "niveau {n} : arrivée inatteignable (x max {} en {:?})",
+            r.x_max, r.dernier_etat
+        );
         assert_eq!(r.gouttes, [true; 3], "niveau {n} : gouttes {:?}", r.gouttes);
-        assert!(r.lanternes.iter().all(|&l| l), "niveau {n} : lanternes {:?}", r.lanternes);
+        assert!(
+            r.lanternes.iter().all(|&l| l),
+            "niveau {n} : lanternes {:?}",
+            r.lanternes
+        );
         assert_eq!(r.lanternes.len(), niv.nb_lanternes());
-        assert!(niv.nb_lanternes() >= 3, "niveau {n} : au moins 3 checkpoints");
+        assert!(
+            niv.nb_lanternes() >= 3,
+            "niveau {n} : au moins 3 checkpoints"
+        );
 
-        let maladroit = analyser(&niv, niv.depart, Options { precis: false, ..Options::default() });
-        assert!(maladroit.arrivee, "niveau {n} : trop exigeant (robot maladroit bloqué à x = {})", maladroit.x_max);
+        let maladroit = analyser(
+            &niv,
+            niv.depart,
+            Options {
+                precis: false,
+                ..Options::default()
+            },
+        );
+        assert!(
+            maladroit.arrivee,
+            "niveau {n} : trop exigeant (robot maladroit bloqué à x = {})",
+            maladroit.x_max
+        );
     }
 
     /// Chaque lanterne est aussi un point de reprise : le niveau doit se
@@ -183,7 +225,12 @@ mod tests {
             for e in &niv.entites {
                 if let crate::entities::Entite::Lanterne(l) = e {
                     let r = analyser(&niv, l.point_de_reapparition(), Options::default());
-                    assert!(r.arrivee, "niveau {} : bloqué depuis la lanterne en {:?}", infos.numero, l.point_de_reapparition());
+                    assert!(
+                        r.arrivee,
+                        "niveau {} : bloqué depuis la lanterne en {:?}",
+                        infos.numero,
+                        l.point_de_reapparition()
+                    );
                 }
             }
         }
@@ -197,8 +244,15 @@ mod tests {
             let niv = infos.charger().unwrap();
             let r = analyser(&niv, niv.depart, Options::default());
             let s = r.pas_arrivee.unwrap() as f32 / 60.0;
-            println!("niveau {} : course rapide {s:.1} s (cible {} s)", infos.numero, infos.duree_cible_s);
-            assert!((12.0..=45.0).contains(&s), "niveau {} : {s:.1} s", infos.numero);
+            println!(
+                "niveau {} : course rapide {s:.1} s (cible {} s)",
+                infos.numero, infos.duree_cible_s
+            );
+            assert!(
+                (12.0..=45.0).contains(&s),
+                "niveau {} : {s:.1} s",
+                infos.numero
+            );
             assert!((40..=60).contains(&infos.duree_cible_s));
         }
     }
@@ -218,7 +272,11 @@ mod tests {
                     crate::entities::Entite::Champignon(c) => c.boite.x < ecran,
                     _ => false,
                 });
-            assert!(proche, "niveau {} : rien d'intéressant à l'écran de départ", infos.numero);
+            assert!(
+                proche,
+                "niveau {} : rien d'intéressant à l'écran de départ",
+                infos.numero
+            );
         }
     }
 }

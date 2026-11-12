@@ -9,7 +9,7 @@
 //! d'entités (deux emprunts distincts, donc permis en même temps) ; `match` sur
 //! `&mut Entite` pour modifier la variante concernée ; `enum` à données.
 
-use super::{Entite, solides_des_entites};
+use super::{solides_des_entites, Entite};
 use crate::aabb::Aabb;
 use crate::physics::Environnement;
 use crate::player::Joueur;
@@ -69,8 +69,8 @@ pub fn porter_par_plateformes(joueur: &mut Joueur, entites: &[Entite], env: &Env
         if let Entite::Mobile(p) = entite {
             // Où était la plateforme avant ce pas ?
             let avant = p.boite.decale(-p.deplacement.x, -p.deplacement.y);
-            let pose_dessus = joueur.boite.decale(0.0, 1.0).chevauche(&avant)
-                && !joueur.boite.chevauche(&avant);
+            let pose_dessus =
+                joueur.boite.decale(0.0, 1.0).chevauche(&avant) && !joueur.boite.chevauche(&avant);
             if pose_dessus {
                 joueur.porter(p.deplacement.x, p.deplacement.y, env);
                 return; // une seule plateforme porte le joueur
@@ -110,8 +110,8 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
             }
             Entite::Ennemi(e) => {
                 if e.est_dangereux() && joueur.boite.chevauche(&e.boite) {
-                    let par_le_dessus =
-                        joueur.vitesse.y > 0.0 && joueur.boite.bas() - e.boite.y <= MARGE_ECRASEMENT;
+                    let par_le_dessus = joueur.vitesse.y > 0.0
+                        && joueur.boite.bas() - e.boite.y <= MARGE_ECRASEMENT;
                     if par_le_dessus {
                         e.ecraser();
                         joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
@@ -176,8 +176,8 @@ mod tests {
     use crate::aabb::GrilleTuiles;
     use crate::entities::champignon::VITESSE_CHAMPIGNON;
     use crate::entities::{
-        Actualisable, Champignon, Ennemi, GoutteDor, Lanterne, PlateformeFriable,
-        PlateformeMobile, Pointe, TypeEnnemi,
+        Actualisable, Champignon, Ennemi, GoutteDor, Lanterne, PlateformeFriable, PlateformeMobile,
+        Pointe, TypeEnnemi,
     };
 
     /// Joueur dont la boîte occupe `(x, y)`.
@@ -205,7 +205,11 @@ mod tests {
         // La flaque (12x8) est en y = 100 ; le joueur (14 de haut) tombe dessus.
         let mut j = joueur(100.0, 100.0 - 14.0 + 3.0); // bas = 103 : enfoncé de 3 px
         j.vitesse.y = 200.0;
-        let mut e = vec![Entite::Ennemi(Ennemi::new(TypeEnnemi::Flaque, 100.0, 100.0))];
+        let mut e = vec![Entite::Ennemi(Ennemi::new(
+            TypeEnnemi::Flaque,
+            100.0,
+            100.0,
+        ))];
         assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Ecrase]);
         assert_eq!(j.vitesse.y, -VITESSE_REBOND_ECRASEMENT);
         match &e[0] {
@@ -221,7 +225,11 @@ mod tests {
     fn contact_de_cote_tue() {
         let mut j = joueur(95.0, 96.0); // bas = 110 : au milieu de la flaque (100..108)... côté
         j.vitesse.y = 0.0;
-        let mut e = vec![Entite::Ennemi(Ennemi::new(TypeEnnemi::Flaque, 100.0, 100.0))];
+        let mut e = vec![Entite::Ennemi(Ennemi::new(
+            TypeEnnemi::Flaque,
+            100.0,
+            100.0,
+        ))];
         assert_eq!(
             resoudre_contacts(&mut j, &mut e),
             vec![Contact::Mort(CauseMort::Ennemi)]
@@ -233,7 +241,11 @@ mod tests {
         // Vitesse montante : jamais un écrasement.
         let mut j = joueur(100.0, 90.0);
         j.vitesse.y = -100.0;
-        let mut e = vec![Entite::Ennemi(Ennemi::new(TypeEnnemi::Flaque, 100.0, 100.0))];
+        let mut e = vec![Entite::Ennemi(Ennemi::new(
+            TypeEnnemi::Flaque,
+            100.0,
+            100.0,
+        ))];
         assert_eq!(
             resoudre_contacts(&mut j, &mut e),
             vec![Contact::Mort(CauseMort::Ennemi)]
@@ -331,7 +343,9 @@ mod tests {
         let mut j = joueur(100.0, 100.0 - 14.0);
         j.au_sol = true;
         resoudre_contacts(&mut j, &mut e);
-        assert!(matches!(&e[0], Entite::Friable(p) if p.etat != crate::entities::friable::EtatFriable::Stable));
+        assert!(
+            matches!(&e[0], Entite::Friable(p) if p.etat != crate::entities::friable::EtatFriable::Stable)
+        );
     }
 
     #[test]
@@ -404,7 +418,11 @@ mod tests {
             };
             porter_par_plateformes(&mut j, &e, &env);
         }
-        assert!((j.boite.bas() - 170.0).abs() < 1e-2, "bas = {}", j.boite.bas());
+        assert!(
+            (j.boite.bas() - 170.0).abs() < 1e-2,
+            "bas = {}",
+            j.boite.bas()
+        );
     }
 
     #[test]
@@ -445,6 +463,9 @@ mod tests {
             Entite::Pointe(Pointe::new(100.0, 104.0)),
         ];
         let c = resoudre_contacts(&mut j, &mut e);
-        assert_eq!(c, vec![Contact::Goutte(1), Contact::Mort(CauseMort::Pointe)]);
+        assert_eq!(
+            c,
+            vec![Contact::Goutte(1), Contact::Mort(CauseMort::Pointe)]
+        );
     }
 }

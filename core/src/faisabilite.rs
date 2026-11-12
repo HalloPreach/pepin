@@ -120,6 +120,9 @@ enum Fin {
     Abandon,
 }
 
+/// Trajet d'une plateforme mobile : (extrémité a, extrémité b, largeur).
+type Trajet = ((f32, f32), (f32, f32), f32);
+
 /// Explore le niveau depuis `depart` (coin haut-gauche du joueur).
 pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rapport {
     // Solides immobiles : friables + extrémités des plateformes mobiles.
@@ -127,7 +130,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     let mut entites: Vec<Entite> = Vec::new();
     let mut lanternes: Vec<(f32, f32)> = Vec::new();
     // (extrémité a, extrémité b, largeur) de chaque plateforme mobile.
-    let mut trajets: Vec<((f32, f32), (f32, f32), f32)> = Vec::new();
+    let mut trajets: Vec<Trajet> = Vec::new();
     for e in &niveau.entites {
         match e {
             Entite::Mobile(m) => {
@@ -216,7 +219,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             match fin {
                 Fin::Arrivee => {
                     rapport.arrivee = true;
-                    let mieux = rapport.pas_arrivee.map_or(true, |p| cout_plan < p);
+                    let mieux = rapport.pas_arrivee.is_none_or(|p| cout_plan < p);
                     if mieux {
                         rapport.pas_arrivee = Some(cout_plan);
                     }
@@ -324,7 +327,11 @@ fn simuler(
         } else if a_decolle && stable == 0 {
             // --- En l'air ---
             let montee = j.vitesse.y < 0.0;
-            let garde = if montee { plan.dir_montee } else { plan.dir_descente };
+            let garde = if montee {
+                plan.dir_montee
+            } else {
+                plan.dir_descente
+            };
             entrees.direction = if garde { plan.dir } else { Direction::Immobile };
             if saut_envoye > 0 && saut_envoye < plan.saut && montee {
                 entrees.saut = true; // maintien du saut pendant la montée
@@ -387,8 +394,8 @@ mod tests {
                 continue;
             }
             let haut = if x >= 10 + trou { 8 - marche_haute } else { 8 };
-            for y in haut..11 {
-                lignes[y].replace_range(x..x + 1, "#");
+            for ligne in &mut lignes[haut..11] {
+                ligne.replace_range(x..x + 1, "#");
             }
         }
         // Le X doit être posé au-dessus du sol d'arrivée.
@@ -406,7 +413,10 @@ mod tests {
 
     #[test]
     fn portee_du_saut_sans_parapluie() {
-        let sans = Options { planer: false, ..Options::default() };
+        let sans = Options {
+            planer: false,
+            ..Options::default()
+        };
         let max = (1..14).take_while(|&t| passe(t, 0, sans)).last().unwrap();
         println!("écart max sans planer : {max} tuiles");
         assert!((3..=5).contains(&max), "écart max = {max}");
@@ -415,17 +425,26 @@ mod tests {
 
     #[test]
     fn le_parapluie_allonge_nettement_la_portee() {
-        let sans = Options { planer: false, ..Options::default() };
+        let sans = Options {
+            planer: false,
+            ..Options::default()
+        };
         let avec = Options::default();
         let max_sans = (1..30).take_while(|&t| passe(t, 0, sans)).last().unwrap();
         let max_avec = (1..30).take_while(|&t| passe(t, 0, avec)).last().unwrap();
         println!("écart max avec planer : {max_avec} tuiles (sans : {max_sans})");
-        assert!(max_avec >= max_sans + 3, "avec = {max_avec}, sans = {max_sans}");
+        assert!(
+            max_avec >= max_sans + 3,
+            "avec = {max_avec}, sans = {max_sans}"
+        );
     }
 
     #[test]
     fn hauteur_de_marche_maximale() {
-        let sans = Options { planer: false, ..Options::default() };
+        let sans = Options {
+            planer: false,
+            ..Options::default()
+        };
         let max = (1..7).take_while(|&h| passe(1, h, sans)).last().unwrap();
         println!("marche max : {max} tuiles");
         assert!((3..=4).contains(&max), "marche max = {max}");
@@ -435,6 +454,14 @@ mod tests {
     #[test]
     fn un_mur_infranchissable_est_detecte() {
         // Témoin négatif : sans ce test, un robot trop permissif passerait inaperçu.
-        assert!(!passe(40, 0, Options { planer: false, courants: false, precis: true }));
+        assert!(!passe(
+            40,
+            0,
+            Options {
+                planer: false,
+                courants: false,
+                precis: true
+            }
+        ));
     }
 }

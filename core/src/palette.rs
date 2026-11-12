@@ -18,7 +18,11 @@ impl Couleur {
 
     /// Convertit en flottants 0.0..=1.0 (pratique pour le moteur graphique).
     pub fn en_f32(self) -> [f32; 3] {
-        [self.r as f32 / 255.0, self.g as f32 / 255.0, self.b as f32 / 255.0]
+        [
+            self.r as f32 / 255.0,
+            self.g as f32 / 255.0,
+            self.b as f32 / 255.0,
+        ]
     }
 }
 

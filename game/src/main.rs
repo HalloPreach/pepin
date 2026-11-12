@@ -2,9 +2,9 @@
 
 mod texte;
 
+use macroquad::prelude::*;
 use pepin_core::palette::{ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, OR_PALE};
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
-use macroquad::prelude::*;
 
 /// Configuration de la fenêtre (échelle x4 de la résolution logique).
 fn conf() -> Conf {

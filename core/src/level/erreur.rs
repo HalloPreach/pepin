@@ -48,10 +48,7 @@ impl fmt::Display for ErreurNiveau {
                 ligne,
                 attendu,
                 trouve,
-            } => write!(
-                f,
-                "ligne {ligne} : {trouve} colonnes au lieu de {attendu}"
-            ),
+            } => write!(f, "ligne {ligne} : {trouve} colonnes au lieu de {attendu}"),
             ErreurNiveau::CaractereInconnu {
                 ligne,
                 colonne,

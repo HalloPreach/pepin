@@ -10,12 +10,18 @@
 //! minuscules logent dans les rangées 0-1). Les capitales accentuées sont
 //! compressées sur 6 rangées pour laisser une rangée à l'accent.
 
+#[rustfmt::skip] // blocs de glyphes lisibles : une ligne par glyphe
 mod accents_maj;
+#[rustfmt::skip] // blocs de glyphes lisibles : une ligne par glyphe
 mod accents_min;
+#[rustfmt::skip] // blocs de glyphes lisibles : une ligne par glyphe
 mod chiffres;
+#[rustfmt::skip] // blocs de glyphes lisibles : une ligne par glyphe
 mod majuscules;
+#[rustfmt::skip] // blocs de glyphes lisibles : une ligne par glyphe
 mod minuscules;
 mod outil;
+#[rustfmt::skip] // blocs de glyphes lisibles : une ligne par glyphe
 mod ponctuation;
 
 pub use outil::Glyphe;

@@ -84,7 +84,18 @@ fn les_glyphes_visibles_ne_sont_pas_vides() {
 
 #[test]
 fn les_lettres_accentuees_sont_distinctes_entre_elles_et_de_la_base() {
-    let groupes = ["eéèêë", "aàâä", "iîï", "oôö", "uùûü", "cç", "EÉÈÊË", "AÀÂÄ", "CÇ", "OÔÖŒ"];
+    let groupes = [
+        "eéèêë",
+        "aàâä",
+        "iîï",
+        "oôö",
+        "uùûü",
+        "cç",
+        "EÉÈÊË",
+        "AÀÂÄ",
+        "CÇ",
+        "OÔÖŒ",
+    ];
     for groupe in groupes {
         let dessins: Vec<_> = groupe.chars().map(|c| *glyphe(c).unwrap()).collect();
         for i in 0..dessins.len() {
@@ -101,7 +112,10 @@ fn les_accents_majuscules_sont_sur_la_premiere_rangee() {
     for c in "ÉÈÊËÀÂÄÎÏÔÖÙÛÜ".chars() {
         let d = glyphe(c).unwrap();
         assert_ne!(d[0], 0, "accent manquant pour {c:?}");
-        assert!(d[0].count_ones() <= 3, "rangée d'accent trop chargée pour {c:?}");
+        assert!(
+            d[0].count_ones() <= 3,
+            "rangée d'accent trop chargée pour {c:?}"
+        );
     }
 }
 
@@ -121,9 +135,12 @@ fn largeur_du_texte() {
     assert_eq!(largeur_texte("A", 1), 5);
     assert_eq!(largeur_texte("AB", 1), 11); // 5 + 1 + 5
     assert_eq!(largeur_texte("ABC", 2), 34); // (15 + 2) * 2
-    // Les caractères accentués comptent pour un seul glyphe (pas pour leurs octets UTF-8).
+                                             // Les caractères accentués comptent pour un seul glyphe (pas pour leurs octets UTF-8).
     assert_eq!(largeur_texte("éœ", 1), 11);
-    assert_eq!(largeur_texte(PHRASE_TEST, 1), PHRASE_TEST.chars().count() as u32 * 6 - 1);
+    assert_eq!(
+        largeur_texte(PHRASE_TEST, 1),
+        PHRASE_TEST.chars().count() as u32 * 6 - 1
+    );
     assert_eq!(hauteur_texte(3), 21);
 }
 
@@ -137,7 +154,9 @@ fn pixels_texte_reste_dans_la_boite() {
 
 #[test]
 fn rendu_ascii_d_un_a_accent_aigu() {
-    let attendu = ["...#.", "..#..", ".###.", "#...#", "#####", "#....", ".###."];
+    let attendu = [
+        "...#.", "..#..", ".###.", "#...#", "#####", "#....", ".###.",
+    ];
     assert_eq!(rendu_ascii("é"), attendu);
 }
 

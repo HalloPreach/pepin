@@ -45,18 +45,36 @@ fn entites_instanciees_avec_les_bons_indices() {
         })
         .collect();
     assert_eq!(indices, vec![0, 1, 2], "indices dans l'ordre de lecture");
-    let pointes = n.entites.iter().filter(|e| matches!(e, Entite::Pointe(_))).count();
-    let champis = n.entites.iter().filter(|e| matches!(e, Entite::Champignon(_))).count();
-    let ennemis = n.entites.iter().filter(|e| matches!(e, Entite::Ennemi(_))).count();
+    let pointes = n
+        .entites
+        .iter()
+        .filter(|e| matches!(e, Entite::Pointe(_)))
+        .count();
+    let champis = n
+        .entites
+        .iter()
+        .filter(|e| matches!(e, Entite::Champignon(_)))
+        .count();
+    let ennemis = n
+        .entites
+        .iter()
+        .filter(|e| matches!(e, Entite::Ennemi(_)))
+        .count();
     assert_eq!((pointes, champis, ennemis), (1, 1, 1));
 }
 
 #[test]
 fn erreurs_typees() {
     let sans_depart = PETIT.replace('@', ".");
-    assert_eq!(Niveau::depuis_ascii(&sans_depart).unwrap_err(), ErreurNiveau::DepartManquant);
+    assert_eq!(
+        Niveau::depuis_ascii(&sans_depart).unwrap_err(),
+        ErreurNiveau::DepartManquant
+    );
     let sans_arrivee = PETIT.replace('X', ".");
-    assert_eq!(Niveau::depuis_ascii(&sans_arrivee).unwrap_err(), ErreurNiveau::ArriveeManquante);
+    assert_eq!(
+        Niveau::depuis_ascii(&sans_arrivee).unwrap_err(),
+        ErreurNiveau::ArriveeManquante
+    );
     let deux_departs = PETIT.replace('X', "@");
     assert_eq!(
         Niveau::depuis_ascii(&deux_departs).unwrap_err(),
@@ -73,7 +91,10 @@ fn erreurs_typees() {
         ErreurNiveau::NombreDeGouttes { trouve: 2 }
     );
     assert_eq!(Niveau::depuis_ascii("").unwrap_err(), ErreurNiveau::Vide);
-    assert_eq!(Niveau::depuis_ascii("\n\n  \n").unwrap_err(), ErreurNiveau::Vide);
+    assert_eq!(
+        Niveau::depuis_ascii("\n\n  \n").unwrap_err(),
+        ErreurNiveau::Vide
+    );
 }
 
 #[test]
@@ -81,19 +102,35 @@ fn caractere_inconnu_et_lignes_inegales() {
     let inconnu = PETIT.replace('M', "?");
     assert_eq!(
         Niveau::depuis_ascii(&inconnu).unwrap_err(),
-        ErreurNiveau::CaractereInconnu { ligne: 3, colonne: 9, caractere: '?' }
+        ErreurNiveau::CaractereInconnu {
+            ligne: 3,
+            colonne: 9,
+            caractere: '?'
+        }
     );
     let inegal = PETIT.replace("##############", "#############");
     assert_eq!(
         Niveau::depuis_ascii(&inegal).unwrap_err(),
-        ErreurNiveau::LargeurInegale { ligne: 4, attendu: 14, trouve: 13 }
+        ErreurNiveau::LargeurInegale {
+            ligne: 4,
+            attendu: 14,
+            trouve: 13
+        }
     );
 }
 
 #[test]
 fn messages_d_erreur_en_francais() {
-    let msg = ErreurNiveau::CaractereInconnu { ligne: 3, colonne: 9, caractere: '?' }.to_string();
-    assert!(msg.contains("ligne 3") && msg.contains("caractère inconnu"), "{msg}");
+    let msg = ErreurNiveau::CaractereInconnu {
+        ligne: 3,
+        colonne: 9,
+        caractere: '?',
+    }
+    .to_string();
+    assert!(
+        msg.contains("ligne 3") && msg.contains("caractère inconnu"),
+        "{msg}"
+    );
     // Compatible avec `Box<dyn Error>` grâce au trait `Error`.
     let _: Box<dyn std::error::Error> = Box::new(ErreurNiveau::Vide);
 }
@@ -115,11 +152,17 @@ fn plateformes_mobiles_par_paires() {
         })
         .collect();
     assert_eq!(mobiles.len(), 1);
-    assert_eq!((mobiles[0].x, mobiles[0].y, mobiles[0].w), (48.0, 16.0, 32.0));
+    assert_eq!(
+        (mobiles[0].x, mobiles[0].y, mobiles[0].w),
+        (48.0, 16.0, 32.0)
+    );
     let seule = avec.replacen('1', ".", 1);
     assert_eq!(
         Niveau::depuis_ascii(&seule).unwrap_err(),
-        ErreurNiveau::PlateformeMobileIncomplete { marque: '1', trouve: 1 }
+        ErreurNiveau::PlateformeMobileIncomplete {
+            marque: '1',
+            trouve: 1
+        }
     );
 }
 

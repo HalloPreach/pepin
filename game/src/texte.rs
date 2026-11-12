@@ -3,10 +3,10 @@
 //! Tout est dessiné en coordonnées logiques (320x180) : chaque pixel allumé
 //! du glyphe devient un carré de `echelle` x `echelle` pixels logiques.
 
+use macroquad::prelude::{draw_rectangle, Color};
 use pepin_core::font::{self, ESPACEMENT, HAUTEUR_GLYPHE, LARGEUR_GLYPHE};
 use pepin_core::palette::Couleur;
 use pepin_core::LARGEUR_LOGIQUE;
-use macroquad::prelude::{draw_rectangle, Color};
 
 /// Apparence d'un texte : échelle entière, couleur de palette, ombre portée facultative.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,12 +22,19 @@ pub struct Style {
 impl Style {
     /// Style sans ombre, à l'échelle donnée (au minimum 1).
     pub const fn simple(couleur: Couleur, echelle: u32) -> Self {
-        Self { echelle: if echelle == 0 { 1 } else { echelle }, couleur, ombre: None }
+        Self {
+            echelle: if echelle == 0 { 1 } else { echelle },
+            couleur,
+            ombre: None,
+        }
     }
 
     /// Même style avec une ombre portée de la couleur donnée.
     pub const fn avec_ombre(self, ombre: Couleur) -> Self {
-        Self { ombre: Some(ombre), ..self }
+        Self {
+            ombre: Some(ombre),
+            ..self
+        }
     }
 }
 
@@ -85,7 +92,7 @@ pub fn dessiner_centre(texte: &str, y: f32, style: Style) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::palette::{BLANC_CASSE, ARDOISE_OMBRE};
+    use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE};
 
     #[test]
     fn le_centrage_utilise_la_largeur_reelle_du_texte() {
@@ -97,6 +104,11 @@ mod tests {
     #[test]
     fn l_echelle_nulle_est_ramenee_a_un() {
         assert_eq!(Style::simple(BLANC_CASSE, 0).echelle, 1);
-        assert_eq!(Style::simple(BLANC_CASSE, 3).avec_ombre(ARDOISE_OMBRE).ombre, Some(ARDOISE_OMBRE));
+        assert_eq!(
+            Style::simple(BLANC_CASSE, 3)
+                .avec_ombre(ARDOISE_OMBRE)
+                .ombre,
+            Some(ARDOISE_OMBRE)
+        );
     }
 }

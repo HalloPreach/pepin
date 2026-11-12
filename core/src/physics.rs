@@ -196,9 +196,10 @@ mod tests {
         // Un saut complet monte d'environ 3,5 tuiles de 16 px.
         let h = hauteur_saut_theorique();
         assert!((50.0..60.0).contains(&h), "hauteur = {h}");
-        // Le vent doit gagner contre la gravité, sinon on ne monterait pas.
-        assert!(COURANT_ACCEL > GRAVITE);
-        // Planer doit ralentir la chute.
-        assert!(VITESSE_PLANER_CHUTE < VITESSE_MAX_CHUTE);
     }
+
+    // Le vent doit gagner contre la gravité, sinon on ne monterait pas ;
+    // planer doit ralentir la chute. Vérifié à la compilation.
+    const _: () = assert!(COURANT_ACCEL > GRAVITE);
+    const _: () = assert!(VITESSE_PLANER_CHUTE < VITESSE_MAX_CHUTE);
 }
