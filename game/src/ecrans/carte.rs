@@ -19,6 +19,13 @@ const LIGNE_MAX: usize = 46;
 /// Largeur utile du cadre de la carte, en pixels logiques.
 const LARGEUR_CADRE: u32 = LARGEUR_LOGIQUE - 24;
 
+/// Nom du niveau tel qu'il est dessiné : en capitales. La police pose les minuscules
+/// 2 rangées plus haut que le pied des majuscules : à l'échelle 3, un titre mixte
+/// aurait l'air de flotter. Les capitales accentuées existent dans la police.
+pub fn titre_niveau(nom: &str) -> String {
+    nom.to_uppercase()
+}
+
 /// Plus grande échelle (3, puis 2) à laquelle le nom du niveau tient dans le cadre.
 fn echelle_nom(nom: &str) -> u32 {
     if largeur_texte(nom, 3) < LARGEUR_CADRE - 8 {
@@ -30,6 +37,8 @@ fn echelle_nom(nom: &str) -> u32 {
 
 /// `indice` : 0 à 4 ; `nom` : titre du niveau ; `anim` : pas écoulés (clignotement).
 pub fn dessiner(indice: usize, numero: u8, nom: &str, anim: u32) {
+    let nom = titre_niveau(nom);
+    let nom = nom.as_str();
     trame();
     let l = LARGEUR_LOGIQUE as f32;
     panneau(12.0, 34.0, l - 24.0, 112.0, ARDOISE_NUIT, ARDOISE_CLAIRE);
@@ -76,12 +85,66 @@ mod tests {
             for ligne in a.iter().chain(&b) {
                 assert!(largeur_texte(ligne, 1) < LARGEUR_CADRE - 8, "{}", ligne);
             }
-            // Le nom, à l'échelle choisie, doit tenir dans le cadre.
+            // Le nom, en capitales et à l'échelle choisie, doit tenir dans le cadre.
+            let nom = titre_niveau(n.nom);
             assert!(
-                largeur_texte(n.nom, echelle_nom(n.nom)) < LARGEUR_CADRE - 8,
+                largeur_texte(&nom, echelle_nom(&nom)) < LARGEUR_CADRE - 8,
                 "{}",
-                n.nom
+                nom
             );
         }
+    }
+
+    #[test]
+    fn les_noms_de_niveau_sont_en_capitales_avec_un_glyphe_chacun() {
+        for n in NIVEAUX.iter() {
+            let nom = titre_niveau(n.nom);
+            assert!(!nom.chars().any(|c| c.is_lowercase()), "{nom}");
+            for c in nom.chars() {
+                assert!(
+                    pepin_core::font::glyphe(c).is_some(),
+                    "pas de glyphe pour {c:?} dans « {nom} »"
+                );
+            }
+        }
+        assert_eq!(titre_niveau("Le grand orage"), "LE GRAND ORAGE");
+        assert_eq!(
+            titre_niveau("Gouttières et cheminées"),
+            "GOUTTIÈRES ET CHEMINÉES"
+        );
+    }
+
+    #[test]
+    fn aucune_ligne_de_carte_ne_commence_par_une_ponctuation_seule() {
+        for (i, n) in NIVEAUX.iter().enumerate() {
+            let intro = contenu::intro(i);
+            for texte in [intro.texte, intro.astuce] {
+                for ligne in couper_lignes(texte, LIGNE_MAX) {
+                    assert!(
+                        !ligne.starts_with([':', '!', '?', ';', '.']),
+                        "{} : ligne « {ligne} » commençant par une ponctuation",
+                        n.nom
+                    );
+                    assert!(ligne.chars().count() <= LIGNE_MAX, "{ligne}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn les_coupures_signalees_par_l_audit_sont_corrigees() {
+        assert_eq!(
+            couper_lignes(contenu::intro(2).texte, LIGNE_MAX),
+            [
+                "L'orage éclate. Chaque éclair est annoncé :",
+                "garde la tête froide !"
+            ]
+        );
+        // Conseil du niveau 5 : une seule ligne.
+        assert_eq!(
+            couper_lignes(contenu::intro(4).astuce, LIGNE_MAX),
+            ["Dernière ligne droite : le champignon t'aide."]
+        );
+        assert!(!contenu::intro(2).texte.to_lowercase().contains("flash"));
     }
 }

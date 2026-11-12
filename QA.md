@@ -271,3 +271,41 @@ palette, 0 pixel semi-transparent, 0 bloc flou. wasm 428 538 octets (< 1,2 Mo). 
 Limites : mesure à 60 images par seconde (pas testé à 144 Hz) ; la flèche de repère est petite
 (15x9 px à l'écran, comme demandé) ; le robot ne tombe jamais, la chute est obtenue en lui faisant
 courir tout droit dans le trou de la colonne 30.
+
+## Corrections des niveaux et textes (audit) — carte 4/4
+
+Points I-07, I-08, I-12 (texte), I-13, I-14, I-24, I-25 et la partie « niveau » de I-01. Aucune
+physique ni mécanique touchée.
+
+- I-07 / I-12 : carte du niveau 3 : « L'orage éclate. Chaque éclair est annoncé : garde la tête
+  froide ! » coupée en « L'orage éclate. Chaque éclair est annoncé : » / « garde la tête
+  froide ! » (plus de ligne commençant par « : »). Le mot « flash » a disparu du texte.
+- I-24 : conseil du niveau 5 : « Dernière ligne droite : le champignon t'aide. » (une ligne de
+  45 caractères) ; écran de fin : largeur de coupe 40 -> 42 (`LIGNE_MAX_MOT`), le mot « Il reste
+  plein de gouttes d'or à dénicher. » tient sur une ligne. Toutes les autres cartes vérifiées par
+  test (aucune ligne ne commence par « : », « ! », « ? », « ; » ou « . » ; chaque ligne <= largeur).
+- I-14 : noms de niveau en capitales (`titre_niveau`, accents compris : « GOUTTIÈRES ET
+  CHEMINÉES », test : un glyphe existe pour chaque caractère) ; ligne du menu « SON : OUI » /
+  « SON : NON ». Titre, pause et fin n'avaient déjà que des capitales ou des textes sans
+  descendantes gênantes : rien d'autre à changer.
+- I-08 : gouttes d'or descendues d'une rangée (rangée 0 -> 1) : niveau 2 colonne 76, niveau 4
+  colonnes 105 et 158, niveau 5 colonne 76. Capture : la goutte est entièrement sous la bande
+  de l'interface (`80-niveau4-goutte-col105.png`).
+- I-13 : niveau 3, colonne 177, rangée 1 : `N` -> `#` (bout de toit suspendu, plus de nuage isolé).
+- I-01 (niveau) : niveau 3, colonne 133 : la brique de la rangée 0 est retirée (mur de 3 rangées
+  comme à la colonne 127). Mesure sur le parcours du robot, colonnes 120 à 142 (307 images) :
+  images où Pépin est entièrement hors de l'écran (bas du corps au-dessus de y = 0) : 151 ->
+  70 ; images où il dépasse en partie : 171 -> 107. Ce n'est pas nul : un saut sur un mur de
+  3 rangées (48 px) pour une hauteur de saut de 57 px fait forcément dépasser la tête de Pépin
+  au sommet, et le robot monte plus haut que nécessaire (parapluie). Essayé aussi : abaisser
+  encore les murs 127 et 133 d'une rangée : 27 images hors écran, mais le niveau devient
+  nettement plus facile ; annulé pour ne pas dénaturer le niveau. La flèche de repère de la carte
+  3/4 reste le secours.
+- I-25 : trame des cartes et de la pause en damier (un pixel sur deux en quinconce) au lieu de
+  lignes pleines ; texte lisible sur les cinq ciels (captures `80-carte-niveau1..5.png`).
+- Tests ajoutés : noms en capitales avec glyphes, aucune ligne de carte ne commence par une
+  ponctuation, coupures du niveau 3 et du niveau 5, mot de fin sur une ligne.
+
+Mesures : `docs/mesure-capture.py capture.png 3` sur les 15 captures `80-*` : 0 couleur hors
+palette, 0 flou. wasm 433 771 octets (< 1,2 Mo). Tests : 143 (noyau) + 146 (jeu) OK, robot
+de QA : les 5 niveaux finis sans mort (12 254 images) ; `./docker-cargo.sh lint` OK.

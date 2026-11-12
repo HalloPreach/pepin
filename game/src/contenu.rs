@@ -32,12 +32,13 @@ pub const QUITTER_AU_TITRE: &str = "QUITTER AU TITRE";
 pub const REJOUER: &str = "REJOUER";
 pub const RETOUR_TITRE: &str = "TITRE";
 
-/// Libellé de l'option son selon son état.
+/// Libellé de l'option son selon son état (en capitales : à l'échelle du menu, les
+/// minuscules flotteraient au-dessus du pied des majuscules).
 pub fn libelle_son(actif: bool) -> &'static str {
     if actif {
-        "SON : oui"
+        "SON : OUI"
     } else {
-        "SON : non"
+        "SON : NON"
     }
 }
 
@@ -99,7 +100,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "Saute-leur dessus pour les écraser.",
     },
     Intro {
-        texte: "L'orage éclate. Un flash annonce chaque éclair : garde la tête froide !",
+        texte: "L'orage éclate. Chaque éclair est annoncé : garde la tête froide !",
         astuce: "Oui, tenir un parapluie ici est audacieux.",
     },
     Intro {
@@ -108,7 +109,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
     Intro {
         texte: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
-        astuce: "Dernière ligne droite. Le champignon est ton ami.",
+        astuce: "Dernière ligne droite : le champignon t'aide.",
     },
 ];
 

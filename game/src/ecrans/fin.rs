@@ -14,6 +14,10 @@ use crate::menu::Menu;
 use crate::particules::Particules;
 use crate::texte::{self, couper_lignes, Style};
 
+/// Largeur maximale (en caractères) du petit mot de fin : assez large pour que
+/// « Il reste plein de gouttes d'or à dénicher. » tienne sur une seule ligne.
+const LIGNE_MAX_MOT: usize = 42;
+
 /// Les chiffres de la partie terminée.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Bilan {
@@ -77,7 +81,7 @@ pub fn dessiner(
         );
     }
     let mot = contenu::message_fin(bilan.gouttes, total);
-    for (i, ligne) in couper_lignes(mot, 40).iter().enumerate() {
+    for (i, ligne) in couper_lignes(mot, LIGNE_MAX_MOT).iter().enumerate() {
         texte::dessiner_centre(
             ligne,
             98.0 + i as f32 * 10.0,
@@ -86,4 +90,22 @@ pub fn dessiner(
     }
     dessiner_menu(libelles, menu, d, anim);
     particules.dessiner(0, 0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn le_mot_de_fin_tient_sur_une_ligne_sans_coupure_maladroite() {
+        for gouttes in [0, 5, 8, 15] {
+            let lignes = couper_lignes(contenu::message_fin(gouttes, 15), LIGNE_MAX_MOT);
+            for l in &lignes {
+                assert!(!l.starts_with([':', '!', '?', ';', '.']), "{l}");
+            }
+            assert!(lignes.len() <= 2, "{gouttes} gouttes : {lignes:?}");
+        }
+        let plein = couper_lignes(contenu::message_fin(0, 15), LIGNE_MAX_MOT);
+        assert_eq!(plein, ["Il reste plein de gouttes d'or à dénicher."]);
+    }
 }

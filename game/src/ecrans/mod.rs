@@ -4,7 +4,7 @@
 //! Chaque écran vit dans son petit fichier et ne fait que DESSINER ce qu'on lui
 //! donne : l'état (quelle ligne est choisie, combien de gouttes...) appartient à
 //! `app.rs`. La palette n'a pas de transparence : pour assombrir un fond on le
-//! raye de lignes pleines une sur deux (`trame`), comme sur une vieille console.
+//! tramé en damier, un pixel sur deux (`trame`), comme sur une vieille console.
 //!
 //! Notions Rust illustrées ici : sous-modules, `enum` d'écrans, `const fn`,
 //! fonctions pures de mise en page (testées sans fenêtre).
@@ -93,10 +93,14 @@ pub fn panneau(x: f32, y: f32, w: f32, h: f32, fond: Couleur, bordure: Couleur) 
     rect(x + 1.0, y + 1.0, w - 2.0, h - 2.0, fond);
 }
 
-/// Assombrit tout l'écran : une ligne sur deux est recouverte d'ardoise sombre.
+/// Assombrit tout l'écran : un pixel sur deux, en damier (quinconce), est recouvert
+/// d'ardoise sombre. Des lignes entières donnaient des rayures très dures sur les
+/// niveaux clairs ; le damier garde le texte lisible et se fond dans le décor.
 pub fn trame() {
-    for y in (0..HAUTEUR_LOGIQUE).step_by(2) {
-        rect(0.0, y as f32, LARGEUR_LOGIQUE as f32, 1.0, ARDOISE_OMBRE);
+    for y in 0..HAUTEUR_LOGIQUE {
+        for x in (y % 2..LARGEUR_LOGIQUE).step_by(2) {
+            rect(x as f32, y as f32, 1.0, 1.0, ARDOISE_OMBRE);
+        }
     }
 }
 
