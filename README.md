@@ -209,15 +209,16 @@ Tests :
 
 Mesure à la dernière vérification de ce README : **143 tests réussis** dans
 `core` (plus 1 test ignoré volontairement : il régénère l'image
-`docs/police-test.png`) et **101 tests réussis** dans `game`.
+`docs/police-test.png`) et **102 tests réussis** dans `game` (plus 1 test
+ignoré : il écrit le script du robot de QA, voir `QA.md`).
 
 Hygiène du code (format et avertissements) :
 
     ./docker-cargo.sh lint
 
 Cette commande enchaîne `cargo fmt --all --check`, `cargo clippy` sur `core`
-(avec les tests) et `cargo clippy` sur `game` en cible wasm32, tous avec
-`-D warnings`.
+(avec les tests), `cargo clippy` sur `game` en cible wasm32 puis sur `game`
+natif avec ses tests, tous avec `-D warnings`.
 
 Compiler ET préparer le dossier à publier (une seule commande) :
 

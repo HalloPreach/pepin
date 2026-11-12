@@ -24,8 +24,8 @@ def lire_png(p):
     return w,h,bpp,rows
 w,h,bpp,rows=lire_png(sys.argv[1])
 print('taille',w,h,'canaux',bpp)
-# zone de jeu : 960x540 centrée
-K=3; gw,gh=320*K,180*K; x0=(w-gw)//2; y0=(h-gh)//2
+# zone de jeu : (320*K)x(180*K) centrée ; K = 2e argument (3 par défaut)
+K=int(sys.argv[2]) if len(sys.argv)>2 else 3; gw,gh=320*K,180*K; x0=(w-gw)//2; y0=(h-gh)//2
 print('zone de jeu',x0,y0,gw,gh)
 cnt=Counter(); semi=0
 for y in range(y0,y0+gh):
