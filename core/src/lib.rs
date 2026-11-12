@@ -3,13 +3,16 @@
 
 pub mod aabb;
 pub mod entities;
+pub mod faisabilite;
 pub mod font;
 pub mod level;
+pub mod levels;
 pub mod palette;
 pub mod physics;
 pub mod player;
 pub mod state;
 pub mod timestep;
+pub mod zones;
 
 /// Largeur logique de l'écran en pixels.
 pub const LARGEUR_LOGIQUE: u32 = 320;

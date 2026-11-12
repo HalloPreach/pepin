@@ -9,3 +9,8 @@ lto = true
 strip = true
 codegen-units = 1
 panic = "abort"
+
+# Les tests de faisabilité des niveaux simulent des millions de pas de physique :
+# on les optimise pour qu'ils restent rapides (quelques secondes).
+[profile.test]
+opt-level = 2

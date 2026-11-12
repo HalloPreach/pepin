@@ -32,6 +32,12 @@ impl PlateformeMobile {
         }
     }
 
+    /// Les deux extrémités du trajet (positions du coin haut-gauche), pour
+    /// l'analyse de faisabilité des niveaux.
+    pub fn extremites(&self) -> ((f32, f32), (f32, f32)) {
+        (self.a, self.b)
+    }
+
     fn cible(&self) -> (f32, f32) {
         if self.vers_b {
             self.b
