@@ -32,6 +32,16 @@ pub enum Forme {
     Pics,
 }
 
+/// Plafond de nuages d'orage : des dômes renversés accrochés en haut de l'écran,
+/// sur deux couches de parallaxe (lointaine, proche).
+#[derive(Debug, Clone, Copy)]
+pub struct Plafond {
+    pub loin: Couleur,
+    pub proche: Couleur,
+    /// Épaisseur des nuages : 4 = pleine, 2 = nuages discrets.
+    pub ampleur: i32,
+}
+
 /// Ce qui distingue l'ambiance d'un niveau.
 #[derive(Debug, Clone, Copy)]
 pub struct Ambiance {
@@ -42,8 +52,16 @@ pub struct Ambiance {
     pub proche: Couleur,
     /// Couleur des traînées de pluie (lointaines, proches).
     pub pluie: (Couleur, Couleur),
-    /// Étoiles visibles ?
-    pub etoiles: bool,
+    /// Étoiles : `Some(y)` = semées au-dessus de l'ordonnée `y` (pas dans une bande
+    /// de ciel où elles seraient invisibles), `None` = pas d'étoiles.
+    pub etoiles: Option<i32>,
+    /// Gouttes de pluie par couche (l'averse redouble, puis se calme).
+    pub gouttes: i32,
+    /// Pixels dont la couche PROCHE est descendue : plus aucune silhouette ne dépasse
+    /// de la ligne du sol (`LIGNE_SOL`).
+    pub descente: i32,
+    /// Plafond de nuages d'orage accroché en haut de l'écran, s'il y en a un.
+    pub plafond: Option<Plafond>,
     /// Soleil visible ?
     pub soleil: bool,
     /// Forme des silhouettes (immeubles, bancs de nuages ou pics).
@@ -68,40 +86,62 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             lointain: ARDOISE_NUIT,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
-            etoiles: true,
+            etoiles: Some(H / 2),
+            gouttes: 24,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
             soleil: false,
             forme: Forme::Immeubles,
             relief: 0,
-            socle: false,
+            socle: true,
             fenetres: None,
             ilots: None,
         },
+        // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
+        // discrets en haut du ciel.
         Theme::Gouttieres => Ambiance {
             ciel: [ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE, ARDOISE_CLAIRE],
             lointain: ARDOISE,
             proche: ARDOISE_NUIT,
             pluie: (PLUIE_SOMBRE, PLUIE),
-            etoiles: false,
+            etoiles: None,
+            gouttes: 48,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: Some(Plafond {
+                loin: ARDOISE,
+                proche: ARDOISE_CLAIRE,
+                ampleur: 2,
+            }),
             soleil: false,
             forme: Forme::Immeubles,
             relief: 0,
-            socle: false,
+            socle: true,
             fenetres: None,
             ilots: None,
         },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
-        // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit.
+        // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit. Un plafond
+        // de gros nuages d'orage pèse sur le haut de l'écran.
         Theme::Orage => Ambiance {
             ciel: [ARDOISE_OMBRE, ARDOISE, VIOLET_ORAGE, VIOLET_ORAGE],
             lointain: ARDOISE_NUIT,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
-            etoiles: false,
+            etoiles: None,
+            gouttes: 60,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: Some(Plafond {
+                loin: ARDOISE_NUIT,
+                proche: ARDOISE,
+                ampleur: 4,
+            }),
             soleil: false,
             forme: Forme::Immeubles,
             relief: 22,
             socle: true,
-            fenetres: Some((ORANGE_SOLEIL, OR)),
+            // L'or est réservé aux gouttes à ramasser et aux éclairs : fenêtres
+            // orange (loin) et corail clair (près).
+            fenetres: Some((ORANGE_SOLEIL, CORAIL_CLAIR)),
             ilots: None,
         },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
@@ -110,8 +150,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             ciel: [VIOLET_ORAGE, CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL],
             lointain: VIOLET_ORAGE,
             proche: ARDOISE_NUIT,
-            pluie: (CORAIL_CLAIR, BLANC_CASSE),
-            etoiles: true,
+            // Cyan et blanc : visibles devant les quatre bandes du ciel.
+            pluie: (PLUIE, BLANC_CASSE),
+            // Étoiles dans la bande violette du haut seulement (invisibles ailleurs).
+            etoiles: Some(H / 4),
+            gouttes: 18,
+            descente: DESCENTE_PICS,
+            plafond: None,
             soleil: false,
             forme: Forme::Pics,
             relief: 14,
@@ -119,15 +164,21 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             fenetres: None,
             ilots: Some((VIOLET_ORAGE, ARDOISE_NUIT)),
         },
+        // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
+        // sommets restent sous la ligne du sol), d'une couleur absente des
+        // plateformes et des bandes de ciel de derrière.
         Theme::Soleil => Ambiance {
             ciel: [CORAIL_CLAIR, ORANGE_SOLEIL, OR, OR_PALE],
-            lointain: NUAGE,
-            proche: BLANC_CASSE,
+            lointain: CORAIL_CLAIR,
+            proche: BRUME,
             pluie: (OR_PALE, BLANC_CASSE),
-            etoiles: false,
+            etoiles: None,
+            gouttes: 0,
+            descente: 0,
+            plafond: None,
             soleil: true,
             forme: Forme::Nuages,
-            relief: 14,
+            relief: 0,
             socle: false,
             fenetres: None,
             ilots: None,
@@ -138,6 +189,21 @@ pub fn ambiance(theme: Theme) -> Ambiance {
 /// Ordonnée du sol de la couche lointaine et de la couche proche (avant parallaxe verticale).
 const BASE_LOINTAINE: i32 = H - 18;
 const BASE_PROCHE: i32 = H + 4;
+/// Ordonnée de la ligne du sol (rangée 8 du niveau, soit 48 px au-dessus du bas) :
+/// aucune silhouette de la couche proche ne doit la dépasser (elle se lirait
+/// comme un objet posé sur le toit où l'on marche).
+#[cfg(test)]
+pub const LIGNE_SOL: i32 = H - 48;
+/// Descente de la couche proche : immeubles (jusqu'à 71 px) et tours (jusqu'à 64 px),
+/// avec une marge pour la parallaxe verticale (jusqu'à une dizaine de pixels).
+const DESCENTE_IMMEUBLES: i32 = 32;
+const DESCENTE_PICS: i32 = 24;
+/// Plafond de nuages : parallaxe, graines, cellules, et épaisseur maximale.
+const FACTEUR_PLAFOND_LOIN: f32 = 0.10;
+const FACTEUR_PLAFOND_PROCHE: f32 = 0.20;
+const GRAINE_PLAFOND_LOIN: u32 = 31;
+const GRAINE_PLAFOND_PROCHE: u32 = 37;
+const CELLULE_PLAFOND: i32 = 56;
 /// Facteurs de parallaxe horizontale des couches (lointaine, îlots, proche).
 const FACTEUR_LOINTAINE: f32 = 0.15;
 const FACTEUR_ILOTS: f32 = 0.25;
@@ -235,6 +301,30 @@ pub fn ilot(cellule: i32) -> Option<(i32, i32, i32)> {
     ))
 }
 
+/// Nuage du plafond de la cellule `cellule` (56 px de large) : `(x, largeur, profondeur)`
+/// dans le repère de la couche. `ampleur` (2 à 4) règle l'épaisseur : la profondeur va de
+/// 6 à 6 + 6 * ampleur px, toujours dans la bande de ciel du haut. Pure.
+pub fn nuage_plafond(cellule: i32, graine: u32, ampleur: i32) -> (i32, i32, i32) {
+    let h = hache(cellule, graine);
+    let largeur = 40 + (h % 25) as i32;
+    let profondeur = 6 + (((h >> 5) % 18) as i32 * ampleur) / 3;
+    (
+        cellule * CELLULE_PLAFOND + ((h >> 17) % 8) as i32,
+        largeur,
+        profondeur,
+    )
+}
+
+/// Épaisseur maximale d'un nuage du plafond (mesurée sur 200 cellules).
+#[cfg(test)]
+pub(crate) fn profondeur_plafond_max(ampleur: i32) -> i32 {
+    [GRAINE_PLAFOND_LOIN, GRAINE_PLAFOND_PROCHE]
+        .into_iter()
+        .flat_map(|g| (-100..100).map(move |c| nuage_plafond(c, g, ampleur).2))
+        .max()
+        .unwrap_or(0)
+}
+
 #[cfg(test)]
 /// Une zone d'écran occupée par une couche de silhouettes : couleur et ordonnées
 /// `[haut, bas)` occupées (avant parallaxe verticale), pour le contrôle de contraste.
@@ -266,10 +356,21 @@ pub(crate) fn zones(a: &Ambiance) -> Vec<Zone> {
         Zone {
             nom: "proche",
             couleur: a.proche,
-            haut: BASE_PROCHE - max_h(GRAINE_PROCHE, 0),
+            haut: BASE_PROCHE + a.descente - max_h(GRAINE_PROCHE, 0),
             bas: H,
         },
     ];
+    if let Some(p) = a.plafond {
+        let bas = profondeur_plafond_max(p.ampleur);
+        for (nom, couleur) in [("plafond-loin", p.loin), ("plafond-proche", p.proche)] {
+            v.push(Zone {
+                nom,
+                couleur,
+                haut: 0,
+                bas,
+            });
+        }
+    }
     if let Some((corps, dessous)) = a.ilots {
         for (nom, couleur) in [("ilots", corps), ("ilots-dessous", dessous)] {
             v.push(Zone {
@@ -294,8 +395,9 @@ pub fn goutte_de_pluie(i: i32, pas: u32, vitesse: i32, graine: u32) -> (i32, i32
     ((x0 - t / 2).rem_euclid(L), (y0 + t).rem_euclid(H))
 }
 
-/// Nombre de gouttes par couche de pluie.
-const GOUTTES_PAR_COUCHE: i32 = 36;
+/// Nombre maximal de gouttes par couche (garde-fou des tests).
+#[cfg(test)]
+const GOUTTES_MAX: i32 = 64;
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
@@ -317,12 +419,12 @@ fn dessiner_ciel(a: &Ambiance) {
     }
 }
 
-fn dessiner_etoiles(pas: u32, cam_x: i32) {
+fn dessiner_etoiles(pas: u32, cam_x: i32, ymax: i32) {
     let dec = decalage(cam_x, 0.03);
     for i in 0..40 {
         let h = hache(i, 77);
         let x = ((h % (L as u32 + 64)) as i32 - dec).rem_euclid(L);
-        let y = ((h >> 10) % (H as u32 / 2)) as i32;
+        let y = ((h >> 10) % ymax as u32) as i32;
         // Scintillement : certaines étoiles s'éteignent un instant.
         let eteinte = (pas / 20 + h % 7).is_multiple_of(9);
         let couleur = if h.is_multiple_of(5) {
@@ -410,7 +512,24 @@ fn dessiner_couche(
     }
 }
 
+/// Plafond de nuages d'orage : dômes renversés accrochés en haut de l'écran
+/// (trois étages de plus en plus étroits vers le bas).
+fn dessiner_plafond(cam_x: i32, facteur: f32, graine: u32, p: &Plafond, couleur: Couleur) {
+    let dec = decalage(cam_x, facteur);
+    let premiere = dec.div_euclid(CELLULE_PLAFOND) - 1;
+    let derniere = (dec + L).div_euclid(CELLULE_PLAFOND) + 1;
+    for cellule in premiere..=derniere {
+        let (x, l, d) = nuage_plafond(cellule, graine, p.ampleur);
+        let x = x - dec;
+        rect(x, 0, l, d / 2, couleur);
+        rect(x + l / 8, d / 2, l * 3 / 4, d / 4, couleur);
+        rect(x + l / 3, d / 2 + d / 4, l / 3, d - d / 2 - d / 4, couleur);
+    }
+}
+
 /// Îlots de nuages flottants (couche intermédiaire), dessinés en blocs entiers.
+/// Le dessus est arrondi (1 px sur un quart de la largeur, puis 1 px sur la moitié)
+/// pour ne pas ressembler à une plateforme plate.
 fn dessiner_ilots(corps: Couleur, dessous: Couleur, cam_x: i32, vert: i32) {
     let dec = decalage(cam_x, FACTEUR_ILOTS);
     let premiere = dec.div_euclid(CELLULE_ILOT) - 1;
@@ -418,7 +537,8 @@ fn dessiner_ilots(corps: Couleur, dessous: Couleur, cam_x: i32, vert: i32) {
     for cellule in premiere..=derniere {
         if let Some((x, y, l)) = ilot(cellule) {
             let (x, y) = (x - dec, y + vert);
-            rect(x + l / 4, y, l / 2, 2, corps);
+            rect(x + 3 * l / 8, y, l / 4, 1, corps);
+            rect(x + l / 4, y + 1, l / 2, 1, corps);
             rect(x, y + 2, l, 4, corps);
             rect(x + 3, y + 6, l - 6, ILOT_HAUTEUR - 6, dessous);
         }
@@ -430,7 +550,7 @@ fn dessiner_pluie(a: &Ambiance, pas: u32) {
         .into_iter()
         .enumerate()
     {
-        for i in 0..GOUTTES_PAR_COUCHE {
+        for i in 0..a.gouttes {
             let (x, y) = goutte_de_pluie(i, pas, vitesse, 100 + couche as u32);
             // Un trait diagonal de 1 à 2 pixels, calé sur la grille.
             for k in 0..longueur + 1 {
@@ -444,11 +564,21 @@ fn dessiner_pluie(a: &Ambiance, pas: u32) {
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     let a = ambiance(theme);
     dessiner_ciel(&a);
-    if a.etoiles {
-        dessiner_etoiles(pas, cam_x);
+    if let Some(ymax) = a.etoiles {
+        dessiner_etoiles(pas, cam_x, ymax);
     }
     if a.soleil {
         dessiner_soleil(cam_x);
+    }
+    if let Some(p) = &a.plafond {
+        dessiner_plafond(cam_x, FACTEUR_PLAFOND_LOIN, GRAINE_PLAFOND_LOIN, p, p.loin);
+        dessiner_plafond(
+            cam_x,
+            FACTEUR_PLAFOND_PROCHE,
+            GRAINE_PLAFOND_PROCHE,
+            p,
+            p.proche,
+        );
     }
     // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale).
     let vert = |f: f32| -decalage(cam_y, f);
@@ -472,7 +602,7 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     dessiner_couche(
         &a,
         cam_x,
-        BASE_PROCHE + vert(0.10),
+        BASE_PROCHE + a.descente + vert(0.10),
         FACTEUR_PROCHE,
         a.proche,
         GRAINE_PROCHE,
@@ -509,6 +639,9 @@ mod tests {
             for (c1, c2) in a.fenetres.into_iter().chain(a.ilots) {
                 couleurs.extend([c1, c2]);
             }
+            if let Some(p) = a.plafond {
+                couleurs.extend([p.loin, p.proche]);
+            }
             for c in couleurs {
                 assert!(TOUTES.contains(&c), "{t:?} : couleur hors palette {c:?}");
             }
@@ -537,6 +670,11 @@ mod tests {
     fn la_couche_lointaine_monte_a_40_px_au_moins_dans_chaque_theme() {
         for t in THEMES {
             let a = ambiance(t);
+            // Le niveau 5 est l'exception voulue : ses bancs de nuages restent BAS
+            // (sous la ligne du sol, test ci-dessous) pour ne pas imiter les plateformes.
+            if a.forme == Forme::Nuages {
+                continue;
+            }
             let max = (-100..100)
                 .map(|c| hauteur_silhouette(&a, c, GRAINE_LOINTAINE, a.relief))
                 .max()
@@ -617,7 +755,7 @@ mod tests {
     #[test]
     fn la_pluie_reste_a_l_ecran_et_tombe_en_diagonale() {
         for pas in [0, 1, 59, 600, 123_456] {
-            for i in 0..GOUTTES_PAR_COUCHE {
+            for i in 0..GOUTTES_MAX {
                 let (x, y) = goutte_de_pluie(i, pas, 3, 101);
                 assert!((0..L).contains(&x) && (0..H).contains(&y), "({x},{y})");
             }
@@ -636,6 +774,118 @@ mod tests {
             let (_, l, h, chem) = immeuble(c, 23);
             assert!((28..=44).contains(&l) && (22..62).contains(&h));
             assert!(chem >= 6 && chem + 5 <= l, "cheminée {chem} hors de {l}");
+        }
+    }
+
+    /// I-04 : la couche proche (immeubles noirs, tours sombres) ne dépasse jamais de
+    /// la ligne du sol, même avec la parallaxe verticale maximale (-10 px).
+    #[test]
+    fn la_couche_proche_ne_depasse_pas_de_la_ligne_du_sol() {
+        for t in THEMES {
+            let a = ambiance(t);
+            let proche = zones(&a).into_iter().find(|z| z.nom == "proche").unwrap();
+            if a.forme == Forme::Nuages {
+                continue;
+            }
+            assert!(
+                proche.haut - 10 >= LIGNE_SOL,
+                "{t:?} : couche proche à y={} au-dessus du sol (y={LIGNE_SOL})",
+                proche.haut - 10
+            );
+        }
+    }
+
+    /// I-03 : au niveau 5, les bancs de nuages du fond restent sous la ligne du sol
+    /// (ils ne bouchent pas un trou à la hauteur des plateformes) et n'ont ni la
+    /// couleur des plateformes ni celle du ciel.
+    #[test]
+    fn les_nuages_du_niveau_5_restent_sous_la_ligne_du_sol() {
+        let a = ambiance(Theme::Soleil);
+        for z in zones(&a).into_iter().filter(|z| z.nom != "proche") {
+            assert!(z.haut >= LIGNE_SOL, "{} monte à y={}", z.nom, z.haut);
+        }
+        assert_ne!(a.lointain, NUAGE);
+        assert_ne!(a.proche, BLANC_CASSE);
+    }
+
+    /// I-06 : plus de bande de ciel clair sous les immeubles de fond (niveaux 1 à 3).
+    #[test]
+    fn les_immeubles_de_fond_descendent_jusqu_en_bas() {
+        for t in [Theme::Toits, Theme::Gouttieres, Theme::Orage] {
+            assert!(ambiance(t).socle, "{t:?}");
+        }
+    }
+
+    /// I-17 : l'or ne sert qu'aux gouttes à ramasser et aux éclairs.
+    #[test]
+    fn aucun_decor_n_utilise_l_or() {
+        for t in THEMES {
+            let a = ambiance(t);
+            let (c1, c2) = a.fenetres.unwrap_or((ORANGE_SOLEIL, ORANGE_SOLEIL));
+            assert!(c1 != OR && c2 != OR, "{t:?}");
+        }
+    }
+
+    /// I-19 : les étoiles ne se dessinent que dans une bande de ciel où elles se voient.
+    #[test]
+    fn les_etoiles_se_voient_sur_leur_bande_de_ciel() {
+        for t in THEMES {
+            let a = ambiance(t);
+            if let Some(ymax) = a.etoiles {
+                for y in 0..ymax {
+                    let fond = ciel_a(&a, y);
+                    assert!(fond != BLANC_CASSE && fond != OR_PALE, "{t:?} y={y}");
+                    assert!(
+                        fond != CORAIL && fond != CORAIL_CLAIR && fond != ORANGE_SOLEIL,
+                        "{t:?} : étoile invisible sur {fond:?} (y={y})"
+                    );
+                }
+            }
+        }
+    }
+
+    /// I-20 : la pluie diffère d'un niveau à l'autre, reste sous le garde-fou,
+    /// et ses deux couleurs ne se confondent avec aucune bande de ciel.
+    #[test]
+    fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
+        let n: Vec<i32> = THEMES.iter().map(|t| ambiance(*t).gouttes).collect();
+        assert_eq!(n, [24, 48, 60, 18, 0]);
+        for t in THEMES {
+            let a = ambiance(t);
+            assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");
+            if a.gouttes == 0 {
+                continue;
+            }
+            for (couleur, nom) in [(a.pluie.0, "lointaine"), (a.pluie.1, "proche")] {
+                for bande in a.ciel {
+                    assert!(
+                        couleur != bande,
+                        "{t:?} : pluie {nom} invisible sur {bande:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// I-21 : le plafond de nuages tient dans la bande du haut, sa couleur diffère
+    /// de celle-ci, et il n'existe qu'aux niveaux 2 et 3.
+    #[test]
+    fn le_plafond_de_nuages_tient_dans_la_bande_du_haut() {
+        for t in THEMES {
+            let a = ambiance(t);
+            let attendu = matches!(t, Theme::Gouttieres | Theme::Orage);
+            assert_eq!(a.plafond.is_some(), attendu, "{t:?}");
+            if let Some(p) = a.plafond {
+                for c in [p.loin, p.proche] {
+                    assert!(c != a.ciel[0], "{t:?} : plafond invisible sur le ciel");
+                }
+                assert!(profondeur_plafond_max(p.ampleur) <= H / 4, "{t:?}");
+            }
+        }
+        for c in -50..50 {
+            assert_eq!(nuage_plafond(c, 31, 4), nuage_plafond(c, 31, 4));
+            let (_, l, d) = nuage_plafond(c, 31, 4);
+            assert!((40..=64).contains(&l) && (6..=34).contains(&d), "{l} {d}");
         }
     }
 }

@@ -142,3 +142,41 @@ elle (4 bandes, tous thèmes), silhouette lointaine >= 40 px, fenêtres dans le 
 nombreuses, îlots dans le tiers médian. Résultat : 143 + 116 tests OK, `./docker-cargo.sh lint` OK.
 Limite : le contraste est contrôlé par la palette et à l'œil sur captures ; pas de mesure de
 luminance entre le héros et le fond.
+
+## Corrections du décor (audit)
+
+Source : RAPPORT d'audit des 5 niveaux (I-03, 04, 06, 16, 17, 18, 19, 20, 21, 22). Seul
+`game/src/decor.rs` change. Captures réelles avant/après (Chromium piloté par CDP, 1280x720, début,
+milieu et fin de chaque niveau) : `docs/qa/50-niveauN-{debut,milieu,fin}-{avant,apres}.png`
+(30 images, pilote `docs/capture-fond.mjs`). Mesure `docs/mesure-capture.py` sur les 30 : 0 pixel hors
+palette, 0 pixel semi-transparent, 0 bloc flou.
+
+Fait :
+
+- I-04 : la couche proche descend (32 px pour les immeubles, 24 px pour les tours du niveau 4). Son
+  sommet reste sous la ligne du sol (y=132) même avec la parallaxe verticale maximale. Plus de
+  silhouette noire posée sur le toit. Test `la_couche_proche_ne_depasse_pas_de_la_ligne_du_sol`.
+- I-03 : niveau 5, bancs de nuages du fond en CORAIL_CLAIR (plus la couleur des plateformes), sans
+  relief : leurs sommets restent sous la ligne du sol. Test dédié.
+- I-22 : niveau 5, nappe proche en BRUME au lieu de BLANC_CASSE (nette sur le ciel OR_PALE).
+- I-06 : `socle: true` aux niveaux 1 et 2 : plus de ciel clair sous les immeubles du fond.
+- I-17 : fenêtres du niveau 3 en ORANGE_SOLEIL / CORAIL_CLAIR ; l'or est réservé aux gouttes et aux
+  éclairs. Test `aucun_decor_n_utilise_l_or`.
+- I-18 : dessus des îlots du niveau 4 arrondi (1 px sur un quart de la largeur, puis 1 px sur la moitié).
+- I-19 : étoiles du niveau 4 limitées à la bande violette du haut (y < 45) ; niveau 1 inchangé
+  (moitié haute). Test sur la couleur du ciel derrière chaque étoile.
+- I-20 : densité de pluie par ambiance : 24, 48, 60, 18 gouttes aux niveaux 1 à 4, 0 au niveau 5
+  (inchangé). Pluie lointaine du niveau 4 en cyan (PLUIE) : visible sur les quatre bandes.
+- I-21 : plafond de nuages d'orage en dômes renversés, deux couches de parallaxe (0,10 et 0,20),
+  au niveau 3 (ampleur 4, ardoise nuit / ardoise) et au niveau 2 (ampleur 2, nuages discrets).
+  Il tient dans la bande du haut (profondeur max 34 px < 45).
+
+Non fait : I-16 (quatrième bande de ciel du niveau 2 en ARDOISE_PALE), facultatif. Le plafond change
+déjà le haut du ciel du niveau 2 ; je n'ai pas testé cette variante, et je ne prétends pas qu'elle
+améliorerait le contraste sol/ciel.
+
+Mesures : wasm 426 213 octets (< 1,2 Mo). Tests : 123 (jeu) + 143 (noyau) OK, dont 7 nouveaux tests
+du décor ; `./docker-cargo.sh lint` OK.
+Limites : jugé à l'œil sur captures, sans mesure de luminance. Toutes les captures sont prises au
+début, au milieu et à la fin de chaque niveau avec `docs/capture-fond.mjs` ; je n'ai pas rejoué une
+partie complète du robot pour cette carte.
