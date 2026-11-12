@@ -309,3 +309,28 @@ physique ni mécanique touchée.
 Mesures : `docs/mesure-capture.py capture.png 3` sur les 15 captures `80-*` : 0 couleur hors
 palette, 0 flou. wasm 433 771 octets (< 1,2 Mo). Tests : 143 (noyau) + 146 (jeu) OK, robot
 de QA : les 5 niveaux finis sans mort (12 254 images) ; `./docker-cargo.sh lint` OK.
+
+## Niveau 2 : lanterne et poche close
+
+Signalement : « niveau 2 : un trou est bouché par un mur bizarrement, et il y a un checkpoint dans
+les airs ». Deux défauts confirmés dans `core/src/levels/gouttieres.rs`. Aucune physique ni
+mécanique touchée.
+
+- Lanterne flottante : `L` colonne 66, rangée 2, au-dessus d'une rangée 3 vide (toit en rangée 4).
+  Descendue en rangée 3 : elle repose sur le toit.
+- Poche de vide close : colonne 61, rangées 8 à 10, coiffée par le bloc `BB` des colonnes 60-61 et
+  bordée de plein des deux côtés (inaccessible, visible comme un trou sombre sous le mur). Remplie :
+  rangée 8 -> `#`, rangées 9 et 10 -> `B`. Les trous accessibles des colonnes 28-30 et 83-85 sont
+  intacts.
+- Tests ajoutés (`core/src/zones.rs`, 5 niveaux) : `aucune_lanterne_ne_flotte` (case juste dessous
+  = `#`, `B` ou `N`) et `aucune_poche_de_vide_close` (aucune colonne de vide coiffée d'un solide et
+  bordée de solide à chaque rangée) ; messages en français avec niveau, colonne et rangée. Vérifié
+  rouge sur l'ancien niveau 2 (lanterne col. 66 rangée 2 ; poche col. 61 rangées 8 à 10), vert
+  ensuite ; les 4 autres niveaux passent sans changement.
+- Captures (même image 3301 du parcours du robot, 960x540) : `docs/qa/90-niveau2-lanterne-poche-avant.png`
+  (lanterne en l'air) et `docs/qa/90-niveau2-lanterne-poche-apres.png` (lanterne posée sur le toit,
+  plus de poche sombre sous le mur, colonnes 58-64). `mesure-capture.py ... 3` : 0 couleur hors
+  palette, 0 flou.
+- Vérifications : tests 145 (noyau) + 146 (jeu) OK ; faisabilité inchangée ; le robot de QA finit
+  les 5 niveaux, 0 mort, script identique à l'ancien (12 254 images) ; `./docker-cargo.sh lint`
+  OK ; wasm 433 771 octets.

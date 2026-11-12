@@ -279,4 +279,79 @@ mod tests {
             );
         }
     }
+
+    /// Grille ASCII d'un niveau : les lignes du dessin, rangée 0 en haut.
+    fn grille(infos: &InfosNiveau) -> Vec<Vec<char>> {
+        infos
+            .ascii
+            .lines()
+            .map(str::trim_end)
+            .filter(|l| !l.is_empty())
+            .map(|l| l.chars().collect())
+            .collect()
+    }
+
+    /// Tuile pleine du dessin (`#` toit, `B` brique, `N` nuage, rien d'autre).
+    /// Hors de la grille à gauche et à droite : mur ; en haut : ciel ouvert.
+    fn plein(g: &[Vec<char>], x: i32, y: i32) -> bool {
+        if x < 0 || x >= g[0].len() as i32 {
+            return true;
+        }
+        if y < 0 || y >= g.len() as i32 {
+            return false;
+        }
+        matches!(g[y as usize][x as usize], '#' | 'B' | 'N')
+    }
+
+    /// Une lanterne (point de reprise) ne flotte jamais : la case juste en
+    /// dessous est un solide (`#`, `B` ou `N`).
+    #[test]
+    fn aucune_lanterne_ne_flotte() {
+        for infos in &NIVEAUX {
+            infos.charger().unwrap();
+            let g = grille(infos);
+            for (y, ligne) in g.iter().enumerate() {
+                for (x, &c) in ligne.iter().enumerate() {
+                    if c == 'L' {
+                        assert!(
+                            plein(&g, x as i32, y as i32 + 1) && y + 1 < g.len(),
+                            "niveau {} : la lanterne de la colonne {x}, rangée {y} flotte \
+                             (la case en dessous n'est pas un solide)",
+                            infos.numero
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Aucune « poche close » : une case vide coiffée d'un solide dont la
+    /// colonne de vide (jusqu'en bas) est bordée d'un solide des deux côtés à
+    /// chaque rangée est inaccessible et se voit comme un trou sombre.
+    #[test]
+    fn aucune_poche_de_vide_close() {
+        for infos in &NIVEAUX {
+            infos.charger().unwrap();
+            let g = grille(infos);
+            for y in 1..g.len() as i32 {
+                for x in 0..g[0].len() as i32 {
+                    if plein(&g, x, y) || !plein(&g, x, y - 1) {
+                        continue;
+                    }
+                    let mut fin = y;
+                    while fin < g.len() as i32 && !plein(&g, x, fin) {
+                        fin += 1;
+                    }
+                    let close = (y..fin).all(|r| plein(&g, x - 1, r) && plein(&g, x + 1, r));
+                    assert!(
+                        !close,
+                        "niveau {} : poche de vide close en colonne {x}, rangées {y} à {} \
+                         (coiffée et bordée de solide, inaccessible)",
+                        infos.numero,
+                        fin - 1
+                    );
+                }
+            }
+        }
+    }
 }
