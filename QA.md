@@ -123,3 +123,22 @@ Code : `game/src/orientation.rs` (décision, sprites, dessin, 10 tests), branch�
 ## Restes à décider (aucun n'est bloquant)
 
 1. Boutons tactiles semi-transparents : les garder ou les rendre opaques (voir plus haut).
+
+## Fonds des niveaux 3 et 4 (décor.rs)
+
+Avant : à l'orage (niveau 3) et en altitude (niveau 4), la couche lointaine ne dépassait que d'environ
+20 px du bas de l'écran : le fond était un aplat de ciel. Maintenant (`game/src/decor.rs`) :
+
+- niveau 3 : immeubles hauts (relief +22 px) en bleu nuit sur ciel violet, quelques fenêtres allumées
+  (1x2 px, orange/or, environ une fenêtre sur trois par immeuble au plus), couche lointaine prolongée
+  jusqu'au bas de l'écran (pas de bande de ciel dans les trouées) ;
+- niveau 4 : tours de nuages violettes en 4 étages sur le ciel corail, tours proches sombres, petits
+  îlots flottants dans le tiers médian de l'écran (y 58 à 86), parallaxe propre (0,25).
+
+Captures réelles avant/après : `docs/qa/41` à `44` (pilote `docs/capture-fond.mjs`, CDP, Chromium 1280x720).
+Rien d'autre ne change : mêmes 16 couleurs de la palette, 0 semi-transparence, wasm 425 510 octets.
+Nouveaux tests (decor.rs) : couleurs dans la palette, aucune couche de la couleur du ciel derrière
+elle (4 bandes, tous thèmes), silhouette lointaine >= 40 px, fenêtres dans le bâtiment et peu
+nombreuses, îlots dans le tiers médian. Résultat : 143 + 116 tests OK, `./docker-cargo.sh lint` OK.
+Limite : le contraste est contrôlé par la palette et à l'œil sur captures ; pas de mesure de
+luminance entre le héros et le fond.

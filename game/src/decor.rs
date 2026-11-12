@@ -21,6 +21,17 @@ use crate::rendu::couleur_mq;
 const L: i32 = LARGEUR_LOGIQUE as i32;
 const H: i32 = HAUTEUR_LOGIQUE as i32;
 
+/// Forme des silhouettes d'une couche.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Forme {
+    /// Immeubles : corps, toit en gradins, cheminée.
+    Immeubles,
+    /// Bancs de nuages arrondis (trois étages en dôme).
+    Nuages,
+    /// Tours ou pics de nuages en quatre étages de plus en plus étroits.
+    Pics,
+}
+
 /// Ce qui distingue l'ambiance d'un niveau.
 #[derive(Debug, Clone, Copy)]
 pub struct Ambiance {
@@ -35,8 +46,18 @@ pub struct Ambiance {
     pub etoiles: bool,
     /// Soleil visible ?
     pub soleil: bool,
-    /// Silhouettes en nuages arrondis plutôt qu'en toits ?
-    pub nuageux: bool,
+    /// Forme des silhouettes (immeubles, bancs de nuages ou pics).
+    pub forme: Forme,
+    /// Pixels ajoutés à la hauteur des silhouettes de la couche LOINTAINE :
+    /// un fond qui monte haut au lieu d'un simple liseré en bas d'écran.
+    pub relief: i32,
+    /// La couche lointaine descend jusqu'au bas de l'écran (pas de bande de ciel
+    /// sous les silhouettes dans les trouées de la couche proche).
+    pub socle: bool,
+    /// Fenêtres allumées (lointaines, proches) sur les immeubles, s'il y en a.
+    pub fenetres: Option<(Couleur, Couleur)>,
+    /// Petites îles de nuages flottantes (corps, dessous), s'il y en a.
+    pub ilots: Option<(Couleur, Couleur)>,
 }
 
 /// Ambiance d'un thème : l'orage noir s'éclaircit jusqu'au soleil doré.
@@ -49,7 +70,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             pluie: (PLUIE_SOMBRE, PLUIE),
             etoiles: true,
             soleil: false,
-            nuageux: false,
+            forme: Forme::Immeubles,
+            relief: 0,
+            socle: false,
+            fenetres: None,
+            ilots: None,
         },
         Theme::Gouttieres => Ambiance {
             ciel: [ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE, ARDOISE_CLAIRE],
@@ -58,17 +83,29 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             pluie: (PLUIE_SOMBRE, PLUIE),
             etoiles: false,
             soleil: false,
-            nuageux: false,
+            forme: Forme::Immeubles,
+            relief: 0,
+            socle: false,
+            fenetres: None,
+            ilots: None,
         },
+        // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
+        // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit.
         Theme::Orage => Ambiance {
-            ciel: [ARDOISE_OMBRE, VIOLET_ORAGE, VIOLET_ORAGE, ARDOISE_NUIT],
+            ciel: [ARDOISE_OMBRE, ARDOISE, VIOLET_ORAGE, VIOLET_ORAGE],
             lointain: ARDOISE_NUIT,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
             etoiles: false,
             soleil: false,
-            nuageux: true,
+            forme: Forme::Immeubles,
+            relief: 22,
+            socle: true,
+            fenetres: Some((ORANGE_SOLEIL, OR)),
+            ilots: None,
         },
+        // Altitude : tours de nuages violettes sur le ciel corail, tours proches
+        // plus sombres, petites îles flottantes dans le tiers médian.
         Theme::Altitude => Ambiance {
             ciel: [VIOLET_ORAGE, CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL],
             lointain: VIOLET_ORAGE,
@@ -76,7 +113,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             pluie: (CORAIL_CLAIR, BLANC_CASSE),
             etoiles: true,
             soleil: false,
-            nuageux: true,
+            forme: Forme::Pics,
+            relief: 14,
+            socle: true,
+            fenetres: None,
+            ilots: Some((VIOLET_ORAGE, ARDOISE_NUIT)),
         },
         Theme::Soleil => Ambiance {
             ciel: [CORAIL_CLAIR, ORANGE_SOLEIL, OR, OR_PALE],
@@ -85,9 +126,37 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             pluie: (OR_PALE, BLANC_CASSE),
             etoiles: false,
             soleil: true,
-            nuageux: true,
+            forme: Forme::Nuages,
+            relief: 14,
+            socle: false,
+            fenetres: None,
+            ilots: None,
         },
     }
+}
+
+/// Ordonnée du sol de la couche lointaine et de la couche proche (avant parallaxe verticale).
+const BASE_LOINTAINE: i32 = H - 18;
+const BASE_PROCHE: i32 = H + 4;
+/// Facteurs de parallaxe horizontale des couches (lointaine, îlots, proche).
+const FACTEUR_LOINTAINE: f32 = 0.15;
+const FACTEUR_ILOTS: f32 = 0.25;
+const FACTEUR_PROCHE: f32 = 0.35;
+/// Graines de hasard des deux couches de silhouettes.
+const GRAINE_LOINTAINE: u32 = 11;
+const GRAINE_PROCHE: u32 = 23;
+/// Largeur d'une cellule d'îlots et fourchette d'ordonnées des îlots (tiers médian).
+const CELLULE_ILOT: i32 = 72;
+const ILOT_Y_MIN: i32 = 58;
+const ILOT_Y_ALEA: u32 = 20;
+const ILOT_HAUTEUR: i32 = 8;
+
+#[cfg(test)]
+/// Couleur de la bande de ciel située à l'ordonnée `y` (fonction pure : le test
+/// vérifie par là qu'aucune silhouette n'a la couleur du ciel derrière elle).
+pub(crate) fn ciel_a(a: &Ambiance, y: i32) -> Couleur {
+    let bande = (H / 4) as usize;
+    a.ciel[(y.max(0) as usize / bande).min(3)]
 }
 
 /// Décalage de parallaxe entier d'une couche : plus `facteur` est petit, plus la
@@ -118,6 +187,100 @@ pub fn immeuble(cellule: i32, graine: u32) -> (i32, i32, i32, i32) {
         hauteur,
         cheminee,
     )
+}
+
+/// Hauteur totale (en pixels) de la silhouette de la cellule `cellule`, pour la
+/// forme de l'ambiance et `relief` pixels de plus. Pure : sert au dessin ET aux tests.
+pub fn hauteur_silhouette(a: &Ambiance, cellule: i32, graine: u32, relief: i32) -> i32 {
+    let (_, _, h, _) = immeuble(cellule, graine);
+    match a.forme {
+        // Corps + cheminée qui dépasse de 10 px.
+        Forme::Immeubles => h + relief + 10,
+        Forme::Nuages => 8 + h / 3 + relief,
+        // Quatre étages égaux (arrondis vers le haut).
+        Forme::Pics => 4 * ((h + relief + 3) / 4),
+    }
+}
+
+/// Fenêtre allumée `k` (0 à 2) de l'immeuble de la cellule `cellule` : décalage
+/// `(dx, dy)` depuis le coin haut-gauche du corps, ou `None` (environ une fenêtre
+/// sur trois seulement existe). Toujours à l'intérieur du corps du bâtiment.
+pub fn fenetre(
+    cellule: i32,
+    graine: u32,
+    k: i32,
+    largeur: i32,
+    hauteur: i32,
+) -> Option<(i32, i32)> {
+    let h = hache(cellule * 3 + k, graine ^ 0xF3);
+    if !h.is_multiple_of(3) {
+        return None;
+    }
+    let dx = 3 + ((h >> 4) % (largeur as u32 - 7)) as i32;
+    let dy = 5 + ((h >> 12) % (hauteur as u32 - 10)) as i32;
+    Some((dx, dy))
+}
+
+/// Îlot de nuages de la cellule `cellule` (72 px de large) : `(x, y, largeur)` dans le
+/// repère de la couche, ou `None` (une cellule sur trois est vide).
+pub fn ilot(cellule: i32) -> Option<(i32, i32, i32)> {
+    let h = hache(cellule, 41);
+    if h.is_multiple_of(3) {
+        return None;
+    }
+    Some((
+        cellule * CELLULE_ILOT + ((h >> 3) % 24) as i32,
+        ILOT_Y_MIN + ((h >> 8) % ILOT_Y_ALEA) as i32,
+        18 + ((h >> 14) % 15) as i32,
+    ))
+}
+
+#[cfg(test)]
+/// Une zone d'écran occupée par une couche de silhouettes : couleur et ordonnées
+/// `[haut, bas)` occupées (avant parallaxe verticale), pour le contrôle de contraste.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Zone {
+    pub nom: &'static str,
+    pub couleur: Couleur,
+    pub haut: i32,
+    pub bas: i32,
+}
+
+#[cfg(test)]
+/// Les couches de silhouettes d'une ambiance (lointaine, proche, îlots) avec la zone
+/// d'écran où elles se dessinent. Hauteur maximale mesurée sur 200 cellules.
+pub(crate) fn zones(a: &Ambiance) -> Vec<Zone> {
+    let max_h = |graine: u32, relief: i32| {
+        (-100..100)
+            .map(|c| hauteur_silhouette(a, c, graine, relief))
+            .max()
+            .unwrap_or(0)
+    };
+    let mut v = vec![
+        Zone {
+            nom: "lointaine",
+            couleur: a.lointain,
+            haut: BASE_LOINTAINE - max_h(GRAINE_LOINTAINE, a.relief),
+            bas: if a.socle { H } else { BASE_LOINTAINE },
+        },
+        Zone {
+            nom: "proche",
+            couleur: a.proche,
+            haut: BASE_PROCHE - max_h(GRAINE_PROCHE, 0),
+            bas: H,
+        },
+    ];
+    if let Some((corps, dessous)) = a.ilots {
+        for (nom, couleur) in [("ilots", corps), ("ilots-dessous", dessous)] {
+            v.push(Zone {
+                nom,
+                couleur,
+                haut: ILOT_Y_MIN,
+                bas: ILOT_Y_MIN + ILOT_Y_ALEA as i32 + ILOT_HAUTEUR,
+            });
+        }
+    }
+    v
 }
 
 /// Position `(x, y)` écran de la goutte de pluie `i` au pas `pas`, pour une couche
@@ -186,7 +349,9 @@ fn dessiner_soleil(cam_x: i32) {
     }
 }
 
-/// Une couche de silhouettes. `base` : ordonnée du sol de la couche.
+/// Une couche de silhouettes. `base` : ordonnée du sol de la couche. `relief` :
+/// pixels ajoutés à la hauteur. `fenetres` : couleur des fenêtres allumées (immeubles).
+#[allow(clippy::too_many_arguments)]
 fn dessiner_couche(
     a: &Ambiance,
     cam_x: i32,
@@ -194,6 +359,8 @@ fn dessiner_couche(
     facteur: f32,
     couleur: Couleur,
     graine: u32,
+    relief: i32,
+    fenetres: Option<Couleur>,
 ) {
     let dec = decalage(cam_x, facteur);
     let premiere = dec.div_euclid(48) - 1;
@@ -201,20 +368,59 @@ fn dessiner_couche(
     for cellule in premiere..=derniere {
         let (x, l, h, chem) = immeuble(cellule, graine);
         let x = x - dec;
+        let h = h + relief;
         let y = base - h;
-        if a.nuageux {
-            // Banc de nuages : trois étages de plus en plus étroits (un dôme),
-            // bas et large plutôt qu'un immeuble.
-            let hn = 8 + h / 3;
-            rect(x, base - hn / 2, l, hn / 2, couleur);
-            rect(x + l / 8, base - hn * 3 / 4, l * 3 / 4, hn / 4, couleur);
-            rect(x + l / 3, base - hn, l / 3, hn / 4, couleur);
-        } else {
-            // Immeuble : corps, toit en gradins, cheminée.
-            rect(x, y, l, h, couleur);
-            rect(x + 3, y - 2, l - 6, 2, couleur);
-            rect(x + 7, y - 4, l - 14, 2, couleur);
-            rect(x + chem, y - 10, 5, 8, couleur);
+        match a.forme {
+            Forme::Nuages => {
+                // Banc de nuages : trois étages de plus en plus étroits (un dôme).
+                let hn = hauteur_silhouette(a, cellule, graine, relief);
+                rect(x, base - hn / 2, l, hn / 2, couleur);
+                rect(x + l / 8, base - hn * 3 / 4, l * 3 / 4, hn / 4, couleur);
+                rect(x + l / 3, base - hn, l / 3, hn / 4, couleur);
+            }
+            Forme::Pics => {
+                // Tour de nuages : quatre étages égaux, de plus en plus étroits ; la
+                // position du sommet (`chem`) change d'une cellule à l'autre.
+                let etage = hauteur_silhouette(a, cellule, graine, relief) / 4;
+                for s in 0..4 {
+                    let w = l - s * l / 5;
+                    let decal = (l - w) * (chem - 6) / (l - 12);
+                    rect(x + decal, base - (s + 1) * etage, w, etage, couleur);
+                }
+            }
+            Forme::Immeubles => {
+                // Immeuble : corps, toit en gradins, cheminée.
+                rect(x, y, l, h, couleur);
+                rect(x + 3, y - 2, l - 6, 2, couleur);
+                rect(x + 7, y - 4, l - 14, 2, couleur);
+                rect(x + chem, y - 10, 5, 8, couleur);
+                if let Some(c) = fenetres {
+                    for k in 0..3 {
+                        if let Some((dx, dy)) = fenetre(cellule, graine, k, l, h) {
+                            rect(x + dx, y + dy, 1, 2, c);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Socle : la couche lointaine descend jusqu'au bas de l'écran, sans trouée.
+    if a.socle && base < H {
+        rect(0, base, L, H - base, couleur);
+    }
+}
+
+/// Îlots de nuages flottants (couche intermédiaire), dessinés en blocs entiers.
+fn dessiner_ilots(corps: Couleur, dessous: Couleur, cam_x: i32, vert: i32) {
+    let dec = decalage(cam_x, FACTEUR_ILOTS);
+    let premiere = dec.div_euclid(CELLULE_ILOT) - 1;
+    let derniere = (dec + L).div_euclid(CELLULE_ILOT) + 1;
+    for cellule in premiere..=derniere {
+        if let Some((x, y, l)) = ilot(cellule) {
+            let (x, y) = (x - dec, y + vert);
+            rect(x + l / 4, y, l / 2, 2, corps);
+            rect(x, y + 2, l, 4, corps);
+            rect(x + 3, y + 6, l - 6, ILOT_HAUTEUR - 6, dessous);
         }
     }
 }
@@ -246,8 +452,33 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     }
     // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale).
     let vert = |f: f32| -decalage(cam_y, f);
-    dessiner_couche(&a, cam_x, H - 18 + vert(0.05), 0.15, a.lointain, 11);
-    dessiner_couche(&a, cam_x, H + 4 + vert(0.10), 0.35, a.proche, 23);
+    if let Some((corps, dessous)) = a.ilots {
+        dessiner_ilots(corps, dessous, cam_x, vert(0.07));
+    }
+    let (fen_loin, fen_proche) = match a.fenetres {
+        Some((l, p)) => (Some(l), Some(p)),
+        None => (None, None),
+    };
+    dessiner_couche(
+        &a,
+        cam_x,
+        BASE_LOINTAINE + vert(0.05),
+        FACTEUR_LOINTAINE,
+        a.lointain,
+        GRAINE_LOINTAINE,
+        a.relief,
+        fen_loin,
+    );
+    dessiner_couche(
+        &a,
+        cam_x,
+        BASE_PROCHE + vert(0.10),
+        FACTEUR_PROCHE,
+        a.proche,
+        GRAINE_PROCHE,
+        0,
+        fen_proche,
+    );
 }
 
 /// Dessine la pluie PAR-DESSUS le niveau (devant tout).
@@ -275,10 +506,92 @@ mod tests {
             let a = ambiance(t);
             let mut couleurs = a.ciel.to_vec();
             couleurs.extend([a.lointain, a.proche, a.pluie.0, a.pluie.1]);
+            for (c1, c2) in a.fenetres.into_iter().chain(a.ilots) {
+                couleurs.extend([c1, c2]);
+            }
             for c in couleurs {
                 assert!(TOUTES.contains(&c), "{t:?} : couleur hors palette {c:?}");
             }
         }
+    }
+
+    #[test]
+    fn aucune_silhouette_n_a_la_couleur_du_ciel_derriere_elle() {
+        for t in THEMES {
+            let a = ambiance(t);
+            for z in zones(&a) {
+                assert!(z.haut < z.bas, "{t:?} {} : zone vide", z.nom);
+                for y in z.haut..z.bas {
+                    assert_ne!(
+                        z.couleur,
+                        ciel_a(&a, y),
+                        "{t:?} : la couche {} a la couleur du ciel à y={y}",
+                        z.nom
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn la_couche_lointaine_monte_a_40_px_au_moins_dans_chaque_theme() {
+        for t in THEMES {
+            let a = ambiance(t);
+            let max = (-100..100)
+                .map(|c| hauteur_silhouette(&a, c, GRAINE_LOINTAINE, a.relief))
+                .max()
+                .unwrap();
+            assert!(max >= 40, "{t:?} : fond « aplat », silhouette de {max} px");
+        }
+        // Les deux niveaux signalés ont de vraies silhouettes hautes.
+        for t in [Theme::Orage, Theme::Altitude] {
+            let a = ambiance(t);
+            let z = zones(&a)[0];
+            assert!(z.bas - z.haut >= 60, "{t:?} : couche lointaine trop basse");
+        }
+    }
+
+    #[test]
+    fn le_niveau_3_a_des_immeubles_avec_quelques_fenetres_allumees() {
+        let a = ambiance(Theme::Orage);
+        assert_eq!(a.forme, Forme::Immeubles);
+        assert!(a.fenetres.is_some());
+        let (mut total, mut cellules) = (0, 0);
+        for c in -100..100 {
+            let (_, l, h, _) = immeuble(c, GRAINE_LOINTAINE);
+            let h = h + a.relief;
+            cellules += 1;
+            for k in 0..3 {
+                if let Some((dx, dy)) = fenetre(c, GRAINE_LOINTAINE, k, l, h) {
+                    total += 1;
+                    // Une fenêtre de 1x2 reste dans le corps du bâtiment.
+                    assert!((0..l).contains(&dx) && dy >= 0 && dy + 2 <= h, "{dx},{dy}");
+                }
+            }
+        }
+        // Peu nombreuses : entre 0,3 et 1,5 par immeuble en moyenne.
+        assert!(
+            total > cellules * 3 / 10 && total < cellules * 3 / 2,
+            "{total}"
+        );
+    }
+
+    #[test]
+    fn les_ilots_du_niveau_4_restent_dans_le_tiers_median() {
+        assert!(ambiance(Theme::Altitude).ilots.is_some());
+        let mut vus = 0;
+        for c in -100..100 {
+            if let Some((_, y, l)) = ilot(c) {
+                vus += 1;
+                assert!(
+                    y >= ILOT_Y_MIN
+                        && y + ILOT_HAUTEUR <= ILOT_Y_MIN + ILOT_Y_ALEA as i32 + ILOT_HAUTEUR
+                );
+                assert!((18..33).contains(&l));
+                assert!(y >= H / 4 && y + ILOT_HAUTEUR <= 3 * H / 4);
+            }
+        }
+        assert!(vus > 100, "trop peu d'îlots : {vus}");
     }
 
     #[test]
