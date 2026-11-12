@@ -154,8 +154,9 @@ fn pixels_texte_reste_dans_la_boite() {
 
 #[test]
 fn rendu_ascii_d_un_a_accent_aigu() {
+    // Hauteur d'x de 4 rangées (1-4) : accent en rangée 0, corps du « e » en 1-4.
     let attendu = [
-        "...#.", "..#..", ".###.", "#...#", "#####", "#....", ".###.",
+        "...#.", ".###.", "#####", "#....", ".###.", ".....", ".....",
     ];
     assert_eq!(rendu_ascii("é"), attendu);
 }
@@ -167,4 +168,81 @@ fn affichage_visuel_de_la_phrase_de_recette() {
         println!("{ligne}");
     }
     assert_eq!(rendu_ascii(PHRASE_TEST).len(), 7);
+}
+
+/// Les cinq lettres à jambage.
+const A_JAMBAGE: [char; 5] = ['g', 'p', 'q', 'y', 'j'];
+
+#[test]
+fn les_lettres_a_jambage_sont_distinctes_entre_elles_et_de_o_a_e() {
+    for (i, a) in A_JAMBAGE.iter().enumerate() {
+        for b in &A_JAMBAGE[i + 1..] {
+            assert_ne!(glyphe(*a), glyphe(*b), "{a} et {b} sont identiques");
+        }
+        for voyelle in ['o', 'a', 'e'] {
+            assert_ne!(
+                glyphe(*a),
+                glyphe(voyelle),
+                "{a} et {voyelle} sont identiques"
+            );
+        }
+    }
+}
+
+#[test]
+fn les_lettres_a_jambage_restent_distinctes_a_l_echelle_1_et_3() {
+    // Le rendu à l'échelle n est un simple agrandissement des pixels : deux
+    // dessins différents le restent. On le vérifie quand même sur les pixels.
+    for echelle in [1u32, 3] {
+        let rendu = |c: char| {
+            let mut v: Vec<(u32, u32)> = pixels_texte(&c.to_string())
+                .into_iter()
+                .flat_map(|(x, y)| {
+                    (0..echelle).flat_map(move |dx| {
+                        (0..echelle).map(move |dy| (x * echelle + dx, y * echelle + dy))
+                    })
+                })
+                .collect();
+            v.sort_unstable();
+            v
+        };
+        let lettres = ['g', 'p', 'q', 'y', 'j', 'o', 'a', 'e'];
+        for (i, a) in lettres.iter().enumerate() {
+            for b in &lettres[i + 1..] {
+                assert_ne!(rendu(*a), rendu(*b), "échelle {echelle} : {a} = {b}");
+            }
+        }
+    }
+}
+
+#[test]
+fn les_lettres_a_jambage_ont_un_pixel_sur_la_derniere_rangee() {
+    for c in A_JAMBAGE {
+        let d = glyphe(c).unwrap();
+        assert_ne!(d[6], 0, "{c} n'a aucun pixel sur la dernière rangée");
+        // Le jambage fait 2 rangées : la rangée 5 est allumée aussi.
+        assert_ne!(d[5], 0, "{c} : jambage trop court");
+    }
+}
+
+#[test]
+fn les_minuscules_sans_jambage_ne_descendent_pas_sous_la_ligne_de_base() {
+    for c in 'a'..='z' {
+        if A_JAMBAGE.contains(&c) {
+            continue;
+        }
+        let d = glyphe(c).unwrap();
+        assert_eq!((d[5], d[6]), (0, 0), "{c} déborde sous la ligne de base");
+    }
+}
+
+#[test]
+fn les_minuscules_ont_la_meme_hauteur_d_x() {
+    // Les lettres sans hampe ni jambage occupent les rangées 1-4, sans toucher la 0.
+    for c in "acemnorsuvwxz".chars() {
+        let d = glyphe(c).unwrap();
+        assert_eq!(d[0], 0, "{c} touche la rangée 0");
+        assert_ne!(d[1], 0, "{c} ne commence pas à la rangée 1");
+        assert_ne!(d[4], 0, "{c} n'atteint pas la ligne de base (rangée 4)");
+    }
 }

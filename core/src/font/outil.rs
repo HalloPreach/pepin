@@ -41,10 +41,12 @@ pub const fn g(r: [&str; 7]) -> Glyphe {
     ]
 }
 
-/// Minuscule accentuée : accent sur 2 rangées (0-1) + corps sur 5 rangées (2-6).
-pub const fn min_accent(accent: [&str; 2], corps: [&str; 5]) -> Glyphe {
+/// Minuscule accentuée : accent sur 1 rangée (0) + corps sur 6 rangées (1-6).
+/// La hauteur d'x des minuscules est de 4 rangées (1-4) : l'accent est donc
+/// collé au-dessus de la lettre ; les rangées 5-6 ne servent qu'aux jambages.
+pub const fn min_accent(accent: &str, corps: [&str; 6]) -> Glyphe {
     g([
-        accent[0], accent[1], corps[0], corps[1], corps[2], corps[3], corps[4],
+        accent, corps[0], corps[1], corps[2], corps[3], corps[4], corps[5],
     ])
 }
 
@@ -55,14 +57,14 @@ pub const fn maj_accent(accent: &str, corps: [&str; 6]) -> Glyphe {
     ])
 }
 
-/// Accent aigu sur deux rangées (minuscules).
-pub const AIGU: [&str; 2] = ["...#.", "..#.."];
-/// Accent grave sur deux rangées (minuscules).
-pub const GRAVE: [&str; 2] = [".#...", "..#.."];
-/// Accent circonflexe sur deux rangées (minuscules).
-pub const CIRCONFLEXE: [&str; 2] = ["..#..", ".#.#."];
-/// Tréma sur deux rangées (minuscules).
-pub const TREMA: [&str; 2] = [".....", ".#.#."];
+/// Accent aigu sur une rangée (minuscules).
+pub const AIGU: &str = "...#.";
+/// Accent grave sur une rangée (minuscules).
+pub const GRAVE: &str = ".#...";
+/// Accent circonflexe sur une rangée (minuscules).
+pub const CIRCONFLEXE: &str = "..#..";
+/// Tréma sur une rangée (minuscules).
+pub const TREMA: &str = ".#.#.";
 
 /// Accent aigu d'une rangée (majuscules).
 pub const AIGU_MAJ: &str = "...#.";

@@ -6,9 +6,11 @@
 //! `game` se contente de dessiner les pixels allumés.
 //!
 //! Mise en page : les capitales et chiffres occupent les rangées 0-6, les
-//! minuscules ont leur hauteur d'x sur les rangées 2-6 (les accents
-//! minuscules logent dans les rangées 0-1). Les capitales accentuées sont
-//! compressées sur 6 rangées pour laisser une rangée à l'accent.
+//! minuscules ont leur hauteur d'x sur les rangées 1-4 (ligne de base en
+//! rangée 4, hampes en rangée 0, accents en rangée 0) ; les jambages
+//! (g j p q y) descendent de 2 rangées sous la ligne de base (rangées 5-6).
+//! Les capitales accentuées sont compressées sur 6 rangées pour laisser une
+//! rangée à l'accent.
 
 #[rustfmt::skip] // blocs de glyphes lisibles : une ligne par glyphe
 mod accents_maj;
@@ -104,5 +106,7 @@ pub fn pixels_texte(texte: &str) -> Vec<(u32, u32)> {
     pixels
 }
 
+#[cfg(test)]
+mod police_png;
 #[cfg(test)]
 mod tests;
