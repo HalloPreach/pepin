@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const [httpPort, sortie, ...demandes] = process.argv.slice(2);
-const CHROME = process.env.CHROME || '/home/lucas/.hermes/tools/chromium-1208/chrome-linux64/chrome';
+const CHROME = process.env.CHROME || 'chromium';
 const dbg = 9400 + Math.floor(Math.random() * 400);
 const profil = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'prof-'));
 const chrome = spawn(CHROME, [

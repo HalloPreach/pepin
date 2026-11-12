@@ -188,8 +188,8 @@ Le script `docker-cargo.sh` encapsule tout cela :
 - il lance le conteneur avec **votre identifiant d'utilisateur** (donc `target/`
   et `Cargo.lock` ne deviennent pas la propriété de root) ;
 - il garde un dossier `CARGO_HOME` persistant (par défaut
-  `~/.hermes/cache/scratch/cargo-home-elsay`, modifiable avec la variable
-  `ELSAY_CARGO_HOME`) pour ne télécharger les dépendances qu'une fois ;
+  `~/.cache/pepin-cargo-home`, modifiable avec la variable
+  `PEPIN_CARGO_HOME`) pour ne télécharger les dépendances qu'une fois ;
 - il copie rustup dans ce dossier, y ajoute la cible `wasm32-unknown-unknown`
   puis `clippy` et `rustfmt` quand c'est nécessaire.
 
@@ -498,3 +498,9 @@ existantes :
 - Ajouter une manette comme nouvelle `SourceEntrees`.
 - Écrire un éditeur de niveaux qui lit et écrit le format ASCII.
 - Tester le jeu dans plusieurs navigateurs et sur plusieurs tailles d'écran.
+
+## 12. Licence
+
+Ce projet est publié sous licence **MIT** (voir le fichier `LICENSE`) : vous pouvez
+l'utiliser, le copier, le modifier et le redistribuer librement, en conservant la
+mention de copyright.

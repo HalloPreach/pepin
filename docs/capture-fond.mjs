@@ -2,11 +2,12 @@
 // Usage : node cap.mjs PORT_HTTP NIVEAU PREFIXE  (écrit PREFIXE-debut|milieu|fin.png)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 
 const [httpPort, niveau, prefixe] = [process.argv[2], process.argv[3], process.argv[4]];
-const CHROME = '/home/lucas/.hermes/tools/chromium-1208/chrome-linux64/chrome';
+const CHROME = process.env.CHROME || 'chromium';
 const dbg = 9400 + Math.floor(Math.random() * 400);
-const profil = fs.mkdtempSync('/home/lucas/.hermes/cache/scratch/fonds/prof-');
+const profil = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'prof-'));
 const chrome = spawn(CHROME, [
   `--remote-debugging-port=${dbg}`, `--user-data-dir=${profil}`, '--headless=new', '--no-sandbox',
   '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',

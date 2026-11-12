@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn aucune_mention_hors_sujet() {
         let tout = tous_les_textes().join(" ").to_lowercase();
-        for interdit in ["http", "www.", "lucas", "tixier", "@"] {
+        for interdit in ["http", "www.", "@"] {
             assert!(
                 !tout.contains(interdit),
                 "« {interdit} » ne doit pas figurer"

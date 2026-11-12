@@ -9,8 +9,8 @@
 set -u
 cd "$(dirname "$0")"
 
-NOM="elsay-cargo-$$"
-CARGO_HOME_HOTE="${ELSAY_CARGO_HOME:-$HOME/.hermes/cache/scratch/cargo-home-elsay}"
+NOM="pepin-cargo-$$"
+CARGO_HOME_HOTE="${PEPIN_CARGO_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/pepin-cargo-home}"
 mkdir -p "$CARGO_HOME_HOTE"
 
 # Dans le conteneur : le RUSTUP_HOME de l'image est en lecture seule pour notre

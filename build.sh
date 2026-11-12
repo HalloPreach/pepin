@@ -26,7 +26,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DIST="dist"
-CARGO_HOME_HOTE="${ELSAY_CARGO_HOME:-$HOME/.hermes/cache/scratch/cargo-home-elsay}"
+CARGO_HOME_HOTE="${PEPIN_CARGO_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/pepin-cargo-home}"
 WASM_BRUT="target/wasm32-unknown-unknown/release/game.wasm"
 
 echo "== 1/4 Compilation release (wasm32-unknown-unknown) dans Docker =="
