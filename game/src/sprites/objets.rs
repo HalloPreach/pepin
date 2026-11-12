@@ -3,57 +3,68 @@
 
 use super::Image;
 
+/// Goutte d'or 10x10 : la goutte de 8x8 (boîte de ramassage) cernée de 2 px de contour sombre
+/// (le contour d'origine + un anneau), pour rester lisible devant tous les ciels, même dorés.
 pub const GOUTTE0: Image = &[
-    "...00...",
-    "..0CB0..",
-    "..0BB0..",
-    ".0BCBB0.",
-    "0BBCBBA0",
-    "0BBBBAA0",
-    ".0BAAA0.",
-    "..0000..",
+    "....00....",
+    "...0000...",
+    "..00CB00..",
+    "..00BB00..",
+    ".00BCBB00.",
+    "00BBCBBA00",
+    "00BBBBAA00",
+    ".00BAAA00.",
+    "..000000..",
+    "...0000...",
 ];
 
 pub const GOUTTE1: Image = &[
-    "...00...",
-    "..0BB0..",
-    "..0BB0..",
-    ".0BBCB0.",
-    "0BBBCBA0",
-    "0BBBBAA0",
-    ".0BAAA0.",
-    "..0000..",
+    "....00....",
+    "...0000...",
+    "..00BB00..",
+    "..00BB00..",
+    ".00BBCB00.",
+    "00BBBCBA00",
+    "00BBBBAA00",
+    ".00BAAA00.",
+    "..000000..",
+    "...0000...",
 ];
 
 pub const GOUTTE2: Image = &[
-    "...00..C",
-    "..0BB0..",
-    "..0BB0..",
-    ".0BBBB0.",
-    "0BCBBBA0",
-    "0BCBBAA0",
-    ".0BAAA0.",
-    "..0000..",
+    "....00....",
+    "...0000.C.",
+    "..00BB00..",
+    "..00BB00..",
+    ".00BBBB00.",
+    "00BCBBBA00",
+    "00BCBBAA00",
+    ".00BAAA00.",
+    "..000000..",
+    "...0000...",
 ];
 
 pub const GOUTTE3: Image = &[
-    "C..00...",
-    "..0BB0..",
-    "..0BB0..",
-    ".0BBBB0.",
-    "0BBBBBA0",
-    "0BBBCAA0",
-    ".0BACA0.",
-    "..0000..",
+    "....00....",
+    ".C.0000...",
+    "..00BB00..",
+    "..00BB00..",
+    ".00BBBB00.",
+    "00BBBBBA00",
+    "00BBBCAA00",
+    ".00BACA00.",
+    "..000000..",
+    "...0000...",
 ];
 
+/// Lanterne éteinte : vitre claire (ARDOISE_PALE/BRUME) pour se lire devant les immeubles du fond.
 pub const LANTERNE0: Image = &[
     "...00...",
     "..0330..",
     ".033330.",
-    ".021120.",
-    ".021120.",
-    ".021120.",
+    ".045540.",
+    ".045540.",
+    ".045540.",
     ".033330.",
     "..0330..",
     "...00...",
@@ -148,15 +159,40 @@ pub const FRIABLE1: Image = &[
     "...0000000000...",
 ];
 
+/// Plateforme friable des niveaux 1 à 3 : dalle d'ardoise claire à angles écornés, avec une fine fêlure.
+pub const FRIABLE_ARDOISE0: Image = &[
+    ".00000000000000.",
+    "0777777777777770",
+    "0666666066666660",
+    "0666660066666650",
+    "0555550555555550",
+    "0555555055555450",
+    "0444444444444440",
+    ".00000000000000.",
+];
+
+/// Dalle d'ardoise qui s'effrite : la fêlure s'ouvre de part en part.
+pub const FRIABLE_ARDOISE1: Image = &[
+    ".00000000000000.",
+    "0777777007777770",
+    "0666660000666660",
+    "0666600..0066650",
+    "0555500..0055550",
+    "055500....005550",
+    "0440000..0000440",
+    ".00000....00000.",
+];
+
+/// Plateforme mobile 32x8 : le dessin couvre toute la boîte de collision (8 px de haut).
 pub const MOBILE: Image = &[
     "00000000000000000000000000000000",
     "04444444444444444444444444444440",
     "03333333333333333333333333333330",
     "032222A222222222222222A222222230",
+    "03222222222222222222222222222230",
+    "02222222222222222222222222222220",
+    "01111111111111111111111111111110",
     "00000000000000000000000000000000",
-    "................................",
-    "................................",
-    "................................",
 ];
 
 pub const PANNEAU_DEPLACER: Image = &[
@@ -337,6 +373,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pointe", POINTE),
     ("friable0", FRIABLE0),
     ("friable1", FRIABLE1),
+    ("friable_ardoise0", FRIABLE_ARDOISE0),
+    ("friable_ardoise1", FRIABLE_ARDOISE1),
     ("mobile", MOBILE),
     ("panneau_deplacer", PANNEAU_DEPLACER),
     ("panneau_sauter", PANNEAU_SAUTER),
@@ -353,7 +391,9 @@ pub const GOUTTE: [&str; 4] = ["goutte0", "goutte1", "goutte2", "goutte3"];
 pub const LANTERNE: [&str; 2] = ["lanterne0", "lanterne1"];
 /// Champignon-trampoline : détendu puis comprimé.
 pub const CHAMPIGNON: [&str; 2] = ["champignon0", "champignon1"];
-/// Plateforme friable : intacte puis fissurée.
+/// Plateforme friable (nuages, niveaux 4 et 5) : intacte puis fissurée.
 pub const FRIABLE: [&str; 2] = ["friable0", "friable1"];
+/// Plateforme friable (dalle d'ardoise, niveaux 1 à 3) : intacte puis fendue.
+pub const FRIABLE_ARDOISE: [&str; 2] = ["friable_ardoise0", "friable_ardoise1"];
 /// Drapeau d'arrivée (2 images).
 pub const DRAPEAU: [&str; 2] = ["drapeau0", "drapeau1"];

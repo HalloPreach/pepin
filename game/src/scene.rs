@@ -14,6 +14,7 @@ use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::level::{GenrePanneau, Tuile};
 use pepin_core::palette::*;
 use pepin_core::player::EtatJoueur;
+use pepin_core::zones::Theme;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
 use crate::decor;
@@ -36,9 +37,23 @@ fn entier(b: &Aabb) -> (i32, i32) {
     (b.x.round() as i32, b.y.round() as i32)
 }
 
-/// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus.
+/// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus ; un nuage dont la
+/// case voisine est vide (à gauche et/ou à droite) prend un bord arrondi. Dessin seulement :
+/// la collision reste celle de la case.
 fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
     let haut = monde.niveau.tuile_decor(tx, ty - 1) == Tuile::Vide;
+    if t == Tuile::Nuage && haut {
+        let (gauche, droite) = (
+            monde.niveau.tuile_decor(tx - 1, ty) == Tuile::Vide,
+            monde.niveau.tuile_decor(tx + 1, ty) == Tuile::Vide,
+        );
+        match (gauche, droite) {
+            (true, true) => return "nuage_ilot",
+            (true, false) => return "nuage_bord_g",
+            (false, true) => return "nuage_bord_d",
+            (false, false) => {}
+        }
+    }
     match (t, haut) {
         (Tuile::Toit, true) => "toit_haut",
         (Tuile::Toit, false) => "toit_plein",
@@ -122,9 +137,15 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
         match entite {
             Entite::Goutte(g) => {
                 if !g.est_ramassee() {
-                    // Petit flottement d'un pixel, en 4 temps.
+                    // Petit flottement d'un pixel, en 4 temps. Le dessin (10x10) déborde d'un
+                    // pixel de chaque côté de la boîte de ramassage (8x8).
                     let flotte = [0.0, -1.0, -1.0, 0.0][(pas / 15) as usize % 4];
-                    banque.dessiner(image(&objets::GOUTTE, pas, 8), sx, sy + flotte, false);
+                    banque.dessiner(
+                        image(&objets::GOUTTE, pas, 8),
+                        sx - 1.0,
+                        sy + flotte - 1.0,
+                        false,
+                    );
                 }
             }
             Entite::Lanterne(l) => {
@@ -157,10 +178,15 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     EtatFriable::Absente(_) => continue,
                     EtatFriable::Stable => 0.0,
                 };
+                // Dalle d'ardoise sur les toits (niveaux 1 à 3), nuage en altitude (4 et 5).
+                let anim = match monde.infos.theme {
+                    Theme::Altitude | Theme::Soleil => &objets::FRIABLE,
+                    Theme::Toits | Theme::Gouttieres | Theme::Orage => &objets::FRIABLE_ARDOISE,
+                };
                 let nom = if matches!(f.etat, EtatFriable::Effritement(_)) {
-                    objets::FRIABLE[1]
+                    anim[1]
                 } else {
-                    objets::FRIABLE[0]
+                    anim[0]
                 };
                 for k in 0..(f.boite.w / 16.0).ceil() as i32 {
                     banque.dessiner(nom, sx + (k * 16) as f32 + tremble, sy, false);

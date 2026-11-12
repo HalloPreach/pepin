@@ -11,7 +11,8 @@ use crate::texte::{self, Style};
 /// Dessine le HUD. `gouttes` : gouttes d'or de la partie ; `pas` : durée de la partie en pas.
 pub fn dessiner(banque: &Banque, gouttes: u32, pas: u32) {
     let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
-    banque.dessiner("goutte0", 6.0, 5.0, false);
+    // Sprite 10x10 (contour de 2 px) : décalé d'un pixel pour garder la goutte à la même place.
+    banque.dessiner("goutte0", 5.0, 4.0, false);
     texte::dessiner(&format!("{gouttes}/{GOUTTES_TOTAL}"), 17.0, 6.0, style);
     texte::dessiner_a_droite(
         &chrono::temps_court(pas),

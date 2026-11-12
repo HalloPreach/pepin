@@ -255,7 +255,7 @@ mod tests {
         assert_eq!(taille("pepin_idle0"), (16, 16));
         assert_eq!(taille("pepin_plane0"), (20, 20));
         assert_eq!(taille("flaque0"), (16, 10));
-        assert_eq!(taille("goutte0"), (8, 8));
+        assert_eq!(taille("goutte0"), (10, 10));
         assert_eq!(taille("lanterne0"), (8, 16));
         assert_eq!(taille("champignon0"), (16, 12));
         assert_eq!(taille("pointe"), (8, 8));
@@ -277,6 +277,7 @@ mod tests {
             &objets::LANTERNE,
             &objets::CHAMPIGNON,
             &objets::FRIABLE,
+            &objets::FRIABLE_ARDOISE,
             &objets::DRAPEAU,
         ];
         for anim in animations {
@@ -298,5 +299,161 @@ mod tests {
         // Le thème du soleil éclaircit l'ardoise : '2' devient '5'.
         assert_eq!(remplacer('2', Theme::Soleil), '5');
         assert_eq!(remplacer('2', Theme::Toits), '2');
+    }
+
+    // --- Corrections de lisibilité (audit des sprites) ---
+
+    fn dessin(nom: &str) -> Image {
+        tous().into_iter().find(|(n, _)| *n == nom).unwrap().1
+    }
+
+    /// Contraste WCAG entre deux couleurs de la palette.
+    fn contraste(a: Couleur, b: Couleur) -> f32 {
+        fn lum(c: Couleur) -> f32 {
+            let lin = |v: u8| {
+                let v = v as f32 / 255.0;
+                if v <= 0.03928 {
+                    v / 12.92
+                } else {
+                    ((v + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b)
+        }
+        let (la, lb) = (lum(a), lum(b));
+        (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
+    }
+
+    fn couleur_de(c: char) -> Couleur {
+        pixel(c).unwrap().unwrap()
+    }
+
+    /// Le caractère du dessin en `(x, y)`, `.` hors du dessin.
+    fn car(image: Image, x: i32, y: i32) -> char {
+        if x < 0 || y < 0 {
+            return '.';
+        }
+        image
+            .get(y as usize)
+            .and_then(|l| l.chars().nth(x as usize))
+            .unwrap_or('.')
+    }
+
+    #[test]
+    fn la_goutte_est_cernee_de_deux_pixels_de_contour_sombre() {
+        for nom in objets::GOUTTE {
+            let g = dessin(nom);
+            assert_eq!((largeur(g), hauteur(g)), (10, 10), "{nom}");
+            for y in 0..10 {
+                for x in 0..10 {
+                    let c = car(g, x, y);
+                    let voisins = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+                    // Tout pixel qui touche le vide est du contour sombre (anneau extérieur).
+                    if c != '.'
+                        && c != 'C'
+                        && voisins.iter().any(|(dx, dy)| car(g, x + dx, y + dy) == '.')
+                    {
+                        assert_eq!(c, '0', "{nom} : le bord ({x},{y}) n'est pas sombre");
+                    }
+                    // Un pixel doré est séparé du vide par au moins 2 pixels de contour.
+                    if c == 'B' || c == 'A' {
+                        for (dx, dy) in voisins {
+                            let (nx, ny) = (x + dx, y + dy);
+                            assert_ne!(car(g, nx, ny), '.', "{nom} : or au bord ({x},{y})");
+                            assert!(
+                                voisins
+                                    .iter()
+                                    .all(|(ex, ey)| car(g, nx + ex, ny + ey) != '.'),
+                                "{nom} : un seul pixel de contour près de ({x},{y})"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn la_vitre_de_la_lanterne_eteinte_est_claire() {
+        let l = dessin("lanterne0");
+        // Les trois rangées de vitre : ARDOISE_PALE (4) et BRUME (5), plus de bleu nuit.
+        for (y, ligne) in l.iter().enumerate().skip(3).take(3) {
+            assert_eq!(*ligne, ".045540.", "rangée {y}");
+        }
+        assert!(contraste(couleur_de('5'), pepin_core::palette::ARDOISE_CLAIRE) >= 3.0);
+        assert!(contraste(couleur_de('4'), pepin_core::palette::ARDOISE) >= 3.0);
+    }
+
+    #[test]
+    fn le_corbeau_se_detache_du_ciel_d_ardoise() {
+        for nom in ennemis::CORBEAU {
+            let c = dessin(nom);
+            assert!(
+                c.iter().all(|l| !l.contains('2')),
+                "{nom} : il reste de l'ardoise (couleur du ciel)"
+            );
+            assert!(
+                c.iter().any(|l| l.contains('A')),
+                "{nom} : le bec orange a disparu"
+            );
+            assert!(
+                c.iter().any(|l| l.contains('0')),
+                "{nom} : le contour a disparu"
+            );
+        }
+        assert!(contraste(couleur_de('4'), pepin_core::palette::ARDOISE) >= 3.0);
+        assert!(contraste(couleur_de('3'), pepin_core::palette::ARDOISE) < 3.0);
+    }
+
+    #[test]
+    fn la_plateforme_mobile_couvre_toute_sa_collision() {
+        let m = dessin("mobile");
+        // Collision : 32 x 8 px (`LARGEUR_MOBILE` x 8 dans `core`).
+        assert_eq!((largeur(m), hauteur(m)), (32, 8));
+        for (y, ligne) in m.iter().enumerate() {
+            assert!(
+                !ligne.contains('.'),
+                "rangée {y} : du vide sous la plateforme"
+            );
+        }
+    }
+
+    #[test]
+    fn les_friables_d_ardoise_ont_la_taille_des_nuages() {
+        for k in 0..2 {
+            assert_eq!(
+                taille(objets::FRIABLE_ARDOISE[k]),
+                taille(objets::FRIABLE[k]),
+                "image {k}"
+            );
+        }
+        assert_eq!(taille("friable0"), (16, 8));
+        // Clair sur sombre : le dessus de la dalle est aussi clair que celui du nuage.
+        assert_eq!(dessin("friable_ardoise0")[1].chars().nth(5), Some('7'));
+        assert!(dessin("friable_ardoise0")
+            .iter()
+            .all(|l| !l.contains(|c| "123".contains(c))));
+    }
+
+    #[test]
+    fn les_bords_de_nuage_ont_la_taille_d_une_tuile_et_des_coins_arrondis() {
+        for nom in ["nuage_bord_g", "nuage_bord_d", "nuage_ilot"] {
+            assert_eq!(taille(nom), (16, 16), "{nom}");
+        }
+        let (g, d, i) = (
+            dessin("nuage_bord_g"),
+            dessin("nuage_bord_d"),
+            dessin("nuage_ilot"),
+        );
+        let plein = dessin("nuage_haut");
+        // Bord gauche : coins gauches creusés, côté droit inchangé.
+        assert_eq!(car(g, 0, 15), '.');
+        assert_eq!(car(g, 0, 3), '6');
+        assert_eq!(car(g, 15, 15), car(plein, 15, 15));
+        // Bord droit : l'inverse.
+        assert_eq!(car(d, 15, 15), '.');
+        assert_eq!(car(d, 0, 15), car(plein, 0, 15));
+        // Îlot : les deux côtés.
+        assert_eq!((car(i, 0, 15), car(i, 15, 15)), ('.', '.'));
     }
 }
