@@ -222,3 +222,52 @@ Limites : lisibilité jugée à l'œil sur captures, plus les contrastes calcul�
 automatique par gabarit des gouttes sur capture (ancien et nouveau) a retrouvé les 15 gouttes. Le
 contraste de l'or avec le fond (1,0 devant la bande OR) ne change pas : c'est le contour de 2 px qui
 rend la goutte lisible.
+
+## Corrections de visibilité (audit)
+
+Carte 3/4 : affichage, effets et calcul d'affichage de la caméra. Aucun changement de physique, de
+vitesse, de collision ni de mécanique. Captures `docs/qa/70-*.png` (« avant » = ancien `dist/`, servi
+sur un autre port, mêmes images du parcours du robot). Pilote : `docs/capture-visibilite.mjs`
+(rejeu du script du robot, séries de captures consécutives, chute libre dans un trou).
+
+- I-01 : petite flèche corail 5x3 px collée en haut de l'écran, à l'abscisse de Pépin (bornée à
+  l'écran), tant que sa boîte est entièrement au-dessus du cadre. Dessinée après le monde et la
+  pluie, avant le HUD ; pas dessinée quand Pépin est visible. Fonction pure `repere_haut` (6 cas
+  testés). Captures : `70-repere-n3-avant.png` (rien) et `70-repere-n3-apres.png` (flèche en haut,
+  niveau 3, image 6760). Le mur de la colonne 133 reste pour la carte 4/4.
+- I-02 : les brins de vent naissent à une hauteur tirée au hasard sur toute la zone du courant et
+  sont des tirets verticaux de 3 px (BLANC_CASSE, contraste fort sur les bandes corail/orange).
+  Durée de vie bornée pour ne jamais sortir de la zone ; la force du vent ne change pas. Test :
+  200 brins, tous dans la zone et tous de 3 px de haut ; les autres particules restent des points
+  de 1 px. Captures : `70-vent-n4-avant.png`, `70-vent-n4-apres.png`, `70-vent-n4-apres-b.png`
+  (image 8393 : colonne de tirets de bas en haut).
+- I-12 : l'annonce de l'éclair clignote sur les deux bords de la colonne (x0 et x0+w-1), de plus
+  en plus vite (de 2,5 Hz à 15 Hz, 7 clignotements en 0,8 s) selon `progression_annonce()` du
+  cœur ; barre dorée de 12x2 px au pied, allumée dès le début. Pas de flash plein écran. Tests :
+  accélération, 14 changements d'état, aucune série d'une seule image à 60 i/s. Captures :
+  `70-eclair-n3-annonce-debut.png`, `70-eclair-n3-annonce-fin.png`, `70-eclair-n3-frappe.png`.
+- I-26 : quand la zone de l'éclair commence en haut du niveau (y = 0) et que le niveau est plus bas
+  que l'écran, la colonne dessinée est prolongée jusqu'au haut de l'écran (annonce et frappe).
+  La zone dangereuse du cœur ne change pas. Fonction pure `colonne_eclair` testée.
+- I-15 : l'animation de mort et les éclats sont bornés au cadre (`borner_mort` : 16 px au-dessus
+  du bord bas, abscisse dans l'écran) ; la mort par le vide est visible. Captures :
+  `70-chute-n1-avant.png` (rien, niveau 1, trou colonnes 30-32) et `70-chute-n1-apres.png`
+  (étincelles de mort en bas d'écran) ; la caméra repart tout de suite vers la reprise, donc
+  l'animation se joue en bas à droite de l'écran quand la reprise est à gauche.
+- I-09 : l'écart Pépin-caméra est arrondi une seule fois, la caméra entière en est déduite
+  (`camera_entiere`) ; `app.rs` passe l'abscisse interpolée de Pépin à `position_rendue`. La
+  simulation n'est pas touchée. Mesure sur 12 images consécutives du niveau 1 (images 2125 à
+  2136, abscisse écran du bord gauche du corps, lue dans la grille 320x180) :
+  avant 147 147 147 147 146 147 147 146 147 146 146 146 (4 allers-retours) ;
+  après 147 147 147 147 147 147 146 146 146 146 146 146 (aucun). Captures `70-course-n1-00.png`
+  à `70-course-n1-11.png`. Tests : l'écart écran reste à moins d'un demi-pixel de l'écart réel ;
+  sur course à vitesse constante (pas de 0,4 à 1,6 px) aucun aller-retour ; le décor (caméra
+  entière) ne recule jamais ; l'ancien calcul fait échouer ces tests (vérifié). Caméra verticale
+  inchangée (test : figée à -4 sur un niveau de 11 rangées, arrondi de y identique sinon).
+
+Mesures : `docs/mesure-capture.py capture.png 3` sur les 24 captures `70-*` : 0 couleur hors
+palette, 0 pixel semi-transparent, 0 bloc flou. wasm 428 538 octets (< 1,2 Mo). Tests : 143 (noyau)
++ 142 (jeu) OK ; `./docker-cargo.sh lint` OK.
+Limites : mesure à 60 images par seconde (pas testé à 144 Hz) ; la flèche de repère est petite
+(15x9 px à l'écran, comme demandé) ; le robot ne tombe jamais, la chute est obtenue en lui faisant
+courir tout droit dans le trou de la colonne 30.

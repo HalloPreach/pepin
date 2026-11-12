@@ -17,6 +17,8 @@ use crate::rendu::couleur_mq;
 const MAX: usize = 256;
 /// Gravité des particules, en pixels par pas au carré.
 const GRAVITE: f32 = 0.12;
+/// Vitesse de montée d'un brin de vent, en pixels par pas.
+const VITESSE_SOUFFLE: f32 = 1.2;
 
 #[derive(Debug, Clone, Copy)]
 struct Particule {
@@ -29,6 +31,8 @@ struct Particule {
     /// Gravité propre à la particule (négative : elle monte, comme la fumée).
     gravite: f32,
     couleur: Couleur,
+    /// Hauteur du trait dessiné (1 = un point ; 3 = un tiret vertical, pour le vent).
+    hauteur: u8,
 }
 
 /// L'ensemble des particules vivantes.
@@ -84,6 +88,7 @@ impl Particules {
                 vie,
                 gravite: GRAVITE,
                 couleur,
+                hauteur: 1,
             });
         }
     }
@@ -106,6 +111,7 @@ impl Particules {
                 vie,
                 gravite: 0.004,
                 couleur,
+                hauteur: 1,
             });
         }
     }
@@ -127,25 +133,34 @@ impl Particules {
                 vie,
                 gravite: 0.03,
                 couleur,
+                hauteur: 1,
             });
         }
     }
 
-    /// Un brin de vent qui monte dans un courant ascendant (colonne de vent visible).
-    pub fn souffle(&mut self, x: f32, y: f32, couleur: Couleur) {
+    /// Un brin de vent qui monte dans un courant ascendant (colonne de vent visible) : un tiret
+    /// vertical de 3 px. Il naît à une hauteur tirée au hasard entre `haut` (bord haut de la zone)
+    /// et `bas` (bord bas), et disparaît au plus tard en atteignant le bord haut : le vent se voit
+    /// sur toute la colonne sans déborder de la zone où il agit.
+    pub fn souffle(&mut self, x: f32, haut: f32, bas: f32, couleur: Couleur) {
         if self.liste.len() >= MAX {
             return;
         }
         let vx = (self.hasard() * 2.0 - 1.0) * 0.15;
-        let vie = 24 + (self.hasard() * 16.0) as u8;
+        let y = bas - 2.0 - self.hasard() * (bas - haut - 4.0).max(0.0);
+        let restant = ((y - haut) / VITESSE_SOUFFLE).floor().max(1.0);
+        let vie = (24.0 + (self.hasard() * 16.0).floor())
+            .min(restant)
+            .min(255.0) as u8;
         self.liste.push(Particule {
             x,
             y,
             vx,
-            vy: -1.2,
+            vy: -VITESSE_SOUFFLE,
             vie,
             gravite: 0.0,
             couleur,
+            hauteur: 3,
         });
     }
 
@@ -164,7 +179,13 @@ impl Particules {
     pub fn dessiner(&self, cx: i32, cy: i32) {
         for p in &self.liste {
             let (x, y) = (p.x.round() as i32 - cx, p.y.round() as i32 - cy);
-            draw_rectangle(x as f32, y as f32, 1.0, 1.0, couleur_mq(p.couleur));
+            draw_rectangle(
+                x as f32,
+                y as f32,
+                1.0,
+                p.hauteur as f32,
+                couleur_mq(p.couleur),
+            );
         }
     }
 }
@@ -190,7 +211,7 @@ mod tests {
         let mut p = Particules::new();
         p.poussiere(0.0, 0.0, 5, PLUIE, 1.0);
         p.etincelles(0.0, 0.0, 5, PLUIE);
-        p.souffle(0.0, 0.0, PLUIE);
+        p.souffle(0.0, -48.0, 0.0, PLUIE);
         assert_eq!(p.len(), 11);
         for _ in 0..60 {
             p.actualiser();
@@ -211,11 +232,52 @@ mod tests {
     #[test]
     fn le_souffle_monte() {
         let mut p = Particules::new();
-        p.souffle(0.0, 100.0, PLUIE);
+        p.souffle(0.0, -1000.0, 100.0, PLUIE);
+        let y0 = p.liste[0].y;
         for _ in 0..10 {
             p.actualiser();
         }
-        assert!(p.liste[0].y < 100.0 - 8.0);
+        assert!(p.liste[0].y < y0 - 8.0);
+    }
+
+    #[test]
+    fn le_souffle_couvre_toute_la_zone_et_n_en_sort_pas() {
+        // Zone de 96 px de haut (y de 100 à 196) : les brins naissent à toutes les hauteurs,
+        // sont des tirets de 3 px, et ne dépassent jamais le bord haut de la zone.
+        let mut p = Particules::new();
+        let (haut, bas) = (100.0_f32, 196.0_f32);
+        let mut naissances = Vec::new();
+        for _ in 0..200 {
+            p.souffle(10.0, haut, bas, PLUIE);
+            naissances.push(p.liste.last().unwrap().y);
+        }
+        let (min, max) = naissances
+            .iter()
+            .fold((f32::MAX, f32::MIN), |(a, b), &y| (a.min(y), b.max(y)));
+        assert!(max <= bas - 2.0 && max > bas - 20.0, "max = {max}");
+        assert!(min >= haut && min < haut + 30.0, "min = {min}");
+        assert!(p.liste.iter().all(|q| q.hauteur == 3));
+        let mut plus_haut = f32::MAX;
+        for _ in 0..60 {
+            p.actualiser();
+            for q in &p.liste {
+                plus_haut = plus_haut.min(q.y);
+            }
+        }
+        assert!(
+            plus_haut >= haut - VITESSE_SOUFFLE,
+            "sorti de la zone : {plus_haut}"
+        );
+        assert!(p.is_empty());
+    }
+
+    #[test]
+    fn les_autres_particules_restent_des_points() {
+        let mut p = Particules::new();
+        p.eclabousser(0.0, 0.0, 3, PLUIE, 1.0);
+        p.poussiere(0.0, 0.0, 3, PLUIE, 1.0);
+        p.etincelles(0.0, 0.0, 3, PLUIE);
+        assert!(p.liste.iter().all(|q| q.hauteur == 1));
     }
 
     #[test]

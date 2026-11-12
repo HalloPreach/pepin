@@ -284,6 +284,7 @@ impl Application {
             &mut self.particules,
             &mut self.secousse,
             self.camera.x,
+            self.camera.y,
         );
         self.pas_partie += 1;
         if self.monde.termine {
@@ -369,7 +370,10 @@ impl Application {
                 &dispo,
             ),
             Ecran::Jeu | Ecran::Carte(_) | Ecran::Pause => {
-                let (cx, cy) = self.camera.position_rendue(alpha);
+                // Pépin et la caméra sont arrondis ensemble (écart arrondi une seule fois) : pas de
+                // tremblement d'un pixel en courant.
+                let (px, _) = self.monde.joueur_interpole(alpha);
+                let (cx, cy) = self.camera.position_rendue(alpha, px);
                 let (sx, sy) = self.secousse.decalage();
                 scene::dessiner(
                     &self.monde,

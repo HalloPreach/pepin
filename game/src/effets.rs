@@ -7,11 +7,19 @@ use pepin_core::LARGEUR_LOGIQUE;
 
 use crate::monde::Monde;
 use crate::particules::Particules;
+use crate::scene::borner_mort;
 use crate::secousse::Secousse;
 
 /// Effets visuels déclenchés par ce qui s'est passé pendant un pas.
-/// `cam_x` : bord gauche de la zone visible, pour n'animer que le vent qu'on voit.
-pub fn effets(monde: &Monde, particules: &mut Particules, secousse: &mut Secousse, cam_x: f32) {
+/// `(cam_x, cam_y)` : coin haut-gauche de la zone visible, pour n'animer que le vent qu'on voit
+/// et garder les éclats de mort dans le cadre.
+pub fn effets(
+    monde: &Monde,
+    particules: &mut Particules,
+    secousse: &mut Secousse,
+    cam_x: f32,
+    cam_y: f32,
+) {
     let (x, y) = (monde.joueur.boite.centre().0, monde.joueur.boite.bas());
     let sens = if monde.joueur.regarde_droite {
         1.0
@@ -45,7 +53,9 @@ pub fn effets(monde: &Monde, particules: &mut Particules, secousse: &mut Secouss
                 continue;
             }
             let decal = (monde.pas as usize * 7 + k * 13) as f32 % z.w.max(1.0);
-            particules.souffle(z.x + decal, z.bas() - 2.0, BLANC_CASSE);
+            // Le brin naît à une hauteur tirée sur toute la zone (et reste dedans) : la colonne
+            // se voit de bas en haut, pas seulement sous les pieds de Pépin.
+            particules.souffle(z.x + decal, z.y, z.bas(), BLANC_CASSE);
         }
     }
     for c in &monde.contacts {
@@ -58,7 +68,8 @@ pub fn effets(monde: &Monde, particules: &mut Particules, secousse: &mut Secouss
             Contact::Rebond => particules.eclabousser(x, y, 6, CORAIL_CLAIR, 2.0),
             Contact::Lanterne(..) => particules.etincelles(x, y - 8.0, 10, OR),
             Contact::Mort(_) => {
-                let (mx, my) = monde.pos_mort;
+                // Une chute finit sous l'écran : les éclats naissent dans le cadre.
+                let (mx, my) = borner_mort(monde.pos_mort, (cam_x, cam_y));
                 particules.eclabousser(mx + 5.0, my + 7.0, 14, CORAIL_CLAIR, 2.4);
                 secousse.declencher(2, 14);
             }
