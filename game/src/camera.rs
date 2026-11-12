@@ -76,9 +76,17 @@ impl Camera {
     pub fn suivre(&mut self, joueur: &Joueur, largeur_niveau: f32, hauteur_niveau: f32) {
         self.precedente = (self.x, self.y);
         let sens = if joueur.regarde_droite { 1.0 } else { -1.0 };
-        let voulue = if joueur.vitesse.x.abs() > 8.0 { sens * AVANCE_X } else { 0.0 };
+        let voulue = if joueur.vitesse.x.abs() > 8.0 {
+            sens * AVANCE_X
+        } else {
+            0.0
+        };
         self.avance += (voulue - self.avance) * 0.05;
-        let haut = if joueur.vitesse.y < -40.0 { AVANCE_HAUT } else { 0.0 };
+        let haut = if joueur.vitesse.y < -40.0 {
+            AVANCE_HAUT
+        } else {
+            0.0
+        };
         let (cx, cy) = Self::cible(joueur, self.avance, haut);
         let cx = Self::borner(cx, largeur_niveau, LARGEUR_LOGIQUE as f32);
         let cy = Self::borner(cy, hauteur_niveau, HAUTEUR_LOGIQUE as f32);

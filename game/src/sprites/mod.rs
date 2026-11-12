@@ -12,11 +12,17 @@
 //! Notions Rust illustrées ici : alias de type (`Image`), `Result` avec un
 //! `char` fautif comme erreur, itérateurs, `HashMap`, tests unitaires.
 
+// Les dessins sont des grilles de texte : rustfmt les tasserait sur une seule
+// ligne et les rendrait illisibles, donc on l'exclut de ces quatre fichiers.
+#[rustfmt::skip]
 pub mod ennemis;
+#[rustfmt::skip]
 pub mod objets;
+#[rustfmt::skip]
 pub mod pepin;
 #[cfg(test)]
 mod planche;
+#[rustfmt::skip]
 pub mod tuiles;
 
 use std::collections::HashMap;
@@ -76,8 +82,13 @@ pub fn verifier(nom: &str, image: Image) -> Result<(), String> {
 #[cfg(test)]
 /// Tous les sprites du jeu (nom, dessin), tous fichiers confondus.
 pub fn tous() -> Vec<(&'static str, Image)> {
-    [pepin::SPRITES, ennemis::SPRITES, objets::SPRITES, tuiles::SPRITES]
-        .concat()
+    [
+        pepin::SPRITES,
+        ennemis::SPRITES,
+        objets::SPRITES,
+        tuiles::SPRITES,
+    ]
+    .concat()
 }
 
 /// Table de substitution de couleurs d'un thème : les tuiles s'éclaircissent
@@ -91,8 +102,9 @@ fn remplacer(c: char, theme: Theme) -> char {
     };
     match c {
         // Rampe d'ardoise 1..=4 : on avance sur la rampe sans dépasser 7.
-        '1'..='4' => char::from_digit((c.to_digit(10).unwrap_or(1) + decalage).min(7), 10)
-            .unwrap_or(c),
+        '1'..='4' => {
+            char::from_digit((c.to_digit(10).unwrap_or(1) + decalage).min(7), 10).unwrap_or(c)
+        }
         // Les briques violettes virent à l'orange sous le soleil.
         'F' if theme == Theme::Soleil => 'A',
         _ => c,

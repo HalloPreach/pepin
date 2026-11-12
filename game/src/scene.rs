@@ -52,8 +52,14 @@ fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
 
 fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     let taille = TAILLE_TUILE as i32;
-    let (t0, t1) = (cx.div_euclid(taille), (cx + LARGEUR_LOGIQUE as i32).div_euclid(taille));
-    let (u0, u1) = (cy.div_euclid(taille), (cy + HAUTEUR_LOGIQUE as i32).div_euclid(taille));
+    let (t0, t1) = (
+        cx.div_euclid(taille),
+        (cx + LARGEUR_LOGIQUE as i32).div_euclid(taille),
+    );
+    let (u0, u1) = (
+        cy.div_euclid(taille),
+        (cy + HAUTEUR_LOGIQUE as i32).div_euclid(taille),
+    );
     for ty in u0..=u1 {
         for tx in t0..=t1 {
             // Hors carte : `tuile_decor` renvoie des murs à gauche/droite ; on ne les dessine pas.
@@ -63,7 +69,12 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             let t = monde.niveau.tuile_decor(tx, ty);
             if t != Tuile::Vide {
                 let nom = nom_tuile(monde, tx, ty, t);
-                banque.dessiner_tuile(monde.infos.theme, nom, (tx * taille - cx) as f32, (ty * taille - cy) as f32);
+                banque.dessiner_tuile(
+                    monde.infos.theme,
+                    nom,
+                    (tx * taille - cx) as f32,
+                    (ty * taille - cy) as f32,
+                );
             }
         }
     }
@@ -87,7 +98,7 @@ fn dessiner_eclair(zone: &Aabb, annonce: bool, frappe: bool, pas: u32, cx: i32, 
     let (x0, y0) = (zone.x.round() as i32 - cx, zone.y.round() as i32 - cy);
     let (w, h) = (zone.w.round() as i32, zone.h.round() as i32);
     let milieu = x0 + w / 2;
-    if annonce && (pas / 4) % 2 == 0 {
+    if annonce && (pas / 4).is_multiple_of(2) {
         for y in (y0..y0 + h).step_by(4) {
             rect(milieu, y, 1, 2, OR);
         }
@@ -117,12 +128,20 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
             Entite::Lanterne(l) => {
-                let nom = if l.est_active() { objets::LANTERNE[1] } else { objets::LANTERNE[0] };
+                let nom = if l.est_active() {
+                    objets::LANTERNE[1]
+                } else {
+                    objets::LANTERNE[0]
+                };
                 banque.dessiner(nom, sx, sy, false);
             }
             Entite::Champignon(c) => {
                 // Sprite 16x12 : le chapeau commence à la hauteur de la boîte.
-                let nom = if c.est_comprime() { objets::CHAMPIGNON[1] } else { objets::CHAMPIGNON[0] };
+                let nom = if c.est_comprime() {
+                    objets::CHAMPIGNON[1]
+                } else {
+                    objets::CHAMPIGNON[0]
+                };
                 banque.dessiner(nom, sx, sy - 3.0, false);
             }
             Entite::Pointe(p) => {
@@ -138,7 +157,11 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     EtatFriable::Absente(_) => continue,
                     EtatFriable::Stable => 0.0,
                 };
-                let nom = if matches!(f.etat, EtatFriable::Effritement(_)) { objets::FRIABLE[1] } else { objets::FRIABLE[0] };
+                let nom = if matches!(f.etat, EtatFriable::Effritement(_)) {
+                    objets::FRIABLE[1]
+                } else {
+                    objets::FRIABLE[0]
+                };
                 for k in 0..(f.boite.w / 16.0).ceil() as i32 {
                     banque.dessiner(nom, sx + (k * 16) as f32 + tremble, sy, false);
                 }
@@ -152,13 +175,22 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 let ecrase = matches!(e.etat, EtatEnnemi::Ecrase(_));
                 match e.type_ennemi {
                     TypeEnnemi::Flaque => {
-                        let nom = if ecrase { "flaque_ecrasee" } else { image(&ennemis::FLAQUE, pas, 12) };
+                        let nom = if ecrase {
+                            "flaque_ecrasee"
+                        } else {
+                            image(&ennemis::FLAQUE, pas, 12)
+                        };
                         // Sprite 16x10 posé sur le bas de la boîte 12x8, centré.
                         banque.dessiner(nom, sx - 2.0, sy - 2.0, e.vers_la_droite);
                     }
                     TypeEnnemi::Corbeau => {
                         // Le corbeau du dessin regarde à droite.
-                        banque.dessiner(image(&ennemis::CORBEAU, pas, 10), sx - 2.0, sy - 1.0, !e.vers_la_droite);
+                        banque.dessiner(
+                            image(&ennemis::CORBEAU, pas, 10),
+                            sx - 2.0,
+                            sy - 1.0,
+                            !e.vers_la_droite,
+                        );
                     }
                 }
             }
@@ -170,7 +202,12 @@ fn dessiner_arrivee(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     let a = monde.niveau.arrivee;
     let x = (a.x + a.w / 2.0 - 8.0).round() as i32 - cx;
     let y = a.bas().round() as i32 - 32 - cy;
-    banque.dessiner(image(&objets::DRAPEAU, monde.pas, 12), x as f32, y as f32, false);
+    banque.dessiner(
+        image(&objets::DRAPEAU, monde.pas, 12),
+        x as f32,
+        y as f32,
+        false,
+    );
 }
 
 fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) {
@@ -182,9 +219,12 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) 
     if monde.reapparition > 0 {
         let ecoule = REAPPARITION_PAS - monde.reapparition;
         let k = (ecoule as usize * 3 / REAPPARITION_PAS as usize).min(2);
-        let (mx, my) = (monde.pos_mort.0.round() as i32 - cx - 3, monde.pos_mort.1.round() as i32 - cy - 2);
+        let (mx, my) = (
+            monde.pos_mort.0.round() as i32 - cx - 3,
+            monde.pos_mort.1.round() as i32 - cy - 2,
+        );
         banque.dessiner(pepin::REAPPARITION[k], mx as f32, my as f32, false);
-        if (pas / 3) % 2 == 0 {
+        if (pas / 3).is_multiple_of(2) {
             return; // clignotement de Pépin tout juste réapparu
         }
     }
@@ -236,8 +276,15 @@ fn dessiner_interface(monde: &Monde, banque: &Banque) {
     texte::dessiner(&format!("{}", monde.etat.gouttes), 17.0, 6.0, style);
     if monde.pas < 240 {
         let titre = format!("{} — {}", monde.infos.numero, monde.infos.nom);
-        texte::dessiner_centre(&titre, 20.0, Style::simple(OR_PALE, 1).avec_ombre(ARDOISE_OMBRE));
-        for (i, ligne) in couper_lignes(monde.infos.intro, LIGNE_MAX).iter().enumerate() {
+        texte::dessiner_centre(
+            &titre,
+            20.0,
+            Style::simple(OR_PALE, 1).avec_ombre(ARDOISE_OMBRE),
+        );
+        for (i, ligne) in couper_lignes(monde.infos.intro, LIGNE_MAX)
+            .iter()
+            .enumerate()
+        {
             texte::dessiner_centre(ligne, 32.0 + i as f32 * 10.0, style);
         }
     }
@@ -269,7 +316,14 @@ mod tests {
 }
 
 /// Dessine tout le monde dans la cible logique. `(cx, cy)` : caméra entière.
-pub fn dessiner(monde: &Monde, banque: &Banque, particules: &Particules, alpha: f32, cx: i32, cy: i32) {
+pub fn dessiner(
+    monde: &Monde,
+    banque: &Banque,
+    particules: &Particules,
+    alpha: f32,
+    cx: i32,
+    cy: i32,
+) {
     decor::dessiner_fond(monde.infos.theme, cx, cy, monde.pas);
     dessiner_tuiles(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);

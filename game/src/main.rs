@@ -59,9 +59,15 @@ fn lire_entrees() -> Entrees {
 
 /// Niveau demandé par les touches 1 à 5, s'il y en a un.
 fn niveau_demande() -> Option<usize> {
-    [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4, KeyCode::Key5]
-        .iter()
-        .position(|&k| is_key_pressed(k))
+    [
+        KeyCode::Key1,
+        KeyCode::Key2,
+        KeyCode::Key3,
+        KeyCode::Key4,
+        KeyCode::Key5,
+    ]
+    .iter()
+    .position(|&k| is_key_pressed(k))
 }
 
 /// Charge le niveau `indice` en conservant (ou non) le score de la partie.
@@ -71,7 +77,11 @@ fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
         etat.nouveau_niveau(monde.niveau.depart);
         monde.etat = etat;
     }
-    let camera = Camera::new(&monde.joueur, monde.niveau.largeur_px(), monde.niveau.hauteur_px());
+    let camera = Camera::new(
+        &monde.joueur,
+        monde.niveau.largeur_px(),
+        monde.niveau.hauteur_px(),
+    );
     (monde, camera)
 }
 
@@ -85,7 +95,7 @@ fn effets(monde: &Monde, particules: &mut Particules) {
         particules.eclabousser(x, y, 4, PLUIE_SOMBRE, 1.2);
     }
     // Un petit filet d'eau sous les pieds quand Pépin court.
-    if monde.joueur.au_sol && monde.joueur.vitesse.x.abs() > 8.0 && monde.pas % 6 == 0 {
+    if monde.joueur.au_sol && monde.joueur.vitesse.x.abs() > 8.0 && monde.pas.is_multiple_of(6) {
         particules.eclabousser(x, y, 1, PLUIE_SOMBRE, 0.8);
     }
     for c in &monde.contacts {
@@ -115,7 +125,11 @@ async fn main() {
         let mut suite = niveau_demande().map(|i| (i, None));
         if monde.termine {
             let suivant = (monde.infos.numero as usize) % NB_NIVEAUX;
-            let etat = if suivant == 0 { None } else { Some(monde.etat.clone()) };
+            let etat = if suivant == 0 {
+                None
+            } else {
+                Some(monde.etat.clone())
+            };
             suite = Some((suivant, etat));
         }
         if let Some((indice, etat)) = suite {

@@ -57,7 +57,10 @@ impl Particules {
 
     /// Nombre pseudo-aléatoire entre 0.0 et 1.0.
     fn hasard(&mut self) -> f32 {
-        self.graine = self.graine.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        self.graine = self
+            .graine
+            .wrapping_mul(1_664_525)
+            .wrapping_add(1_013_904_223);
         ((self.graine >> 8) & 0xFFFF) as f32 / 65535.0
     }
 

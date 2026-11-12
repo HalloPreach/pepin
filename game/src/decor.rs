@@ -112,7 +112,12 @@ pub fn immeuble(cellule: i32, graine: u32) -> (i32, i32, i32, i32) {
     let largeur = 28 + (h % 17) as i32;
     let hauteur = 22 + ((h >> 5) % 40) as i32;
     let cheminee = 6 + ((h >> 11) % (largeur as u32 - 12)) as i32;
-    (cellule * 48 + ((h >> 17) % 6) as i32, largeur, hauteur, cheminee)
+    (
+        cellule * 48 + ((h >> 17) % 6) as i32,
+        largeur,
+        hauteur,
+        cheminee,
+    )
 }
 
 /// Position `(x, y)` écran de la goutte de pluie `i` au pas `pas`, pour une couche
@@ -156,8 +161,12 @@ fn dessiner_etoiles(pas: u32, cam_x: i32) {
         let x = ((h % (L as u32 + 64)) as i32 - dec).rem_euclid(L);
         let y = ((h >> 10) % (H as u32 / 2)) as i32;
         // Scintillement : certaines étoiles s'éteignent un instant.
-        let eteinte = (pas / 20 + h % 7) % 9 == 0;
-        let couleur = if h % 5 == 0 { OR_PALE } else { ARDOISE_PALE };
+        let eteinte = (pas / 20 + h % 7).is_multiple_of(9);
+        let couleur = if h.is_multiple_of(5) {
+            OR_PALE
+        } else {
+            ARDOISE_PALE
+        };
         if !eteinte {
             rect(x, y, 1, 1, couleur);
         }
@@ -178,7 +187,14 @@ fn dessiner_soleil(cam_x: i32) {
 }
 
 /// Une couche de silhouettes. `base` : ordonnée du sol de la couche.
-fn dessiner_couche(a: &Ambiance, cam_x: i32, base: i32, facteur: f32, couleur: Couleur, graine: u32) {
+fn dessiner_couche(
+    a: &Ambiance,
+    cam_x: i32,
+    base: i32,
+    facteur: f32,
+    couleur: Couleur,
+    graine: u32,
+) {
     let dec = decalage(cam_x, facteur);
     let premiere = dec.div_euclid(48) - 1;
     let derniere = (dec + L).div_euclid(48) + 1;

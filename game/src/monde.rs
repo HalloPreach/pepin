@@ -134,7 +134,10 @@ impl Monde {
                     self.derniere_mort = Some(cause);
                     self.reapparition = REAPPARITION_PAS;
                     // Mort dans le vide : on garde l'animation visible, au bas du niveau.
-                    self.pos_mort = (avant_mort.0, avant_mort.1.min(self.niveau.hauteur_px() - 16.0));
+                    self.pos_mort = (
+                        avant_mort.0,
+                        avant_mort.1.min(self.niveau.hauteur_px() - 16.0),
+                    );
                     // Téléportation : pas d'interpolation entre l'ancien et le nouvel endroit.
                     self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);
                 }
@@ -230,7 +233,8 @@ mod tests {
     #[test]
     fn tomber_dans_le_vide_fait_reapparaitre_au_depart() {
         let mut m = Monde::new(0);
-        m.joueur.placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
+        m.joueur
+            .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
         m.avancer(&Entrees::default());
         assert_eq!(m.etat.morts, 1);
         assert_eq!(m.joueur.boite.x, m.niveau.depart.0);
