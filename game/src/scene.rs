@@ -1,6 +1,6 @@
 //! Scène : dessine un `Monde` dans la cible 320x180, couche par couche.
 //!
-//! Ordre (arrière -> avant) : fond (ciel, silhouettes) -> tuiles -> panneaux ->
+//! Ordre (arrière -> avant) : fond (ciel, silhouettes) -> tuiles -> décor -> panneaux ->
 //! plateformes -> objets -> ennemis -> Pépin -> particules -> pluie.
 //! L'interface (compteurs, chrono) est dessinée par `hud`, les menus par `ecrans`.
 //! Chaque sprite est posé à une position ENTIÈRE (positions interpolées puis
@@ -11,8 +11,9 @@ use pepin_core::aabb::{Aabb, TAILLE_TUILE};
 use pepin_core::entities::ennemi::EtatEnnemi;
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::{Entite, TypeEnnemi};
-use pepin_core::level::{GenrePanneau, Tuile};
+use pepin_core::level::{GenreDecor, GenrePanneau, Tuile};
 use pepin_core::palette::*;
+use pepin_core::physics::CourantAscendant;
 use pepin_core::player::EtatJoueur;
 use pepin_core::zones::Theme;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
@@ -21,7 +22,7 @@ use crate::decor;
 use crate::monde::{Monde, REAPPARITION_PAS};
 use crate::particules::Particules;
 use crate::rendu::couleur_mq;
-use crate::sprites::{ennemis, objets, pepin, Banque};
+use crate::sprites::{ennemis, hauteur, largeur, objets, objets_decor, pepin, Banque};
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
@@ -156,6 +157,70 @@ fn dessiner_panneaux(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             GenrePanneau::Vent => "panneau_vent",
         };
         banque.dessiner(nom, p.x.round() - cx as f32, p.y.round() - cy as f32, false);
+    }
+}
+
+/// Durée (pas) d'un cycle de l'oiseau posé, et durée de la tête tournée en fin de cycle.
+const CYCLE_OISEAU: u32 = 300;
+const TETE_TOURNEE: u32 = 40;
+
+/// Image de l'oiseau posé n° `rang` au pas `pas` : il regarde devant, puis tourne la tête
+/// 2/3 s toutes les 5 s. Chaque oiseau a son décalage (97 pas de plus que le précédent) :
+/// ils ne tournent jamais la tête tous ensemble. Fonction pure, testable.
+fn image_oiseau(pas: u32, rang: usize) -> &'static str {
+    let phase = (pas + 97 * rang as u32) % CYCLE_OISEAU;
+    objets_decor::OISEAU[usize::from(phase >= CYCLE_OISEAU - TETE_TOURNEE)]
+}
+
+/// La manche à air s'étire vers le courant ascendant le plus proche (l'air y est aspiré) :
+/// vers la droite si son centre est à droite de la manche (ou s'il n'y a aucun courant).
+fn manche_vers_la_droite(x: f32, courants: &[CourantAscendant]) -> bool {
+    let centre_manche = x + TAILLE_TUILE / 2.0;
+    courants
+        .iter()
+        .map(|c| c.zone.x + c.zone.w / 2.0 - centre_manche)
+        .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+        .is_none_or(|ecart| ecart >= 0.0)
+}
+
+/// Coin haut-gauche (au pixel) d'un sprite de décor de `largeur` x `hauteur` posé sur sa
+/// case `(x, y)` : centré dans la largeur de la case, le bas sur le bas de la case (donc
+/// sur la tuile solide du dessous).
+fn coin_decor(x: f32, y: f32, largeur: usize, hauteur: usize) -> (i32, i32) {
+    let t = TAILLE_TUILE as i32;
+    (
+        x.round() as i32 + (t - largeur as i32) / 2,
+        y.round() as i32 + t - hauteur as i32,
+    )
+}
+
+/// Objets de décor : derrière les panneaux, les objets, les ennemis et Pépin (il passe
+/// devant une cheminée), sans aucune collision.
+fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let mut oiseaux = 0;
+    for d in &monde.niveau.decors {
+        let (nom, miroir) = match d.genre {
+            GenreDecor::Cheminee => ("cheminee", false),
+            GenreDecor::Antenne => ("antenne", false),
+            GenreDecor::Paratonnerre => ("paratonnerre", false),
+            GenreDecor::MancheAAir => (
+                "manche_a_air",
+                !manche_vers_la_droite(d.x, &monde.niveau.courants),
+            ),
+            GenreDecor::Oiseau => {
+                oiseaux += 1;
+                (image_oiseau(monde.pas, oiseaux - 1), false)
+            }
+        };
+        let Some(dessin) = objets_decor::SPRITES
+            .iter()
+            .find(|(n, _)| *n == nom)
+            .map(|&(_, dessin)| dessin)
+        else {
+            continue;
+        };
+        let (x, y) = coin_decor(d.x, d.y, largeur(dessin), hauteur(dessin));
+        banque.dessiner(nom, (x - cx) as f32, (y - cy) as f32, miroir);
     }
 }
 
@@ -436,6 +501,7 @@ pub fn dessiner(
 ) {
     decor::dessiner_fond(monde.infos.theme, cx, cy, monde.pas);
     dessiner_tuiles(monde, banque, cx, cy);
+    dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);
     dessiner_entites(monde, banque, alpha, cx, cy);
@@ -667,5 +733,73 @@ mod tests {
             series[1..series.len() - 1].iter().all(|&n| n == 3),
             "{series:?}"
         );
+    }
+
+    // --- Objets de décor (carte 4.2) ---
+
+    /// Chaque oiseau tourne la tête 40 pas sur 300 (2/3 s toutes les 5 s), jamais tous
+    /// ensemble : deux oiseaux voisins ne changent pas d'image au même pas.
+    #[test]
+    fn l_oiseau_tourne_la_tete_de_temps_en_temps() {
+        for rang in 0..6 {
+            let tete: Vec<bool> = (0..CYCLE_OISEAU)
+                .map(|pas| image_oiseau(pas, rang) == "oiseau1")
+                .collect();
+            assert_eq!(tete.iter().filter(|&&t| t).count(), TETE_TOURNEE as usize);
+            // Une seule série de tête tournée par cycle (pas de clignotement).
+            let changements = (0..CYCLE_OISEAU as usize)
+                .filter(|&i| tete[i] != tete[(i + 1) % CYCLE_OISEAU as usize])
+                .count();
+            assert_eq!(changements, 2, "oiseau {rang}");
+        }
+        for pas in 0..3 * CYCLE_OISEAU {
+            let ensemble = (0..6).all(|rang| image_oiseau(pas, rang) == "oiseau1");
+            assert!(!ensemble, "pas {pas} : tous les oiseaux tournent la tête");
+        }
+    }
+
+    /// Au niveau 4, chaque manche à air est à gauche de son courant : elle s'étire vers la
+    /// droite. Retournée si le courant le plus proche est à gauche.
+    #[test]
+    fn la_manche_a_air_s_etire_vers_son_courant() {
+        let niv = pepin_core::zones::NIVEAUX[3].charger().unwrap();
+        let manches: Vec<f32> = niv
+            .decors
+            .iter()
+            .filter(|d| d.genre == GenreDecor::MancheAAir)
+            .map(|d| d.x)
+            .collect();
+        assert_eq!(manches.len(), 4);
+        assert!(manches
+            .iter()
+            .all(|&x| manche_vers_la_droite(x, &niv.courants)));
+        let a_gauche = CourantAscendant::new(Aabb::new(0.0, 0.0, 48.0, 64.0));
+        let a_droite = CourantAscendant::new(Aabb::new(300.0, 0.0, 48.0, 64.0));
+        assert!(!manche_vers_la_droite(80.0, &[a_gauche]));
+        assert!(manche_vers_la_droite(80.0, &[a_droite]));
+        // Le plus proche l'emporte.
+        assert!(!manche_vers_la_droite(80.0, &[a_droite, a_gauche]));
+        assert!(manche_vers_la_droite(250.0, &[a_gauche, a_droite]));
+        assert!(
+            manche_vers_la_droite(80.0, &[]),
+            "sans courant : vers la droite"
+        );
+    }
+
+    /// Un sprite de décor est centré dans sa case et posé sur la tuile du dessous ; chaque
+    /// genre de décor a son dessin.
+    #[test]
+    fn le_decor_est_pose_sur_sa_case() {
+        assert_eq!(coin_decor(48.0, 112.0, 12, 20), (50, 108));
+        assert_eq!(coin_decor(48.0, 112.0, 16, 22), (48, 106));
+        assert_eq!(coin_decor(48.0, 112.0, 7, 24), (52, 104));
+        let noms = ["cheminee", "antenne", "paratonnerre", "manche_a_air"];
+        for nom in noms.iter().chain(objets_decor::OISEAU.iter()) {
+            assert!(
+                objets_decor::SPRITES.iter().any(|(n, _)| n == nom),
+                "{nom} : pas de dessin"
+            );
+        }
+        assert_eq!(GenreDecor::TOUS.len(), noms.len() + 1);
     }
 }
