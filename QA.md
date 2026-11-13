@@ -910,13 +910,27 @@ focalisé, serveur arrêté ensuite ; script du robot `target/qa/script.txt` rej
 b5da413 ; « après » : build de QA avec ces commits. Toutes regardées ; 0 pixel hors palette, 0 flou
 (`docs/mesure-capture.py`, K = 3) sur les 12.
 - `41-niveau1-debut-avant` / `-apres` (image 350) : toit bas puis toit surélevé ; après, la bande
-  d'ombre court sous les deux rebords, deux briques manquantes et une fissure dans le mur.
+  d'ombre court sous les deux rebords, deux briques manquantes et quelques fissures et coulures fines
+  dans le mur.
 - `41-niveau1-briques-avant` / `-apres` (image 1348) : l'escalier de toits ; une bande d'ombre sous
   chaque marche, variantes clairsemées dans les grands murs.
 - `41-niveau2-debut-avant` / `-apres` (image 2615) et `41-niveau2-briques-avant` / `-apres`
-  (image 3365) : thème des gouttières (briques plus claires) ; la flaque cyan reste seule à être cyan.
+  (image 3365) : thème des gouttières (briques plus claires) ; la flaque (ennemi cyan) ne se confond
+  avec aucune variante.
 - `41-niveau3-debut-avant` / `-apres` (image 5201) et `41-niveau3-briques-avant` / `-apres`
   (image 6619) : l'orage, le grand mur sous la cheminée.
+
+Vérification sur une extraction propre de 76b3e0f (`git archive`, nouveau dossier daté) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 154 + 183 tests, tous verts (7 de
+  plus qu'à la carte 3.3) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit,
+  0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+- `docs/planche-sprites.png` régénérée par les tests de l'extraction : identique à l'octet à celle du
+  commit. Robot de QA : `target/qa/script.txt` et `trace.csv` identiques à l'octet à ceux de la carte
+  3.3 (le dessin ne change rien au jeu).
+- Les 6 captures « après » refaites sur le build de QA de l'extraction : 5 identiques à l'octet aux
+  captures commitées ; la 6e (`41-niveau3-debut-apres`) diffère de 666 pixels, tous dans un carré de
+  38 x 50 px autour des pieds de Pépin, au-dessus du toit (gouttes de pluie et éclaboussure) : murs et
+  ombres identiques.
 
 Limites : jugé sur captures à l'échelle 3 (960 x 540) ; la fissure est plus discrète que le trou à
 cette taille (voulu : variantes rares et calmes, le mur ne doit pas attirer l'œil plus que les
