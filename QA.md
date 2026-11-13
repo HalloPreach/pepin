@@ -583,6 +583,7 @@ il y réapparaît sur elle et meurt de nouveau à CHAQUE pas (aucune protection 
 Débutant, essai 0 : 46 morts en 46 images (0,8 s), Pépin en (1667, 114) ; pire essai : 57 morts. C'est
 presque tout l'écart entre 6,9 et 1,4 au niveau 2. Piste pour une carte à venir (décision du
 coordinateur) : une courte invulnérabilité à la réapparition, ou une lanterne hors de la patrouille.
+Corrigé par la carte 3.1b : voir « Protection après réapparition (carte 3.1b) ».
 
 Preuve en vrai navigateur : `ecrire_script_morts_en_serie` (test ignoré) écrit `target/qa/script-31.txt`
 (le robot finit le niveau 1, puis le niveau 2 est joué par cet essai, entrées exactes) ; rejoué dans
@@ -653,3 +654,104 @@ hors palette, 0 flou (`docs/mesure-capture.py`, K = 3).
 
 Pas testé : un corbeau en monde ouvert DANS un niveau (aucun n'existe encore ; couvert par le test unitaire,
 à voir en jeu à la carte 3.3), vrai téléphone, Safari/Firefox, son (rien de sonore ne change).
+
+## Protection après réapparition (carte 3.1b)
+
+Le défaut trouvé par la mesure 3.1 (morts en série à la lanterne de la colonne 104 du niveau 2, jusqu'à 57
+d'affilée) est corrigé pour tous les niveaux et tous les dangers, sans toucher aux niveaux.
+
+Ce qui change :
+- `core/src/player.rs` : `PROTECTION_REAPPARITION_PAS` = 60 pas (1 s), compteur `protection` du joueur
+  (`proteger`, `est_protege`, `protection_restante`), décompté à chaque pas. Durée FIXE (bouger ne l'arrête
+  pas), jamais cumulée (`proteger` remet à 60, n'ajoute pas), `placer` seul ne protège pas. 1 s parce
+  qu'une flaque (24 px/s) met 0,92 s à passer entièrement sur Pépin immobile (22 px de chevauchement).
+- `core/src/state.rs` : `EtatJeu::traiter` donne la protection à chaque mort, en replaçant Pépin au
+  checkpoint (lanterne ou départ). C'est la SEULE source de protection : ni lanterne, ni écrasement, ni
+  champignon ne la donnent ; elle ne se recharge qu'à une réapparition.
+- `core/src/entities/contacts.rs` : protégé, aucun danger ne tue (ennemi touché de côté ou par-dessous,
+  pointe, éclair ; tout danger futur ajouté à `resoudre_contacts` doit suivre la même règle, écrit en tête
+  de la fonction). Le reste continue : gouttes, lanternes, champignons, écrasement d'un ennemi par le dessus.
+  La chute dans le vide (`verifier_vide`) reste mortelle.
+- `game/src/scene.rs` : Pépin clignote pendant toute la protection (`pepin_cache` : 3 images dessiné,
+  3 images non dessiné, 10 fois par seconde). Image absente plutôt que transparente : rien hors palette.
+  Avant, le même clignotement ne durait que les 18 pas de l'animation de mort.
+
+Tests ajoutés (tous verts) :
+- `player::la_protection_de_reapparition_expire` : protégé pendant exactement 60 pas, puis plus ; pas de
+  cumul ; `placer` ne protège pas.
+- `contacts::protege_aucun_danger_ne_tue_mais_le_reste_continue` : flaque de côté + pointe + éclair qui
+  frappe + goutte : sans protection, mort ; protégé, la goutte seulement ; protégé, l'écrasement marche.
+- `contacts::le_vide_tue_meme_protege` et `state::la_protection_ne_vient_que_d_une_reapparition`
+  (lanterne, écrasement, rebond : pas de protection ; une mort : protection ; le vide tue même protégé ;
+  rien en pause).
+- `state::une_flaque_qui_passe_sur_la_lanterne_ne_tue_qu_une_fois` : le scénario sur un petit toit, pas
+  de jeu complet (entités, joueur, contacts, état) : 1 mort. Contrôle : la même ligne `joueur.proteger()`
+  retirée, ce test échoue avec 55 morts (pas 227 à 281), comme la mesure 3.1.
+- `monde::la_flaque_sur_la_lanterne_104_du_niveau_2_ne_tue_plus_en_boucle` : le vrai niveau 2, Pépin
+  immobile à la lanterne 104 pendant 6 s : au plus 2 morts (un passage de la flaque à l'aller, un au
+  retour), jamais deux à moins de 60 pas d'intervalle, Pépin toujours à la lanterne.
+- `scene::pepin_clignote_pendant_toute_la_protection` : 30 images cachées sur 60, par séries de 3.
+- `zones::lanternes_sur_le_trajet_d_un_danger` : inventaire ci-dessous (à mettre à jour avec les niveaux).
+
+Lanternes sur le trajet d'un danger (les entités des 5 niveaux avancent seules pendant 2 min ; on note
+chaque lanterne dont le point de réapparition est touché par une flaque, un corbeau, une pointe ou un
+éclair qui frappe) : 3 lanternes, toutes sur la patrouille d'une flaque qui longe son toit d'un bout à
+l'autre. Niveau 2, colonne 66 (flaque de la colonne 70, toit des colonnes 62 à 82) ; niveau 2, colonne 104
+(flaque de la colonne 108, toit des colonnes 102 à 118 : le cas de la mesure 3.1) ; niveau 3, colonne 145
+(flaque de la colonne 154, toit de 61 tuiles). Aucun corbeau, aucune pointe, aucun éclair sur une
+lanterne. Aucune lanterne déplacée : la protection suffit (au plus une mort par passage de la flaque, comme
+n'importe où ailleurs sur le toit).
+
+Vérifié sur une extraction propre du commit 8d2a66a (`git archive`) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 154 + 173 tests, tous verts ;
+  `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms interdits,
+  seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit.
+- Robot de QA : finit les cinq niveaux sans mourir ; `target/qa/script.txt` et `trace.csv` identiques à
+  l'octet avant (96d043e) et après (le robot ne meurt jamais, la protection ne joue donc jamais).
+- Faisabilité : tests verts (aucun niveau modifié).
+- Mesure de difficulté relancée (`docs/mesure-difficulte.txt`, identique sur l'extraction propre et dans le
+  dépôt). Morts moyennes par niveau, avant → après (entre parenthèses : hors morts en série) :
+
+| Niveau                      | Débutant              | Habitué               | Expert                |
+| --------------------------- | --------------------- | --------------------- | --------------------- |
+| 1. Les toits                | 0,4 → 0,4             | 0,1 → 0,1             | 0,0 → 0,0             |
+| 2. Gouttières et cheminées  | 6,9 (1,4) → 1,5 (1,5) | 1,2 (0,4) → 0,5 (0,5) | 0,2 → 0,2             |
+| 3. Le grand orage           | 3,6 → 3,6             | 1,0 → 1,0             | 0,2 → 0,2             |
+| 4. Vents d'altitude         | 2,9 → 2,9             | 0,9 → 0,9             | 0,3 → 0,3             |
+| 5. Au-dessus des nuages     | 2,5 → 2,5             | 0,4 → 0,4             | 0,2 → 0,2             |
+| Total                       | 16,3 → 10,9           | 3,6 → 2,9             | 0,9 → 0,9             |
+
+  Niveau 2, pire essai : Débutant 57 → 5 morts, Habitué 36 → 3, Expert 1 → 2 ; morts en série : 5,5 → 0,
+  0,8 → 0, 0 → 0 (plus aucune dans tout le jeu). Niveaux 1, 3, 4 et 5 : lignes identiques à l'octet. Les
+  petits écarts du niveau 2 hors série (1,4 → 1,5 ; un essai Expert à 2 morts au lieu de 1 ; durée moyenne
+  Habitué et Expert + 1 s) viennent de ce qu'après une mort l'essai suit un autre cours (Pépin repart plus
+  tôt, protégé, à un autre moment de la patrouille) : bruit de la mesure, pas un effet du niveau.
+
+Preuve en vrai navigateur (Chromium 1208 piloté par CDP, build de QA `dist-qa/` de l'extraction propre servi
+sur 127.0.0.1, onglet au premier plan, canevas focalisé, serveur arrêté ensuite). `ecrire_script_lanterne_104`
+(test ignoré, remplace `ecrire_script_morts_en_serie` qui ne trouve plus aucune mort en série ; pour
+régénérer `script-31.txt`, extraire 96d043e) écrit `target/qa/script-31b.txt` : le robot finit le niveau 1,
+puis le niveau 2 est joué par le MÊME essai que les captures 31- (Débutant n° 0). Avant : 46 morts en 46
+images à la lanterne 104. Après : 1 seule mort dans tout l'essai, à l'image 3932, Pépin réapparu en
+(1667, 114) DANS la flaque ; la flaque le recouvre pendant 43 images (3932 à 3974), toutes protégées, puis
+Pépin repart vers la droite. Rejoué avec `SCRIPT=target/qa/script-31b.txt node docs/capture-visibilite.mjs`.
+Captures `docs/qa/31b-*` (demande = image de la trace) :
+- `31b-1-saut-vers-la-lanterne` (3925) : Pépin saute vers la lanterne, la flaque est collée à elle ;
+- `31b-2-mort-et-reapparition` (3932) : éclats de mort sur la lanterne allumée, la flaque dessus, Pépin
+  caché (clignotement) ;
+- `31b-3-protege-visible-dans-la-flaque` (3936) : Pépin dessiné, debout dans la flaque, vivant ;
+- `31b-4-protege-cache-flaque-sur-la-lanterne` (3951) : Pépin caché, la flaque sur la lanterne ;
+- `31b-clignote-00` à `05` (3953 à 3958) : dessiné, dessiné, caché, caché, caché, dessiné ;
+- `31b-5-protege-visible-flaque-qui-passe` (3966) : Pépin dessiné, la flaque sort par sa gauche ;
+- `31b-6-protection-finie-pepin-repart` (3995) : protection finie, Pépin saute vers la droite, la flaque
+  repart vers le mur de gauche.
+Chaque capture regardée ; 0 pixel hors palette, 0 flou (`docs/mesure-capture.py`, K = 3). Remarque : dans
+le navigateur, le motif du clignotement est décalé d'une image par rapport au tableau du test (cachées :
+demandes 3955 à 3957 au lieu de 3956 à 3958 ; même rythme 3/3). Décalage de numérotation entre le pilote et
+la trace, cause non recherchée ; les autres captures sont prises au milieu d'une phase de 3 images, donc
+insensibles à ce décalage.
+
+Pas testé : vrai téléphone, Safari/Firefox, ressenti d'un vrai joueur sur la durée de 1 s (assez longue
+pour laisser passer une flaque ; elle permet aussi de traverser une flaque juste à côté de la lanterne
+pendant cette seconde, voulu), son (rien de sonore ne change), grêle (pas encore écrite : elle devra passer
+par `resoudre_contacts` pour être couverte).

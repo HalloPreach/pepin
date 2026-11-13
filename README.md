@@ -64,6 +64,8 @@ Les cinq niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition). Il n'y a pas de « game over » : on réapparaît à la dernière
 lanterne allumée et on compte seulement les morts (`core/src/state.rs`).
+Pendant 1 s après chaque réapparition, Pépin clignote et aucun danger ne peut
+le tuer, sauf le vide (`PROTECTION_REAPPARITION_PAS`, `core/src/player.rs`).
 
 ## 2. Architecture : `core` (pur) et `game` (graphique)
 

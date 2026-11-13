@@ -9,7 +9,7 @@
 // Variable d'environnement GRILLE=1 : écrit aussi la grille logique 320x180 de chaque capture
 // (un caractère = un pixel logique, indice hexadécimal de palette) dans NOM.txt.
 // Variable d'environnement SCRIPT : autre script à rejouer (défaut : target/qa/script.txt), par
-// exemple target/qa/script-31.txt (essai de la mesure de difficulté, voir QA.md).
+// exemple target/qa/script-31b.txt (réapparition protégée à la lanterne 104, voir QA.md).
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

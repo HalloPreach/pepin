@@ -3,18 +3,18 @@ Morts moyennes par niveau (graine 20261113, 48 essais par profil et par niveau) 
 | Niveau                      | Débutant     | Habitué      | Expert       |
 | --------------------------- | ------------ | ------------ | ------------ |
 | 1. Les toits                | 0,4 (0,4)    | 0,1 (0,1)    | 0,0 (0,0)    |
-| 2. Gouttières et cheminées  | 6,9 (1,4)    | 1,2 (0,4)    | 0,2 (0,2)    |
+| 2. Gouttières et cheminées  | 1,5 (1,5)    | 0,5 (0,5)    | 0,2 (0,2)    |
 | 3. Le grand orage           | 3,6 (3,6)    | 1,0 (1,0)    | 0,2 (0,2)    |
 | 4. Vents d'altitude         | 2,9 (2,9)    | 0,9 (0,9)    | 0,3 (0,3)    |
 | 5. Au-dessus des nuages     | 2,5 (2,5)    | 0,4 (0,4)    | 0,2 (0,2)    |
-| Total                       | 16,3 (10,8)  | 3,6 (2,8)    | 0,9 (0,9)    |
+| Total                       | 10,9 (10,9)  | 2,9 (2,9)    | 0,9 (0,9)    |
 
 Détail par case : essais finis / essais, durée moyenne en secondes, morts en série en moyenne (moins d'1 s après la précédente), pire essai.
 
 | Niveau                      | Débutant                       | Habitué                        | Expert                         |
 | --------------------------- | ------------------------------ | ------------------------------ | ------------------------------ |
 | 1. Les toits                | 48/48, 38 s, série 0,0, max 4  | 48/48, 36 s, série 0,0, max 1  | 48/48, 34 s, série 0,0, max 1  |
-| 2. Gouttières et cheminées  | 48/48, 55 s, série 5,5, max 57 | 48/48, 45 s, série 0,8, max 36 | 48/48, 41 s, série 0,0, max 1  |
+| 2. Gouttières et cheminées  | 48/48, 55 s, série 0,0, max 5  | 48/48, 46 s, série 0,0, max 3  | 48/48, 42 s, série 0,0, max 2  |
 | 3. Le grand orage           | 48/48, 79 s, série 0,0, max 10 | 48/48, 56 s, série 0,0, max 4  | 48/48, 44 s, série 0,0, max 1  |
 | 4. Vents d'altitude         | 48/48, 55 s, série 0,0, max 10 | 48/48, 44 s, série 0,0, max 4  | 48/48, 40 s, série 0,0, max 2  |
 | 5. Au-dessus des nuages     | 48/48, 46 s, série 0,0, max 9  | 48/48, 32 s, série 0,0, max 2  | 48/48, 31 s, série 0,0, max 2  |
