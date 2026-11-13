@@ -194,6 +194,11 @@ struct Noeud {
 /// Clé de fusion d'un noeud (voir `Noeud::cle`).
 type CleNoeud = (i32, i32, bool, u32);
 
+/// Entrée de la file de priorité : `(coût en pas, x, y, lancé, chats écrasés)`.
+/// `x` et `y` sont rangés en bits (`f32::to_bits`) : un `f32` n'est pas `Ord`,
+/// ses bits si (et ils redonnent exactement le même `f32`).
+type EntreeTas = (u32, u32, u32, bool, u32);
+
 impl Noeud {
     fn pose(x: f32, y: f32, chats: u32) -> Self {
         Self {
@@ -334,7 +339,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // `tas` sert les états du moins coûteux au plus coûteux (`Reverse`
     // transforme le tas max en tas min).
     let mut meilleur: HashMap<CleNoeud, u32> = HashMap::new();
-    let mut tas: BinaryHeap<Reverse<(u32, u32, u32, bool, u32)>> = BinaryHeap::new();
+    let mut tas: BinaryHeap<Reverse<EntreeTas>> = BinaryHeap::new();
     let n0 = Noeud::pose(depart.0, depart.1, 0);
     meilleur.insert(n0.cle(), 0);
     tas.push(Reverse((
