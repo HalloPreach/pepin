@@ -19,6 +19,8 @@ const MAX: usize = 256;
 const GRAVITE: f32 = 0.12;
 /// Vitesse de montée d'un brin de vent, en pixels par pas.
 const VITESSE_SOUFFLE: f32 = 1.2;
+/// Vitesse horizontale d'un brin de vent latéral, en pixels par pas.
+const VITESSE_LATERALE: f32 = 1.8;
 
 #[derive(Debug, Clone, Copy)]
 struct Particule {
@@ -33,6 +35,8 @@ struct Particule {
     couleur: Couleur,
     /// Hauteur du trait dessiné (1 = un point ; 3 = un tiret vertical, pour le vent).
     hauteur: u8,
+    /// Largeur du trait dessiné (1 = un point ; 3 = un tiret horizontal, pour le vent).
+    largeur: u8,
 }
 
 /// L'ensemble des particules vivantes.
@@ -89,6 +93,7 @@ impl Particules {
                 gravite: GRAVITE,
                 couleur,
                 hauteur: 1,
+                largeur: 1,
             });
         }
     }
@@ -112,6 +117,7 @@ impl Particules {
                 gravite: 0.004,
                 couleur,
                 hauteur: 1,
+                largeur: 1,
             });
         }
     }
@@ -134,6 +140,7 @@ impl Particules {
                 gravite: 0.03,
                 couleur,
                 hauteur: 1,
+                largeur: 1,
             });
         }
     }
@@ -161,6 +168,53 @@ impl Particules {
             gravite: 0.0,
             couleur,
             hauteur: 3,
+            largeur: 1,
+        });
+    }
+
+    /// Un brin de vent latéral (tiret horizontal de 3 px qui traverse une zone de
+    /// vent de `sens` : -1 vers la gauche, 1 vers la droite). Il naît d'un côté de
+    /// la zone (côté d'où souffle le vent), à une hauteur tirée au hasard, et
+    /// disparaît en atteignant l'autre bord : le vent se voit sur toute la zone
+    /// sans déborder.
+    pub fn souffle_lateral(
+        &mut self,
+        x_min: f32,
+        x_max: f32,
+        haut: f32,
+        bas: f32,
+        sens: i8,
+        couleur: Couleur,
+    ) {
+        if self.liste.len() >= MAX {
+            return;
+        }
+        let largeur_zone = (x_max - x_min).max(4.0);
+        let x = if sens > 0 {
+            x_min + 1.0 + self.hasard() * (largeur_zone - 4.0).max(0.0)
+        } else {
+            x_max - 4.0 - self.hasard() * (largeur_zone - 4.0).max(0.0)
+        };
+        let y = haut + 1.0 + self.hasard() * (bas - haut - 2.0).max(0.0);
+        // Vie bornée par le bord opposé de la zone (le brin s'efface avant de sortir).
+        let reste = if sens > 0 {
+            (x_max - x) / VITESSE_LATERALE
+        } else {
+            (x - x_min) / VITESSE_LATERALE
+        };
+        let vie = (12.0 + (self.hasard() * 12.0).floor())
+            .min(reste.max(1.0))
+            .min(255.0) as u8;
+        self.liste.push(Particule {
+            x,
+            y,
+            vx: sens as f32 * VITESSE_LATERALE,
+            vy: 0.0,
+            vie,
+            gravite: 0.0,
+            couleur,
+            hauteur: 1,
+            largeur: 3,
         });
     }
 
@@ -182,7 +236,7 @@ impl Particules {
             draw_rectangle(
                 x as f32,
                 y as f32,
-                1.0,
+                p.largeur as f32,
                 p.hauteur as f32,
                 couleur_mq(p.couleur),
             );
@@ -194,6 +248,41 @@ impl Particules {
 mod tests {
     use super::*;
     use pepin_core::palette::PLUIE;
+
+    #[test]
+    fn le_souffle_lateral_traverse_sa_zone() {
+        // Zone de 30 px de large (x 10..40), vent vers la droite : le brin reste
+        // dans la zone pendant toute sa vie, avance, et meurt au bord.
+        let mut p = Particules::new();
+        p.souffle_lateral(10.0, 40.0, 0.0, 48.0, 1, PLUIE);
+        let n = p.len();
+        assert_eq!(n, 1);
+        let (x0, y0) = (p.liste[0].x, p.liste[0].y);
+        for _ in 0..20 {
+            p.actualiser();
+            for q in &p.liste {
+                assert!(
+                    q.x >= 10.0 && q.x + 3.0 <= 43.0,
+                    "le brin déborde : {}",
+                    q.x
+                );
+                assert_eq!(q.y, y0, "le vent latéral ne fait pas monter le brin");
+            }
+        }
+        // Tous les brins meurent avant de sortir de la zone (vie bornée par le bord).
+        for _ in 0..60 {
+            p.actualiser();
+        }
+        assert!(p.is_empty());
+        // Vent vers la gauche : même règle, miroir.
+        let mut q = Particules::new();
+        q.souffle_lateral(10.0, 40.0, 0.0, 48.0, -1, PLUIE);
+        for _ in 0..60 {
+            q.actualiser();
+        }
+        assert!(q.is_empty());
+        assert!(x0 > 0.0);
+    }
 
     #[test]
     fn les_particules_naissent_puis_meurent() {

@@ -57,6 +57,15 @@ pub fn effets(
             // se voit de bas en haut, pas seulement sous les pieds de Pépin.
             particules.souffle(z.x + decal, z.y, z.bas(), BLANC_CASSE);
         }
+        // Le vent latéral devient visible aussi (tirets horizontaux qui traversent
+        // la zone, dans son sens).
+        for v in &monde.niveau.vents {
+            let z = v.zone;
+            if z.x + z.w < cam_x || z.x > cam_x + LARGEUR_LOGIQUE as f32 {
+                continue;
+            }
+            particules.souffle_lateral(z.x, z.x + z.w, z.y, z.bas(), v.sens, BLANC_CASSE);
+        }
     }
     for c in &monde.contacts {
         match c {
