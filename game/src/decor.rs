@@ -253,6 +253,13 @@ const CELLULE_PLAFOND: i32 = 56;
 const FACTEUR_LOINTAINE: f32 = 0.15;
 const FACTEUR_ILOTS: f32 = 0.25;
 const FACTEUR_PROCHE: f32 = 0.35;
+/// Facteurs de parallaxe VERTICALE des mêmes couches : bien plus petits qu'en largeur
+/// (un niveau haut de quatre écrans fait monter la caméra de 540 px : la couche proche
+/// descend alors de 54 px, la lointaine de 27). Le ciel, les étoiles, le soleil et le
+/// plafond de nuages restent fixés à l'écran : ils sont « à l'infini ».
+const VERT_LOINTAINE: f32 = 0.05;
+const VERT_ILOTS: f32 = 0.07;
+const VERT_PROCHE: f32 = 0.10;
 /// Graines de hasard des deux couches de silhouettes.
 const GRAINE_LOINTAINE: u32 = 11;
 const GRAINE_PROCHE: u32 = 23;
@@ -274,6 +281,23 @@ pub(crate) fn ciel_a(a: &Ambiance, y: i32) -> Couleur {
 /// couche semble lointaine (elle bouge moins vite que la caméra).
 pub fn decalage(camera: i32, facteur: f32) -> i32 {
     (camera as f32 * facteur).round() as i32
+}
+
+/// Ordonnée de la caméra telle que le FOND la voit : comptée depuis la position la plus
+/// basse de la caméra dans le niveau (bas du niveau sur le bas de l'écran). Niveau haut
+/// (carte 5.2) : 0 tout en bas, -540 en haut d'un niveau de quatre écrans. Niveau d'un
+/// écran (pas plus haut que l'écran) : `cam_y` tel quel, exactement comme avant la
+/// carte 5.2 (secousse de mort comprise). Fonction pure.
+pub fn camera_fond(cam_y: i32, hauteur_niveau: i32) -> i32 {
+    cam_y - (hauteur_niveau - H).max(0)
+}
+
+/// Descente verticale (px, vers le bas de l'écran) d'une couche de silhouettes de
+/// `facteur` quand la caméra du fond est en `cam_y_fond` : nulle en bas d'un niveau,
+/// d'autant plus grande que la caméra monte (les silhouettes restent « en bas », sous
+/// Pépin qui grimpe), et toujours plus petite que le défilement des tuiles. Fonction pure.
+pub fn enfoncement(cam_y_fond: i32, facteur: f32) -> i32 {
+    -decalage(cam_y_fond, facteur)
 }
 
 /// Nombre pseudo-aléatoire stable dérivé d'un entier (même entrée, même sortie).
@@ -606,6 +630,7 @@ fn dessiner_pluie(a: &Ambiance, pas: u32) {
 }
 
 /// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes).
+/// `cam_y` : ordonnée de la caméra vue par le fond (`camera_fond`).
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     let a = ambiance(theme);
     dessiner_ciel(&a);
@@ -626,9 +651,9 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
         );
     }
     // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale).
-    let vert = |f: f32| -decalage(cam_y, f);
+    let vert = |f: f32| enfoncement(cam_y, f);
     if let Some((corps, dessous)) = a.ilots {
-        dessiner_ilots(corps, dessous, cam_x, vert(0.07));
+        dessiner_ilots(corps, dessous, cam_x, vert(VERT_ILOTS));
     }
     let (fen_loin, fen_proche) = match a.fenetres {
         Some((l, p)) => (Some(l), Some(p)),
@@ -637,7 +662,7 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     dessiner_couche(
         &a,
         cam_x,
-        BASE_LOINTAINE + vert(0.05),
+        BASE_LOINTAINE + vert(VERT_LOINTAINE),
         FACTEUR_LOINTAINE,
         a.lointain,
         GRAINE_LOINTAINE,
@@ -647,7 +672,7 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     dessiner_couche(
         &a,
         cam_x,
-        BASE_PROCHE + a.descente + vert(0.10),
+        BASE_PROCHE + a.descente + vert(VERT_PROCHE),
         FACTEUR_PROCHE,
         a.proche,
         GRAINE_PROCHE,
@@ -808,6 +833,88 @@ mod tests {
         assert_eq!(decalage(1000, 0.15), 150);
         // La couche lointaine bouge moins que la proche.
         assert!(decalage(777, 0.15) < decalage(777, 0.35));
+    }
+
+    /// Niveau d'un écran (176 px) : la caméra du fond est la caméra elle-même, donc les
+    /// silhouettes sont exactement là où elles étaient avant la carte 5.2, y compris
+    /// pendant la secousse de mort (caméra à -5 ou -3 au lieu de -4).
+    #[test]
+    fn un_niveau_d_un_ecran_garde_le_meme_fond() {
+        for cam_y in [-6, -5, -4, -3, -2] {
+            assert_eq!(camera_fond(cam_y, 176), cam_y);
+            assert_eq!(camera_fond(cam_y, 180), cam_y);
+            // L'ancienne formule était `-decalage(cam_y, f)` avec 0,07, 0,05 et 0,10.
+            for (f, ancien) in [
+                (VERT_ILOTS, 0.07),
+                (VERT_LOINTAINE, 0.05),
+                (VERT_PROCHE, 0.10),
+            ] {
+                assert_eq!(
+                    enfoncement(camera_fond(cam_y, 176), f),
+                    -decalage(cam_y, ancien)
+                );
+            }
+        }
+    }
+
+    /// Niveau haut : en bas, le fond est celui d'un niveau d'un écran ; plus la caméra
+    /// monte, plus les silhouettes descendent, la proche plus vite que les îlots, les îlots
+    /// plus vite que la lointaine, et toutes moins vite que les tuiles.
+    #[test]
+    fn en_hauteur_les_silhouettes_descendent_quand_on_monte() {
+        let hauteur = 45 * 16; // quatre écrans
+        let bas = hauteur - H;
+        assert_eq!(camera_fond(bas, hauteur), 0);
+        assert_eq!(camera_fond(0, hauteur), -bas);
+        for f in [VERT_LOINTAINE, VERT_ILOTS, VERT_PROCHE] {
+            assert_eq!(enfoncement(camera_fond(bas, hauteur), f), 0);
+        }
+        let mut avant = (0, 0, 0);
+        for cam_y in (0..=bas).rev() {
+            let c = camera_fond(cam_y, hauteur);
+            let montee = bas - cam_y;
+            let e = (
+                enfoncement(c, VERT_LOINTAINE),
+                enfoncement(c, VERT_ILOTS),
+                enfoncement(c, VERT_PROCHE),
+            );
+            assert!(
+                e.0 >= avant.0 && e.1 >= avant.1 && e.2 >= avant.2,
+                "{cam_y}"
+            );
+            assert!(e.0 <= e.1 && e.1 <= e.2 && e.2 <= montee, "{cam_y} : {e:?}");
+            avant = e;
+        }
+        assert_eq!(avant, (27, 38, 54), "en haut d'un niveau de quatre écrans");
+    }
+
+    /// En descendant (niveau haut), une couche passe devant des bandes de ciel plus
+    /// basses : sa couleur doit rester différente de TOUT le ciel qu'elle peut couvrir,
+    /// pour une caméra jusqu'à 64 rangées de haut (plus que les quatre écrans prévus).
+    #[test]
+    fn en_hauteur_aucune_silhouette_n_a_la_couleur_du_ciel() {
+        let montee_max = 64 * 16 - H;
+        for t in Theme::TOUS {
+            let a = ambiance(t);
+            for z in zones(&a) {
+                let facteur = match z.nom {
+                    "lointaine" => VERT_LOINTAINE,
+                    "proche" => VERT_PROCHE,
+                    "ilots" | "ilots-dessous" => VERT_ILOTS,
+                    // Le plafond est fixé en haut de l'écran : il ne descend pas.
+                    _ => continue,
+                };
+                let s = enfoncement(-montee_max, facteur);
+                for y in z.haut..(z.bas + s).min(H) {
+                    assert_ne!(
+                        z.couleur,
+                        ciel_a(&a, y),
+                        "{t:?} : la couche {} a la couleur du ciel à y={y}",
+                        z.nom
+                    );
+                }
+            }
+        }
     }
 
     #[test]

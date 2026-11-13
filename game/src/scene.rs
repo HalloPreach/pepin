@@ -458,7 +458,8 @@ fn repere_haut(boite_y: i32, boite_h: i32, milieu_x: i32) -> Option<i32> {
 }
 
 /// Petite flèche corail collée en haut de l'écran, à l'abscisse de Pépin, quand il saute
-/// au-dessus du cadre (les petits niveaux ont une caméra verticale figée).
+/// au-dessus du cadre : au-dessus d'un niveau d'un écran (caméra verticale figée), ou
+/// au-dessus du HAUT d'un niveau haut (la caméra s'arrête à sa borne haute).
 fn dessiner_repere(x: i32) {
     const FLECHE: [(i32, i32); 3] = [(2, 1), (1, 3), (0, 5)]; // (décalage, largeur) par rangée
     for (k, &(dx, w)) in FLECHE.iter().enumerate() {
@@ -576,7 +577,10 @@ pub fn dessiner(
     cx: i32,
     cy: i32,
 ) {
-    decor::dessiner_fond(monde.infos.theme, cx, cy, monde.pas);
+    // Le fond compte la caméra depuis le bas du niveau (parallaxe verticale d'un niveau
+    // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
+    let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
+    decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
     dessiner_tuiles(monde, banque, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
