@@ -8,6 +8,8 @@
 //                             tombe dans un trou) ; K captures, une toutes les PAS images
 //   attente:prefixe=IMAGE:K:PAS à IMAGE, le robot lâche son script et ne touche plus à rien :
 //                             Pépin reste immobile ; K captures, une toutes les PAS images
+//   touche:nom=IMAGE:CODE:N   à IMAGE, le robot lâche son script ; touche CODE appuyée une
+//                             image, N images sans rien, puis capture (nom « - » : aucune)
 // Variable d'environnement GRILLE=1 : écrit aussi la grille logique 320x180 de chaque capture
 // (un caractère = un pixel logique, indice hexadécimal de palette) dans NOM.txt.
 // Variable d'environnement SCRIPT : autre script à rejouer (défaut : target/qa/script.txt), par
@@ -97,6 +99,22 @@ for (const d of demandes) {
       }
       await capturer(`${nom}-${String(i).padStart(2, '0')}`);
     }
+  } else if (d.startsWith('touche:')) {
+    // touche:nom=IMAGE:CODE:N : à IMAGE, le robot lâche son script ; la touche CODE (code
+    // DOM : PageDown, KeyN, Digit5, Enter...) est appuyée pendant une image, puis N images
+    // passent sans rien toucher, et on capture (nom « - » : pas de capture). Sert aux
+    // raccourcis du build de QA ; les demandes suivantes doivent aussi être des « touche: ».
+    const [nom, reste] = d.slice(7).split('=');
+    const [image, code, n] = reste.split(':');
+    await jusqua(Number(image));
+    await evalue('(() => { const P = window.__P; P.script = P.script.slice(0, P.pos); return 1; })()');
+    await evalue(`(() => { const P = window.__P; P.parRaf = 8; P.gel = 0;
+      P.file.push({ taper: [${JSON.stringify(code)}], m: 0, n: 1 }, { m: 0, n: ${Number(n)} }); return 1; })()`);
+    for (let j = 0; j < 400; j++) {
+      if (await evalue('(() => { const P = window.__P; return P.file.length === 0 && P.gel >= 3; })()')) break;
+      await dormir(50);
+    }
+    if (nom !== '-') await capturer(nom);
   } else {
     const [nom, image] = d.split('=');
     await jusqua(Number(image) + 1);
