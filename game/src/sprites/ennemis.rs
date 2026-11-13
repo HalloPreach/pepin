@@ -1,6 +1,6 @@
 //! Sprites des ennemis : flaques qui patrouillent (16x10), corbeaux (16x12),
-//! pigeons (16x12), et l'escargot (16x12), qui n'est pas un ennemi mais patrouille
-//! comme eux.
+//! pigeons (16x12), chats endormis (16x14, avec leurs « z » et leur « ! »), et
+//! l'escargot (16x12), qui n'est pas un ennemi mais patrouille comme eux.
 
 use super::Image;
 
@@ -241,6 +241,126 @@ pub const ESCARGOT_REBOND: Image = &[
     ".00000000000000.",
 ];
 
+/// Chat endormi (16x14, tourné vers la gauche) : roulé en boule, tête posée sur
+/// ses pattes blanches, yeux fermés, la queue rayée enroulée sous lui. Pelage
+/// orange (A), rayures et queue corail (8), oreilles roses (9), museau et
+/// pattes blancs (7). Les rangées du haut restent vides : l'image éveillée,
+/// assise, est plus haute. 1re image : il inspire (le dos se soulève).
+pub const CHAT_DORT0: Image = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".0.....0........",
+    "090...090.......",
+    "0A90009A0.0000..",
+    "0AAAAAAA00AAAA0.",
+    "0A00A00A0AAAAAA0",
+    "0AAA8AAA0AAAAAA0",
+    "077777770AAAAAA0",
+    ".0777770888888A0",
+    "..00000000000000",
+];
+
+/// Chat endormi, 2e image : il expire (le dos s'abaisse d'un pixel).
+pub const CHAT_DORT1: Image = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".0.....0........",
+    "090...090.......",
+    "0A90009A0.......",
+    "0AAAAAAA0.0000..",
+    "0A00A00A00AAAA0.",
+    "0AAA8AAA0AAAAAA0",
+    "077777770AAAAAA0",
+    ".0777770888888A0",
+    "..00000000000000",
+];
+
+/// Réveil (l'annonce) : il lève la tête, oreilles dressées, un œil ouvert (or).
+pub const CHAT_REVEIL: Image = &[
+    "................",
+    "................",
+    "................",
+    ".0.....0........",
+    "090...090.......",
+    "0A90009A0.......",
+    "0AAAAAAA0.......",
+    "0A0BA00A0.0000..",
+    "0AAA8AAA00AAAA0.",
+    "077777770AAAAAA0",
+    ".0777770AAAAAAA0",
+    ".0A777A0AAAAAAA0",
+    ".0777770888888A0",
+    "..00000000000000",
+];
+
+/// Éveillé : assis, dos rond, poil hérissé, queue dressée, grands yeux d'or :
+/// le toucher tue (même par le dessus).
+pub const CHAT_EVEILLE: Image = &[
+    ".0.....0......0.",
+    "090...090....0A0",
+    "0A90009A0....0A0",
+    "0AAAAAAA0.00.0A0",
+    "0A0BA0BA00AA00A0",
+    "0AAA8AAA0AAAA0A0",
+    "077707770AAAAA80",
+    ".0777770AAAAAAA0",
+    "..07770AAAAAAAA0",
+    "..07770AAAAAAA80",
+    "..07A70AAAAAAA0.",
+    "..07770AAAAAAA0.",
+    "..0707088888880.",
+    "...0.0000000000.",
+];
+
+/// Écrasé : aplati comme une crêpe, oreilles rentrées dans la tête. Il reste
+/// mignon : yeux plissés en « ^ ^ », petit nez rose, museau blanc.
+pub const CHAT_ECRASE: Image = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".0.....0........",
+    "090000090000000.",
+    "0A0AAA0A0AAAAAA0",
+    "00A080A00AAAAAA0",
+    "0777777708888880",
+    ".00000000000000.",
+];
+
+/// « z » du sommeil (6x6) : blanc cerné de sombre, lisible sur tous les ciels.
+/// La scène en fait monter trois au-dessus du chat endormi, l'un après l'autre.
+pub const CHAT_Z: Image = &[
+    ".0000.",
+    "077770",
+    ".0070.",
+    ".0700.",
+    "077770",
+    ".0000.",
+];
+
+/// « ! » de l'annonce du réveil (4x8) : or cerné de sombre ; la scène le fait
+/// clignoter de plus en plus vite, comme l'annonce d'un éclair.
+pub const CHAT_ALERTE: Image = &[
+    "0000",
+    "0BB0",
+    "0BB0",
+    "0BB0",
+    "0000",
+    "0BB0",
+    "0000",
+    "....",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("flaque0", FLAQUE0),
@@ -258,6 +378,13 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("escargot0", ESCARGOT0),
     ("escargot1", ESCARGOT1),
     ("escargot_rebond", ESCARGOT_REBOND),
+    ("chat_dort0", CHAT_DORT0),
+    ("chat_dort1", CHAT_DORT1),
+    ("chat_reveil", CHAT_REVEIL),
+    ("chat_eveille", CHAT_EVEILLE),
+    ("chat_ecrase", CHAT_ECRASE),
+    ("chat_z", CHAT_Z),
+    ("chat_alerte", CHAT_ALERTE),
 ];
 
 /// Images de la patrouille d'une flaque (3 images).
@@ -268,3 +395,5 @@ pub const CORBEAU: [&str; 2] = ["corbeau0", "corbeau1"];
 pub const PIGEON: [&str; 2] = ["pigeon0", "pigeon1"];
 /// Escargot qui marche (2 images).
 pub const ESCARGOT: [&str; 2] = ["escargot0", "escargot1"];
+/// Chat endormi : il respire (2 images).
+pub const CHAT_DORT: [&str; 2] = ["chat_dort0", "chat_dort1"];

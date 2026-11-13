@@ -264,6 +264,7 @@ mod tests {
             &ennemis::CORBEAU,
             &ennemis::PIGEON,
             &ennemis::ESCARGOT,
+            &ennemis::CHAT_DORT,
             &objets::GOUTTE,
             &objets::LANTERNE,
             &objets::CHAMPIGNON,
@@ -470,6 +471,97 @@ mod tests {
             for ciel in ambiance(theme).ciel {
                 let k = contraste(couleur_de('0'), ciel).max(contraste(couleur_de('6'), ciel));
                 assert!(k >= 4.5, "{theme:?} : escargot sur {ciel:?} : {k:.2}");
+            }
+        }
+    }
+
+    // --- Chat endormi (carte 5.9) ---
+
+    /// Les cinq images du chat : dort (2), réveil, éveillé, écrasé.
+    const CHAT_TOUT: [&str; 5] = [
+        "chat_dort0",
+        "chat_dort1",
+        "chat_reveil",
+        "chat_eveille",
+        "chat_ecrase",
+    ];
+
+    /// Tout pixel coloré (ni vide ni contour) a ses quatre voisins dans le dessin
+    /// et opaques : le dessin est cerné d'un contour sombre.
+    fn verifier_contour(nom: &str) {
+        let d = dessin(nom);
+        let (l, h) = (largeur(d) as i32, hauteur(d) as i32);
+        for y in 0..h {
+            for x in 0..l {
+                let c = car(d, x, y);
+                if c == '.' || c == '0' {
+                    continue;
+                }
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    assert!((0..l).contains(&(x + dx)) && (0..h).contains(&(y + dy)));
+                    assert_ne!(
+                        car(d, x + dx, y + dy),
+                        '.',
+                        "{nom} : ({x},{y}) « {c} » touche le vide sans contour"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn le_chat_a_cinq_images_de_meme_taille_et_un_contour_sombre() {
+        for nom in CHAT_TOUT {
+            assert_eq!(taille(nom), (16, 14), "{nom}");
+            verifier_contour(nom);
+            // Posé sur sa boîte 14 x 8 (colonnes 1 à 14, bas du dessin) : la
+            // dernière rangée est une ligne de contour sombre, sans rien dessous.
+            let d = dessin(nom);
+            assert!(d[13].chars().all(|c| c == '0' || c == '.'), "{nom}");
+        }
+        // Endormi, il respire : seul le dos bouge, le bas du corps (rangées 10 à 13) non.
+        let (a, b) = (dessin("chat_dort0"), dessin("chat_dort1"));
+        assert_ne!(a, b);
+        assert_eq!(&a[10..], &b[10..]);
+        // Les indices (« z » du sommeil, « ! » du réveil) aussi sont cernés.
+        assert_eq!(taille("chat_z"), (6, 6));
+        assert_eq!(taille("chat_alerte"), (4, 8));
+        verifier_contour("chat_z");
+        verifier_contour("chat_alerte");
+    }
+
+    /// Endormi, il a les yeux fermés (aucun pixel d'or) ; éveillé, ses yeux sont
+    /// d'or : la différence se voit d'un coup d'œil.
+    #[test]
+    fn le_chat_eveille_a_les_yeux_ouverts() {
+        let or = |nom: &str| {
+            dessin(nom)
+                .iter()
+                .flat_map(|l| l.chars())
+                .filter(|&c| c == 'B')
+                .count()
+        };
+        assert_eq!(or("chat_dort0"), 0);
+        assert_eq!(or("chat_dort1"), 0);
+        assert_eq!(
+            or("chat_ecrase"),
+            0,
+            "écrasé, il ferme les yeux (il reste mignon)"
+        );
+        assert_eq!(or("chat_reveil"), 1, "un œil ouvert");
+        assert_eq!(or("chat_eveille"), 2, "les deux yeux");
+    }
+
+    /// Le chat et ses indices se lisent sur TOUS les ciels : sur chaque bande de ciel
+    /// de chaque thème, le contour sombre ou le blanc (museau, pattes, « z »)
+    /// contraste d'au moins 4,5:1.
+    #[test]
+    fn le_chat_se_detache_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('0'), ciel).max(contraste(couleur_de('7'), ciel));
+                assert!(k >= 4.5, "{theme:?} : chat sur {ciel:?} : {k:.2}");
             }
         }
     }

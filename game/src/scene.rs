@@ -9,7 +9,7 @@
 use macroquad::prelude::draw_rectangle;
 use pepin_core::aabb::{Aabb, Grille, TAILLE_TUILE};
 use pepin_core::entities::auvent::HAUT_TOILE;
-use pepin_core::entities::ennemi::{EtatEnnemi, PhasePigeon};
+use pepin_core::entities::ennemi::{EtatEnnemi, PhaseChat, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::montgolfiere::{EtatMontgolfiere, HAUT_BALLON};
 use pepin_core::entities::{Entite, TypeEnnemi};
@@ -459,6 +459,23 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                             e.vers_la_droite == retourne,
                         );
                     }
+                    TypeEnnemi::Chat => {
+                        // Le chat du dessin regarde à gauche. Sprite 16x14 posé sur le
+                        // bas de la boîte 14x8, centré (1 px de chaque côté).
+                        let (x, y) = (sx - 1.0, sy - 6.0);
+                        let miroir = e.vers_la_droite;
+                        banque.dessiner(image_chat(e.phase_chat(), ecrase, pas), x, y, miroir);
+                        // L'indice au-dessus de sa tête : les « z » du sommeil, puis le
+                        // « ! » de l'annonce, qui clignote de plus en plus vite.
+                        if !ecrase {
+                            for (nom, dx, dy) in bulles_chat(e.phase_chat(), pas) {
+                                // La tête est à gauche du dessin : miroir, elle passe à droite.
+                                let l = largeur(sprite_chat(nom)) as f32;
+                                let bx = if miroir { x + 16.0 - dx - l } else { x + dx };
+                                banque.dessiner(nom, bx, y + dy, false);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -472,6 +489,63 @@ pub(crate) fn image_escargot(comprime: bool, pas: u32) -> &'static str {
         "escargot_rebond"
     } else {
         image(&ennemis::ESCARGOT, pas, 15)
+    }
+}
+
+/// Image du chat selon sa phase. Endormi, il respire (2 images de 0,5 s) ; pendant
+/// l'annonce il lève la tête, un œil ouvert ; éveillé, il est assis, hérissé.
+/// Fonction pure.
+pub(crate) fn image_chat(phase: PhaseChat, ecrase: bool, pas: u32) -> &'static str {
+    if ecrase {
+        return "chat_ecrase";
+    }
+    match phase {
+        PhaseChat::Dort(_) => image(&ennemis::CHAT_DORT, pas, 30),
+        PhaseChat::Reveil(_) => "chat_reveil",
+        PhaseChat::Eveille(_) => "chat_eveille",
+    }
+}
+
+/// Durée (pas) de la montée d'un « z » au-dessus du chat endormi.
+const MONTEE_Z_PAS: u32 = 60;
+
+/// Les indices dessinés au-dessus de la tête du chat : `(sprite, dx, dy)`, en px
+/// depuis le coin haut-gauche du sprite du chat (tourné vers la gauche).
+/// - Il dort : deux « z » montent l'un après l'autre en s'écartant de sa tête
+///   (10 px de montée en 1 s, décalés d'une demi-seconde).
+/// - Il se réveille : le « ! » doré clignote de plus en plus vite (comme
+///   l'annonce d'un éclair), tout le temps de l'annonce.
+/// - Éveillé : rien (il est assis, hérissé : son image suffit).
+///
+/// Fonction pure.
+pub(crate) fn bulles_chat(phase: PhaseChat, pas: u32) -> Vec<(&'static str, f32, f32)> {
+    match phase {
+        PhaseChat::Dort(_) => (0..2)
+            .map(|k| {
+                let t = (pas + k * MONTEE_Z_PAS / 2) % MONTEE_Z_PAS;
+                // Entiers : le « z » reste sur la grille des pixels.
+                let montee = t * 10 / MONTEE_Z_PAS;
+                ("chat_z", 1.0 - (montee / 2) as f32, -2.0 - montee as f32)
+            })
+            .collect(),
+        PhaseChat::Reveil(n) => {
+            let progression = 1.0 - n as f32 / pepin_core::entities::ennemi::REVEIL_PAS as f32;
+            if annonce_allumee(progression) {
+                vec![("chat_alerte", 2.0, -6.0)]
+            } else {
+                Vec::new()
+            }
+        }
+        PhaseChat::Eveille(_) => Vec::new(),
+    }
+}
+
+/// Dessin d'un indice du chat (pour connaître sa largeur).
+fn sprite_chat(nom: &str) -> crate::sprites::Image {
+    if nom == "chat_alerte" {
+        ennemis::CHAT_ALERTE
+    } else {
+        ennemis::CHAT_Z
     }
 }
 
@@ -1090,6 +1164,73 @@ mod tests {
         for n in ["escargot0", "escargot1", "escargot_rebond"] {
             assert!(noms.contains(&n), "{n}");
         }
+    }
+
+    // --- Chat endormi (carte 5.9) ---
+
+    #[test]
+    fn le_chat_a_une_image_par_phase() {
+        use pepin_core::entities::ennemi::{DORT_PAS, EVEILLE_PAS, REVEIL_PAS};
+        // Endormi, il respire : les deux images alternent.
+        let dort: Vec<_> = (0..120)
+            .map(|p| image_chat(PhaseChat::Dort(DORT_PAS), false, p))
+            .collect();
+        assert!(dort.contains(&"chat_dort0") && dort.contains(&"chat_dort1"));
+        assert!(dort.iter().all(|n| n.starts_with("chat_dort")));
+        assert_eq!(
+            image_chat(PhaseChat::Reveil(REVEIL_PAS), false, 3),
+            "chat_reveil"
+        );
+        assert_eq!(
+            image_chat(PhaseChat::Eveille(EVEILLE_PAS), false, 3),
+            "chat_eveille"
+        );
+        for phase in [
+            PhaseChat::Dort(5),
+            PhaseChat::Reveil(5),
+            PhaseChat::Eveille(5),
+        ] {
+            assert_eq!(image_chat(phase, true, 9), "chat_ecrase");
+        }
+        // Toutes ces images existent dans la banque de sprites.
+        let noms: Vec<&str> = crate::sprites::tous().iter().map(|(n, _)| *n).collect();
+        for n in [
+            "chat_dort0",
+            "chat_dort1",
+            "chat_reveil",
+            "chat_eveille",
+            "chat_ecrase",
+        ] {
+            assert!(noms.contains(&n), "{n}");
+        }
+    }
+
+    #[test]
+    fn les_z_montent_pendant_le_sommeil_et_le_point_d_exclamation_annonce_le_reveil() {
+        use pepin_core::entities::ennemi::{EVEILLE_PAS, REVEIL_PAS};
+        // Endormi : toujours deux « z », qui montent puis repartent d'en bas.
+        let hauteurs: Vec<f32> = (0..MONTEE_Z_PAS)
+            .map(|p| {
+                let b = bulles_chat(PhaseChat::Dort(100), p);
+                assert_eq!(b.len(), 2);
+                assert!(b.iter().all(|&(n, _, dy)| n == "chat_z" && dy < 0.0));
+                b[0].2
+            })
+            .collect();
+        assert_eq!(hauteurs[0], -2.0);
+        assert!(hauteurs.windows(2).all(|w| w[1] <= w[0]), "il monte");
+        assert!(hauteurs.last().unwrap() <= &-11.0);
+        // Annonce du réveil : le « ! » clignote, de plus en plus vite.
+        let allume: Vec<bool> = (1..=REVEIL_PAS)
+            .rev()
+            .map(|n| !bulles_chat(PhaseChat::Reveil(n), 0).is_empty())
+            .collect();
+        let changements = |t: &[bool]| t.windows(2).filter(|w| w[0] != w[1]).count();
+        let (debut, fin) = allume.split_at(allume.len() / 2);
+        assert!(allume[0], "allumé dès le début de l'annonce");
+        assert!(changements(fin) > changements(debut), "{allume:?}");
+        // Éveillé : aucun indice.
+        assert!(bulles_chat(PhaseChat::Eveille(EVEILLE_PAS), 0).is_empty());
     }
 
     // --- Pigeon (carte 4.4) ---
