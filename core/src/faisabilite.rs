@@ -38,6 +38,13 @@
 //!   rien toucher (sinon la vraie nacelle s'arrêterait plus bas : le robot
 //!   renonce, c'est prudent). La redescente n'est pas simulée : la nacelle en
 //!   haut reste là, comme les deux bouts d'une plateforme mobile ;
+//! - une aiguille d'horloge est remplacée par DOUZE plateformes immobiles, une
+//!   par heure de son cadran. Un joueur posé sur l'une est aussi considéré posé
+//!   sur chacune des autres (il suffit d'attendre que l'aiguille l'y emmène, dans
+//!   le sens horaire), avec le temps du trajet comme coût, si sa boîte ne touche
+//!   aucune tuile solide en chemin (`Cadran::trajet`). Les douze places, toutes
+//!   présentes à la fois, gênent parfois un saut qui passerait en vrai : c'est
+//!   prudent. Le robot de QA, lui, attend vraiment l'aiguille ;
 //! - un escargot est remplacé par un tremplin IMMOBILE qui couvre tout son
 //!   trajet (`Escargot::etendu_au_trajet`) : partout où il peut passer, un
 //!   joueur patient qui l'attend au bon endroit lui tombe dessus et rebondit.
@@ -227,6 +234,48 @@ type Trajet = ((f32, f32), (f32, f32), f32);
 /// haut de la nacelle en haut, largeur).
 type Montee = (f32, f32, f32, f32);
 
+/// Nombre de places d'une aiguille d'horloge vue par le robot : une par heure.
+const HEURES: usize = 12;
+
+/// Une aiguille d'horloge vue par le robot : sa plateforme (pour retrouver sa
+/// place à n'importe quel moment du tour) et ses 12 places, une par heure du
+/// cadran (coin haut-gauche ; 0 = midi).
+struct Cadran {
+    aiguille: crate::entities::PlateformeMobile,
+    places: [(f32, f32); HEURES],
+}
+
+impl Cadran {
+    /// Debout sur la place `heure` à `(x, y)`, Pépin attend que l'aiguille l'emmène
+    /// à la place `heure + n` (sens horaire). Renvoie où il arrive et l'attente (en
+    /// pas), ou `None` si, en chemin, sa boîte toucherait une tuile solide (on
+    /// regarde 8 fois par heure). Prudent : le vrai portage le retiendrait.
+    fn trajet(
+        &self,
+        niveau: &Niveau,
+        (x, y): (f32, f32),
+        heure: usize,
+        n: usize,
+    ) -> Option<((f32, f32), u32)> {
+        let depart = self.places[heure];
+        for k in 1..=8 * n {
+            let tour = (heure as f32 + k as f32 / 8.0) / HEURES as f32;
+            let p = self.aiguille.coin_a(tour)?;
+            let boite = Aabb::new(x + p.0 - depart.0, y + p.1 - depart.1, JOUEUR_L, JOUEUR_H);
+            if touche_un_obstacle(&boite, niveau, &[]) {
+                return None;
+            }
+        }
+        let arrivee = self.places[(heure + n) % HEURES];
+        let pas_par_tour = self.aiguille.cercle()?.pas_par_tour();
+        let attente = (n as f32 / HEURES as f32 * pas_par_tour).ceil() as u32;
+        Some((
+            (x + arrivee.0 - depart.0, y + arrivee.1 - depart.1),
+            attente,
+        ))
+    }
+}
+
 /// Explore le niveau depuis `depart` (coin haut-gauche du joueur).
 pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rapport {
     // Solides immobiles : friables + extrémités des plateformes mobiles + nacelles
@@ -237,15 +286,29 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // (extrémité a, extrémité b, largeur) de chaque plateforme mobile.
     let mut trajets: Vec<Trajet> = Vec::new();
     let mut montees: Vec<Montee> = Vec::new();
+    let mut cadrans: Vec<Cadran> = Vec::new();
     for e in &niveau.entites {
         match e {
             Entite::Mobile(m) => {
-                // Plateforme en aller-retour (les aiguilles d'horloge n'ont pas
-                // d'extrémités).
+                // Plateforme en aller-retour : ses deux extrémités.
                 if let Some((a, b)) = m.extremites() {
                     solides.push(Aabb::new(a.0, a.1, m.boite.w, m.boite.h));
                     solides.push(Aabb::new(b.0, b.1, m.boite.w, m.boite.h));
                     trajets.push((a, b, m.boite.w));
+                }
+                // Aiguille d'horloge : ses 12 places, une par heure du cadran.
+                if m.cercle().is_some() {
+                    let places: [(f32, f32); HEURES] = std::array::from_fn(|h| {
+                        m.coin_a(h as f32 / HEURES as f32)
+                            .expect("une aiguille a un cercle")
+                    });
+                    for &(x, y) in &places {
+                        solides.push(Aabb::new(x, y, m.boite.w, m.boite.h));
+                    }
+                    cadrans.push(Cadran {
+                        aiguille: m.clone(),
+                        places,
+                    });
                 }
             }
             Entite::Montgolfiere(m) => {
@@ -473,6 +536,27 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         if !touche_un_obstacle(&balayage, niveau, &[]) {
                             let attente = (-dy / VITESSE_MONTEE * HZ as f32).ceil() as u32;
                             ajouter(Noeud::pose(x, y + dy, ecrases), cout_plan + attente);
+                        }
+                    }
+                    // Debout sur une place d'aiguille d'horloge ? On attend qu'elle
+                    // nous emmène à chacune des 11 autres heures, dans le sens
+                    // horaire, avec le temps du trajet comme coût.
+                    for cadran in &cadrans {
+                        let w = cadran.aiguille.boite.w;
+                        for (heure, place) in cadran.places.iter().enumerate() {
+                            let dessus = (y + JOUEUR_H - place.1).abs() < 0.01
+                                && x + JOUEUR_L > place.0
+                                && x < place.0 + w;
+                            if !dessus {
+                                continue;
+                            }
+                            for n in 1..HEURES {
+                                if let Some(((ax, ay), attente)) =
+                                    cadran.trajet(niveau, (x, y), heure, n)
+                                {
+                                    ajouter(Noeud::pose(ax, ay, ecrases), cout_plan + attente);
+                                }
+                            }
                         }
                     }
                 }
@@ -1282,5 +1366,98 @@ mod tests {
         let n = niveau_chat(true, true);
         let r = analyser(&n, n.depart, Options::default());
         assert!(r.arrivee && r.gouttes == [true; 3], "{r:?}");
+    }
+
+    // --- Aiguilles d'horloge (carte 5.10) ---
+
+    /// Mini-niveau de l'horloge, 28 x 20 : un balcon (lignes 2-3, colonnes 0 à 4,
+    /// dessus à y = 48) porte le drapeau ; une grande aiguille (pivot en colonne 14,
+    /// ligne 9, rayon 8 tuiles) tourne à côté. Depuis le sol on saute sur ses
+    /// places basses (6 h, 7 h, 8 h), mais de 8 h à 9 h il y a 64 px à monter :
+    /// plus qu'un saut. Seul le trajet SUR l'aiguille mène au-dessus (10 h, d'où
+    /// le balcon est à portée). Sans aiguille (`h` vidé), le balcon est hors d'atteinte.
+    fn niveau_horloge(avec_aiguille: bool) -> Niveau {
+        let texte = lignes_horloge().join("\n");
+        if avec_aiguille {
+            let reglage = crate::level::ReglageAiguille {
+                rayon: 8.0,
+                vitesse: 40.0,
+                phase: 0.0,
+            };
+            Niveau::depuis_ascii_avec_aiguilles(&texte, &[reglage]).expect("niveau de test")
+        } else {
+            Niveau::depuis_ascii(&texte.replace('h', ".")).expect("niveau de test")
+        }
+    }
+
+    /// Le robot monte au balcon en se laissant porter par l'aiguille (robot précis
+    /// et maladroit) ; sans aiguille, il n'y arrive pas.
+    #[test]
+    fn le_robot_monte_au_balcon_par_l_aiguille() {
+        let n = niveau_horloge(true);
+        let r = analyser(&n, n.depart, Options::default());
+        assert!(r.arrivee, "drapeau non atteint : {r:?}");
+        assert_eq!(r.gouttes, [true; 3]);
+        let maladroit = analyser(
+            &n,
+            n.depart,
+            Options {
+                precis: false,
+                ..Options::default()
+            },
+        );
+        assert!(maladroit.arrivee, "robot maladroit : {maladroit:?}");
+        let sans = niveau_horloge(false);
+        let r = analyser(&sans, sans.depart, Options::default());
+        assert!(
+            !r.arrivee,
+            "sans aiguille, le balcon doit rester hors de portée"
+        );
+    }
+
+    /// Le trajet sur l'aiguille : de 6 h à midi, un demi-tour d'attente, et Pépin arrive décalé comme la place (même endroit de la
+    /// plateforme). Une tuile sur le chemin de sa tête : trajet refusé.
+    #[test]
+    fn le_trajet_sur_l_aiguille_suit_le_cadran() {
+        let n = niveau_horloge(true);
+        let m = n
+            .entites
+            .iter()
+            .find_map(|e| match e {
+                Entite::Mobile(m) => Some(m.clone()),
+                _ => None,
+            })
+            .unwrap();
+        let places = std::array::from_fn(|h| m.coin_a(h as f32 / 12.0).unwrap());
+        let cadran = Cadran {
+            aiguille: m.clone(),
+            places,
+        };
+        // Midi au-dessus du pivot (232, 152), 6 h en dessous : 256 px plus bas.
+        assert_eq!(places[0], (216.0, 20.0));
+        assert_eq!(places[6], (216.0, 276.0));
+        let debout = (226.0, 276.0 - JOUEUR_H);
+        let ((x, y), attente) = cadran.trajet(&n, debout, 6, 6).unwrap();
+        assert_eq!((x, y), (226.0, 20.0 - JOUEUR_H));
+        let demi_tour = m.cercle().unwrap().pas_par_tour() / 2.0;
+        assert_eq!(attente, demi_tour.ceil() as u32);
+        // Un toit à 9 h, là où passe la tête de Pépin : refusé (dans l'autre
+        // sens, de 6 h à 8 h, rien ne gêne).
+        let mut lignes = lignes_horloge();
+        lignes[8].replace_range(6..7, "#");
+        let bloque = Niveau::depuis_ascii(&lignes.join("\n").replace('h', ".")).unwrap();
+        assert!(cadran.trajet(&bloque, debout, 6, 6).is_none());
+        assert!(cadran.trajet(&bloque, debout, 6, 2).is_some());
+    }
+
+    /// Les lignes du mini-niveau de l'horloge (voir `niveau_horloge`).
+    fn lignes_horloge() -> Vec<String> {
+        let mut lignes = vec!["............................".to_string(); 20];
+        lignes[2] = ".X..........................".into();
+        lignes[3] = "#####.......................".into();
+        lignes[9] = "..............h.............".into();
+        lignes[18] = ".@.o.o.o....................".into();
+        lignes[19] = "############################".into();
+        lignes
     }
 }
