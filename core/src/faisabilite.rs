@@ -240,10 +240,13 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     for e in &niveau.entites {
         match e {
             Entite::Mobile(m) => {
-                let (a, b) = m.extremites();
-                solides.push(Aabb::new(a.0, a.1, m.boite.w, m.boite.h));
-                solides.push(Aabb::new(b.0, b.1, m.boite.w, m.boite.h));
-                trajets.push((a, b, m.boite.w));
+                // Plateforme en aller-retour (les aiguilles d'horloge n'ont pas
+                // d'extrémités).
+                if let Some((a, b)) = m.extremites() {
+                    solides.push(Aabb::new(a.0, a.1, m.boite.w, m.boite.h));
+                    solides.push(Aabb::new(b.0, b.1, m.boite.w, m.boite.h));
+                    trajets.push((a, b, m.boite.w));
+                }
             }
             Entite::Montgolfiere(m) => {
                 // La nacelle au repos est déjà dans `solides` (niveau tout juste lu :
