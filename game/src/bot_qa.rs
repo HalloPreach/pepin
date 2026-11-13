@@ -24,6 +24,7 @@ use std::collections::{BinaryHeap, HashMap};
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::ennemi::PhasePigeon;
 use pepin_core::entities::montgolfiere::EtatMontgolfiere;
+use pepin_core::entities::ventilateur::PhaseVentilateur;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::faisabilite::pas_max_plan;
 use pepin_core::player::{Direction, Entrees};
@@ -635,6 +636,9 @@ pub struct ImageEssai {
     pub nacelles: [f32; 2],
     /// Une montgolfière monte pendant cette image (Pépin à bord, brûleur allumé).
     pub montee: bool,
+    /// Phase du premier ventilateur du niveau et pas de souffle qui lui restent
+    /// (carte 5.6b ; `None` s'il n'y en a pas) : sert à choisir les images à capturer.
+    pub ventilateur: Option<(PhaseVentilateur, u16)>,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -713,6 +717,10 @@ fn jouer_essai(
             *y = m.1;
         }
         let montee = montgolfieres.iter().any(|m| m.2);
+        let ventilateur = app.monde.entites.iter().find_map(|e| match e {
+            Entite::Ventilateur(v) => Some((v.phase(), v.souffle_restant())),
+            _ => None,
+        });
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -725,6 +733,7 @@ fn jouer_essai(
             au_sol,
             nacelles,
             montee,
+            ventilateur,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -1472,6 +1481,52 @@ mod tests {
         std::fs::write("../target/qa/trace-55.csv", trace).unwrap();
         println!(
             "images : {} ; F3 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai « ventilateur » (parcours du robot) pour le
+    /// navigateur : `target/qa/script-56b.txt`, `target/qa/touches-56b.txt` (image du
+    /// pilote où appuyer sur F4, une image après la trace : le navigateur a un pas de
+    /// retard) et `target/qa/trace-56b.csv` (position de Pépin, caméra, sol, phase du
+    /// ventilateur et pas de souffle restants) : de quoi choisir les images à capturer
+    /// pendant le souffle, juste après l'arrêt et pendant l'annonce (carte 5.6b).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_ventilateur
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_ventilateur() {
+        let partie = jouer_essai_ventilateur(&parcours_essai_ventilateur());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-56b.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-56b.txt", format!("{pilote}:F4\n")).unwrap();
+        let mut trace =
+            String::from("image,ecran,essai,x,y,cam_x,cam_y,au_sol,phase,souffle_restant\n");
+        for (k, i) in partie.images.iter().enumerate() {
+            let (phase, restant) = match i.ventilateur {
+                Some((PhaseVentilateur::Arret, _)) => ("arret", 0),
+                Some((PhaseVentilateur::Annonce, _)) => ("annonce", 0),
+                Some((PhaseVentilateur::Souffle, r)) => ("souffle", r),
+                None => ("-", 0),
+            };
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{phase},{restant}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.au_sol)
+            ));
+        }
+        std::fs::write("../target/qa/trace-56b.csv", trace).unwrap();
+        println!(
+            "images : {} ; F4 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );
