@@ -260,7 +260,7 @@ fn zones_de_grele(n: &Niveau) -> Vec<crate::aabb::Aabb> {
 /// AU-DESSUS du `g` ne change rien.
 #[test]
 fn grele_tombe_de_sa_case_au_premier_solide() {
-    let mut lignes = vec!["..............."; 8];
+    let mut lignes = ["..............."; 8];
     lignes[0] = ".o.o.o.........";
     lignes[1] = "..g......###...";
     lignes[2] = "..........g....";
