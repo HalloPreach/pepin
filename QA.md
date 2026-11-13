@@ -1576,3 +1576,128 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  celles du dépôt ; les 5 frames en mouvement du niveau d'essai décalent d'une image (wasm
  identique à l'octet, jitter de l'horloge navigateur, voir Limites). 0 pixel hors palette,
  0 semi-transparent.
+
+## Grêle, niveau d'essai « grêle » (carte 5.4)
+
+Lettre `g` : une colonne de grêlons qui tombe EN CONTINU (ni pause ni annonce, à la
+différence de l'éclair), de la case `g` elle-même jusqu'au premier solide en dessous (ou
+jusqu'au bas de la carte au-dessus d'un vide). Elle tue Pépin parapluie FERMÉ ; il la
+traverse sans danger en planant dessous (parapluie ouvert). Aucune touche nouvelle. Aucun
+niveau du jeu n'est modifié (les niveaux viennent avec les cartes 5.12 à 5.17).
+
+Ce qui a été fait :
+- Cœur (`core/src/entities/grele.rs`) : `Grele { zone }` (colonne fixe de 12 px centrée dans
+ la case, comme l'éclair) ; `Grele::blesse(&Joueur)` = « touche la colonne ET ne plane
+ pas ». Parapluie fermé = tout ce qui n'est pas planer : au sol, pendant la MONTÉE d'un saut
+ (on ne plane qu'en descendant, SAUT maintenu), en chute sans SAUT. `Entite::Grele`,
+ `CauseMort::Grele` (« grêle » dans la mesure de difficulté) ; la protection de
+ réapparition s'applique comme aux autres dangers. Tests : mort parapluie fermé, survie en
+ plané, limites de la colonne au pixel près (collé à gauche, à droite, dessous : rien ;
+ 1 px de chevauchement : mort), protection, et un MINI-NIVEAU joué avec la vraie physique
+ (marcher dedans tue au sol ; sauter juste devant tue pendant la montée, SAUT pourtant
+ enfoncé ; sauter tôt et planer dessous mène au drapeau, en planant DANS la colonne).
+- Analyse ASCII (`core/src/level/ascii.rs`, légende de `core/src/level.rs`) : test
+ `grele_tombe_de_sa_case_au_premier_solide` (sol, trou dans le sol jusqu'au bas de la
+ carte, corniche au-dessus sans effet, corniche dessous qui arrête la colonne).
+- Robot de faisabilité (`core/src/faisabilite.rs`) : la grêle est GARDÉE dans sa simulation
+ (fixe et continue : attendre ne sert à rien), un plan qui la touche parapluie fermé est
+ écarté. 3 mini-niveaux 54 x 11 : un rideau du ciel au toit, infranchissable sans parapluie
+ (témoin sans grêle : traversé à pied), traversé en planant par le robot précis ET le
+ maladroit ; une corniche qui arrête la colonne (on passe dessous à pied, sans parapluie) ;
+ un vide de 4 tuiles qu'un saut simple franchit sans grêle mais plus avec (il faut sauter
+ plus tôt et planer).
+- Niveau d'essai « ESSAI GRÊLE » (`core/src/levels/essai_grele.rs`, 36 x 11, thème Altitude :
+ ciel corail), hors de la table `NIVEAUX`, touche F2 du build de QA seulement (en production
+ le raccourci est inactif et le niveau n'est pas dans le binaire : « Essai grêle » 0 fois
+ dans `dist/game.wasm`, 1 fois dans `dist-qa/`). Trois rideaux : colonne 9 du ciel au toit
+ (sauter tôt, planer dessous), double rideau des colonnes 21-22 au-dessus d'un vide de
+ 6 tuiles (la planée traverse vide et grêle), colonne 28 arrêtée par une corniche (on passe
+ dessous à pied, la 3e goutte y attend). 3 gouttes, 3 lanternes. Contrôles : faisable robot
+ précis et maladroit, reprise depuis chaque lanterne, contrôles de grille, positions des
+ 4 colonnes, bloqué sans parapluie ; nouveau contrôle `aucun_point_de_reprise_sous_la_grele`
+ (départ et lanternes de TOUS les niveaux et essais : Pépin y réapparaît au sol, parapluie
+ fermé, il y mourrait dès la fin de sa protection).
+- Jeu : `RaccourciNiveau::Essai3` (F2), `monde::INDICE_ESSAI_GRELE`, `INTRO_ESSAI_GRELE` ; les
+ tests des cartes couvrent les trois essais (et vérifient désormais aussi les glyphes de
+ leurs noms) ; README : touches F1 et F2 du build de QA.
+- Rendu (`game/src/grele.rs`, sprites `grelon0-3` et `grele_eclat` dans
+ `game/src/sprites/objets.rs`) : grêlon = bille de glace 2 x 2 cernée de sombre (4 x 4), le
+ reflet fait le tour en 4 images ; deux files par colonne, 3 px par pas, un tous les 20 px,
+ calculés depuis le numéro du pas (aucune mémoire, rendu reproductible), bornés à la
+ colonne ; les grêlons se brisent (éclat 7 x 3) au pied de la colonne sur un solide (jamais
+ au-dessus d'un vide) et SUR la toile du parapluie quand Pépin plane dessous : la
+ protection se voit. Lisibilité sur tous les ciels : sur chaque bande de ciel de chaque
+ thème, la glace ou le contour contraste d'au moins 4,5:1 (test
+ `la_grele_se_detache_de_tous_les_ciels`). Planche de sprites régénérée.
+- Robot de QA (`game/src/bot_qa.rs`) : `le_robot_finit_le_niveau_d_essai_grele` — à travers
+ l'`Application`, fin atteinte, 0 mort, 3 gouttes (dont celle sous la corniche), F2 une
+ seule fois, caméra au sol, 430 images de jeu dont 50 à planer DANS la grêle, arrivée à
+ x = 516,6. Rien de spécial à lui apprendre : la vraie simulation tue les plans qui
+ touchent la grêle parapluie fermé, il garde ceux qui planent. Script du navigateur :
+ `ecrire_script_essai_grele` (ignoré) écrit `target/qa/script-54.txt` (911 images),
+ `touches-54.txt` (`229:F2`, image du pilote) et `trace-54.csv` (colonne `sous_la_grele`).
+
+Mesure de difficulté : inchangée (aucun niveau, ennemi ni mécanique d'un niveau du jeu ne
+bouge). Avant (extraction propre de 5660143) et après (extraction propre de bd53e36) :
+`docs/mesure-difficulte.txt` identique à l'octet.
+
+| Niveau                      | Débutant (avant = après) | Habitué (avant = après) | Expert (avant = après) |
+| --------------------------- | ------------------------ | ----------------------- | ---------------------- |
+| 1. Les toits                | 0,4                      | 0,1                     | 0,0                    |
+| 2. Gouttières et cheminées  | 1,5                      | 0,5                     | 0,2                    |
+| 3. Le grand orage           | 3,0                      | 0,6                     | 0,4                    |
+| 4. Vents d'altitude         | 1,3                      | 0,4                     | 0,1                    |
+| 5. Au-dessus des nuages     | 0,5                      | 0,1                     | 0,0                    |
+| Total                       | 6,8                      | 1,8                     | 0,7                    |
+
+Même jeu qu'avant, à l'octet (régénérés sur les deux extractions propres) :
+`target/qa/script.txt` et `trace.csv` (robot principal, 12 131 images, empreinte
+`e03e19a27c17c283`), `script-52.txt`/`trace-52.csv`/`touches-52.txt` (essai vertical),
+`script-53.txt`/`trace-53.csv`/`touches-53.txt` (essai vent).
+
+Captures (`docs/qa/54-*`, 960 x 540, build de QA d'une extraction propre de bc25be3 servi
+en local sur 127.0.0.1, Chromium 145 piloté par CDP, onglet au premier plan et canvas
+focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-54.txt` et
+`TOUCHES=target/qa/touches-54.txt`, serveur arrêté à la fin) :
+- `54-carte-niveau1` (image 100) puis `54-carte-essai` (350) : carte « ESSAI GRÊLE », texte et
+ astuce dans le cadre ;
+- `54-essai-depart` (470) : la colonne 9 tombe du ciel au toit, lisible sur le ciel corail
+ (glace claire en haut sur le violet, contour sombre plus bas sur le corail) ;
+- `54-essai-plane-grele` (577) : Pépin plane DANS la colonne 9, les grêlons se brisent sur
+ la toile du parapluie et continuent sous ses pieds ;
+- `54-essai-rideau-vide` (750) : planée au-dessus du vide à travers le double rideau, qui
+ tombe sans fin dans le vide ; éclats sur la toile, et à droite, un éclat sur la corniche
+ où s'arrête la colonne 28 ;
+- `54-essai-corniche` (845) : la colonne 28 s'arrête sur la corniche, Pépin passe dessous à
+ pied (3e goutte ramassée), le drapeau en vue ;
+- `54-essai-ferme` (560) et `54-essai-mort` (572) : à l'image 500 le robot lâche son script
+ et Pépin court tout droit, parapluie fermé : il arrive au bord de la colonne 9 (560), y
+ meurt (animation de mort au pied de la grêle, 572), puis réapparaît au départ ;
+- `54-fin` (970, 60 images après la fin du script) : « LE SOLEIL ! », 0:07,1, 3 gouttes
+ (3/15 : celles de l'essai), 0 mort.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette,
+0 bloc flou, sur les 9.
+
+Vérification sur une extraction propre de bc25be3 (`git archive`, nouveau dossier daté) :
+`./docker-cargo.sh test --workspace --no-default-features` : 214 + 237 tests, tous verts
+(9 ignorés : écritures de fichiers — scripts du robot, mesure, police — et diagnostics de la
+mesure) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` :
+`dist/` produit, 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg` ;
+`./build.sh --qa` : `dist-qa/` produit.
+
+Limites (non testé ou à relativiser) :
+- Le niveau d'essai n'existe que dans le build de QA ; aucun niveau du jeu n'a encore de
+ grêle (« La mer de nuages » et « La descente » viendront avec leurs cartes).
+- La colonne s'arrête sur les TUILES solides seulement : une plateforme mobile ou friable
+ sous la grêle ne l'arrête pas (comme l'éclair). À éviter en dessinant un niveau, ou à
+ traiter dans la carte qui en aurait besoin.
+- La grêle ne fait aucun son (ni bruit continu, ni éclat) : non demandé, non entendu.
+- Les éclats sur la toile suivent la position DESSINÉE de Pépin ; pendant le clignotement
+ de la protection de réapparition, ils se posent sur un parapluie invisible (sans effet :
+ Pépin réapparaît au sol, il ne plane pas encore).
+- Le « Ê » du titre de la carte est le circonflexe à un pixel centré de la police existante
+ (accents d'une rangée sur les capitales) : lisible de près, discret à 1x ; la police n'a
+ pas été retouchée.
+- Captures faites dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de
+ Safari ni Firefox. Les images en mouvement peuvent décaler d'une image d'un rejeu à
+ l'autre (horloge du navigateur) ; la preuve formelle est le test Rust du robot.
