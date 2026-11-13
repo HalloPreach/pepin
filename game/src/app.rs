@@ -926,6 +926,30 @@ mod tests {
         assert_eq!(chats, 1);
     }
 
+    /// Touche F8 du build de QA : le niveau d'essai « horloge » (hors de la
+    /// table), avec ses deux aiguilles.
+    #[test]
+    fn le_raccourci_d_essai_charge_le_niveau_de_l_horloge() {
+        let mut app = en_jeu();
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Essai9),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI_HORLOGE);
+        assert_eq!(app.monde.infos.nom, "Essai horloge");
+        let aiguilles = app
+            .monde
+            .entites
+            .iter()
+            .filter(
+                |e| matches!(e, pepin_core::entities::Entite::Mobile(m) if m.cercle().is_some()),
+            )
+            .count();
+        assert_eq!(aiguilles, 2);
+    }
+
     #[test]
     fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         let mut app = en_jeu();
