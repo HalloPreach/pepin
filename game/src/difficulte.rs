@@ -39,7 +39,9 @@ use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
 
-use crate::bot_qa::{chercher, cle, depart_pose, plans, simuler, Fin, Plan, PAS_DEPART};
+use crate::bot_qa::{
+    chercher, cle, depart_pose, plans, plans_en_vol, simuler, CaseParcours, Fin, Plan, PAS_DEPART,
+};
 use crate::monde::Monde;
 
 /// Graine de la mesure officielle. NE PAS la changer d'une carte à l'autre :
@@ -210,8 +212,9 @@ pub(crate) fn perturber(plan: Plan, profil: &Profil, hasard: &mut Hasard) -> Pla
 
 // --- Les itinéraires d'un niveau ------------------------------------------------
 
-/// Une case du niveau où Pépin est posé (voir `bot_qa::cle`).
-type CaseNiveau = (i32, i32);
+/// Une case du niveau où Pépin choisit son plan, posé ou lancé par un auvent
+/// (voir `bot_qa::cle`).
+type CaseNiveau = CaseParcours;
 
 /// Ce qu'il faut faire depuis chaque case où Pépin peut se poser : le premier
 /// plan d'un plus court chemin vers le drapeau, et la durée de ce chemin.
@@ -259,6 +262,7 @@ impl Itineraires {
         let mut aretes: Vec<(CaseNiveau, Plan, Option<CaseNiveau>, u32)> = Vec::new();
         let k0 = cle(&depart);
         meilleur.insert(k0, (0, Some(depart)));
+        let en_vol = plans_en_vol();
         let mut tas = BinaryHeap::new();
         tas.push(Reverse((0u32, k0)));
         while let Some(Reverse((cout, k))) = tas.pop() {
@@ -272,12 +276,14 @@ impl Itineraires {
             let Some(monde) = meilleur.get_mut(&k).and_then(|(_, m)| m.take()) else {
                 continue;
             };
-            for &plan in &tous {
+            // Case « lancée » (un auvent vient de relancer Pépin) : plans en vol.
+            let a_essayer = if k.2 { &en_vol } else { &tous };
+            for &plan in a_essayer {
                 let (fin, apres, entrees) = simuler(&monde, plan);
                 let duree = entrees.len() as u32;
                 match fin {
                     Fin::Arrivee => aretes.push((k, plan, None, duree)),
-                    Fin::Pose => {
+                    Fin::Pose | Fin::Lance => {
                         let k2 = cle(&apres);
                         if k2 == k {
                             continue; // sur place : inutile
@@ -340,12 +346,13 @@ impl Itineraires {
     /// arriver) ; on garde le premier qui rapproche sans risque du drapeau. Sinon :
     /// court détour calculé vers une case plus proche du drapeau, sinon attendre.
     fn intention(&self, monde: &Monde) -> (Plan, Choix) {
-        let (kx, ky) = cle(monde);
-        let ici = self.distance((kx, ky));
+        let (kx, ky, lance) = cle(monde);
+        let ici = self.distance((kx, ky, lance));
         let mut voisines: Vec<(u32, i32, Plan)> = Vec::new();
         for dy in -VOISINAGE_Y..=VOISINAGE_Y {
             for dx in -VOISINAGE_X..=VOISINAGE_X {
-                if let Some(&(d, plan)) = self.conseils.get(&(kx + dx, ky + dy)) {
+                // Une case voisine du même genre (posée, ou lancée par un auvent).
+                if let Some(&(d, plan)) = self.conseils.get(&(kx + dx, ky + dy, lance)) {
                     voisines.push((d, dx.abs() + dy.abs(), plan));
                 }
             }
@@ -366,7 +373,7 @@ impl Itineraires {
             let (fin, apres, _) = simuler(monde, plan);
             let ok = match fin {
                 Fin::Arrivee => true,
-                Fin::Pose => progresse(&apres),
+                Fin::Pose | Fin::Lance => progresse(&apres),
                 Fin::Mort | Fin::Abandon => false,
             };
             if ok {

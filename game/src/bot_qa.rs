@@ -8,10 +8,11 @@
 //! simplement écarté, donc le parcours trouvé est sûr par construction.
 //!
 //! Principe : recherche de plus court chemin (Dijkstra sur la durée) entre des
-//! états « posés et immobiles ». Chaque plan (courir, sauter, planer, attendre)
-//! est simulé sur une COPIE du monde. Le test `ignore` d'en bas écrit le script
-//! des touches dans `target/qa/` : un navigateur réel le rejoue image par image
-//! (voir QA.md).
+//! états « posés et immobiles » (ou « lancés » : un auvent vient de relancer
+//! Pépin, et il choisit de nouveau en l'air ; voir `est_lance`). Chaque plan
+//! (courir, sauter, planer, attendre) est simulé sur une COPIE du monde. Le test
+//! `ignore` d'en bas écrit le script des touches dans `target/qa/` : un
+//! navigateur réel le rejoue image par image (voir QA.md).
 //!
 //! Notions Rust illustrées ici : `BinaryHeap` + `Reverse` (file de priorité
 //! « plus petit d'abord »), `Clone` d'une structure complète pour explorer des
@@ -20,6 +21,7 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
+use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::ennemi::PhasePigeon;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::faisabilite::pas_max_plan;
@@ -65,6 +67,9 @@ pub(crate) enum Fin {
     Mort,
     Arrivee,
     Pose,
+    /// Un auvent vient de relancer Pépin : nouveau point de décision, en l'air
+    /// (voir `est_lance`).
+    Lance,
     Abandon,
 }
 
@@ -117,6 +122,50 @@ pub(crate) fn plans(precis: bool) -> Vec<Plan> {
     v
 }
 
+/// Les plans « en vol », essayés juste après un rebond d'auvent (`Fin::Lance`) :
+/// une direction (gauche, droite, ou aucune) gardée pendant la montée et/ou la
+/// descente, parapluie ouvert ou non. Ni élan au sol, ni saut, ni attente : on
+/// est en l'air. Même liste que le robot du cœur (`faisabilite::plans_en_vol`).
+pub(crate) fn plans_en_vol() -> Vec<Plan> {
+    let mut v = Vec::new();
+    for planer in [false, true] {
+        for dir in [Direction::Gauche, Direction::Droite] {
+            for dir_montee in [true, false] {
+                for dir_descente in [true, false] {
+                    v.push(Plan {
+                        dir,
+                        elan: 0,
+                        saut: 0,
+                        planer,
+                        retard_plane: 0,
+                        dir_montee,
+                        dir_descente,
+                        attente: 0,
+                    });
+                }
+            }
+        }
+        v.push(Plan {
+            dir: Direction::Immobile,
+            elan: 0,
+            saut: 0,
+            planer,
+            retard_plane: 0,
+            dir_montee: false,
+            dir_descente: false,
+            attente: 0,
+        });
+    }
+    v
+}
+
+/// Pépin est-il en vol, lancé par un auvent (élan d'auvent pas encore éteint) ?
+/// Juste après un rebond (`Fin::Lance`), c'est un point de décision en l'air :
+/// on y essaie les `plans_en_vol`, pas les plans du sol.
+pub(crate) fn est_lance(m: &Monde) -> bool {
+    m.joueur.elan_auvent() > 0.0 && !m.joueur.au_sol
+}
+
 /// Pépin est-il mort (ou en train de réapparaître) ? `derniere_mort` n'est jamais
 /// effacée par le jeu : après une mort, l'appelant doit la remettre à `None`
 /// avant de simuler de nouveaux plans (voir `difficulte.rs`).
@@ -150,7 +199,9 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
     }
 
     let mut en_l_air: u16 = 0;
-    let mut a_decolle = false;
+    // Lancé par un auvent : déjà en l'air, les commandes « en vol » s'appliquent
+    // dès le premier pas. (Toujours faux sans auvent : rien ne change ailleurs.)
+    let mut a_decolle = est_lance(&m);
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
     let mut chute: u16 = 0;
@@ -192,6 +243,9 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
         if m.termine {
             return (Fin::Arrivee, m, script);
         }
+        if m.contacts.contains(&Contact::Auvent) {
+            return (Fin::Lance, m, script);
+        }
         if !m.joueur.au_sol {
             a_decolle = true;
             en_l_air += 1;
@@ -206,21 +260,27 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
     (Fin::Abandon, m, script)
 }
 
-/// Deux états proches fusionnent : case de 8 px en x, y arrondi.
-pub(crate) fn cle(m: &Monde) -> (i32, i32) {
+/// Une case du niveau où Pépin choisit son prochain plan : case de 8 px en x, y
+/// arrondi, et « lancé par un auvent » (`est_lance`) ou posé. Deux états proches
+/// fusionnent.
+pub(crate) type CaseParcours = (i32, i32, bool);
+
+/// La case (`CaseParcours`) de Pépin dans `m`.
+pub(crate) fn cle(m: &Monde) -> CaseParcours {
     (
         (m.joueur.boite.x / 8.0).floor() as i32,
         m.joueur.boite.y.round() as i32,
+        est_lance(m),
     )
 }
 
 /// Un morceau de parcours : le plan joué, les entrées exactes qu'il a produites
-/// et la case (`cle`) où Pépin s'est posé (ou a touché l'arrivée).
+/// et la case (`cle`) où Pépin s'est posé, a été relancé, ou a touché l'arrivée.
 #[derive(Clone)]
 pub(crate) struct Etape {
     pub(crate) plan: Plan,
     pub(crate) entrees: Vec<Entrees>,
-    pub(crate) cle: (i32, i32),
+    pub(crate) cle: CaseParcours,
 }
 
 /// Le monde du niveau `indice` après `PAS_DEPART` pas sans entrée (Pépin posé),
@@ -258,12 +318,14 @@ pub(crate) fn chercher(
         parent: None,
         etape: None,
     }];
-    let mut meilleur: HashMap<(i32, i32), u32> = HashMap::new();
+    let mut meilleur: HashMap<CaseParcours, u32> = HashMap::new();
     meilleur.insert(cle(&noeuds[0].monde), 0);
     let mut tas = BinaryHeap::new();
     tas.push(Reverse((0u32, 0usize)));
     let mut arrivee: Option<(u32, usize, Etape)> = None;
     let mut developpes = 0usize;
+    // Après un rebond d'auvent, Pépin est en l'air : on n'essaie que les plans en vol.
+    let en_vol = plans_en_vol();
 
     while let Some(Reverse((cout, i))) = tas.pop() {
         if let Some((cout_arrivee, _, _)) = &arrivee {
@@ -281,7 +343,12 @@ pub(crate) fn chercher(
             break;
         }
         developpes += 1;
-        for &plan in tous {
+        let a_essayer = if est_lance(&noeuds[i].monde) {
+            &en_vol[..]
+        } else {
+            tous
+        };
+        for &plan in a_essayer {
             let (fin, monde, entrees) = simuler(&noeuds[i].monde, plan);
             let cout_plan = cout + entrees.len() as u32;
             let etape = Etape {
@@ -295,12 +362,12 @@ pub(crate) fn chercher(
                         arrivee = Some((cout_plan, i, etape));
                     }
                 }
-                Fin::Pose if est_cible(&monde) => {
+                Fin::Pose | Fin::Lance if est_cible(&monde) => {
                     if arrivee.as_ref().is_none_or(|(c, _, _)| cout_plan < *c) {
                         arrivee = Some((cout_plan, i, etape));
                     }
                 }
-                Fin::Pose => {
+                Fin::Pose | Fin::Lance => {
                     let k = etape.cle;
                     if meilleur.get(&k).is_none_or(|&c| cout_plan < c) {
                         meilleur.insert(k, cout_plan);
