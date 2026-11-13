@@ -22,7 +22,9 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
 use pepin_core::entities::contacts::Contact;
-use pepin_core::entities::ennemi::{pas_du_cycle, PhaseChat, PhasePigeon};
+use pepin_core::entities::ennemi::{
+    pas_du_cycle, EtatEnnemi, PhaseChat, PhasePigeon, ANIMATION_ECRASE_PAS, DORT_PAS, REVEIL_PAS,
+};
 use pepin_core::entities::montgolfiere::EtatMontgolfiere;
 use pepin_core::entities::ventilateur::PhaseVentilateur;
 use pepin_core::entities::{Entite, TypeEnnemi};
@@ -175,8 +177,32 @@ pub(crate) fn est_mort(m: &Monde) -> bool {
     m.reapparition > 0 || m.derniere_mort.is_some()
 }
 
+/// Marge (pas) que le robot garde autour de l'éveil d'un chat : 6 pas (0,1 s).
+const MARGE_CHAT_PAS: u16 = 6;
+
+/// Pépin vient-il d'écraser un chat DE JUSTESSE, à moins de `MARGE_CHAT_PAS` de
+/// son éveil (juste avant qu'il ne se réveille, ou juste après qu'il s'est
+/// rendormi) ? Le jeu l'accepte, mais le robot le compte comme une mort : un plan
+/// réglé au pas près ne laisse aucune marge à un vrai joueur, et le moindre
+/// décalage d'une image (rejeu dans le navigateur) le ferait mourir.
+///
+/// Un chat écrasé ne change plus de phase : on lit celle du moment du contact,
+/// au pas même de l'écrasement (son aplatissement vient de commencer).
+pub(crate) fn chat_ecrase_de_justesse(m: &Monde) -> bool {
+    let eveil = DORT_PAS + REVEIL_PAS;
+    m.entites.iter().any(|e| match e {
+        Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => {
+            let p = pas_du_cycle(c.phase_chat());
+            c.etat == EtatEnnemi::Ecrase(ANIMATION_ECRASE_PAS)
+                && (p + MARGE_CHAT_PAS >= eveil || p < MARGE_CHAT_PAS)
+        }
+        _ => false,
+    })
+}
+
 /// Simule `plan` depuis `depart` (copie). Renvoie la fin, le monde final et les
-/// entrées de chaque pas.
+/// entrées de chaque pas. Un chat écrasé de justesse compte comme une mort
+/// (`chat_ecrase_de_justesse`).
 pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) {
     let mut m = depart.clone();
     let mut script = Vec::new();
@@ -185,7 +211,7 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
         for _ in 0..plan.attente {
             m.avancer(&Entrees::default());
             script.push(Entrees::default());
-            if est_mort(&m) {
+            if est_mort(&m) || chat_ecrase_de_justesse(&m) {
                 return (Fin::Mort, m, script);
             }
             if m.termine {
@@ -239,7 +265,7 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
         }
         m.avancer(&e);
         script.push(e);
-        if est_mort(&m) {
+        if est_mort(&m) || chat_ecrase_de_justesse(&m) {
             return (Fin::Mort, m, script);
         }
         if m.termine {
@@ -1585,6 +1611,13 @@ mod tests {
         assert!(
             ecrase && !matches!(phase, PhaseChat::Eveille(_)),
             "{phase:?}"
+        );
+        // … et jamais de justesse : au moins `MARGE_CHAT_PAS` après qu'il s'est
+        // endormi, et avant son réveil.
+        let p = pas_du_cycle(phase);
+        assert!(
+            p >= MARGE_CHAT_PAS && p + MARGE_CHAT_PAS < DORT_PAS + REVEIL_PAS,
+            "écrasé de justesse : {phase:?}"
         );
         assert!(
             essai[..k].iter().all(|i| i.trame.x < 432.0),
