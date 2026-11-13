@@ -1,7 +1,8 @@
 //! Module `player` : état du joueur (Pépin) et sa mise à jour à pas fixe.
 //!
 //! Mécaniques : course (accélération / friction), saut à hauteur variable,
-//! coyote time, jump buffer, PLANER (parapluie ouvert) et courants ascendants.
+//! coyote time, jump buffer, PLANER (parapluie ouvert), courants ascendants
+//! et vent latéral.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `enum` sans données (`Direction`, `EtatJoueur`) et `match` exhaustif ;
@@ -256,10 +257,31 @@ impl Joueur {
             }
         }
 
+        // --- 6bis. Vent latéral -------------------------------------------
+        // Le vent pousse en DÉPLACEMENT, pas dans `vitesse.x` (la vitesse du
+        // joueur reste propre : l'animation de course et la friction ne la
+        // voient pas). Parapluie fermé : `VENT_LAT` (60 px/s, 1 px par pas) ;
+        // en planant (parapluie ouvert) : deux fois plus fort. On somme les
+        // sens des zones qui touchent la boîte : deux vents opposés qui se
+        // chevauchent s'annulent, plusieurs vents pareils ne se cumulent pas
+        // au-delà d'un vent.
+        let sens_vent: i32 = env
+            .vents
+            .iter()
+            .filter(|v| v.zone.chevauche(&self.boite))
+            .map(|v| i32::from(v.sens))
+            .sum();
+        let sens_vent = if sens_vent.abs() > 1 {
+            sens_vent.signum()
+        } else {
+            sens_vent
+        };
+        let poussee_vent = sens_vent as f32 * if self.plane { VENT_LAT_PLANE } else { VENT_LAT };
+
         // --- 7. Déplacement + collisions, axe par axe ----------------------
         let contacts = deplacer(
             &mut self.boite,
-            self.vitesse.x * DT,
+            self.vitesse.x * DT + poussee_vent * DT,
             self.vitesse.y * DT,
             env.grille,
             env.solides,
@@ -631,6 +653,7 @@ mod tests {
             grille: &g,
             solides: &[],
             courants: &courants,
+            vents: &[],
         };
         let mut j = au_sol(&g, 56.0);
         let depart = j.boite.y;
@@ -657,12 +680,153 @@ mod tests {
             grille: &g,
             solides: &[],
             courants: &courants,
+            vents: &[],
         };
         let mut j = Joueur::new(56.0, 120.0);
         for _ in 0..90 {
             j.actualiser(&SAUT, &env);
         }
         assert!(j.boite.y < 100.0, "y = {}", j.boite.y);
+    }
+
+    // --- Vent latéral (carte 5.3) -----------------------------------------
+
+    /// Zone de vent d'essai : une zone unique, sens `sens`, qui couvre le sol
+    /// (x de 48 à 280).
+    fn zone_vent(sens: i8) -> VentLateral {
+        VentLateral::new(Aabb::new(48.0, 64.0, 232.0, 112.0), sens)
+    }
+
+    #[test]
+    fn vent_lateral_pousse_au_sol() {
+        let g = salle();
+        let vents = [zone_vent(1)];
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &vents,
+        };
+        let mut j = au_sol(&g, 56.0);
+        for _ in 0..60 {
+            j.actualiser(&AUCUNE, &env);
+        }
+        // 60 px/s = exactement 1 px par pas (aucune entrée, au sol).
+        assert_eq!(j.boite.x, 56.0 + 60.0, "poussé par le vent à droite");
+        // La poussée est un DÉPLACEMENT : la vitesse du joueur est restée à zéro.
+        assert_eq!(j.vitesse.x, 0.0, "le vent ne rentre pas dans vitesse.x");
+        assert!(j.au_sol);
+    }
+
+    #[test]
+    fn vent_lateral_gauche_pousse_vers_la_gauche() {
+        let g = salle();
+        let vents = [zone_vent(-1)];
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &vents,
+        };
+        let mut j = au_sol(&g, 100.0);
+        for _ in 0..60 {
+            j.actualiser(&AUCUNE, &env);
+        }
+        assert_eq!(j.boite.x, 100.0 - 60.0, "poussé par le vent à gauche");
+    }
+
+    #[test]
+    fn vent_lateral_double_en_planant() {
+        let g = salle();
+        let vents = [zone_vent(1)];
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &vents,
+        };
+        // En l'air, SAUT maintenu : le parapluie plane dès le premier pas
+        // (vitesse verticale nulle au départ, donc `plane` est vrai).
+        let mut j = Joueur::new(56.0, 100.0);
+        for _ in 0..30 {
+            j.actualiser(&SAUT, &env);
+        }
+        assert!(j.plane, "Pépin plane");
+        // 120 px/s = 2 px par pas, le double du vent fermé.
+        assert_eq!(j.boite.x, 56.0 + 60.0, "plané porté par le vent");
+    }
+
+    #[test]
+    fn vent_lateral_en_chute_fermee_est_plus_faible() {
+        let g = salle();
+        let vents = [zone_vent(1)];
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &vents,
+        };
+        let mut ferme = Joueur::new(56.0, 100.0);
+        let mut ouvert = Joueur::new(56.0, 100.0);
+        for _ in 0..30 {
+            ferme.actualiser(&AUCUNE, &env);
+            ouvert.actualiser(&SAUT, &env);
+        }
+        assert!(!ferme.plane, "parapluie fermé en chute libre");
+        assert!(ouvert.plane);
+        assert!(
+            ferme.boite.x < ouvert.boite.x,
+            "le plané (parapluie ouvert) est poussé plus loin"
+        );
+        assert_eq!(ferme.boite.x, 56.0 + 30.0, "fermé : 60 px/s");
+        assert_eq!(ouvert.boite.x, 56.0 + 60.0, "ouvert : 120 px/s");
+    }
+
+    #[test]
+    fn deux_vents_opposes_qui_chevauchent_s_annulent() {
+        let g = salle();
+        let droit = zone_vent(1);
+        let gauche = zone_vent(-1);
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &[droit, gauche],
+        };
+        let mut j = au_sol(&g, 56.0);
+        for _ in 0..30 {
+            j.actualiser(&AUCUNE, &env);
+        }
+        assert_eq!(j.boite.x, 56.0, "deux sens opposés : aucune poussée");
+    }
+
+    #[test]
+    fn coursier_resiste_au_vent_de_face() {
+        let g = salle();
+        let vent = [zone_vent(-1)];
+        let avec = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &vent,
+        };
+        let sans = Environnement::simple(&g);
+        // Vent de face (vers la gauche) ; on court à DROITE dans les deux cas.
+        let mut j_avant = au_sol(&g, 60.0);
+        let mut j_avec = au_sol(&g, 60.0);
+        for _ in 0..120 {
+            j_avant.actualiser(&droite(), &sans);
+            j_avec.actualiser(&droite(), &avec);
+        }
+        // Le vent de face retarde, mais ne bloque pas : on progresse toujours.
+        assert!(
+            j_avec.boite.x > 60.0 + 20.0,
+            "progrès malgré le vent de face"
+        );
+        assert!(j_avec.boite.x < j_avant.boite.x, "le vent de face ralentit");
+        // Fermer le parapluie, c'est résister : au sol le vent ne fait que 60,
+        // pas 120 (la course à 96 gagne dans les deux cas).
+        assert!(j_avec.au_sol);
     }
 
     #[test]

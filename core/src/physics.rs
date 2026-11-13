@@ -131,6 +131,32 @@ impl CourantAscendant {
     }
 }
 
+/// Vitesse (px/s) du vent latéral, parapluie FERMÉ : le vent pousse Pépin
+/// d'autant par seconde.
+pub const VENT_LAT: f32 = 60.0;
+/// Vitesse (px/s) du vent latéral en PLANANT (parapluie ouvert) : deux fois
+/// plus forte que `VENT_LAT`. On s'en sert pour allonger un plané, ou on ferme
+/// le parapluie pour résister au vent.
+pub const VENT_LAT_PLANE: f32 = 2.0 * VENT_LAT;
+
+/// Zone rectangulaire où souffle un vent LATERAL (lettre `<` ou `>` de la
+/// grille). Le vent pousse Pépin à `VENT_LAT` (parapluie fermé), et deux fois
+/// plus fort s'il plane (`VENT_LAT_PLANE`) : voir `player::actualiser`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VentLateral {
+    /// Rectangle où le vent agit.
+    pub zone: Aabb,
+    /// Sens du vent : 1 (vers la droite, `>`), -1 (vers la gauche, `<`).
+    pub sens: i8,
+}
+
+impl VentLateral {
+    /// Zone de vent de `sens` (1 ou -1).
+    pub fn new(zone: Aabb, sens: i8) -> Self {
+        Self { zone, sens }
+    }
+}
+
 /// Tout ce que le joueur « voit » du monde pendant un pas : un simple PRÊT
 /// de données. Les trois champs sont des emprunts en lecture seule ; la durée
 /// de vie `'a` garantit que le niveau reste vivant tant que l'`Environnement`
@@ -143,15 +169,18 @@ pub struct Environnement<'a> {
     pub solides: &'a [Aabb],
     /// Zones de courant ascendant.
     pub courants: &'a [CourantAscendant],
+    /// Zones de vent latéral.
+    pub vents: &'a [VentLateral],
 }
 
 impl<'a> Environnement<'a> {
-    /// Environnement sans solides ni courants, juste la grille.
+    /// Environnement sans solides, courants ni vents, juste la grille.
     pub fn simple(grille: &'a dyn Grille) -> Self {
         Self {
             grille,
             solides: &[],
             courants: &[],
+            vents: &[],
         }
     }
 }
@@ -202,4 +231,7 @@ mod tests {
     // planer doit ralentir la chute. Vérifié à la compilation.
     const _: () = assert!(COURANT_ACCEL > GRAVITE);
     const _: () = assert!(VITESSE_PLANER_CHUTE < VITESSE_MAX_CHUTE);
+    // Le vent latéral en planant pousse deux fois plus fort que fermé.
+    const _: () = assert!(VENT_LAT_PLANE == 2.0 * VENT_LAT);
+    const _: () = assert!(VENT_LAT == 60.0);
 }

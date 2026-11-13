@@ -469,6 +469,7 @@ mod tests {
                 grille: &g,
                 solides: &s,
                 courants: &[],
+                vents: &[],
             };
             porter_par_plateformes(&mut j, &e, &env);
         }
@@ -496,6 +497,7 @@ mod tests {
                 grille: &g,
                 solides: &s,
                 courants: &[],
+                vents: &[],
             };
             porter_par_plateformes(&mut j, &e, &env);
         }
