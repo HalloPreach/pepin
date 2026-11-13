@@ -98,6 +98,18 @@ impl Ventilateur {
         }
     }
 
+    /// Nombre de pas de souffle restants, CELUI-CI COMPRIS (0 hors du souffle) :
+    /// le courant agit pendant ce pas et les `souffle_restant() - 1` suivants.
+    /// Lecture seule : le jeu s'en sert pour que les brins de vent visibles
+    /// meurent avec le souffle (aucun brin ne survit à l'arrêt de l'hélice).
+    pub fn souffle_restant(&self) -> u16 {
+        if self.souffle() {
+            self.restant
+        } else {
+            0
+        }
+    }
+
     /// Le courant ascendant tant que l'hélice souffle (`None` en arrêt et
     /// pendant l'annonce) : c'est le jeu qui le passe à l'environnement du
     /// joueur.
@@ -342,6 +354,28 @@ mod tests {
         }
         assert_eq!(j.boite.x, x0, "porté verticalement, sans glisser");
         assert!(j.boite.x >= v.zone.x && j.boite.x + j.boite.w <= v.zone.droite());
+    }
+
+    #[test]
+    fn le_souffle_restant_compte_les_pas_de_courant() {
+        // Hors du souffle : 0. Au premier pas du souffle : 120 pas de courant
+        // (celui-ci compris), puis il décompte et le courant cesse pile quand il
+        // est épuisé.
+        let mut v = ventilateur();
+        assert_eq!(v.souffle_restant(), 0, "à l'arrêt");
+        pas(&mut v, ARRET_PAS + ANNONCE_PAS - 1);
+        assert!(v.en_annonce());
+        assert_eq!(v.souffle_restant(), 0, "pendant l'annonce");
+        pas(&mut v, 1);
+        assert_eq!(v.souffle_restant(), SOUFFLE_PAS);
+        let mut pas_de_courant = 0;
+        while v.courant_actif().is_some() {
+            assert_eq!(v.souffle_restant(), SOUFFLE_PAS - pas_de_courant);
+            pas_de_courant += 1;
+            pas(&mut v, 1);
+        }
+        assert_eq!(pas_de_courant, SOUFFLE_PAS, "le courant agit 120 pas");
+        assert_eq!(v.souffle_restant(), 0, "plus rien après le souffle");
     }
 
     #[test]
