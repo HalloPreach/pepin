@@ -150,6 +150,12 @@ impl Application {
         self.transition.demarrer();
     }
 
+    /// Chrono de la partie en cours (pas de jeu), pour le robot de QA.
+    #[cfg(test)]
+    pub fn chrono(&self) -> u32 {
+        self.pas_partie
+    }
+
     /// Le monde de jeu est-il en train d'avancer (donc à interpoler) ?
     pub fn en_jeu(&self) -> bool {
         self.ecran == Ecran::Jeu && !self.transition.est_active()

@@ -359,6 +359,12 @@ pub struct Trame {
     /// Premier pigeon visible du niveau : position et phase (`nom_phase`), pour
     /// viser une capture (perché, annonce, plongée...).
     pub pigeon: Option<(f32, f32, &'static str)>,
+    /// État de la partie après l'image : score, gouttes, morts et chrono (pas de
+    /// jeu). Ils ne vont pas dans `trace.csv` ; ils nourrissent `empreinte`.
+    pub score: u32,
+    pub gouttes: u32,
+    pub morts: u32,
+    pub chrono: u32,
 }
 
 impl Trame {
@@ -411,7 +417,32 @@ pub struct Partie {
     pub trames: Vec<Trame>,
     pub morts: u32,
     pub gouttes: u32,
+    pub score: u32,
+    /// Chrono de la partie (pas de jeu, sans menus ni transitions).
+    pub chrono: u32,
     pub fin_atteinte: bool,
+}
+
+/// Empreinte (hachage FNV-1a sur 64 bits) de la partie, image par image : écran,
+/// niveau affiché, score, gouttes, morts et chrono. Deux parties qui ont la même
+/// empreinte ont eu le même chrono et le même score à CHAQUE image, pas seulement à
+/// la fin : c'est la preuve qu'une carte « sans effet sur le jeu » n'a rien changé.
+pub fn empreinte(trames: &[Trame]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut ajouter = |octets: &[u8]| {
+        for &o in octets {
+            h ^= u64::from(o);
+            h = h.wrapping_mul(0x0100_0000_01b3);
+        }
+    };
+    for t in trames {
+        ajouter(t.ecran.as_bytes());
+        ajouter(&[t.niveau]);
+        for v in [t.score, t.gouttes, t.morts, t.chrono] {
+            ajouter(&v.to_le_bytes());
+        }
+    }
+    h
 }
 
 /// Joue la partie entière à travers l'`Application`, image par image, comme le
@@ -466,6 +497,10 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
         });
         trame.x = app.monde.joueur.boite.x;
         trame.y = app.monde.joueur.boite.y;
+        trame.score = app.monde.etat.score;
+        trame.gouttes = app.monde.etat.gouttes;
+        trame.morts = app.monde.etat.morts;
+        trame.chrono = app.chrono();
         trames.push(trame);
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -485,6 +520,8 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
         trames,
         morts: app.monde.etat.morts,
         gouttes: app.monde.etat.gouttes,
+        score: app.monde.etat.score,
+        chrono: app.chrono(),
         fin_atteinte,
     }
 }
@@ -540,11 +577,15 @@ mod tests {
         }
         std::fs::write("../target/qa/trace.csv", trace).unwrap();
         println!(
-            "images : {} ({:.1} s) ; morts : {} ; gouttes : {}",
+            "images : {} ({:.1} s) ; morts : {} ; gouttes : {} ; score : {} ; chrono : {} pas ; \
+             empreinte : {:016x}",
             partie.trames.len(),
             partie.trames.len() as f32 / 60.0,
             partie.morts,
-            partie.gouttes
+            partie.gouttes,
+            partie.score,
+            partie.chrono,
+            empreinte(&partie.trames)
         );
     }
 }
