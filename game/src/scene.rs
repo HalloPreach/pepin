@@ -13,7 +13,7 @@ use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::level::{GenreDecor, GenrePanneau, Tuile};
 use pepin_core::palette::*;
-use pepin_core::physics::CourantAscendant;
+use pepin_core::physics::{CourantAscendant, HZ};
 use pepin_core::player::EtatJoueur;
 use pepin_core::zones::Theme;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
@@ -437,6 +437,45 @@ pub(crate) fn pepin_cache(protection: u16, pas: u32) -> bool {
     protection > 0 && (pas / 3).is_multiple_of(2)
 }
 
+/// Pépin s'occupe après 2 s (120 pas) immobile au sol.
+const ATTENTE_PAS: u32 = 2 * HZ;
+/// Durée d'un cycle de l'attente (5 s), rejoué tant que Pépin ne bouge pas.
+const CYCLE_ATTENTE: u32 = 5 * HZ;
+/// Début (dans le cycle) des coups de parapluie sur le sol, et durée d'un « tac ».
+const DEBUT_TAPOTE: u32 = 180;
+const DUREE_TAC: u32 = 8;
+/// Nombre de coups de parapluie par cycle.
+const NB_TACS: u32 = 4;
+
+/// Image de l'attente quand Pépin est immobile au sol depuis `immobile` pas (voir
+/// `monde::compter_immobile`), ou `None` : il respire simplement (images du repos).
+/// Avant 2 s, toujours `None`. Ensuite, un cycle de 5 s qui recommence :
+/// - 0 à 8 : il cligne des yeux ;
+/// - 60 à 120 : il lève les yeux vers le ciel (1 s), puis cligne de nouveau (120 à 128) ;
+/// - 180 à 244 : il tapote le sol de son parapluie, 4 fois (« tac » de 8 pas, puis 8 pas
+///   de repos, `pepin_idle0` : le corps ne bouge pas entre deux coups).
+///
+/// Comme la minuterie repart de zéro au premier mouvement, l'attente s'arrête net dès
+/// qu'on appuie sur une touche. Fonction pure.
+pub(crate) fn image_attente(immobile: u32) -> Option<&'static str> {
+    // `checked_sub` : `None` avant 2 s, et `?` sort aussitôt de la fonction avec ce `None`.
+    let t = immobile.checked_sub(ATTENTE_PAS)? % CYCLE_ATTENTE;
+    let [cligne, ciel, tapote] = pepin::ATTENTE;
+    match t {
+        0..8 | 120..128 => Some(cligne),
+        60..120 => Some(ciel),
+        _ if (DEBUT_TAPOTE..DEBUT_TAPOTE + 2 * DUREE_TAC * NB_TACS).contains(&t) => {
+            let coup = (t - DEBUT_TAPOTE) / DUREE_TAC;
+            Some(if coup.is_multiple_of(2) {
+                tapote
+            } else {
+                pepin::REPOS[0]
+            })
+        }
+        _ => None,
+    }
+}
+
 fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) {
     let pas = monde.pas;
     let j = &monde.joueur;
@@ -473,7 +512,7 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) 
                 EtatJoueur::Montee => "pepin_saut",
                 EtatJoueur::Chute => "pepin_chute",
                 _ if j.vitesse.x.abs() > 8.0 => image(&pepin::COURSE, pas, 5),
-                _ => image(&pepin::REPOS, pas, 30),
+                _ => image_attente(monde.immobile).unwrap_or_else(|| image(&pepin::REPOS, pas, 30)),
             };
             banque.dessiner(nom, (milieu - 8) as f32, (bas - 16) as f32, miroir);
         }
@@ -801,5 +840,107 @@ mod tests {
             );
         }
         assert_eq!(GenreDecor::TOUS.len(), noms.len() + 1);
+    }
+
+    // --- Attente de Pépin (carte 4.3) ---
+
+    #[test]
+    fn pas_d_attente_avant_2_s_immobile() {
+        for immobile in 0..ATTENTE_PAS {
+            assert_eq!(image_attente(immobile), None, "pas {immobile}");
+        }
+        // Pile à 2 s, il cligne des yeux.
+        assert_eq!(image_attente(ATTENTE_PAS), Some("pepin_cligne"));
+    }
+
+    /// Un cycle de 5 s montre les trois images d'attente, chacune dans sa plage, et laisse
+    /// Pépin respirer (images du repos) plus de la moitié du temps.
+    #[test]
+    fn un_cycle_d_attente_montre_les_trois_images() {
+        let cycle: Vec<Option<&str>> = (0..CYCLE_ATTENTE)
+            .map(|t| image_attente(ATTENTE_PAS + t))
+            .collect();
+        let duree = |nom: &str| cycle.iter().filter(|i| **i == Some(nom)).count();
+        assert_eq!(duree("pepin_cligne"), 16, "deux clignements de 8 pas");
+        assert_eq!(duree("pepin_ciel"), 60, "1 s le nez en l'air");
+        assert_eq!(duree("pepin_tapote"), 32, "4 coups de 8 pas");
+        let respire = cycle.iter().filter(|i| i.is_none()).count();
+        assert!(respire * 2 > cycle.len(), "{respire} pas de respiration");
+        // Rien d'autre que l'attente et le repos.
+        for nom in cycle.iter().flatten() {
+            assert!(
+                pepin::ATTENTE.contains(nom) || pepin::REPOS.contains(nom),
+                "{nom}"
+            );
+        }
+    }
+
+    /// Les coups de parapluie alternent avec l'image de repos de même silhouette : « tac »
+    /// (embout au sol) puis parapluie relevé, quatre fois de suite.
+    #[test]
+    fn pepin_tapote_quatre_fois() {
+        let debut = ATTENTE_PAS + DEBUT_TAPOTE;
+        let mut changements = Vec::new();
+        let mut precedente = image_attente(debut - 1);
+        for t in debut..debut + 80 {
+            let i = image_attente(t);
+            if i != precedente {
+                changements.push((t - debut, i));
+                precedente = i;
+            }
+        }
+        let tac = Some("pepin_tapote");
+        let leve = Some("pepin_idle0");
+        assert_eq!(
+            changements,
+            vec![
+                (0, tac),
+                (8, leve),
+                (16, tac),
+                (24, leve),
+                (32, tac),
+                (40, leve),
+                (48, tac),
+                (56, leve),
+                (64, None)
+            ]
+        );
+    }
+
+    /// Le cycle se répète tant que Pépin ne bouge pas (même après des heures).
+    #[test]
+    fn l_attente_se_repete_tant_que_pepin_ne_bouge_pas() {
+        for t in 0..CYCLE_ATTENTE {
+            let i = image_attente(ATTENTE_PAS + t);
+            assert_eq!(image_attente(ATTENTE_PAS + t + CYCLE_ATTENTE), i, "t = {t}");
+            assert_eq!(
+                image_attente(ATTENTE_PAS + t + 1000 * CYCLE_ATTENTE),
+                i,
+                "t = {t}"
+            );
+        }
+    }
+
+    /// Bout à bout avec la vraie minuterie : en plein « nez en l'air », un seul pas avec une
+    /// touche et Pépin redevient normal (la minuterie retombe à zéro, plus d'image d'attente).
+    #[test]
+    fn l_attente_cesse_au_premier_mouvement() {
+        use crate::monde::compter_immobile;
+        use pepin_core::player::{Direction, Entrees};
+        let mut m = Monde::new(0);
+        for _ in 0..30 {
+            m.avancer(&Entrees::default());
+        }
+        let mut immobile = 0;
+        for _ in 0..ATTENTE_PAS + 90 {
+            immobile = compter_immobile(immobile, &m.joueur, &Entrees::default());
+        }
+        assert_eq!(image_attente(immobile), Some("pepin_ciel"));
+        let droite = Entrees {
+            direction: Direction::Droite,
+            saut: false,
+        };
+        immobile = compter_immobile(immobile, &m.joueur, &droite);
+        assert_eq!(image_attente(immobile), None);
     }
 }

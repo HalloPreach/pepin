@@ -15,8 +15,8 @@ use pepin_core::entities::contacts::{
 };
 use pepin_core::entities::{solides_des_entites, Actualisable, Entite};
 use pepin_core::level::Niveau;
-use pepin_core::physics::Environnement;
-use pepin_core::player::{Entrees, Evenements, Joueur};
+use pepin_core::physics::{Environnement, Vec2};
+use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
 use pepin_core::state::{EtatJeu, Ordre};
 use pepin_core::zones::{self, InfosNiveau};
 
@@ -46,6 +46,9 @@ pub struct Monde {
     pub termine: bool,
     /// Gouttes d'or ramassées dans CE niveau (index 0 à 2).
     pub gouttes_niveau: [bool; 3],
+    /// Pas passés immobile au sol (voir `compter_immobile`) : au bout de 2 s, Pépin
+    /// s'occupe (animation d'attente, `scene::image_attente`). Sert au dessin seulement.
+    pub immobile: u32,
     precedent_joueur: (f32, f32),
     precedent_entites: Vec<(f32, f32)>,
 }
@@ -77,6 +80,7 @@ impl Monde {
             pos_mort: (0.0, 0.0),
             termine: false,
             gouttes_niveau: [false; 3],
+            immobile: 0,
             precedent_entites,
         }
     }
@@ -147,6 +151,8 @@ impl Monde {
         }
         self.contacts = contacts;
         self.reapparition = self.reapparition.saturating_sub(1);
+        // Après la réapparition éventuelle : un Pépin replacé n'est pas encore au sol.
+        self.immobile = compter_immobile(self.immobile, &self.joueur, entrees);
 
         if self.joueur.boite.chevauche(&self.niveau.arrivee) {
             self.termine = true;
@@ -175,6 +181,25 @@ impl Monde {
     }
 }
 
+/// Minuterie de l'attente : nombre de pas que Pépin vient de passer immobile au sol.
+/// `avant` : la valeur du pas précédent. Elle repart de zéro au premier mouvement : une
+/// touche de direction ou de saut enfoncée (même contre un mur, où il ne bouge pas), une
+/// vitesse non nulle, ou les pieds qui quittent le sol (saut, chute, réapparition).
+/// Elle ne fait que LIRE le joueur (`&Joueur`) : aucun effet sur la physique. Porté par
+/// une plateforme mobile sans toucher à rien, Pépin est immobile (il attend, debout).
+/// Fonction pure.
+pub fn compter_immobile(avant: u32, joueur: &Joueur, entrees: &Entrees) -> u32 {
+    let bouge = !joueur.au_sol
+        || joueur.vitesse != Vec2::default()
+        || entrees.direction != Direction::Immobile
+        || entrees.saut;
+    if bouge {
+        0
+    } else {
+        avant.saturating_add(1)
+    }
+}
+
 /// Interpolation linéaire ; au-delà de 32 px d'écart c'est une téléportation
 /// (réapparition) : on n'interpole pas.
 fn interpoler(avant: (f32, f32), apres: (f32, f32), alpha: f32) -> (f32, f32) {
@@ -190,7 +215,6 @@ fn interpoler(avant: (f32, f32), apres: (f32, f32), alpha: f32) -> (f32, f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::player::Direction;
 
     #[test]
     fn le_niveau_1_se_charge_et_pepin_tombe_au_sol() {
@@ -246,6 +270,98 @@ mod tests {
     fn l_interpolation_ignore_les_teleportations() {
         assert_eq!(interpoler((0.0, 0.0), (10.0, 0.0), 0.5), (5.0, 0.0));
         assert_eq!(interpoler((0.0, 0.0), (500.0, 0.0), 0.5), (500.0, 0.0));
+    }
+
+    // --- Minuterie de l'attente (carte 4.3) ---
+
+    const DROITE: Entrees = Entrees {
+        direction: Direction::Droite,
+        saut: false,
+    };
+    const SAUT: Entrees = Entrees {
+        direction: Direction::Immobile,
+        saut: true,
+    };
+
+    /// Pépin posé, immobile (le vrai niveau 1 après 30 pas sans toucher à rien).
+    fn pepin_pose() -> Monde {
+        let mut m = Monde::new(0);
+        for _ in 0..30 {
+            m.avancer(&Entrees::default());
+        }
+        assert!(m.joueur.au_sol);
+        m
+    }
+
+    #[test]
+    fn la_minuterie_compte_les_pas_immobiles_au_sol() {
+        let j = pepin_pose().joueur;
+        assert_eq!(compter_immobile(0, &j, &Entrees::default()), 1);
+        assert_eq!(compter_immobile(119, &j, &Entrees::default()), 120);
+        // Jamais de débordement, même après des heures d'attente.
+        assert_eq!(
+            compter_immobile(u32::MAX, &j, &Entrees::default()),
+            u32::MAX
+        );
+    }
+
+    #[test]
+    fn la_minuterie_repart_de_zero_au_premier_mouvement() {
+        let pose = pepin_pose().joueur;
+        // Une touche suffit, même si Pépin n'a pas encore bougé (ou bute contre un mur).
+        assert_eq!(compter_immobile(500, &pose, &DROITE), 0);
+        assert_eq!(compter_immobile(500, &pose, &SAUT), 0);
+        // Une vitesse (il glisse encore après avoir lâché la touche).
+        let mut glisse = pose.clone();
+        glisse.vitesse.x = 3.0;
+        assert_eq!(compter_immobile(500, &glisse, &Entrees::default()), 0);
+        // En l'air (saut, chute, juste après une réapparition).
+        let mut en_l_air = pose.clone();
+        en_l_air.au_sol = false;
+        assert_eq!(compter_immobile(500, &en_l_air, &Entrees::default()), 0);
+    }
+
+    /// Dans le vrai jeu : 3 s sans toucher à rien, la minuterie dépasse 2 s ; un seul pas
+    /// avec une touche et elle retombe à zéro. Pépin, lui, ne bouge pas d'un pixel pendant
+    /// l'attente : la minuterie ne change rien au jeu.
+    #[test]
+    fn dans_le_jeu_l_attente_commence_apres_2_s_et_cesse_au_premier_mouvement() {
+        let mut m = pepin_pose();
+        let (x, y) = (m.joueur.boite.x, m.joueur.boite.y);
+        for _ in 0..180 {
+            m.avancer(&Entrees::default());
+        }
+        assert!(m.immobile >= 120, "immobile = {}", m.immobile);
+        assert_eq!((m.joueur.boite.x, m.joueur.boite.y), (x, y));
+        m.avancer(&DROITE);
+        assert_eq!(m.immobile, 0);
+        // Il lâche tout : la minuterie repart de zéro (et non de 180) dès qu'il est arrêté.
+        for _ in 0..30 {
+            m.avancer(&Entrees::default());
+        }
+        assert!((1..=30).contains(&m.immobile), "immobile = {}", m.immobile);
+    }
+
+    /// La minuterie ne touche à rien : deux mondes qui reçoivent les mêmes touches restent
+    /// identiques (joueur, entités, état), qu'on lise la minuterie ou non.
+    #[test]
+    fn la_minuterie_ne_change_pas_la_simulation() {
+        let mut a = Monde::new(0);
+        let mut b = Monde::new(0);
+        let touches = [Entrees::default(), DROITE, SAUT, Entrees::default()];
+        for pas in 0..600usize {
+            let e = touches[(pas / 50) % touches.len()];
+            a.avancer(&e);
+            b.avancer(&e);
+            b.immobile = 0; // b oublie sa minuterie à chaque pas
+        }
+        assert_eq!(a.joueur.boite, b.joueur.boite);
+        assert_eq!(a.joueur.vitesse, b.joueur.vitesse);
+        assert_eq!(a.etat.morts, b.etat.morts);
+        assert_eq!(a.entites.len(), b.entites.len());
+        for (ea, eb) in a.entites.iter().zip(&b.entites) {
+            assert_eq!(ea.boite(), eb.boite());
+        }
     }
 
     /// Le cas trouvé par la mesure 3.1, dans le vrai niveau 2 : Pépin attend, immobile,
