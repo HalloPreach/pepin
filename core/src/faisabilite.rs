@@ -11,6 +11,10 @@
 //! Simplifications volontaires (documentées pour rester honnêtes) :
 //! - ennemis, corbeaux et éclairs sont ignorés : ils sont évitables en
 //!   attendant ou en écrasant, et leur timing ne change pas l'atteignabilité ;
+//! - la grêle, elle, est GARDÉE : sa colonne est fixe et tombe sans arrêt, donc
+//!   attendre ne sert à rien. Un plan qui la touche parapluie fermé finit par une
+//!   mort (`resoudre_contacts`) et il est écarté ; le robot la traverse avec ses
+//!   plans « planer », ou passe dessous quand un solide l'arrête ;
 //! - les plateformes friables restent solides (on peut toujours s'en
 //!   détacher avant 0,5 s) ;
 //! - une plateforme mobile est remplacée par DEUX plateformes immobiles à ses
@@ -158,6 +162,8 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 trajets.push((a, b, m.boite.w));
             }
             Entite::Ennemi(_) | Entite::Eclair(_) => {}
+            // La grêle reste : elle tue les plans qui la touchent parapluie fermé.
+            Entite::Grele(_) => entites.push(e.clone()),
             Entite::Lanterne(l) => {
                 lanternes.push(l.point_de_reapparition());
                 entites.push(e.clone());
@@ -603,6 +609,92 @@ mod tests {
             avec.pas_arrivee.unwrap(),
             sans.pas_arrivee.unwrap()
         );
+    }
+
+    /// Mini-niveau pour la grêle (54 x 11) : un toit plat, départ à gauche, drapeau à
+    /// droite. `grele` : une colonne `g` posée à la colonne 20 (ligne 1), ou rien
+    /// (témoin). `abri` : une corniche (colonnes 18 à 23, ligne 5) arrête la colonne
+    /// au-dessus de la course. `trou` : un vide de `trou` tuiles à partir de la
+    /// colonne 18 (la grêle tombe alors dans le vide, jusqu'au bas de la carte).
+    fn niveau_grele(grele: bool, abri: bool, trou: usize) -> Niveau {
+        let largeur = 54;
+        let mut lignes = vec![".".repeat(largeur); 11];
+        for (i, c) in [(2usize, 'o'), (8, 'o'), (33, 'o')] {
+            lignes[0].replace_range(i..i + 1, &c.to_string());
+        }
+        lignes[7].replace_range(2..3, "@");
+        lignes[7].replace_range(largeur - 3..largeur - 2, "X");
+        if grele {
+            lignes[1].replace_range(20..21, "g");
+        }
+        if abri {
+            lignes[5].replace_range(18..24, "######");
+        }
+        for x in 0..largeur {
+            if (18..18 + trou).contains(&x) {
+                continue;
+            }
+            for ligne in &mut lignes[8..11] {
+                ligne.replace_range(x..x + 1, "#");
+            }
+        }
+        Niveau::depuis_ascii(&lignes.join("\n")).expect("niveau de test")
+    }
+
+    /// Sans parapluie (options du robot).
+    fn sans_planer() -> Options {
+        Options {
+            planer: false,
+            ..Options::default()
+        }
+    }
+
+    /// Un rideau de grêle du ciel jusqu'au toit : impossible à franchir parapluie
+    /// fermé (ni à pied, ni d'un saut : la colonne est plus haute que le saut), alors
+    /// que le même toit sans grêle se traverse à pied (témoin). En planant dessous,
+    /// le robot passe — même le robot maladroit.
+    #[test]
+    fn la_grele_se_traverse_en_planant_dessous() {
+        let temoin = niveau_grele(false, false, 0);
+        assert!(analyser(&temoin, temoin.depart, sans_planer()).arrivee);
+        let n = niveau_grele(true, false, 0);
+        let sans = analyser(&n, n.depart, sans_planer());
+        assert!(!sans.arrivee, "parapluie fermé, la grêle bloque : {sans:?}");
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(avec.arrivee, "en planant, la grêle se traverse : {avec:?}");
+        let maladroit = analyser(
+            &n,
+            n.depart,
+            Options {
+                precis: false,
+                ..Options::default()
+            },
+        );
+        assert!(
+            maladroit.arrivee,
+            "le robot maladroit aussi : {maladroit:?}"
+        );
+    }
+
+    /// Une corniche arrête la colonne au-dessus de la course : on passe dessous à
+    /// pied, parapluie fermé (limite basse de la colonne).
+    #[test]
+    fn sous_un_abri_la_grele_ne_tombe_plus() {
+        let n = niveau_grele(true, true, 0);
+        let sans = analyser(&n, n.depart, sans_planer());
+        assert!(sans.arrivee, "l'abri arrête la grêle : {sans:?}");
+    }
+
+    /// Un vide de 4 tuiles que l'on saute sans parapluie (témoin) ; avec un rideau
+    /// de grêle au-dessus, le même saut tue : il faut sauter plus tôt et planer.
+    #[test]
+    fn un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer() {
+        let temoin = niveau_grele(false, false, 4);
+        assert!(analyser(&temoin, temoin.depart, sans_planer()).arrivee);
+        let n = niveau_grele(true, false, 4);
+        assert!(!analyser(&n, n.depart, sans_planer()).arrivee);
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(avec.arrivee, "en planant : {avec:?}");
     }
 
     /// Mini-niveau HAUT (45 rangées, quatre écrans) : départ sur une corniche en haut à
