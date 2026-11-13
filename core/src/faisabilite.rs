@@ -25,7 +25,14 @@
 //!   l'autre (il suffit d'attendre d'être emporté) ;
 //! - un ventilateur est traité comme un courant ascendant TOUJOURS actif : le
 //!   robot ne connaît pas le temps, et son cycle (2 s de souffle, 2 s d'arrêt)
-//!   ne change pas l'atteignabilité, un joueur patient attendant le souffle.
+//!   ne change pas l'atteignabilité, un joueur patient attendant le souffle ;
+//! - une montgolfière est remplacée, comme une plateforme mobile, par DEUX
+//!   nacelles immobiles : au repos (altitude de départ) et en haut (`altitudes`).
+//!   Un joueur posé sur la nacelle au repos est aussi considéré posé sur la
+//!   nacelle en haut (il suffit d'attendre la montée), si sa boîte monte sans
+//!   rien toucher (sinon la vraie nacelle s'arrêterait plus bas : le robot
+//!   renonce, c'est prudent). La redescente n'est pas simulée : la nacelle en
+//!   haut reste là, comme les deux bouts d'une plateforme mobile.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -35,8 +42,9 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
-use crate::aabb::Aabb;
+use crate::aabb::{touche_un_obstacle, Aabb};
 use crate::entities::contacts::{resoudre_contacts, verifier_vide, Contact};
+use crate::entities::montgolfiere::VITESSE_MONTEE;
 use crate::entities::{solides_des_entites, Entite};
 use crate::level::{Niveau, VITESSE_PLATEFORMES};
 use crate::physics::{
@@ -181,14 +189,20 @@ impl Noeud {
 /// Trajet d'une plateforme mobile : (extrémité a, extrémité b, largeur).
 type Trajet = ((f32, f32), (f32, f32), f32);
 
+/// Montée d'une montgolfière : (x de la nacelle, haut de la nacelle au repos,
+/// haut de la nacelle en haut, largeur).
+type Montee = (f32, f32, f32, f32);
+
 /// Explore le niveau depuis `depart` (coin haut-gauche du joueur).
 pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rapport {
-    // Solides immobiles : friables + extrémités des plateformes mobiles.
+    // Solides immobiles : friables + extrémités des plateformes mobiles + nacelles
+    // des montgolfières (au repos et en haut).
     let mut solides: Vec<Aabb> = solides_des_entites(&niveau.entites);
     let mut entites: Vec<Entite> = Vec::new();
     let mut lanternes: Vec<(f32, f32)> = Vec::new();
     // (extrémité a, extrémité b, largeur) de chaque plateforme mobile.
     let mut trajets: Vec<Trajet> = Vec::new();
+    let mut montees: Vec<Montee> = Vec::new();
     for e in &niveau.entites {
         match e {
             Entite::Mobile(m) => {
@@ -196,6 +210,15 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 solides.push(Aabb::new(a.0, a.1, m.boite.w, m.boite.h));
                 solides.push(Aabb::new(b.0, b.1, m.boite.w, m.boite.h));
                 trajets.push((a, b, m.boite.w));
+            }
+            Entite::Montgolfiere(m) => {
+                // La nacelle au repos est déjà dans `solides` (niveau tout juste lu :
+                // elle est à son altitude de départ). On ajoute la nacelle en haut.
+                let (bas, haut) = m.altitudes();
+                if haut < bas {
+                    solides.push(Aabb::new(m.boite.x, haut, m.boite.w, m.boite.h));
+                    montees.push((m.boite.x, bas, haut, m.boite.w));
+                }
             }
             Entite::Ennemi(_) | Entite::Eclair(_) => {}
             // La grêle reste : elle tue les plans qui la touchent parapluie fermé.
@@ -339,6 +362,24 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                                 let attente = (trajet * HZ as f32) as u32;
                                 ajouter(Noeud::pose(x + dx, y + dy), cout_plan + attente);
                             }
+                        }
+                    }
+                    // Debout sur une nacelle de montgolfière au repos ? On attend la
+                    // montée : posé sur la nacelle en haut, au même x, avec le temps
+                    // de la montée comme coût — si la boîte de Pépin monte sans rien
+                    // toucher (une corniche au-dessus de lui arrêterait la vraie
+                    // nacelle plus bas : le robot n'en tient pas compte, prudent).
+                    for &(nx, bas, haut, w) in &montees {
+                        let dessus =
+                            (y + JOUEUR_H - bas).abs() < 0.01 && x + JOUEUR_L > nx && x < nx + w;
+                        if !dessus {
+                            continue;
+                        }
+                        let dy = haut - bas; // négatif : vers le haut
+                        let balayage = Aabb::new(x, y + dy, JOUEUR_L, JOUEUR_H - dy);
+                        if !touche_un_obstacle(&balayage, niveau, &[]) {
+                            let attente = (-dy / VITESSE_MONTEE * HZ as f32).ceil() as u32;
+                            ajouter(Noeud::pose(x, y + dy), cout_plan + attente);
                         }
                     }
                 }
@@ -928,5 +969,55 @@ mod tests {
             );
             assert!(maladroit.arrivee, "{ecarts:?} : {maladroit:?}");
         }
+    }
+
+    /// Mini-niveau de la montgolfière, 16 x 16 : un quai (ligne 13, colonnes 0 à 3)
+    /// où Pépin part, la nacelle (`b`) au ras du quai en colonne 4, et un balcon
+    /// (colonnes 5 à 11) dont le dessus est en ligne `rangee_balcon`, avec deux
+    /// gouttes et le drapeau. La nacelle monte de 8 tuiles au plus : du haut à
+    /// y = 208 jusqu'à y = 80, au ras d'un balcon en ligne 5. Le balcon touche la
+    /// colonne de la nacelle : Pépin doit se tenir sur sa partie gauche, sinon sa
+    /// tête cogne le dessous du balcon. `avec_nacelle` faux : la case reste vide.
+    fn niveau_montgolfiere(rangee_balcon: usize, avec_nacelle: bool) -> Niveau {
+        let mut lignes = vec![".".repeat(16); 16];
+        lignes[rangee_balcon - 1].replace_range(6..12, "o.o..X");
+        lignes[rangee_balcon].replace_range(5..12, "#######");
+        lignes[12].replace_range(1..3, "@o");
+        lignes[13].replace_range(0..5, if avec_nacelle { "####b" } else { "####." });
+        Niveau::depuis_ascii(&lignes.join("\n")).expect("niveau de test")
+    }
+
+    /// Le robot monte au balcon par la montgolfière : 128 px au-dessus du quai,
+    /// hors de portée d'un saut (témoin sans nacelle). Le parcours le plus rapide
+    /// compte le temps de la montée (128 px à 48 px/s : 160 pas au moins).
+    #[test]
+    fn le_robot_monte_au_balcon_par_la_montgolfiere() {
+        let temoin = niveau_montgolfiere(5, false);
+        let sans = analyser(&temoin, temoin.depart, Options::default());
+        assert!(!sans.arrivee, "le balcon s'atteint sans montgolfière ?");
+        let n = niveau_montgolfiere(5, true);
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(avec.arrivee, "montée non trouvée : {avec:?}");
+        assert_eq!(avec.gouttes, [true; 3]);
+        let pas = avec.pas_arrivee.unwrap();
+        assert!(pas >= 160, "la montée dure au moins 160 pas ({pas})");
+        let maladroit = analyser(
+            &n,
+            n.depart,
+            Options {
+                precis: false,
+                ..Options::default()
+            },
+        );
+        assert!(maladroit.arrivee, "robot maladroit : {maladroit:?}");
+    }
+
+    /// La montée s'arrête à 8 tuiles : un balcon en ligne 1 (64 px au-dessus de la
+    /// nacelle en haut, plus qu'un saut) reste hors de portée, même avec elle.
+    #[test]
+    fn le_robot_ne_monte_pas_plus_haut_que_la_montgolfiere() {
+        let n = niveau_montgolfiere(1, true);
+        let r = analyser(&n, n.depart, Options::default());
+        assert!(!r.arrivee, "le balcon est trop haut : {r:?}");
     }
 }
