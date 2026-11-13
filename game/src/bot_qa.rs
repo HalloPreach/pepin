@@ -812,6 +812,97 @@ pub fn jouer_essai_ventilateur(parcours: &[Entrees]) -> PartieEssai {
     )
 }
 
+/// Parcours de démonstration du niveau d'essai « ventilateur » (carte 5.6b, pour les
+/// captures) : Pépin attend au départ que le PREMIER souffle soit passé, monte sur
+/// la casette pendant l'arrêt, puis ne touche plus à rien. Il y est donc posé
+/// pendant toute l'annonce suivante, le souffle le porte jusqu'en haut de la
+/// colonne, et il retombe à l'arrêt. Le saut (élan, appui, durée) est cherché
+/// sur la vraie simulation : `None` si aucun ne pose Pépin sur la casette.
+pub fn parcours_essai_ventilateur_caisse() -> Option<Vec<Entrees>> {
+    use crate::monde::{Monde, INDICE_ESSAI_VENTILATEUR};
+    // Casette du ventilateur, sa phase.
+    let casette = |m: &Monde| {
+        m.entites.iter().find_map(|e| match e {
+            Entite::Ventilateur(v) => Some((v.boite, v.phase())),
+            _ => None,
+        })
+    };
+    // Les pas du cycle, mesurés sur la simulation (sans entrée) : fin du premier
+    // souffle, puis début de l'annonce et du souffle suivants.
+    let mut m = Monde::new(INDICE_ESSAI_VENTILATEUR);
+    let mut pas = 0u32;
+    let mut vu_souffle = false;
+    let (mut fin_souffle, mut annonce, mut souffle) = (None, None, None);
+    while souffle.is_none() && pas < 1000 {
+        m.avancer(&Entrees::default());
+        pas += 1;
+        match casette(&m)?.1 {
+            PhaseVentilateur::Souffle if annonce.is_some() => souffle = Some(pas),
+            PhaseVentilateur::Souffle => vu_souffle = true,
+            PhaseVentilateur::Arret if vu_souffle && fin_souffle.is_none() => {
+                fin_souffle = Some(pas)
+            }
+            PhaseVentilateur::Annonce if fin_souffle.is_some() && annonce.is_none() => {
+                annonce = Some(pas)
+            }
+            _ => {}
+        }
+    }
+    let (fin_souffle, annonce, souffle) = (fin_souffle?, annonce?, souffle?);
+    // Préfixe : immobile jusqu'à la fin du premier souffle (quelques pas de marge).
+    let attente = fin_souffle as usize + 4;
+    let mut depart = Monde::new(INDICE_ESSAI_VENTILATEUR);
+    for _ in 0..attente {
+        depart.avancer(&Entrees::default());
+    }
+    for course in 1..40usize {
+        for debut_saut in 0..course {
+            for duree_saut in 1..16usize {
+                let elan: Vec<Entrees> = (0..course)
+                    .map(|k| Entrees {
+                        direction: Direction::Droite,
+                        saut: k >= debut_saut && k < debut_saut + duree_saut,
+                    })
+                    .collect();
+                let mut essai = depart.clone();
+                let mut pas = attente as u32;
+                for e in &elan {
+                    essai.avancer(e);
+                    pas += 1;
+                }
+                if pas >= annonce {
+                    continue;
+                }
+                // Immobile jusqu'au souffle : Pépin doit être posé sur la casette
+                // pendant TOUTE l'annonce.
+                let mut pose = true;
+                while pas < souffle {
+                    essai.avancer(&Entrees::default());
+                    pas += 1;
+                    let boite = casette(&essai)?.0;
+                    let j = &essai.joueur;
+                    if (annonce..souffle).contains(&pas)
+                        && !(j.au_sol
+                            && (j.boite.bas() - boite.y).abs() < 0.5
+                            && j.boite.x >= boite.x
+                            && j.boite.x + j.boite.w <= boite.x + boite.w)
+                    {
+                        pose = false;
+                        break;
+                    }
+                }
+                if !pose || essai.etat.morts > 0 {
+                    continue;
+                }
+                let mut parcours = vec![Entrees::default(); attente];
+                parcours.extend(elan);
+                return Some(parcours);
+            }
+        }
+    }
+    None
+}
+
 /// Parcours du robot dans le niveau d'essai « auvent » (maladroit, puis précis) :
 /// chaque rebond d'auvent est un point de décision (`Fin::Lance`), d'où il essaie
 /// les plans en vol (`plans_en_vol`). Il cherche le plus RAPIDE : en gardant la
@@ -1529,6 +1620,92 @@ mod tests {
             "images : {} ; F4 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
+        );
+    }
+
+    /// Démonstration de la carte 5.6b : Pépin posé sur la casette pendant toute
+    /// l'annonce, porté par le souffle suivant jusqu'en haut de la colonne, puis
+    /// redescendu à l'arrêt, sans mourir.
+    #[test]
+    fn pepin_attend_sur_la_casette_puis_le_souffle_le_porte() {
+        let parcours =
+            parcours_essai_ventilateur_caisse().expect("un saut pose Pépin sur la casette");
+        let partie = jouer_essai_ventilateur(&parcours);
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let phase = |i: &ImageEssai| i.ventilateur.map(|v| v.0);
+        // L'annonce qui suit la montée sur la casette : Pépin y est posé.
+        let fin_elan = parcours.len();
+        let annonce: Vec<&&ImageEssai> = essai
+            .iter()
+            .skip(fin_elan)
+            .take_while(|i| phase(i) != Some(PhaseVentilateur::Souffle))
+            .filter(|i| phase(i) == Some(PhaseVentilateur::Annonce))
+            .collect();
+        assert!(!annonce.is_empty(), "une annonce après l'élan");
+        assert!(annonce
+            .iter()
+            .all(|i| i.au_sol && (i.trame.y - 298.0).abs() < 0.5));
+        // Le souffle suivant le porte haut (au moins 10 tuiles), puis, à l'arrêt, il
+        // retombe sur la casette.
+        let (k_haut, haut) = essai
+            .iter()
+            .enumerate()
+            .skip(fin_elan)
+            .map(|(k, i)| (k, i.trame.y))
+            .fold((0, f32::MAX), |a, b| if b.1 < a.1 { b } else { a });
+        assert!(haut < 298.0 - 160.0, "porté jusqu'à y = {haut}");
+        assert!(
+            essai[k_haut..]
+                .iter()
+                .any(|i| i.au_sol && (i.trame.y - 298.0).abs() < 0.5),
+            "Pépin retombe sur la casette"
+        );
+        assert_eq!(partie.morts, 0);
+    }
+
+    /// Écrit le script de la démonstration « Pépin sur la casette » (carte 5.6b) :
+    /// `target/qa/script-56b-caisse.txt` (1 200 images : la montée sur la casette
+    /// puis deux cycles du ventilateur) et `target/qa/trace-56b-caisse.csv` (même
+    /// format que `trace-56b.csv`). Touche F4 : la même image que
+    /// `touches-56b.txt` (les images avant le niveau d'essai sont les mêmes).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_ventilateur_caisse
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_ventilateur_caisse() {
+        let parcours =
+            parcours_essai_ventilateur_caisse().expect("un saut pose Pépin sur la casette");
+        let partie = jouer_essai_ventilateur(&parcours);
+        let images = &partie.images[..partie.images.len().min(1200)];
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-56b-caisse.txt", &script).unwrap();
+        let mut trace =
+            String::from("image,ecran,essai,x,y,cam_x,cam_y,au_sol,phase,souffle_restant\n");
+        for (k, i) in images.iter().enumerate() {
+            let (phase, restant) = match i.ventilateur {
+                Some((PhaseVentilateur::Arret, _)) => ("arret", 0),
+                Some((PhaseVentilateur::Annonce, _)) => ("annonce", 0),
+                Some((PhaseVentilateur::Souffle, r)) => ("souffle", r),
+                None => ("-", 0),
+            };
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{phase},{restant}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.au_sol)
+            ));
+        }
+        std::fs::write("../target/qa/trace-56b-caisse.csv", trace).unwrap();
+        let touche = images.iter().position(|i| i.touche_essai).unwrap();
+        println!(
+            "images : {} ; élan : {} pas ; F4 à l'image {touche} (pilote : {})",
+            images.len(),
+            parcours.len(),
+            touche + 1
         );
     }
 
