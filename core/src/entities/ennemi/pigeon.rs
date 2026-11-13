@@ -7,14 +7,15 @@
 //!   phase :  Perché ──(Pépin dans le cône)──> Annonce (0,3 s)
 //!              ^                                  │
 //!              │                                  v
-//!            Repos (1,5 s) <── Remontée (1,33 s) <── Plongée (0,67 s)
+//!            Repos (1,5 s) <── Remontée (1,07 s) <── Plongée (0,53 s)
 //! ```
 //!
 //! Sa trajectoire ne dépend que de son perchoir et du sens où il regarde, fixé
 //! au déclenchement : une diagonale à 45° vers le bas et vers l'avant, longue de
 //! `PROFONDEUR_PLONGEE` px dans chaque axe, puis le même trait en sens inverse.
 //! Il vole : les tuiles ne l'arrêtent pas. C'est au niveau de lui laisser le
-//! passage (un test le vérifie sur les vrais niveaux, `core/src/zones.rs`).
+//! passage : un test le vérifie sur les vrais niveaux (`core/src/zones.rs`), et
+//! sa plongée ne passe jamais sur une lanterne.
 //!
 //! Ce fichier est un SOUS-MODULE de `ennemi` : il peut lire et modifier les
 //! champs privés de `Ennemi` (en Rust, un module voit ce qui est privé dans ses
@@ -25,14 +26,16 @@ use crate::aabb::Aabb;
 
 /// Durée (pas) du frémissement d'annonce avant la plongée : 0,3 s.
 pub const ANNONCE_PIGEON_PAS: u8 = 18;
-/// Profondeur (px) de la plongée, dans chaque axe : 5 tuiles vers le bas et
-/// 5 tuiles vers l'avant (une diagonale à 45°).
-pub const PROFONDEUR_PLONGEE: f32 = 80.0;
-/// Durée (pas) de la plongée : 40 pas, soit 2 px par pas dans chaque axe
+/// Profondeur (px) de la plongée, dans chaque axe : 4 tuiles vers le bas et
+/// 4 tuiles vers l'avant (une diagonale à 45°). Perché sur un nuage 4 rangées
+/// au-dessus d'un toit, le pigeon finit sa plongée au ras de ce toit : il
+/// atteint Pépin qui y marche (le haut de Pépin est 50 px sous ses pattes).
+pub const PROFONDEUR_PLONGEE: f32 = 64.0;
+/// Durée (pas) de la plongée : 32 pas, soit 2 px par pas dans chaque axe
 /// (120 px/s, plus vite que la course de Pépin, 96 px/s).
-pub const PLONGEE_PAS: u16 = 40;
+pub const PLONGEE_PAS: u16 = 32;
 /// Durée (pas) de la remontée vers le perchoir : deux fois plus lente (60 px/s).
-pub const REMONTEE_PAS: u16 = 80;
+pub const REMONTEE_PAS: u16 = 64;
 /// Repos (pas) sur le perchoir après la remontée, avant de pouvoir replonger : 1,5 s.
 pub const REPOS_PIGEON_PAS: u16 = 90;
 /// Tolérance (px) du cône vers l'arrière : Pépin juste sous le bec compte encore
@@ -236,7 +239,7 @@ mod tests {
                 );
                 avancer(&mut p, 1);
             }
-            // Au fond : 5 tuiles plus bas, 5 tuiles devant.
+            // Au fond : 4 tuiles plus bas, 4 tuiles devant.
             assert_eq!(p.phase(), PhasePigeon::Plongee(PLONGEE_PAS));
             assert_eq!(
                 (p.boite.x, p.boite.y),
