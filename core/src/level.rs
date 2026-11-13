@@ -150,15 +150,16 @@ pub struct Panneau {
 /// Genre d'un objet de décor : ne change que le dessin (aucune collision).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GenreDecor {
-    /// `H` : souche de cheminée (niveaux 1 et 2).
+    /// `H` : souche de cheminée (les toits, les gouttières, le marché couvert).
     Cheminee,
-    /// `T` : antenne de télévision (niveaux 1 et 2).
+    /// `T` : antenne de télévision (les toits, les gouttières, le marché couvert).
     Antenne,
-    /// `R` : paratonnerre (niveau 4, l'orage).
+    /// `R` : paratonnerre (le grand orage, le clocher).
     Paratonnerre,
-    /// `Q` : manche à air, au bord d'un courant ascendant qu'elle signale (niveau 4).
+    /// `Q` : manche à air, au bord d'un courant ascendant qu'elle signale (vents
+    /// d'altitude).
     MancheAAir,
-    /// `K` : oiseau posé (niveau 5).
+    /// `K` : oiseau posé (au-dessus des nuages).
     Oiseau,
 }
 

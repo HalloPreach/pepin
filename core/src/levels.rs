@@ -24,6 +24,7 @@
 //! intervalle.
 
 // Niveaux d'essai : HORS de la table `NIVEAUX` (tests et build de QA seulement).
+pub mod clocher;
 pub mod essai_auvent;
 pub mod essai_chat;
 pub mod essai_escargot;
@@ -61,6 +62,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     gouttieres::INFOS,
     marche::INFOS,
     orage::INFOS,
+    clocher::INFOS,
     vents::INFOS,
     nuages::INFOS,
 ];

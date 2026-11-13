@@ -1,4 +1,4 @@
-//! Niveau 5 : « Vents d'altitude ».
+//! Niveau 6 : « Vents d'altitude ».
 //!
 //! Colonnes de vent à chevaucher et longs planés entre îlots de nuages ; au
 //! milieu de l'escalier de nuages, un îlot friable ; deux corbeaux patrouillent
@@ -11,7 +11,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
-    numero: 5,
+    numero: 6,
     nom: "Vents d'altitude",
     theme: Theme::Altitude,
     genre: GenreNiveau::Normal,

@@ -80,6 +80,11 @@ pub struct Ambiance {
     pub tuiles: TeinteTuiles,
     /// Les dalles friables sont-elles des nuages (sinon des dalles d'ardoise) ?
     pub friable_nuage: bool,
+    /// Multiplicateur de la parallaxe VERTICALE des silhouettes (`VERT_*`) : 1.0
+    /// partout, sauf au clocher (niveau haut) où la ville doit s'enfoncer
+    /// nettement quand on monte. Sans effet sur un niveau d'un écran (la caméra
+    /// du fond y reste à 0, hors secousse de mort).
+    pub vertige: f32,
 }
 
 /// Éclaircissement des tuiles d'un thème : les toits pâlissent d'un niveau à l'autre.
@@ -121,6 +126,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 briques_orangees: false,
             },
             friable_nuage: false,
+            vertige: 1.0,
         },
         // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
         // discrets en haut du ciel.
@@ -148,6 +154,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 briques_orangees: false,
             },
             friable_nuage: false,
+            vertige: 1.0,
         },
         // Marché couvert : nuit bleue qui s'éclaircit vers l'horizon (la lueur du
         // marché), étoiles en haut, immeubles aux fenêtres orange (les lanternes et
@@ -175,6 +182,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 briques_orangees: false,
             },
             friable_nuage: false,
+            vertige: 1.0,
         },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
         // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit. Un plafond
@@ -205,6 +213,38 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 briques_orangees: false,
             },
             friable_nuage: false,
+            vertige: 1.0,
+        },
+        // Clocher (niveau vertical) : nuit violette après l'orage, une lueur pâle
+        // à l'horizon (la lune derrière les nuages qui s'en vont), étoiles en haut,
+        // immeubles aux fenêtres orange. En montant, la ville s'enfonce deux fois
+        // et demie plus vite qu'au niveau d'essai vertical (`vertige`) et découvre
+        // la lueur : au sommet, on SENT la hauteur.
+        Theme::Clocher => Ambiance {
+            ciel: [ARDOISE_NUIT, VIOLET_ORAGE, VIOLET_ORAGE, ARDOISE_PALE],
+            lointain: ARDOISE,
+            proche: ARDOISE_OMBRE,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            // Étoiles dans la bande du haut seulement (bleu nuit).
+            etoiles: Some(H / 4),
+            // L'orage s'éloigne : une petite pluie.
+            gouttes: 16,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            soleil: false,
+            forme: Forme::Immeubles,
+            relief: 22,
+            socle: true,
+            // Comme à l'orage : l'or est réservé aux gouttes et aux éclairs.
+            fenetres: Some((ORANGE_SOLEIL, CORAIL_CLAIR)),
+            ilots: None,
+            // Briques violettes, toits d'ardoise sombre : le violet du clocher.
+            tuiles: TeinteTuiles {
+                eclaircissement: 0,
+                briques_orangees: false,
+            },
+            friable_nuage: false,
+            vertige: 2.5,
         },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
         // plus sombres, petites îles flottantes dans le tiers médian.
@@ -230,6 +270,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 briques_orangees: false,
             },
             friable_nuage: true,
+            vertige: 1.0,
         },
         // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
         // sommets restent sous la ligne du sol), d'une couleur absente des
@@ -254,6 +295,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 briques_orangees: true,
             },
             friable_nuage: true,
+            vertige: 1.0,
         },
     }
 }
@@ -677,8 +719,9 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
             p.proche,
         );
     }
-    // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale).
-    let vert = |f: f32| enfoncement(cam_y, f);
+    // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale),
+    // davantage au clocher (`vertige`).
+    let vert = |f: f32| enfoncement(cam_y, f * a.vertige);
     if let Some((corps, dessous)) = a.ilots {
         dessiner_ilots(corps, dessous, cam_x, vert(VERT_ILOTS));
     }
@@ -724,7 +767,7 @@ mod tests {
     #[test]
     fn teinte_des_tuiles_et_friables_par_theme() {
         let attendu = |t: Theme| match t {
-            Theme::Toits | Theme::Orage => (0, false, false),
+            Theme::Toits | Theme::Orage | Theme::Clocher => (0, false, false),
             Theme::Gouttieres | Theme::Marche => (1, false, false),
             Theme::Altitude => (2, false, true),
             Theme::Soleil => (3, true, true),
@@ -915,6 +958,25 @@ mod tests {
         assert_eq!(avant, (27, 38, 54), "en haut d'un niveau de quatre écrans");
     }
 
+    /// Le clocher (45 rangées, quatre écrans) : au sommet, la ville s'est nettement
+    /// enfoncée — la couche proche de plus de 100 px, la lointaine de plus de 50 —
+    /// donc bien plus de ciel à l'écran : on sent la hauteur (note du coordinateur).
+    /// Les autres thèmes gardent la parallaxe verticale de la carte 5.2 (`vertige`
+    /// à 1) : leur rendu ne change pas.
+    #[test]
+    fn au_sommet_du_clocher_la_ville_s_est_enfoncee() {
+        let a = ambiance(Theme::Clocher);
+        let hauteur = 45 * 16;
+        let sommet = camera_fond(0, hauteur);
+        let proche = enfoncement(sommet, VERT_PROCHE * a.vertige);
+        let loin = enfoncement(sommet, VERT_LOINTAINE * a.vertige);
+        assert_eq!((proche, loin), (135, 68));
+        assert!(proche < hauteur - H, "moins vite que les tuiles");
+        for t in Theme::TOUS.into_iter().filter(|&t| t != Theme::Clocher) {
+            assert!(ambiance(t).vertige == 1.0, "{t:?}");
+        }
+    }
+
     /// En descendant (niveau haut), une couche passe devant des bandes de ciel plus
     /// basses : sa couleur doit rester différente de TOUT le ciel qu'elle peut couvrir,
     /// pour une caméra jusqu'à 64 rangées de haut (plus que les quatre écrans prévus).
@@ -924,13 +986,14 @@ mod tests {
         for t in Theme::TOUS {
             let a = ambiance(t);
             for z in zones(&a) {
-                let facteur = match z.nom {
-                    "lointaine" => VERT_LOINTAINE,
-                    "proche" => VERT_PROCHE,
-                    "ilots" | "ilots-dessous" => VERT_ILOTS,
-                    // Le plafond est fixé en haut de l'écran : il ne descend pas.
-                    _ => continue,
-                };
+                let facteur = a.vertige
+                    * match z.nom {
+                        "lointaine" => VERT_LOINTAINE,
+                        "proche" => VERT_PROCHE,
+                        "ilots" | "ilots-dessous" => VERT_ILOTS,
+                        // Le plafond est fixé en haut de l'écran : il ne descend pas.
+                        _ => continue,
+                    };
                 let s = enfoncement(-montee_max, facteur);
                 for y in z.haut..(z.bas + s).min(H) {
                     assert_ne!(
@@ -1041,7 +1104,7 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 36, 60, 18, 0]);
+        assert_eq!(n, [24, 48, 36, 60, 16, 18, 0]);
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");

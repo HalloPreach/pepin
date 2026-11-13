@@ -28,6 +28,9 @@ pub enum Theme {
     Marche,
     /// Orage au plus fort : éclairs, ciel violet.
     Orage,
+    /// Le clocher : nuit violette au-dessus de la ville, que l'on voit s'enfoncer
+    /// en montant (niveau vertical).
+    Clocher,
     /// Le ciel se déchire, vent d'altitude.
     Altitude,
     /// Au-dessus des nuages : le soleil doré.
@@ -38,11 +41,12 @@ impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 6] = [
+    pub const TOUS: [Theme; 7] = [
         Theme::Toits,
         Theme::Gouttieres,
         Theme::Marche,
         Theme::Orage,
+        Theme::Clocher,
         Theme::Altitude,
         Theme::Soleil,
     ];
@@ -60,6 +64,7 @@ impl Theme {
             Theme::Gouttieres => 1,
             Theme::Marche => 1,
             Theme::Orage => 0,
+            Theme::Clocher => 1,
             Theme::Altitude => 3,
             Theme::Soleil => 4,
         }
@@ -599,6 +604,7 @@ mod tests {
         niveau_4_faisable => 3,
         niveau_5_faisable => 4,
         niveau_6_faisable => 5,
+        niveau_7_faisable => 6,
     }
 
     #[test]
@@ -624,7 +630,7 @@ mod tests {
     }
 
     #[test]
-    fn niveau_5_exige_les_courants_ascendants() {
+    fn niveau_6_exige_les_courants_ascendants() {
         let niv = crate::levels::vents::INFOS.charger().unwrap();
         assert!(!niv.courants.is_empty());
         let r = analyser(
@@ -635,7 +641,7 @@ mod tests {
                 ..Options::default()
             },
         );
-        assert!(!r.arrivee, "sans vent le niveau 5 doit être bloqué");
+        assert!(!r.arrivee, "sans vent le niveau 6 doit être bloqué");
     }
 
     /// Le marché couvert (niveau 3) : son moment fort, six auvents au-dessus d'un
@@ -1097,7 +1103,7 @@ mod tests {
     /// auvent), paratonnerres sous l'orage, manches à air au vent, oiseaux au soleil.
     #[test]
     fn chaque_niveau_a_son_decor() {
-        use crate::levels::{gouttieres, marche, nuages, orage, toits, vents};
+        use crate::levels::{clocher, gouttieres, marche, nuages, orage, toits, vents};
         use GenreDecor::*;
         // Rangé par niveau (et non par place dans la table) : insérer un niveau ne
         // décale rien ; un niveau absent de cette liste n'a pas de décor imposé.
@@ -1106,6 +1112,7 @@ mod tests {
             (gouttieres::INFOS, &[Cheminee, Antenne]),
             (marche::INFOS, &[Cheminee, Antenne]),
             (orage::INFOS, &[Paratonnerre]),
+            (clocher::INFOS, &[Paratonnerre]),
             (vents::INFOS, &[MancheAAir]),
             (nuages::INFOS, &[Oiseau]),
         ];
@@ -1245,17 +1252,17 @@ mod tests {
         ((x / t) as i32, (y / t) as i32)
     }
 
-    /// Un à trois pigeons dans Vents d'altitude et Au-dessus des nuages (niveaux 5
-    /// et 6 : le deuxième ennemi de ces niveaux), aucun ailleurs ; jamais à moins de
-    /// 4 tuiles d'un oiseau de décor.
+    /// Un à trois pigeons dans le Clocher (sur les corniches), Vents d'altitude et
+    /// Au-dessus des nuages (le deuxième ennemi de ces niveaux), aucun ailleurs ;
+    /// jamais à moins de 4 tuiles d'un oiseau de décor.
     #[test]
-    fn les_pigeons_sont_dans_vents_et_nuages_loin_des_oiseaux_de_decor() {
-        use crate::levels::{nuages, vents};
+    fn les_pigeons_sont_dans_le_clocher_vents_et_nuages_loin_des_oiseaux_de_decor() {
+        use crate::levels::{clocher, nuages, vents};
         for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let n = infos.numero;
             let ps = pigeons(&niv);
-            if [vents::INFOS.nom, nuages::INFOS.nom].contains(&infos.nom) {
+            if [clocher::INFOS.nom, vents::INFOS.nom, nuages::INFOS.nom].contains(&infos.nom) {
                 assert!(
                     (1..=3).contains(&ps.len()),
                     "niveau {n} : {} pigeons",

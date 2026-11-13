@@ -1175,11 +1175,14 @@ mod tests {
                     }
                 }
             }
-            // Les trois niveaux de toits ont un long rebord ; les nuages n'en ont pas.
+            // Les niveaux de toits ont un long rebord ; les nuages n'en ont pas. Le
+            // clocher, haut mais étroit (34 colonnes), a des dalles et des corniches
+            // plus courtes : la moitié suffit.
             match infos.theme {
                 Theme::Toits | Theme::Gouttieres | Theme::Marche | Theme::Orage => {
                     assert!(ombres > 100, "{} : {ombres} ombres", infos.nom)
                 }
+                Theme::Clocher => assert!(ombres > 50, "{} : {ombres} ombres", infos.nom),
                 Theme::Soleil => assert_eq!(ombres, 0, "{}", infos.nom),
                 Theme::Altitude => {}
             }

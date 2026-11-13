@@ -526,7 +526,8 @@ mod tests {
         [x, y, precedente.0, precedente.1, avance].map(f32::to_bits)
     }
 
-    /// La preuve demandée : sur chaque niveau du jeu (11 rangées), la nouvelle caméra et
+    /// La preuve demandée : sur chaque niveau du jeu d'un écran de haut (11 rangées :
+    /// tous sauf le clocher), la nouvelle caméra et
     /// l'ancienne, menées par la VRAIE simulation (`Monde`, morts et recentrages compris,
     /// comme dans `app.rs`), sont identiques au bit près à chaque pas, et la position
     /// rendue (celle que la scène dessine) aussi, pour plusieurs `alpha`.
@@ -539,11 +540,13 @@ mod tests {
         for (indice, infos) in NIVEAUX.iter().enumerate() {
             let mut m = Monde::new(indice);
             let (l, h) = (m.niveau.largeur_px(), m.niveau.hauteur_px());
-            assert!(
-                !Camera::suit_en_hauteur(h),
-                "{} : un écran de haut",
-                infos.nom
-            );
+            // Le clocher (carte 5.13), quatre écrans de haut, est le seul niveau du jeu
+            // que la caméra suit en hauteur : il n'a pas d'« ancienne » caméra à
+            // comparer (la caméra verticale a ses propres tests, plus bas).
+            if Camera::suit_en_hauteur(h) {
+                assert_eq!(infos.nom, pepin_core::levels::clocher::INFOS.nom);
+                continue;
+            }
             let mut nouvelle = Camera::new(&m.joueur, l, h);
             let mut vieille = ancienne::Camera::new(&m.joueur, l, h);
             for (pas, e) in entrees_melangees(5000, indice as u64 + 1)
