@@ -1,18 +1,20 @@
-//! Module `zones` : les cinq niveaux de PÉPIN et leurs métadonnées.
+//! Module `zones` : les métadonnées des niveaux de PÉPIN.
 //!
 //! Chaque niveau est une « zone » du monde : un thème de décor (le ciel
-//! s'éclaircit d'un niveau à l'autre, de l'orage au soleil), un nom, un court
-//! texte d'introduction et une idée de mécanique. Le dessin ASCII lui-même
-//! vit dans `levels/` (un petit fichier par niveau).
+//! s'éclaircit d'un niveau à l'autre, de l'orage au soleil), un nom, un genre
+//! (normal, bonus ou épilogue), un court texte d'introduction et une idée de
+//! mécanique. Le dessin ASCII lui-même vit dans `levels/` (un petit fichier par
+//! niveau) ; la table ordonnée des niveaux, `NIVEAUX`, aussi (`levels.rs`).
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `const` et `&'static str` : des données connues à la compilation, qui
 //!   vivent pendant tout le programme (donc pas d'ownership à gérer) ;
-//! - `enum` sans données pour le thème ; tableau de taille fixe `[T; 5]` ;
+//! - `enum` sans données pour le thème ; tableau de taille fixe `[T; N]` ;
+//! - `pub use` : `NIVEAUX` est défini dans `levels` et ré-exporté ici ;
 //! - `Result` : charger un niveau peut échouer, l'appelant décide quoi faire.
 
 use crate::level::{ErreurNiveau, Niveau};
-use crate::levels::{gouttieres, nuages, orage, toits, vents};
+pub use crate::levels::{GenreNiveau, NB_NIVEAUX, NIVEAUX};
 
 /// Ambiance visuelle d'un niveau. Le rendu choisit ciel, parallaxe et pluie
 /// selon cette valeur ; `luminosite` donne l'avancement de l'orage vers le soleil.
@@ -31,6 +33,22 @@ pub enum Theme {
 }
 
 impl Theme {
+    /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
+    /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
+    /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
+    pub const TOUS: [Theme; 5] = [
+        Theme::Toits,
+        Theme::Gouttieres,
+        Theme::Orage,
+        Theme::Altitude,
+        Theme::Soleil,
+    ];
+
+    /// Place du thème dans `Theme::TOUS` (son rang de déclaration).
+    pub fn indice(self) -> usize {
+        self as usize
+    }
+
     /// Clarté du ciel de 0 (orage noir) à 4 (soleil) ; l'orage du niveau 3
     /// reste volontairement sombre, c'est le sommet de la tension.
     pub fn luminosite(self) -> u8 {
@@ -52,11 +70,13 @@ impl Theme {
 /// Description d'un niveau : tout sauf le niveau chargé.
 #[derive(Debug, Clone, Copy)]
 pub struct InfosNiveau {
-    /// Numéro de 1 à 5.
+    /// Place dans la table `NIVEAUX`, à partir de 1 (vérifié par `verifier_ordre`).
     pub numero: u8,
     /// Titre affiché.
     pub nom: &'static str,
     pub theme: Theme,
+    /// Normal, bonus ou épilogue (voir `levels`).
+    pub genre: GenreNiveau,
     /// Texte d'introduction (placeholder), une ou deux phrases courtes.
     pub intro: &'static str,
     /// Mécanique introduite (documentation et écran d'aide).
@@ -75,22 +95,10 @@ impl InfosNiveau {
     }
 }
 
-/// Nombre de niveaux du jeu.
-pub const NB_NIVEAUX: usize = 5;
-
-/// Les cinq niveaux, dans l'ordre du parcours.
-pub const NIVEAUX: [InfosNiveau; NB_NIVEAUX] = [
-    toits::INFOS,
-    gouttieres::INFOS,
-    orage::INFOS,
-    vents::INFOS,
-    nuages::INFOS,
-];
-
-/// Nombre total de gouttes d'or du jeu.
+/// Nombre total de gouttes d'or du jeu (tous les niveaux : bonus et épilogue compris).
 pub const GOUTTES_TOTAL: usize = NB_NIVEAUX * crate::level::GOUTTES_PAR_NIVEAU;
 
-/// Niveau `indice` (0 à 4) ou `None` hors bornes.
+/// Niveau `indice` (0 pour le premier) ou `None` hors de la table.
 pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
     NIVEAUX.get(indice)
 }
@@ -101,19 +109,30 @@ mod tests {
     use crate::faisabilite::{analyser, Options};
 
     #[test]
-    fn cinq_niveaux_dans_l_ordre() {
-        assert_eq!(NIVEAUX.len(), 5);
+    fn les_niveaux_sont_numerotes_dans_l_ordre() {
         for (i, n) in NIVEAUX.iter().enumerate() {
             assert_eq!(n.numero as usize, i + 1);
             assert!(!n.nom.is_empty() && !n.intro.is_empty() && !n.mecanique.is_empty());
         }
         assert_eq!(niveau(0).unwrap().nom, "Les toits");
-        assert!(niveau(5).is_none());
+        assert!(niveau(NB_NIVEAUX).is_none());
+    }
+
+    #[test]
+    fn tous_les_themes_dans_l_ordre() {
+        for (i, t) in Theme::TOUS.into_iter().enumerate() {
+            assert_eq!(t.indice(), i, "{t:?}");
+        }
+        // Chaque thème utilisé par un niveau est dans la liste (le `match` de
+        // `luminosite` oblige déjà à traiter chaque variante).
+        for n in NIVEAUX {
+            assert!(Theme::TOUS.contains(&n.theme), "{}", n.nom);
+        }
     }
 
     #[test]
     fn tous_les_niveaux_se_chargent() {
-        for n in &NIVEAUX {
+        for n in NIVEAUX {
             let niv = n
                 .charger()
                 .unwrap_or_else(|e| panic!("niveau {} : {e}", n.numero));
@@ -121,30 +140,39 @@ mod tests {
         }
     }
 
-    #[test]
-    fn niveau_1_faisable() {
-        verifier(0);
+    /// Un test de faisabilité PAR niveau (ils tournent en parallèle). La macro écrit
+    /// les fonctions de test et la liste des indices couverts : un niveau ajouté sans
+    /// sa ligne ici fait échouer `chaque_niveau_a_son_test_de_faisabilite`.
+    macro_rules! tests_de_faisabilite {
+        ($($nom:ident => $indice:expr),* $(,)?) => {
+            $(
+                #[test]
+                fn $nom() {
+                    verifier($indice);
+                }
+            )*
+            const INDICES_VERIFIES: &[usize] = &[$($indice),*];
+        };
     }
-    #[test]
-    fn niveau_2_faisable() {
-        verifier(1);
+
+    tests_de_faisabilite! {
+        niveau_1_faisable => 0,
+        niveau_2_faisable => 1,
+        niveau_3_faisable => 2,
+        niveau_4_faisable => 3,
+        niveau_5_faisable => 4,
     }
+
     #[test]
-    fn niveau_3_faisable() {
-        verifier(2);
-    }
-    #[test]
-    fn niveau_4_faisable() {
-        verifier(3);
-    }
-    #[test]
-    fn niveau_5_faisable() {
-        verifier(4);
+    fn chaque_niveau_a_son_test_de_faisabilite() {
+        let mut v = INDICES_VERIFIES.to_vec();
+        v.sort_unstable();
+        assert_eq!(v, (0..NB_NIVEAUX).collect::<Vec<_>>());
     }
 
     #[test]
     fn niveau_1_exige_de_planer() {
-        let niv = NIVEAUX[0].charger().unwrap();
+        let niv = crate::levels::toits::INFOS.charger().unwrap();
         let r = analyser(
             &niv,
             niv.depart,
@@ -159,7 +187,7 @@ mod tests {
 
     #[test]
     fn niveau_4_exige_les_courants_ascendants() {
-        let niv = NIVEAUX[3].charger().unwrap();
+        let niv = crate::levels::vents::INFOS.charger().unwrap();
         assert!(!niv.courants.is_empty());
         let r = analyser(
             &niv,
@@ -220,7 +248,7 @@ mod tests {
     /// terminer DEPUIS elle (sinon un respawn pourrait coincer le joueur).
     #[test]
     fn reprise_depuis_chaque_lanterne() {
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             for e in &niv.entites {
                 if let crate::entities::Entite::Lanterne(l) = e {
@@ -240,7 +268,7 @@ mod tests {
     /// rapide » est ~2 fois plus rapide qu'un humain découvrant le niveau.
     #[test]
     fn durees_plausibles() {
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let r = analyser(&niv, niv.depart, Options::default());
             let s = r.pas_arrivee.unwrap() as f32 / 60.0;
@@ -261,7 +289,7 @@ mod tests {
     fn premier_defi_visible_des_le_premier_ecran() {
         // Fun immédiat : à l'écran de départ (320 px de large) on voit déjà une
         // goutte, un ennemi, un éclair, un courant ou un trampoline.
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let ecran = crate::LARGEUR_LOGIQUE as f32;
             let proche = niv.courants.iter().any(|c| c.zone.x < ecran)
@@ -307,7 +335,7 @@ mod tests {
     /// dessous est un solide (`#`, `B` ou `N`).
     #[test]
     fn aucune_lanterne_ne_flotte() {
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             infos.charger().unwrap();
             let g = grille(infos);
             for (y, ligne) in g.iter().enumerate() {
@@ -330,7 +358,7 @@ mod tests {
     /// chaque rangée est inaccessible et se voit comme un trou sombre.
     #[test]
     fn aucune_poche_de_vide_close() {
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             infos.charger().unwrap();
             let g = grille(infos);
             for y in 1..g.len() as i32 {
@@ -366,7 +394,7 @@ mod tests {
         use crate::entities::{solides_des_entites, Actualisable, Entite, TypeEnnemi};
         use crate::physics::{Environnement, JOUEUR_H, JOUEUR_L};
         let mut trouves = Vec::new();
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let pepins: Vec<(i32, Aabb)> = niv
                 .entites
@@ -458,7 +486,7 @@ mod tests {
     /// bord d'un toit, là où l'on prend son élan ou où l'on se rattrape).
     #[test]
     fn chaque_objet_de_decor_repose_sur_un_solide() {
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             for d in &niv.decors {
                 let (tx, ty) = case_decor(d);
@@ -484,7 +512,7 @@ mod tests {
     /// arrivée). Aucun risque pour la faisabilité, le robot ni la mesure de difficulté.
     #[test]
     fn le_decor_ne_change_rien_a_la_collision() {
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let avec = infos.charger().unwrap();
             let sans_texte: String = infos
                 .ascii
@@ -529,15 +557,23 @@ mod tests {
     /// paratonnerres sous l'orage (3), manches à air au vent (4), oiseaux au soleil (5).
     #[test]
     fn chaque_niveau_a_son_decor() {
+        use crate::levels::{gouttieres, nuages, orage, toits, vents};
         use GenreDecor::*;
-        let attendus: [&[GenreDecor]; 5] = [
-            &[Cheminee, Antenne],
-            &[Cheminee, Antenne],
-            &[Paratonnerre],
-            &[MancheAAir],
-            &[Oiseau],
+        // Rangé par niveau (et non par place dans la table) : insérer un niveau ne
+        // décale rien ; un niveau absent de cette liste n'a pas de décor imposé.
+        let attendus: &[(InfosNiveau, &[GenreDecor])] = &[
+            (toits::INFOS, &[Cheminee, Antenne]),
+            (gouttieres::INFOS, &[Cheminee, Antenne]),
+            (orage::INFOS, &[Paratonnerre]),
+            (vents::INFOS, &[MancheAAir]),
+            (nuages::INFOS, &[Oiseau]),
         ];
-        for (infos, genres) in NIVEAUX.iter().zip(attendus) {
+        for &(infos, genres) in attendus {
+            assert!(
+                NIVEAUX.iter().any(|n| n.nom == infos.nom),
+                "{} hors de la table",
+                infos.nom
+            );
             let niv = infos.charger().unwrap();
             let n = infos.numero;
             assert!(niv.decors.len() >= 3, "niveau {n} : au moins 3 objets");
@@ -558,7 +594,7 @@ mod tests {
     #[test]
     fn chaque_manche_a_air_est_au_bord_d_un_courant() {
         let t = crate::aabb::TAILLE_TUILE;
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             for d in niv
                 .decors
@@ -590,7 +626,7 @@ mod tests {
         use crate::entities::{solides_des_entites, Actualisable};
         use crate::physics::{Environnement, JOUEUR_H, JOUEUR_L};
         let t = crate::aabb::TAILLE_TUILE;
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let n = infos.numero;
             let places: Vec<(Aabb, &ObjetDecor)> =
@@ -671,7 +707,7 @@ mod tests {
     /// aucun ailleurs ; jamais à moins de 4 tuiles d'un oiseau de décor.
     #[test]
     fn les_pigeons_sont_aux_niveaux_4_et_5_loin_des_oiseaux_de_decor() {
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let n = infos.numero;
             let ps = pigeons(&niv);
@@ -707,7 +743,7 @@ mod tests {
     fn la_plongee_des_pigeons_reste_en_l_air_et_loin_des_lanternes() {
         use crate::aabb::{Aabb, TAILLE_TUILE as T16};
         use crate::physics::{JOUEUR_H, JOUEUR_L};
-        for infos in &NIVEAUX {
+        for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let n = infos.numero;
             let mut reperes: Vec<(Aabb, &str)> = niv

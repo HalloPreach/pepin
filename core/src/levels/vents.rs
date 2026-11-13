@@ -7,12 +7,14 @@
 //! 4 rangées plus haut) : tourné vers l'arrivée de Pépin, il plonge derrière
 //! lui ; il ne touche que celui qui s'arrête ou revient sous lui.
 
+use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 4,
     nom: "Vents d'altitude",
     theme: Theme::Altitude,
+    genre: GenreNiveau::Normal,
     intro: "Le ciel se déchire. Les courants montent : laisse-toi porter, puis plane.",
     mecanique: "Courants ascendants, longs planés, nuage friable, corbeaux, pigeon.",
     duree_cible_s: 55,

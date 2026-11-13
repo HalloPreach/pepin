@@ -4,12 +4,14 @@
 //! Entre les deux plateformes mobiles, une cheminée d'une tuile (colonne 51)
 //! sert de point de repos : on y attend la seconde plateforme.
 
+use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 3,
     nom: "Le grand orage",
     theme: Theme::Orage,
+    genre: GenreNiveau::Normal,
     intro: "L'orage éclate. Chaque éclair est annoncé : garde la tête froide !",
     mecanique: "Éclairs annoncés, plateformes mobiles et friables, ascenseur.",
     duree_cible_s: 60,

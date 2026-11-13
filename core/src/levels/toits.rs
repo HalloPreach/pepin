@@ -2,12 +2,14 @@
 //!
 //! Tutoriel en plein air : déplacer, sauter, puis planer pour franchir un grand vide.
 
+use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 1,
     nom: "Les toits",
     theme: Theme::Toits,
+    genre: GenreNiveau::Normal,
     intro: "La pluie tambourine sur les toits. Pépin ouvre son parapluie et part vers le haut.",
     mecanique: "Course, saut, planer (maintenir SAUT en l'air).",
     duree_cible_s: 50,

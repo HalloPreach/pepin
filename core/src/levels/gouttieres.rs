@@ -2,12 +2,14 @@
 //!
 //! Flaques patrouilleuses (on les écrase en sautant dessus), trampolines et gouttières suspendues.
 
+use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 2,
     nom: "Gouttières et cheminées",
     theme: Theme::Gouttieres,
+    genre: GenreNiveau::Normal,
     intro: "L'averse redouble. Les flaques rôdent entre les cheminées : saute-leur dessus !",
     mecanique: "Flaques à écraser, champignons-trampolines, gouttières suspendues.",
     duree_cible_s: 55,

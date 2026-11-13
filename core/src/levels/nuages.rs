@@ -7,12 +7,14 @@
 //! 4 rangées plus haut), à 13 tuiles de l'oiseau de décor (colonne 95) : on
 //! les voit ensemble, on ne les confond pas.
 
+use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 5,
     nom: "Au-dessus des nuages",
     theme: Theme::Soleil,
+    genre: GenreNiveau::Normal,
     intro: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
     mecanique: "Final calme : nuages, trampoline, petite traversée de nuages friables, pigeon.",
     duree_cible_s: 45,
