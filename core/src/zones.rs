@@ -108,7 +108,7 @@ mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
     use crate::levels::{
-        essai_auvent, essai_escargot, essai_grele, essai_montgolfiere, essai_vent,
+        essai_auvent, essai_chat, essai_escargot, essai_grele, essai_montgolfiere, essai_vent,
         essai_ventilateur, essai_vertical,
     };
 
@@ -144,6 +144,7 @@ mod tests {
             &essai_ventilateur::INFOS,
             &essai_montgolfiere::INFOS,
             &essai_escargot::INFOS,
+            &essai_chat::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -173,6 +174,7 @@ mod tests {
             &essai_ventilateur::INFOS,
             &essai_montgolfiere::INFOS,
             &essai_escargot::INFOS,
+            &essai_chat::INFOS,
         ])
     }
 
@@ -414,6 +416,31 @@ mod tests {
         assert!(
             r.gouttes[0] && r.gouttes[2] && !r.gouttes[1],
             "mais le premier porte bien sur la falaise 1 (et à la goutte en l'air) : {r:?}"
+        );
+    }
+
+    /// Le niveau d'essai « chat » passe les mêmes contrôles (arrivée, 3 gouttes,
+    /// lanternes, robot maladroit) : le robot tombe du toit bas sur le chat
+    /// endormi, l'écrase, et passe dessous le grand mur.
+    #[test]
+    fn niveau_d_essai_chat_faisable() {
+        verifier_infos(&essai_chat::INFOS);
+    }
+
+    /// La case du chat est le SEUL passage : bouchée par un toit (`#` à la place
+    /// du `z`), ni la goutte cachée ni le drapeau ne sont atteints ; seule la
+    /// goutte du haut de la fente l'est. (Le chat vivant, lui, ne se traverse pas : voir
+    /// `faisabilite::tests::marcher_dans_un_chat_vivant_tue_le_robot`.)
+    #[test]
+    fn niveau_d_essai_chat_le_chat_garde_le_seul_passage() {
+        let bouche = Niveau::depuis_ascii(&essai_chat::INFOS.ascii.replace('z', "#")).unwrap();
+        let r = analyser(&bouche, bouche.depart, Options::default());
+        // Gouttes dans l'ordre de lecture : 0 en haut de la fente (ligne 6, encore
+        // atteinte : on se pose sur le toit qui bouche la case), 1 cachée derrière
+        // le chat, 2 avant le drapeau (ligne 8).
+        assert!(
+            !r.arrivee && r.gouttes == [true, false, false],
+            "passage bouché : {r:?}"
         );
     }
 
