@@ -174,6 +174,8 @@ pub enum RaccourciNiveau {
     Essai8,
     /// Niveau d'essai « horloge » (touche F8), hors de la table : carte 5.10.
     Essai9,
+    /// Niveau d'essai « nuage » (touche F10), hors de la table : carte 5.11.
+    Essai10,
 }
 
 /// Touches de saut direct, dans l'ordre des niveaux 1 à 9. Une touche au-delà du
@@ -213,6 +215,8 @@ const TOUCHES_ESSAI7: [KeyCode; 1] = [KeyCode::F6];
 const TOUCHES_ESSAI8: [KeyCode; 1] = [KeyCode::F7];
 /// Niveau d'essai « horloge » : F8, à côté de F7 (même raison ; F9 reste au plantage).
 const TOUCHES_ESSAI9: [KeyCode; 1] = [KeyCode::F8];
+/// Niveau d'essai « nuage » : F10 (F9 est déjà le plantage volontaire).
+const TOUCHES_ESSAI10: [KeyCode; 1] = [KeyCode::F10];
 
 /// Raccourci demandé d'après les touches appuyées cette image (saut direct d'abord).
 /// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
@@ -245,6 +249,8 @@ pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<
         Some(RaccourciNiveau::Essai8)
     } else if TOUCHES_ESSAI9.iter().any(|&k| appuyee(k)) {
         Some(RaccourciNiveau::Essai9)
+    } else if TOUCHES_ESSAI10.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai10)
     } else {
         None
     }
@@ -268,6 +274,7 @@ pub fn cible_raccourci(r: RaccourciNiveau, courant: usize, nb: usize) -> Option<
         RaccourciNiveau::Essai7 => return Some(nb + 6),
         RaccourciNiveau::Essai8 => return Some(nb + 7),
         RaccourciNiveau::Essai9 => return Some(nb + 8),
+        RaccourciNiveau::Essai10 => return Some(nb + 9),
     };
     cible.filter(|&i| i < nb)
 }
@@ -481,6 +488,7 @@ mod tests {
             .chain(TOUCHES_ESSAI7)
             .chain(TOUCHES_ESSAI8)
             .chain(TOUCHES_ESSAI9)
+            .chain(TOUCHES_ESSAI10)
     }
 
     #[test]
@@ -547,6 +555,10 @@ mod tests {
         assert_eq!(
             niveau_demande(true, |t| t == KeyCode::F8),
             Some(RaccourciNiveau::Essai9)
+        );
+        assert_eq!(
+            niveau_demande(true, |t| t == KeyCode::F10),
+            Some(RaccourciNiveau::Essai10)
         );
         assert_eq!(niveau_demande(true, |_| false), None);
     }
@@ -670,6 +682,13 @@ mod tests {
                 assert_eq!(
                     cible_raccourci(RaccourciNiveau::Essai9, courant, nb),
                     Some(nb + 8)
+                );
+            }
+            // Le niveau d'essai « nuage » : juste après celui de l'horloge (carte 5.11).
+            for courant in [0, nb - 1, nb, nb + 7, nb + 8] {
+                assert_eq!(
+                    cible_raccourci(RaccourciNiveau::Essai10, courant, nb),
+                    Some(nb + 9)
                 );
             }
         }

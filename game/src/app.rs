@@ -931,6 +931,23 @@ mod tests {
         assert_eq!(chats, 1);
     }
 
+    /// Touche F10 du build de QA : l'arène du Grand Nuage (hors de la table), avec
+    /// son nuage à 3 points de vie, et sans drapeau.
+    #[test]
+    fn le_raccourci_d_essai_charge_l_arene_du_grand_nuage() {
+        let mut app = en_jeu();
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Essai10),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI_NUAGE);
+        assert_eq!(app.monde.infos.nom, "Essai nuage");
+        assert_eq!(app.monde.pv_nuage(), Some(3));
+        assert!(app.monde.niveau.arrivee.is_none());
+    }
+
     /// Touche F8 du build de QA : le niveau d'essai « horloge » (hors de la
     /// table), avec ses deux aiguilles.
     #[test]

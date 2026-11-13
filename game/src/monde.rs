@@ -104,12 +104,18 @@ pub const INDICE_ESSAI_CHAT: usize = pepin_core::levels::NB_NIVEAUX + 7;
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_HORLOGE: usize = pepin_core::levels::NB_NIVEAUX + 8;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les neuf niveaux
+/// Indice du niveau d'essai « nuage » (carte 5.11) : l'arène du Grand Nuage, juste
+/// après celui de l'horloge (touche F10 du build de QA).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_NUAGE: usize = pepin_core::levels::NB_NIVEAUX + 9;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les dix niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
 /// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
-/// `INDICE_ESSAI_HORLOGE` horloge) — tests et build de QA seulement. `None` au-delà.
+/// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage) — tests
+/// et build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
 }
@@ -134,6 +140,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_chat::INFOS)
     } else if indice == INDICE_ESSAI_HORLOGE {
         Some(&pepin_core::levels::essai_horloge::INFOS)
+    } else if indice == INDICE_ESSAI_NUAGE {
+        Some(&pepin_core::levels::essai_nuage::INFOS)
     } else {
         None
     }

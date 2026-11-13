@@ -154,6 +154,10 @@ pub fn intro(indice: usize) -> &'static Intro {
     if indice == crate::monde::INDICE_ESSAI_HORLOGE {
         return &INTRO_ESSAI_HORLOGE;
     }
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_NUAGE {
+        return &INTRO_ESSAI_NUAGE;
+    }
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
 
@@ -226,6 +230,14 @@ pub const INTRO_ESSAI_CHAT: Intro = Intro {
 pub const INTRO_ESSAI_HORLOGE: Intro = Intro {
     texte: "Les aiguilles de l'horloge tournent et emportent ce qui est posé dessus.",
     astuce: "Saute dessus quand elle passe en bas, saute en haut.",
+};
+
+/// Intro du niveau d'essai « nuage » : l'arène du Grand Nuage (build de QA seulement,
+/// voir `monde::INDICE_ESSAI_NUAGE`).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INTRO_ESSAI_NUAGE: Intro = Intro {
+    texte: "Le Grand Nuage ne veut pas te laisser passer.",
+    astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
 };
 
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau
@@ -390,6 +402,7 @@ mod tests {
             .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
             .chain([INTRO_ESSAI_CHAT.texte, INTRO_ESSAI_CHAT.astuce])
             .chain([INTRO_ESSAI_HORLOGE.texte, INTRO_ESSAI_HORLOGE.astuce])
+            .chain([INTRO_ESSAI_NUAGE.texte, INTRO_ESSAI_NUAGE.astuce])
         {
             for c in e.chars() {
                 assert!(pepin_core::font::glyphe(c).is_some(), "{c:?}");
