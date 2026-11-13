@@ -25,6 +25,7 @@
 
 // Niveaux d'essai : HORS de la table `NIVEAUX` (tests et build de QA seulement).
 pub mod essai_auvent;
+pub mod essai_escargot;
 pub mod essai_grele;
 pub mod essai_montgolfiere;
 pub mod essai_vent;

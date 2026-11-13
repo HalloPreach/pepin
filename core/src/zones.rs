@@ -108,8 +108,8 @@ mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
     use crate::levels::{
-        essai_auvent, essai_grele, essai_montgolfiere, essai_vent, essai_ventilateur,
-        essai_vertical,
+        essai_auvent, essai_escargot, essai_grele, essai_montgolfiere, essai_vent,
+        essai_ventilateur, essai_vertical,
     };
 
     #[test]
@@ -143,6 +143,7 @@ mod tests {
             &essai_auvent::INFOS,
             &essai_ventilateur::INFOS,
             &essai_montgolfiere::INFOS,
+            &essai_escargot::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -171,6 +172,7 @@ mod tests {
             &essai_auvent::INFOS,
             &essai_ventilateur::INFOS,
             &essai_montgolfiere::INFOS,
+            &essai_escargot::INFOS,
         ])
     }
 
@@ -359,6 +361,54 @@ mod tests {
         assert!(
             r.gouttes[1],
             "mais la première porte bien à l'étage B : {r:?}"
+        );
+    }
+
+    /// Le niveau d'essai « escargot » passe les mêmes contrôles (arrivée, 3 gouttes,
+    /// lanternes, robot maladroit) : le robot gravit les deux falaises en
+    /// rebondissant sur les escargots.
+    #[test]
+    fn niveau_d_essai_escargot_faisable() {
+        verifier_infos(&essai_escargot::INFOS);
+    }
+
+    /// Sans les escargots (les `s` remplacés par du vide), la falaise 1 est hors de
+    /// portée (80 px, plus qu'un saut). Avec le PREMIER seulement, la falaise 1 est
+    /// atteinte mais pas la falaise 2 (trop loin, même en planant depuis la
+    /// falaise 1) : chacun des deux sert.
+    #[test]
+    fn niveau_d_essai_escargot_exige_les_deux_escargots() {
+        let ascii = essai_escargot::INFOS.ascii;
+        let sans = Niveau::depuis_ascii(&ascii.replace('s', ".")).unwrap();
+        let r = analyser(&sans, sans.depart, Options::default());
+        assert!(!r.arrivee && !r.gouttes[1], "sans escargot : {r:?}");
+        // Le second (colonne 28) retiré, le premier gardé.
+        let lignes: Vec<String> = ascii
+            .lines()
+            .map(|l| {
+                let mut c: Vec<char> = l.chars().collect();
+                if c.len() > 28 && c[28] == 's' {
+                    c[28] = '.';
+                }
+                c.into_iter().collect()
+            })
+            .collect();
+        let un = Niveau::depuis_ascii(&lignes.join("\n")).unwrap();
+        assert_eq!(
+            un.entites
+                .iter()
+                .filter(|e| matches!(e, crate::entities::Entite::Escargot(_)))
+                .count(),
+            1
+        );
+        let r = analyser(&un, un.depart, Options::default());
+        assert!(
+            !r.arrivee,
+            "sans le second, le drapeau doit rester hors de portée"
+        );
+        assert!(
+            r.gouttes[1],
+            "mais le premier porte bien sur la falaise 1 : {r:?}"
         );
     }
 
