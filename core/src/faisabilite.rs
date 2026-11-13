@@ -30,7 +30,7 @@ use crate::entities::contacts::{resoudre_contacts, verifier_vide, Contact};
 use crate::entities::{solides_des_entites, Entite};
 use crate::level::{Niveau, VITESSE_PLATEFORMES};
 use crate::physics::{
-    CourantAscendant, Environnement, HZ, JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
+    CourantAscendant, Environnement, VentLateral, HZ, JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
 };
 use crate::player::{Direction, Entrees, Joueur};
 
@@ -41,6 +41,8 @@ pub struct Options {
     pub planer: bool,
     /// Les courants ascendants soufflent-ils ?
     pub courants: bool,
+    /// Le vent latéral souffle-t-il ?
+    pub vents: bool,
     /// Robot précis (beaucoup de plans) ou « maladroit » (peu de choix : élans
     /// et durées de saut grossiers). Un niveau que le robot maladroit termine
     /// n'exige pas de précision au pixel près.
@@ -52,6 +54,7 @@ impl Default for Options {
         Self {
             planer: true,
             courants: true,
+            vents: true,
             precis: true,
         }
     }
@@ -171,10 +174,20 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     } else {
         Vec::new()
     };
+    // Le robot joue avec la VRAIE physique : le vent latéral pousse ses plans
+    // (ou les fait échouer) comme à un joueur. Ses plans « planer » s'en
+    // servent pour allonger la portée d'un plané dans le sens du vent, et il
+    // les évite quand le vent le porterait vers le danger.
+    let vents: Vec<VentLateral> = if options.vents {
+        niveau.vents.clone()
+    } else {
+        Vec::new()
+    };
     let env = Environnement {
         grille: niveau,
         solides: &solides,
         courants: &courants,
+        vents: &vents,
     };
 
     let mut rapport = Rapport {
@@ -476,9 +489,120 @@ mod tests {
             Options {
                 planer: false,
                 courants: false,
-                precis: true
+                precis: true,
+                ..Options::default()
             }
         ));
+    }
+
+    /// Mini-niveau pour les vents latéraux (54 x 11) : un vide de `trou` tuiles
+    /// (colonne 10) entre deux sols, et un vent latéral de `sens` (1 = `>` vers
+    /// la droite, -1 = `<` vers la gauche). Si `bande_basse` est fixé, la bande
+    /// de vent couvre les lignes 5 à 7 (elle touche aussi la course au sol) ;
+    /// sinon les lignes 3 à 7 (elle ne touche que les sauts et les planés).
+    fn niveau_vent(trou: usize, sens: i8, bande_basse: bool) -> Niveau {
+        let largeur = 54;
+        let mut lignes = vec![".".repeat(largeur); 11];
+        // Départ à gauche, arrivée à droite : toujours trois gouttes (rangée du haut).
+        for (i, c) in [(2usize, 'o'), (8, 'o'), (33, 'o')] {
+            lignes[0].replace_range(i..i + 1, &c.to_string());
+        }
+        lignes[7].replace_range(2..3, "@");
+        lignes[7].replace_range(largeur - 3..largeur - 2, "X");
+        let signe = if sens > 0 { '>' } else { '<' };
+        let (hauteur_bande, (debut, fin)) = if bande_basse {
+            (5usize, (14usize, 28))
+        } else {
+            (3, (10, 10 + trou))
+        };
+        for ligne in &mut lignes[hauteur_bande..=7] {
+            ligne.replace_range(debut..fin, &signe.to_string().repeat(fin - debut));
+        }
+        for x in 0..largeur {
+            let sol = x < 10 || x >= 10 + trou;
+            if !sol {
+                continue;
+            }
+            for ligne in &mut lignes[8..11] {
+                ligne.replace_range(x..x + 1, "#");
+            }
+        }
+        Niveau::depuis_ascii(&lignes.join("\n")).expect("niveau de test")
+    }
+
+    /// Un vide plus large que la portée du plané : seule la planée portée par le
+    /// vent de dos (`>`) le franchit ; sans vent, le robot reste sur le bord.
+    #[test]
+    fn le_vent_porteur_prolonge_la_traversee_du_vide() {
+        let n = niveau_vent(14, 1, false);
+        assert!(!n.vents.is_empty());
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(
+            avec.arrivee,
+            "la planée portée par le vent doit franchir le vide : {avec:?}"
+        );
+        let sans = analyser(
+            &n,
+            n.depart,
+            Options {
+                vents: false,
+                ..Options::default()
+            },
+        );
+        assert!(
+            !sans.arrivee,
+            "sans vent le vide doit rester infranchissable"
+        );
+    }
+
+    /// Le même principe, mais vent de face (`<`) au-dessus du vide : la planée est
+    /// poussée vers l'arrière et le saut est freiné — la traversée devient
+    /// impossible, alors que le vide SANS vent est franchissable (témoin).
+    #[test]
+    fn le_vent_de_face_bloque_la_traversee_du_vide() {
+        let n = niveau_vent(8, -1, false);
+        assert!(!n.vents.is_empty());
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(!avec.arrivee, "le vent de face doit bloquer la traversée");
+        let sans = analyser(
+            &n,
+            n.depart,
+            Options {
+                vents: false,
+                ..Options::default()
+            },
+        );
+        assert!(
+            sans.arrivee,
+            "sans vent, le vide est franchissable : {sans:?}"
+        );
+    }
+
+    /// Bande de vent de face au niveau du sol : le robot la résiste (course à
+    /// 36 px/s nets) et arrive quand même — mais le vent ralentit la traversée.
+    #[test]
+    fn le_robot_resiste_au_vent_de_face_au_sol() {
+        let n = niveau_vent(0, -1, true);
+        assert!(!n.vents.is_empty());
+        let sans = analyser(
+            &n,
+            n.depart,
+            Options {
+                vents: false,
+                ..Options::default()
+            },
+        );
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(
+            sans.arrivee && avec.arrivee,
+            "le vent au sol freine mais n'arrête pas : sans {sans:?}, avec {avec:?}"
+        );
+        assert!(
+            avec.pas_arrivee.unwrap() > sans.pas_arrivee.unwrap(),
+            "le vent de face doit ralentir la traversée : avec {} pas, sans {} pas",
+            avec.pas_arrivee.unwrap(),
+            sans.pas_arrivee.unwrap()
+        );
     }
 
     /// Mini-niveau HAUT (45 rangées, quatre écrans) : départ sur une corniche en haut à
