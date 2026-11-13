@@ -2420,3 +2420,185 @@ Limites (non testé ou à relativiser) :
 - Pas de son propre (l'écrasement réutilise celui des autres ennemis) ; pas de miaulement au
   réveil. Captures dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de Safari
   ni Firefox.
+
+## Aiguilles d'horloge, niveau d'essai « horloge » (carte 5.10)
+
+Demande : les aiguilles de la cage de l'horloge du futur clocher (`h`) : extension de
+`core/src/entities/mobile.rs`, une plateforme qui tourne autour d'un pivot (trajectoire
+circulaire, rayon et vitesse réglables, sens horaire), dont le dessus reste horizontal pour
+qu'on s'y tienne ; elle transporte Pépin. Lettre `h` = le pivot ; rayon, vitesse et phase dans
+une petite table du fichier de niveau, sur le modèle des plateformes mobiles à chiffres.
+Sprite aiguille + cadran visible. Tests : position sur le cercle, transport, pas de traversée.
+
+Ce qui a été fait :
+- Cœur, `core/src/entities/mobile.rs` : `PlateformeMobile` garde sa structure publique ; son
+  trajet devient un `enum` privé, `AllerRetour` (inchangé : les plateformes du niveau 3 font
+  exactement les mêmes calculs) ou `Cercle`. `PlateformeMobile::aiguille(taille, pivot, rayon,
+  vitesse, tour)` : le CENTRE de la plaque suit le cercle dans le sens horaire (midi au-dessus
+  du pivot, puis 3 h à droite…), la boîte reste un rectangle droit (dessus horizontal, comme
+  la nacelle d'une grande roue). La place se recalcule à chaque pas depuis la fraction de tour
+  (aucune erreur qui s'accumule). Le sinus est « maison » (`cos_sin_tour` : série de Taylor sur
+  un quart de tour, puis symétries ; seulement + - × ÷, donc le même résultat au bit près en
+  natif, où le robot calcule, et en wasm, où le navigateur rejoue) ; testé contre la
+  bibliothèque standard (écart < 3e-7). `boite_avant` retient EXACTEMENT la place d'avant le
+  pas (reculer du déplacement pouvait tomber un cheveu à côté : Pépin n'aurait plus été « posé
+  dessus ») ; `tourner(pas)` avance l'aiguille de plusieurs pas d'un coup (pour le robot de QA).
+- Format : `h` = pivot (centre de la case). Réglages : `level::ReglageAiguille { rayon (en
+  tuiles), vitesse (px/s), phase (heure de départ, 0 à 12) }`, dans une table
+  `InfosNiveau::aiguilles` du fichier de niveau ; la 1re ligne règle le 1er `h` dans l'ordre de
+  lecture, etc. (comme un chiffre désigne une plateforme mobile). `Niveau::depuis_ascii` lit un
+  niveau sans aiguille ; `depuis_ascii_avec_aiguilles` avec. Erreurs typées : pas autant de
+  réglages que de pivots (`AiguillesSansReglage`), réglage hors des bornes (rayon < 1 tuile,
+  vitesse nulle ou > 120 px/s, phase non finie : `AiguilleInvalide`), cercle qui touche une
+  tuile solide, la plaque OU Pépin debout dessus (`AiguilleBloquee` : vérifié pas à pas sur un
+  tour complet, comme dans le jeu). Plaque 32 x 8 (`level::TAILLE_AIGUILLE`). Légende de
+  `core/src/level.rs` à jour. Le nouveau champ `aiguilles` a obligé à ajouter une ligne
+  `aiguilles: &[],` dans chaque fichier de niveau (5 du jeu, 8 d'essai) : aucune grille ni
+  aucun autre champ n'a changé (mesure de difficulté identique à l'octet, ci-dessous).
+- Portage (`contacts::porter_par_plateformes`) : l'aiguille bouge en x ET en y à chaque pas ;
+  porter Pépin des deux d'un coup échouait (collision traitée axe X d'abord : quand l'aiguille
+  monte, ses pieds sont déjà un peu dedans, il était repoussé de côté). `porter_sur_aiguille` :
+  en x, Pépin suit l'aiguille sans buter sur elle (les murs l'arrêtent), puis ses pieds sont
+  posés pile sur son dessus (comme dans la nacelle de la montgolfière) si la place est libre et
+  s'il est encore au-dessus d'elle.
+- Robot de faisabilité (`core/src/faisabilite.rs`) : il ne connaît pas le temps ; une aiguille
+  y devient DOUZE plateformes immobiles, une par heure du cadran. Posé sur l'une, il est aussi
+  considéré posé sur chacune des 11 autres (il attend que l'aiguille l'y emmène, sens horaire),
+  avec la durée du trajet comme coût, si sa boîte ne touche aucune tuile en chemin
+  (`Cadran::trajet`, 8 regards par heure). Les douze places présentes à la fois gênent parfois
+  un saut qui passerait en vrai : c'est prudent (documenté en tête du module).
+- Niveau d'essai `core/src/levels/essai_horloge.rs` (42 x 18, thème Orage, le violet du futur
+  clocher), hors de la table `NIVEAUX`, touche F8 du build de QA seulement
+  (`RaccourciNiveau::Essai9`, `INDICE_ESSAI_HORLOGE`, intro et carte ; absent de `dist/`). Deux
+  aiguilles : la grande (4 tuiles, 40 px/s, un tour en 10 s, partie de 4 h) part du sol du
+  départ et monte assez haut pour sauter sur la tour B (160 px au-dessus du sol, hors de portée
+  d'un saut) ; la petite (3 tuiles, 36 px/s, partie de 9 h) mène de la tour B à la tour C du
+  drapeau (64 px plus haut). Entre les deux tours, un gouffre. Gouttes : sol, tour B, tour C
+  (au bord où l'on atterrit) ; lanternes : départ, tour B, tour C.
+- Rendu (`game/src/sprites/objets.rs`, `game/src/scene.rs`) : plaque de laiton 32 x 8 qui
+  couvre toute sa boîte de collision (contour sombre, dessus or pâle où l'on pose les pieds,
+  ombre orange, trois rivets) ; cadran 32 x 32 centré sur le pivot (contour sombre, bord doré
+  ombré en bas à droite, filet, fond blanc cassé, douze graduations dont 12, 3, 6 et 9 plus
+  grosses, moyeu doré) ; tige de maillons 4 x 4 tous les 6 px, du moyeu au milieu de la plaque :
+  elle tourne comme l'aiguille d'une montre, mais seules les POSITIONS changent (entières),
+  aucun sprite n'est tourné ni agrandi (`maillons`, fonction pure testée). Les cadrans et leurs
+  tiges sont dessinés avant les entités (la plaque, Pépin, les gouttes passent devant).
+  Contour sombre, or ou blanc cassé : contraste d'au moins 4,5:1 sur toutes les bandes de ciel
+  de tous les thèmes (test). Planche `docs/planche-sprites.png` régénérée.
+- Robot de QA (`game/src/bot_qa.rs`) : la case de parcours gagne un 6e terme,
+  `aiguille_proche` = 1 + l'heure (0 à 11) de l'aiguille la plus proche (pivot à moins de son
+  rayon + 6 tuiles ; 0 sinon, donc toujours 0 dans les niveaux du jeu ; `difficulte.rs` suit
+  le type). Sans l'heure, attendre au pied de l'aiguille ramènerait à une case connue : le robot
+  ne pourrait jamais la laisser descendre jusqu'à lui. De plus, dans un niveau à aiguilles, un
+  plan n'est gardé que s'il TIENT avec les aiguilles décalées de 1 ou 2 images d'avance ou de
+  retard (même fin, mêmes gouttes, Pépin à 4 px près : `tient_au_decalage`) et s'il ne pose
+  jamais Pépin à moins de 3 px du bord d'une plaque. Raison : le premier parcours trouvé était
+  réglé à l'image près ; rejoué avec les touches décalées d'une image (test temporaire de
+  diagnostic, non gardé), il ratait la petite aiguille et tombait deux fois dans le gouffre
+  (pas 561 et 706), alors que le rejeu dans le navigateur peut être décalé d'une image (déjà
+  noté aux cartes 3.1b, 5.2 et 5.9). La première série de captures, prise avec ce parcours, a
+  été jetée. Avec la règle, le parcours finit avec les touches décalées de -2 à +2 images
+  (test `le_parcours_de_l_horloge_tient_a_une_image_pres`).
+
+Tests ajoutés (sur des mini-niveaux de test, dans les tests seulement) :
+- `entities::mobile` : sinus « maison » contre la bibliothèque standard (1000 positions,
+  valeurs exactes aux quatre quarts) ; place sur le cadran (midi au-dessus du pivot, 3 h à
+  droite, 6 h dessous, 9 h à gauche) ; deux tours complets : centre toujours sur le cercle
+  (1e-3 près), taille de la boîte inchangée (dessus horizontal), vitesse 36 px/s le long du
+  cercle, quarts franchis dans l'ordre 1, 2, 3, 0 (sens horaire), durée d'un tour 2πr/v ; partie
+  de 3 h, elle descend aussitôt ; `boite_avant` exacte ; `tourner` (d'un coup = pas à pas, aller
+  et retour, sans effet sur un aller-retour).
+- `entities::contacts` (mini-niveau d'une aiguille de 2 tuiles) : Pépin immobile sur l'aiguille
+  est porté deux tours complets, les pieds pile sur le dessus et au même endroit de la plaque à
+  CHAQUE pas (64 px de montée et de descente) ; lâché à pleine vitesse de chute 40 px au-dessus,
+  aux 12 heures du cadran (elle monte, descend, file de côté), il ne la chevauche jamais et
+  finit posé dessus ; sautant dessous, il s'y cogne la tête sans jamais la chevaucher et
+  retombe au sol.
+- `level` : deux pivots réglés dans l'ordre de lecture (position, rayon, vitesse, heure de
+  départ) ; réglage manquant, en trop, ou hors des bornes refusé ; cercle bloqué par un toit
+  refusé ; Pépin debout dessus compte (un toit que la plaque frôle sans le toucher, mais où sa
+  tête cognerait, est refusé).
+- `faisabilite` (mini-niveau d'un balcon et d'une grande aiguille) : le robot, précis et
+  maladroit, monte au balcon en se laissant porter ; sans aiguille, il n'y arrive pas ; le
+  trajet de 6 h à midi (place, durée d'un demi-tour) et un trajet refusé par une tuile sur le
+  chemin de la tête.
+- `zones` : l'essai passe les contrôles d'un vrai niveau (arrivée, 3 gouttes, lanternes, robot
+  maladroit, reprise depuis chaque lanterne, lint de grille) ; sans aiguille, seule la goutte
+  du sol est prise ; sans la petite, ni la tour C ni le drapeau ne sont atteints.
+- Jeu : plaque qui couvre sa collision, cadran rond et symétrique cerné de sombre, contraste sur
+  tous les ciels, tige de maillons (nombre, écart, alignement, à midi, à 3 h, en diagonale),
+  touche F8 et niveau chargé avec ses deux aiguilles, carte dans son cadre ; robot de QA
+  `le_robot_finit_le_niveau_d_essai_horloge` : fin atteinte, 0 mort, 3 gouttes, F8 une fois,
+  porté par CHACUNE des deux aiguilles (grande : 178 images, 114,9 px de montée ; petite : 56
+  images, 18,2 px), les pieds pile sur la plaque à chaque image portée.
+  `le_robot_finit_tous_les_niveaux_sans_mourir` reste vert.
+
+Mesure de difficulté : inchangée (aucun niveau du jeu n'a d'aiguille ; le terme ajouté à la
+case de parcours y vaut toujours 0, la règle du décalage ne s'applique qu'avec des aiguilles).
+`docs/mesure-difficulte.txt` régénéré sur l'extraction propre de fe90c64 : identique à l'octet
+au fichier versionné. Morts moyennes (avant = après) :
+
+| Niveau                      | Débutant (avant = après) | Habitué (avant = après) | Expert (avant = après) |
+| --------------------------- | ------------------------ | ----------------------- | ---------------------- |
+| 1. Les toits                | 0,4                      | 0,1                     | 0,0                    |
+| 2. Gouttières et cheminées  | 1,5                      | 0,5                     | 0,2                    |
+| 3. Le grand orage           | 3,0                      | 0,6                     | 0,4                    |
+| 4. Vents d'altitude         | 1,3                      | 0,4                     | 0,1                    |
+| 5. Au-dessus des nuages     | 0,5                      | 0,1                     | 0,0                    |
+| Total                       | 6,8                      | 1,8                     | 0,7                    |
+
+Captures (`docs/qa/510-*`, 960 x 540, build de QA d'une extraction propre de fe90c64 servi en
+local sur 127.0.0.1, Chromium (révision 1208) piloté par CDP, onglet au premier plan et canvas
+focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-510.txt` et
+`TOUCHES=target/qa/touches-510.txt` (F8 à l'image 229), serveur arrêté à la fin ; numéros
+d'image de `trace-510.csv`, écrits par le test ignoré `ecrire_script_essai_horloge`) :
+- `510-carte-niveau1` (101) puis `510-carte-essai` (351) : carte « ESSAI HORLOGE », texte et
+  astuce (« Saute dessus quand elle passe en bas, saute en haut. ») dans le cadre ;
+- `510-essai-depart` (481) : Pépin au départ, la lanterne et la goutte du sol ; le cadran de la
+  grande aiguille, sa tige et sa plaque vers 4 h ;
+- `510-essai-saut` (591) : Pépin saute vers la plaque qui passe au plus bas (vers 7 h) ;
+- `510-essai-porte-bas` (621), `510-essai-porte-monte` (726), `510-essai-porte-haut` (801) :
+  Pépin debout sur la plaque, porté de 7 h à 9 h puis vers 11 h ; la caméra le suit vers le
+  haut ; la tour B apparaît à droite ;
+- `510-essai-saut-tour` (846) : Pépin plane vers la tour B ;
+- `510-essai-tour-b` (936) : sur la tour B, la goutte devant lui, la petite aiguille à droite ;
+- `510-essai-saut-petite` (996) puis `510-essai-petite` (1041) : saut sur la plaque de la
+  petite aiguille (vers 10 h), puis porté vers 11 h, la tour C à droite (2/15) ;
+- `510-essai-saut-c` (1086) : Pépin au-dessus du cadre (repère en haut de l'écran), la plaque
+  à midi ; `510-essai-goutte-c` (1107) : posé au bord de la tour C, 3/15 ;
+- `510-essai-arrivee` (1191) : Pépin au drapeau ;
+- `510-fin` (60 images après la fin du script) : « LE SOLEIL ! », 0:12,3, 3 gouttes (3/15 :
+  celles de l'essai), 0 mort ;
+- `510-tour-00` à `05` (811 à 1311, toutes les 100 images) : série « attente » du pilote, le
+  robot lâché à l'image 711 sur la grande aiguille : Pépin ne touche plus à rien et l'aiguille
+  l'emporte sur cinq sixièmes de tour (11 h, 1 h, 3 h, 5 h, 7 h, 9 h) ; il est debout sur la
+  plaque sur les six images, la tige suit la plaque autour du cadran.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette,
+0 bloc flou, sur les 21.
+
+Vérification sur une extraction propre de fe90c64 (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+307 + 272 tests, tous verts (1 + 15 ignorés : écritures de fichiers et diagnostics) ;
+`./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms
+interdits, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit
+(« Essai horloge » : 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/game.wasm`) ; planche
+de sprites régénérée identique à l'octet.
+
+Limites (non testé ou à relativiser) :
+- Aucun niveau du jeu n'a encore d'aiguille (le clocher viendra ensuite) : elles ne se voient
+  que dans le niveau d'essai (touche F8 du build de QA).
+- Le parseur vérifie le cercle contre les TUILES seulement. Une aiguille qui descend sur Pépin
+  debout ailleurs le « ramasse » (la collision le pose sur la plaque), comme les plateformes
+  mobiles existantes : au dessin du clocher, garder le dessous des cercles loin des endroits où
+  Pépin se tient. Le cadran (dessin seul) recouvre les tuiles à moins d'une tuile du pivot :
+  voulu pour une horloge posée sur un mur de tour, à garder en tête.
+- Le robot de faisabilité ne juge pas le timing (douze places immobiles). Seul le robot de QA
+  (vraie simulation, plans tenus à 2 images près) prouve qu'on peut attraper les aiguilles ; il
+  faudra garder les deux verts sur le clocher. La règle du décalage allonge la recherche dans
+  un niveau à aiguilles (chaque plan gardé est rejoué 4 fois de plus) : sur l'essai, le script
+  du robot passe d'environ 16 s à 37 s.
+- Le sinus « maison » est identique au bit près en natif et en wasm par construction (opérations
+  de base IEEE seulement) ; pas vérifié bit à bit dans le navigateur, mais le rejeu suit la
+  trace du robot (Pépin porté par les deux aiguilles, 3 gouttes, 0 mort).
+- Pas de son propre (pas de tic-tac). Captures dans Chromium seulement, à 960 x 540 ; pas de
+  vrai téléphone, pas de Safari ni Firefox.
