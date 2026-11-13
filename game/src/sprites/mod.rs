@@ -13,11 +13,13 @@
 //! `char` fautif comme erreur, itérateurs, `HashMap`, tests unitaires.
 
 // Les dessins sont des grilles de texte : rustfmt les tasserait sur une seule
-// ligne et les rendrait illisibles, donc on l'exclut de ces quatre fichiers.
+// ligne et les rendrait illisibles, donc on l'exclut de ces cinq fichiers.
 #[rustfmt::skip]
 pub mod ennemis;
 #[rustfmt::skip]
 pub mod objets;
+#[rustfmt::skip]
+pub mod objets_decor;
 #[rustfmt::skip]
 pub mod pepin;
 #[cfg(test)]
@@ -86,6 +88,7 @@ pub fn tous() -> Vec<(&'static str, Image)> {
         pepin::SPRITES,
         ennemis::SPRITES,
         objets::SPRITES,
+        objets_decor::SPRITES,
         tuiles::SPRITES,
     ]
     .concat()
@@ -148,7 +151,7 @@ fn texture(image: Image, theme: Option<Theme>) -> Texture2D {
 
 /// Toutes les textures du jeu, rangées par nom.
 pub struct Banque {
-    /// Sprites (Pépin, ennemis, objets) : les mêmes pour tous les niveaux.
+    /// Sprites (Pépin, ennemis, objets, décor) : les mêmes pour tous les niveaux.
     sprites: HashMap<&'static str, Texture2D>,
     /// Tuiles : un jeu complet par thème (couleurs éclaircies progressivement).
     tuiles: Vec<HashMap<&'static str, Texture2D>>,
@@ -157,11 +160,16 @@ pub struct Banque {
 impl Banque {
     /// Génère toutes les textures. À appeler une seule fois, après l'ouverture de la fenêtre.
     pub fn charger() -> Self {
-        let sprites = [pepin::SPRITES, ennemis::SPRITES, objets::SPRITES]
-            .concat()
-            .into_iter()
-            .map(|(nom, dessin)| (nom, texture(dessin, None)))
-            .collect();
+        let sprites = [
+            pepin::SPRITES,
+            ennemis::SPRITES,
+            objets::SPRITES,
+            objets_decor::SPRITES,
+        ]
+        .concat()
+        .into_iter()
+        .map(|(nom, dessin)| (nom, texture(dessin, None)))
+        .collect();
         let tuiles = THEMES
             .iter()
             .map(|&t| {
@@ -494,5 +502,84 @@ mod tests {
         assert!(dessin("ombre_toit")
             .iter()
             .all(|ligne| ligne.chars().all(|c| c == '0' || c == '1')));
+    }
+
+    // --- Objets de décor (carte 4.2) ---
+
+    /// Taille d'un objet de décor : une tuile de large au plus (il tient sur sa case) et
+    /// moins de deux tuiles de haut (il ne déborde que sur la case du dessus, que les
+    /// tests des niveaux gardent libre de tout danger et de tout objet).
+    #[test]
+    fn les_objets_de_decor_tiennent_dans_leur_case_et_celle_du_dessus() {
+        for &(nom, d) in objets_decor::SPRITES {
+            let (l, h) = (largeur(d), hauteur(d));
+            assert!((6..=16).contains(&l), "{nom} : {l} px de large");
+            assert!((8..=28).contains(&h), "{nom} : {h} px de haut");
+            // Posé : la dernière rangée touche le toit (au moins un pixel plein).
+            assert!(d[h - 1].chars().any(|c| c != '.'), "{nom} : pas posé");
+        }
+    }
+
+    /// Contour sombre de 1 px : tout pixel coloré (autre que le contour `0`) a ses quatre
+    /// voisins pleins ; seul le dessous de la dernière rangée compte comme plein (le toit).
+    #[test]
+    fn les_objets_de_decor_ont_un_contour_sombre() {
+        for &(nom, d) in objets_decor::SPRITES {
+            let (l, h) = (largeur(d) as i32, hauteur(d) as i32);
+            for y in 0..h {
+                for x in 0..l {
+                    let c = car(d, x, y);
+                    if c == '.' || c == '0' {
+                        continue;
+                    }
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        let (xx, yy) = (x + dx, y + dy);
+                        let plein = if yy == h {
+                            true
+                        } else {
+                            (0..l).contains(&xx) && (0..h).contains(&yy) && car(d, xx, yy) != '.'
+                        };
+                        assert!(
+                            plein,
+                            "{nom} : ({x},{y}) « {c} » touche le vide sans contour"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Le décor ne vole aucune couleur qui a un sens dans le jeu : ni l'or des gouttes (B, C),
+    /// ni le cyan des flaques et de la pluie (D, E), ni le corail du parapluie (8, 9).
+    #[test]
+    fn le_decor_n_utilise_pas_les_couleurs_du_jeu() {
+        for &(nom, d) in objets_decor::SPRITES {
+            for ligne in d {
+                for c in ligne.chars() {
+                    assert!(!"BCDE89".contains(c), "{nom} : couleur réservée « {c} »");
+                }
+            }
+        }
+    }
+
+    /// Les deux images de l'oiseau gardent la même silhouette (seule la tête bouge) :
+    /// au plus 8 pixels diffèrent, et aucun dans le corps (rangées 3 et suivantes).
+    #[test]
+    fn l_oiseau_ne_bouge_que_la_tete() {
+        let (a, b) = (dessin("oiseau0"), dessin("oiseau1"));
+        assert_eq!(taille("oiseau0"), taille("oiseau1"));
+        let mut differences = 0;
+        for y in 0..hauteur(a) as i32 {
+            for x in 0..largeur(a) as i32 {
+                if car(a, x, y) != car(b, x, y) {
+                    differences += 1;
+                    assert!(y < 4, "le corps change en ({x},{y})");
+                }
+            }
+        }
+        assert!(
+            (1..=8).contains(&differences),
+            "{differences} pixels changés"
+        );
     }
 }
