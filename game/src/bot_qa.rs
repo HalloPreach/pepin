@@ -22,7 +22,7 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
 use pepin_core::entities::contacts::Contact;
-use pepin_core::entities::ennemi::PhasePigeon;
+use pepin_core::entities::ennemi::{pas_du_cycle, PhaseChat, PhasePigeon};
 use pepin_core::entities::montgolfiere::EtatMontgolfiere;
 use pepin_core::entities::ventilateur::PhaseVentilateur;
 use pepin_core::entities::{Entite, TypeEnnemi};
@@ -263,9 +263,10 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
 }
 
 /// Une case du niveau où Pépin choisit son prochain plan : case de 8 px en x, y
-/// arrondi, « lancé par un auvent » (`est_lance`) ou posé, et l'escargot proche
-/// (`escargot_proche`, 0 s'il n'y en a pas). Deux états proches fusionnent.
-pub(crate) type CaseParcours = (i32, i32, bool, i32);
+/// arrondi, « lancé par un auvent » (`est_lance`) ou posé, l'escargot proche
+/// (`escargot_proche`, 0 s'il n'y en a pas) et les chats (`chats_de_la_case`, 0
+/// dans un niveau sans chat). Deux états proches fusionnent.
+pub(crate) type CaseParcours = (i32, i32, bool, i32, i32);
 
 /// La case (`CaseParcours`) de Pépin dans `m`.
 pub(crate) fn cle(m: &Monde) -> CaseParcours {
@@ -274,7 +275,54 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         m.joueur.boite.y.round() as i32,
         est_lance(m),
         escargot_proche(m),
+        chats_de_la_case(m),
     )
+}
+
+/// Portée (px) à laquelle un chat compte dans la case de Pépin : la même que
+/// celle de l'escargot (6 tuiles en x entre les centres, 4 en y entre les pieds).
+const PORTEE_CHAT: (f32, f32) = PORTEE_ESCARGOT;
+
+/// Tranche du cycle du chat (pas) retenue dans la case : 30 pas (0,5 s), donc
+/// 12 tranches pour un cycle de 6 s.
+const TRANCHE_CHAT_PAS: u16 = 30;
+
+/// Les chats du niveau, résumés en un entier : `16 × écrasés + tranche`.
+/// - `écrasés` : un bit par chat du niveau (dans l'ordre des entités), à 1 s'il
+///   est écrasé ;
+/// - `tranche` : où en est le chat vivant le plus proche (dans `PORTEE_CHAT`)
+///   dans son cycle, `1 + pas_du_cycle / TRANCHE_CHAT_PAS` (de 1 à 12) ; 0 si
+///   aucun chat vivant n'est proche.
+///
+/// Pourquoi : le chat garde un passage, il faut ATTENDRE qu'il dorme. Sans le
+/// moment de son cycle dans la case, attendre sur place ramène à une case déjà
+/// connue et le plan « attendre » est jeté : le robot ne pourrait jamais laisser
+/// le chat se rendormir. Et sans les chats écrasés, un état « chat écrasé »
+/// fusionnerait avec le même endroit « chat vivant ». Toujours 0 dans un niveau
+/// sans chat : la case est alors exactement celle d'avant la carte 5.9.
+pub(crate) fn chats_de_la_case(m: &Monde) -> i32 {
+    let j = &m.joueur.boite;
+    let centre = j.x + j.w / 2.0;
+    let mut ecrases = 0i32;
+    let mut proche: Option<(f32, u16)> = None;
+    let chats = m.entites.iter().filter_map(|e| match e {
+        Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => Some(c),
+        _ => None,
+    });
+    for (k, c) in chats.enumerate() {
+        assert!(k < 26, "trop de chats pour la case du robot");
+        if !c.est_dangereux() {
+            ecrases |= 1 << k;
+            continue;
+        }
+        let dx = (c.boite.x + c.boite.w / 2.0 - centre).abs();
+        let dy = (c.boite.bas() - j.bas()).abs();
+        if dx <= PORTEE_CHAT.0 && dy <= PORTEE_CHAT.1 && proche.is_none_or(|(d, _)| dx < d) {
+            proche = Some((dx, pas_du_cycle(c.phase_chat())));
+        }
+    }
+    let tranche = proche.map_or(0, |(_, p)| 1 + i32::from(p / TRANCHE_CHAT_PAS));
+    16 * ecrases + tranche
 }
 
 /// Portée (px) à laquelle un escargot compte dans la case de Pépin : 6 tuiles en x
@@ -681,6 +729,11 @@ pub struct ImageEssai {
     pub rebond_escargot: bool,
     /// Pépin touche un escargot sans rebondir (de côté : rien ne se passe).
     pub contre_escargot: bool,
+    /// Premier chat du niveau (carte 5.9 ; `None` s'il n'y en a pas) : sa phase,
+    /// et `true` s'il est écrasé (ou déjà disparu).
+    pub chat: Option<(PhaseChat, bool)>,
+    /// Pépin vient d'écraser un chat pendant cette image.
+    pub ecrase_chat: bool,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -780,6 +833,18 @@ fn jouer_essai(
             .any(|e| matches!(e, Entite::Escargot(s) if s.boite.chevauche(&j.boite)));
         let rebond_escargot = touche_escargot && app.monde.contacts.contains(&Contact::Rebond);
         let contre_escargot = touche_escargot && !rebond_escargot && j.au_sol;
+        let chat = app.monde.entites.iter().find_map(|e| match e {
+            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => {
+                Some((c.phase_chat(), !c.est_dangereux()))
+            }
+            _ => None,
+        });
+        // Un écrasement cette image, et le chat écrasé maintenant, vivant juste avant.
+        let ecrase_chat = app.monde.contacts.contains(&Contact::Ecrase)
+            && chat.is_some_and(|c| c.1)
+            && images
+                .last()
+                .is_some_and(|i: &ImageEssai| i.chat.is_some_and(|c| !c.1));
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -796,6 +861,8 @@ fn jouer_essai(
             escargots,
             rebond_escargot,
             contre_escargot,
+            chat,
+            ecrase_chat,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -1135,6 +1202,28 @@ pub fn parcours_essai_escargot() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai escargot")
 }
 
+/// Joue le niveau d'essai « chat » (touche F7 du build de QA) — voir `jouer_essai`.
+pub fn jouer_essai_chat(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_CHAT,
+        RaccourciNiveau::Essai8,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans le niveau d'essai « chat » (maladroit, puis précis).
+/// Sur la VRAIE simulation, un plan qui heurte le chat de côté, ou qui lui tombe
+/// dessus pendant qu'il est réveillé, tue Pépin : il est écarté. Le robot apprend
+/// donc à attendre que le chat dorme (plans « attendre » : le moment du cycle est
+/// dans la case, voir `chats_de_la_case`), puis à se laisser tomber sur lui.
+pub fn parcours_essai_chat() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_CHAT;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai chat")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1466,6 +1555,63 @@ mod tests {
         println!(
             "essai escargot : {} images de jeu, rebonds aux images {rebonds:?}, {contre} \
              image(s) au sol contre un escargot",
+            essai.len()
+        );
+    }
+
+    /// Le robot finit le niveau d'essai « chat » (touche F7 du build de QA) sans
+    /// mourir : trois gouttes (dont la goutte cachée derrière le chat), l'arrivée.
+    /// Il a écrasé le chat une fois, PENDANT son sommeil ou son annonce (jamais
+    /// réveillé), et il n'est passé sous le grand mur (x > 432) qu'après.
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_chat() {
+        let partie = jouer_essai_chat(&parcours_essai_chat());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(partie.gouttes, 3, "les trois gouttes de l'essai chat");
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F7, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let ecrasements: Vec<usize> = (0..essai.len()).filter(|&k| essai[k].ecrase_chat).collect();
+        assert_eq!(ecrasements.len(), 1, "un seul écrasement : {ecrasements:?}");
+        let k = ecrasements[0];
+        // La phase au moment du contact : celle de l'image de l'écrasement (le
+        // chat avance d'un pas AVANT les contacts, voir `Monde::avancer`), et un
+        // chat écrasé ne change plus de phase. Endormi ou en train de se réveiller.
+        let (phase, ecrase) = essai[k].chat.unwrap();
+        assert!(
+            ecrase && !matches!(phase, PhaseChat::Eveille(_)),
+            "{phase:?}"
+        );
+        assert!(
+            essai[..k].iter().all(|i| i.trame.x < 432.0),
+            "le robot passe sous le mur avant d'avoir écrasé le chat"
+        );
+        assert!(essai[k..].iter().any(|i| i.trame.x > 432.0));
+        // Il est arrivé sur le bloc (dessus à y = 112) pendant l'éveil du chat, et
+        // l'y a attendu : posé là-haut, chat réveillé.
+        assert!(
+            essai[..k].iter().any(|i| {
+                i.au_sol
+                    && (i.trame.y - 98.0).abs() < 1.0
+                    && matches!(i.chat, Some((PhaseChat::Eveille(_), false)))
+            }),
+            "le robot n'a pas attendu le chat sur le bloc"
+        );
+        // Le chat s'est-il réveillé pendant que le robot l'approchait ?
+        let eveils = essai[..k]
+            .windows(2)
+            .filter(|w| {
+                matches!(w[1].chat, Some((PhaseChat::Eveille(_), false)))
+                    && !matches!(w[0].chat, Some((PhaseChat::Eveille(_), _)))
+            })
+            .count();
+        println!(
+            "essai chat : {} images de jeu, chat écrasé à l'image {k} ({phase:?}), \
+             {eveils} réveil(s) avant",
             essai.len()
         );
     }
@@ -1920,6 +2066,56 @@ mod tests {
         std::fs::write("../target/qa/trace-58.csv", trace).unwrap();
         println!(
             "images : {} ; F6 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai « chat » pour les captures de la carte 5.9 :
+    /// `target/qa/script-59.txt`, `target/qa/touches-59.txt` (l'image où appuyer
+    /// sur F7, une image après la trace : le navigateur a un pas de retard) et
+    /// `target/qa/trace-59.csv` (position de Pépin, caméra, sol, phase du chat,
+    /// pas restants dans la phase, chat écrasé, écrasement).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_chat
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_chat() {
+        let partie = jouer_essai_chat(&parcours_essai_chat());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-59.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-59.txt", format!("{pilote}:F7\n")).unwrap();
+        let mut trace = String::from(
+            "image,ecran,essai,x,y,cam_x,cam_y,au_sol,gouttes,chat_phase,chat_reste,\
+             chat_ecrase,ecrasement\n",
+        );
+        for (k, i) in partie.images.iter().enumerate() {
+            let (phase, reste, ecrase) = match i.chat {
+                Some((PhaseChat::Dort(n), e)) => ("dort", n, e),
+                Some((PhaseChat::Reveil(n), e)) => ("reveil", n, e),
+                Some((PhaseChat::Eveille(n), e)) => ("eveille", n, e),
+                None => ("-", 0, false),
+            };
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{},{phase},{reste},{},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.au_sol),
+                i.trame.gouttes,
+                u8::from(ecrase),
+                u8::from(i.ecrase_chat)
+            ));
+        }
+        std::fs::write("../target/qa/trace-59.csv", trace).unwrap();
+        println!(
+            "images : {} ; F7 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );
