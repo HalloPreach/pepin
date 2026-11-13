@@ -33,6 +33,14 @@ pub enum ErreurNiveau {
     ArriveeManquante,
     /// Plusieurs arrivées.
     ArriveeMultiple { nombre: usize },
+    /// L'arène du Grand Nuage (`O`) n'a pas de drapeau `X` : le vaincre finit le niveau.
+    ArriveeEtNuage,
+    /// Un seul Grand Nuage (`O`) par niveau.
+    NuageMultiple { nombre: usize },
+    /// Le Grand Nuage (`O`) n'a pas sa place : son corps (3 x 2 cases) et les 3
+    /// cases au-dessus doivent être libres, dans la carte, et ses 17 colonnes
+    /// d'éclairs (8 de chaque côté de `O`) dans la carte.
+    NuageSansPlace { ligne: usize, colonne: usize },
     /// Un niveau contient exactement 3 gouttes d'or.
     NombreDeGouttes { trouve: usize },
     /// Une plateforme mobile (chiffre 1-9) doit apparaître exactement deux fois
@@ -92,6 +100,18 @@ impl fmt::Display for ErreurNiveau {
             ErreurNiveau::ArriveeMultiple { nombre } => {
                 write!(f, "{nombre} arrivées « X » (une seule attendue)")
             }
+            ErreurNiveau::ArriveeEtNuage => write!(
+                f,
+                "arrivée « X » dans l'arène du Grand Nuage « O » (le vaincre finit le niveau)"
+            ),
+            ErreurNiveau::NuageMultiple { nombre } => {
+                write!(f, "{nombre} Grands Nuages « O » (un seul permis)")
+            }
+            ErreurNiveau::NuageSansPlace { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : le Grand Nuage « O » n'a pas sa place \
+                 (3 x 2 cases libres et les 3 du dessus, 8 colonnes de chaque côté)"
+            ),
             ErreurNiveau::NombreDeGouttes { trouve } => {
                 write!(f, "{trouve} gouttes d'or « o » au lieu de 3")
             }

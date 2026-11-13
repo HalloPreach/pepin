@@ -155,7 +155,7 @@ mod tests {
                     return issue;
                 }
             }
-            if j.boite.chevauche(&niv.arrivee) {
+            if niv.arrivee.is_some_and(|a| j.boite.chevauche(&a)) {
                 issue.arrivee = true;
                 return issue;
             }

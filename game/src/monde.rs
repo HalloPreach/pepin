@@ -13,7 +13,9 @@ use pepin_core::aabb::Aabb;
 use pepin_core::entities::contacts::{
     porter_par_plateformes, resoudre_contacts, verifier_vide, CauseMort, Contact,
 };
-use pepin_core::entities::{courants_des_ventilateurs, solides_des_entites, Actualisable, Entite};
+use pepin_core::entities::{
+    courants_des_entites, reprendre_apres_une_mort, solides_des_entites, Actualisable, Entite,
+};
 use pepin_core::level::Niveau;
 use pepin_core::physics::{CourantAscendant, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
@@ -203,14 +205,14 @@ impl Monde {
         // 2. Les plateformes ont bougé : on recalcule les solides, le joueur est porté.
         let solides = solides_des_entites(&self.entites);
         // Les courants des ventilateurs (actifs uniquement pendant leur phase de
-        // souffle) s'ajoutent aux courants statiques du niveau : c'est ce courant
-        // qui porte Pépin vers le haut quand l'hélice souffle.
+        // souffle) et celui du Grand Nuage essoufflé s'ajoutent aux courants
+        // statiques du niveau : ce sont eux qui portent Pépin vers le haut.
         let courants: Vec<CourantAscendant> = self
             .niveau
             .courants
             .iter()
             .cloned()
-            .chain(courants_des_ventilateurs(&self.entites))
+            .chain(courants_des_entites(&self.entites))
             .collect();
         let env = Environnement {
             grille: &self.niveau,
@@ -240,6 +242,9 @@ impl Monde {
                     }
                 }
                 Contact::Mort(cause) => {
+                    // Le Grand Nuage reprend son combat au début (il garde ses
+                    // points perdus) : Pépin réapparaît au début de l'arène.
+                    reprendre_apres_une_mort(&mut self.entites);
                     self.derniere_mort = Some(cause);
                     self.reapparition = REAPPARITION_PAS;
                     // Mort dans le vide : on garde l'animation visible, au bas du niveau.
@@ -258,7 +263,17 @@ impl Monde {
         // Après la réapparition éventuelle : un Pépin replacé n'est pas encore au sol.
         self.immobile = compter_immobile(self.immobile, &self.joueur, entrees);
 
-        if self.joueur.boite.chevauche(&self.niveau.arrivee) {
+        // Fin du niveau : le drapeau touché, ou le Grand Nuage vaincu (le ciel s'est
+        // déchiré : son arène n'a pas de drapeau).
+        let drapeau = self
+            .niveau
+            .arrivee
+            .is_some_and(|a| self.joueur.boite.chevauche(&a));
+        let nuage_vaincu = self
+            .entites
+            .iter()
+            .any(|e| matches!(e, Entite::Nuage(n) if n.est_vaincu()));
+        if drapeau || nuage_vaincu {
             self.termine = true;
         }
         self.pas += 1;

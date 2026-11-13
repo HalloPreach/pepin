@@ -3,8 +3,8 @@
 //! Étapes : 1) découper les lignes et vérifier le rectangle ; 2) lire chaque
 //! caractère (tuile, entité, repère, décor) ; 3) assembler les éléments qui dépendent
 //! de la grille complète (éclairs, grêle, courants, plateformes mobiles, appui du décor) ;
-//! 4) valider (un départ, une arrivée, trois gouttes) ; 5) poser les aiguilles
-//! d'horloge, dont le cercle se vérifie sur le niveau assemblé.
+//! 4) valider (un départ, une arrivée — ou un Grand Nuage —, trois gouttes) ;
+//! 5) poser les aiguilles d'horloge, dont le cercle se vérifie sur le niveau assemblé.
 
 use std::collections::BTreeMap;
 
@@ -14,9 +14,11 @@ use super::{
 };
 use crate::aabb::{touche_un_obstacle, Aabb, TAILLE_TUILE};
 use crate::entities::montgolfiere::HAUT_BALLON;
+use crate::entities::nuage::{NB_COLONNES, PORTEE_COLONNES, TAILLE_NUAGE};
 use crate::entities::{
-    Actualisable, Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, Grele, Lanterne,
-    Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi, Ventilateur,
+    Actualisable, Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, GrandNuage,
+    Grele, Lanterne, Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi,
+    Ventilateur,
 };
 use crate::physics::{CourantAscendant, Environnement, VentLateral, JOUEUR_H};
 
@@ -91,6 +93,9 @@ pub(super) fn analyser(
     // Pivots des aiguilles d'horloge : il faut la grille entière (leur cercle ne
     // doit toucher aucun solide).
     let mut pivots: Vec<Case> = Vec::new();
+    // Grand Nuage (au plus un) : il faut la grille entière (sa place, ses colonnes
+    // d'éclairs jusqu'au sol, ses courants).
+    let mut nuages: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
 
     for (ty, ligne) in lignes.iter().enumerate() {
@@ -143,6 +148,7 @@ pub(super) fn analyser(
                 'b' => montgolfieres.push(case),
                 'z' => chats.push(case),
                 'h' => pivots.push(case),
+                'O' => nuages.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -174,10 +180,19 @@ pub(super) fn analyser(
             })
         }
     };
-    let arrivee_case = match arrivees.as_slice() {
-        [] => return Err(ErreurNiveau::ArriveeManquante),
-        [a] => *a,
-        autres => {
+    // L'arène du Grand Nuage n'a pas de drapeau : le vaincre finit le niveau.
+    // Tout autre niveau a exactement une arrivée.
+    if nuages.len() > 1 {
+        return Err(ErreurNiveau::NuageMultiple {
+            nombre: nuages.len(),
+        });
+    }
+    let arrivee_case = match (arrivees.as_slice(), nuages.is_empty()) {
+        ([], true) => return Err(ErreurNiveau::ArriveeManquante),
+        ([], false) => None,
+        ([a], true) => Some(*a),
+        ([_], false) => return Err(ErreurNiveau::ArriveeEtNuage),
+        (autres, _) => {
             return Err(ErreurNiveau::ArriveeMultiple {
                 nombre: autres.len(),
             })
@@ -326,6 +341,11 @@ pub(super) fn analyser(
         entites.push(Entite::Ennemi(chat));
     }
 
+    // Grand Nuage : voir `poser_nuage`.
+    for &case in &nuages {
+        entites.push(Entite::Nuage(poser_nuage(&tuiles, largeur, hauteur, case)?));
+    }
+
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même
     // sens (deux zones voisines de sens opposés restent distinctes).
     let grille_vent = |sens: i8| {
@@ -370,7 +390,6 @@ pub(super) fn analyser(
         objets_decor.push(ObjetDecor { x, y, genre });
     }
     let (dx, dy) = px(depart_case);
-    let (ax, ay) = px(arrivee_case);
     let mut niveau = Niveau {
         largeur,
         hauteur,
@@ -380,8 +399,11 @@ pub(super) fn analyser(
             dx + (TAILLE_TUILE - 10.0) / 2.0,
             dy + TAILLE_TUILE - JOUEUR_H,
         ),
-        // Drapeau : la case `X` et celle du dessus.
-        arrivee: Aabb::new(ax, ay - TAILLE_TUILE, TAILLE_TUILE, 2.0 * TAILLE_TUILE),
+        // Drapeau : la case `X` et celle du dessus (aucun dans l'arène du Grand Nuage).
+        arrivee: arrivee_case.map(|case| {
+            let (ax, ay) = px(case);
+            Aabb::new(ax, ay - TAILLE_TUILE, TAILLE_TUILE, 2.0 * TAILLE_TUILE)
+        }),
         entites,
         courants,
         vents: vents_laterales,
@@ -392,6 +414,63 @@ pub(super) fn analyser(
     // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).
     ajouter_aiguilles(&mut niveau, &pivots, reglages_aiguilles)?;
     Ok(niveau)
+}
+
+/// Le Grand Nuage de la case `O` (`tx`, `ty`) :
+/// - son corps (48 x 32) couvre la case `O` et ses voisines de gauche et de droite,
+///   sur deux rangées (`O` est le milieu de sa rangée du haut) ; ces six cases et
+///   les trois du dessus (on lui saute sur la tête) doivent être libres, dans la
+///   carte ;
+/// - ses 17 colonnes d'éclairs, de 8 colonnes à gauche de `O` à 8 à droite (toutes
+///   dans la carte), partent du dessous du nuage et descendent jusqu'au 1er solide
+///   (ou au bas de la carte), 12 px de large au milieu de leur case, comme un
+///   éclair `e` ;
+/// - ses deux courants (2 cases de large) sont à une case de lui, à gauche et à
+///   droite ; ils partent d'une demi-case au-dessus de sa tête (Pépin y monte un peu
+///   plus haut qu'elle, puis lui retombe dessus) et descendent jusqu'au 1er solide
+///   sous le nuage, dans la plus profonde de leurs deux colonnes.
+fn poser_nuage(
+    tuiles: &[Tuile],
+    largeur: usize,
+    hauteur: usize,
+    (tx, ty): Case,
+) -> Result<GrandNuage, ErreurNiveau> {
+    let erreur = ErreurNiveau::NuageSansPlace {
+        ligne: ty + 1,
+        colonne: tx + 1,
+    };
+    let portee = PORTEE_COLONNES as usize;
+    if ty == 0 || ty + 2 >= hauteur || tx < portee || tx + portee >= largeur {
+        return Err(erreur);
+    }
+    let solide = |x: usize, y: usize| tuiles[y * largeur + x].est_solide();
+    if (tx - 1..=tx + 1).any(|x| (ty - 1..=ty + 1).any(|y| solide(x, y))) {
+        return Err(erreur);
+    }
+    let t = TAILLE_TUILE;
+    // 1re rangée solide à partir de `depuis` dans la colonne `x` (le bas de la carte
+    // s'il n'y en a pas).
+    let premier_solide = |x: usize, depuis: usize| {
+        (depuis..hauteur).find(|&y| solide(x, y)).unwrap_or(hauteur) as f32 * t
+    };
+    let (x, y) = px((tx - 1, ty));
+    let boite = Aabb::new(x, y, TAILLE_NUAGE.0, TAILLE_NUAGE.1);
+    let dessous = boite.bas();
+    let colonnes: [Aabb; NB_COLONNES] = std::array::from_fn(|i| {
+        let cx = tx + i - portee;
+        let bas = premier_solide(cx, ty + 2).max(dessous + t);
+        Aabb::new(cx as f32 * t + 2.0, dessous, 12.0, bas - dessous)
+    });
+    let courant = |gauche: usize| {
+        let haut = boite.y - t / 2.0;
+        let bas = premier_solide(gauche, ty).max(premier_solide(gauche + 1, ty));
+        Aabb::new(gauche as f32 * t, haut, 2.0 * t, bas - haut)
+    };
+    Ok(GrandNuage::new(
+        boite,
+        colonnes,
+        [courant(tx - 4), courant(tx + 3)],
+    ))
 }
 
 /// Pose une aiguille d'horloge sur chaque pivot `h` (dans l'ordre de lecture),

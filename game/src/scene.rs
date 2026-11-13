@@ -469,6 +469,8 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     rect(sx as i32, sy as i32 + 6, 16, 2, OR);
                 }
             }
+            // Le Grand Nuage n'a pas encore de dessin (carte 5.11, commit suivant).
+            Entite::Nuage(_) => {}
             Entite::Grele(g) => {
                 // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
                 let t = TAILLE_TUILE;
@@ -639,7 +641,10 @@ pub(crate) fn image_pigeon(
 }
 
 fn dessiner_arrivee(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
-    let a = monde.niveau.arrivee;
+    // L'arène du Grand Nuage n'a pas de drapeau : le vaincre finit le niveau.
+    let Some(a) = monde.niveau.arrivee else {
+        return;
+    };
     let x = (a.x + a.w / 2.0 - 8.0).round() as i32 - cx;
     let y = a.bas().round() as i32 - 32 - cy;
     banque.dessiner(

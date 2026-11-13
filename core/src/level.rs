@@ -43,6 +43,13 @@
 //!      8 tuiles au plus) ; sans lui, elle redescend doucement à sa case
 //!   <  >  vent latéral (zone rectangulaire) : pousse vers la gauche / vers la
 //!           droite ; le plané (parapluie ouvert) est poussé deux fois plus fort
+//!   O  le Grand Nuage, boss (un au plus) : `O` est le milieu de la rangée du haut
+//!      de son corps de 3 x 2 cases (libres, comme les 3 du dessus) ; il lance des
+//!      motifs d'éclairs sur 17 colonnes (8 de chaque côté de `O`, du dessous du
+//!      nuage au 1er solide), puis s'essouffle et libère un courant ascendant à
+//!      une case de lui (à gauche ou à droite) : on y monte et on lui saute sur la
+//!      tête ; trois coups et il est vaincu. Son arène n'a pas de drapeau `X` : le
+//!      vaincre finit le niveau
 //!   h  pivot d'une aiguille d'horloge : une plateforme 32 x 8 dont le centre
 //!      tourne autour du centre de la case, dans le sens horaire, le dessus
 //!      toujours horizontal (on s'y tient, elle emporte Pépin) ; rayon, vitesse
@@ -200,8 +207,9 @@ pub struct Niveau {
     pub(crate) tuiles: Vec<Tuile>,
     /// Coin haut-gauche du joueur au départ.
     pub depart: (f32, f32),
-    /// Zone d'arrivée : le toucher termine le niveau.
-    pub arrivee: Aabb,
+    /// Zone d'arrivée (le drapeau) : la toucher termine le niveau. `None` dans
+    /// l'arène du Grand Nuage (`O`) : là, c'est le vaincre qui termine le niveau.
+    pub arrivee: Option<Aabb>,
     /// Entités à l'état initial (à cloner pour recommencer).
     pub entites: Vec<Entite>,
     /// Colonnes de vent ascendant.

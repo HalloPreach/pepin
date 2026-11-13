@@ -63,9 +63,14 @@ pub fn effets(
         // ni pendant l'annonce, et la vie de chaque brin est bornée au souffle qui
         // reste (aucun ne survit à l'arrêt). L'indice `k` continue celui des
         // courants du niveau : les brins des colonnes voisines ne se calquent pas.
+        // Le courant du Grand Nuage essoufflé se voit de la même façon, borné à
+        // l'essoufflement qui reste.
         let nb_courants = monde.niveau.courants.len();
         let ventilateurs = monde.entites.iter().filter_map(|e| match e {
             Entite::Ventilateur(v) => v.courant_actif().map(|c| (c.zone, v.souffle_restant())),
+            Entite::Nuage(g) => g
+                .courant_actif()
+                .map(|c| (c.zone, g.essoufflement_restant())),
             _ => None,
         });
         for (k, (z, restant)) in ventilateurs.enumerate() {
@@ -98,6 +103,13 @@ pub fn effets(
                 particules.etincelles(x, y - 8.0, 8, OR_PALE);
             }
             Contact::Ecrase => particules.eclabousser(x, y, 10, PLUIE, 2.0),
+            // Coup sur la tête du Grand Nuage : gerbe de pluie, étincelles d'or et
+            // l'écran qui tremble.
+            Contact::Nuage => {
+                particules.eclabousser(x, y, 12, PLUIE, 2.4);
+                particules.etincelles(x, y, 10, OR_PALE);
+                secousse.declencher(2, 10);
+            }
             Contact::Rebond | Contact::Auvent => particules.eclabousser(x, y, 6, CORAIL_CLAIR, 2.0),
             Contact::Lanterne(..) => particules.etincelles(x, y - 8.0, 10, OR),
             Contact::Mort(_) => {

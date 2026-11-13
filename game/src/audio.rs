@@ -46,7 +46,8 @@ pub fn effets_du_pas(evenements: &Evenements, contacts: &[Contact]) -> Vec<Effet
         match c {
             Contact::Goutte(_) => v.push(Effet::Goutte),
             Contact::Lanterne(..) => v.push(Effet::Lanterne),
-            Contact::Ecrase => v.push(Effet::Ecrase),
+            // Un coup sur la tête du Grand Nuage sonne comme un ennemi écrasé.
+            Contact::Ecrase | Contact::Nuage => v.push(Effet::Ecrase),
             // L'auvent fait le même « boing » que le champignon.
             Contact::Rebond | Contact::Auvent => v.push(Effet::Rebond),
             // (Le tonnerre d'un éclair est déjà déclenché par `Detecteur`.)
@@ -81,12 +82,16 @@ impl Detecteur {
     }
 }
 
-/// Un éclair frappe-t-il dans la zone visible (bord gauche `cam_x`) ?
+/// Un éclair frappe-t-il dans la zone visible (bord gauche `cam_x`) ? Ceux du Grand
+/// Nuage comptent aussi : même tonnerre.
 fn eclair_en_vue(monde: &Monde, cam_x: f32) -> bool {
+    let en_vue =
+        |z: &pepin_core::aabb::Aabb| z.droite() >= cam_x && z.x <= cam_x + LARGEUR_LOGIQUE as f32;
     monde.entites.iter().any(|e| match e {
-        Entite::Eclair(ec) => {
-            ec.frappe() && ec.zone.droite() >= cam_x && ec.zone.x <= cam_x + LARGEUR_LOGIQUE as f32
-        }
+        Entite::Eclair(ec) => ec.frappe() && en_vue(&ec.zone),
+        Entite::Nuage(g) => g.colonnes.iter().enumerate().any(|(i, z)| {
+            g.etat_colonne(i) == pepin_core::entities::nuage::EtatColonne::Frappe && en_vue(z)
+        }),
         _ => false,
     })
 }

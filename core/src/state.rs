@@ -18,6 +18,8 @@ use crate::player::Joueur;
 pub const POINTS_GOUTTE: u32 = 100;
 /// Points gagnés pour un ennemi écrasé.
 pub const POINTS_ECRASEMENT: u32 = 50;
+/// Points gagnés pour un saut sur la tête du Grand Nuage (trois dans le combat).
+pub const POINTS_NUAGE: u32 = 200;
 
 /// Phase de la partie.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,6 +134,7 @@ impl EtatJeu {
                 }
                 Contact::Lanterne(x, y) => self.checkpoint = (x, y),
                 Contact::Ecrase => self.score += POINTS_ECRASEMENT,
+                Contact::Nuage => self.score += POINTS_NUAGE,
                 Contact::Rebond => {}
                 Contact::Auvent => {}
                 Contact::Mort(_) => {

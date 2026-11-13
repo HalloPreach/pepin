@@ -46,6 +46,9 @@ pub enum Contact {
     Rebond,
     /// Un auvent vient de relancer le joueur en diagonale.
     Auvent,
+    /// Pépin vient de sauter sur la tête du Grand Nuage essoufflé : un point de
+    /// vie en moins pour lui (`GrandNuage::toucher`).
+    Nuage,
     /// Le joueur est mort.
     Mort(CauseMort),
 }
@@ -153,8 +156,9 @@ fn porter_sur_aiguille(joueur: &mut Joueur, p: &PlateformeMobile, env: &Environn
 /// et il n'y en a qu'une, même si plusieurs dangers touchent en même temps.
 ///
 /// Protection de réapparition (`Joueur::est_protege`) : aucun danger ne tue
-/// (ennemi touché de côté, pointe, éclair, grêle) ; tout le reste continue (gouttes,
-/// lanternes, champignons, escargots, auvents, écrasement d'un ennemi par le dessus). Tout NOUVEAU
+/// (ennemi touché de côté, pointe, éclair, grêle, éclair du Grand Nuage) ; tout le
+/// reste continue (gouttes, lanternes, champignons, escargots, auvents, écrasement d'un
+/// ennemi par le dessus, saut sur la tête du Grand Nuage). Tout NOUVEAU
 /// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
 /// pas traitée ici (`verifier_vide`) : elle reste mortelle.
 ///
@@ -253,6 +257,18 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
             // La casette du ventilateur est un SOLIDE (on s'y pose), géré par
             // `solides_des_entites` : aucun contact ni danger ici.
             Entite::Ventilateur(_) => {}
+            Entite::Nuage(n) => {
+                // Sa tête, pendant l'essoufflement : un point de moins, et Pépin
+                // rebondit comme sur un ennemi écrasé. Son corps ne blesse pas :
+                // seuls ses éclairs (colonnes qui frappent) sont dangereux.
+                if n.recoit(joueur) {
+                    n.toucher();
+                    joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
+                    contacts.push(Contact::Nuage);
+                } else if !protege && n.foudroie(&joueur.boite) {
+                    mort.get_or_insert(CauseMort::Eclair);
+                }
+            }
         }
     }
 
@@ -986,5 +1002,191 @@ mod tests {
         }
         assert!(cogne, "Pépin aurait dû se cogner sous l'aiguille");
         assert!(j.au_sol && j.boite.bas() == 176.0, "retombé au sol");
+    }
+
+    // --- Grand Nuage (carte 5.11), sur une petite arène de test ---
+
+    /// Une arène d'un écran de large : le `O` au milieu (colonne 9), corps en
+    /// (128, 16), tête à y = 16 ; courants en x = 80 et x = 192 ; sol à y = 96.
+    const MINI_ARENE: &str = r"
+...................
+.........O.........
+...................
+...................
+...................
+.@..o.o.o.........X
+###################
+";
+
+    /// L'arène (sans le drapeau : l'arène du nuage n'en a pas) et ses entités.
+    fn mini_arene() -> (crate::level::Niveau, Vec<Entite>) {
+        let n = crate::level::Niveau::depuis_ascii(&MINI_ARENE.replace('X', "."))
+            .expect("arène valide");
+        let e = n.entites.clone();
+        (n, e)
+    }
+
+    fn le_nuage(e: &[Entite]) -> &crate::entities::GrandNuage {
+        e.iter()
+            .find_map(|x| match x {
+                Entite::Nuage(g) => Some(g),
+                _ => None,
+            })
+            .expect("un nuage")
+    }
+
+    fn le_nuage_mut(e: &mut [Entite]) -> &mut crate::entities::GrandNuage {
+        e.iter_mut()
+            .find_map(|x| match x {
+                Entite::Nuage(g) => Some(g),
+                _ => None,
+            })
+            .expect("un nuage")
+    }
+
+    /// Un pas complet dans l'ordre du jeu, AVEC les courants des entités (celui du
+    /// nuage essoufflé). Renvoie les contacts du pas.
+    fn pas_de_l_arene(
+        n: &crate::level::Niveau,
+        e: &mut [Entite],
+        j: &mut Joueur,
+        entrees: &crate::player::Entrees,
+    ) -> Vec<Contact> {
+        let env = Environnement::simple(n);
+        for x in e.iter_mut() {
+            x.actualiser(&env);
+        }
+        let s = solides(e);
+        let courants = crate::entities::courants_des_entites(e);
+        let env = Environnement {
+            grille: n,
+            solides: &s,
+            courants: &courants,
+            vents: &[],
+        };
+        porter_par_plateformes(j, e, &env);
+        j.actualiser(entrees, &env);
+        resoudre_contacts(j, e)
+    }
+
+    /// Essoufflé, le nuage laisse échapper son courant à gauche : Pépin, posé au
+    /// sol dedans, monte plus haut que la tête du nuage ; il file vers la droite et
+    /// lui retombe dessus : UN coup (2 points restants), un rebond, aucune mort.
+    #[test]
+    fn pepin_monte_dans_le_courant_et_tape_sur_la_tete_du_nuage() {
+        use crate::entities::nuage::PhaseNuage;
+        use crate::player::{Direction, Entrees};
+        let (n, mut e) = mini_arene();
+        le_nuage_mut(&mut e).essouffler();
+        let tete = le_nuage(&e).boite.y;
+        // Au sol dans le courant de gauche (x de 80 à 112), loin des gouttes.
+        let mut j = joueur(82.0, 96.0 - 14.0);
+        let mut plus_haut = f32::MAX;
+        for _ in 0..60 {
+            let c = pas_de_l_arene(&n, &mut e, &mut j, &Entrees::default());
+            assert!(c.is_empty(), "{c:?}");
+            plus_haut = plus_haut.min(j.boite.bas());
+        }
+        assert!(
+            plus_haut < tete,
+            "pieds montés à {plus_haut}, tête à {tete}"
+        );
+        let droite = Entrees {
+            direction: Direction::Droite,
+            saut: false,
+        };
+        let mut coups = 0;
+        for _ in 0..90 {
+            let c = pas_de_l_arene(&n, &mut e, &mut j, &droite);
+            assert!(!c.iter().any(|x| matches!(x, Contact::Mort(_))), "{c:?}");
+            if c.contains(&Contact::Nuage) {
+                coups += 1;
+                assert!(j.vitesse.y < 0.0, "Pépin rebondit sur sa tête");
+            }
+        }
+        assert_eq!(coups, 1, "un seul coup par essoufflement");
+        let g = le_nuage(&e);
+        assert_eq!((g.pv(), g.phase()), (2, PhaseNuage::Touche));
+        assert!(g.courant_actif().is_none(), "touché : plus de courant");
+    }
+
+    /// Hors de l'essoufflement, son courant n'existe pas : Pépin reste au sol.
+    #[test]
+    fn pas_de_courant_hors_de_l_essoufflement() {
+        let (n, mut e) = mini_arene();
+        let mut j = joueur(82.0, 96.0 - 14.0);
+        for _ in 0..60 {
+            pas_de_l_arene(&n, &mut e, &mut j, &crate::player::Entrees::default());
+        }
+        assert!(j.au_sol && j.boite.bas() == 96.0);
+    }
+
+    /// Ses éclairs tuent pendant la frappe seulement (cause : éclair), et jamais
+    /// Pépin protégé ; l'annonce (48 pas) est sans danger. Son corps ne blesse pas.
+    #[test]
+    fn les_eclairs_du_nuage_tuent_pendant_la_frappe() {
+        use crate::entities::nuage::{EtatColonne, PRELUDE_PAS};
+        use crate::physics::Environnement as Env;
+        let (n, mut e) = mini_arene();
+        // Pépin debout dans la 1re colonne (la plus à gauche : x de 18 à 30).
+        let au_sol = joueur(19.0, 96.0 - 14.0);
+        let env = Env::simple(&n);
+        for _ in 1..PRELUDE_PAS {
+            for x in e.iter_mut() {
+                x.actualiser(&env);
+            }
+            let mut j = au_sol.clone();
+            assert!(resoudre_contacts(&mut j, &mut e).is_empty());
+            assert_eq!(le_nuage(&e).etat_colonne(0), EtatColonne::Calme);
+        }
+        // Le motif 1 commence : la colonne 0 est annoncée 48 pas, sans danger.
+        let mut annonce = 0;
+        loop {
+            for x in e.iter_mut() {
+                x.actualiser(&env);
+            }
+            let mut j = au_sol.clone();
+            let c = resoudre_contacts(&mut j, &mut e);
+            match le_nuage(&e).etat_colonne(0) {
+                EtatColonne::Annonce(_) => {
+                    annonce += 1;
+                    assert!(c.is_empty(), "{c:?}");
+                }
+                EtatColonne::Frappe => {
+                    assert_eq!(c, vec![Contact::Mort(CauseMort::Eclair)]);
+                    let mut protege = au_sol.clone();
+                    protege.proteger();
+                    assert!(resoudre_contacts(&mut protege, &mut e).is_empty());
+                    // Au milieu de l'arène (hors de la 1re salve), rien.
+                    let mut milieu = joueur(150.0, 96.0 - 14.0);
+                    assert!(resoudre_contacts(&mut milieu, &mut e).is_empty());
+                    break;
+                }
+                EtatColonne::Calme => panic!("colonne 0 calme pendant la 1re salve"),
+            }
+        }
+        assert_eq!(annonce, 48);
+        // Dans le corps du nuage (de côté), rien : seuls ses éclairs blessent.
+        let mut dedans = joueur(130.0, 20.0);
+        assert!(resoudre_contacts(&mut dedans, &mut e).is_empty());
+    }
+
+    /// Une mort ramène le nuage au prélude, sans lui rendre ses points ; pendant la
+    /// déchirure du ciel, une mort ne change rien.
+    #[test]
+    fn apres_une_mort_le_nuage_reprend_avec_ses_points_perdus() {
+        use crate::entities::nuage::PhaseNuage;
+        let (_, mut e) = mini_arene();
+        le_nuage_mut(&mut e).essouffler();
+        le_nuage_mut(&mut e).toucher();
+        crate::entities::reprendre_apres_une_mort(&mut e);
+        let g = le_nuage(&e);
+        assert_eq!((g.phase(), g.pv(), g.ecoule()), (PhaseNuage::Prelude, 2, 0));
+        le_nuage_mut(&mut e).essouffler();
+        le_nuage_mut(&mut e).toucher();
+        le_nuage_mut(&mut e).essouffler();
+        le_nuage_mut(&mut e).toucher();
+        crate::entities::reprendre_apres_une_mort(&mut e);
+        assert_eq!(le_nuage(&e).phase(), PhaseNuage::Dechirure);
     }
 }

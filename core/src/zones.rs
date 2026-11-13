@@ -1012,7 +1012,7 @@ mod tests {
                 .iter()
                 .map(|p| (Aabb::new(p.x, p.y, t, t), format!("{:?}", p.genre)))
                 .collect();
-            fixes.push((niv.arrivee, "arrivée".into()));
+            fixes.extend(niv.arrivee.map(|a| (a, "arrivée".into())));
             let (dx, dy) = niv.depart;
             fixes.push((Aabb::new(dx, dy, JOUEUR_L, JOUEUR_H), "départ".into()));
             for (place, d) in &places {

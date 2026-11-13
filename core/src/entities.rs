@@ -7,6 +7,8 @@
 //! - `montgolfiere` : la nacelle qui monte avec Pépin et redescend sans lui ;
 //! - `champignon` : le trampoline ; `auvent` : la toile qui relance en diagonale ;
 //! - `escargot` : le tremplin qui marche (un champignon qui patrouille) ;
+//! - `nuage` : le Grand Nuage, boss de l'œil du cyclone (motifs d'éclairs,
+//!   essoufflement et courant ascendant, trois points de vie) ;
 //! - `marche` : la marche au sol partagée par la flaque et l'escargot ;
 //! - `collectibles` : les gouttes d'or et les lanternes (checkpoints) ;
 //! - `contacts` : ce qui se passe quand le joueur touche une entité.
@@ -40,6 +42,7 @@ pub mod grele;
 mod marche;
 pub mod mobile;
 pub mod montgolfiere;
+pub mod nuage;
 pub mod pointe;
 pub mod ventilateur;
 
@@ -56,6 +59,7 @@ pub use friable::PlateformeFriable;
 pub use grele::Grele;
 pub use mobile::PlateformeMobile;
 pub use montgolfiere::Montgolfiere;
+pub use nuage::GrandNuage;
 pub use pointe::Pointe;
 pub use ventilateur::Ventilateur;
 
@@ -88,6 +92,7 @@ pub enum Entite {
     Escargot(Escargot),
     Auvent(Auvent),
     Ventilateur(Ventilateur),
+    Nuage(GrandNuage),
     Goutte(GoutteDor),
     Lanterne(Lanterne),
 }
@@ -109,6 +114,7 @@ impl Actualisable for Entite {
             Entite::Escargot(e) => e.actualiser(env),
             Entite::Auvent(e) => e.actualiser(env),
             Entite::Ventilateur(e) => e.actualiser(env),
+            Entite::Nuage(e) => e.actualiser(env),
             Entite::Goutte(e) => e.actualiser(env),
             Entite::Lanterne(e) => e.actualiser(env),
         }
@@ -130,6 +136,7 @@ impl Entite {
             Entite::Escargot(e) => e.boite,
             Entite::Auvent(e) => e.boite,
             Entite::Ventilateur(e) => e.boite,
+            Entite::Nuage(e) => e.boite,
             Entite::Goutte(e) => e.boite,
             Entite::Lanterne(e) => e.boite,
         }
@@ -156,18 +163,30 @@ pub fn solides_des_entites(entites: &[Entite]) -> Vec<Aabb> {
     entites.iter().filter_map(Entite::solide).collect()
 }
 
-/// Rassemble les courants ascendants des ventilateurs qui SOUFFLENT en ce
-/// moment, à ajouter aux courants du niveau (`niveau.courants`). Le courant
-/// d'un ventilateur n'existe que pendant sa phase de souffle : on ne le met
-/// dans `niveau.courants` (statique) que s'il est actif.
-pub fn courants_des_ventilateurs(entites: &[Entite]) -> Vec<CourantAscendant> {
+/// Rassemble les courants ascendants TEMPORAIRES des entités, actifs en ce
+/// moment, à ajouter aux courants du niveau (`niveau.courants`, statiques) :
+/// celui de chaque ventilateur qui SOUFFLE, et celui du Grand Nuage ESSOUFFLÉ.
+/// Hors de ces phases, ils n'existent pas.
+pub fn courants_des_entites(entites: &[Entite]) -> Vec<CourantAscendant> {
     entites
         .iter()
         .filter_map(|e| match e {
             Entite::Ventilateur(v) => v.courant_actif(),
+            Entite::Nuage(n) => n.courant_actif(),
             _ => None,
         })
         .collect()
+}
+
+/// Pépin vient de mourir : chaque Grand Nuage reprend au début de son combat
+/// (prélude), mais GARDE ses points de vie perdus (`GrandNuage::reprendre`). À
+/// appeler par le jeu quand un `Contact::Mort` est traité.
+pub fn reprendre_apres_une_mort(entites: &mut [Entite]) {
+    for e in entites {
+        if let Entite::Nuage(n) = e {
+            n.reprendre();
+        }
+    }
 }
 
 #[cfg(test)]

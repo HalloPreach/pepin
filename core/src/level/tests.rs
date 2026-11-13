@@ -21,8 +21,9 @@ fn niveau_valide_dimensions_et_reperes() {
     assert_eq!(n.depart.0, 16.0 + 3.0);
     assert_eq!(n.depart.1 + crate::physics::JOUEUR_H, 48.0);
     // Arrivée : 16 x 32, la case X et celle du dessus.
-    assert_eq!(n.arrivee.x, 12.0 * 16.0);
-    assert_eq!((n.arrivee.y, n.arrivee.h), (16.0, 32.0));
+    let arrivee = n.arrivee.expect("un drapeau");
+    assert_eq!(arrivee.x, 12.0 * 16.0);
+    assert_eq!((arrivee.y, arrivee.h), (16.0, 32.0));
     assert_eq!(n.nb_lanternes(), 1);
     // Le sol est solide, le ciel non, hors carte : murs latéraux, ciel ouvert.
     assert!(n.est_solide(0, 3));
@@ -807,4 +808,103 @@ fn aiguille_dont_le_cercle_touche_un_solide_refusee() {
     }
     .to_string();
     assert!(msg.contains("touche un solide"), "{msg}");
+}
+
+// --- Grand Nuage (carte 5.11) ---
+
+/// Une petite arène : 19 colonnes (le `O` au milieu, en colonne 9), un toit à
+/// droite qui coupe la colonne d'éclair la plus à droite, aucun drapeau.
+const ARENE: &str = r"
+...................
+.........O.........
+...................
+...................
+...................
+.@..o.o.o.......##.
+###################
+";
+
+#[test]
+fn grand_nuage_pose_avec_ses_colonnes_et_ses_courants() {
+    use crate::entities::nuage::{PhaseNuage, NB_COLONNES, PV_NUAGE};
+    let n = Niveau::depuis_ascii(ARENE).expect("arène valide");
+    assert!(n.arrivee.is_none(), "pas de drapeau dans l'arène");
+    let g = n
+        .entites
+        .iter()
+        .find_map(|e| match e {
+            Entite::Nuage(g) => Some(g.clone()),
+            _ => None,
+        })
+        .expect("un nuage");
+    assert_eq!((g.phase(), g.pv()), (PhaseNuage::Prelude, PV_NUAGE));
+    // Corps : colonnes 8 à 10, lignes 1-2.
+    assert_eq!(g.boite, Aabb::new(128.0, 16.0, 48.0, 32.0));
+    // Colonnes : de 1 (colonne 9 - 8) à 17 (9 + 8), du dessous du nuage (y = 48)
+    // au sol (y = 96) ; la dernière s'arrête sur le toit (y = 80).
+    assert_eq!(g.colonnes[0], Aabb::new(18.0, 48.0, 12.0, 48.0));
+    assert_eq!(g.colonnes[8], Aabb::new(146.0, 48.0, 12.0, 48.0));
+    assert_eq!(
+        g.colonnes[NB_COLONNES - 1],
+        Aabb::new(274.0, 48.0, 12.0, 32.0)
+    );
+    // Courants : colonnes 5-6 et 12-13, d'une demi-case au-dessus de la tête au sol.
+    assert_eq!(g.courants[0], Aabb::new(80.0, 8.0, 32.0, 88.0));
+    assert_eq!(g.courants[1], Aabb::new(192.0, 8.0, 32.0, 88.0));
+}
+
+#[test]
+fn arene_du_nuage_sans_drapeau_mais_drapeau_ailleurs_obligatoire() {
+    // Un drapeau dans l'arène : refusé (le vaincre finit le niveau).
+    let avec_drapeau = ARENE.replacen(".......##.", "......X##.", 1);
+    assert_eq!(
+        Niveau::depuis_ascii(&avec_drapeau).unwrap_err(),
+        ErreurNiveau::ArriveeEtNuage
+    );
+    // Sans nuage, le drapeau reste obligatoire.
+    let sans_rien = ARENE.replace('O', ".");
+    assert_eq!(
+        Niveau::depuis_ascii(&sans_rien).unwrap_err(),
+        ErreurNiveau::ArriveeManquante
+    );
+    // Deux nuages : refusé.
+    let deux = ARENE.replacen("...................", ".........O.........", 1);
+    assert_eq!(
+        Niveau::depuis_ascii(&deux).unwrap_err(),
+        ErreurNiveau::NuageMultiple { nombre: 2 }
+    );
+    let msg = ErreurNiveau::ArriveeEtNuage.to_string();
+    assert!(msg.contains("« X »") && msg.contains("« O »"), "{msg}");
+}
+
+#[test]
+fn grand_nuage_sans_place_refuse() {
+    let refuse = |texte: &str, ligne: usize, colonne: usize| {
+        assert_eq!(
+            Niveau::depuis_ascii(texte).unwrap_err(),
+            ErreurNiveau::NuageSansPlace { ligne, colonne },
+            "{texte}"
+        );
+    };
+    // Trop près du bord gauche : ses colonnes d'éclairs sortiraient de la carte.
+    let mut lignes: Vec<String> = ARENE.trim().lines().map(String::from).collect();
+    lignes[1] = ".......O...........".into();
+    refuse(&lignes.join("\n"), 2, 8);
+    // Un toit dans son corps (ligne 3, colonne 11).
+    let mut lignes: Vec<String> = ARENE.trim().lines().map(String::from).collect();
+    lignes[2].replace_range(10..11, "#");
+    refuse(&lignes.join("\n"), 2, 10);
+    // Un toit au-dessus de sa tête (ligne 1, colonne 9).
+    let mut lignes: Vec<String> = ARENE.trim().lines().map(String::from).collect();
+    lignes[0].replace_range(8..9, "#");
+    refuse(&lignes.join("\n"), 2, 10);
+    // Collé au haut de la carte : pas de place pour lui sauter sur la tête.
+    let haut = ARENE.trim().lines().skip(1).collect::<Vec<_>>().join("\n");
+    refuse(&haut, 1, 10);
+    let msg = ErreurNiveau::NuageSansPlace {
+        ligne: 2,
+        colonne: 10,
+    }
+    .to_string();
+    assert!(msg.contains("« O »") && msg.contains("sa place"), "{msg}");
 }

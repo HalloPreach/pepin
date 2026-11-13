@@ -45,6 +45,13 @@
 //!   aucune tuile solide en chemin (`Cadran::trajet`). Les douze places, toutes
 //!   présentes à la fois, gênent parfois un saut qui passerait en vrai : c'est
 //!   prudent. Le robot de QA, lui, attend vraiment l'aiguille ;
+//! - le Grand Nuage (boss) est gardé, TOUJOURS essoufflé, ses DEUX courants
+//!   ascendants actifs (un joueur patient attend la fin d'un motif d'éclairs, et
+//!   le courant du bon côté) ; ses éclairs sont donc ignorés, comme les éclairs
+//!   `e`. Un plan qui lui retombe sur la tête « arrive » (`Fin::Arrivee`) : un
+//!   coup se refait trois fois de la même façon, Pépin retombant chaque fois dans
+//!   l'arène. Les tests du niveau d'essai vérifient la tête depuis CHACUN des deux
+//!   courants (ils changent de côté d'un motif à l'autre) ;
 //! - un escargot est remplacé par un tremplin IMMOBILE qui couvre tout son
 //!   trajet (`Escargot::etendu_au_trajet`) : partout où il peut passer, un
 //!   joueur patient qui l'attend au bon endroit lui tombe dessus et rebondit.
@@ -325,6 +332,12 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             // dans son premier sommeil.
             Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => entites.push(e.clone()),
             Entite::Ennemi(_) | Entite::Eclair(_) => {}
+            // Le Grand Nuage : toujours essoufflé (aucun éclair), voir l'en-tête.
+            Entite::Nuage(n) => {
+                let mut essouffle = n.clone();
+                essouffle.essouffler();
+                entites.push(Entite::Nuage(essouffle));
+            }
             Entite::Escargot(s) => {
                 // Son trajet sur la grille et les solides immobiles du niveau.
                 let fixes = solides_des_entites(&niveau.entites);
@@ -368,10 +381,16 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // bon moment du cycle de 4 s). C'est une simplification documentée, à
     // l'image de l'ignorance des éclairs : le timing ne change pas
     // l'atteignabilité, on peut attendre la phase de souffle.
+    // Même chose pour les deux courants du Grand Nuage : un joueur patient
+    // attend son essoufflement, du bon côté.
     if options.courants {
         for e in &niveau.entites {
-            if let Entite::Ventilateur(v) = e {
-                courants.push(CourantAscendant::new(v.zone));
+            match e {
+                Entite::Ventilateur(v) => courants.push(CourantAscendant::new(v.zone)),
+                Entite::Nuage(n) => {
+                    courants.extend(n.courants.iter().map(|&z| CourantAscendant::new(z)));
+                }
+                _ => {}
             }
         }
     }
@@ -713,13 +732,15 @@ fn simuler(
             match c {
                 Contact::Mort(_) => return (Fin::Mort, pas),
                 Contact::Auvent => relance = true,
+                // Un saut sur la tête du Grand Nuage : le combat se gagne ainsi.
+                Contact::Nuage => return (Fin::Arrivee, pas),
                 autre => touches.push(autre),
             }
         }
         if verifier_vide(&j, bas_monde).is_some() {
             return (Fin::Mort, pas);
         }
-        if j.boite.chevauche(&niveau.arrivee) {
+        if niveau.arrivee.is_some_and(|a| j.boite.chevauche(&a)) {
             return (Fin::Arrivee, pas);
         }
         if relance {
