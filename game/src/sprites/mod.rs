@@ -894,6 +894,61 @@ mod tests {
         }
     }
 
+    // --- Aiguilles d'horloge (carte 5.10) ---
+
+    /// La plaque de l'aiguille couvre EXACTEMENT sa boîte de collision
+    /// (`level::TAILLE_AIGUILLE`), cernée de sombre ; son dessus (rangée 1) est
+    /// clair : on voit où poser les pieds.
+    #[test]
+    fn l_aiguille_couvre_toute_sa_collision() {
+        let a = dessin("aiguille");
+        let (w, h) = pepin_core::level::TAILLE_AIGUILLE;
+        assert_eq!((largeur(a), hauteur(a)), (w as usize, h as usize));
+        for (y, ligne) in a.iter().enumerate() {
+            assert!(!ligne.contains('.'), "rangée {y} : du vide dans la plaque");
+            assert!(ligne.starts_with('0') && ligne.ends_with('0'), "rangée {y}");
+        }
+        assert!(a[0].chars().all(|c| c == '0') && a[7].chars().all(|c| c == '0'));
+        assert!(a[1][1..31].chars().all(|c| c == 'C'), "dessus or pâle");
+    }
+
+    /// Le cadran (32 x 32) est rond et symétrique : chaque rangée a la même
+    /// silhouette à gauche et à droite, et en haut et en bas ; son premier et son
+    /// dernier pixel sont le contour sombre. Le moyeu (le pivot) est au centre.
+    #[test]
+    fn le_cadran_est_rond_et_cerne_de_sombre() {
+        let c = dessin("cadran");
+        assert_eq!((largeur(c), hauteur(c)), (32, 32));
+        let plein = |x: usize, y: usize| c[y].as_bytes()[x] != b'.';
+        for y in 0..32 {
+            for x in 0..32 {
+                assert_eq!(plein(x, y), plein(31 - x, y), "({x}, {y})");
+                assert_eq!(plein(x, y), plein(x, 31 - y), "({x}, {y})");
+                assert_eq!(plein(x, y), plein(y, x), "({x}, {y})");
+            }
+            let l = c[y].trim_matches('.');
+            assert!(l.starts_with('0') && l.ends_with('0'), "rangée {y}");
+        }
+        assert_eq!(&c[15][14..18], "0BB0", "moyeu");
+        assert_eq!(dessin("maillon").len(), 4);
+    }
+
+    /// Le cadran, la tige et l'aiguille se lisent sur TOUS les ciels : sur chaque
+    /// bande de ciel de chaque thème, l'une de leurs couleurs (contour sombre, or,
+    /// blanc cassé du cadran) contraste d'au moins 4,5:1.
+    #[test]
+    fn l_horloge_se_detache_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('0'), ciel)
+                    .max(contraste(couleur_de('B'), ciel))
+                    .max(contraste(couleur_de('7'), ciel));
+                assert!(k >= 4.5, "{theme:?} : horloge sur {ciel:?} : {k:.2}");
+            }
+        }
+    }
+
     #[test]
     fn les_friables_d_ardoise_ont_la_taille_des_nuages() {
         for k in 0..2 {

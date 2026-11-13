@@ -195,6 +195,71 @@ pub const MOBILE: Image = &[
     "00000000000000000000000000000000",
 ];
 
+/// Aiguille d'horloge 32x8 (carte 5.10) : une plaque de laiton qui tourne autour
+/// de son cadran. Même taille que la plateforme mobile, le dessin couvre toute la
+/// boîte de collision ; dessus or pâle (le bord où l'on se tient), ombre orange
+/// dessous, trois rivets (celui du milieu tient la tige des maillons).
+pub const AIGUILLE: Image = &[
+    "00000000000000000000000000000000",
+    "0CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0",
+    "0BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB0",
+    "0BB00BBBBBBBBBB00BBBBBBBBBB00BB0",
+    "0BB00BBBBBBBBBB00BBBBBBBBBB00BB0",
+    "0BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB0",
+    "0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0",
+    "00000000000000000000000000000000",
+];
+
+/// Cadran d'horloge 32x32, centré sur le pivot `h` d'une aiguille : contour sombre,
+/// bord doré (ombré orange en bas à droite), filet sombre, fond blanc cassé,
+/// douze graduations (12, 3, 6 et 9 plus grosses) et le moyeu doré du pivot.
+/// Dessin seulement : aucune collision.
+pub const CADRAN: Image = &[
+    "..............0000..............",
+    "..........0000BBBB0000..........",
+    "........00BBBBBBBBBBBB00........",
+    ".......0BBBBBB0000BBBBBB0.......",
+    ".....00BBBB0007777000BBBB00.....",
+    "....00BBB00777700777700BBB00....",
+    "....0BBB0770777007770770BBB0....",
+    "...0BBB077777777777777770BBB0...",
+    "..0BBB07777777777777777770BBA0..",
+    "..0BB0777777777777777777770AA0..",
+    ".0BBB0707777777777777777070AAA0.",
+    ".0BB077777777777777777777770AA0.",
+    ".0BB077777777777777777777770AA0.",
+    ".0BB077777777777777777777770AA0.",
+    "0BB07777777777700777777777770AA0",
+    "0BB070077777770BB077777770070AA0",
+    "0BB070077777770BB077777770070AA0",
+    "0BB07777777777700777777777770AA0",
+    ".0BB077777777777777777777770AA0.",
+    ".0BB077777777777777777777770AA0.",
+    ".0BB077777777777777777777770AA0.",
+    ".0BBB0707777777777777777070AAA0.",
+    "..0BB0777777777777777777770AA0..",
+    "..0BBB07777777777777777770AAA0..",
+    "...0BBB077777777777777770AAA0...",
+    "....0BBB0770777007770770AAA0....",
+    "....00BBB00777700777700AAA00....",
+    ".....00BBAA0007777000AAAA00.....",
+    ".......0AAAAAA0000AAAAAA0.......",
+    "........00AAAAAAAAAAAA00........",
+    "..........0000AAAA0000..........",
+    "..............0000..............",
+];
+
+/// Maillon 4x4 de la tige qui relie le moyeu du cadran à l'aiguille : posés en
+/// ligne du pivot jusqu'au milieu de la plaque, ils tournent avec elle comme une
+/// aiguille de montre (chaque maillon est posé à une position entière, jamais
+/// tourné ni agrandi).
+pub const MAILLON: Image = &[
+    ".00.",
+    "0BB0",
+    "0BA0",
+    ".00.",
+];
+
 pub const PANNEAU_DEPLACER: Image = &[
     "..000000000000..",
     "..044444444440..",
@@ -669,6 +734,9 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("friable_ardoise0", FRIABLE_ARDOISE0),
     ("friable_ardoise1", FRIABLE_ARDOISE1),
     ("mobile", MOBILE),
+    ("aiguille", AIGUILLE),
+    ("cadran", CADRAN),
+    ("maillon", MAILLON),
     ("panneau_deplacer", PANNEAU_DEPLACER),
     ("panneau_sauter", PANNEAU_SAUTER),
     ("panneau_planer", PANNEAU_PLANER),

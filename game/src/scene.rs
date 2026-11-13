@@ -1,7 +1,8 @@
 //! Scène : dessine un `Monde` dans la cible 320x180, couche par couche.
 //!
 //! Ordre (arrière -> avant) : fond (ciel, silhouettes) -> tuiles -> décor -> panneaux ->
-//! plateformes -> objets -> ennemis -> Pépin -> particules -> pluie.
+//! cadrans des aiguilles d'horloge -> plateformes -> objets -> ennemis -> Pépin ->
+//! particules -> pluie.
 //! L'interface (compteurs, chrono) est dessinée par `hud`, les menus par `ecrans`.
 //! Chaque sprite est posé à une position ENTIÈRE (positions interpolées puis
 //! arrondies) : aucun sous-pixel.
@@ -275,6 +276,58 @@ fn dessiner_eclair(zone: &Aabb, annonce: bool, progression: f32, frappe: bool, c
     }
 }
 
+/// Écart (px) entre deux maillons de la tige d'une aiguille d'horloge.
+const PAS_MAILLON: f32 = 6.0;
+
+/// Coins haut-gauche (entiers) des maillons 4x4 de la tige d'une aiguille, du
+/// pivot `pivot` jusqu'au centre `bout` de sa plaque : un tous les `PAS_MAILLON`
+/// px, le premier à 6 px du pivot (le moyeu du cadran est au centre), le dernier
+/// au moins 4 px avant le bout (caché sous la plaque sinon). La tige tourne avec
+/// la plaque comme l'aiguille d'une montre : seules les POSITIONS changent, aucun
+/// sprite n'est tourné. Fonction pure.
+fn maillons(pivot: (f32, f32), bout: (f32, f32)) -> Vec<(i32, i32)> {
+    let (dx, dy) = (bout.0 - pivot.0, bout.1 - pivot.1);
+    let longueur = (dx * dx + dy * dy).sqrt();
+    if longueur < 1.0 {
+        return Vec::new();
+    }
+    let n = ((longueur - 4.0) / PAS_MAILLON).floor().max(0.0) as usize;
+    (1..=n)
+        .map(|k| {
+            let t = k as f32 * PAS_MAILLON / longueur;
+            let (x, y) = (pivot.0 + dx * t, pivot.1 + dy * t);
+            ((x - 2.0).round() as i32, (y - 2.0).round() as i32)
+        })
+        .collect()
+}
+
+/// Les cadrans des aiguilles d'horloge (32x32, centrés sur leur pivot) et la tige
+/// de maillons qui va du moyeu au milieu de la plaque. Dessinés AVANT les entités :
+/// la plaque, Pépin, les gouttes passent devant.
+fn dessiner_cadrans(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) {
+    for (i, entite) in monde.entites.iter().enumerate() {
+        let Entite::Mobile(m) = entite else {
+            continue;
+        };
+        let Some(cercle) = m.cercle() else {
+            continue;
+        };
+        let (px, py) = (cercle.pivot.0.round() as i32, cercle.pivot.1.round() as i32);
+        banque.dessiner(
+            "cadran",
+            (px - 16 - cx) as f32,
+            (py - 16 - cy) as f32,
+            false,
+        );
+        // Bout de la tige : le milieu de la plaque, à sa position DESSINÉE (arrondie).
+        let (x, y) = entier(&monde.boite_interpolee(i, alpha));
+        let bout = (x as f32 + m.boite.w / 2.0, y as f32 + m.boite.h / 2.0);
+        for (mx, my) in maillons(cercle.pivot, bout) {
+            banque.dessiner("maillon", (mx - cx) as f32, (my - cy) as f32, false);
+        }
+    }
+}
+
 fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) {
     let pas = monde.pas;
     // Parapluie ouvert de Pépin (la grêle se brise dessus), à sa position dessinée.
@@ -355,7 +408,16 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     banque.dessiner(nom, sx + (k * 16) as f32 + tremble, sy, false);
                 }
             }
-            Entite::Mobile(_) => banque.dessiner("mobile", sx, sy, false),
+            // Une aiguille d'horloge (cadran et tige dessinés avant, voir
+            // `dessiner_cadrans`) ou une plateforme en aller-retour.
+            Entite::Mobile(m) => {
+                let nom = if m.cercle().is_some() {
+                    "aiguille"
+                } else {
+                    "mobile"
+                };
+                banque.dessiner(nom, sx, sy, false);
+            }
             Entite::Montgolfiere(m) => {
                 // Sprite 20x40 : la nacelle (16x8, la boîte `b`) occupe ses 8 dernières
                 // rangées, le ballon les 32 du dessus et déborde de 2 px de chaque
@@ -747,6 +809,7 @@ pub fn dessiner(
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);
+    dessiner_cadrans(monde, banque, alpha, cx, cy);
     dessiner_entites(monde, banque, alpha, cx, cy);
     dessiner_pepin(monde, banque, alpha, cx, cy);
     particules.dessiner(cx, cy);
@@ -757,6 +820,33 @@ pub fn dessiner(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- Aiguilles d'horloge (carte 5.10) ---
+
+    /// La tige d'une aiguille de 48 px de rayon : 7 maillons tous les 6 px, du
+    /// moyeu jusque sous la plaque, alignés sur le rayon, à midi comme à 3 h.
+    #[test]
+    fn les_maillons_vont_du_pivot_a_la_plaque() {
+        let midi = maillons((120.0, 88.0), (120.0, 40.0));
+        assert_eq!(midi.len(), 7);
+        assert_eq!(midi[0], (118, 80));
+        assert_eq!(midi[6], (118, 44));
+        assert!(midi
+            .windows(2)
+            .all(|w| w[0].0 == w[1].0 && w[0].1 - w[1].1 == 6));
+        let trois_heures = maillons((120.0, 88.0), (168.0, 88.0));
+        let attendu: Vec<(i32, i32)> = (1..=7).map(|k| (118 + 6 * k, 86)).collect();
+        assert_eq!(trois_heures, attendu);
+        // En diagonale : chaque maillon reste à moins d'un pixel du rayon.
+        let diag = maillons((0.0, 0.0), (30.0, 40.0));
+        assert_eq!(diag.len(), 7);
+        for (x, y) in diag {
+            let (cx, cy) = (x as f32 + 2.0, y as f32 + 2.0);
+            let ecart = (cx * 40.0 - cy * 30.0).abs() / 50.0;
+            assert!(ecart <= 0.75, "({x}, {y}) : {ecart}");
+        }
+        assert!(maillons((5.0, 5.0), (5.0, 5.0)).is_empty());
+    }
 
     // --- Variantes de brique et ombre sous les toits ---
 
