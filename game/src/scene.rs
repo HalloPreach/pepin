@@ -290,12 +290,12 @@ pub(crate) fn image_nuage(phase: PhaseNuage, ecoule: u16, pas: u32) -> Option<&'
     match phase {
         PhaseNuage::Prelude | PhaseNuage::Colere => Some(image(&ennemis::NUAGE_COLERE, pas, 12)),
         PhaseNuage::Essouffle => Some(image(&ennemis::NUAGE_ESSOUFFLE, pas, 15)),
-        PhaseNuage::Touche => (ecoule / 4 % 2 == 0).then_some("nuage_touche"),
+        PhaseNuage::Touche => (ecoule / 4).is_multiple_of(2).then_some("nuage_touche"),
         PhaseNuage::Dechirure => {
             let visible = match ecoule {
                 0..60 => true,
-                60..90 => ecoule % 3 != 0,
-                _ => ecoule % 3 == 0,
+                60..90 => !ecoule.is_multiple_of(3),
+                _ => ecoule.is_multiple_of(3),
             };
             visible.then_some("nuage_touche")
         }

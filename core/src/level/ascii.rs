@@ -343,7 +343,8 @@ pub(super) fn analyser(
 
     // Grand Nuage : voir `poser_nuage`.
     for &case in &nuages {
-        entites.push(Entite::Nuage(poser_nuage(&tuiles, largeur, hauteur, case)?));
+        let nuage = poser_nuage(&tuiles, largeur, hauteur, case)?;
+        entites.push(Entite::Nuage(Box::new(nuage)));
     }
 
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même

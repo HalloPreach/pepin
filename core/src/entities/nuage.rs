@@ -281,7 +281,7 @@ impl GrandNuage {
     /// Côté du courant de l'essoufflement : à gauche après les motifs 1 et 3, à
     /// droite après le motif 2 (il faut traverser l'arène).
     pub fn cote_du_courant(&self) -> Cote {
-        if self.motif() % 2 == 0 {
+        if self.motif().is_multiple_of(2) {
             Cote::Gauche
         } else {
             Cote::Droite

@@ -92,7 +92,11 @@ pub enum Entite {
     Escargot(Escargot),
     Auvent(Auvent),
     Ventilateur(Ventilateur),
-    Nuage(GrandNuage),
+    /// Le Grand Nuage est bien plus gros que les autres entités (ses 17 colonnes
+    /// d'éclairs) : il vit dans une `Box`, sur le tas. Sans elle, CHAQUE case du
+    /// `Vec<Entite>` aurait sa taille (un `enum` est aussi grand que sa plus grande
+    /// variante) ; avec, la variante n'est plus qu'un pointeur.
+    Nuage(Box<GrandNuage>),
     Goutte(GoutteDor),
     Lanterne(Lanterne),
 }

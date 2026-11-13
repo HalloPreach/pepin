@@ -1029,7 +1029,7 @@ mod tests {
     fn le_nuage(e: &[Entite]) -> &crate::entities::GrandNuage {
         e.iter()
             .find_map(|x| match x {
-                Entite::Nuage(g) => Some(g),
+                Entite::Nuage(g) => Some(g.as_ref()),
                 _ => None,
             })
             .expect("un nuage")
@@ -1038,7 +1038,7 @@ mod tests {
     fn le_nuage_mut(e: &mut [Entite]) -> &mut crate::entities::GrandNuage {
         e.iter_mut()
             .find_map(|x| match x {
-                Entite::Nuage(g) => Some(g),
+                Entite::Nuage(g) => Some(g.as_mut()),
                 _ => None,
             })
             .expect("un nuage")
