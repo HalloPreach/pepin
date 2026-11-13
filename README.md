@@ -92,10 +92,11 @@ Contenu de `core/src` :
   collisions axe par axe (`deplacer`).
 - `physics.rs` : constantes (gravité, vitesse de saut...) et `Environnement`.
 - `player.rs` : Pépin (`Joueur::actualiser` : course, saut variable, coyote
-  time, tampon de saut, planer, courants ascendants).
+  time, tampon de saut, planer, courants ascendants, vent latéral, élan d'auvent).
 - `entities/` : un fichier par famille d'entités (flaques et corbeaux dans
   `ennemi.rs`, pigeons dans `ennemi/pigeon.rs`, `pointe.rs`, `eclair.rs`,
-  plateformes `friable.rs` et `mobile.rs`, `champignon.rs`, gouttes et
+  plateformes `friable.rs` et `mobile.rs`, `champignon.rs`, l'auvent qui relance
+  en diagonale dans `auvent.rs`, gouttes et
   lanternes dans `collectibles.rs`) et `contacts.rs` pour ce qui se passe quand
   Pépin touche quelque chose.
 - `level.rs`, `level/ascii.rs`, `level/erreur.rs` : le format de niveau ASCII
@@ -249,9 +250,8 @@ versionné (`.gitignore`) : c'est un produit régénérable.
 Build de mise au point (touches 1 à 9 pour sauter à un niveau, Page suivante / N et
 Page précédente / B pour le niveau suivant ou précédent, 0 pour le niveau d'essai
 vertical de la caméra, F1, F2 et F3 pour les niveaux d'essai du vent latéral, de la
-grêle et des auvents, F9 pour provoquer un
-vrai plantage et vérifier le message de la page ; sert aux captures et à la QA, jamais
-à publier) :
+grêle et des auvents, F9 pour provoquer un vrai plantage et vérifier le message de la
+page ; sert aux captures et à la QA, jamais à publier) :
 
     ./build.sh --qa        # produit dist-qa/ (ignoré par git)
 

@@ -246,6 +246,9 @@ mod tests {
             avance(Direction::Droite),
             avance(Direction::Gauche),
         );
+        println!(
+            "avance d'un vol : rien {rien:.1} px, droite {droite:.1} px, gauche {gauche:.1} px"
+        );
         assert!((60.0..=70.0).contains(&rien), "sans rien : {rien}");
         assert!(droite > 100.0, "droite : {droite}");
         assert!((0.0..30.0).contains(&gauche), "gauche : {gauche}");

@@ -1,4 +1,4 @@
-//! Niveau d'essai « auvent » : un écran et demi de boutiques qui met en scène
+//! Niveau d'essai « auvent » : deux écrans de boutiques qui mettent en scène
 //! les auvents (carte 5.5 du plan de capture). Hors de la table `NIVEAUX`, il
 //! n'existe QUE dans les tests et dans le build de QA (fonctionnalité
 //! `debug_niveaux`, touche F3) ; en production il n'est pas compilé dans le
@@ -9,7 +9,7 @@
 //! 4, 5, 3 et 4 tuiles : sans rien toucher, un rebond retombe 4 tuiles plus loin ;
 //! il faut garder la droite pour le 5 et retenir (gauche) pour le 3. Le toit
 //! d'arrivée commence 3 tuiles après le dernier auvent. (Un joueur pressé peut
-//! aussi en sauter : en gardant la droite, un rebond porte à 7 ou 8 tuiles.)
+//! aussi en sauter : en gardant la droite, un rebond porte à 7,5 tuiles.)
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
