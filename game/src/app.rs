@@ -14,16 +14,16 @@
 //! à chaque écran, méthodes qui ne se contredisent pas (un seul endroit change
 //! d'écran).
 
+use pepin_core::levels::{self, Apres, NB_NIVEAUX, NIVEAUX};
 use pepin_core::player::Entrees;
 use pepin_core::state::EtatJeu;
-use pepin_core::zones::NB_NIVEAUX;
 
 use crate::camera::Camera;
 use crate::contenu;
 use crate::ecrans::fin::{self, Bilan};
 use crate::ecrans::{self, aide, carte, pause, titre, Disposition, Ecran};
 use crate::effets::effets;
-use crate::entrees::Commandes;
+use crate::entrees::{self, Commandes, RaccourciNiveau};
 use crate::hud;
 use crate::menu::{Choix, Menu};
 use crate::monde::Monde;
@@ -203,8 +203,14 @@ impl Application {
 
     // --- Réactions aux appuis (une fois par image) -------------------------------
 
-    /// `raccourci` : touche de mise au point 1 à 5 (niveau à charger tout de suite).
-    pub fn reagir(&mut self, nav: &Navigation, commandes: &Commandes, raccourci: Option<usize>) {
+    /// `raccourci` : raccourci de niveau du build de mise au point (touches 1 à 9, niveau
+    /// suivant ou précédent), à charger tout de suite comme une nouvelle partie.
+    pub fn reagir(
+        &mut self,
+        nav: &Navigation,
+        commandes: &Commandes,
+        raccourci: Option<RaccourciNiveau>,
+    ) {
         if nav.son && self.son_disponible {
             self.son = !self.son;
         }
@@ -229,7 +235,9 @@ impl Application {
             Ecran::Jeu => {
                 if commandes.pause {
                     self.ouvrir(Ecran::Pause);
-                } else if let Some(indice) = raccourci {
+                } else if let Some(indice) = raccourci
+                    .and_then(|r| entrees::cible_raccourci(r, self.monde.indice, NB_NIVEAUX))
+                {
                     self.lancer(Suite::Niveau { indice, etat: None });
                 }
             }
@@ -345,16 +353,17 @@ impl Application {
         );
         self.pas_partie += 1;
         if self.monde.termine {
-            let numero = self.monde.infos.numero as usize;
-            // Après le dernier niveau : l'écran de fin ; sinon le score est gardé.
-            self.lancer(if numero >= NB_NIVEAUX {
-                Suite::Fin
-            } else {
-                Suite::Niveau {
-                    indice: numero,
-                    etat: Some(self.monde.etat.clone()),
-                }
-            });
+            // Niveau suivant (le score est gardé), en sautant le bonus s'il manque des
+            // gouttes ; après l'épilogue ou le dernier niveau : l'écran de fin.
+            self.lancer(
+                match levels::apres(NIVEAUX, self.monde.indice, self.monde.etat.gouttes) {
+                    Apres::Niveau(indice) => Suite::Niveau {
+                        indice,
+                        etat: Some(self.monde.etat.clone()),
+                    },
+                    Apres::Fin => Suite::Fin,
+                },
+            );
         }
     }
 
@@ -374,7 +383,7 @@ impl Application {
                 self.ecran = Ecran::Carte(carte::DUREE_PAS);
             }
             Suite::Recommencer => {
-                let indice = self.monde.infos.numero as usize - 1;
+                let indice = self.monde.indice;
                 // Le niveau repart comme au début, mais les morts restent comptées.
                 let mut etat = self.debut_niveau.clone();
                 etat.morts = self.monde.etat.morts;
@@ -445,12 +454,9 @@ impl Application {
                     hud::dessiner(banque, self.monde.etat.gouttes, self.pas_partie);
                 }
                 match self.ecran {
-                    Ecran::Carte(_) => carte::dessiner(
-                        self.monde.infos.numero as usize - 1,
-                        self.monde.infos.numero,
-                        self.monde.infos.nom,
-                        self.anim,
-                    ),
+                    Ecran::Carte(_) => {
+                        carte::dessiner(self.monde.indice, self.monde.infos, self.anim)
+                    }
                     Ecran::Pause => pause::dessiner(self.anim, &libelles, &self.menu, &dispo),
                     _ => {}
                 }
@@ -780,9 +786,75 @@ mod tests {
     #[test]
     fn le_raccourci_de_mise_au_point_charge_le_niveau_demande() {
         let mut app = en_jeu();
-        app.reagir(&rien(), &Commandes::default(), Some(3));
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Aller(3)),
+        );
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
         assert_eq!(app.monde.infos.numero, 4);
+    }
+
+    #[test]
+    fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
+        let mut app = en_jeu();
+        // Au premier niveau, « précédent » ne fait rien (aucune transition).
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Precedent),
+        );
+        assert!(!app.transition.est_active());
+        // « Suivant » jusqu'au dernier niveau, en passant par tous.
+        for attendu in 1..NB_NIVEAUX {
+            app.reagir(
+                &rien(),
+                &Commandes::default(),
+                Some(RaccourciNiveau::Suivant),
+            );
+            jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+            app.reagir(&valider(), &Commandes::default(), None);
+            assert_eq!(app.monde.indice, attendu);
+            assert_eq!(app.ecran, Ecran::Jeu);
+        }
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Suivant),
+        );
+        assert!(!app.transition.est_active(), "rien après le dernier niveau");
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Precedent),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, NB_NIVEAUX - 2);
+    }
+
+    /// Chaque niveau terminé mène là où le dit `levels::apres` (avec les gouttes de la
+    /// partie) : le niveau suivant, ou l'écran de fin.
+    #[test]
+    fn la_suite_de_chaque_niveau_suit_la_table() {
+        for indice in 0..NB_NIVEAUX {
+            for gouttes in [0, levels::gouttes_pour_le_bonus(NIVEAUX)] {
+                let mut app = en_jeu();
+                let (monde, camera) = charger(indice, None);
+                app.monde = monde;
+                app.camera = camera;
+                app.monde.etat.gouttes = gouttes;
+                app.monde.termine = true;
+                avancer(&mut app, 1);
+                match levels::apres(NIVEAUX, indice, gouttes) {
+                    Apres::Niveau(j) => {
+                        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+                        assert_eq!(app.monde.indice, j);
+                        assert_eq!(app.monde.etat.gouttes, gouttes, "gouttes gardées");
+                    }
+                    Apres::Fin => jusqu_a(&mut app, |e| e == Ecran::Fin),
+                }
+            }
+        }
     }
 
     #[test]
@@ -791,7 +863,11 @@ mod tests {
         app.reagir(&valider(), &Commandes::default(), None);
         assert!(app.transition.est_active());
         // Deuxième appui pendant les volets : ignoré (pas de nouvelle demande).
-        app.reagir(&valider(), &Commandes::default(), Some(2));
+        app.reagir(
+            &valider(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Aller(2)),
+        );
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
         assert_eq!(app.monde.infos.numero, 1);
     }

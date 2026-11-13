@@ -10,7 +10,8 @@
 //! vérifiée par le compilateur, `struct` de données, tests qui parcourent les
 //! données.
 
-use pepin_core::zones::NB_NIVEAUX;
+use pepin_core::levels::{GenreNiveau, NB_NIVEAUX};
+use pepin_core::zones::InfosNiveau;
 
 use crate::menu::Choix;
 
@@ -113,14 +114,20 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
 ];
 
-/// Intro du niveau `indice` (0 à 4) ; un indice trop grand donne le dernier.
+/// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier.
 pub fn intro(indice: usize) -> &'static Intro {
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
 
-/// « NIVEAU 2/5 » : étiquette de la carte de transition et du HUD.
-pub fn etiquette_niveau(numero: u8) -> String {
-    format!("NIVEAU {numero}/{NB_NIVEAUX}")
+/// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau
+/// normal (`nb_normaux` : nombre de niveaux normaux du jeu ; le bonus et l'épilogue ne
+/// comptent pas), « NIVEAU BONUS » ou « ÉPILOGUE » pour les deux autres genres.
+pub fn etiquette_niveau(infos: &InfosNiveau, nb_normaux: usize) -> String {
+    match infos.genre {
+        GenreNiveau::Normal => format!("NIVEAU {}/{nb_normaux}", infos.numero),
+        GenreNiveau::Bonus => "NIVEAU BONUS".to_string(),
+        GenreNiveau::Epilogue => "ÉPILOGUE".to_string(),
+    }
 }
 
 // --- Pause -----------------------------------------------------------------
@@ -246,6 +253,26 @@ mod tests {
 
     #[test]
     fn etiquette_de_niveau() {
-        assert_eq!(etiquette_niveau(2), "NIVEAU 2/5");
+        use pepin_core::levels::{nb_normaux, NIVEAUX};
+        // Les cinq niveaux actuels : comme avant la carte 5.1.
+        assert_eq!(
+            etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
+            "NIVEAU 2/5"
+        );
+        // Un jeu de 11 niveaux (9 normaux, bonus, épilogue) : le bonus et l'épilogue
+        // ne sont pas comptés dans « /9 ».
+        let mut infos = NIVEAUX[0];
+        infos.numero = 9;
+        assert_eq!(etiquette_niveau(&infos, 9), "NIVEAU 9/9");
+        infos.genre = GenreNiveau::Bonus;
+        assert_eq!(etiquette_niveau(&infos, 9), "NIVEAU BONUS");
+        infos.genre = GenreNiveau::Epilogue;
+        assert_eq!(etiquette_niveau(&infos, 9), "ÉPILOGUE");
+        // Chaque caractère existe dans la police.
+        for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10"] {
+            for c in e.chars() {
+                assert!(pepin_core::font::glyphe(c).is_some(), "{c:?}");
+            }
+        }
     }
 }

@@ -25,6 +25,8 @@ pub const REAPPARITION_PAS: u16 = 18;
 
 #[derive(Clone)]
 pub struct Monde {
+    /// Place du niveau dans la table `NIVEAUX` (0 pour le premier).
+    pub indice: usize,
     pub infos: &'static InfosNiveau,
     pub niveau: Niveau,
     pub entites: Vec<Entite>,
@@ -54,7 +56,7 @@ pub struct Monde {
 }
 
 impl Monde {
-    /// Charge le niveau `indice` (0 à 4). Les niveaux sont validés par les tests du
+    /// Charge le niveau `indice` de la table `NIVEAUX`. Les niveaux sont validés par les tests du
     /// cœur : un échec ici est une erreur de programmation, d'où le `expect`.
     pub fn new(indice: usize) -> Self {
         let infos = zones::niveau(indice).expect("indice de niveau valide");
@@ -66,6 +68,7 @@ impl Monde {
         let entites = niveau.entites.clone();
         let precedent_entites = entites.iter().map(Self::coin).collect();
         Self {
+            indice,
             infos,
             precedent_joueur: (joueur.boite.x, joueur.boite.y),
             niveau,

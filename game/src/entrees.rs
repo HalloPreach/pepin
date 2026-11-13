@@ -140,34 +140,76 @@ impl Sources {
     }
 }
 
-/// Les raccourcis 1 à 5 (saut à un niveau) n'existent que dans un build de mise au
-/// point : fonctionnalité Cargo `debug_niveaux`, absente de la production.
-/// En production, un appui accidentel ne doit jamais perdre la partie ni permettre
-/// de finir avec un temps truqué (sur AZERTY, ces touches sont & é " ' ( ).
+/// Les raccourcis de niveau (touches 1 à 9, niveau suivant / précédent) n'existent
+/// que dans un build de mise au point : fonctionnalité Cargo `debug_niveaux`, absente
+/// de la production. En production, un appui accidentel ne doit jamais perdre la
+/// partie ni permettre de finir avec un temps truqué (sur AZERTY, les touches 1 à 9
+/// sont & é " ' ( - è _ ç).
 pub const RACCOURCIS_NIVEAUX: bool = cfg!(feature = "debug_niveaux");
 
-/// Touches de saut de niveau, dans l'ordre des niveaux 1 à 5.
-const TOUCHES_NIVEAUX: [KeyCode; 5] = [
+/// Changement de niveau demandé par un raccourci du build de QA.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RaccourciNiveau {
+    /// Aller au niveau d'indice donné (touches 1 à 9 : indices 0 à 8).
+    Aller(usize),
+    /// Niveau suivant dans la table (bonus compris, sans condition de gouttes).
+    Suivant,
+    /// Niveau précédent dans la table.
+    Precedent,
+}
+
+/// Touches de saut direct, dans l'ordre des niveaux 1 à 9. Une touche au-delà du
+/// nombre de niveaux ne fait rien (`cible_raccourci`).
+const TOUCHES_NIVEAUX: [KeyCode; 9] = [
     KeyCode::Key1,
     KeyCode::Key2,
     KeyCode::Key3,
     KeyCode::Key4,
     KeyCode::Key5,
+    KeyCode::Key6,
+    KeyCode::Key7,
+    KeyCode::Key8,
+    KeyCode::Key9,
 ];
+/// Niveau suivant : Page suivante, ou N (même place en QWERTY et en AZERTY), pour
+/// les claviers sans touches de page. Utilisable quel que soit le nombre de niveaux.
+const TOUCHES_SUIVANT: [KeyCode; 2] = [KeyCode::PageDown, KeyCode::N];
+/// Niveau précédent : Page précédente, ou B (à gauche de N).
+const TOUCHES_PRECEDENT: [KeyCode; 2] = [KeyCode::PageUp, KeyCode::B];
 
-/// Niveau demandé (indice 0 à 4) d'après les touches appuyées cette image.
+/// Raccourci demandé d'après les touches appuyées cette image (saut direct d'abord).
 /// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
 /// testée sans fenêtre, avec ou sans la fonctionnalité.
-pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<usize> {
+pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<RaccourciNiveau> {
     if !actif {
         return None;
     }
-    TOUCHES_NIVEAUX.iter().position(|&k| appuyee(k))
+    if let Some(i) = TOUCHES_NIVEAUX.iter().position(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Aller(i))
+    } else if TOUCHES_SUIVANT.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Suivant)
+    } else if TOUCHES_PRECEDENT.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Precedent)
+    } else {
+        None
+    }
 }
 
-/// Raccourci de mise au point : touches 1 à 5 pour sauter à un niveau
+/// Indice du niveau à charger pour le raccourci `r`, depuis le niveau `courant`, dans
+/// un jeu de `nb` niveaux ; `None` : rien à faire (touche 7 avec 5 niveaux, « suivant »
+/// au dernier niveau, « précédent » au premier). Fonction pure.
+pub fn cible_raccourci(r: RaccourciNiveau, courant: usize, nb: usize) -> Option<usize> {
+    let cible = match r {
+        RaccourciNiveau::Aller(i) => Some(i),
+        RaccourciNiveau::Suivant => courant.checked_add(1),
+        RaccourciNiveau::Precedent => courant.checked_sub(1),
+    };
+    cible.filter(|&i| i < nb)
+}
+
+/// Raccourci de mise au point : touches 1 à 9, niveau suivant ou précédent
 /// (uniquement avec la fonctionnalité `debug_niveaux`).
-pub fn raccourci_niveau() -> Option<usize> {
+pub fn raccourci_niveau() -> Option<RaccourciNiveau> {
     niveau_demande(RACCOURCIS_NIVEAUX, is_key_pressed)
 }
 
@@ -359,11 +401,19 @@ mod tests {
         assert!(TOUCHES_SON.contains(&KeyCode::Semicolon));
     }
 
+    /// Toutes les touches de raccourci de niveau.
+    fn touches_de_niveau() -> impl Iterator<Item = KeyCode> {
+        TOUCHES_NIVEAUX
+            .into_iter()
+            .chain(TOUCHES_SUIVANT)
+            .chain(TOUCHES_PRECEDENT)
+    }
+
     #[test]
     fn sans_la_fonctionnalite_aucune_touche_ne_saute_de_niveau() {
         // Même avec TOUTES les touches enfoncées : rien.
         assert_eq!(niveau_demande(false, |_| true), None);
-        for k in TOUCHES_NIVEAUX {
+        for k in touches_de_niveau() {
             assert_eq!(niveau_demande(false, |t| t == k), None, "{k:?}");
         }
     }
@@ -371,9 +421,77 @@ mod tests {
     #[test]
     fn avec_la_fonctionnalite_chaque_touche_donne_son_niveau() {
         for (i, k) in TOUCHES_NIVEAUX.into_iter().enumerate() {
-            assert_eq!(niveau_demande(true, |t| t == k), Some(i));
+            assert_eq!(
+                niveau_demande(true, |t| t == k),
+                Some(RaccourciNiveau::Aller(i))
+            );
+        }
+        for k in TOUCHES_SUIVANT {
+            assert_eq!(
+                niveau_demande(true, |t| t == k),
+                Some(RaccourciNiveau::Suivant)
+            );
+        }
+        for k in TOUCHES_PRECEDENT {
+            assert_eq!(
+                niveau_demande(true, |t| t == k),
+                Some(RaccourciNiveau::Precedent)
+            );
         }
         assert_eq!(niveau_demande(true, |_| false), None);
+    }
+
+    /// Les raccourcis ne prennent aucune touche de jeu ni de menu.
+    #[test]
+    fn les_raccourcis_de_niveau_ne_touchent_a_aucune_commande() {
+        let commandes: Vec<KeyCode> = TOUCHES_GAUCHE
+            .iter()
+            .chain(&TOUCHES_DROITE)
+            .chain(&TOUCHES_SAUT)
+            .chain(&TOUCHES_PAUSE)
+            .chain(&TOUCHES_SON)
+            .chain(&TOUCHES_HAUT)
+            .chain(&TOUCHES_BAS)
+            .chain(&TOUCHES_VALIDER)
+            .chain(&TOUCHES_RETOUR)
+            .copied()
+            .collect();
+        for k in touches_de_niveau() {
+            assert!(!commandes.contains(&k), "{k:?}");
+        }
+    }
+
+    /// Au-delà de 9 niveaux, « suivant » et « précédent » atteignent tous les niveaux ;
+    /// les touches au-delà du nombre de niveaux ne font rien.
+    #[test]
+    fn cible_des_raccourcis() {
+        use RaccourciNiveau::{Aller, Precedent, Suivant};
+        // 11 niveaux : du premier au dernier avec « suivant », et retour.
+        let mut i = 0;
+        for attendu in 1..11 {
+            i = cible_raccourci(Suivant, i, 11).unwrap();
+            assert_eq!(i, attendu);
+        }
+        assert_eq!(
+            cible_raccourci(Suivant, 10, 11),
+            None,
+            "rien après le dernier"
+        );
+        assert_eq!(cible_raccourci(Precedent, 10, 11), Some(9));
+        assert_eq!(
+            cible_raccourci(Precedent, 0, 11),
+            None,
+            "rien avant le premier"
+        );
+        assert_eq!(cible_raccourci(Aller(8), 0, 11), Some(8));
+        // 5 niveaux : les touches 1 à 5 comme avant, 6 à 9 sans effet.
+        for k in 0..5 {
+            assert_eq!(cible_raccourci(Aller(k), 2, 5), Some(k));
+        }
+        for k in 5..9 {
+            assert_eq!(cible_raccourci(Aller(k), 2, 5), None);
+        }
+        assert_eq!(cible_raccourci(Suivant, 4, 5), None);
     }
 
     #[cfg(not(feature = "debug_niveaux"))]
@@ -389,7 +507,11 @@ mod tests {
         // Clavier où seule la touche 3 est enfoncée : niveau 3 (indice 2).
         assert_eq!(
             niveau_demande(RACCOURCIS_NIVEAUX, |k| k == KeyCode::Key3),
-            Some(2)
+            Some(RaccourciNiveau::Aller(2))
+        );
+        assert_eq!(
+            niveau_demande(RACCOURCIS_NIVEAUX, |k| k == KeyCode::PageDown),
+            Some(RaccourciNiveau::Suivant)
         );
     }
 
@@ -408,8 +530,9 @@ mod tests {
             .chain(&TOUCHES_BAS)
             .chain(&TOUCHES_VALIDER)
             .chain(&TOUCHES_RETOUR)
-            .chain(&TOUCHES_NIVEAUX);
-        for &k in autres {
+            .copied()
+            .chain(touches_de_niveau());
+        for k in autres {
             assert!(!plantage_demande(true, |t| t == k), "{k:?}");
         }
     }

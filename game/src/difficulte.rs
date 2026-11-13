@@ -236,7 +236,7 @@ pub(crate) struct Itineraires {
 }
 
 impl Itineraires {
-    /// Calcule les itinéraires du niveau `indice` (0 à 4) avec les plans
+    /// Calcule les itinéraires du niveau `indice` (place dans la table) avec les plans
     /// grossiers du robot, puis avec ses plans précis si le drapeau reste hors
     /// d'atteinte (même repli que `bot_qa::tous_les_parcours`).
     pub(crate) fn calculer(indice: usize) -> Self {
@@ -1161,7 +1161,7 @@ mod tests {
 
     /// Une mesure inventée : morts moyennes du Débutant et de l'Habitué par
     /// niveau (l'Expert ne compte pas pour la forme de la courbe).
-    fn fausse_mesure(debutant: [f32; 5], habitue: [f32; 5]) -> Vec<Vec<Case>> {
+    fn fausse_mesure(debutant: [f32; NB_NIVEAUX], habitue: [f32; NB_NIVEAUX]) -> Vec<Vec<Case>> {
         (0..NB_NIVEAUX)
             .map(|n| {
                 [debutant[n], habitue[n], 0.0]

@@ -9,9 +9,9 @@
 //! Les touches sont lues par POSITION physique : les listes
 //! de `entrees.rs` couvrent QWERTY et AZERTY (sur AZERTY, M est à la position du
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
-//! tactile : boutons virtuels. Touches 1 à 5 (changer de niveau) et F9 (plantage
-//! volontaire) : uniquement dans le build de mise au point (`./build.sh --qa`,
-//! fonctionnalités `debug_niveaux` et `qa_plantage`).
+//! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
+//! (changer de niveau) et F9 (plantage volontaire) : uniquement dans le build de mise
+//! au point (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
 mod app;
 mod audio;

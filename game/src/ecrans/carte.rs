@@ -2,9 +2,11 @@
 //! Elle s'affiche par-dessus le niveau figé, juste après la transition.
 
 use pepin_core::font::largeur_texte;
+use pepin_core::levels::{nb_normaux, NIVEAUX};
 use pepin_core::palette::{
     ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL_CLAIR, OR_PALE,
 };
+use pepin_core::zones::InfosNiveau;
 use pepin_core::LARGEUR_LOGIQUE;
 
 use super::{panneau, trame};
@@ -35,16 +37,18 @@ fn echelle_nom(nom: &str) -> u32 {
     }
 }
 
-/// `indice` : 0 à 4 ; `nom` : titre du niveau ; `anim` : pas écoulés (clignotement).
-pub fn dessiner(indice: usize, numero: u8, nom: &str, anim: u32) {
-    let nom = titre_niveau(nom);
+/// `indice` : place du niveau dans la table ; `infos` : le niveau ; `anim` : pas écoulés
+/// (clignotement).
+pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32) {
+    let nom = titre_niveau(infos.nom);
     let nom = nom.as_str();
     trame();
     let l = LARGEUR_LOGIQUE as f32;
     panneau(12.0, 34.0, l - 24.0, 112.0, ARDOISE_NUIT, ARDOISE_CLAIRE);
     let ombre = |c| Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
 
-    texte::dessiner_centre(&contenu::etiquette_niveau(numero), 44.0, ombre(BRUME));
+    let etiquette = contenu::etiquette_niveau(infos, nb_normaux(NIVEAUX));
+    texte::dessiner_centre(&etiquette, 44.0, ombre(BRUME));
     texte::dessiner_centre(
         nom,
         56.0 + if echelle_nom(nom) == 3 { 0.0 } else { 4.0 },
@@ -69,7 +73,6 @@ pub fn dessiner(indice: usize, numero: u8, nom: &str, anim: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::zones::NIVEAUX;
 
     #[test]
     fn toutes_les_cartes_tiennent_dans_leur_cadre() {

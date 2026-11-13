@@ -1,4 +1,4 @@
-//! Robot de QA : un « joueur automatique » qui finit les cinq niveaux avec la
+//! Robot de QA : un « joueur automatique » qui finit tous les niveaux avec la
 //! VRAIE simulation du jeu (`Monde` : ennemis, éclairs, plateformes mobiles et
 //! friables comprises), puis rejoue ce parcours à travers l'`Application`
 //! (titre, cartes de niveau, transitions, écran de fin).
@@ -346,7 +346,7 @@ pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
 pub struct Trame {
     pub valider: bool,
     pub entrees: Entrees,
-    /// Niveau affiché (1 à 5, 0 hors jeu) et position de Pépin : pour choisir
+    /// Numéro du niveau affiché (0 hors jeu) et position de Pépin : pour choisir
     /// les images à photographier.
     pub niveau: u8,
     pub x: f32,
@@ -526,8 +526,8 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
     }
 }
 
-/// Cherche le parcours des cinq niveaux (robot « maladroit » d'abord, puis
-/// précis si besoin).
+/// Cherche le parcours de chaque niveau de la table (robot « maladroit » d'abord,
+/// puis précis si besoin).
 pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
     (0..NB_NIVEAUX)
         .map(|i| {
@@ -542,12 +542,31 @@ pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
 mod tests {
     use super::*;
 
+    /// Le robot finit la partie sans mourir, et joue les niveaux dans l'ordre que
+    /// donne `levels::apres` avec SES gouttes (bonus sauté s'il en manque).
     #[test]
-    fn le_robot_finit_les_cinq_niveaux_sans_mourir() {
+    fn le_robot_finit_tous_les_niveaux_sans_mourir() {
+        use pepin_core::levels::{apres, Apres, NIVEAUX};
         let parcours = tous_les_parcours();
         let partie = jouer_tout(&parcours);
         assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
         assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        // Niveaux joués (numéros), dans l'ordre, et gouttes à la fin de chacun.
+        let mut joues: Vec<(u8, u32)> = Vec::new();
+        for t in partie.trames.iter().filter(|t| t.niveau > 0) {
+            match joues.last_mut() {
+                Some((n, g)) if *n == t.niveau => *g = t.gouttes,
+                _ => joues.push((t.niveau, t.gouttes)),
+            }
+        }
+        let mut attendu = vec![1u8];
+        for &(n, g) in &joues {
+            if let Apres::Niveau(j) = apres(NIVEAUX, n as usize - 1, g) {
+                attendu.push(j as u8 + 1);
+            }
+        }
+        let numeros: Vec<u8> = joues.iter().map(|&(n, _)| n).collect();
+        assert_eq!(numeros, attendu);
     }
 
     /// Écrit le script des touches pour le navigateur : `target/qa/script.txt`
