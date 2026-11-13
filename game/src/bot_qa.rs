@@ -625,6 +625,10 @@ pub struct ImageEssai {
     /// Pépin plane DANS une colonne de grêle (carte 5.4) : parapluie ouvert, la grêle
     /// se brise sur la toile.
     pub sous_la_grele: bool,
+    /// Un auvent vient de relancer Pépin pendant cette image (carte 5.5).
+    pub rebond_auvent: bool,
+    /// Pépin est posé au sol (sur une tuile ou un solide) à la fin de cette image.
+    pub au_sol: bool,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -682,6 +686,8 @@ fn jouer_essai(
             && app.monde.entites.iter().any(|e| {
                 matches!(e, pepin_core::entities::Entite::Grele(g) if g.zone.chevauche(&j.boite))
             });
+        let rebond_auvent = app.monde.contacts.contains(&Contact::Auvent);
+        let au_sol = j.au_sol;
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -690,6 +696,8 @@ fn jouer_essai(
             pepin_ecran_y,
             repere,
             sous_la_grele,
+            rebond_auvent,
+            au_sol,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -745,6 +753,71 @@ pub fn jouer_essai_grele(parcours: &[Entrees]) -> PartieEssai {
         RaccourciNiveau::Essai3,
         parcours,
     )
+}
+
+/// Joue le niveau d'essai « auvent » (touche F3 du build de QA) — voir `jouer_essai`.
+pub fn jouer_essai_auvent(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_AUVENT,
+        RaccourciNiveau::Essai4,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans le niveau d'essai « auvent » (maladroit, puis précis) :
+/// chaque rebond d'auvent est un point de décision (`Fin::Lance`), d'où il essaie
+/// les plans en vol (`plans_en_vol`). Il cherche le plus RAPIDE : en gardant la
+/// droite, il saute des auvents (voir `parcours_essai_auvent_rebond_par_rebond`).
+pub fn parcours_essai_auvent() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_AUVENT;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai auvent")
+}
+
+/// Parcours « rebond par rebond » du niveau d'essai « auvent » : le robot vise
+/// chaque auvent à son tour (de gauche à droite), sans en sauter aucun, puis le
+/// drapeau. Chaque morceau est un plus court chemin (`chercher`) dont la cible est
+/// « vient d'être relancé par CET auvent ». C'est le moment fort du marché couvert
+/// (six auvents à la suite sans toucher le sol), joué par le robot pour les captures.
+pub fn parcours_essai_auvent_rebond_par_rebond() -> Vec<Entrees> {
+    let (mut monde, mut entrees) = depart_pose(crate::monde::INDICE_ESSAI_AUVENT);
+    let mut auvents: Vec<pepin_core::aabb::Aabb> = monde
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Auvent(a) => Some(a.boite),
+            _ => None,
+        })
+        .collect();
+    auvents.sort_by(|a, b| a.x.total_cmp(&b.x));
+    let tous = plans(false);
+    let mut jouer = |monde: &mut Monde, etapes: Vec<Etape>| {
+        for e in etapes {
+            for x in &e.entrees {
+                monde.avancer(x);
+            }
+            entrees.extend(e.entrees);
+        }
+    };
+    for cible in auvents {
+        // Relancé par CET auvent : posé sur sa toile, en vol, élan tout neuf.
+        let relance = |m: &Monde| {
+            let b = m.joueur.boite;
+            est_lance(m)
+                && (b.bas() - cible.y).abs() < 0.01
+                && b.x < cible.droite()
+                && cible.x < b.droite()
+        };
+        let etapes = chercher(&monde, &tous, &relance, usize::MAX)
+            .expect("le robot ne sait pas atteindre l'auvent suivant");
+        jouer(&mut monde, etapes);
+    }
+    let etapes = chercher(&monde, &tous, &|_| false, usize::MAX)
+        .expect("le robot ne sait pas finir après le dernier auvent");
+    jouer(&mut monde, etapes);
+    entrees
 }
 
 /// Parcours du robot dans le niveau d'essai « grêle » (maladroit, puis précis). La
@@ -841,6 +914,84 @@ mod tests {
             essai.len(),
             partie.gouttes,
             dernier.trame.x
+        );
+    }
+
+    /// Rebonds d'auvent d'une partie d'essai : indices (dans les images de jeu) des
+    /// images où un auvent relance Pépin.
+    fn rebonds(essai: &[&ImageEssai]) -> Vec<usize> {
+        (0..essai.len())
+            .filter(|&k| essai[k].rebond_auvent)
+            .collect()
+    }
+
+    /// Le robot (le plus rapide) finit le niveau d'essai « auvent » (carte 5.5) sans
+    /// mourir, à travers l'`Application` (touche F3 du build de QA) : il traverse le
+    /// vide par les auvents sans toucher le sol entre son premier et son dernier
+    /// rebond (en gardant la droite, il en saute certains : c'est permis).
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_auvent() {
+        let partie = jouer_essai_auvent(&parcours_essai_auvent());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F3, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let r = rebonds(&essai);
+        assert!(r.len() >= 3, "{} rebonds d'auvent", r.len());
+        let (premier, dernier) = (r[0], *r.last().unwrap());
+        assert!(
+            essai[premier..=dernier].iter().all(|i| !i.au_sol),
+            "Pépin a touché le sol entre deux auvents"
+        );
+        println!(
+            "essai auvent (le plus rapide) : {} images de jeu, {} rebonds, gouttes {}",
+            essai.len(),
+            r.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Rebond par rebond (le parcours des captures) : les SIX auvents, chacun à son
+    /// tour, sans toucher le sol du premier au dernier ; trois gouttes (dont celles
+    /// en l'air, entre deux rebonds), aucune mort.
+    #[test]
+    fn le_robot_enchaine_les_six_auvents_de_l_essai() {
+        let partie = jouer_essai_auvent(&parcours_essai_auvent_rebond_par_rebond());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(
+            partie.gouttes, 3,
+            "les trois gouttes du niveau d'essai auvent"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let r = rebonds(&essai);
+        // Les six auvents (colonnes 9, 13, 17, 22, 25, 29), un rebond chacun, dans
+        // l'ordre : l'auvent relanceur est celui que la boîte de Pépin (10 px) touche.
+        let colonnes: Vec<i32> = r
+            .iter()
+            .filter_map(|&k| {
+                let x = essai[k].trame.x;
+                [9, 13, 17, 22, 25, 29]
+                    .into_iter()
+                    .find(|&c| x < (c * 16 + 16) as f32 && ((c * 16) as f32) < x + 10.0)
+            })
+            .collect();
+        assert_eq!(
+            colonnes,
+            vec![9, 13, 17, 22, 25, 29],
+            "rebonds aux images {r:?}"
+        );
+        assert!(
+            essai[r[0]..=r[5]].iter().all(|i| !i.au_sol),
+            "Pépin a touché le sol entre deux auvents"
+        );
+        println!(
+            "essai auvent (rebond par rebond) : {} images de jeu, rebonds aux images {r:?}",
+            essai.len()
         );
     }
 
@@ -1033,6 +1184,45 @@ mod tests {
         std::fs::write("../target/qa/trace-54.csv", trace).unwrap();
         println!(
             "images : {} ; F2 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai « auvent » (parcours rebond par rebond : les
+    /// six auvents à la suite) pour le navigateur :
+    /// `target/qa/script-55.txt`, `target/qa/touches-55.txt` (image du pilote où
+    /// appuyer sur F3, une image après la trace : le navigateur a un pas de retard) et
+    /// `target/qa/trace-55.csv` (position de Pépin, caméra, rebonds d'auvent, sol).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_auvent
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_auvent() {
+        let partie = jouer_essai_auvent(&parcours_essai_auvent_rebond_par_rebond());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-55.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-55.txt", format!("{pilote}:F3\n")).unwrap();
+        let mut trace = String::from("image,ecran,essai,x,y,cam_x,cam_y,rebond_auvent,au_sol\n");
+        for (k, i) in partie.images.iter().enumerate() {
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.rebond_auvent),
+                u8::from(i.au_sol)
+            ));
+        }
+        std::fs::write("../target/qa/trace-55.csv", trace).unwrap();
+        println!(
+            "images : {} ; F3 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );
