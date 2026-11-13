@@ -107,7 +107,10 @@ pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
 mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
-    use crate::levels::{essai_auvent, essai_grele, essai_vent, essai_ventilateur, essai_vertical};
+    use crate::levels::{
+        essai_auvent, essai_grele, essai_montgolfiere, essai_vent, essai_ventilateur,
+        essai_vertical,
+    };
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
@@ -139,6 +142,7 @@ mod tests {
             &essai_grele::INFOS,
             &essai_auvent::INFOS,
             &essai_ventilateur::INFOS,
+            &essai_montgolfiere::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -166,6 +170,7 @@ mod tests {
             &essai_grele::INFOS,
             &essai_auvent::INFOS,
             &essai_ventilateur::INFOS,
+            &essai_montgolfiere::INFOS,
         ])
     }
 
@@ -303,6 +308,43 @@ mod tests {
             !r.arrivee,
             "sans le souffle du ventilateur, le balcon doit rester hors de portée"
         );
+    }
+
+    /// Le niveau d'essai « montgolfière » passe les mêmes contrôles (arrivée, 3
+    /// gouttes, lanternes, robot maladroit) : le robot gravit les deux étages en
+    /// montgolfière.
+    #[test]
+    fn niveau_d_essai_montgolfiere_faisable() {
+        verifier_infos(&essai_montgolfiere::INFOS);
+    }
+
+    /// Sans les montgolfières (les `b` remplacés par du vide), aucun étage n'est à
+    /// portée : ni l'étage B depuis le quai (112 px), ni l'étage du drapeau depuis
+    /// l'étage B (64 px, plus qu'un saut). Avec la PREMIÈRE seulement, l'étage B est
+    /// atteint mais pas le drapeau : chacune des deux sert.
+    #[test]
+    fn niveau_d_essai_montgolfiere_exige_les_deux_montgolfieres() {
+        let ascii = essai_montgolfiere::INFOS.ascii;
+        let sans = Niveau::depuis_ascii(&ascii.replace('b', ".")).unwrap();
+        let r = analyser(&sans, sans.depart, Options::default());
+        assert!(!r.arrivee, "sans montgolfière, le drapeau doit rester hors de portée");
+        // La seconde (ligne 9) retirée, la première (ligne 16) gardée.
+        let lignes: Vec<String> = ascii
+            .lines()
+            .enumerate()
+            .map(|(i, l)| if i == 10 { l.replace('b', ".") } else { l.to_string() })
+            .collect();
+        let une = Niveau::depuis_ascii(&lignes.join("\n")).unwrap();
+        assert_eq!(
+            une.entites
+                .iter()
+                .filter(|e| matches!(e, crate::entities::Entite::Montgolfiere(_)))
+                .count(),
+            1
+        );
+        let r = analyser(&une, une.depart, Options::default());
+        assert!(!r.arrivee, "sans la seconde, le drapeau doit rester hors de portée");
+        assert!(r.gouttes[1], "mais la première porte bien à l'étage B : {r:?}");
     }
 
     /// Ni le départ ni aucune lanterne sous la grêle : Pépin y apparaît (ou y
