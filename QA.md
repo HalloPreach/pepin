@@ -1094,3 +1094,15 @@ alternés avec le repos de 530 à 570, comme prévu par `image_attente`.
 Limites : jugé sur captures x4 et sur la planche ; le tapotement n'est qu'un pixel de déplacement
 du parapluie (lisible en mouvement, discret à l'arrêt). Pas testé : vrai téléphone, Safari/Firefox ;
 aucun son (le tapotement est muet).
+
+Vérification sur une extraction propre de aea406c (`git archive`, nouveau dossier daté) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 161 + 203 tests, tous verts (13 de
+  plus qu'à la carte 4.2) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit,
+  0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+- `docs/planche-sprites.png` régénérée par les tests de l'extraction : identique à l'octet à celle du
+  commit. Script du robot régénéré dans l'extraction : identique à l'octet.
+- Les 7 captures « après » refaites sur le build de QA de l'extraction (mêmes images du rejeu) et
+  regardées : même image de Pépin reconnue dans chacune. Quatre sont identiques à l'octet (repos,
+  clignement, nez en l'air, tapotement : Pépin immobile) ; course, saut et chute sont décalées d'un
+  pixel logique en x (caméra) et Pépin d'un ou deux pixels en y, comme à la carte 4.2 : le rejeu ne
+  fige pas toujours au même instant entre deux pas (position interpolée).
