@@ -41,7 +41,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
 | Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou la ligne « SON » des menus |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
-| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral, de la grêle, des auvents et du ventilateur : F1, F2, F3 et F4 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
+| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral, de la grêle, des auvents, du ventilateur et des montgolfières : F1, F2, F3, F4 et F5 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
 Les touches sont lues par leur POSITION physique (le « code » du navigateur), pas
 par la lettre imprimée : sur un clavier AZERTY, A et Q (QWERTY) sont à la place de Q
@@ -98,7 +98,8 @@ Contenu de `core/src` :
   plateformes `friable.rs` et `mobile.rs`, `champignon.rs`, l'auvent qui relance
   en diagonale dans `auvent.rs`, le ventilateur qui souffle un courant vers le
   haut (2 s de souffle, annonce qui clignote, 2 s d'arrêt) dans `ventilateur.rs`,
-  gouttes et
+  la montgolfière dont la nacelle monte avec Pépin et redescend sans lui dans
+  `montgolfiere.rs`, gouttes et
   lanternes dans `collectibles.rs`) et `contacts.rs` pour ce qui se passe quand
   Pépin touche quelque chose.
 - `level.rs`, `level/ascii.rs`, `level/erreur.rs` : le format de niveau ASCII
@@ -251,8 +252,8 @@ versionné (`.gitignore`) : c'est un produit régénérable.
 
 Build de mise au point (touches 1 à 9 pour sauter à un niveau, Page suivante / N et
 Page précédente / B pour le niveau suivant ou précédent, 0 pour le niveau d'essai
-vertical de la caméra, F1, F2, F3 et F4 pour les niveaux d'essai du vent latéral, de la
-grêle, des auvents et du ventilateur, F9 pour provoquer un vrai plantage et vérifier le message de la
+vertical de la caméra, F1, F2, F3, F4 et F5 pour les niveaux d'essai du vent latéral, de la
+grêle, des auvents, du ventilateur et des montgolfières, F9 pour provoquer un vrai plantage et vérifier le message de la
 page ; sert aux captures et à la QA, jamais à publier) :
 
     ./build.sh --qa        # produit dist-qa/ (ignoré par git)
