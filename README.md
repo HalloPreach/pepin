@@ -238,8 +238,9 @@ Compiler ET préparer le dossier à publier (une seule commande) :
 complet et statique. `docs/build.md` détaille chaque étape. `dist/` n'est pas
 versionné (`.gitignore`) : c'est un produit régénérable.
 
-Build de mise au point (touches 1 à 5 pour sauter à un niveau ; sert aux captures
-et à la QA, jamais à publier) :
+Build de mise au point (touches 1 à 5 pour sauter à un niveau, F9 pour provoquer un
+vrai plantage et vérifier le message de la page ; sert aux captures et à la QA, jamais
+à publier) :
 
     ./build.sh --qa        # produit dist-qa/ (ignoré par git)
 
@@ -252,6 +253,10 @@ navigateur ne charge pas un `.wasm` depuis un fichier ouvert directement
 (`file://`).
 Dans le jeu, appuyer sur une touche ou cliquer avant d'attendre du son (les
 navigateurs bloquent l'audio avant la première interaction).
+Si le jeu plante en cours de partie (erreur WebAssembly, affichage WebGL perdu), la
+page coupe le son et affiche un message avec un bouton « Recharger » ; les erreurs des
+scripts que certains navigateurs injectent dans la page (portefeuille de Brave...)
+sont ignorées.
 
 Pour compiler seulement le wasm, sans `dist/` :
 

@@ -445,3 +445,51 @@ Non testé : un vrai téléphone verrouillé, Safari iOS (qui peut suspendre l'a
 Firefox, un vrai changement d'onglet ou d'application (simulé par script, voir plus haut) ; la version
 de bureau native (X11/Windows) n'a pas été lancée ; le son n'a pas été écouté (seuls l'état des
 AudioContext et le nombre de boucles sont mesurés).
+
+### Plantage en cours de partie : message au lieu d'une image figée
+
+Défaut constaté : dans `web/index.html`, le message d'erreur ne s'affichait que PENDANT le chargement.
+Une panique Rust en pleine partie (« RuntimeError: unreachable ») ou un affichage WebGL perdu figeait
+l'image sans explication, musique comprise.
+
+- Après le démarrage, une erreur qui vient VRAIMENT du jeu affiche maintenant un message plein écran
+  « PÉPIN s'est arrêté », la cause entre parenthèses et un bouton « Recharger » (qui recharge la page ;
+  aucun lien externe), qui reçoit le focus clavier. Les AudioContext sont fermés : plus aucun son.
+  Le premier message est gardé (les erreurs suivantes ne l'écrasent pas).
+- « Vient du jeu » : fichier `mq_js_bundle.js` ou `game.wasm`, ou message WebAssembly / RuntimeError /
+  unreachable / WebGL (le filtre d'origine, inchangé), plus `unhandledrejection` (même tri, ou erreur
+  de type `WebAssembly.RuntimeError` / `CompileError` / `LinkError`) et l'événement `webglcontextlost`
+  du canevas (macroquad ne sait pas recréer ses textures).
+- Filtre conservé : les erreurs des scripts injectés par le navigateur (portefeuille de Brave :
+  `window.ethereum`, `selectedAddress` ; « Script error. » sans fichier) ne déclenchent JAMAIS de
+  message ; elles sont même écartées avant tout autre test. Écart volontaire avec la demande : le nom
+  de fichier `index.html` n'est PAS retenu comme critère, car un script injecté dans la page porte
+  souvent l'adresse de la page elle-même (c'est ce qui bloquait l'iPhone sous Brave) ; le script de la
+  page protège ses propres appels risqués (suspension du son) par des `try/catch`.
+- Au chargement, rien ne change (mêmes messages qu'avant), avec en plus le bouton « Recharger ».
+- Build de QA seulement : fonctionnalité Cargo `qa_plantage` (activée par `./build.sh --qa`, vérifiée
+  par le lint) : F9 provoque une vraie panique. Le texte de la panique est absent du wasm de production
+  (`grep -c 'plantage volontaire'` : 0 dans `dist/`, 1 dans `dist-qa/`). Tests : F9 seule le déclenche,
+  aucune touche de jeu ou de menu, et jamais sans la fonctionnalité.
+
+Preuves dans Chromium 1208 piloté par CDP (`docs/qa-focus-plantage.mjs`, scénarios `brave`,
+`plantage`, `webgl`, `wasm-bloque`). « Avant » = page du commit précédent.
+
+| Cas | Avant | Après |
+|-----|-------|-------|
+| Partie en cours, 4 erreurs « Brave » injectées (lecture de `window.ethereum.selectedAddress` par un script en ligne, « Script error. » sans fichier, promesse rejetée « reading 'selectedAddress' », `web3` absent dans une minuterie), `dist/` | pas de message | pas de message ; après chaque erreur Pépin court encore (4,7 à 9,6 % de l'image change), musique et pluie continuent |
+| F9 en pleine partie, son activé (`dist-qa/`) | image noire et figée, aucun message, AudioContext « running » | « PÉPIN s'est arrêté » + « (Uncaught RuntimeError: unreachable) » + bouton Recharger (focus clavier dessus), AudioContext « closed » ; même état 2 s plus tard |
+| Clic sur « Recharger » | (pas de bouton) | la page se recharge, écran titre, jeu chargé |
+| Perte du contexte WebGL en pleine partie (`WEBGL_lose_context`), `dist/` | image figée, aucun message, son qui continue | message « (l'affichage WebGL a été perdu) » + bouton, AudioContext « closed » |
+| `game.wasm` bloqué (`Network.setBlockedURLs`) | écran de chargement à 4 s, message « n'a pas démarré après 25 secondes » à 27 s | identique, avec le bouton Recharger en plus |
+
+Captures : `docs/qa/92-brave-apres-*`, `92-plantage-apres-*` (1 jeu, 2 après F9, 3 après Recharger),
+`92-plantage-avant-2-plantage-f9.png` (écran noir figé), `92-webgl-avant/apres-2-contexte-perdu.png`,
+`92-wasm-bloque-apres-1-apres-27s.png`.
+
+Non testé : un vrai plantage du jeu publié (aucun connu : il a été provoqué) ; Safari iOS (message de
+panique différent, « Unreachable code should not be executed », couvert par « unreachable » mais non
+essayé) ; un vrai iPhone sous Brave (ses erreurs ont été imitées d'après l'historique : script en
+ligne, « Script error. », promesse) ; Firefox ; une vraie perte de contexte par le pilote graphique
+(provoquée par l'extension `WEBGL_lose_context`). Une erreur de notre propre script de page qui ne
+serait pas protégée ne déclencherait pas de message (choix assumé, voir plus haut).

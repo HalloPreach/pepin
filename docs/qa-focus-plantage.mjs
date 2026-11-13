@@ -6,6 +6,14 @@
 //                 l'écran (pause ?), les boucles sonores (musique + pluie) et l'état de l'AudioContext ;
 //                 puis Échap (reprise) ; puis fenêtre qui perd le focus en restant visible (blur).
 //   focus-titre : mêmes pertes de focus sur l'écran titre : aucune pause ne doit apparaître.
+//   brave       : en pleine partie, erreurs typiques des scripts injectés par un navigateur (portefeuille
+//                 de Brave : window.ethereum.selectedAddress, « Script error. », promesse rejetée) :
+//                 le jeu doit continuer, sans message.
+//   plantage    : build de QA (`./build.sh --qa`) : en pleine partie, son activé, F9 provoque une vraie
+//                 panique Rust ; le message plein écran et le bouton « Recharger » doivent apparaître,
+//                 le son être coupé ; puis clic sur « Recharger » (la page revient au titre).
+//   webgl       : en pleine partie, perte du contexte WebGL (extension WEBGL_lose_context).
+//   wasm-bloque : game.wasm bloqué (Network.setBlockedURLs) : le message de chargement doit rester.
 //
 // Simulation de l'onglet masqué (Chromium sans écran ne masque jamais vraiment un onglet) : un script
 // injecté avant la page force `document.visibilityState` à « hidden », envoie `visibilitychange`, et
@@ -46,7 +54,7 @@ ws.onmessage = (m) => {
 const cdp = (method, params = {}) => new Promise((r) => { const i = ++id; att.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 const evaluer = async (expr) => (await cdp('Runtime.evaluate', { expression: expr, returnByValue: true })).result?.result?.value;
 
-const VK = { KeyM: 77, Enter: 13, Escape: 27, ArrowRight: 39, ArrowLeft: 37, Space: 32, Digit0: 48 };
+const VK = { KeyM: 77, Enter: 13, Escape: 27, ArrowRight: 39, ArrowLeft: 37, Space: 32, F9: 120 };
 const touche = (code, key, bas) => cdp('Input.dispatchKeyEvent', { type: bas ? 'keyDown' : 'keyUp', code, key, windowsVirtualKeyCode: VK[code], nativeVirtualKeyCode: VK[code] });
 const taper = async (code, key, ms = 120) => { await touche(code, key, true); await dormir(ms); await touche(code, key, false); };
 const capture = async (nom) => {
@@ -124,6 +132,10 @@ const OBSERVATEUR = `(() => {
 
 await cdp('Page.enable');
 await cdp('Runtime.enable');
+if (scenario === 'wasm-bloque') {
+  await cdp('Network.enable');
+  await cdp('Network.setBlockedURLs', { urls: ['*game.wasm'] });
+}
 await cdp('Page.addScriptToEvaluateOnNewDocument', { source: OBSERVATEUR });
 await cdp('Emulation.setFocusEmulationEnabled', { enabled: true });
 await cdp('Page.bringToFront');
@@ -132,8 +144,36 @@ await dormir(4500);
 await cdp('Page.bringToFront');
 await evaluer('document.getElementById("glcanvas").focus()');
 const audio = () => evaluer('window.__qaAudio()');
+// État du message d'erreur de la page.
+const etatErreur = () => evaluer(`(() => { const e = document.getElementById('erreur');
+  return { affiche: getComputedStyle(e).display !== 'none',
+    titre: (document.getElementById('erreur-titre') || e.querySelector('h1')).textContent.trim(),
+    texte: document.getElementById('erreur-texte').textContent.trim().replace(/\\s+/g, ' '),
+    bouton: (document.getElementById('recharger') || {}).offsetWidth > 0,
+    focus: document.activeElement && document.activeElement.id,
+    chargement: getComputedStyle(document.getElementById('chargement')).display !== 'none' }; })()`);
+// Son activé au titre, JOUER, carte passée : partie en cours au niveau 1, Pépin a un peu couru.
+async function lancerPartie() {
+  await taper('KeyM', 'm'); await dormir(500);
+  await taper('Enter', 'Enter'); await dormir(3000);
+  await taper('Enter', 'Enter'); await dormir(2500);
+  await touche('ArrowRight', 'ArrowRight', true); await dormir(500); await touche('ArrowRight', 'ArrowRight', false);
+  await dormir(500);
+}
+// Pépin court 0,6 s à droite : l'image doit changer si le jeu tourne encore.
+async function courir() {
+  const a = await capture('/dev/null');
+  await touche('ArrowRight', 'ArrowRight', true); await dormir(600); await touche('ArrowRight', 'ArrowRight', false);
+  await dormir(300);
+  return ecart(a, await capture('/dev/null'));
+}
 
-if (scenario === 'focus-jeu') {
+if (scenario === 'wasm-bloque') {
+  mesure('wasm_bloque_4s', await etatErreur());
+  await dormir(23000); // 4,5 + 23 s : le message est prévu à 25 s
+  await capture(`${prefixe}-1-apres-27s.png`);
+  mesure('wasm_bloque_27s', await etatErreur());
+} else if (scenario === 'focus-jeu') {
   await taper('KeyM', 'm'); await dormir(500);                 // son activé au titre
   mesure('titre_son_active', await audio());
   await taper('Enter', 'Enter'); await dormir(3000);           // JOUER -> carte du niveau 1
@@ -186,6 +226,62 @@ if (scenario === 'focus-jeu') {
   await taper('Enter', 'Enter'); await dormir(3000);
   const carte = await capture(`${prefixe}-4-entree-carte.png`);
   mesure('entree_apres_retour', { ecart_avec_titre: ecart(titre, carte) });
+} else if (scenario === 'brave') {
+  await lancerPartie();
+  await capture(`${prefixe}-1-jeu.png`);
+  // 1. Script injecté (en ligne, donc « fichier » = adresse de la page) qui lit window.ethereum.
+  await evaluer(`(() => { const s = document.createElement('script');
+    s.textContent = 'window.ethereum.selectedAddress'; document.head.appendChild(s); })()`);
+  await dormir(300);
+  mesure('brave_ethereum', { ...(await etatErreur()), jeu_continue: await courir() });
+  // 2. Erreur d'un script d'une autre origine, masquée par le navigateur : « Script error. ».
+  await evaluer(`window.dispatchEvent(new ErrorEvent('error', { message: 'Script error.', filename: '', lineno: 0 }))`);
+  await dormir(300);
+  mesure('brave_script_error', { ...(await etatErreur()), jeu_continue: await courir() });
+  // 3. Promesse rejetée par un script injecté.
+  await evaluer(`(() => { const s = document.createElement('script');
+    s.textContent = 'Promise.reject(new TypeError("Cannot read properties of undefined (reading \\'selectedAddress\\')"))';
+    document.head.appendChild(s); })()`);
+  await dormir(300);
+  mesure('brave_promesse', { ...(await etatErreur()), jeu_continue: await courir() });
+  // 4. Erreur quelconque d'un script injecté plus tard (minuterie), sans rapport avec le jeu.
+  await evaluer(`(() => { const s = document.createElement('script');
+    s.textContent = 'setTimeout(function () { web3.currentProvider.enable(); }, 10)'; document.head.appendChild(s); })()`);
+  await dormir(400);
+  mesure('brave_minuterie', { ...(await etatErreur()), jeu_continue: await courir() });
+  await capture(`${prefixe}-2-apres-erreurs-injectees.png`);
+  mesure('brave_audio', await audio());
+} else if (scenario === 'plantage') {
+  await lancerPartie();
+  await capture(`${prefixe}-1-jeu.png`);
+  mesure('avant_plantage', { ...(await etatErreur()), ...(await audio()) });
+  await taper('F9', 'F9'); await dormir(800);
+  await capture(`${prefixe}-2-plantage-f9.png`);
+  mesure('apres_f9', { ...(await etatErreur()), ...(await audio()) });
+  await dormir(2000);
+  mesure('apres_f9_2s', { ...(await etatErreur()), ...(await audio()) });
+  // Bouton « Recharger » (clic de souris à son centre) : la page revient à l'écran titre.
+  const r = await evaluer(`(() => { const e = document.getElementById('recharger');
+    if (!e || !e.offsetWidth) return null; const b = e.getBoundingClientRect();
+    return [b.x + b.width / 2, b.y + b.height / 2]; })()`);
+  if (r) {
+    await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: r[0], y: r[1], button: 'left', clickCount: 1 });
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: r[0], y: r[1], button: 'left', clickCount: 1 });
+    await dormir(4500);
+    await capture(`${prefixe}-3-apres-recharger.png`);
+    mesure('apres_recharger', { ...(await etatErreur()), jeu_charge: await evaluer('typeof wasm_exports !== "undefined" && !!wasm_exports') });
+  } else {
+    mesure('apres_recharger', { bouton: 'absent' });
+  }
+} else if (scenario === 'webgl') {
+  await lancerPartie();
+  await capture(`${prefixe}-1-jeu.png`);
+  const perdu = await evaluer(`(() => { const c = document.getElementById('glcanvas');
+    const gl = c.getContext('webgl') || c.getContext('webgl2'); const ext = gl && gl.getExtension('WEBGL_lose_context');
+    if (!ext) return 'extension absente'; ext.loseContext(); return 'contexte perdu'; })()`);
+  await dormir(800);
+  await capture(`${prefixe}-2-contexte-perdu.png`);
+  mesure('webgl', { action: perdu, ...(await etatErreur()), ...(await audio()) });
 }
 const erreurs = consoleJeu.filter((l) => /EXCEPTION|error|panicked/i.test(l));
 mesure('console', { lignes: consoleJeu.length, erreurs });

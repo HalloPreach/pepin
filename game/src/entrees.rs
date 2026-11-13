@@ -171,6 +171,25 @@ pub fn raccourci_niveau() -> Option<usize> {
     niveau_demande(RACCOURCIS_NIVEAUX, is_key_pressed)
 }
 
+/// Plantage volontaire (touche F9) : n'existe que dans le build de QA, fonctionnalité
+/// Cargo `qa_plantage`. Il sert à vérifier dans un vrai navigateur qu'un plantage en
+/// cours de partie (panique Rust, devenue « RuntimeError: unreachable » en wasm)
+/// affiche bien le message d'erreur de la page web au lieu d'une image figée.
+pub const PLANTAGE_QA: bool = cfg!(feature = "qa_plantage");
+
+/// Touche du plantage volontaire : F9, loin des touches de jeu (aucun appui accidentel).
+const TOUCHE_PLANTAGE: KeyCode = KeyCode::F9;
+
+/// Le plantage volontaire est-il demandé ? Toujours faux quand `actif` est faux.
+pub fn plantage_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> bool {
+    actif && appuyee(TOUCHE_PLANTAGE)
+}
+
+/// Lit la touche du plantage volontaire (uniquement avec la fonctionnalité `qa_plantage`).
+pub fn plantage_qa() -> bool {
+    plantage_demande(PLANTAGE_QA, is_key_pressed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -372,5 +391,32 @@ mod tests {
             niveau_demande(RACCOURCIS_NIVEAUX, |k| k == KeyCode::Key3),
             Some(2)
         );
+    }
+
+    #[test]
+    fn le_plantage_volontaire_ne_part_que_de_f9_et_avec_la_fonctionnalite() {
+        assert!(!plantage_demande(false, |_| true), "désactivé : jamais");
+        assert!(plantage_demande(true, |k| k == KeyCode::F9));
+        // Aucune touche de jeu ni de menu ne le déclenche.
+        let autres = TOUCHES_GAUCHE
+            .iter()
+            .chain(&TOUCHES_DROITE)
+            .chain(&TOUCHES_SAUT)
+            .chain(&TOUCHES_PAUSE)
+            .chain(&TOUCHES_SON)
+            .chain(&TOUCHES_HAUT)
+            .chain(&TOUCHES_BAS)
+            .chain(&TOUCHES_VALIDER)
+            .chain(&TOUCHES_RETOUR)
+            .chain(&TOUCHES_NIVEAUX);
+        for &k in autres {
+            assert!(!plantage_demande(true, |t| t == k), "{k:?}");
+        }
+    }
+
+    #[cfg(not(feature = "qa_plantage"))]
+    #[test]
+    fn le_build_de_production_ne_plante_pas_sur_f9() {
+        assert!(!plantage_demande(PLANTAGE_QA, |_| true));
     }
 }

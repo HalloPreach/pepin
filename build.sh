@@ -5,8 +5,9 @@
 # Usage :   ./build.sh
 #           WASM_OPT=0 ./build.sh     # saute l'optimisation wasm-opt
 #           ./build.sh --qa           # build de MISE AU POINT dans dist-qa/ (jamais à publier) :
-#                                     # active la fonctionnalité « debug_niveaux » (touches 1 à 5
-#                                     # pour sauter à un niveau), utilisée par les captures et la QA
+#                                     # active les fonctionnalités « debug_niveaux » (touches 1 à 5
+#                                     # pour sauter à un niveau) et « qa_plantage » (F9 provoque un
+#                                     # vrai plantage), utilisées par les captures et la QA
 #
 # Prérequis : Docker (aucun compilateur ni Rust nécessaire sur la machine hôte).
 # Le script :
@@ -32,7 +33,7 @@ DIST="dist"
 FONCTIONNALITES=""
 case "${1:-}" in
   "") ;;
-  --qa) DIST="dist-qa"; FONCTIONNALITES="--features debug_niveaux" ;;
+  --qa) DIST="dist-qa"; FONCTIONNALITES="--features debug_niveaux,qa_plantage" ;;
   *) echo "Usage : ./build.sh [--qa]" >&2; exit 2 ;;
 esac
 CARGO_HOME_HOTE="${PEPIN_CARGO_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/pepin-cargo-home}"

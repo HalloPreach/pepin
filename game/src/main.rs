@@ -9,8 +9,9 @@
 //! Les touches sont lues par POSITION physique : les listes
 //! de `entrees.rs` couvrent QWERTY et AZERTY (sur AZERTY, M est à la position du
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
-//! tactile : boutons virtuels. Touches 1 à 5 (changer de niveau) : uniquement dans un
-//! build de mise au point (`--features debug_niveaux`, voir `./build.sh --qa`).
+//! tactile : boutons virtuels. Touches 1 à 5 (changer de niveau) et F9 (plantage
+//! volontaire) : uniquement dans le build de mise au point (`./build.sh --qa`,
+//! fonctionnalités `debug_niveaux` et `qa_plantage`).
 
 mod app;
 mod audio;
@@ -109,6 +110,11 @@ async fn main() {
             orientation::doit_afficher(screen_width(), screen_height(), tactile.est_actif());
         if !a_tourner {
             app.reagir(&nav, &commandes, entrees::raccourci_niveau());
+        }
+        // Build de QA seulement (`qa_plantage`) : F9 provoque une vraie panique, pour
+        // vérifier le message de plantage de la page web. Toujours faux en production.
+        if entrees::plantage_qa() {
+            panic!("plantage volontaire (build de QA, touche F9)");
         }
         // Le réglage son vient des menus ou de la touche M ; l'audio ne fait que l'appliquer.
         // La musique et la pluie se taisent pendant la pause et reprennent à sa sortie.

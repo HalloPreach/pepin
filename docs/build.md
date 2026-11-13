@@ -24,12 +24,15 @@ Essai en local :
 
     ./build.sh --qa
 
-produit `dist-qa/` (ignoré par git) avec la fonctionnalité Cargo `debug_niveaux` : les
-touches 1 à 5 sautent au niveau demandé. Elles n'existent PAS dans `dist/` : sur
-AZERTY ce sont les touches & é " ' (, et un appui accidentel faisait perdre la partie
-(et permettait de finir avec un temps truqué). `docs/capture-fond.mjs` et
-`docs/qa-clavier-ecran.mjs` utilisent ce build ; `./docker-cargo.sh lint` vérifie les
-deux variantes.
+produit `dist-qa/` (ignoré par git) avec les fonctionnalités Cargo `debug_niveaux` et
+`qa_plantage`. Avec `debug_niveaux`, les touches 1 à 5 sautent au niveau demandé. Elles
+n'existent PAS dans `dist/` : sur AZERTY ce sont les touches & é " ' (, et un appui
+accidentel faisait perdre la partie (et permettait de finir avec un temps truqué).
+Avec `qa_plantage`, F9 provoque une vraie panique Rust (« RuntimeError: unreachable »
+dans le navigateur) pour vérifier le message de plantage de la page
+(`docs/qa-focus-plantage.mjs plantage`) ; le texte de la panique est absent du wasm de
+production. `docs/capture-fond.mjs` et `docs/qa-clavier-ecran.mjs` utilisent ce build ;
+`./docker-cargo.sh lint` vérifie les deux variantes.
 
 ## Ce que fait build.sh
 

@@ -20,3 +20,7 @@ son = ["macroquad/audio"]
 # & é " ' ( et un appui accidentel perdrait la partie. Activée seulement par
 # `./build.sh --qa` (dist-qa/) pour les captures et la QA.
 debug_niveaux = []
+# Plantage volontaire (panique sur la touche F9), pour vérifier dans un navigateur que
+# la page affiche un message quand le jeu plante en cours de partie. JAMAIS dans la
+# production : activée seulement par `./build.sh --qa` (dist-qa/).
+qa_plantage = []

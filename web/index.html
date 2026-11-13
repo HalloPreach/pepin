@@ -59,6 +59,18 @@
   #chargement .texte, #erreur p { font-size: 14px; margin: 0; max-width: 32em; line-height: 1.5; }
   #erreur { display: none; }
   #erreur h1 { margin: 0; font-size: 22px; color: #ff5a4f; }
+  /* Bouton « Recharger » : couleurs de la palette (CORAIL sur ARDOISE_OMBRE). */
+  #recharger {
+    font: inherit;
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    padding: 10px 22px;
+    border: 2px solid #f3f1ea;
+    background: #ff5a4f;
+    color: #10141f;
+    cursor: pointer;
+  }
+  #recharger:focus-visible { outline: 3px solid #ffd84a; outline-offset: 3px; }
   /* Petit indicateur d'attente (animation désactivée si l'on préfère moins de mouvement). */
   #chargement .point { width: 10px; height: 10px; background: #ffd84a; animation: pulse 1s steps(2) infinite; }
   @keyframes pulse { 50% { opacity: 0.2; } }
@@ -109,15 +121,16 @@
 </div>
 
 <div id="erreur" role="alert">
-  <h1>Impossible de lancer PÉPIN</h1>
+  <h1 id="erreur-titre">Impossible de lancer PÉPIN</h1>
   <p id="erreur-texte">
     Ce jeu a besoin de JavaScript, de WebAssembly et de WebGL, que votre navigateur n'a pas
     (ou n'autorise pas). Essayez avec une version récente de Firefox, Chrome, Edge ou Safari.
   </p>
+  <button id="recharger" type="button">Recharger</button>
 </div>
 
 <noscript>
-  <style>#chargement { display: none; } #erreur { display: flex; }</style>
+  <style>#chargement { display: none; } #erreur { display: flex; } #recharger { display: none; }</style>
 </noscript>
 
 <script>
@@ -127,11 +140,20 @@
   var erreur = document.getElementById("erreur");
   var canvas = document.getElementById("glcanvas");
 
+  // Le jeu a planté APRÈS son démarrage : le message est définitif (après un plantage,
+  // d'autres erreurs suivent souvent ; on garde la première).
+  var plante = false;
   function afficherErreur(titre, texte) {
+    if (plante) { return; }
     chargement.style.display = "none";
+    if (titre) { document.getElementById("erreur-titre").textContent = titre; }
     if (texte) { document.getElementById("erreur-texte").textContent = texte; }
     erreur.style.display = "flex";
+    document.getElementById("recharger").focus();
   }
+  document.getElementById("recharger").addEventListener("click", function () {
+    window.location.reload();
+  });
 
   // Un clic ou un toucher ne doit jamais faire perdre le clavier au jeu.
   canvas.addEventListener("pointerdown", function () { canvas.focus(); });
@@ -164,7 +186,14 @@
   function pageActive() {
     return document.visibilityState === "visible" && document.hasFocus();
   }
+  // Après un plantage, le jeu ne coupera plus rien lui-même : on ferme les contextes.
+  function couperLeSon() {
+    contextesAudio.forEach(function (c) {
+      try { if (c.state !== "closed") { c.close(); } } catch (e) { /* déjà fermé */ }
+    });
+  }
   function suivreFocus() {
+    if (plante) { return; }
     if (!pageActive()) {
       contextesAudio.forEach(function (c) {
         if (c.state === "running" && suspendusParLaPage.indexOf(c) < 0) {
@@ -199,11 +228,11 @@
   var debut = performance.now();
   function surveiller() {
     if (typeof wasm_exports !== "undefined" && wasm_exports) {
-      erreur.style.display = "none";
+      if (!plante) { erreur.style.display = "none"; }
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           chargement.style.display = "none";
-          canvas.focus();
+          if (!plante) { canvas.focus(); }
         });
       });
       return;
@@ -223,22 +252,70 @@
   }
   requestAnimationFrame(surveiller);
 
-  window.addEventListener("error", function (e) {
-    // On n'affiche une erreur que si elle vient VRAIMENT du jeu : un fichier à nous, ou un
-    // échec WebAssembly / WebGL. Les navigateurs (Brave, extensions de portefeuille…) injectent
-    // leurs propres scripts dans la page ; leurs erreurs (« Script error. », window.ethereum…)
-    // n'ont rien à voir avec PÉPIN et ne doivent pas masquer le jeu.
-    var message = String((e && e.message) || "");
-    var fichier = String((e && e.filename) || "");
-    var cible = e && e.target && e.target.tagName ? e.target.tagName : "";
-    var duJeu = /mq_js_bundle\.js|game\.wasm/.test(fichier) ||
-      /wasm|WebAssembly|RuntimeError|unreachable|out of memory|WebGL/i.test(message) ||
-      (cible === "SCRIPT" && /mq_js_bundle|game\.wasm/.test(String(e.target.src || "")));
-    if (duJeu && chargement.style.display !== "none" && !(typeof wasm_exports !== "undefined" && wasm_exports)) {
+  // --- Erreurs : au chargement ET en cours de partie -------------------------------------
+  // On n'affiche une erreur que si elle vient VRAIMENT du jeu : un fichier à nous
+  // (mq_js_bundle.js, game.wasm), ou un échec WebAssembly / WebGL (une panique Rust devient
+  // « RuntimeError: unreachable » ; Safari : « Unreachable code should not be executed »).
+  // Les navigateurs (Brave, extensions de portefeuille…) injectent leurs propres scripts dans
+  // la page ; leurs erreurs (« Script error. », window.ethereum…) n'ont rien à voir avec PÉPIN
+  // et ne doivent JAMAIS masquer le jeu (un iPhone sous Brave ne pouvait plus jouer).
+  // Le nom de fichier « index.html » n'est volontairement PAS un critère : un script injecté
+  // dans la page porte souvent l'adresse de la page elle-même. Notre propre script de page
+  // protège ses appels risqués (try/catch) au lieu de compter sur ce filtre.
+  var INJECTE = /ethereum|selectedAddress|^(Uncaught )?Script error\.?$/i;
+  var MESSAGE_DU_JEU = /wasm|WebAssembly|RuntimeError|unreachable|out of memory|WebGL/i;
+  var FICHIER_DU_JEU = /mq_js_bundle\.js|game\.wasm/;
+  function jeuDemarre() {
+    return typeof wasm_exports !== "undefined" && !!wasm_exports;
+  }
+  // Le jeu tournait : message plein écran, son coupé, bouton « Recharger ».
+  function signalerPlantage(detail) {
+    afficherErreur("PÉPIN s'est arrêté",
+      "Une erreur inattendue a arrêté le jeu" + (detail ? " (" + detail + ")" : "") +
+      ". Rechargez la page pour rejouer.");
+    plante = true;
+    couperLeSon();
+  }
+  function erreurDuJeu(message, detail) {
+    if (jeuDemarre()) {
+      signalerPlantage(detail || message);
+    } else if (chargement.style.display !== "none") {
       afficherErreur(null, "Le jeu n'a pas pu démarrer (" + (message || "erreur de chargement") +
         "). Rechargez la page ou essayez un autre navigateur.");
     }
+  }
+
+  window.addEventListener("error", function (e) {
+    var message = String((e && e.message) || "");
+    var fichier = String((e && e.filename) || "");
+    var cible = e && e.target && e.target.tagName ? e.target.tagName : "";
+    if (INJECTE.test(message)) { return; }
+    var duJeu = FICHIER_DU_JEU.test(fichier) || MESSAGE_DU_JEU.test(message) ||
+      (cible === "SCRIPT" && /mq_js_bundle|game\.wasm/.test(String(e.target.src || "")));
+    if (duJeu) { erreurDuJeu(message); }
   }, true);
+
+  // Promesse rejetée sans gestionnaire : même tri (type WebAssembly, ou pile qui passe par nos
+  // fichiers, ou message WebAssembly / WebGL). Les promesses des scripts injectés sont ignorées.
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e ? e.reason : null;
+    var message = String((r && r.message) || r || "");
+    var pile = String((r && r.stack) || "");
+    if (INJECTE.test(message)) { return; }
+    var typeWasm = typeof WebAssembly === "object" && r instanceof Object &&
+      ((WebAssembly.RuntimeError && r instanceof WebAssembly.RuntimeError) ||
+       (WebAssembly.CompileError && r instanceof WebAssembly.CompileError) ||
+       (WebAssembly.LinkError && r instanceof WebAssembly.LinkError));
+    if (typeWasm || FICHIER_DU_JEU.test(pile) || MESSAGE_DU_JEU.test(message)) {
+      erreurDuJeu(message);
+    }
+  });
+
+  // Contexte WebGL perdu (pilote graphique réinitialisé, mémoire du téléphone saturée…) :
+  // macroquad ne sait pas recréer ses textures, l'image resterait figée.
+  canvas.addEventListener("webglcontextlost", function () {
+    erreurDuJeu("contexte WebGL perdu", "l'affichage WebGL a été perdu");
+  });
 
   var script = document.createElement("script");
   script.src = "mq_js_bundle.js";
