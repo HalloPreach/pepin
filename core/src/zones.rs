@@ -107,7 +107,7 @@ pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
 mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
-    use crate::levels::essai_vertical;
+    use crate::levels::{essai_vent, essai_vertical};
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
@@ -133,7 +133,10 @@ mod tests {
 
     #[test]
     fn tous_les_niveaux_se_chargent() {
-        for n in NIVEAUX.iter().chain([&essai_vertical::INFOS]) {
+        for n in NIVEAUX
+            .iter()
+            .chain([&essai_vertical::INFOS, &essai_vent::INFOS])
+        {
             let niv = n
                 .charger()
                 .unwrap_or_else(|e| panic!("niveau {} : {e}", n.numero));
@@ -151,10 +154,12 @@ mod tests {
         assert!(NIVEAUX.iter().all(|n| n.nom != essai_vertical::INFOS.nom));
     }
 
-    /// Les niveaux du jeu, puis le niveau d'essai vertical (hors de la table) : les
-    /// contrôles de grille s'appliquent aussi à lui.
+    /// Les niveaux du jeu, puis les niveaux d'essai (hors de la table) : les
+    /// contrôles de grille s'appliquent aussi à eux.
     fn niveaux_et_essai() -> impl Iterator<Item = &'static InfosNiveau> {
-        NIVEAUX.iter().chain([&essai_vertical::INFOS])
+        NIVEAUX
+            .iter()
+            .chain([&essai_vertical::INFOS, &essai_vent::INFOS])
     }
 
     /// Le niveau d'essai vertical (45 rangées) passe les mêmes contrôles qu'un vrai
@@ -162,6 +167,30 @@ mod tests {
     #[test]
     fn niveau_d_essai_vertical_faisable() {
         verifier_infos(&essai_vertical::INFOS);
+    }
+
+    /// Le niveau d'essai « vent » passe les mêmes contrôles : la traversée du vide
+    /// n'est faisable que parce que le robot simule les vents latéraux.
+    #[test]
+    fn niveau_d_essai_vent_faisable() {
+        verifier_infos(&essai_vent::INFOS);
+    }
+
+    /// Sans vents latéraux, le vide du niveau d'essai est trop large : le niveau
+    /// doit être bloqué (c'est ce qui prouve que le vent fait la traversée).
+    #[test]
+    fn niveau_d_essai_vent_exige_les_vents() {
+        let niv = essai_vent::INFOS.charger().unwrap();
+        assert!(!niv.vents.is_empty());
+        let r = analyser(
+            &niv,
+            niv.depart,
+            Options {
+                vents: false,
+                ..Options::default()
+            },
+        );
+        assert!(!r.arrivee, "sans vent le vide doit rester infranchissable");
     }
 
     /// Un test de faisabilité PAR niveau (ils tournent en parallèle). La macro écrit
@@ -442,6 +471,7 @@ mod tests {
                     grille: &niv,
                     solides: &solides,
                     courants: &niv.courants,
+                    vents: &niv.vents,
                 };
                 for e in entites.iter_mut() {
                     e.actualiser(&env);
@@ -694,6 +724,7 @@ mod tests {
                     grille: &niv,
                     solides: &solides,
                     courants: &niv.courants,
+                    vents: &niv.vents,
                 };
                 for e in entites.iter_mut() {
                     e.actualiser(&env);

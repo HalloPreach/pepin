@@ -23,7 +23,8 @@
 //! données, `Option` / `Result` avec une erreur typée, itérateur `find` sur un
 //! intervalle.
 
-// Niveau d'essai vertical : HORS de la table `NIVEAUX` (tests et build de QA seulement).
+// Niveaux d'essai : HORS de la table `NIVEAUX` (tests et build de QA seulement).
+pub mod essai_vent;
 pub mod essai_vertical;
 pub mod gouttieres;
 pub mod nuages;
