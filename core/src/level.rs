@@ -154,7 +154,7 @@ pub enum GenreDecor {
     Cheminee,
     /// `T` : antenne de télévision (niveaux 1 et 2).
     Antenne,
-    /// `R` : paratonnerre (niveau 3, l'orage).
+    /// `R` : paratonnerre (niveau 4, l'orage).
     Paratonnerre,
     /// `Q` : manche à air, au bord d'un courant ascendant qu'elle signale (niveau 4).
     MancheAAir,

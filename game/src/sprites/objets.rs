@@ -507,6 +507,57 @@ pub const AUVENT1: Image = &[
     "000.............",
 ];
 
+/// Façade de boutique (16x20) : la vitrine allumée derrière le mât d'un auvent
+/// (carte 5.12). Dessin SEUL, aucune collision : posée dans la case à gauche de
+/// l'auvent, 4 px plus haut que la case (la corniche arrive au sommet du mât),
+/// elle accroche la toile à une boutique. Corniche claire, vitrine orange (deux
+/// carreaux, des étalages en silhouette), soubassement d'ardoise. Ni or (gouttes,
+/// éclairs), ni corail (parapluie, toile de l'auvent), ni cyan (flaques, pluie).
+pub const FACADE_VITRINE: Image = &[
+    "0000000000000000",
+    "0333333333333330",
+    "0222222222222220",
+    "0000000000000000",
+    "0111111111111110",
+    "0100000000000010",
+    "010AAAA00AAAA010",
+    "010AAAA00AAAA010",
+    "010AAAA00AAAA010",
+    "010A11A00A11A010",
+    "0101111001111010",
+    "0100000000000010",
+    "0111111111111110",
+    "0110000000000110",
+    "0110222222220110",
+    "0110222222220110",
+    "0110222222220110",
+    "0110222222220110",
+    "0110222222220110",
+    "0110222222220110",
+];
+
+/// Mur de la façade de boutique (16x16), répété sous la vitrine jusqu'au premier
+/// solide (ou au bas du niveau) : bleu nuit, fenêtres éteintes. Plus sombre que
+/// les tuiles, sans briques : on voit que c'est un fond, pas un mur où se poser.
+pub const FACADE_MUR: Image = &[
+    "0111111111111110",
+    "0111111111111110",
+    "0110000110000110",
+    "0110220110220110",
+    "0110220110220110",
+    "0110220110220110",
+    "0110000110000110",
+    "0111111111111110",
+    "0111111111111110",
+    "0111111111111110",
+    "0110000110000110",
+    "0110220110220110",
+    "0110220110220110",
+    "0110220110220110",
+    "0110000110000110",
+    "0111111111111110",
+];
+
 /// Ventilateur : un ventilateur à pied sur sa casette (socle 16x8, en bas de la
 /// case). Trois états : à l'arrêt (pale dorée, rien au-dessus), à l'annonce
 /// (la lampe orange clignote au-dessus de la cage, comme l'annonce d'un éclair)
@@ -722,6 +773,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("champignon1", CHAMPIGNON1),
     ("auvent0", AUVENT0),
     ("auvent1", AUVENT1),
+    ("facade_vitrine", FACADE_VITRINE),
+    ("facade_mur", FACADE_MUR),
     ("ventilateur_arret", VENTILATEUR_ARRET),
     ("ventilateur_aveugle", VENTILATEUR_AVEUGLE),
     ("ventilateur_souffle", VENTILATEUR_SOUFFLE),
@@ -759,6 +812,8 @@ pub const LANTERNE: [&str; 2] = ["lanterne0", "lanterne1"];
 pub const CHAMPIGNON: [&str; 2] = ["champignon0", "champignon1"];
 /// Auvent : toile tendue puis enfoncée (rebond).
 pub const AUVENT: [&str; 2] = ["auvent0", "auvent1"];
+/// Façade de boutique derrière un auvent : la vitrine, puis le mur en dessous.
+pub const FACADE: [&str; 2] = ["facade_vitrine", "facade_mur"];
 /// Ventilateur : arrêt, annonce (lampe clignotante), souffle (courant actif).
 pub const VENTILATEUR: [&str; 3] = [
     "ventilateur_arret",

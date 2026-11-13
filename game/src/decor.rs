@@ -149,6 +149,33 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
         },
+        // Marché couvert : nuit bleue qui s'éclaircit vers l'horizon (la lueur du
+        // marché), étoiles en haut, immeubles aux fenêtres orange (les lanternes et
+        // les vitrines des marchands), une pluie entre l'averse et l'orage.
+        Theme::Marche => Ambiance {
+            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE],
+            lointain: ARDOISE_NUIT,
+            proche: ARDOISE_OMBRE,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: Some(H / 4),
+            gouttes: 36,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            soleil: false,
+            forme: Forme::Immeubles,
+            // Pas de relief : les immeubles lointains (bleu nuit) restent plus bas que
+            // la bande de ciel bleu nuit (y de 45 à 90), où ils disparaîtraient.
+            relief: 0,
+            socle: true,
+            // Comme à l'orage : l'or est réservé aux gouttes et aux éclairs.
+            fenetres: Some((ORANGE_SOLEIL, CORAIL_CLAIR)),
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 1,
+                briques_orangees: false,
+            },
+            friable_nuage: false,
+        },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
         // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit. Un plafond
         // de gros nuages d'orage pèse sur le haut de l'écran.
@@ -698,7 +725,7 @@ mod tests {
     fn teinte_des_tuiles_et_friables_par_theme() {
         let attendu = |t: Theme| match t {
             Theme::Toits | Theme::Orage => (0, false, false),
-            Theme::Gouttieres => (1, false, false),
+            Theme::Gouttieres | Theme::Marche => (1, false, false),
             Theme::Altitude => (2, false, true),
             Theme::Soleil => (3, true, true),
         };
@@ -1014,7 +1041,7 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 60, 18, 0]);
+        assert_eq!(n, [24, 48, 36, 60, 18, 0]);
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");

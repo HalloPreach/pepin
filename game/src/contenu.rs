@@ -101,6 +101,10 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "Saute-leur dessus pour les écraser.",
     },
     Intro {
+        texte: "Sous les toiles, tout rebondit.",
+        astuce: "Tombe sur un auvent : il te relance. Un chat ne s'écrase qu'endormi.",
+    },
+    Intro {
         texte: "L'orage éclate. Chaque éclair est annoncé : garde la tête froide !",
         astuce: "Oui, tenir un parapluie ici est audacieux.",
     },
@@ -377,10 +381,10 @@ mod tests {
     #[test]
     fn etiquette_de_niveau() {
         use pepin_core::levels::{nb_normaux, NIVEAUX};
-        // Les cinq niveaux actuels : comme avant la carte 5.1.
+        // Les six niveaux actuels (le marché couvert inséré en 3e place, carte 5.12).
         assert_eq!(
             etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
-            "NIVEAU 2/5"
+            "NIVEAU 2/6"
         );
         // Un jeu de 11 niveaux (9 normaux, bonus, épilogue) : le bonus et l'épilogue
         // ne sont pas comptés dans « /9 ».

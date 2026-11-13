@@ -1,7 +1,8 @@
 //! Scène : dessine un `Monde` dans la cible 320x180, couche par couche.
 //!
 //! Ordre (arrière -> avant) : fond (ciel, silhouettes) -> déchirure du ciel (Grand
-//! Nuage vaincu) -> tuiles -> décor -> panneaux -> cadrans des aiguilles d'horloge ->
+//! Nuage vaincu) -> façades des boutiques derrière les auvents -> tuiles -> décor ->
+//! panneaux -> cadrans des aiguilles d'horloge ->
 //! plateformes -> objets -> ennemis (Grand Nuage et ses éclairs compris) -> Pépin ->
 //! particules -> pluie.
 //! L'interface (compteurs, chrono) est dessinée par `hud`, les menus par `ecrans`.
@@ -16,7 +17,7 @@ use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::montgolfiere::{EtatMontgolfiere, HAUT_BALLON};
 use pepin_core::entities::nuage::{EtatColonne, GrandNuage, PhaseNuage, NB_COLONNES};
 use pepin_core::entities::{Entite, TypeEnnemi};
-use pepin_core::level::{GenreDecor, GenrePanneau, Tuile};
+use pepin_core::level::{GenreDecor, GenrePanneau, Niveau, Tuile};
 use pepin_core::palette::*;
 use pepin_core::physics::{CourantAscendant, HZ};
 use pepin_core::player::EtatJoueur;
@@ -148,6 +149,64 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                     banque.dessiner_tuile(monde.infos.theme, "ombre_toit", x, y);
                 }
             }
+        }
+    }
+}
+
+/// Pixels dont la vitrine d'une façade dépasse au-dessus de sa case (20 rangées pour
+/// 16) : sa corniche arrive au sommet du mât de l'auvent.
+const DEBORD_VITRINE: i32 = 4;
+
+/// Façade de boutique derrière l'auvent de la case `(ax, ay)` (carte 5.12) : les cases
+/// `(tx, ty, sprite)` à dessiner. Elle occupe la colonne à GAUCHE du mât : la vitrine
+/// dans la rangée de l'auvent, le mur en dessous, jusqu'au premier solide ou au bas du
+/// niveau. Si la case à gauche est déjà un solide (l'auvent est au bord d'un toit), le
+/// toit est sa façade : rien à dessiner. Dessin seulement, aucune collision : la toile
+/// ne flotte plus au-dessus du vide (on ne la confond pas avec une manche à air).
+/// Fonction pure, testable.
+fn facade_d_auvent(niveau: &Niveau, ax: i32, ay: i32) -> Vec<(i32, i32, &'static str)> {
+    let x = ax - 1;
+    if x < 0 {
+        return Vec::new();
+    }
+    (ay..niveau.hauteur() as i32)
+        .take_while(|&ty| niveau.tuile_decor(x, ty) == Tuile::Vide)
+        .map(|ty| {
+            let nom = if ty == ay {
+                objets::FACADE[0]
+            } else {
+                objets::FACADE[1]
+            };
+            (x, ty, nom)
+        })
+        .collect()
+}
+
+/// Case `(tx, ty)` d'un auvent : sa zone de contact commence `HAUT_TOILE` px sous le
+/// haut de la case.
+fn case_auvent(boite: &Aabb) -> (i32, i32) {
+    (
+        (boite.x / TAILLE_TUILE) as i32,
+        ((boite.y - HAUT_TOILE) / TAILLE_TUILE) as i32,
+    )
+}
+
+/// Les façades de boutique, derrière les tuiles (voir `facade_d_auvent`).
+fn dessiner_facades(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let t = TAILLE_TUILE as i32;
+    for e in &monde.entites {
+        let Entite::Auvent(a) = e else {
+            continue;
+        };
+        let (ax, ay) = case_auvent(&a.boite);
+        for (tx, ty, nom) in facade_d_auvent(&monde.niveau, ax, ay) {
+            let debord = if ty == ay { DEBORD_VITRINE } else { 0 };
+            banque.dessiner(
+                nom,
+                (tx * t - cx) as f32,
+                (ty * t - debord - cy) as f32,
+                false,
+            );
         }
     }
 }
@@ -915,6 +974,7 @@ pub fn dessiner(
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
     dessiner_dechirure(monde, cx);
+    dessiner_facades(monde, banque, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
@@ -1117,7 +1177,7 @@ mod tests {
             }
             // Les trois niveaux de toits ont un long rebord ; les nuages n'en ont pas.
             match infos.theme {
-                Theme::Toits | Theme::Gouttieres | Theme::Orage => {
+                Theme::Toits | Theme::Gouttieres | Theme::Marche | Theme::Orage => {
                     assert!(ombres > 100, "{} : {ombres} ombres", infos.nom)
                 }
                 Theme::Soleil => assert_eq!(ombres, 0, "{}", infos.nom),
@@ -1543,5 +1603,91 @@ mod tests {
         ] {
             assert_eq!(image_pigeon(phase, true, 7), ("pigeon_ecrase", 0.0, false));
         }
+    }
+
+    // --- Façades de boutique derrière les auvents (carte 5.12) ---
+
+    /// Chaque auvent du marché couvert et du niveau d'essai est accroché à une
+    /// boutique : au bord d'un toit (la case à gauche est solide), ou devant une
+    /// façade dessinée dans la case à gauche (la vitrine dans sa rangée, le mur
+    /// dessous jusqu'au premier solide ou au bas du niveau). Aucune façade ne se
+    /// dessine sur un solide.
+    #[test]
+    fn chaque_auvent_est_accroche_a_une_boutique() {
+        use pepin_core::levels::{essai_auvent, marche};
+        let mut dessinees = 0;
+        for infos in [marche::INFOS, essai_auvent::INFOS] {
+            let niv = infos.charger().unwrap();
+            for e in &niv.entites {
+                let Entite::Auvent(a) = e else {
+                    continue;
+                };
+                let (ax, ay) = case_auvent(&a.boite);
+                let f = facade_d_auvent(&niv, ax, ay);
+                if niv.tuile_decor(ax - 1, ay) != Tuile::Vide {
+                    assert!(
+                        f.is_empty(),
+                        "{} : auvent {ax} au bord d'un toit",
+                        infos.nom
+                    );
+                    continue;
+                }
+                dessinees += 1;
+                assert_eq!(
+                    f[0],
+                    (ax - 1, ay, "facade_vitrine"),
+                    "{} : auvent {ax}",
+                    infos.nom
+                );
+                for (i, &(tx, ty, nom)) in f.iter().enumerate() {
+                    assert_eq!((tx, ty), (ax - 1, ay + i as i32));
+                    assert_eq!(nom, objets::FACADE[usize::from(i > 0)]);
+                    assert_eq!(niv.tuile_decor(tx, ty), Tuile::Vide);
+                }
+                // Le mur descend jusqu'au bas du niveau ou jusqu'à un solide.
+                let bas = ay + f.len() as i32;
+                assert!(
+                    bas == niv.hauteur() as i32 || niv.tuile_decor(ax - 1, bas) != Tuile::Vide,
+                    "{} : façade de l'auvent {ax} coupée en l'air",
+                    infos.nom
+                );
+            }
+        }
+        // Marché : 7 façades dessinées (auvents 44, 89, 93, 97, 101, 105 et 139 ; 20,
+        // 40, 85 et 135 sont au bord d'un toit) ; essai : 5 (le premier est au bord).
+        assert_eq!(dessinees, 7 + 5);
+    }
+
+    /// La façade se dessine dans la colonne à gauche du mât, la vitrine 4 px
+    /// au-dessus de sa case (corniche au sommet du mât), et ne garde de la
+    /// palette que des couleurs sans rôle dans le jeu : ni or (gouttes, éclairs),
+    /// ni cyan (flaques, pluie), ni corail (parapluie, toile de l'auvent).
+    #[test]
+    fn la_facade_de_boutique_a_sa_taille_et_ses_couleurs() {
+        let taille = |nom: &str| {
+            let d = crate::sprites::tous()
+                .into_iter()
+                .find(|(n, _)| *n == nom)
+                .unwrap()
+                .1;
+            (largeur(d), hauteur(d), d)
+        };
+        let (l, h, vitrine) = taille("facade_vitrine");
+        assert_eq!((l, h as i32), (16, 16 + DEBORD_VITRINE));
+        let (l, h, mur) = taille("facade_mur");
+        assert_eq!((l, h), (16, 16));
+        for d in [vitrine, mur] {
+            for ligne in d {
+                assert!(
+                    !ligne.contains(['.', 'B', 'C', 'D', 'E', '8', '9']),
+                    "{ligne}"
+                );
+                // Contour sombre à gauche et à droite.
+                assert!(ligne.starts_with('0') && ligne.ends_with('0'), "{ligne}");
+            }
+        }
+        // La vitrine est allumée (orange), le mur n'a que des fenêtres éteintes.
+        assert!(vitrine.iter().any(|l| l.contains('A')));
+        assert!(mur.iter().all(|l| !l.contains('A')));
     }
 }

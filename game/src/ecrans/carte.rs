@@ -184,18 +184,19 @@ mod tests {
 
     #[test]
     fn les_coupures_signalees_par_l_audit_sont_corrigees() {
+        // L'orage (niveau 4 depuis l'arrivée du marché couvert).
         assert_eq!(
-            couper_lignes(contenu::intro(2).texte, LIGNE_MAX),
+            couper_lignes(contenu::intro(3).texte, LIGNE_MAX),
             [
                 "L'orage éclate. Chaque éclair est annoncé :",
                 "garde la tête froide !"
             ]
         );
-        // Conseil du niveau 5 : une seule ligne.
+        // Conseil d'« Au-dessus des nuages » (niveau 6) : une seule ligne.
         assert_eq!(
-            couper_lignes(contenu::intro(4).astuce, LIGNE_MAX),
+            couper_lignes(contenu::intro(5).astuce, LIGNE_MAX),
             ["Dernière ligne droite : le champignon t'aide."]
         );
-        assert!(!contenu::intro(2).texte.to_lowercase().contains("flash"));
+        assert!(!contenu::intro(3).texte.to_lowercase().contains("flash"));
     }
 }

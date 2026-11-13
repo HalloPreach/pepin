@@ -35,6 +35,7 @@ use std::fmt::Write as _;
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::CauseMort;
+use pepin_core::levels::{gouttieres, marche, nuages, orage, toits, vents};
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
@@ -54,8 +55,11 @@ pub(crate) const ESSAIS: u32 = 48;
 const PAS_MAX_ESSAI: u32 = 6 * 60 * 60;
 /// Noeuds développés au plus pour un détour calculé sur place (borne le temps).
 const LIMITE_RECHERCHE: usize = 12;
-/// Cases explorées au plus par niveau pour les itinéraires (garde-fou).
-const LIMITE_CASES: usize = 6000;
+/// Cases explorées au plus par niveau pour les itinéraires (garde-fou). Relevé de
+/// 6 000 à 20 000 par la carte 5.12 : le marché couvert (quatre chats, dont l'état
+/// compte dans la case, et une rue sous deux paires d'auvents) en explore plus que
+/// les autres niveaux.
+const LIMITE_CASES: usize = 20_000;
 /// Voisinage des cases essayées quand Pépin se pose hors des cases connues :
 /// ±2 cases de 8 px en x, ±2 px en y.
 const VOISINAGE_X: i32 = 2;
@@ -549,12 +553,40 @@ pub(crate) fn jouer_essai_note(
 
 /// Graine d'un essai : dépend de la graine de la mesure, du profil, du niveau et
 /// du numéro d'essai, pas de l'ordre dans lequel les fils d'exécution tournent.
+/// `niveau` est le RANG DE GRAINE du niveau (`rang_de_graine`), pas sa place dans
+/// la table : insérer un niveau ne change pas la mesure des autres.
 fn graine_essai(graine: u64, profil: usize, niveau: usize, essai: u32) -> u64 {
     graine
         .wrapping_mul(1_000_003)
         .wrapping_add((profil as u64) << 40)
         .wrapping_add((niveau as u64) << 32)
         .wrapping_add(u64::from(essai))
+}
+
+/// Les niveaux du jeu dans l'ordre de leur ARRIVÉE dans le jeu (pas dans l'ordre
+/// du parcours) : la place d'un niveau dans cette liste est son « rang de graine ».
+/// Avant la carte 5.12, la graine d'un niveau dépendait de sa place dans la table :
+/// insérer le marché couvert en 3e place aurait changé les tirages (donc les
+/// chiffres) des trois niveaux suivants, sans qu'aucun ne change. Les cinq premiers
+/// rangs sont leurs anciennes places : leur mesure reste identique à l'octet. Un
+/// nouveau niveau s'ajoute À LA FIN (le test `chaque_niveau_a_un_rang_de_graine`
+/// échoue sinon).
+const RANGS_DE_GRAINE: &[&str] = &[
+    toits::INFOS.nom,
+    gouttieres::INFOS.nom,
+    orage::INFOS.nom,
+    vents::INFOS.nom,
+    nuages::INFOS.nom,
+    marche::INFOS.nom,
+];
+
+/// Rang de graine du niveau d'indice `n` de la table (voir `RANGS_DE_GRAINE`).
+fn rang_de_graine(n: usize) -> usize {
+    let nom = NIVEAUX[n].nom;
+    RANGS_DE_GRAINE
+        .iter()
+        .position(|&r| r == nom)
+        .unwrap_or_else(|| panic!("« {nom} » n'a pas de rang de graine (RANGS_DE_GRAINE)"))
 }
 
 // --- La mesure complète -------------------------------------------------------
@@ -603,7 +635,7 @@ pub(crate) fn mesurer(graine: u64, essais: u32) -> Vec<Vec<Case>> {
                                     jouer_essai(
                                         itineraires_niveau,
                                         profil,
-                                        graine_essai(graine, p, n, e),
+                                        graine_essai(graine, p, rang_de_graine(n), e),
                                     )
                                 })
                                 .collect();
@@ -819,21 +851,31 @@ const HABITUE: usize = 1;
 const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.0, 0.3),  // 1. Les toits : quasi inchangé
     (0.3, 0.8),  // 2. Gouttières et cheminées : quasi inchangé
-    (0.5, 1.5),  // 3. Le grand orage : le sommet de la courbe
-    (0.3, 0.65), // 4. Vents d'altitude : redescend un peu
-    (0.0, 0.2),  // 5. Au-dessus des nuages : final calme, sous 0,2
+    (0.3, 1.2),  // 3. Le marché couvert (carte 5.12) : entre les gouttières et l'orage
+    (0.5, 1.5),  // 4. Le grand orage : le sommet de la courbe
+    (0.3, 0.65), // 5. Vents d'altitude : redescend un peu
+    (0.0, 0.2),  // 6. Au-dessus des nuages : final calme, sous 0,2
 ];
 
-/// Écart minimal entre les niveaux 3 et 4 (Habitué) : le 4 doit être
-/// NETTEMENT plus facile que le 3, pas à égalité au hasard près.
-const ECART_3_4: f32 = 0.15;
+/// Places dans la table des trois niveaux dont la courbe juge la forme : le
+/// SOMMET (le grand orage), le niveau qui le SUIT (vents d'altitude, nettement
+/// plus facile) et le FINAL (au-dessus des nuages, le plus calme). Le test
+/// `la_forme_de_la_courbe_est_jugee` vérifie qu'ils désignent bien ces niveaux :
+/// insérer un niveau avant eux oblige à les déplacer.
+const SOMMET: usize = 3;
+const APRES_SOMMET: usize = 4;
+const FINAL: usize = 5;
+
+/// Écart minimal entre le sommet et le niveau suivant (Habitué) : celui-ci doit
+/// être NETTEMENT plus facile que le sommet, pas à égalité au hasard près.
+const ECART_APRES_SOMMET: f32 = 0.15;
 
 /// Vérifie la FORME de la courbe sur une mesure complète `cases[niveau][profil]`
 /// et renvoie la liste des écarts (vide si tout va bien) :
-/// - Débutant et Habitué : le niveau 3 est le plus meurtrier des cinq, et le
-///   niveau 4 l'est plus que le 5 ;
-/// - Habitué : chaque niveau dans sa bande (`BANDES_HABITUE`), et le niveau 4
-///   au moins `ECART_3_4` sous le niveau 3.
+/// - Débutant et Habitué : le SOMMET (le grand orage) est le plus meurtrier de
+///   tous, et le niveau qui le suit l'est plus que le FINAL ;
+/// - Habitué : chaque niveau dans sa bande (`BANDES_HABITUE`), et le niveau qui
+///   suit le sommet au moins `ECART_APRES_SOMMET` sous lui.
 ///
 /// Renvoyer une liste plutôt que s'arrêter au premier écart : en cas d'échec,
 /// on voit tout ce qui ne va pas d'un coup.
@@ -842,21 +884,24 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
     let morts = |n: usize, p: usize| cases[n][p].morts_moyennes;
     for p in [DEBUTANT, HABITUE] {
         let nom = PROFILS[p].nom;
-        for n in [0, 1, 3, 4] {
-            if morts(n, p) >= morts(2, p) {
+        for n in (0..NB_NIVEAUX).filter(|&n| n != SOMMET) {
+            if morts(n, p) >= morts(SOMMET, p) {
                 ecarts.push(format!(
-                    "{nom} : niveau {} ({}) pas sous le niveau 3 ({})",
+                    "{nom} : niveau {} ({}) pas sous le niveau {} ({})",
                     n + 1,
                     decimal(morts(n, p)),
-                    decimal(morts(2, p))
+                    SOMMET + 1,
+                    decimal(morts(SOMMET, p))
                 ));
             }
         }
-        if morts(3, p) <= morts(4, p) {
+        if morts(APRES_SOMMET, p) <= morts(FINAL, p) {
             ecarts.push(format!(
-                "{nom} : niveau 4 ({}) pas au-dessus du niveau 5 ({})",
-                decimal(morts(3, p)),
-                decimal(morts(4, p))
+                "{nom} : niveau {} ({}) pas au-dessus du niveau {} ({})",
+                APRES_SOMMET + 1,
+                decimal(morts(APRES_SOMMET, p)),
+                FINAL + 1,
+                decimal(morts(FINAL, p))
             ));
         }
     }
@@ -872,11 +917,13 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
             ));
         }
     }
-    if morts(2, HABITUE) - morts(3, HABITUE) < ECART_3_4 {
+    if morts(SOMMET, HABITUE) - morts(APRES_SOMMET, HABITUE) < ECART_APRES_SOMMET {
         ecarts.push(format!(
-            "Habitué : niveau 4 ({}) pas nettement sous le niveau 3 ({})",
-            centiemes(morts(3, HABITUE)),
-            centiemes(morts(2, HABITUE))
+            "Habitué : niveau {} ({}) pas nettement sous le niveau {} ({})",
+            APRES_SOMMET + 1,
+            centiemes(morts(APRES_SOMMET, HABITUE)),
+            SOMMET + 1,
+            centiemes(morts(SOMMET, HABITUE))
         ));
     }
     ecarts
@@ -1015,7 +1062,8 @@ mod tests {
             for (p, profil) in PROFILS.iter().enumerate() {
                 for e in 0..3 {
                     let t = std::time::Instant::now();
-                    let r = jouer_essai(&itin, profil, graine_essai(GRAINE, p, n, e));
+                    let r =
+                        jouer_essai(&itin, profil, graine_essai(GRAINE, p, rang_de_graine(n), e));
                     println!(
                         "  {} essai {e} : {r:?} en {:.1} s",
                         profil.nom,
@@ -1068,7 +1116,7 @@ mod tests {
         let (essai, journal, notes, cible) = (0..ESSAIS)
             .find_map(|e| {
                 let mut journal = Vec::new();
-                let graine = graine_essai(GRAINE, 0, 1, e);
+                let graine = graine_essai(GRAINE, 0, rang_de_graine(1), e);
                 jouer_essai_note(&itin, &PROFILS[0], graine, &mut journal);
                 let mut m = Monde::new(1);
                 let mut notes: Vec<Note> = Vec::new();
@@ -1188,30 +1236,73 @@ mod tests {
             .collect()
     }
 
+    /// Chaque niveau de la table a un rang de graine, et un seul ; les cinq premiers
+    /// rangs sont les places qu'avaient ces niveaux avant la carte 5.12 (leur mesure
+    /// ne change pas quand on insère un niveau dans le parcours).
+    #[test]
+    fn chaque_niveau_a_un_rang_de_graine() {
+        let mut rangs: Vec<usize> = (0..NB_NIVEAUX).map(rang_de_graine).collect();
+        rangs.sort_unstable();
+        rangs.dedup();
+        assert_eq!(rangs.len(), NB_NIVEAUX);
+        let anciennes = [
+            toits::INFOS,
+            gouttieres::INFOS,
+            orage::INFOS,
+            vents::INFOS,
+            nuages::INFOS,
+        ];
+        for (place, infos) in anciennes.iter().enumerate() {
+            let n = NIVEAUX.iter().position(|i| i.nom == infos.nom).unwrap();
+            assert_eq!(rang_de_graine(n), place, "{}", infos.nom);
+        }
+    }
+
     /// Le juge de la courbe accepte la bonne forme et refuse les mauvaises.
     #[test]
     fn la_forme_de_la_courbe_est_jugee() {
-        let bonne = fausse_mesure([0.4, 1.5, 3.0, 1.3, 0.5], [0.1, 0.5, 0.8, 0.45, 0.1]);
+        // Les places jugées désignent bien le sommet, le niveau suivant et le final.
+        assert_eq!(NIVEAUX[SOMMET].nom, orage::INFOS.nom);
+        assert_eq!(NIVEAUX[APRES_SOMMET].nom, vents::INFOS.nom);
+        assert_eq!(NIVEAUX[FINAL].nom, nuages::INFOS.nom);
+
+        let bonne = fausse_mesure(
+            [0.4, 1.5, 2.0, 3.0, 1.3, 0.5],
+            [0.1, 0.5, 0.6, 0.8, 0.45, 0.1],
+        );
         assert_eq!(ecarts_de_la_courbe(&bonne), Vec::<String>::new());
 
-        // La courbe d'avant la carte 3.3 : le 4 presque aussi dur que le 3, le 5 à 0,4.
-        let avant = fausse_mesure([0.4, 1.5, 3.6, 2.9, 2.5], [0.1, 0.5, 1.0, 0.9, 0.4]);
+        // La courbe d'avant la carte 3.3 : le 5 (vents) presque aussi dur que le 4
+        // (orage), le 6 à 0,4.
+        let avant = fausse_mesure(
+            [0.4, 1.5, 2.0, 3.6, 2.9, 2.5],
+            [0.1, 0.5, 0.6, 1.0, 0.9, 0.4],
+        );
         let e = ecarts_de_la_courbe(&avant);
-        assert!(e.iter().any(|x| x.contains("niveau 4 à 0,90")), "{e:?}");
-        assert!(e.iter().any(|x| x.contains("niveau 5 à 0,40")), "{e:?}");
+        assert!(e.iter().any(|x| x.contains("niveau 5 à 0,90")), "{e:?}");
+        assert!(e.iter().any(|x| x.contains("niveau 6 à 0,40")), "{e:?}");
         assert!(e.iter().any(|x| x.contains("pas nettement")), "{e:?}");
 
-        // Le 4 plus dur que le 3 (Débutant) ; le 5 aussi dur que le 4 (Habitué).
-        let a_l_envers = fausse_mesure([0.4, 1.5, 2.0, 2.5, 0.5], [0.1, 0.5, 0.8, 0.1, 0.1]);
+        // Le 5 plus dur que le 4 (Débutant) ; le 6 aussi dur que le 5 (Habitué) ;
+        // le marché (3) plus dur que l'orage (Débutant).
+        let a_l_envers = fausse_mesure(
+            [0.4, 1.5, 2.2, 2.0, 2.5, 0.5],
+            [0.1, 0.5, 0.6, 0.8, 0.1, 0.1],
+        );
         let e = ecarts_de_la_courbe(&a_l_envers);
         assert!(
             e.iter()
-                .any(|x| x == "Débutant : niveau 4 (2,5) pas sous le niveau 3 (2,0)"),
+                .any(|x| x == "Débutant : niveau 5 (2,5) pas sous le niveau 4 (2,0)"),
             "{e:?}"
         );
         assert!(
             e.iter()
-                .any(|x| x == "Habitué : niveau 4 (0,1) pas au-dessus du niveau 5 (0,1)"),
+                .any(|x| x == "Débutant : niveau 3 (2,2) pas sous le niveau 4 (2,0)"),
+            "{e:?}"
+        );
+        assert!(
+            e.iter()
+                .any(|x| x == "Habitué : niveau 5 (0,1) pas au-dessus du niveau 6 (0,1)"),
             "{e:?}"
         );
     }

@@ -35,6 +35,7 @@ pub mod essai_vent;
 pub mod essai_ventilateur;
 pub mod essai_vertical;
 pub mod gouttieres;
+pub mod marche;
 pub mod nuages;
 pub mod orage;
 pub mod toits;
@@ -58,6 +59,7 @@ pub enum GenreNiveau {
 pub const NIVEAUX: &[InfosNiveau] = &[
     toits::INFOS,
     gouttieres::INFOS,
+    marche::INFOS,
     orage::INFOS,
     vents::INFOS,
     nuages::INFOS,

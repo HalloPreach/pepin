@@ -24,6 +24,8 @@ pub enum Theme {
     Toits,
     /// Averse, ciel d'ardoise.
     Gouttieres,
+    /// Marché couvert : nuit bleue, vitrines et lanternes orange.
+    Marche,
     /// Orage au plus fort : éclairs, ciel violet.
     Orage,
     /// Le ciel se déchire, vent d'altitude.
@@ -36,9 +38,10 @@ impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 5] = [
+    pub const TOUS: [Theme; 6] = [
         Theme::Toits,
         Theme::Gouttieres,
+        Theme::Marche,
         Theme::Orage,
         Theme::Altitude,
         Theme::Soleil,
@@ -49,12 +52,13 @@ impl Theme {
         self as usize
     }
 
-    /// Clarté du ciel de 0 (orage noir) à 4 (soleil) ; l'orage du niveau 3
+    /// Clarté du ciel de 0 (orage noir) à 4 (soleil) ; l'orage du niveau 4
     /// reste volontairement sombre, c'est le sommet de la tension.
     pub fn luminosite(self) -> u8 {
         match self {
             Theme::Toits => 0,
             Theme::Gouttieres => 1,
+            Theme::Marche => 1,
             Theme::Orage => 0,
             Theme::Altitude => 3,
             Theme::Soleil => 4,
@@ -594,6 +598,7 @@ mod tests {
         niveau_3_faisable => 2,
         niveau_4_faisable => 3,
         niveau_5_faisable => 4,
+        niveau_6_faisable => 5,
     }
 
     #[test]
@@ -619,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn niveau_4_exige_les_courants_ascendants() {
+    fn niveau_5_exige_les_courants_ascendants() {
         let niv = crate::levels::vents::INFOS.charger().unwrap();
         assert!(!niv.courants.is_empty());
         let r = analyser(
@@ -630,7 +635,75 @@ mod tests {
                 ..Options::default()
             },
         );
-        assert!(!r.arrivee, "sans vent le niveau 4 doit être bloqué");
+        assert!(!r.arrivee, "sans vent le niveau 5 doit être bloqué");
+    }
+
+    /// Le marché couvert (niveau 3) : son moment fort, six auvents au-dessus d'un
+    /// vide de 23 tuiles (colonnes 85 à 105, tous espacés de 4 tuiles), ne se
+    /// franchit pas sans eux.
+    #[test]
+    fn niveau_3_le_marche_exige_ses_six_auvents() {
+        use crate::entities::Entite;
+        use crate::levels::marche;
+        let niv = marche::INFOS.charger().unwrap();
+        let t = crate::aabb::TAILLE_TUILE;
+        let colonnes: Vec<i32> = niv
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Auvent(a) => Some((a.boite.x / t) as i32),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            colonnes,
+            vec![20, 40, 44, 85, 89, 93, 97, 101, 105, 135, 139]
+        );
+        // Sans les six auvents du moment fort (les autres restent), on bute sur le vide.
+        let mut sans = niv.clone();
+        sans.entites.retain(
+            |e| !matches!(e, Entite::Auvent(a) if (85.0 * t..=105.0 * t).contains(&a.boite.x)),
+        );
+        let r = analyser(&sans, sans.depart, Options::default());
+        assert!(
+            !r.arrivee,
+            "sans les six auvents, le vide du moment fort doit rester infranchissable"
+        );
+        assert!(r.x_max < 108.0 * t, "x max {}", r.x_max);
+    }
+
+    /// Le marché couvert : la goutte cachée (colonne 67, au fond du passage) est
+    /// gardée par le chat de la fente (colonne 64). Fente bouchée (un toit à la
+    /// place du chat), la goutte n'est plus atteinte ; l'arrivée, si (le chemin
+    /// principal passe par-dessus le mur).
+    #[test]
+    fn niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee() {
+        let grille: Vec<&str> = crate::levels::marche::INFOS
+            .ascii
+            .lines()
+            .filter(|l| !l.is_empty())
+            .collect();
+        let fente: String = grille
+            .iter()
+            .enumerate()
+            .map(|(r, l)| {
+                if r == 8 {
+                    assert_eq!(&l[64..68], "z..o", "la fente et la goutte cachée");
+                    format!("{}#{}", &l[..64], &l[65..])
+                } else {
+                    l.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let bouche = Niveau::depuis_ascii(&fente).unwrap();
+        let r = analyser(&bouche, bouche.depart, Options::default());
+        // Gouttes dans l'ordre de lecture : 0 et 1 en rangée 5 (premier auvent,
+        // moment fort), 2 cachée (rangée 8).
+        assert!(
+            r.arrivee && r.gouttes == [true, true, false],
+            "fente bouchée : {r:?}"
+        );
     }
 
     /// Vérifie un niveau : arrivée, 3 gouttes, toutes les lanternes atteignables,
@@ -886,18 +959,21 @@ mod tests {
     /// niveau. Trois aujourd'hui, toutes sur la patrouille d'une flaque qui longe
     /// son toit d'un mur (ou d'un bord) à l'autre : niveau 2, colonnes 66 (flaque
     /// de la colonne 70) et 104 (flaque de la colonne 108, celle de la mesure 3.1) ;
-    /// niveau 3, colonne 145 (flaque de la colonne 154). Si ce test échoue après une
+    /// niveau 4 (le grand orage, niveau 3 avant l'arrivée du marché couvert),
+    /// colonne 145 (flaque de la colonne 154). Le marché couvert n'en ajoute aucune
+    /// (ses flaques gardent des toits sans lanterne, ses chats dorment loin des
+    /// lanternes). Si ce test échoue après une
     /// retouche de niveau : vérifier la nouvelle liste, la recopier ici et dans
     /// `QA.md` (section « Protection après réapparition »).
     #[test]
     fn lanternes_sur_le_trajet_d_un_danger() {
         // 2 min : plus qu'un aller-retour complet de chaque ennemi (la plus longue
-        // patrouille de flaque, un toit de 61 tuiles au niveau 3, dure 80 s à 24 px/s).
+        // patrouille de flaque, un toit de 61 tuiles au niveau 4, dure 80 s à 24 px/s).
         let trouves = dangers_sur_les_lanternes(120 * 60);
         println!("lanternes sur le trajet d'un danger : {trouves:?}");
         assert_eq!(
             trouves,
-            vec![(2, 66, "flaque"), (2, 104, "flaque"), (3, 145, "flaque")]
+            vec![(2, 66, "flaque"), (2, 104, "flaque"), (4, 145, "flaque")]
         );
     }
 
@@ -991,17 +1067,19 @@ mod tests {
         }
     }
 
-    /// Le décor raconte le niveau : cheminées et antennes sur les toits (1 et 2),
-    /// paratonnerres sous l'orage (3), manches à air au vent (4), oiseaux au soleil (5).
+    /// Le décor raconte le niveau : cheminées et antennes sur les toits (1, 2 et le
+    /// marché couvert, sans manche à air : on ne doit pas la confondre avec un
+    /// auvent), paratonnerres sous l'orage, manches à air au vent, oiseaux au soleil.
     #[test]
     fn chaque_niveau_a_son_decor() {
-        use crate::levels::{gouttieres, nuages, orage, toits, vents};
+        use crate::levels::{gouttieres, marche, nuages, orage, toits, vents};
         use GenreDecor::*;
         // Rangé par niveau (et non par place dans la table) : insérer un niveau ne
         // décale rien ; un niveau absent de cette liste n'a pas de décor imposé.
         let attendus: &[(InfosNiveau, &[GenreDecor])] = &[
             (toits::INFOS, &[Cheminee, Antenne]),
             (gouttieres::INFOS, &[Cheminee, Antenne]),
+            (marche::INFOS, &[Cheminee, Antenne]),
             (orage::INFOS, &[Paratonnerre]),
             (vents::INFOS, &[MancheAAir]),
             (nuages::INFOS, &[Oiseau]),
@@ -1142,15 +1220,17 @@ mod tests {
         ((x / t) as i32, (y / t) as i32)
     }
 
-    /// Un à trois pigeons dans les niveaux 4 et 5 (le deuxième ennemi de ces niveaux),
-    /// aucun ailleurs ; jamais à moins de 4 tuiles d'un oiseau de décor.
+    /// Un à trois pigeons dans Vents d'altitude et Au-dessus des nuages (niveaux 5
+    /// et 6 : le deuxième ennemi de ces niveaux), aucun ailleurs ; jamais à moins de
+    /// 4 tuiles d'un oiseau de décor.
     #[test]
-    fn les_pigeons_sont_aux_niveaux_4_et_5_loin_des_oiseaux_de_decor() {
+    fn les_pigeons_sont_dans_vents_et_nuages_loin_des_oiseaux_de_decor() {
+        use crate::levels::{nuages, vents};
         for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let n = infos.numero;
             let ps = pigeons(&niv);
-            if n >= 4 {
+            if [vents::INFOS.nom, nuages::INFOS.nom].contains(&infos.nom) {
                 assert!(
                     (1..=3).contains(&ps.len()),
                     "niveau {n} : {} pigeons",

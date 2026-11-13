@@ -2,7 +2,7 @@
 
 PÉPIN (« pépin » : parapluie, en argot) est un petit jeu de plateformes en
 pixel art. Pépin est une créature ronde armée d'un grand parapluie corail. Elle
-grimpe de toit en toit, de l'orage jusqu'au soleil, en cinq niveaux : le ciel
+grimpe de toit en toit, de l'orage jusqu'au soleil, en six niveaux : le ciel
 passe peu à peu du bleu nuit à l'or.
 
 Le projet a deux buts : un jeu qui tourne **dans un navigateur** (WebAssembly),
@@ -53,14 +53,16 @@ sur QWERTY, la touche point-virgule coupe aussi le son.
 Sur un écran tactile, quatre boutons (gauche, droite, saut, pause) apparaissent
 au premier toucher.
 
-Les cinq niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
+Les six niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
 
 1. Les toits : course, saut, planer.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines.
-3. Le grand orage : éclairs annoncés, plateformes mobiles et friables.
-4. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux,
+3. Le marché couvert : auvents qui relancent en diagonale (six à la suite au-dessus
+   du vide), chats endormis à écraser pendant leur sommeil.
+4. Le grand orage : éclairs annoncés, plateformes mobiles et friables.
+5. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux,
    pigeon.
-5. Au-dessus des nuages : final calme, nuages friables, pigeon.
+6. Au-dessus des nuages : final calme, nuages friables, pigeon.
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition). Il n'y a pas de « game over » : on réapparaît à la dernière

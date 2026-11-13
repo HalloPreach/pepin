@@ -1,4 +1,4 @@
-//! Niveau 5 : « Au-dessus des nuages ».
+//! Niveau 6 : « Au-dessus des nuages ».
 //!
 //! Final tout en douceur sur un tapis de nuages, jusqu'au soleil. Les îlots
 //! d'atterrissage sont larges et les nuages friables se touchent ; les gouttes
@@ -11,7 +11,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
-    numero: 5,
+    numero: 6,
     nom: "Au-dessus des nuages",
     theme: Theme::Soleil,
     genre: GenreNiveau::Normal,

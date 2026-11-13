@@ -1,4 +1,4 @@
-//! Niveau 3 : « Le grand orage ».
+//! Niveau 4 : « Le grand orage ».
 //!
 //! Éclairs temporisés, plateformes mobiles (qu'on attend), nuages friables, ascenseur.
 //! Entre les deux plateformes mobiles, une cheminée d'une tuile (colonne 51)
@@ -8,7 +8,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
-    numero: 3,
+    numero: 4,
     nom: "Le grand orage",
     theme: Theme::Orage,
     genre: GenreNiveau::Normal,
