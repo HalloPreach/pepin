@@ -17,6 +17,9 @@
 //!   plans « planer », ou passe dessous quand un solide l'arrête ;
 //! - les plateformes friables restent solides (on peut toujours s'en
 //!   détacher avant 0,5 s) ;
+//! - un rebond d'auvent n'est PAS une simplification : la vraie physique relance
+//!   le robot, et chaque rebond devient un nouveau point de décision (noeud
+//!   « lancé », voir `Noeud`) d'où il essaie les plans « en vol » ;
 //! - une plateforme mobile est remplacée par DEUX plateformes immobiles à ses
 //!   extrémités, et un joueur posé sur un bout est aussi considéré posé sur
 //!   l'autre (il suffit d'attendre d'être emporté).
@@ -138,8 +141,38 @@ enum Fin {
     Arrivee,
     /// Posé et immobile en `(x, y)`.
     Pose(f32, f32),
+    /// Relancé par un auvent en `(x, y)` : un nouveau choix commence en l'air
+    /// (voir `Noeud::lance`).
+    Lance(f32, f32),
     /// Temps écoulé ou état instable : on abandonne ce plan.
     Abandon,
+}
+
+/// Un état d'où le robot choisit son prochain plan.
+///
+/// - posé (`lance` faux) : Pépin est immobile au sol en `(x, y)` ;
+/// - lancé (`lance` vrai) : un auvent vient de le relancer depuis `(x, y)`.
+///   L'état du joueur ne dépend alors QUE de cette position (vitesse et élan
+///   sont remis à neuf par `Joueur::lancer_par_auvent`) : c'est donc un vrai
+///   point de décision, comme un atterrissage. Chaque rebond d'une chaîne
+///   d'auvents est ainsi un nouveau choix (garder la droite, la gauche, rien).
+#[derive(Clone, Copy)]
+struct Noeud {
+    x: f32,
+    y: f32,
+    lance: bool,
+}
+
+impl Noeud {
+    fn pose(x: f32, y: f32) -> Self {
+        Self { x, y, lance: false }
+    }
+
+    /// Clé de fusion : une case de 8 px en x, y arrondi, et le genre du noeud.
+    fn cle(self) -> (i32, i32, bool) {
+        let (kx, ky) = cle((self.x, self.y));
+        (kx, ky, self.lance)
+    }
 }
 
 /// Trajet d'une plateforme mobile : (extrémité a, extrémité b, largeur).
@@ -206,17 +239,27 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         dernier_etat: depart,
     };
     // Dijkstra sur la durée : `meilleur` retient le coût (en pas) le plus bas
-    // connu pour chaque case de 8 px ; `tas` sert les états du moins coûteux
-    // au plus coûteux (`Reverse` transforme le tas max en tas min).
-    let mut meilleur: HashMap<(i32, i32), u32> = HashMap::new();
-    let mut tas: BinaryHeap<Reverse<(u32, u32, u32)>> = BinaryHeap::new();
-    meilleur.insert(cle(depart), 0);
-    tas.push(Reverse((0, depart.0.to_bits(), depart.1.to_bits())));
+    // connu pour chaque case de 8 px (et chaque genre de noeud : posé ou lancé) ;
+    // `tas` sert les états du moins coûteux au plus coûteux (`Reverse`
+    // transforme le tas max en tas min).
+    let mut meilleur: HashMap<(i32, i32, bool), u32> = HashMap::new();
+    let mut tas: BinaryHeap<Reverse<(u32, u32, u32, bool)>> = BinaryHeap::new();
+    let n0 = Noeud::pose(depart.0, depart.1);
+    meilleur.insert(n0.cle(), 0);
+    tas.push(Reverse((0, depart.0.to_bits(), depart.1.to_bits(), false)));
     let tous_les_plans: Vec<Plan> = plans(options).collect();
+    // Après un rebond d'auvent, on est en l'air : seuls les choix « en vol »
+    // ont un sens (ni élan au sol ni saut).
+    let plans_lance: Vec<Plan> = plans_en_vol(options).collect();
 
-    while let Some(Reverse((cout, bx, by))) = tas.pop() {
-        let etat = (f32::from_bits(bx), f32::from_bits(by));
-        if meilleur.get(&cle(etat)).is_some_and(|&c| c < cout) {
+    while let Some(Reverse((cout, bx, by, lance))) = tas.pop() {
+        let noeud = Noeud {
+            x: f32::from_bits(bx),
+            y: f32::from_bits(by),
+            lance,
+        };
+        let etat = (noeud.x, noeud.y);
+        if meilleur.get(&noeud.cle()).is_some_and(|&c| c < cout) {
             continue; // version périmée : un chemin plus court existe
         }
         rapport.etats += 1;
@@ -224,10 +267,11 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             rapport.x_max = etat.0;
             rapport.dernier_etat = etat;
         }
-        for plan in &tous_les_plans {
+        let a_essayer = if lance { &plans_lance } else { &tous_les_plans };
+        for plan in a_essayer {
             let mut ents = entites.clone();
             let mut touches: Vec<Contact> = Vec::new();
-            let (fin, duree) = simuler(niveau, &env, etat, *plan, &mut ents, &mut touches);
+            let (fin, duree) = simuler(niveau, &env, noeud, *plan, &mut ents, &mut touches);
             if matches!(fin, Fin::Mort | Fin::Abandon) {
                 continue;
             }
@@ -243,11 +287,16 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
             }
             let cout_plan = cout + u32::from(duree);
-            let mut ajouter = |arrive: (f32, f32), cout: u32| {
-                let k = cle(arrive);
+            let mut ajouter = |arrive: Noeud, cout: u32| {
+                let k = arrive.cle();
                 if meilleur.get(&k).is_none_or(|&c| cout < c) {
                     meilleur.insert(k, cout);
-                    tas.push(Reverse((cout, arrive.0.to_bits(), arrive.1.to_bits())));
+                    tas.push(Reverse((
+                        cout,
+                        arrive.x.to_bits(),
+                        arrive.y.to_bits(),
+                        arrive.lance,
+                    )));
                 }
             };
             match fin {
@@ -258,8 +307,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         rapport.pas_arrivee = Some(cout_plan);
                     }
                 }
+                Fin::Lance(x, y) => ajouter(Noeud { x, y, lance: true }, cout_plan),
                 Fin::Pose(x, y) => {
-                    ajouter((x, y), cout_plan);
+                    ajouter(Noeud::pose(x, y), cout_plan);
                     // Debout sur un bout de plateforme mobile ? On peut attendre
                     // d'être emporté à l'autre bout : on ajoute cet état-là aussi,
                     // avec le temps de trajet comme coût.
@@ -272,7 +322,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                                 let (dx, dy) = (vers.0 - de.0, vers.1 - de.1);
                                 let trajet = (dx * dx + dy * dy).sqrt() / VITESSE_PLATEFORMES;
                                 let attente = (trajet * HZ as f32) as u32;
-                                ajouter((x + dx, y + dy), cout_plan + attente);
+                                ajouter(Noeud::pose(x + dx, y + dy), cout_plan + attente);
                             }
                         }
                     }
@@ -330,22 +380,68 @@ fn plans(options: Options) -> impl Iterator<Item = Plan> {
     v.into_iter()
 }
 
-/// Simule un plan complet depuis un état stable.
+/// Les plans « en vol », à essayer juste après un rebond d'auvent (noeud lancé) :
+/// une direction (gauche, droite, ou aucune), gardée pendant la montée et/ou la
+/// descente, parapluie ouvert ou non en descente. Ni élan au sol ni saut.
+fn plans_en_vol(options: Options) -> impl Iterator<Item = Plan> {
+    let planer = if options.planer {
+        &[false, true][..]
+    } else {
+        &[false][..]
+    };
+    let mut v = Vec::new();
+    for &p in planer {
+        for &s in &[-1i8, 1] {
+            for &montee in &[true, false] {
+                for &descente in &[true, false] {
+                    v.push(Plan {
+                        dir: direction(s),
+                        elan: 0,
+                        saut: 0,
+                        planer: p,
+                        dir_montee: montee,
+                        dir_descente: descente,
+                    });
+                }
+            }
+        }
+        // Ne rien toucher (le vol tout seul : 4 tuiles plus loin).
+        v.push(Plan {
+            dir: Direction::Immobile,
+            elan: 0,
+            saut: 0,
+            planer: p,
+            dir_montee: false,
+            dir_descente: false,
+        });
+    }
+    v.into_iter()
+}
+
+/// Simule un plan complet depuis un noeud : posé (état stable) ou lancé (un
+/// auvent vient de relancer Pépin). Le plan s'arrête posé, mort, à l'arrivée,
+/// ou au prochain rebond d'auvent (`Fin::Lance` : un nouveau choix commence).
 fn simuler(
     niveau: &Niveau,
     env: &Environnement<'_>,
-    depart: (f32, f32),
+    depart: Noeud,
     plan: Plan,
     ents: &mut [Entite],
     touches: &mut Vec<Contact>,
 ) -> (Fin, u16) {
-    let mut j = Joueur::new(depart.0, depart.1);
-    // Un pas à vide pour que `au_sol` soit vrai dès le début.
-    j.actualiser(&Entrees::default(), env);
+    let mut j = Joueur::new(depart.x, depart.y);
+    if depart.lance {
+        // Exactement l'état laissé par l'auvent : seule la position compte.
+        j.lancer_par_auvent();
+    } else {
+        // Un pas à vide pour que `au_sol` soit vrai dès le début.
+        j.actualiser(&Entrees::default(), env);
+    }
     let bas_monde = niveau.hauteur_px();
     let pas_max = pas_max_plan(bas_monde);
     let mut en_l_air: u16 = 0;
-    let mut a_decolle = false;
+    // Lancé : on est déjà en l'air, les commandes « en vol » s'appliquent dès le 1er pas.
+    let mut a_decolle = depart.lance;
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
 
@@ -379,9 +475,11 @@ fn simuler(
 
         j.actualiser(&entrees, env);
         let contacts = resoudre_contacts(&mut j, ents);
+        let mut relance = false;
         for c in contacts {
             match c {
                 Contact::Mort(_) => return (Fin::Mort, pas),
+                Contact::Auvent => relance = true,
                 autre => touches.push(autre),
             }
         }
@@ -390,6 +488,9 @@ fn simuler(
         }
         if j.boite.chevauche(&niveau.arrivee) {
             return (Fin::Arrivee, pas);
+        }
+        if relance {
+            return (Fin::Lance(j.boite.x, j.boite.y), pas + 1);
         }
 
         if !j.au_sol {
@@ -739,5 +840,78 @@ mod tests {
             },
         );
         assert!(!sans.arrivee, "sans parapluie, la chute est trop courte");
+    }
+
+    /// Mini-niveau des auvents : un toit de départ (colonnes 0 à 8), puis un vide
+    /// au-dessus duquel six auvents (`A`, ligne 7) se suivent, le premier en colonne
+    /// 10, chacun `ecarts[k]` tuiles après le précédent ; le toit d'arrivée commence
+    /// 4 tuiles après le dernier. `avec_auvents` faux : les mêmes cases restent vides
+    /// (témoin). Le vide (au moins 20 tuiles) est bien plus large qu'un saut plané.
+    fn niveau_auvents(ecarts: [usize; 5], avec_auvents: bool) -> Niveau {
+        let mut colonnes = vec![10];
+        for e in ecarts {
+            colonnes.push(colonnes[colonnes.len() - 1] + e);
+        }
+        let arrivee_x = colonnes[5] + 4;
+        let largeur = arrivee_x + 8;
+        let mut lignes = vec![".".repeat(largeur); 11];
+        lignes[0].replace_range(1..4, "ooo");
+        lignes[7].replace_range(2..3, "@");
+        lignes[7].replace_range(largeur - 3..largeur - 2, "X");
+        if avec_auvents {
+            for x in colonnes {
+                lignes[7].replace_range(x..x + 1, "A");
+            }
+        }
+        for x in (0..9).chain(arrivee_x..largeur) {
+            for ligne in &mut lignes[8..11] {
+                ligne.replace_range(x..x + 1, "#");
+            }
+        }
+        Niveau::depuis_ascii(&lignes.join("\n")).expect("niveau de test")
+    }
+
+    /// Écarts essayés : 3, 4 ou 5 tuiles partout, puis un rang irrégulier (3 et 5
+    /// alternés).
+    const ECARTS: [[usize; 5]; 4] = [[3; 5], [4; 5], [5; 5], [3, 5, 3, 5, 4]];
+
+    /// Le robot sait se servir des auvents : six auvents espacés de 3 à 5 tuiles
+    /// au-dessus d'un vide qu'aucun saut plané ne franchit (témoin sans auvents).
+    /// Chaque rebond est un nouveau point de décision (noeud « lancé ») ; le robot
+    /// peut aussi sauter un auvent en planant, s'il le trouve plus rapide.
+    #[test]
+    fn le_robot_traverse_le_vide_par_les_auvents() {
+        for ecarts in ECARTS {
+            let temoin = niveau_auvents(ecarts, false);
+            let sans = analyser(&temoin, temoin.depart, Options::default());
+            assert!(
+                !sans.arrivee,
+                "{ecarts:?} : le vide se franchit sans auvent ?"
+            );
+            let n = niveau_auvents(ecarts, true);
+            let avec = analyser(&n, n.depart, Options::default());
+            assert!(
+                avec.arrivee,
+                "{ecarts:?} : chaîne d'auvents non trouvée : {avec:?}"
+            );
+        }
+    }
+
+    /// Le robot maladroit (choix grossiers au sol) y arrive aussi : en vol, après
+    /// un rebond, il a les mêmes choix que le robot précis.
+    #[test]
+    fn le_robot_maladroit_traverse_aussi_par_les_auvents() {
+        for ecarts in ECARTS {
+            let n = niveau_auvents(ecarts, true);
+            let maladroit = analyser(
+                &n,
+                n.depart,
+                Options {
+                    precis: false,
+                    ..Options::default()
+                },
+            );
+            assert!(maladroit.arrivee, "{ecarts:?} : {maladroit:?}");
+        }
     }
 }
