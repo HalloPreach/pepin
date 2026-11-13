@@ -555,6 +555,9 @@ pub struct ImageEssai {
     pub pepin_ecran_y: i32,
     /// La flèche de repère est dessinée (Pépin au-dessus du cadre).
     pub repere: bool,
+    /// Pépin plane DANS une colonne de grêle (carte 5.4) : parapluie ouvert, la grêle
+    /// se brise sur la toile.
+    pub sous_la_grele: bool,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -608,6 +611,10 @@ fn jouer_essai(
         let pepin_ecran_y = j.boite.y.round() as i32 - camera.1;
         let milieu = j.boite.x.round() as i32 - camera.0 + j.boite.w as i32 / 2;
         let repere = crate::scene::repere_haut(pepin_ecran_y, j.boite.h as i32, milieu).is_some();
+        let sous_la_grele = j.plane
+            && app.monde.entites.iter().any(|e| {
+                matches!(e, pepin_core::entities::Entite::Grele(g) if g.zone.chevauche(&j.boite))
+            });
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -615,6 +622,7 @@ fn jouer_essai(
             camera,
             pepin_ecran_y,
             repere,
+            sous_la_grele,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -662,6 +670,27 @@ pub fn parcours_essai_vent() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai vent")
 }
 
+/// Joue le niveau d'essai « grêle » (touche F2 du build de QA) — voir `jouer_essai`.
+pub fn jouer_essai_grele(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_GRELE,
+        RaccourciNiveau::Essai3,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans le niveau d'essai « grêle » (maladroit, puis précis). La
+/// grêle n'a rien de spécial pour lui : la VRAIE simulation (`Monde`) tue un plan qui
+/// la touche parapluie fermé, ce plan est écarté, et il reste ceux qui la traversent
+/// en planant (ou qui passent sous la corniche).
+pub fn parcours_essai_grele() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_GRELE;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai grêle")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -703,6 +732,45 @@ mod tests {
         );
         println!(
             "essai vent : {} images de jeu, gouttes {}, fin à x = {:.1}",
+            essai.len(),
+            partie.gouttes,
+            dernier.trame.x
+        );
+    }
+
+    /// Le robot finit le niveau d'essai « grêle » (carte 5.4) sans mourir, à travers
+    /// l'`Application` (touche F2 du build de QA) : trois gouttes (dont celle de la
+    /// corniche, SOUS la grêle arrêtée), et il a bel et bien plané DANS la grêle.
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_grele() {
+        let parcours = parcours_essai_grele();
+        let partie = jouer_essai_grele(&parcours);
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(
+            partie.gouttes, 3,
+            "les trois gouttes du niveau d'essai grêle"
+        );
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F2, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        assert!(essai.len() > 100, "{} images de jeu", essai.len());
+        assert!(
+            essai.iter().all(|i| i.camera.1 == -4),
+            "la caméra d'un niveau plat reste au sol"
+        );
+        let sous_la_grele = essai.iter().filter(|i| i.sous_la_grele).count();
+        assert!(
+            sous_la_grele > 20,
+            "{sous_la_grele} images à planer dans la grêle"
+        );
+        let dernier = essai.last().unwrap();
+        assert!(dernier.trame.x > 500.0, "arrivée à x = {}", dernier.trame.x);
+        println!(
+            "essai grêle : {} images de jeu, {sous_la_grele} sous la grêle, gouttes {}, fin à x = {:.1}",
             essai.len(),
             partie.gouttes,
             dernier.trame.x
@@ -861,6 +929,43 @@ mod tests {
         std::fs::write("../target/qa/trace-53.csv", trace).unwrap();
         println!(
             "images : {} ; F1 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai « grêle » pour le navigateur (build de QA) :
+    /// `target/qa/script-54.txt`, `target/qa/touches-54.txt` (image du pilote où
+    /// appuyer sur F2, une image après la trace : le navigateur a un pas de retard) et
+    /// `target/qa/trace-54.csv` (position de Pépin, caméra, plané dans la grêle).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_grele
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_grele() {
+        let partie = jouer_essai_grele(&parcours_essai_grele());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-54.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-54.txt", format!("{pilote}:F2\n")).unwrap();
+        let mut trace = String::from("image,ecran,essai,x,y,cam_x,cam_y,sous_la_grele\n");
+        for (k, i) in partie.images.iter().enumerate() {
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.sous_la_grele)
+            ));
+        }
+        std::fs::write("../target/qa/trace-54.csv", trace).unwrap();
+        println!(
+            "images : {} ; F2 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );
