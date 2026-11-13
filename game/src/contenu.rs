@@ -115,11 +115,15 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
 ];
 
 /// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
-/// sauf, dans les tests et le build de QA, celui du niveau d'essai vertical.
+/// sauf, dans les tests et le build de QA, ceux des niveaux d'essai (vertical, vent).
 pub fn intro(indice: usize) -> &'static Intro {
     #[cfg(any(test, feature = "debug_niveaux"))]
     if indice == crate::monde::INDICE_ESSAI {
         return &INTRO_ESSAI;
+    }
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_VENT {
+        return &INTRO_ESSAI_VENT;
     }
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
@@ -129,6 +133,14 @@ pub fn intro(indice: usize) -> &'static Intro {
 pub const INTRO_ESSAI: Intro = Intro {
     texte: "Niveau d'essai : quatre écrans de haut. La caméra suit Pépin en hauteur.",
     astuce: "Grimpe, saute sur le champignon, redescends.",
+};
+
+/// Intro du niveau d'essai « vent » (build de QA seulement, voir
+/// `monde::INDICE_ESSAI_VENT`).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INTRO_ESSAI_VENT: Intro = Intro {
+    texte: "Le vent latéral pousse Pépin : 60 px par seconde, deux fois plus fort en planant.",
+    astuce: "Planer avec le vent, sauter contre.",
 };
 
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau

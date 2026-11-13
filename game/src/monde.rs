@@ -62,15 +62,27 @@ pub struct Monde {
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI: usize = pepin_core::levels::NB_NIVEAUX;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis le niveau d'essai vertical à
-/// `INDICE_ESSAI` (tests et build de QA seulement). `None` au-delà.
+/// Indice du niveau d'essai « vent » (carte 5.3) : juste après le précédent
+/// (touche F1 du build de QA).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_VENT: usize = pepin_core::levels::NB_NIVEAUX + 1;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les deux niveaux
+/// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent) — tests et
+/// build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
 }
 
 #[cfg(any(test, feature = "debug_niveaux"))]
 fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
-    (indice == INDICE_ESSAI).then_some(&pepin_core::levels::essai_vertical::INFOS)
+    if indice == INDICE_ESSAI {
+        Some(&pepin_core::levels::essai_vertical::INFOS)
+    } else if indice == INDICE_ESSAI_VENT {
+        Some(&pepin_core::levels::essai_vent::INFOS)
+    } else {
+        None
+    }
 }
 
 /// Production : aucun niveau en dehors de la table.
@@ -130,6 +142,7 @@ impl Monde {
                 grille: &self.niveau,
                 solides: &solides,
                 courants: &self.niveau.courants,
+                vents: &self.niveau.vents,
             };
             for e in &mut self.entites {
                 e.actualiser(&env);
@@ -141,6 +154,7 @@ impl Monde {
             grille: &self.niveau,
             solides: &solides,
             courants: &self.niveau.courants,
+            vents: &self.niveau.vents,
         };
         porter_par_plateformes(&mut self.joueur, &self.entites, &env);
         // 3. Le joueur bouge.
