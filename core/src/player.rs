@@ -15,6 +15,21 @@
 use crate::aabb::{deplacer, Aabb};
 use crate::physics::*;
 
+/// Protection après une réapparition : 1 s (60 pas), celui de la réapparition compris.
+///
+/// Pendant ce temps, aucun DANGER (ennemi, pointe, éclair, et tout danger futur
+/// traité par `contacts::resoudre_contacts`) ne peut tuer Pépin ; la chute dans le
+/// vide, elle, reste mortelle (sinon il pourrait rester coincé en dessous du monde).
+/// Sans elle, un ennemi qui passe sur la lanterne tuerait Pépin à chaque pas :
+/// il réapparaîtrait dedans et mourrait de nouveau, jusqu'à ce que l'ennemi s'éloigne.
+///
+/// Durée FIXE (elle ne s'arrête pas quand le joueur bouge) : plus simple et
+/// prévisible. Elle ne se recharge qu'à une réapparition : on ne peut donc pas
+/// s'en servir pour traverser un danger, sauf juste à côté de la lanterne.
+/// 1 s suffit pour qu'une flaque (24 px/s) passe entièrement sur Pépin immobile :
+/// 22 px de chevauchement (12 px de flaque + 10 px de Pépin), soit 0,92 s.
+pub const PROTECTION_REAPPARITION_PAS: u16 = HZ as u16;
+
 /// Direction horizontale demandée par le joueur.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Direction {
@@ -82,6 +97,9 @@ pub struct Joueur {
     tampon: u8,
     /// Vrai pendant la montée d'un vrai saut (permet la coupure du saut).
     monte_par_saut: bool,
+    /// Pas restants de protection après une réapparition (0 = aucune protection).
+    /// Voir `PROTECTION_REAPPARITION_PAS`.
+    protection: u16,
 }
 
 impl Joueur {
@@ -97,12 +115,31 @@ impl Joueur {
             coyote: 0,
             tampon: 0,
             monte_par_saut: false,
+            protection: 0,
         }
     }
 
     /// Replace le joueur (respawn) en remettant vitesse et minuteries à zéro.
+    /// La protection aussi : c'est à l'appelant de la donner (`proteger`), seulement
+    /// pour une vraie réapparition (`EtatJeu::traiter`).
     pub fn placer(&mut self, x: f32, y: f32) {
         *self = Joueur::new(x, y);
+    }
+
+    /// Donne la protection de réapparition (durée `PROTECTION_REAPPARITION_PAS`).
+    /// On REMPLACE le reste éventuel, on n'additionne pas : impossible de cumuler.
+    pub fn proteger(&mut self) {
+        self.protection = PROTECTION_REAPPARITION_PAS;
+    }
+
+    /// Pépin est-il protégé des dangers (juste après une réapparition) ?
+    pub fn est_protege(&self) -> bool {
+        self.protection > 0
+    }
+
+    /// Pas de protection restants (pour l'affichage et les tests).
+    pub fn protection_restante(&self) -> u16 {
+        self.protection
     }
 
     /// Phase de mouvement courante, déduite des champs.
@@ -139,6 +176,10 @@ impl Joueur {
         let mut ev = Evenements::default();
         let etait_au_sol = self.au_sol;
         let etait_plane = self.plane;
+
+        // --- 0. Protection de réapparition : un pas de moins ----------------
+        // `saturating_sub` : 0 - 1 reste 0 (un `u16` ne peut pas être négatif).
+        self.protection = self.protection.saturating_sub(1);
 
         // --- 1. Minuteries : coyote time et jump buffer ---------------------
         let appui = entrees.saut && !self.saut_precedent; // front montant
@@ -639,6 +680,40 @@ mod tests {
             (j.boite.x, j.boite.y, j.vitesse),
             (30.0, 30.0, Vec2::default())
         );
+    }
+
+    /// La protection de réapparition dure exactement `PROTECTION_REAPPARITION_PAS`
+    /// pas (celui de la réapparition compris, donc `- 1` pas de simulation ensuite),
+    /// puis expire ; un nouveau `placer` l'efface, `proteger` la remet au maximum
+    /// sans jamais la cumuler.
+    #[test]
+    fn la_protection_de_reapparition_expire() {
+        let g = salle();
+        let env = Environnement::simple(&g);
+        let mut j = au_sol(&g, 100.0);
+        assert!(!j.est_protege(), "pas de protection au départ");
+        j.proteger();
+        assert_eq!(j.protection_restante(), PROTECTION_REAPPARITION_PAS);
+        for k in 1..PROTECTION_REAPPARITION_PAS {
+            j.actualiser(&droite(), &env);
+            assert!(j.est_protege(), "encore protégé au pas {k}");
+        }
+        j.actualiser(&droite(), &env);
+        assert!(!j.est_protege(), "protection expirée");
+        j.actualiser(&droite(), &env);
+        assert_eq!(j.protection_restante(), 0, "reste à 0");
+
+        j.proteger();
+        j.actualiser(&AUCUNE, &env);
+        j.proteger();
+        assert_eq!(
+            j.protection_restante(),
+            PROTECTION_REAPPARITION_PAS,
+            "pas de cumul"
+        );
+        j.placer(30.0, 30.0);
+        assert!(!j.est_protege(), "placer seul ne protège pas");
+        assert_eq!(PROTECTION_REAPPARITION_PAS, 60, "1 s à 60 Hz");
     }
 
     #[test]

@@ -312,6 +312,15 @@ fn dessiner_repere(x: i32) {
     }
 }
 
+/// Pépin est-il caché à cette image ? Pendant la protection de réapparition
+/// (`protection` pas restants, voir `PROTECTION_REAPPARITION_PAS`), il clignote :
+/// 3 images dessiné, 3 images caché (10 fois par seconde à 60 Hz). Un sprite
+/// absent une image sur deux plutôt qu'un sprite à moitié transparent : la palette
+/// n'a que des couleurs pleines. Fonction pure.
+fn pepin_cache(protection: u16, pas: u32) -> bool {
+    protection > 0 && (pas / 3).is_multiple_of(2)
+}
+
 fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) {
     let pas = monde.pas;
     let j = &monde.joueur;
@@ -328,9 +337,10 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) 
             mort_y.round() as i32 - cy - 2,
         );
         banque.dessiner(pepin::REAPPARITION[k], mx as f32, my as f32, false);
-        if (pas / 3).is_multiple_of(2) {
-            return; // clignotement de Pépin tout juste réapparu
-        }
+    }
+    // Tout juste réapparu, Pépin est protégé des dangers (1 s) : il clignote.
+    if pepin_cache(j.protection_restante(), pas) {
+        return;
     }
 
     let (px, py) = monde.joueur_interpole(alpha);
@@ -470,5 +480,28 @@ mod tests {
         // Mort hors champ (réapparition lointaine) : abscisse ramenée dans l'écran.
         assert_eq!(borner_mort((20.0, 100.0), cam).0, 200.0);
         assert_eq!(borner_mort((900.0, 100.0), cam).0, 200.0 + 320.0 - 16.0);
+    }
+
+    /// Pendant toute la protection, Pépin clignote (3 images visible, 3 cachées,
+    /// jamais à moitié transparent) ; sans protection, il est toujours dessiné.
+    #[test]
+    fn pepin_clignote_pendant_toute_la_protection() {
+        use pepin_core::player::PROTECTION_REAPPARITION_PAS;
+        assert!(
+            (0..600).all(|pas| !pepin_cache(0, pas)),
+            "pas de protection"
+        );
+        // 1 s de protection à partir d'une image quelconque : la moitié cachée.
+        let depart = 1_234;
+        let caches: Vec<bool> = (0..PROTECTION_REAPPARITION_PAS)
+            .map(|k| pepin_cache(PROTECTION_REAPPARITION_PAS - k, depart + k as u32))
+            .collect();
+        assert_eq!(caches.iter().filter(|&&c| c).count(), 30);
+        // Séries de 3 images exactement (sauf aux deux bouts) : lisible à 60 Hz.
+        let series: Vec<usize> = caches.chunk_by(|a, b| a == b).map(<[bool]>::len).collect();
+        assert!(
+            series[1..series.len() - 1].iter().all(|&n| n == 3),
+            "{series:?}"
+        );
     }
 }

@@ -89,10 +89,18 @@ fn pose_sur(joueur: &Joueur, boite: &Aabb) -> bool {
 ///
 /// Ordre de la liste : ordre des entités. Une mort est toujours placée EN DERNIER
 /// et il n'y en a qu'une, même si plusieurs dangers touchent en même temps.
+///
+/// Protection de réapparition (`Joueur::est_protege`) : aucun danger ne tue
+/// (ennemi touché de côté, pointe, éclair) ; tout le reste continue (gouttes,
+/// lanternes, champignons, écrasement d'un ennemi par le dessus). Tout NOUVEAU
+/// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
+/// pas traitée ici (`verifier_vide`) : elle reste mortelle.
 pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Contact> {
     let mut contacts = Vec::new();
     let mut mort: Option<CauseMort> = None;
     let mut lanterne_allumee: Option<usize> = None;
+    // Pépin vient-il de réapparaître ? Alors les dangers ci-dessous l'ignorent.
+    let protege = joueur.est_protege();
 
     for (i, entite) in entites.iter_mut().enumerate() {
         match entite {
@@ -116,18 +124,18 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                         e.ecraser();
                         joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
                         contacts.push(Contact::Ecrase);
-                    } else {
+                    } else if !protege {
                         mort.get_or_insert(CauseMort::Ennemi);
                     }
                 }
             }
             Entite::Pointe(p) => {
-                if joueur.boite.chevauche(&p.zone_danger()) {
+                if !protege && joueur.boite.chevauche(&p.zone_danger()) {
                     mort.get_or_insert(CauseMort::Pointe);
                 }
             }
             Entite::Eclair(e) => {
-                if e.frappe() && joueur.boite.chevauche(&e.zone) {
+                if !protege && e.frappe() && joueur.boite.chevauche(&e.zone) {
                     mort.get_or_insert(CauseMort::Eclair);
                 }
             }
@@ -466,6 +474,72 @@ mod tests {
         assert_eq!(
             c,
             vec![Contact::Goutte(1), Contact::Mort(CauseMort::Pointe)]
+        );
+    }
+
+    /// Un éclair en pleine frappe sur la colonne x = 96..120.
+    fn eclair_qui_frappe() -> Entite {
+        use crate::entities::Eclair;
+        let g = GrilleTuiles::vide(20, 20);
+        let env = Environnement::simple(&g);
+        let mut e = Entite::Eclair(Eclair::new(Aabb::new(96.0, 0.0, 24.0, 200.0), 1000, 1));
+        while !matches!(&e, Entite::Eclair(x) if x.frappe()) {
+            e.actualiser(&env);
+        }
+        e
+    }
+
+    /// Juste après une réapparition, Pépin est protégé : flaque touchée de côté,
+    /// pointes et éclair ne le tuent pas ; sans protection, les mêmes contacts tuent.
+    /// Le reste continue : goutte ramassée, flaque écrasée par le dessus.
+    #[test]
+    fn protege_aucun_danger_ne_tue_mais_le_reste_continue() {
+        let dangers = || {
+            vec![
+                Entite::Ennemi(Ennemi::new(TypeEnnemi::Flaque, 100.0, 100.0)),
+                Entite::Pointe(Pointe::new(100.0, 104.0)),
+                eclair_qui_frappe(),
+                Entite::Goutte(GoutteDor::new(0, 102.0, 102.0)),
+            ]
+        };
+        // Sans protection : mort (une seule, en dernier).
+        let mut j = joueur(95.0, 96.0);
+        let mut e = dangers();
+        assert_eq!(
+            resoudre_contacts(&mut j, &mut e),
+            vec![Contact::Goutte(0), Contact::Mort(CauseMort::Ennemi)]
+        );
+        // Protégé, même position, mêmes dangers : seulement la goutte.
+        let mut j = joueur(95.0, 96.0);
+        j.proteger();
+        let mut e = dangers();
+        assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Goutte(0)]);
+        assert!(
+            matches!(&e[0], Entite::Ennemi(f) if f.est_dangereux()),
+            "la flaque touchée de côté n'est pas écrasée"
+        );
+        // Protégé, il peut toujours écraser une flaque en tombant dessus.
+        let mut j = joueur(100.0, 100.0 - 14.0 + 3.0);
+        j.vitesse.y = 200.0;
+        j.proteger();
+        let mut e = vec![Entite::Ennemi(Ennemi::new(
+            TypeEnnemi::Flaque,
+            100.0,
+            100.0,
+        ))];
+        assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Ecrase]);
+    }
+
+    /// La chute dans le vide reste mortelle pendant la protection (sinon Pépin
+    /// tomberait sans fin sous le monde).
+    #[test]
+    fn le_vide_tue_meme_protege() {
+        let mut j = joueur(10.0, 160.0 + 17.0);
+        j.proteger();
+        assert!(j.est_protege());
+        assert_eq!(
+            verifier_vide(&j, 160.0),
+            Some(Contact::Mort(CauseMort::Vide))
         );
     }
 }

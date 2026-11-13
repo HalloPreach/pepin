@@ -247,4 +247,48 @@ mod tests {
         assert_eq!(interpoler((0.0, 0.0), (10.0, 0.0), 0.5), (5.0, 0.0));
         assert_eq!(interpoler((0.0, 0.0), (500.0, 0.0), 0.5), (500.0, 0.0));
     }
+
+    /// Le cas trouvé par la mesure 3.1, dans le vrai niveau 2 : Pépin attend, immobile,
+    /// à la lanterne de la colonne 104 ; la flaque de la colonne 108 passe dessus, va
+    /// au mur, revient. Avant la protection : une mort à chaque pas où la flaque
+    /// recouvre la lanterne (des dizaines d'affilée). Maintenant : au plus une mort par
+    /// passage, et jamais deux à moins d'une protection d'intervalle.
+    #[test]
+    fn la_flaque_sur_la_lanterne_104_du_niveau_2_ne_tue_plus_en_boucle() {
+        use pepin_core::player::PROTECTION_REAPPARITION_PAS;
+        let mut m = Monde::new(1);
+        let point = m
+            .entites
+            .iter()
+            .find_map(|e| match e {
+                Entite::Lanterne(l) if (l.boite.x / 16.0) as i32 == 104 => {
+                    Some(l.point_de_reapparition())
+                }
+                _ => None,
+            })
+            .expect("lanterne de la colonne 104");
+        m.joueur.placer(point.0, point.1);
+        let mut morts = Vec::new();
+        // Un aller-retour de la flaque devant la lanterne (mur à 2 tuiles) : 6 s.
+        for pas in 0..360u32 {
+            let avant = m.etat.morts;
+            m.avancer(&Entrees::default());
+            if m.etat.morts > avant {
+                morts.push(pas);
+            }
+        }
+        assert_eq!(m.etat.checkpoint(), point, "lanterne 104 allumée");
+        assert!(!morts.is_empty(), "la flaque passe bien sur Pépin");
+        assert!(morts.len() <= 2, "morts aux pas {morts:?}");
+        assert!(
+            morts
+                .windows(2)
+                .all(|w| w[1] - w[0] >= PROTECTION_REAPPARITION_PAS as u32),
+            "deux morts trop rapprochées : {morts:?}"
+        );
+        assert_eq!(
+            m.joueur.boite.x, point.0,
+            "Pépin est toujours à la lanterne"
+        );
+    }
 }
