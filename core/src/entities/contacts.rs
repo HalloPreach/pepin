@@ -42,7 +42,7 @@ pub enum Contact {
     Lanterne(f32, f32),
     /// Un ennemi vient d'être écrasé.
     Ecrase,
-    /// Le joueur a rebondi sur un champignon.
+    /// Le joueur a rebondi sur un champignon (ou sur un escargot).
     Rebond,
     /// Un auvent vient de relancer le joueur en diagonale.
     Auvent,
@@ -122,7 +122,7 @@ fn pose_sur(joueur: &Joueur, boite: &Aabb) -> bool {
 ///
 /// Protection de réapparition (`Joueur::est_protege`) : aucun danger ne tue
 /// (ennemi touché de côté, pointe, éclair, grêle) ; tout le reste continue (gouttes,
-/// lanternes, champignons, auvents, écrasement d'un ennemi par le dessus). Tout NOUVEAU
+/// lanternes, champignons, escargots, auvents, écrasement d'un ennemi par le dessus). Tout NOUVEAU
 /// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
 /// pas traitée ici (`verifier_vide`) : elle reste mortelle.
 ///
@@ -186,6 +186,14 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                 if joueur.vitesse.y >= 0.0 && joueur.boite.chevauche(&c.boite) {
                     joueur.rebondir(super::champignon::VITESSE_CHAMPIGNON);
                     c.rebondir();
+                    contacts.push(Contact::Rebond);
+                }
+            }
+            Entite::Escargot(s) => {
+                // Par le dessus seulement : rebond du champignon (`Contact::Rebond`).
+                // De côté, rien : l'escargot est inoffensif et ne s'écrase pas.
+                if s.recoit(joueur) {
+                    s.lancer(joueur);
                     contacts.push(Contact::Rebond);
                 }
             }

@@ -13,7 +13,7 @@ use super::{
 use crate::aabb::{Aabb, TAILLE_TUILE};
 use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::{
-    Auvent, Champignon, Eclair, Ennemi, Entite, GoutteDor, Grele, Lanterne, Montgolfiere,
+    Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, Grele, Lanterne, Montgolfiere,
     PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi, Ventilateur,
 };
 use crate::physics::{CourantAscendant, VentLateral, JOUEUR_H};
@@ -102,6 +102,9 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 }
                 '^' => entites.push(Entite::Pointe(Pointe::new(x, y + 8.0))),
                 'M' => entites.push(Entite::Champignon(Champignon::new(x, y + 8.0))),
+                // Escargot : boîte 16 x 10 au bas de la case (il marche sur le toit
+                // du dessous, comme la flaque ; pas d'appui exigé : en l'air, il tombe).
+                's' => entites.push(Entite::Escargot(Escargot::new(x, y + 6.0))),
                 'A' => entites.push(Entite::Auvent(Auvent::dans_la_case(x, y))),
                 'f' => entites.push(Entite::Ennemi(Ennemi::new(
                     TypeEnnemi::Flaque,

@@ -15,7 +15,7 @@ pub use pigeon::{
 
 use super::Actualisable;
 use crate::aabb::{deplacer, Aabb, TAILLE_TUILE};
-use crate::physics::{Environnement, DT, GRAVITE, HZ, VITESSE_MAX_CHUTE};
+use crate::physics::{Environnement, DT, HZ};
 
 /// Nombre de pas pendant lesquels une flaque écrasée reste affichée (aplatie).
 pub const ANIMATION_ECRASE_PAS: u8 = 20;
@@ -155,45 +155,17 @@ impl Ennemi {
         }
     }
 
-    /// Y a-t-il du sol juste devant les « pieds » ? On sonde un point 0,5 px
-    /// au-delà du bord avant, 0,5 px sous la boîte : tuile solide OU solide mobile.
-    fn sol_devant(&self, env: &Environnement<'_>) -> bool {
-        let x = if self.vers_la_droite {
-            self.boite.droite() + 0.5
-        } else {
-            self.boite.x - 0.5
-        };
-        let y = self.boite.bas() + 0.5;
-        let tx = (x / TAILLE_TUILE).floor() as i32;
-        let ty = (y / TAILLE_TUILE).floor() as i32;
-        if env.grille.est_solide(tx, ty) {
-            return true;
-        }
-        let sonde = Aabb::new(x - 0.5, y - 0.5, 1.0, 1.0);
-        env.solides.iter().any(|s| s.chevauche(&sonde))
-    }
-
-    /// Patrouille de la flaque : gravité, marche, demi-tour au mur ou avant le vide.
+    /// Patrouille de la flaque : gravité, marche, demi-tour au mur ou avant le vide
+    /// (la même marche que l'escargot : `marche::patrouiller`).
     fn patrouiller(&mut self, env: &Environnement<'_>) {
-        if self.au_sol && !self.sol_devant(env) {
-            self.retourner();
-        }
-        self.vitesse_y = (self.vitesse_y + GRAVITE * DT).min(VITESSE_MAX_CHUTE);
-        let dx = self.sens() * self.type_ennemi.vitesse() * DT;
-        let contacts = deplacer(
+        super::marche::patrouiller(
             &mut self.boite,
-            dx,
-            self.vitesse_y * DT,
-            env.grille,
-            env.solides,
+            &mut self.vers_la_droite,
+            &mut self.vitesse_y,
+            &mut self.au_sol,
+            self.type_ennemi.vitesse(),
+            env,
         );
-        self.au_sol = contacts.sol;
-        if contacts.sol || contacts.plafond {
-            self.vitesse_y = 0.0;
-        }
-        if contacts.mur() {
-            self.retourner();
-        }
     }
 
     /// Distance (px) qui reste avant la limite de portée, dans le sens de la marche.

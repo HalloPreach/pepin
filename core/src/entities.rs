@@ -6,6 +6,8 @@
 //! - `friable`, `mobile` : les plateformes qui s'effritent ou qui voyagent ;
 //! - `montgolfiere` : la nacelle qui monte avec Pépin et redescend sans lui ;
 //! - `champignon` : le trampoline ; `auvent` : la toile qui relance en diagonale ;
+//! - `escargot` : le tremplin qui marche (un champignon qui patrouille) ;
+//! - `marche` : la marche au sol partagée par la flaque et l'escargot ;
 //! - `collectibles` : les gouttes d'or et les lanternes (checkpoints) ;
 //! - `contacts` : ce qui se passe quand le joueur touche une entité.
 //!
@@ -20,7 +22,7 @@
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `trait` : le contrat `Actualisable` (« je sais avancer d'un pas de temps ») ;
-//! - `enum` à données : `Entite` est UNE des dix familles, chacune portant ses
+//! - `enum` à données : `Entite` est UNE des familles, chacune portant ses
 //!   propres champs ; `match` oblige à traiter toutes les variantes ;
 //! - ownership : l'enum POSSÈDE l'entité qu'il contient (pas de pointeur partagé) ;
 //! - emprunts : `&self` pour lire, `&mut self` pour modifier, `&[T]` / `&mut [T]`
@@ -32,8 +34,10 @@ pub mod collectibles;
 pub mod contacts;
 pub mod eclair;
 pub mod ennemi;
+pub mod escargot;
 pub mod friable;
 pub mod grele;
+mod marche;
 pub mod mobile;
 pub mod montgolfiere;
 pub mod pointe;
@@ -47,6 +51,7 @@ pub use champignon::Champignon;
 pub use collectibles::{GoutteDor, Lanterne};
 pub use eclair::Eclair;
 pub use ennemi::{Ennemi, TypeEnnemi};
+pub use escargot::Escargot;
 pub use friable::PlateformeFriable;
 pub use grele::Grele;
 pub use mobile::PlateformeMobile;
@@ -80,6 +85,7 @@ pub enum Entite {
     Mobile(PlateformeMobile),
     Montgolfiere(Montgolfiere),
     Champignon(Champignon),
+    Escargot(Escargot),
     Auvent(Auvent),
     Ventilateur(Ventilateur),
     Goutte(GoutteDor),
@@ -100,6 +106,7 @@ impl Actualisable for Entite {
             Entite::Mobile(e) => e.actualiser(env),
             Entite::Montgolfiere(e) => e.actualiser(env),
             Entite::Champignon(e) => e.actualiser(env),
+            Entite::Escargot(e) => e.actualiser(env),
             Entite::Auvent(e) => e.actualiser(env),
             Entite::Ventilateur(e) => e.actualiser(env),
             Entite::Goutte(e) => e.actualiser(env),
@@ -120,6 +127,7 @@ impl Entite {
             Entite::Mobile(e) => e.boite,
             Entite::Montgolfiere(e) => e.boite,
             Entite::Champignon(e) => e.boite,
+            Entite::Escargot(e) => e.boite,
             Entite::Auvent(e) => e.boite,
             Entite::Ventilateur(e) => e.boite,
             Entite::Goutte(e) => e.boite,

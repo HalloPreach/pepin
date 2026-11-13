@@ -15,6 +15,10 @@
 //!      tombé dessus par le haut, Pépin est relancé en diagonale, vers le haut et
 //!      vers la droite (4 tuiles plus loin sans rien toucher, 3 à 5 en dosant)
 //!   f  flaque (patrouille)     c  corbeau (vol)
+//!   s  escargot : « un champignon qui marche » ; patrouille comme la flaque
+//!      (demi-tour au mur et au bord du vide), lentement (16 px/s) ; impossible
+//!      à écraser : lui tomber dessus fait rebondir comme le champignon ; le
+//!      toucher de côté est sans danger
 //!   p  pigeon, perché sur le solide du dessous ; il regarde du côté où son
 //!      perchoir s'arrête (à droite seulement si le perchoir continue à gauche
 //!      et s'arrête à droite ; sinon à gauche, vers le départ)
