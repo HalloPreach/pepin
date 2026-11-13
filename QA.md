@@ -602,3 +602,54 @@ partie, Pépin repart (0 pixel hors palette, 0 flou, `docs/mesure-capture.py`, K
 - Pas de tactile, pas de manette : les erreurs ne dépendent pas de l'appareil.
 - Le son n'intervient pas. Aucune vérification sur un vrai téléphone ni sur Safari/Firefox (rien d'affiché
   ne change dans cette carte).
+
+## Portée de patrouille du corbeau (carte 3.2)
+
+Ce qui change (`core/src/entities/ennemi.rs`) : le corbeau mémorise son point d'apparition et fait
+demi-tour quand il s'en éloigne de `PORTEE_CORBEAU` (5 tuiles = 80 px de chaque côté, soit une patrouille
+de 10 tuiles, la moitié de l'écran logique, 4 s pour un aller à 40 px/s), OU quand il touche un mur : le
+premier des deux atteint. Le pas qui dépasserait la limite est raccourci pour s'arrêter pile dessus (pas de
+dérive au fil des allers-retours). La portée est une `Option<f32>` par type d'ennemi : `None` pour la
+flaque, dont la patrouille ne change pas. Sans portée, un corbeau posé dans un niveau ouvert (niveau 4,
+aucun mur en altitude) aurait traversé toute la carte : il pourra y être placé à la carte 3.3.
+
+Aucun niveau modifié. Le seul corbeau existant (niveau 3, colonne 130) vole entre deux murs de briques
+distants de 5 tuiles (colonnes 127 et 133) : son couloir fait 68 px, moins que sa portée, les murs restent
+donc la limite et son vol est identique (abscisse de 2048 à 2116 px avant comme après).
+
+Tests ajoutés : `en_monde_ouvert_le_corbeau_oscille_autour_de_son_point` (grille vide de 40 tuiles :
+x min et x max exactement à 80 px de part et d'autre du point, au moins 5 demi-tours et 5 passages par le
+point en 1500 pas, altitude constante), `le_mur_fait_faire_demi_tour_au_corbeau_avant_sa_portee` (mur à
+2 tuiles à gauche : demi-tour contre le mur ; à droite, rien : demi-tour à la portée),
+`la_flaque_n_a_pas_de_portee` (`None`, et sur un toit de 28 tuiles entre deux murs elle va d'un mur à
+l'autre, bien au-delà de 80 px). Les tests existants du corbeau (rebond aux murs du couloir) et des flaques
+passent sans changement.
+
+Vérifié sur une extraction propre du commit (`git archive`) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 148 + 171 tests, tous verts ;
+  `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms interdits,
+  seule URL `http://www.w3.org/2000/svg`.
+- Robot de QA : finit les cinq niveaux sans mourir ; `target/qa/script.txt` et `trace.csv` identiques à
+  l'octet avant/après (même position du corbeau à chaque image).
+- Faisabilité : tests verts (les corbeaux n'y entrent pas, voir `core/src/faisabilite.rs`).
+- Mesure de difficulté relancée : `docs/mesure-difficulte.txt` identique à l'octet. Morts moyennes par
+  niveau, avant → après :
+
+| Niveau                      | Débutant            | Habitué            | Expert             |
+| --------------------------- | ------------------- | ------------------ | ------------------ |
+| 1. Les toits                | 0,4 → 0,4           | 0,1 → 0,1          | 0,0 → 0,0          |
+| 2. Gouttières et cheminées  | 6,9 → 6,9           | 1,2 → 1,2          | 0,2 → 0,2          |
+| 3. Le grand orage           | 3,6 → 3,6           | 1,0 → 1,0          | 0,2 → 0,2          |
+| 4. Vents d'altitude         | 2,9 → 2,9           | 0,9 → 0,9          | 0,3 → 0,3          |
+| 5. Au-dessus des nuages     | 2,5 → 2,5           | 0,4 → 0,4          | 0,2 → 0,2          |
+
+Captures (Chromium 1208 piloté par CDP, build de QA servi en local sur 127.0.0.1, onglet au premier plan,
+canevas focalisé, serveur arrêté ensuite ; script du robot rejoué avec `docs/capture-visibilite.mjs`) :
+`docs/qa/32-niveau3-corbeau-approche.png` (image 6689, Pépin arrive, corbeau dans son couloir),
+`32-niveau3-corbeau-mur-gauche.png` (6760, corbeau contre le mur gauche, demi-tour),
+`32-niveau3-corbeau-pepin-dans-la-cage.png` (6794, Pépin entre les deux murs, corbeau derrière lui),
+`32-niveau3-corbeau-mur-droit.png` (6862, corbeau contre le mur droit). Chaque capture regardée ; 0 pixel
+hors palette, 0 flou (`docs/mesure-capture.py`, K = 3).
+
+Pas testé : un corbeau en monde ouvert DANS un niveau (aucun n'existe encore ; couvert par le test unitaire,
+à voir en jeu à la carte 3.3), vrai téléphone, Safari/Firefox, son (rien de sonore ne change).
