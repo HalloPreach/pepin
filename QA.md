@@ -1841,3 +1841,89 @@ Limites (non testé ou à relativiser) :
 - Captures faites dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de
   Safari ni Firefox. Les images en mouvement peuvent décaler d'une image d'un rejeu à
   l'autre (horloge du navigateur) ; la preuve formelle est le test Rust du robot.
+
+## Ventilateur, niveau d'essai « ventilateur » (carte 5.6)
+
+Lettre `w` : un ventilateur à pied posé sur sa casette (socle 16x8, bas de la case, SOLIDE :
+on peut s'y poser). Son courant ascendant (16 px de large, comme un vent « v ») souffle 2 s
+(120 pas), puis s'arrête 2 s (72 pas d'arrêt + 48 pas d'annonce), période de 4 s (240 pas à
+60 Hz). La reprise est annoncée comme un éclair : la lampe orange clignote de plus en plus
+vite (`progression_annonce`, de 2,5 Hz à 15 Hz) et un repère au sol (barre orange au pied de
+la casette) indique la colonne d'où le souffle va reprendre. Le courant ne porte que pendant
+la phase de souffle. Aucune touche nouvelle. Aucun niveau du jeu n'est modifié (le
+ventilateur viendra dans un niveau avec sa propre carte).
+
+Ce qui a été fait :
+- Cœur (`core/src/entities/ventilateur.rs`) : `Ventilateur { boite, zone, ... }`, machine à
+  états `PhaseVentilateur` (Arret 72 / Annonce 48 / Souffle 120, période 240) avec durées
+  entières à 60 Hz ; `courant_actif()` (un `CourantAscendant`, uniquement pendant le souffle),
+  `en_annonce()`, `progression_annonce()` (0..1, pour accélérer le clignotement, comme
+  l'éclair) ; `solide()` renvoie la casette (boîte 16x8, on peut s'y poser). Tests sur un
+  MINI-NIVEAU (grille 8 x 8) : cycle exact (72+48+120 = 240), annonce avant la reprise,
+  poussée seulement pendant le souffle, montée portée pendant le souffle, arrêt au plafond,
+  redescente à l'arrêt, pas de glissement latéral, décalage qui raccourcit le premier arrêt.
+- Analyse ASCII (`core/src/level/ascii.rs`, légende de `core/src/level.rs`) : « w » place un
+  ventilateur sur sa case ; il exige une tuile SOLIDE juste en dessous (casette posée), sinon
+  erreur `VentilateurSansAppui`. Le courant part du dessus de la casette (ty*16+8) jusqu'au
+  premier solide au-dessus (plafond) ou le haut de la carte ; désynchronisation des
+  ventilateurs (décalage 12 + 18*(k%4), comme pour les éclairs).
+- Robot de faisabilité (`core/src/faisabilite.rs`) : le robot est aveugle au temps (il ne
+  simule pas les phases) : il traite le courant d'un ventilateur comme un courant ascendant
+  TOUJOURS actif (`options.courants`), car le joueur peut attendre la phase de souffle. Les
+  courants des ventilateurs (`courants_des_ventilateurs`) s'ajoutent aux courants statiques du
+  niveau.
+- Robot de QA (`game/src/bot_qa.rs`) : `jouer_essai_ventilateur` /
+  `parcours_essai_ventilateur` sur la vraie simulation du jeu (le souffle n'existe que pendant
+  sa phase : le robot attend le bon moment). Test `le_robot_finit_le_niveau_d_essai_ventilateur`
+  : 291 images de jeu, 3 gouttes, 0 mort, F4 une seule fois, arrivée au balcon (y = 18).
+- Niveau d'essai « ESSAI VENTILATEUR » (`core/src/levels/essai_ventilateur.rs`, 24 x 22, thème
+  Gouttières : nuit bleue), hors de la table `NIVEAUX`, touche F4 du build de QA seulement
+  (« Essai ventilateur » 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/`). Un balcon du
+  drapeau à 18 tuiles au-dessus du sol (lignes 2-3 contre 20-21), inaccessible par un saut
+  direct : seul le souffle du ventilateur (colonne 4) porte Pépin au balcon. 3 gouttes et
+  3 lanternes sur le chemin du robot (1 goutte au sol entre le départ et le ventilateur ;
+  2 gouttes et 3 lanternes sur le balcon, drapeau à la droite). Contrôles (`core/src/zones.rs`) :
+  faisable par le robot précis ET le maladroit (3,8 s en course rapide, 48 états), 3 gouttes,
+  3 lanternes, et SANS les courants le balcon reste hors de portée (preuve que c'est le
+  ventilateur seul qui fait la montée).
+- Jeu (`game/src/monde.rs`, `game/src/entrees.rs`, `game/src/contenu.rs`,
+  `game/src/ecrans/carte.rs`) : `Monde::avancer` ajoute à l'`Environnement` les courants des
+  ventilateurs actifs (phase de souffle uniquement, en temps réel) ; raccourci F4
+  (`RaccourciNiveau::Essai5`, `monde::INDICE_ESSAI_VENTILATEUR` = NB_NIVEAUX + 4), intro
+  `INTRO_ESSAI_VENTILATEUR`, carte de présentation. README : touche F4.
+- Rendu (`game/src/sprites/objets.rs`, `game/src/scene.rs`) : trois sprites 16x16 (arrêt :
+  pale dorée, rien au-dessus ; annonce : la lampe orange clignote au-dessus de la cage ;
+  souffle : le courant d'air cyan remonte). Clignotement qui ACCÉLÈRE (même
+  `annonce_allumee` et `progression_annonce` que l'éclair) ; repère au sol (barre orange de
+  2 px au pied de la casette pendant l'annonce). Test : le ventilateur se lit sur tous les
+  ciels (contour sombre, moyeu blanc ou courant cyan, contraste ≥ 4,5:1 sur chaque bande de
+  ciel de chaque thème). Planche régénérée (`docs/planche-sprites.png`).
+
+Mesure de difficulté : inchangée (aucun niveau, ennemi ni mécanique d'un niveau du jeu ne
+bouge : le ventilateur n'apparaît dans aucun niveau du jeu). `docs/mesure-difficulte.txt`
+identique à l'octet avant et après la carte.
+
+Preuve visuelle : la planche de sprites (`docs/planche-sprites.png`, régénérée) montre les
+trois images du ventilateur, distinctes et lisibles (cage cernée de sombre, pale dorée +
+moyeu blanc, lampe orange, courant d'air cyan). Vérifiée à l'œil.
+
+Vérification sur une extraction propre de 05187a0 (`git archive`, nouveau dossier daté) :
+`./docker-cargo.sh test --workspace --no-default-features` : 237 + 244 tests, tous verts
+(1 + 9 ignorés : écritures de fichiers et diagnostics) ; `./docker-cargo.sh lint` : `LINT-OK` ;
+`./build.sh` : `dist/` produit, 0 occurrence des noms interdits, seule URL
+`http://www.w3.org/2000/svg`, « Essai ventilateur » absent de `dist/game.wasm` (0) et présent
+dans `dist-qa/game.wasm` (1, build de QA).
+
+Limites (non testé ou à relativiser) :
+- Le niveau d'essai n'existe que dans le build de QA ; aucun niveau du jeu n'a encore de
+  ventilateur (il viendra avec sa carte).
+- Le robot de faisabilité traite le courant comme TOUJOURS actif (aveugle au temps) : c'est
+  une approximation assumée (le joueur peut attendre la phase de souffle) ; le robot de QA
+  (vraie simulation, phases réelles) prouve que le niveau est réellement jouable.
+- Le rendu EN JEU (clignotement qui accélère, repère au sol) n'a PAS été capturé dans un
+  navigateur : le clignotement réutilise le code éprouvé de l'éclair
+  (`annonce_allumee` + `progression_annonce`) et le repère au sol est une simple barre de
+  2 px ; la preuve visuelle est la planche de sprites.
+- Une seule colonne de souffle (16 px, une case) ; un ventilateur plus large (deux cases) n'a
+  pas été fait.
+- Le souffle n'a pas de son : rien n'est entendu (comme la plupart des mécaniques).
