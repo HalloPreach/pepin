@@ -33,6 +33,9 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::Write as _;
 
+use pepin_core::aabb::TAILLE_TUILE;
+use pepin_core::entities::contacts::CauseMort;
+use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
 
@@ -407,10 +410,43 @@ enum Choix {
 
 // --- Un essai ------------------------------------------------------------------
 
-/// Résultat d'un essai.
+/// Où et de quoi Pépin est mort : colonne de tuile (centre de Pépin au moment de
+/// la mort ; pour une chute, la colonne du trou) et cause.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct LieuMort {
+    pub(crate) colonne: i32,
+    pub(crate) cause: CauseMort,
+}
+
+impl LieuMort {
+    /// Le lieu de la mort qui vient d'avoir lieu dans `monde`.
+    fn de(monde: &Monde) -> Self {
+        let centre = monde.pos_mort.0 + JOUEUR_L / 2.0;
+        LieuMort {
+            colonne: (centre / TAILLE_TUILE).floor() as i32,
+            // Une mort est toujours notée avec sa cause ; « vide » par prudence.
+            cause: monde.derniere_mort.unwrap_or(CauseMort::Vide),
+        }
+    }
+}
+
+/// Nom court d'une cause de mort, pour le tableau.
+fn nom_cause(c: CauseMort) -> &'static str {
+    match c {
+        CauseMort::Vide => "chute",
+        CauseMort::Ennemi => "ennemi",
+        CauseMort::Pointe => "pointes",
+        CauseMort::Eclair => "éclair",
+    }
+}
+
+/// Résultat d'un essai. Pas `Copy` : il contient la liste des lieux de mort
+/// (un `Vec` possède de la mémoire sur le tas, il ne se copie pas bit à bit).
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Essai {
     pub(crate) morts: u32,
+    /// Lieu de chaque mort, dans l'ordre.
+    pub(crate) lieux: Vec<LieuMort>,
     /// Durée de jeu simulée, en pas.
     pub(crate) pas: u32,
     /// Le drapeau a-t-il été atteint avant `PAS_MAX_ESSAI` ?
@@ -453,6 +489,7 @@ pub(crate) fn jouer_essai_note(
     journal.extend(prefixe);
     let (mut detours, mut secours, mut en_serie) = (0, 0, 0);
     let mut derniere_mort: Option<u32> = None;
+    let mut lieux = Vec::new();
     while pas < PAS_MAX_ESSAI && !monde.termine {
         let (voulu, choix) = itineraires.intention(&monde);
         match choix {
@@ -467,6 +504,7 @@ pub(crate) fn jouer_essai_note(
         journal.extend(entrees);
         if fin == Fin::Mort {
             noter_mort(pas, &mut derniere_mort, &mut en_serie);
+            lieux.push(LieuMort::de(&monde));
             // Comme dans le jeu : animation de réapparition à la lanterne, puis
             // Pépin retombe au sol. Le monde continue d'avancer (et peut tuer
             // encore : un ennemi qui passe sur la lanterne, par exemple).
@@ -477,6 +515,7 @@ pub(crate) fn jouer_essai_note(
                 pas += 1;
                 if monde.etat.morts > morts {
                     noter_mort(pas, &mut derniere_mort, &mut en_serie);
+                    lieux.push(LieuMort::de(&monde));
                 }
             }
             // `derniere_mort` ne s'efface jamais seule (elle sert aux effets) :
@@ -486,6 +525,7 @@ pub(crate) fn jouer_essai_note(
     }
     Essai {
         morts: monde.etat.morts,
+        lieux,
         pas,
         fini: monde.termine,
         en_serie,
@@ -507,7 +547,7 @@ fn graine_essai(graine: u64, profil: usize, niveau: usize, essai: u32) -> u64 {
 // --- La mesure complète -------------------------------------------------------
 
 /// Bilan d'une case du tableau (un profil sur un niveau).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Case {
     pub(crate) morts_moyennes: f32,
     /// Dont morts en série (voir `Essai::en_serie`), en moyenne.
@@ -518,6 +558,8 @@ pub(crate) struct Case {
     pub(crate) essais: u32,
     /// Durée moyenne d'un essai, en secondes de jeu.
     pub(crate) duree_s: f32,
+    /// Lieux de toutes les morts de tous les essais.
+    pub(crate) lieux: Vec<LieuMort>,
 }
 
 /// Mesure complète : `cases[niveau][profil]`.
@@ -578,7 +620,55 @@ fn bilan(liste: &[Essai]) -> Case {
         finis: liste.iter().filter(|e| e.fini).count() as u32,
         essais: liste.len() as u32,
         duree_s: liste.iter().map(|e| e.pas as f32).sum::<f32>() / n / 60.0,
+        lieux: liste.iter().flat_map(|e| e.lieux.iter().copied()).collect(),
     }
+}
+
+/// Un endroit où l'on meurt : colonnes `debut..=fin` (voisines), une cause, un
+/// nombre de morts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Endroit {
+    pub(crate) debut: i32,
+    pub(crate) fin: i32,
+    pub(crate) cause: CauseMort,
+    pub(crate) morts: u32,
+}
+
+/// Regroupe des lieux de mort : même cause et colonnes distantes d'au plus
+/// 2 tuiles (un même trou, un même ennemi qui patrouille). Trié du plus
+/// meurtrier au moins meurtrier (à égalité : de gauche à droite).
+pub(crate) fn regrouper(lieux: &[LieuMort]) -> Vec<Endroit> {
+    let mut tries: Vec<LieuMort> = lieux.to_vec();
+    // `sort_by_key` avec une clé (cause, colonne) : les causes ne sont pas
+    // ordonnées (pas d'`Ord`), on passe par leur nom.
+    tries.sort_by_key(|l| (nom_cause(l.cause), l.colonne));
+    let mut endroits: Vec<Endroit> = Vec::new();
+    for l in tries {
+        match endroits.last_mut() {
+            Some(e) if e.cause == l.cause && l.colonne - e.fin <= 2 => {
+                e.fin = l.colonne;
+                e.morts += 1;
+            }
+            _ => endroits.push(Endroit {
+                debut: l.colonne,
+                fin: l.colonne,
+                cause: l.cause,
+                morts: 1,
+            }),
+        }
+    }
+    endroits.sort_by_key(|e| (Reverse(e.morts), e.debut));
+    endroits
+}
+
+/// « col. 60-63 chute 12 » : un endroit, pour le tableau.
+fn decrire(e: &Endroit) -> String {
+    let colonnes = if e.debut == e.fin {
+        format!("{}", e.debut)
+    } else {
+        format!("{}-{}", e.debut, e.fin)
+    };
+    format!("col. {colonnes} {} {}", nom_cause(e.cause), e.morts)
 }
 
 /// Nombre à une décimale, virgule à la française : 3.25 -> « 3,2 ».
@@ -669,8 +759,39 @@ pub(crate) fn tableau(cases: &[Vec<Case>], graine: u64, essais: u32) -> String {
         }
         ligne(&mut t, &cellules, &largeurs);
     }
+
+    // 3. Lieux de mort : où agir pour adoucir (ou corser) un niveau.
+    let _ = writeln!(t);
+    let _ = writeln!(
+        t,
+        "Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur les \
+         {essais} essais (colonnes voisines de même cause regroupées ; {LIEUX_MAX} endroits au \
+         plus, du plus meurtrier au moins meurtrier)."
+    );
+    for (n, rang) in cases.iter().enumerate() {
+        let _ = writeln!(t);
+        let _ = writeln!(t, "{}", noms[n]);
+        for (p, c) in rang.iter().enumerate() {
+            let endroits = regrouper(&c.lieux);
+            let texte = if endroits.is_empty() {
+                "aucune mort".to_string()
+            } else {
+                let mut morceaux: Vec<String> =
+                    endroits.iter().take(LIEUX_MAX).map(decrire).collect();
+                let reste: u32 = endroits.iter().skip(LIEUX_MAX).map(|e| e.morts).sum();
+                if reste > 0 {
+                    morceaux.push(format!("ailleurs {reste}"));
+                }
+                morceaux.join(" · ")
+            };
+            let _ = writeln!(t, "- {:<8} : {texte}", profils[p]);
+        }
+    }
     t
 }
+
+/// Endroits affichés au plus par niveau et par profil dans les lieux de mort.
+const LIEUX_MAX: usize = 6;
 
 #[cfg(test)]
 mod tests {
@@ -757,6 +878,31 @@ mod tests {
         let b = jouer_essai(&itin, &PROFILS[0], graine_essai(GRAINE, 0, 0, 0));
         assert_eq!(a, b, "même graine : même essai, mort pour mort");
         assert!(a.fini, "le débutant finit quand même le niveau 1 : {a:?}");
+        assert_eq!(a.lieux.len() as u32, a.morts, "un lieu noté par mort");
+    }
+
+    /// Les lieux de mort se regroupent par cause et par colonnes voisines.
+    #[test]
+    fn regrouper_les_lieux_de_mort() {
+        let l = |colonne, cause| LieuMort { colonne, cause };
+        let lieux = [
+            l(61, CauseMort::Vide),
+            l(60, CauseMort::Vide),
+            l(63, CauseMort::Vide),
+            l(62, CauseMort::Ennemi),
+            l(90, CauseMort::Vide),
+            l(70, CauseMort::Vide),
+        ];
+        let e = regrouper(&lieux);
+        // 60, 61, 63 : un même trou (écarts de 2 au plus) ; 70 et 90 à part ;
+        // l'ennemi en 62 reste à part (autre cause).
+        assert_eq!(e.len(), 4, "{e:?}");
+        assert_eq!((e[0].debut, e[0].fin, e[0].morts), (60, 63, 3));
+        assert_eq!(e[0].cause, CauseMort::Vide);
+        assert_eq!(decrire(&e[0]), "col. 60-63 chute 3");
+        let total: u32 = e.iter().map(|x| x.morts).sum();
+        assert_eq!(total, 6, "aucune mort perdue");
+        assert!(regrouper(&[]).is_empty());
     }
 
     /// Diagnostic : quelques essais par niveau, avec le détail de chacun.
