@@ -437,9 +437,9 @@ impl Application {
             ),
             Ecran::Jeu | Ecran::Carte(_) | Ecran::Pause => {
                 // Pépin et la caméra sont arrondis ensemble (écart arrondi une seule fois) : pas de
-                // tremblement d'un pixel en courant.
-                let (px, _) = self.monde.joueur_interpole(alpha);
-                let (cx, cy) = self.camera.position_rendue(alpha, px);
+                // tremblement d'un pixel en courant (ni en tombant, dans un niveau haut).
+                let pepin = self.monde.joueur_interpole(alpha);
+                let (cx, cy) = self.camera.position_rendue(alpha, pepin);
                 let (sx, sy) = self.secousse.decalage();
                 scene::dessiner(
                     &self.monde,
