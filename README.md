@@ -41,7 +41,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
 | Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou la ligne « SON » des menus |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
-| Aller à un niveau    | touches 1 à 5, UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
+| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
 Les touches sont lues par leur POSITION physique (le « code » du navigateur), pas
 par la lettre imprimée : sur un clavier AZERTY, A et Q (QWERTY) sont à la place de Q
@@ -100,8 +100,12 @@ Contenu de `core/src` :
   Pépin touche quelque chose.
 - `level.rs`, `level/ascii.rs`, `level/erreur.rs` : le format de niveau ASCII
   et son analyseur.
-- `levels/` et `zones.rs` : les cinq niveaux et leurs métadonnées (nom, texte
-  d'introduction, thème de décor).
+- `levels.rs` et `levels/` : la table ORDONNÉE des niveaux (`NIVEAUX`, un fichier
+  par niveau) et les règles qui les enchaînent : genre de chaque niveau (normal,
+  bonus, épilogue), niveau suivant (`apres`), bonus débloqué par toutes les gouttes
+  des niveaux normaux. Fonctions pures, testées sur de fausses listes.
+- `zones.rs` : les métadonnées d'un niveau (nom, genre, texte d'introduction, thème
+  de décor).
 - `state.rs` : score, checkpoint et phase de la partie.
 - `timestep.rs` : l'accumulateur de la boucle à pas fixe.
 - `faisabilite.rs` : un « robot joueur » qui prouve par simulation qu'un niveau
@@ -242,7 +246,8 @@ Compiler ET préparer le dossier à publier (une seule commande) :
 complet et statique. `docs/build.md` détaille chaque étape. `dist/` n'est pas
 versionné (`.gitignore`) : c'est un produit régénérable.
 
-Build de mise au point (touches 1 à 5 pour sauter à un niveau, F9 pour provoquer un
+Build de mise au point (touches 1 à 9 pour sauter à un niveau, Page suivante / N et
+Page précédente / B pour le niveau suivant ou précédent, F9 pour provoquer un
 vrai plantage et vérifier le message de la page ; sert aux captures et à la QA, jamais
 à publier) :
 
@@ -511,9 +516,12 @@ existantes :
 
 - Sauvegarder le meilleur temps et les gouttes ramassées (stockage du
   navigateur).
-- Ajouter un sixième niveau : il suffit d'un nouveau fichier dans
-  `core/src/levels/`, d'une entrée dans `core/src/zones.rs` et d'un test de
-  faisabilité. Le format ASCII de `core/src/level.rs` est fait pour cela.
+- Ajouter un niveau : il suffit d'un nouveau fichier dans `core/src/levels/`,
+  d'une entrée à sa place dans la table `NIVEAUX` de `core/src/levels.rs` (avec son
+  genre), d'une ligne dans la macro des tests de faisabilité de `core/src/zones.rs`,
+  de son texte dans `game/src/contenu.rs` et de sa bande de difficulté dans
+  `game/src/difficulte.rs` (les tests et le compilateur signalent chaque oubli). Une
+  ambiance inédite = un `Theme` de plus et une entrée dans `decor::ambiance`.
 - Ajouter de nouveaux ennemis ou plateformes en suivant le modèle de
   `core/src/entities/` (une variante de plus dans `Entite`, et le compilateur
   indique tous les `match` à compléter).
