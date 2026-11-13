@@ -107,7 +107,7 @@ pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
 mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
-    use crate::levels::{essai_vent, essai_vertical};
+    use crate::levels::{essai_grele, essai_vent, essai_vertical};
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
@@ -133,10 +133,11 @@ mod tests {
 
     #[test]
     fn tous_les_niveaux_se_chargent() {
-        for n in NIVEAUX
-            .iter()
-            .chain([&essai_vertical::INFOS, &essai_vent::INFOS])
-        {
+        for n in NIVEAUX.iter().chain([
+            &essai_vertical::INFOS,
+            &essai_vent::INFOS,
+            &essai_grele::INFOS,
+        ]) {
             let niv = n
                 .charger()
                 .unwrap_or_else(|e| panic!("niveau {} : {e}", n.numero));
@@ -157,9 +158,11 @@ mod tests {
     /// Les niveaux du jeu, puis les niveaux d'essai (hors de la table) : les
     /// contrôles de grille s'appliquent aussi à eux.
     fn niveaux_et_essai() -> impl Iterator<Item = &'static InfosNiveau> {
-        NIVEAUX
-            .iter()
-            .chain([&essai_vertical::INFOS, &essai_vent::INFOS])
+        NIVEAUX.iter().chain([
+            &essai_vertical::INFOS,
+            &essai_vent::INFOS,
+            &essai_grele::INFOS,
+        ])
     }
 
     /// Le niveau d'essai vertical (45 rangées) passe les mêmes contrôles qu'un vrai
@@ -191,6 +194,81 @@ mod tests {
             },
         );
         assert!(!r.arrivee, "sans vent le vide doit rester infranchissable");
+    }
+
+    /// Le niveau d'essai « grêle » passe les mêmes contrôles (arrivée, 3 gouttes,
+    /// lanternes, robot maladroit) : le robot traverse les trois rideaux.
+    #[test]
+    fn niveau_d_essai_grele_faisable() {
+        verifier_infos(&essai_grele::INFOS);
+    }
+
+    /// Les quatre colonnes du niveau d'essai « grêle » sont bien là où le dessin le
+    /// dit : du ciel au toit (colonne 9), du ciel au bas de la carte au-dessus du
+    /// vide (colonnes 21 et 22), et arrêtée par la corniche (colonne 28, ligne 5).
+    /// Et sans parapluie, le niveau est bloqué.
+    #[test]
+    fn niveau_d_essai_grele_a_ses_trois_rideaux() {
+        use crate::entities::Entite;
+        let niv = essai_grele::INFOS.charger().unwrap();
+        let t = crate::aabb::TAILLE_TUILE;
+        let mut colonnes: Vec<(i32, f32, f32)> = niv
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Grele(g) => Some(((g.zone.x / t) as i32, g.zone.y / t, g.zone.bas() / t)),
+                _ => None,
+            })
+            .collect();
+        colonnes.sort_by_key(|c| c.0);
+        assert_eq!(
+            colonnes,
+            vec![
+                (9, 1.0, 8.0),
+                (21, 2.0, 11.0),
+                (22, 2.0, 11.0),
+                (28, 1.0, 5.0)
+            ]
+        );
+        let r = analyser(
+            &niv,
+            niv.depart,
+            Options {
+                planer: false,
+                ..Options::default()
+            },
+        );
+        assert!(!r.arrivee, "sans parapluie, la grêle et le vide bloquent");
+    }
+
+    /// Ni le départ ni aucune lanterne sous la grêle : Pépin y apparaît (ou y
+    /// réapparaît) au sol, parapluie fermé, et la grêle le tuerait dès la fin de sa
+    /// protection (`PROTECTION_REAPPARITION_PAS`).
+    #[test]
+    fn aucun_point_de_reprise_sous_la_grele() {
+        use crate::aabb::Aabb;
+        use crate::entities::Entite;
+        use crate::physics::{JOUEUR_H, JOUEUR_L};
+        for infos in niveaux_et_essai() {
+            let niv = infos.charger().unwrap();
+            let mut reprises = vec![niv.depart];
+            for e in &niv.entites {
+                if let Entite::Lanterne(l) = e {
+                    reprises.push(l.point_de_reapparition());
+                }
+            }
+            for e in &niv.entites {
+                let Entite::Grele(g) = e else { continue };
+                for &(x, y) in &reprises {
+                    assert!(
+                        !Aabb::new(x, y, JOUEUR_L, JOUEUR_H).chevauche(&g.zone),
+                        "{} : point de reprise ({x}, {y}) sous la grêle {:?}",
+                        infos.nom,
+                        g.zone
+                    );
+                }
+            }
+        }
     }
 
     /// Un test de faisabilité PAR niveau (ils tournent en parallèle). La macro écrit
