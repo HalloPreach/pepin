@@ -901,6 +901,31 @@ mod tests {
         assert_eq!(escargots, 2);
     }
 
+    /// Touche F7 du build de QA : le niveau d'essai « chat » (hors de la table),
+    /// avec son chat endormi.
+    #[test]
+    fn le_raccourci_d_essai_charge_le_niveau_du_chat() {
+        let mut app = en_jeu();
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Essai8),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI_CHAT);
+        assert_eq!(app.monde.infos.nom, "Essai chat");
+        let chats = app
+            .monde
+            .entites
+            .iter()
+            .filter(|e| {
+                matches!(e, pepin_core::entities::Entite::Ennemi(c)
+                    if c.type_ennemi == pepin_core::entities::TypeEnnemi::Chat)
+            })
+            .count();
+        assert_eq!(chats, 1);
+    }
+
     #[test]
     fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         let mut app = en_jeu();

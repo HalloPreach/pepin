@@ -76,7 +76,7 @@ mod tests {
     use pepin_core::zones::InfosNiveau;
 
     /// Les niveaux d'essai du build de QA (hors de la table), avec leur indice.
-    fn essais() -> [(usize, &'static InfosNiveau); 7] {
+    fn essais() -> [(usize, &'static InfosNiveau); 8] {
         [
             (
                 crate::monde::INDICE_ESSAI,
@@ -105,6 +105,10 @@ mod tests {
             (
                 crate::monde::INDICE_ESSAI_ESCARGOT,
                 &pepin_core::levels::essai_escargot::INFOS,
+            ),
+            (
+                crate::monde::INDICE_ESSAI_CHAT,
+                &pepin_core::levels::essai_chat::INFOS,
             ),
         ]
     }

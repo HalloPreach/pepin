@@ -146,6 +146,10 @@ pub fn intro(indice: usize) -> &'static Intro {
     if indice == crate::monde::INDICE_ESSAI_ESCARGOT {
         return &INTRO_ESSAI_ESCARGOT;
     }
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_CHAT {
+        return &INTRO_ESSAI_CHAT;
+    }
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
 
@@ -202,6 +206,14 @@ pub const INTRO_ESSAI_MONTGOLFIERE: Intro = Intro {
 pub const INTRO_ESSAI_ESCARGOT: Intro = Intro {
     texte: "L'escargot est un champignon qui marche : impossible à écraser, il fait rebondir.",
     astuce: "Attends-le au pied de la falaise, puis saute-lui dessus.",
+};
+
+/// Intro du niveau d'essai « chat » (build de QA seulement, voir
+/// `monde::INDICE_ESSAI_CHAT`).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INTRO_ESSAI_CHAT: Intro = Intro {
+    texte: "Le chat dort, puis se réveille. Endormi, on l'écrase ; réveillé, il griffe.",
+    astuce: "Attends les « z », puis tombe-lui dessus.",
 };
 
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau
@@ -364,6 +376,7 @@ mod tests {
         for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10", "NIVEAU D'ESSAI"]
             .into_iter()
             .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
+            .chain([INTRO_ESSAI_CHAT.texte, INTRO_ESSAI_CHAT.astuce])
         {
             for c in e.chars() {
                 assert!(pepin_core::font::glyphe(c).is_some(), "{c:?}");
