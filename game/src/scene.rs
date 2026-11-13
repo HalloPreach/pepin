@@ -7,7 +7,7 @@
 //! arrondies) : aucun sous-pixel.
 
 use macroquad::prelude::draw_rectangle;
-use pepin_core::aabb::{Aabb, TAILLE_TUILE};
+use pepin_core::aabb::{Aabb, Grille, TAILLE_TUILE};
 use pepin_core::entities::ennemi::{EtatEnnemi, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::{Entite, TypeEnnemi};
@@ -18,6 +18,7 @@ use pepin_core::player::EtatJoueur;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
 use crate::decor;
+use crate::grele;
 use crate::monde::{Monde, REAPPARITION_PAS};
 use crate::particules::Particules;
 use crate::rendu::couleur_mq;
@@ -274,6 +275,11 @@ fn dessiner_eclair(zone: &Aabb, annonce: bool, progression: f32, frappe: bool, c
 
 fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) {
     let pas = monde.pas;
+    // Parapluie ouvert de Pépin (la grêle se brise dessus), à sa position dessinée.
+    let parapluie = (monde.joueur.etat() == EtatJoueur::Plane).then(|| {
+        let (px, py) = monde.joueur_interpole(alpha);
+        grele::parapluie(px.round(), py.round())
+    });
     for (i, entite) in monde.entites.iter().enumerate() {
         let b = monde.boite_interpolee(i, alpha);
         let (x, y) = entier(&b);
@@ -338,8 +344,15 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
             Entite::Mobile(_) => banque.dessiner("mobile", sx, sy, false),
-            // La grêle n'a pas encore de dessin (il vient avec ses sprites).
-            Entite::Grele(_) => {}
+            Entite::Grele(g) => {
+                // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
+                let t = TAILLE_TUILE;
+                let sol = monde
+                    .niveau
+                    .est_solide((g.zone.x / t) as i32, (g.zone.bas() / t) as i32);
+                let morceaux = grele::disposer(g.zone, pas, sol, parapluie);
+                grele::dessiner(&morceaux, banque, cx, cy);
+            }
             Entite::Eclair(e) => dessiner_eclair(
                 &e.zone,
                 e.en_annonce(),

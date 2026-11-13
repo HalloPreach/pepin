@@ -269,6 +269,7 @@ mod tests {
             &objets::FRIABLE,
             &objets::FRIABLE_ARDOISE,
             &objets::DRAPEAU,
+            &objets::GRELON,
         ];
         for anim in animations {
             let tailles: Vec<_> = anim.iter().map(|n| taille(n)).collect();
@@ -539,6 +540,50 @@ mod tests {
             }
         }
         assert!(vus >= 2, "{vus} pigeon(s) dans les niveaux 4 et 5");
+    }
+
+    /// Grêle (carte 5.4) : grêlons de 4x4 (bille de glace de 2x2), éclat de 7x3 ; chaque
+    /// pixel de glace est entouré de contour sombre (aucun pixel clair ne touche le
+    /// vide), et 3 couleurs de glace au plus (reflet, teinte, une ombre).
+    #[test]
+    fn les_grelons_sont_petits_et_cernes_de_sombre() {
+        for nom in objets::GRELON {
+            assert_eq!(taille(nom), (4, 4), "{nom}");
+        }
+        assert_eq!(taille("grele_eclat"), (7, 3));
+        for nom in objets::GRELON.iter().chain(&["grele_eclat"]) {
+            let d = dessin(nom);
+            let mut glace = std::collections::BTreeSet::new();
+            for (y, ligne) in d.iter().enumerate() {
+                for (x, c) in ligne.chars().enumerate() {
+                    if c == '.' || c == '0' {
+                        continue;
+                    }
+                    glace.insert(c);
+                    for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                        let v = car(d, x as i32 + dx, y as i32 + dy);
+                        assert_ne!(v, '.', "{nom} : glace ({x}, {y}) au bord du vide");
+                    }
+                }
+            }
+            assert!(glace.len() <= 3, "{nom} : {glace:?}");
+        }
+    }
+
+    /// La grêle se lit sur TOUS les ciels : sur chaque bande de ciel de chaque thème,
+    /// la glace (teinte principale, NUAGE) ou le contour sombre contraste d'au moins
+    /// 4,5:1. Ciels de nuit : la glace claire ; ciels corail et dorés : le contour.
+    #[test]
+    fn la_grele_se_detache_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        let glace = couleur_principale(dessin("grelon0"));
+        assert_eq!(glace, '6');
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de(glace), ciel).max(contraste(couleur_de('0'), ciel));
+                assert!(k >= 4.5, "{theme:?} : grêle sur {ciel:?} : {k:.2}");
+            }
+        }
     }
 
     #[test]

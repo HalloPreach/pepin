@@ -360,6 +360,46 @@ pub const DRAPEAU1: Image = &[
     "00000000........",
 ];
 
+/// Grêlon 4x4 : une bille de glace de 2x2 px (reflet blanc cassé, nuage, ombre de
+/// brume) cernée d'un contour sombre. Sur les ciels sombres la glace claire se
+/// détache, sur les ciels dorés c'est le contour. Quatre images : le reflet fait le
+/// tour de la bille (elle roule en tombant).
+pub const GRELON0: Image = &[
+    ".00.",
+    "0760",
+    "0650",
+    ".00.",
+];
+
+pub const GRELON1: Image = &[
+    ".00.",
+    "0670",
+    "0560",
+    ".00.",
+];
+
+pub const GRELON2: Image = &[
+    ".00.",
+    "0560",
+    "0670",
+    ".00.",
+];
+
+pub const GRELON3: Image = &[
+    ".00.",
+    "0650",
+    "0760",
+    ".00.",
+];
+
+/// Éclat d'un grêlon qui se brise sur ce qui l'arrête (toit, parapluie ouvert) :
+/// deux miettes de glace d'un pixel qui s'écartent, chacune cernée de sombre.
+pub const GRELE_ECLAT: Image = &[
+    ".0...0.",
+    "070.070",
+    ".0...0.",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("goutte0", GOUTTE0),
@@ -383,6 +423,11 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("panneau_vent", PANNEAU_VENT),
     ("drapeau0", DRAPEAU0),
     ("drapeau1", DRAPEAU1),
+    ("grelon0", GRELON0),
+    ("grelon1", GRELON1),
+    ("grelon2", GRELON2),
+    ("grelon3", GRELON3),
+    ("grele_eclat", GRELE_ECLAT),
 ];
 
 /// Goutte d'or : 4 images de brillance.
@@ -397,3 +442,5 @@ pub const FRIABLE: [&str; 2] = ["friable0", "friable1"];
 pub const FRIABLE_ARDOISE: [&str; 2] = ["friable_ardoise0", "friable_ardoise1"];
 /// Drapeau d'arrivée (2 images).
 pub const DRAPEAU: [&str; 2] = ["drapeau0", "drapeau1"];
+/// Grêlon qui roule en tombant (4 images, le reflet fait le tour).
+pub const GRELON: [&str; 4] = ["grelon0", "grelon1", "grelon2", "grelon3"];
