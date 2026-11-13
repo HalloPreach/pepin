@@ -2,6 +2,7 @@
 //! éclaboussures, poussière, étincelles, vent visible, secousse de mort.
 
 use pepin_core::entities::contacts::Contact;
+use pepin_core::entities::Entite;
 use pepin_core::palette::{BLANC_CASSE, CORAIL_CLAIR, OR, OR_PALE, PLUIE, PLUIE_SOMBRE};
 use pepin_core::LARGEUR_LOGIQUE;
 
@@ -57,6 +58,29 @@ pub fn effets(
             // se voit de bas en haut, pas seulement sous les pieds de Pépin.
             particules.souffle(z.x + decal, z.y, z.bas(), BLANC_CASSE);
         }
+        // Le courant d'un ventilateur se voit comme un courant du niveau, mais
+        // SEULEMENT tant que l'hélice souffle : aucun brin ne naît pendant l'arrêt
+        // ni pendant l'annonce, et la vie de chaque brin est bornée au souffle qui
+        // reste (aucun ne survit à l'arrêt). L'indice `k` continue celui des
+        // courants du niveau : les brins des colonnes voisines ne se calquent pas.
+        let nb_courants = monde.niveau.courants.len();
+        let ventilateurs = monde.entites.iter().filter_map(|e| match e {
+            Entite::Ventilateur(v) => v.courant_actif().map(|c| (c.zone, v.souffle_restant())),
+            _ => None,
+        });
+        for (k, (z, restant)) in ventilateurs.enumerate() {
+            if z.x + z.w < cam_x || z.x > cam_x + LARGEUR_LOGIQUE as f32 {
+                continue;
+            }
+            let decal = (monde.pas as usize * 7 + (nb_courants + k) * 13) as f32 % z.w.max(1.0);
+            // Un brin de vie `v`, né à ce pas, est dessiné après ce pas et les
+            // `v - 2` suivants (chaque pas lui retire une vie, il disparaît à 0) ;
+            // l'hélice souffle encore ce pas et les `restant - 1` suivants. Avec
+            // `v <= restant + 1`, le dernier brin s'efface pile à la première
+            // image où l'hélice est arrêtée.
+            let vie_max = (restant + 1).min(u8::MAX as u16) as u8;
+            particules.souffle_borne(z.x + decal, z.y, z.bas(), BLANC_CASSE, vie_max);
+        }
         // Le vent latéral devient visible aussi (tirets horizontaux qui traversent
         // la zone, dans son sens).
         for v in &monde.niveau.vents {
@@ -83,5 +107,96 @@ pub fn effets(
                 secousse.declencher(2, 14);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pepin_core::entities::ventilateur::Ventilateur;
+    use pepin_core::player::Entrees;
+
+    use crate::monde::INDICE_ESSAI_VENTILATEUR;
+
+    fn le_ventilateur(monde: &Monde) -> &Ventilateur {
+        monde
+            .entites
+            .iter()
+            .find_map(|e| match e {
+                Entite::Ventilateur(v) => Some(v),
+                _ => None,
+            })
+            .expect("le niveau d'essai a un ventilateur")
+    }
+
+    /// Carte 5.6b : le courant du ventilateur se voit (brins qui montent dans sa
+    /// colonne) pendant le souffle, et RIEN ne reste à l'écran pendant l'arrêt et
+    /// l'annonce. On rejoue l'ordre de `Application::pas` : le monde avance, les
+    /// effets naissent, les particules vieillissent, puis l'image est dessinée.
+    #[test]
+    fn le_courant_du_ventilateur_se_voit_pendant_le_souffle_seulement() {
+        let mut monde = Monde::new(INDICE_ESSAI_VENTILATEUR);
+        assert!(
+            monde.niveau.courants.is_empty(),
+            "aucun courant `v` dans l'essai : les brins viennent du ventilateur"
+        );
+        let mut particules = Particules::new();
+        let mut secousse = Secousse::new(false);
+        // Pépin reste au départ (à gauche de la case) : seul le ventilateur souffle.
+        let rien = Entrees::default();
+        let mut souffles = 0;
+        let mut images_de_souffle = 0;
+        let mut images_avec_brins = 0;
+        let (mut en_haut, mut en_bas) = (false, false);
+        let mut etait_en_souffle = false;
+        // Trois périodes complètes (4 s chacune) et un peu plus.
+        for _ in 0..3 * 240 + 30 {
+            monde.avancer(&rien);
+            effets(&monde, &mut particules, &mut secousse, 0.0, 0.0);
+            particules.actualiser();
+            let v = le_ventilateur(&monde);
+            let z = v.zone;
+            let brins = particules.brins_de_souffle();
+            if !v.souffle() {
+                assert!(
+                    brins.is_empty(),
+                    "pas {} ({:?}) : {} brin(s) de vent survivent hors du souffle",
+                    monde.pas,
+                    v.phase(),
+                    brins.len()
+                );
+                etait_en_souffle = false;
+                continue;
+            }
+            if !etait_en_souffle {
+                souffles += 1;
+            }
+            etait_en_souffle = true;
+            images_de_souffle += 1;
+            if !brins.is_empty() {
+                images_avec_brins += 1;
+            }
+            for &(x, y) in &brins {
+                // Le brin dérive un peu de côté (0,15 px par pas au plus, soit
+                // 6 px sur sa vie) ; il ne dépasse ni le haut ni le bas de la zone.
+                assert!(
+                    x >= z.x - 8.0 && x <= z.x + z.w + 8.0,
+                    "brin hors de la colonne : x = {x}"
+                );
+                assert!(
+                    y >= z.y - 1.0 && y <= z.bas(),
+                    "brin hors de la zone : y = {y}"
+                );
+                en_haut |= y < z.y + z.h / 4.0;
+                en_bas |= y > z.bas() - z.h / 4.0;
+            }
+        }
+        assert!(souffles >= 3, "trois souffles vus, pas {souffles}");
+        // Les brins apparaissent dès les premiers pas du souffle (un tous les 3 pas).
+        assert!(
+            images_avec_brins * 10 >= images_de_souffle * 9,
+            "brins visibles sur {images_avec_brins} des {images_de_souffle} images de souffle"
+        );
+        assert!(en_haut && en_bas, "la colonne se voit de bas en haut");
     }
 }

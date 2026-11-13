@@ -65,6 +65,17 @@ impl Particules {
         self.liste.is_empty()
     }
 
+    /// Position `(x, y)` de chaque brin de vent ascendant vivant (tiret vertical
+    /// de 3 px), pour les tests des effets.
+    #[cfg(test)]
+    pub fn brins_de_souffle(&self) -> Vec<(f32, f32)> {
+        self.liste
+            .iter()
+            .filter(|p| p.hauteur == 3 && p.largeur == 1)
+            .map(|p| (p.x, p.y))
+            .collect()
+    }
+
     /// Nombre pseudo-aléatoire entre 0.0 et 1.0.
     fn hasard(&mut self) -> f32 {
         self.graine = self
@@ -150,15 +161,24 @@ impl Particules {
     /// et `bas` (bord bas), et disparaît au plus tard en atteignant le bord haut : le vent se voit
     /// sur toute la colonne sans déborder de la zone où il agit.
     pub fn souffle(&mut self, x: f32, haut: f32, bas: f32, couleur: Couleur) {
+        self.souffle_borne(x, haut, bas, couleur, u8::MAX);
+    }
+
+    /// Comme `souffle`, mais le brin vit au plus `vie_max` pas : un vent qui va
+    /// s'arrêter (celui d'un ventilateur) n'en laisse aucun lui survivre. Avec
+    /// `vie_max = u8::MAX`, c'est exactement `souffle` (mêmes tirages, même vie).
+    pub fn souffle_borne(&mut self, x: f32, haut: f32, bas: f32, couleur: Couleur, vie_max: u8) {
         if self.liste.len() >= MAX {
             return;
         }
         let vx = (self.hasard() * 2.0 - 1.0) * 0.15;
         let y = bas - 2.0 - self.hasard() * (bas - haut - 4.0).max(0.0);
         let restant = ((y - haut) / VITESSE_SOUFFLE).floor().max(1.0);
-        let vie = (24.0 + (self.hasard() * 16.0).floor())
+        let vie = ((24.0 + (self.hasard() * 16.0).floor())
             .min(restant)
-            .min(255.0) as u8;
+            .min(255.0) as u8)
+            .min(vie_max)
+            .max(1);
         self.liste.push(Particule {
             x,
             y,
@@ -305,6 +325,28 @@ mod tests {
         for _ in 0..60 {
             p.actualiser();
         }
+        assert!(p.is_empty());
+    }
+
+    #[test]
+    fn le_souffle_borne_ne_vit_pas_plus_que_demande() {
+        // Même tirage que `souffle` : avec u8::MAX, la vie est identique.
+        let (mut a, mut b) = (Particules::new(), Particules::new());
+        a.souffle(0.0, -96.0, 0.0, PLUIE);
+        b.souffle_borne(0.0, -96.0, 0.0, PLUIE, u8::MAX);
+        assert_eq!(a.liste[0].vie, b.liste[0].vie);
+        assert_eq!(a.liste[0].y, b.liste[0].y);
+        // Vie bornée à 5 : le brin est effacé au 5e pas au plus tard.
+        let mut p = Particules::new();
+        p.souffle_borne(0.0, -96.0, 0.0, PLUIE, 5);
+        assert!((1..=5).contains(&p.liste[0].vie));
+        for _ in 0..5 {
+            p.actualiser();
+        }
+        assert!(p.is_empty(), "le brin borné à 5 pas ne survit pas au 5e");
+        // Vie 0 demandée : 1 au minimum (il s'efface au premier pas).
+        p.souffle_borne(0.0, -96.0, 0.0, PLUIE, 0);
+        p.actualiser();
         assert!(p.is_empty());
     }
 
