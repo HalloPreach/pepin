@@ -133,6 +133,7 @@ impl EtatJeu {
                 Contact::Lanterne(x, y) => self.checkpoint = (x, y),
                 Contact::Ecrase => self.score += POINTS_ECRASEMENT,
                 Contact::Rebond => {}
+                Contact::Auvent => {}
                 Contact::Mort(_) => {
                     self.morts += 1;
                     joueur.placer(self.checkpoint.0, self.checkpoint.1);

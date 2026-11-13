@@ -74,7 +74,7 @@ pub fn effets(
                 particules.etincelles(x, y - 8.0, 8, OR_PALE);
             }
             Contact::Ecrase => particules.eclabousser(x, y, 10, PLUIE, 2.0),
-            Contact::Rebond => particules.eclabousser(x, y, 6, CORAIL_CLAIR, 2.0),
+            Contact::Rebond | Contact::Auvent => particules.eclabousser(x, y, 6, CORAIL_CLAIR, 2.0),
             Contact::Lanterne(..) => particules.etincelles(x, y - 8.0, 10, OR),
             Contact::Mort(_) => {
                 // Une chute finit sous l'écran : les éclats naissent dans le cadre.

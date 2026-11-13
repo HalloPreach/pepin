@@ -4,7 +4,7 @@
 //! - `ennemi` : les flaques patrouilleuses (écrasables) et les corbeaux volants ;
 //! - `pointe`, `eclair`, `grele` : les dangers fixes, temporisés et continus ;
 //! - `friable`, `mobile` : les plateformes qui s'effritent ou qui voyagent ;
-//! - `champignon` : le trampoline ;
+//! - `champignon` : le trampoline ; `auvent` : la toile qui relance en diagonale ;
 //! - `collectibles` : les gouttes d'or et les lanternes (checkpoints) ;
 //! - `contacts` : ce qui se passe quand le joueur touche une entité.
 //!
@@ -17,12 +17,13 @@
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `trait` : le contrat `Actualisable` (« je sais avancer d'un pas de temps ») ;
-//! - `enum` à données : `Entite` est UNE des neuf familles, chacune portant ses
+//! - `enum` à données : `Entite` est UNE des dix familles, chacune portant ses
 //!   propres champs ; `match` oblige à traiter toutes les variantes ;
 //! - ownership : l'enum POSSÈDE l'entité qu'il contient (pas de pointeur partagé) ;
 //! - emprunts : `&self` pour lire, `&mut self` pour modifier, `&[T]` / `&mut [T]`
 //!   pour parcourir une tranche sans en prendre possession.
 
+pub mod auvent;
 pub mod champignon;
 pub mod collectibles;
 pub mod contacts;
@@ -36,6 +37,7 @@ pub mod pointe;
 use crate::aabb::Aabb;
 use crate::physics::Environnement;
 
+pub use auvent::Auvent;
 pub use champignon::Champignon;
 pub use collectibles::{GoutteDor, Lanterne};
 pub use eclair::Eclair;
@@ -70,6 +72,7 @@ pub enum Entite {
     Friable(PlateformeFriable),
     Mobile(PlateformeMobile),
     Champignon(Champignon),
+    Auvent(Auvent),
     Goutte(GoutteDor),
     Lanterne(Lanterne),
 }
@@ -87,6 +90,7 @@ impl Actualisable for Entite {
             Entite::Friable(e) => e.actualiser(env),
             Entite::Mobile(e) => e.actualiser(env),
             Entite::Champignon(e) => e.actualiser(env),
+            Entite::Auvent(e) => e.actualiser(env),
             Entite::Goutte(e) => e.actualiser(env),
             Entite::Lanterne(e) => e.actualiser(env),
         }
@@ -104,6 +108,7 @@ impl Entite {
             Entite::Friable(e) => e.boite,
             Entite::Mobile(e) => e.boite,
             Entite::Champignon(e) => e.boite,
+            Entite::Auvent(e) => e.boite,
             Entite::Goutte(e) => e.boite,
             Entite::Lanterne(e) => e.boite,
         }

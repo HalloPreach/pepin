@@ -47,7 +47,8 @@ pub fn effets_du_pas(evenements: &Evenements, contacts: &[Contact]) -> Vec<Effet
             Contact::Goutte(_) => v.push(Effet::Goutte),
             Contact::Lanterne(..) => v.push(Effet::Lanterne),
             Contact::Ecrase => v.push(Effet::Ecrase),
-            Contact::Rebond => v.push(Effet::Rebond),
+            // L'auvent fait le même « boing » que le champignon.
+            Contact::Rebond | Contact::Auvent => v.push(Effet::Rebond),
             // (Le tonnerre d'un éclair est déjà déclenché par `Detecteur`.)
             Contact::Mort(_) => v.push(Effet::Mort),
         }

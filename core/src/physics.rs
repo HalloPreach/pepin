@@ -139,6 +139,28 @@ pub const VENT_LAT: f32 = 60.0;
 /// le parapluie pour résister au vent.
 pub const VENT_LAT_PLANE: f32 = 2.0 * VENT_LAT;
 
+// ---------------------------------------------------------------------------
+// Auvents (lettre `A`) : rebond en diagonale, vers le haut et vers la droite
+// ---------------------------------------------------------------------------
+
+/// Vitesse verticale (px/s, vers le haut) donnée par un auvent. Hauteur du
+/// rebond : 300² / (2 × 900) = 50 px (un peu plus de 3 tuiles), un peu moins
+/// qu'un saut : l'auvent sert à AVANCER de boutique en boutique, pas à monter.
+pub const VITESSE_AUVENT: f32 = 300.0;
+/// Durée (pas) d'un vol d'auvent qui retombe à sa hauteur de départ :
+/// 2 × 300 / 900 s = 2/3 s = 40 pas.
+pub const VOL_AUVENT_PAS: u16 = 40;
+/// Élan horizontal (px/s, vers la droite) donné par un auvent. Il est rangé À
+/// PART de `vitesse.x` (comme le vent latéral) et s'éteint en ligne droite
+/// pendant `VOL_AUVENT_PAS` pas : sans toucher à rien, Pépin avance de
+/// 192 × (40/60) / 2 = 64 px, soit 4 tuiles, avant de retomber à sa hauteur de
+/// départ. En gardant la droite, il va presque deux fois plus loin ; en gardant
+/// la gauche, il retombe presque sur place. Des auvents espacés de 3 à 5 tuiles
+/// s'enchaînent donc sans toucher le sol (voir `entities::auvent`).
+pub const ELAN_AUVENT: f32 = 192.0;
+/// Baisse de l'élan d'auvent à chaque pas (px/s) : il atteint 0 en `VOL_AUVENT_PAS`.
+pub const BAISSE_ELAN_AUVENT: f32 = ELAN_AUVENT / VOL_AUVENT_PAS as f32;
+
 /// Zone rectangulaire où souffle un vent LATERAL (lettre `<` ou `>` de la
 /// grille). Le vent pousse Pépin à `VENT_LAT` (parapluie fermé), et deux fois
 /// plus fort s'il plane (`VENT_LAT_PLANE`) : voir `player::actualiser`.
@@ -234,4 +256,17 @@ mod tests {
     // Le vent latéral en planant pousse deux fois plus fort que fermé.
     const _: () = assert!(VENT_LAT_PLANE == 2.0 * VENT_LAT);
     const _: () = assert!(VENT_LAT == 60.0);
+
+    /// Auvent : le vol dure bien `VOL_AUVENT_PAS` (montée + descente à la même
+    /// hauteur), et l'élan seul fait avancer de 4 tuiles pendant ce vol.
+    #[test]
+    fn constantes_de_l_auvent_coherentes() {
+        let vol = 2.0 * VITESSE_AUVENT / GRAVITE * HZ as f32;
+        assert_eq!(vol.round() as u16, VOL_AUVENT_PAS);
+        let avance = ELAN_AUVENT * (VOL_AUVENT_PAS as f32 * DT) / 2.0;
+        assert!((avance - 64.0).abs() < 1e-3, "avance = {avance}");
+        // Le rebond d'auvent monte moins haut qu'un saut (il sert à avancer).
+        let h = VITESSE_AUVENT * VITESSE_AUVENT / (2.0 * GRAVITE);
+        assert!(h < hauteur_saut_theorique(), "h = {h}");
+    }
 }

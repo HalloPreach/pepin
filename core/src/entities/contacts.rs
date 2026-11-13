@@ -44,6 +44,8 @@ pub enum Contact {
     Ecrase,
     /// Le joueur a rebondi sur un champignon.
     Rebond,
+    /// Un auvent vient de relancer le joueur en diagonale.
+    Auvent,
     /// Le joueur est mort.
     Mort(CauseMort),
 }
@@ -94,7 +96,7 @@ fn pose_sur(joueur: &Joueur, boite: &Aabb) -> bool {
 ///
 /// Protection de réapparition (`Joueur::est_protege`) : aucun danger ne tue
 /// (ennemi touché de côté, pointe, éclair, grêle) ; tout le reste continue (gouttes,
-/// lanternes, champignons, écrasement d'un ennemi par le dessus). Tout NOUVEAU
+/// lanternes, champignons, auvents, écrasement d'un ennemi par le dessus). Tout NOUVEAU
 /// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
 /// pas traitée ici (`verifier_vide`) : elle reste mortelle.
 ///
@@ -159,6 +161,14 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                     joueur.rebondir(super::champignon::VITESSE_CHAMPIGNON);
                     c.rebondir();
                     contacts.push(Contact::Rebond);
+                }
+            }
+            Entite::Auvent(a) => {
+                // Par le dessus seulement ; une fois relancé, Pépin monte : les
+                // autres auvents de la liste ne le reprennent pas dans le même pas.
+                if a.recoit(joueur) {
+                    a.lancer(joueur);
+                    contacts.push(Contact::Auvent);
                 }
             }
             Entite::Friable(f) => {

@@ -344,6 +344,8 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
             Entite::Mobile(_) => banque.dessiner("mobile", sx, sy, false),
+            // Dessin de l'auvent : commit suivant (sprites).
+            Entite::Auvent(_) => {}
             Entite::Grele(g) => {
                 // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
                 let t = TAILLE_TUILE;

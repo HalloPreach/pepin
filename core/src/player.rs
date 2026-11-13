@@ -1,8 +1,8 @@
 //! Module `player` : état du joueur (Pépin) et sa mise à jour à pas fixe.
 //!
 //! Mécaniques : course (accélération / friction), saut à hauteur variable,
-//! coyote time, jump buffer, PLANER (parapluie ouvert), courants ascendants
-//! et vent latéral.
+//! coyote time, jump buffer, PLANER (parapluie ouvert), courants ascendants,
+//! vent latéral et élan des auvents.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `enum` sans données (`Direction`, `EtatJoueur`) et `match` exhaustif ;
@@ -101,6 +101,12 @@ pub struct Joueur {
     /// Pas restants de protection après une réapparition (0 = aucune protection).
     /// Voir `PROTECTION_REAPPARITION_PAS`.
     protection: u16,
+    /// Élan horizontal donné par un auvent (px/s, vers la droite ; 0 = aucun).
+    /// Rangé à part de `vitesse.x` : les commandes du joueur s'y AJOUTENT au lieu
+    /// de le freiner (garder la droite va plus loin, garder la gauche moins loin).
+    /// Il s'éteint en ligne droite (`BAISSE_ELAN_AUVENT` par pas) et tombe à 0 dès
+    /// que Pépin touche un mur ou se pose. Voir `lancer_par_auvent`.
+    elan_auvent: f32,
 }
 
 impl Joueur {
@@ -117,6 +123,7 @@ impl Joueur {
             tampon: 0,
             monte_par_saut: false,
             protection: 0,
+            elan_auvent: 0.0,
         }
     }
 
@@ -164,6 +171,24 @@ impl Joueur {
         self.plane = false;
         self.monte_par_saut = false;
         self.coyote = 0;
+    }
+
+    /// Lancer d'auvent : vers le haut à `VITESSE_AUVENT` et vers la droite avec
+    /// l'élan `ELAN_AUVENT`. La vitesse horizontale propre repart de 0 : le vol
+    /// ne dépend donc QUE de l'endroit où Pépin touche la toile (pas de la façon
+    /// dont il est arrivé), ce qui le rend prévisible pour le joueur comme pour
+    /// les robots. Comme `rebondir`, ce n'est pas un saut : il ne se coupe pas.
+    pub fn lancer_par_auvent(&mut self) {
+        self.rebondir(VITESSE_AUVENT);
+        self.vitesse.x = 0.0;
+        self.elan_auvent = ELAN_AUVENT;
+        self.tampon = 0;
+        self.regarde_droite = true;
+    }
+
+    /// Élan d'auvent restant (px/s ; 0 = aucun). Pour les tests et l'affichage.
+    pub fn elan_auvent(&self) -> f32 {
+        self.elan_auvent
     }
 
     /// Déplace le joueur d'une plateforme mobile (sans entrée, sans gravité) en
@@ -279,15 +304,26 @@ impl Joueur {
         let poussee_vent = sens_vent as f32 * if self.plane { VENT_LAT_PLANE } else { VENT_LAT };
 
         // --- 7. Déplacement + collisions, axe par axe ----------------------
+        // L'élan d'auvent s'ajoute au déplacement, comme le vent : il ne passe
+        // pas par `vitesse.x`, donc ni la friction ni la vitesse maximale de
+        // course ne le rognent. (Ajouté seulement s'il existe : sans auvent, le
+        // calcul reste exactement celui d'avant, au bit près.)
+        let mut dx = self.vitesse.x * DT + poussee_vent * DT;
+        if self.elan_auvent != 0.0 {
+            dx += self.elan_auvent * DT;
+        }
         let contacts = deplacer(
             &mut self.boite,
-            self.vitesse.x * DT + poussee_vent * DT,
+            dx,
             self.vitesse.y * DT,
             env.grille,
             env.solides,
         );
+        // Il s'éteint en ligne droite : 0 au bout de `VOL_AUVENT_PAS` pas.
+        self.elan_auvent = approcher(self.elan_auvent, 0.0, BAISSE_ELAN_AUVENT);
         if contacts.mur() {
             self.vitesse.x = 0.0;
+            self.elan_auvent = 0.0;
         }
         if contacts.plafond && self.vitesse.y < 0.0 {
             self.vitesse.y = 0.0;
@@ -298,6 +334,7 @@ impl Joueur {
             self.au_sol = true;
             self.plane = false;
             self.monte_par_saut = false;
+            self.elan_auvent = 0.0;
             if !etait_au_sol {
                 ev.atterrissage = true;
             }
