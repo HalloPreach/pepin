@@ -8,6 +8,7 @@
 //! - la première montgolfière monte de sa hauteur maximale (8 tuiles) : rien
 //!   au-dessus d'elle ;
 //! - la seconde s'arrête plus tôt, sous un nuage (le haut du ballon le touche).
+//!
 //! Chaque fois, l'étage suivant est trop haut pour un saut : seule la nacelle y
 //! porte Pépin. Quand il la quitte, elle redescend doucement à son quai.
 
