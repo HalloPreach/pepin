@@ -507,8 +507,27 @@ chaque carte qui touche un niveau, un ennemi ou une mécanique.
 Elle affiche les tableaux et réécrit `docs/mesure-difficulte.txt` (fichier versionné : `git diff` montre
 l'effet d'une carte). Durée : 30 à 90 s sur la machine de développement (un fil d'exécution par niveau
 puis par niveau et profil ; la durée dépend de la charge). Le test échoue si un profil finit moins de la
-moitié de ses essais sur un niveau, ou si l'ordre Débutant > Habitué > Expert n'est plus respecté sur le
-total.
+moitié de ses essais sur un niveau, si l'ordre Débutant > Habitué > Expert n'est plus respecté sur le
+total, ou si la forme de la courbe sort de ses bandes (voir ci-dessous).
+
+Depuis la carte 3.3, le fichier a une 3e partie, « Lieux de mort » : pour chaque niveau et chaque profil,
+les endroits où l'on meurt (colonne de tuile du centre de Pépin, cause : chute, ennemi, pointes, éclair),
+colonnes voisines de même cause regroupées, du plus meurtrier au moins meurtrier. C'est là qu'il faut
+agir pour adoucir ou corser un niveau.
+
+Deux autres tests :
+- `courbe_de_difficulte_dans_les_bandes` (lancé avec tous les tests, environ 30 s) : non-régression de la
+  forme de la courbe sur la mesure officielle. Débutant et Habitué : le niveau 3 est le plus meurtrier des
+  cinq, le 4 l'est plus que le 5. Habitué : chaque niveau dans sa bande (`BANDES_HABITUE` : N1 [0 ; 0,3[,
+  N2 [0,3 ; 0,8[, N3 [0,5 ; 1,5[, N4 [0,3 ; 0,65[, N5 [0 ; 0,2[) et le 4 au moins 0,15 sous le 3. En cas
+  d'échec, le message liste tous les écarts et le tableau.
+- `bruit_de_la_mesure` (ignoré, environ 2 min 30) : la même mesure avec 4 graines (l'officielle et ses 3
+  voisines) et les lieux de mort cumulés sur toutes. Sert à savoir si un écart est réel ou dû au hasard :
+  une différence plus petite que l'écart entre graines ne prouve rien. (Une variable `GRAINES=a,b,c`
+  choisit d'autres graines, mais `docker-cargo.sh` ne la transmet pas au conteneur : seulement avec un
+  `cargo` local.)
+
+      ./docker-cargo.sh test -p game --no-default-features bruit_de_la_mesure -- --ignored --nocapture
 
 Pour le tableau avant/après d'une carte : lancer la commande sur une extraction propre du commit de départ
 (`git archive <commit> | tar -x -C <nouveau dossier>`), puis sur le commit final, et recopier les deux
@@ -755,3 +774,98 @@ Pas testé : vrai téléphone, Safari/Firefox, ressenti d'un vrai joueur sur la 
 pour laisser passer une flaque ; elle permet aussi de traverser une flaque juste à côté de la lanterne
 pendant cette seconde, voulu), son (rien de sonore ne change), grêle (pas encore écrite : elle devra passer
 par `resoudre_contacts` pour être couverte).
+
+## Retouches de difficulté des niveaux 3, 4 et 5 (carte 3.3)
+
+Cible (addendum du coordinateur, profil Habitué = joueur moyen, même ordre pour le Débutant) : le niveau 3
+le plus meurtrier des cinq ; le 4 nettement en dessous du 3 mais au-dessus du 5 ; le 5 sous 0,2 ; les
+niveaux 1 et 2 quasi inchangés. Toutes les retouches demandées par AGA sont faites, puis le niveau 4 est
+réglé sur les lieux de mort mesurés.
+
+Outil d'abord (commit a304115) : la mesure note maintenant OÙ l'on meurt (colonne, cause ; 3e partie de
+`docs/mesure-difficulte.txt`, voir « Mesure de difficulté »). Morts moyennes inchangées à l'octet.
+
+Retouches (coordonnées : rangée 0 en haut, colonnes comptées depuis 0) :
+- Niveau 3 (`orage.rs`) : cheminée d'une tuile en colonne 51 (toit en rangée 8, briques en dessous),
+  point de repos entre les deux plateformes mobiles. La plateforme 1 s'arrête en colonne 49 au lieu de 50 :
+  large de 2 tuiles, elle serait sinon entrée dans la cheminée.
+- Niveau 4 (`vents.rs`) :
+  - îlot du milieu de l'escalier de nuages (rangée 5, colonnes 72-75) en nuage friable ; sur ce niveau le
+    friable se dessine déjà en nuage (`objets::FRIABLE`, thème Altitude), aucun sprite à changer ;
+  - îlots d'atterrissage des courants 2 et 3 raccourcis d'une tuile (colonnes 55 et 102 retirées) ;
+  - 2 corbeaux (portée 5 tuiles) : colonne 60 rangée 2, à hauteur de Pépin au-dessus de l'îlot d'arrivée
+    du courant 2 ; colonne 178 rangée 7, sur le dernier toit de nuages, avant le drapeau ;
+  - réglage : après les retouches ci-dessus, le niveau 4 montait à 1,2 (plus dur que le 3, 0,6). Les lieux
+    de mort (4 graines cumulées) désignaient les atterrissages : toit de départ (colonne 14), îlot du
+    courant 1 (colonnes 34 à 38), îlots après le courant 4 (113-114, 124-125, 143-144, 153-154) et
+    dernier toit (163-164) élargis. Aucun îlot demandé « raccourci » n'est rallongé.
+- Niveau 5 (`nuages.rs`) : adouci là où l'on mourait (lieux de mort, 4 graines cumulées, Débutant :
+  colonnes 59-77, 26-36, 111-115, 83-96, 17-18, 120-123, 127-131). Îlots élargis d'une ou deux tuiles
+  (colonnes 17, 27, 35, 43, 57, 68-69, 88-90, 113, 121, 127-129), traversée friable continue (colonnes
+  60 à 66 au lieu de 4 dalles espacées), petit nuage d'appui en colonnes 111-112. Gouttes d'or non
+  déplacées : elles restent des détours facultatifs (en hauteur, par le trampoline), plus exigeants que le
+  chemin principal.
+- README : mécanique du niveau 4 (nuage friable, corbeaux).
+
+Mesure de difficulté (graine officielle), morts moyennes avant (d1efab7) → après :
+
+| Niveau                      | Débutant      | Habitué      | Expert       |
+| --------------------------- | ------------- | ------------ | ------------ |
+| 1. Les toits                | 0,4 → 0,4     | 0,1 → 0,1    | 0,0 → 0,0    |
+| 2. Gouttières et cheminées  | 1,5 → 1,5     | 0,5 → 0,5    | 0,2 → 0,2    |
+| 3. Le grand orage           | 3,6 → 3,0     | 1,0 → 0,6    | 0,2 → 0,4    |
+| 4. Vents d'altitude         | 2,9 → 1,3     | 0,9 → 0,4    | 0,3 → 0,1    |
+| 5. Au-dessus des nuages     | 2,5 → 0,5     | 0,4 → 0,1    | 0,2 → 0,0    |
+| Total                       | 10,9 → 6,8    | 2,9 → 1,7    | 0,9 → 0,7    |
+
+Bruit (test `bruit_de_la_mesure`, 4 graines : 20261113 à 20261116), Habitué, avant → après :
+N3 1,0 / 1,1 / 1,3 / 1,0 → 0,6 / 1,0 / 1,0 / 0,8 ; N4 0,9 / 0,9 / 0,9 / 1,1 → 0,4 / 0,4 / 0,5 / 0,5 ;
+N5 0,4 / 0,5 / 0,6 / 0,9 → 0,1 / 0,1 / 0,1 / 0,1. Débutant après : N3 3,0 / 2,4 / 3,5 / 3,4 ;
+N4 1,3 / 1,1 / 1,6 / 1,3 ; N5 0,5 / 0,5 / 0,6 / 0,4. Sur les 4 graines, l'ordre 3 > 4 > 5 tient pour les
+deux profils, le 4 reste dans [0,35 ; 0,65] et le 5 sous 0,2.
+
+Lecture : la courbe Habitué devient 0,1 · 0,5 · 0,6 · 0,4 · 0,1 (monte jusqu'au 3, redescend au 4, finit
+calme). Le niveau 3 baisse aussi (1,0 → 0,6 sur la graine officielle, 1,1 → 0,85 en moyenne des 4) : en
+partie le point de repos de la colonne 51, en partie le hasard (une retouche change la suite des tirages de
+chaque essai après elle : les chutes des colonnes 136-138, loin de la retouche, passent de 9 à 3). L'Expert
+du niveau 3 passe de 0,2 à 0,4 sur la graine officielle (avant 0,2 à 0,3 selon la graine, après 0,2 à
+0,4) : bruit. Niveaux 1 et 2 : lignes identiques.
+
+Test de non-régression de la courbe (commit 4bdb074) : `courbe_de_difficulte_dans_les_bandes`, lancé avec
+tous les tests (environ 30 s), vérifie sur la mesure officielle la forme ci-dessus et les bandes Habitué
+(détail dans « Mesure de difficulté ») ; `la_forme_de_la_courbe_est_jugee` vérifie le juge lui-même
+(la courbe d'avant la carte est refusée : niveau 4 à 0,90, niveau 5 à 0,40, 4 pas nettement sous le 3).
+
+Autres vérifications :
+- Faisabilité (`zones.rs`, `faisabilite.rs`) : les 5 niveaux finissables, toutes gouttes et lanternes
+  atteignables, reprise depuis chaque lanterne, robot « maladroit » ; lint de grille vert (lanternes
+  posées, aucune poche de vide close).
+- Lanternes sur le trajet d'un danger : inventaire inchangé [(2, 66, flaque), (2, 104, flaque),
+  (3, 145, flaque)] ; aucun des deux corbeaux du niveau 4 n'atteint une lanterne (le plus proche,
+  colonne 178, patrouille de 173 à 183 ; lanterne en 170).
+- Robot de QA : finit les cinq niveaux sans mourir (12130 images au lieu de 12254, 5 gouttes au lieu
+  de 4 : son parcours change avec les niveaux).
+
+Captures (Chromium 1208 piloté par CDP, build de QA servi sur 127.0.0.1, onglet au premier plan, canevas
+focalisé, serveur arrêté ensuite ; script du robot rejoué par `docs/capture-visibilite.mjs`). « Avant » :
+build de QA d'une extraction propre de d1efab7 et son propre script ; « après » : HEAD. Même endroit du
+parcours du robot (même colonne de Pépin), donc pas forcément la même image. Toutes regardées ;
+0 pixel hors palette, 0 flou (`docs/mesure-capture.py`, K = 3) sur les 14.
+- `33-niveau3-colonne51-avant` / `-apres` : avant, un trou de 16 tuiles sous les deux plateformes
+  mobiles ; après, la cheminée (toit sur briques) entre elles, Pépin saute de la plateforme 1 vers elle.
+- `33-niveau4-ilot-courant2-avant` / `33-niveau4-ilot-courant2-corbeau-apres` : îlot d'arrivée du
+  courant 2 ; après, le corbeau vole au ras de l'îlot pendant que Pépin plane au-dessus.
+- `33-niveau4-escalier-avant` / `33-niveau4-escalier-friable-apres` : l'escalier de nuages ; après,
+  l'îlot du milieu est fait de 4 petits nuages friables, entre deux îlots pleins.
+- `33-niveau4-ilot-courant3-avant` / `-apres` : îlot d'arrivée du courant 3, une tuile plus court.
+- `33-niveau4-drapeau-avant` / `33-niveau4-drapeau-corbeau-apres` : dernier toit de nuages ; après, le
+  corbeau arrive vers Pépin, à sa hauteur, juste après la dernière lanterne.
+- `33-niveau5-friables-avant` / `-apres` : avant, 4 dalles friables espacées ; après, une traversée de
+  7 nuages friables jointifs, les deux premiers en train de s'effriter derrière Pépin.
+- `33-niveau5-montee-avant` / `-apres` : la montée vers le soleil, îlots plus larges.
+
+Limites : la mesure est un joueur simulé (intention parfaite, exécution imparfaite), pas un vrai joueur ;
+le niveau 4 Habitué (0,4) est un peu sous le niveau 2 (0,5), ce que la cible n'interdit pas (elle ne compare
+le 4 qu'au 3 et au 5) ; le niveau 3 a baissé lui aussi (point de repos et hasard ; toujours le plus dur,
+au-dessus du bas de sa bande, 0,5, mais de peu sur la graine officielle : 0,6). Pas testé : vrai téléphone,
+Safari/Firefox, ressenti d'un vrai joueur face aux corbeaux du niveau 4, son (rien de sonore ne change).
