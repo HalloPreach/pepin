@@ -354,4 +354,83 @@ mod tests {
             }
         }
     }
+
+    /// Dangers qui passent sur le point de réapparition d'une lanterne, niveau
+    /// par niveau : `(numéro du niveau, colonne de la lanterne, danger)`.
+    ///
+    /// Les entités du niveau avancent seules (sans joueur) pendant `pas` pas ; on
+    /// note chaque lanterne dont la boîte de Pépin réapparu est touchée par un
+    /// ennemi actif (flaque, corbeau), une pointe ou un éclair qui frappe.
+    fn dangers_sur_les_lanternes(pas: u32) -> Vec<(u8, i32, &'static str)> {
+        use crate::aabb::Aabb;
+        use crate::entities::{solides_des_entites, Actualisable, Entite, TypeEnnemi};
+        use crate::physics::{Environnement, JOUEUR_H, JOUEUR_L};
+        let mut trouves = Vec::new();
+        for infos in &NIVEAUX {
+            let niv = infos.charger().unwrap();
+            let pepins: Vec<(i32, Aabb)> = niv
+                .entites
+                .iter()
+                .filter_map(|e| match e {
+                    Entite::Lanterne(l) => {
+                        let (x, y) = l.point_de_reapparition();
+                        let colonne = (l.boite.x / crate::aabb::TAILLE_TUILE) as i32;
+                        Some((colonne, Aabb::new(x, y, JOUEUR_L, JOUEUR_H)))
+                    }
+                    _ => None,
+                })
+                .collect();
+            let mut entites = niv.entites.clone();
+            for _ in 0..pas {
+                let solides = solides_des_entites(&entites);
+                let env = Environnement {
+                    grille: &niv,
+                    solides: &solides,
+                    courants: &niv.courants,
+                };
+                for e in entites.iter_mut() {
+                    e.actualiser(&env);
+                }
+                for e in &entites {
+                    let (zone, nom) = match e {
+                        Entite::Ennemi(en) if en.est_dangereux() => match en.type_ennemi {
+                            TypeEnnemi::Flaque => (en.boite, "flaque"),
+                            TypeEnnemi::Corbeau => (en.boite, "corbeau"),
+                        },
+                        Entite::Pointe(p) => (p.zone_danger(), "pointe"),
+                        Entite::Eclair(ec) if ec.frappe() => (ec.zone, "éclair"),
+                        _ => continue,
+                    };
+                    for &(colonne, pepin) in &pepins {
+                        let trouve = (infos.numero, colonne, nom);
+                        if pepin.chevauche(&zone) && !trouves.contains(&trouve) {
+                            trouves.push(trouve);
+                        }
+                    }
+                }
+            }
+        }
+        trouves
+    }
+
+    /// Inventaire des lanternes sur le trajet d'un danger (carte 3.1b). Depuis la
+    /// protection de réapparition (`PROTECTION_REAPPARITION_PAS`), ce n'est plus un
+    /// piège (au plus une mort par passage), mais c'est à savoir en dessinant un
+    /// niveau. Trois aujourd'hui, toutes sur la patrouille d'une flaque qui longe
+    /// son toit d'un mur (ou d'un bord) à l'autre : niveau 2, colonnes 66 (flaque
+    /// de la colonne 70) et 104 (flaque de la colonne 108, celle de la mesure 3.1) ;
+    /// niveau 3, colonne 145 (flaque de la colonne 154). Si ce test échoue après une
+    /// retouche de niveau : vérifier la nouvelle liste, la recopier ici et dans
+    /// `QA.md` (section « Protection après réapparition »).
+    #[test]
+    fn lanternes_sur_le_trajet_d_un_danger() {
+        // 2 min : plus qu'un aller-retour complet de chaque ennemi (la plus longue
+        // patrouille de flaque, un toit de 61 tuiles au niveau 3, dure 80 s à 24 px/s).
+        let trouves = dangers_sur_les_lanternes(120 * 60);
+        println!("lanternes sur le trajet d'un danger : {trouves:?}");
+        assert_eq!(
+            trouves,
+            vec![(2, 66, "flaque"), (2, 104, "flaque"), (3, 145, "flaque")]
+        );
+    }
 }

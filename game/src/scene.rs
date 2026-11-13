@@ -317,7 +317,7 @@ fn dessiner_repere(x: i32) {
 /// 3 images dessiné, 3 images caché (10 fois par seconde à 60 Hz). Un sprite
 /// absent une image sur deux plutôt qu'un sprite à moitié transparent : la palette
 /// n'a que des couleurs pleines. Fonction pure.
-fn pepin_cache(protection: u16, pas: u32) -> bool {
+pub(crate) fn pepin_cache(protection: u16, pas: u32) -> bool {
     protection > 0 && (pas / 3).is_multiple_of(2)
 }
 

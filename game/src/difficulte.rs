@@ -786,50 +786,114 @@ mod tests {
         }
     }
 
-    /// Écrit `target/qa/script-31.txt` (un chiffre hexadécimal par image, comme
-    /// `bot_qa::ecrire_script_navigateur`) : le robot finit le niveau 1, puis le
-    /// niveau 2 est joué par le premier essai « Débutant » de la mesure qui
-    /// connaît des morts en série. Affiche les images à photographier.
-    /// `./docker-cargo.sh test -p game --no-default-features ecrire_script_morts_en_serie -- --ignored --nocapture`
+    /// Écrit `target/qa/script-31b.txt` (même format que `script.txt`), preuve de la
+    /// carte 3.1b : le robot finit le niveau 1, puis le niveau 2 est joué par le
+    /// premier essai « Débutant » de la mesure où Pépin réapparaît à la lanterne de
+    /// la colonne 104 DANS une flaque (le cas des captures 31-, où la flaque le tuait
+    /// à chaque pas). Affiche, image par image autour de cette réapparition : morts,
+    /// protection restante, Pépin dessiné ou caché (clignotement), flaque sur lui.
+    /// De quoi choisir les images à photographier.
+    ///
+    /// Il remplace `ecrire_script_morts_en_serie` (`script-31.txt`) : depuis la
+    /// protection de réapparition, aucun essai n'a plus de morts en série ; pour
+    /// régénérer `script-31.txt`, extraire le commit 96d043e.
+    /// `./docker-cargo.sh test -p game --no-default-features ecrire_script_lanterne_104 -- --ignored --nocapture`
     #[test]
     #[ignore]
-    fn ecrire_script_morts_en_serie() {
+    fn ecrire_script_lanterne_104() {
         use crate::bot_qa::{jouer_tout, trouver_parcours};
+        use crate::scene::pepin_cache;
+        use pepin_core::entities::{Entite, TypeEnnemi};
+        let lanterne = Monde::new(1)
+            .entites
+            .iter()
+            .find_map(|e| match e {
+                Entite::Lanterne(l) if (l.boite.x / 16.0) as i32 == 104 => {
+                    Some(l.point_de_reapparition())
+                }
+                _ => None,
+            })
+            .expect("lanterne de la colonne 104");
+        let flaque_sur_pepin = |m: &Monde| {
+            m.entites.iter().any(|e| {
+                matches!(e, Entite::Ennemi(f) if f.type_ennemi == TypeEnnemi::Flaque
+                    && f.est_dangereux()
+                    && f.boite.chevauche(&m.joueur.boite))
+            })
+        };
+        // Un état noté après chaque pas : (morts, protection, Pépin caché, flaque
+        // sur Pépin, x, y).
+        type Note = (u32, u16, bool, bool, f32, f32);
         let itin = Itineraires::calculer(1);
-        let (essai, journal) = (0..ESSAIS)
+        let (essai, journal, notes, cible) = (0..ESSAIS)
             .find_map(|e| {
                 let mut journal = Vec::new();
                 let graine = graine_essai(GRAINE, 0, 1, e);
-                let r = jouer_essai_note(&itin, &PROFILS[0], graine, &mut journal);
-                (r.en_serie > 0).then_some((e, journal))
+                jouer_essai_note(&itin, &PROFILS[0], graine, &mut journal);
+                let mut m = Monde::new(1);
+                let mut notes: Vec<Note> = Vec::new();
+                let mut cible = None;
+                for entree in &journal {
+                    let avant = m.etat.morts;
+                    m.avancer(entree);
+                    let (j, sur) = (&m.joueur, flaque_sur_pepin(&m));
+                    if m.etat.morts > avant
+                        && cible.is_none()
+                        && (j.boite.x, j.boite.y) == lanterne
+                        && sur
+                    {
+                        cible = Some(notes.len());
+                    }
+                    let p = j.protection_restante();
+                    notes.push((
+                        m.etat.morts,
+                        p,
+                        pepin_cache(p, m.pas),
+                        sur,
+                        j.boite.x,
+                        j.boite.y,
+                    ));
+                }
+                cible.map(|c| (e, journal, notes, c))
             })
-            .expect("aucun essai à morts en série au niveau 2");
-        // Rejoue l'essai seul pour dater chaque mort (en pas depuis le début du niveau).
-        let mut m = Monde::new(1);
-        let mut morts_au_pas = Vec::new();
-        for (k, e) in journal.iter().enumerate() {
-            let avant = m.etat.morts;
-            m.avancer(e);
-            if m.etat.morts > avant {
-                morts_au_pas.push((k + 1, m.joueur.boite.x, m.joueur.boite.y));
-            }
-        }
-        // La partie complète, image par image ; on coupe 3 s après la dernière mort.
+            .expect("aucun essai ne réapparaît à la lanterne 104 dans une flaque");
         let partie = jouer_tout(&[trouver_parcours(0, false).unwrap(), journal]);
         let f0 = partie
             .trames
             .iter()
             .position(|t| t.niveau == 2)
             .expect("le niveau 2 commence");
-        let fin = f0 + morts_au_pas.last().map_or(0, |m| m.0) + 180;
+        // Image de la partie où l'on voit l'état noté n° 0 : celle dont la position
+        // de Pépin colle à TOUTES les notes suivantes (vérifié, pas supposé).
+        let base = (f0.saturating_sub(2)..f0 + 3)
+            .find(|&b| {
+                notes.iter().enumerate().all(|(i, n)| {
+                    partie
+                        .trames
+                        .get(b + i)
+                        .is_some_and(|t| (t.x, t.y) == (n.4, n.5))
+                })
+            })
+            .expect("partie et rejeu concordent");
+        let fin = (base + cible + 240).min(partie.trames.len());
         let script: String = partie.trames[..fin].iter().map(|t| t.code()).collect();
         std::fs::create_dir_all("../target/qa").unwrap();
-        std::fs::write("../target/qa/script-31.txt", &script).unwrap();
-        println!("essai Débutant n° {essai} ; niveau 2 à partir de l'image {f0}");
-        for (k, x, y) in &morts_au_pas {
+        std::fs::write("../target/qa/script-31b.txt", &script).unwrap();
+        let morts = notes.last().map_or(0, |n| n.0);
+        println!(
+            "essai Débutant n° {essai} ; niveau 2 : image {f0} ; pas 1 = image {base} ; \
+             {morts} morts dans l'essai ; réapparition à la lanterne 104 dans la flaque : \
+             pas {} = image {} ; script : {fin} images",
+            cible + 1,
+            base + cible
+        );
+        println!("image ; morts ; protection ; Pépin caché ; flaque sur Pépin ; x ; y");
+        let debut = cible.saturating_sub(60);
+        let fin_notes = (cible + 150).min(notes.len());
+        for (i, &(m, p, cache, sur, x, y)) in notes[debut..fin_notes].iter().enumerate() {
             println!(
-                "mort au pas {k} (image {}) : Pépin en ({x:.0}, {y:.0})",
-                f0 + k
+                "{} ; {m} ; {p} ; {cache} ; {sur} ; {x:.1} ; {y:.1}",
+                base + debut + i
             );
         }
     }
