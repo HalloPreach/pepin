@@ -456,4 +456,43 @@ mod tests {
         // Îlot : les deux côtés.
         assert_eq!((car(i, 0, 15), car(i, 15, 15)), ('.', '.'));
     }
+
+    /// Les variantes de brique se raccordent exactement comme la brique pleine : mêmes bords
+    /// (première et dernière rangée, première et dernière colonne), seul l'intérieur change, et
+    /// sur une petite zone (moins d'un quart des pixels). Aucun pixel transparent : c'est un mur.
+    #[test]
+    fn les_variantes_de_brique_se_raccordent_comme_la_brique_pleine() {
+        let plein = dessin("brique_plein");
+        for nom in ["brique_fissure", "brique_manquante", "brique_coulure"] {
+            let v = dessin(nom);
+            assert_eq!(taille(nom), (16, 16), "{nom}");
+            let mut differences = 0;
+            for y in 0..16 {
+                for x in 0..16 {
+                    let (a, b) = (car(v, x, y), car(plein, x, y));
+                    assert_ne!(a, '.', "{nom} : trou transparent en ({x},{y})");
+                    if x == 0 || x == 15 || y == 0 || y == 15 {
+                        assert_eq!(a, b, "{nom} : le bord change en ({x},{y})");
+                    }
+                    differences += usize::from(a != b);
+                }
+            }
+            assert!(
+                (4..64).contains(&differences),
+                "{nom} : {differences} pixels changés"
+            );
+        }
+    }
+
+    /// L'ombre du rebord : une bande pleine de la largeur d'une tuile, 1 ou 2 px de haut, faite
+    /// des deux couleurs d'ombre (0 et 1) seulement.
+    #[test]
+    fn l_ombre_du_toit_est_une_bande_d_ombre_de_deux_pixels_au_plus() {
+        let (l, h) = taille("ombre_toit");
+        assert_eq!(l, 16);
+        assert!((1..=2).contains(&h), "{h} px de haut");
+        assert!(dessin("ombre_toit")
+            .iter()
+            .all(|ligne| ligne.chars().all(|c| c == '0' || c == '1')));
+    }
 }
