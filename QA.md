@@ -2054,3 +2054,81 @@ Limites (non testé ou à relativiser) :
   d'un saut depuis toute hauteur intermédiaire.
 - Le brûleur n'a pas de son : rien n'est entendu. Captures dans Chromium seulement, à
   960 x 540 ; pas de vrai téléphone, pas de Safari ni Firefox.
+
+## Courant visible du ventilateur (carte 5.6b)
+
+Avant : le courant d'un ventilateur portait Pépin sans que rien ne le montre, alors que les
+courants `v` du niveau se voient (brins blancs qui montent). Maintenant, pendant le souffle,
+la colonne du ventilateur se voit de la même façon ; à l'arrêt et pendant l'annonce, rien.
+Aucune règle de jeu ne change (simulation identique à l'octet, voir plus bas).
+
+Ce qui a été fait :
+- Cœur (`core/src/entities/ventilateur.rs`) : `souffle_restant()` en lecture seule (pas de
+  courant restants, celui-ci compris ; 0 hors du souffle). Test
+  `le_souffle_restant_compte_les_pas_de_courant` : 120 au premier pas du souffle, décompte,
+  le courant cesse quand il est épuisé.
+- Particules (`game/src/particules.rs`) : `souffle_borne(.., vie_max)`, le brin de `souffle`
+  dont la vie est bornée ; `souffle` l'appelle avec `u8::MAX` (mêmes tirages, même vie : les
+  courants `v` ne changent pas). Test `le_souffle_borne_ne_vit_pas_plus_que_demande`.
+- Effets (`game/src/effets.rs`) : à côté des courants du niveau, un brin tous les 3 pas dans
+  la colonne de chaque ventilateur qui souffle (`courant_actif`), même tirage de position.
+  Sa vie est bornée à `souffle_restant + 1` : un brin né à un pas est dessiné après ce pas
+  et les `vie - 2` suivants, donc le dernier s'efface pile à la première image où l'hélice
+  est arrêtée. Choix : borner la vie plutôt que purger, ce qui garde `Particules` sans
+  notion d'entité. Test `le_courant_du_ventilateur_se_voit_pendant_le_souffle_seulement`
+  (ordre de `Application::pas`, 750 pas, trois souffles) : 0 brin à toute image hors
+  souffle ; des brins sur au moins 90 % des images de souffle ; brins dans la colonne et
+  dans la zone ; brins vus en haut ET en bas de la colonne. Il échoue (« 7 brin(s) de vent
+  survivent hors du souffle », pas 180) si la vie n'est pas bornée, et aussi avec
+  `souffle_restant + 2` : la borne est exacte.
+- Robot de QA (`game/src/bot_qa.rs`) : la phase du ventilateur entre dans `ImageEssai` ;
+  test ignoré `ecrire_script_essai_ventilateur` (`target/qa/script-56b.txt`,
+  `touches-56b.txt` : F4 à l'image 229 du pilote, `trace-56b.csv` : phase et souffle
+  restant à chaque image). 772 images, 3 gouttes, 0 mort.
+
+Mesure de difficulté : inchangée. `docs/mesure-difficulte.txt` régénéré sur l'extraction
+propre : identique à l'octet (Débutant 6,8, Habitué 1,8, Expert 0,7 au total, avant =
+après). Script du robot principal (`script.txt`, `trace.csv`) identique à l'octet (12 131
+images, empreinte `e03e19a27c17c283`).
+
+Captures (`docs/qa/56b-*`, 960 x 540, build de QA d'une extraction propre de 971e528 servi
+en local sur 127.0.0.1, Chromium 145 piloté par CDP, onglet au premier plan et canvas
+focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-56b.txt`,
+`TOUCHES=target/qa/touches-56b.txt` et `GRILLE=1`, serveur arrêté à la fin). Numéros
+d'image : ceux de `trace-56b.csv`.
+- `56b-carte-essai` (351) : carte « ESSAI VENTILATEUR ».
+- Pépin laissé au départ (demande `attente:d=470:300:1`, une capture par image pendant
+  300 images, un cycle complet) : `56b-annonce` (497 : lampe orange allumée, barre au pied,
+  aucun brin) ; `56b-souffle-colonne` (614 : courant cyan sur la cage, brins dans la colonne
+  du sol au haut de l'écran) ; `56b-dernier-souffle` (634 : dernière image de souffle, brins
+  encore là) ; `56b-arret` (635 : première image d'arrêt, plus aucun brin).
+- Parcours du robot : `56b-montee` (544 : Pépin porté, brins sous lui dans la colonne) ;
+  `56b-haut-dernier-souffle` (634 : Pépin au-dessus du cadre, flèche de repère, brins sur
+  toute la colonne) ; `56b-haut-arret` (635 : colonne vide) ; `56b-balcon` (680 : Pépin sur
+  le balcon, colonne vide).
+- Contrôle au pixel sur les 300 grilles logiques du cycle : sprite de souffle sur 120 images
+  consécutives, d'arrêt sur 72, d'annonce sur 48 (le cycle du cœur) ; 0 pixel blanc cassé
+  dans la colonne sur les 165 images d'arrêt et d'annonce ; brins visibles sur 131
+  des 135 images de souffle vues (4 images sans brin au début d'un souffle : les brins
+  naissent sur toute la hauteur de la colonne, 312 px, dont l'écran ne montre ici que le bas,
+  140 px ; les premiers nés étaient au-dessus du cadre). Chaque capture regardée ;
+  `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur les 9.
+
+Vérification sur une extraction propre de 971e528 (`git archive`, nouveau dossier daté) :
+`./docker-cargo.sh test --workspace --no-default-features` : 255 + 251 tests, tous verts
+(1 + 11 ignorés : écritures de fichiers et diagnostics) ; `./docker-cargo.sh lint` :
+`LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms interdits, seule URL
+`http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit (« Essai
+ventilateur » : 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/game.wasm`).
+
+Limites (non testé ou à relativiser) :
+- Aucun niveau du jeu n'a encore de ventilateur : l'effet ne se voit que dans le niveau
+  d'essai (touche F4 du build de QA).
+- Brins un sur trois pas, à une hauteur tirée sur toute la colonne, comme les courants `v` :
+  quand la caméra ne montre que le bas d'une colonne haute, quelques images de souffle
+  peuvent n'avoir aucun brin dans le cadre (4 sur 135 mesurées ; le sprite cyan du
+  ventilateur, lui, est là dès la première image).
+- Les brins de la colonne sont blanc cassé comme ceux des courants `v`, et Pépin aussi : au
+  pixel, un brin qui passe sur Pépin se confond avec lui.
+- Pas de son. Captures dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de
+  Safari ni Firefox.
