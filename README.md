@@ -58,7 +58,7 @@ Les cinq niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
 1. Les toits : course, saut, planer.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines.
 3. Le grand orage : éclairs annoncés, plateformes mobiles et friables.
-4. Vents d'altitude : courants ascendants, longs planés.
+4. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux.
 5. Au-dessus des nuages : final calme, nuages friables.
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
