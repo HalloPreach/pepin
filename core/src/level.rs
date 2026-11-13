@@ -24,6 +24,11 @@
 //!      solide dessous (ou au bas de la carte) ; elle tue parapluie fermé, on la
 //!      traverse en planant dessous
 //!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
+//!   w  ventilateur : hélice posée sur le solide du dessous ; son courant
+//!      ascendant (du dessus du socle au 1er solide au-dessus, ou au haut de
+//!      la carte) souffle 2 s puis s'arrête 2 s ; la reprise est annoncée
+//!      comme l'éclair (clignotement qui accélère) ; le socle est solide, on
+//!      se tient dessus
 //!   <  >  vent latéral (zone rectangulaire) : pousse vers la gauche / vers la
 //!           droite ; le plané (parapluie ouvert) est poussé deux fois plus fort
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent

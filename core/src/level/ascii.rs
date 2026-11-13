@@ -13,7 +13,7 @@ use super::{
 use crate::aabb::{Aabb, TAILLE_TUILE};
 use crate::entities::{
     Auvent, Champignon, Eclair, Ennemi, Entite, GoutteDor, Grele, Lanterne, PlateformeFriable,
-    PlateformeMobile, Pointe, TypeEnnemi,
+    PlateformeMobile, Pointe, TypeEnnemi, Ventilateur,
 };
 use crate::physics::{CourantAscendant, VentLateral, JOUEUR_H};
 
@@ -72,6 +72,8 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut mobiles: BTreeMap<char, Vec<Case>> = BTreeMap::new();
     // Pigeons : il faut la grille entière pour trouver leur perchoir.
     let mut pigeons: Vec<Case> = Vec::new();
+    // Ventilateurs : il faut la grille entière (appui en dessous, plafond au-dessus).
+    let mut ventilateurs: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
 
     for (ty, ligne) in lignes.iter().enumerate() {
@@ -117,6 +119,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 'v' => vent[ty * largeur + tx] = true,
                 '<' => vents.push((case, -1)),
                 '>' => vents.push((case, 1)),
+                'w' => ventilateurs.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -227,6 +230,30 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
             y + 6.0,
             gauche && !droite,
         )));
+    }
+
+    // Ventilateurs : hélice posée sur le solide du dessous (le socle repose
+    // dessus, donc il faut un appui). Le courant part du dessus du socle et
+    // monte jusqu'au 1er solide au-dessus (ou au haut de la carte s'il n'y en
+    // a pas). Le socle est solide (16 x 8 px, bas de la case) : on se tient
+    // dessus ; le courant fait 16 px de large (la largeur du socle), à la
+    // différence des colonnes de 12 px de l'éclair et de la grêle.
+    for (k, &(tx, ty)) in ventilateurs.iter().enumerate() {
+        if ty + 1 >= hauteur || !solide(tx, ty + 1) {
+            return Err(ErreurNiveau::VentilateurSansAppui {
+                ligne: ty + 1,
+                colonne: tx + 1,
+            });
+        }
+        // 1er solide au-dessus de la case (le haut de la carte s'il n'y en a pas).
+        let plafond = (0..ty).rev().find(|&r| solide(tx, r)).map_or(0, |r| r + 1);
+        let haut = plafond as f32 * TAILLE_TUILE;
+        let dessus_socle = ty as f32 * TAILLE_TUILE + 8.0;
+        let zone = Aabb::new(tx as f32 * TAILLE_TUILE, haut, 16.0, dessus_socle - haut);
+        let boite = Aabb::new(tx as f32 * TAILLE_TUILE, dessus_socle, 16.0, 8.0);
+        // Désynchronisation des ventilateurs (comme pour les éclairs).
+        let decalage = 12 + 18 * (k as u16 % 4);
+        entites.push(Entite::Ventilateur(Ventilateur::nouveau(boite, zone, decalage)));
     }
 
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même
