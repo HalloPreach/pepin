@@ -565,13 +565,15 @@ pub struct PartieEssai {
     pub gouttes: u32,
 }
 
-/// Joue le niveau d'essai vertical à travers l'`Application`, comme le ferait le build de
-/// QA : « JOUER » au titre (image 0), carte du niveau 1, puis, dès la première image de
-/// jeu, la touche 0 ; la carte du niveau d'essai passe, puis le robot joue `parcours`
-/// jusqu'à l'écran de fin.
-pub fn jouer_essai_vertical(parcours: &[Entrees]) -> PartieEssai {
-    use crate::entrees::RaccourciNiveau;
-    use crate::monde::INDICE_ESSAI;
+/// Joue un niveau d'essai à travers l'`Application`, comme le ferait le build de
+/// QA : « JOUER » au titre (image 0), carte du niveau 1, puis, dès la première
+/// image de jeu, la touche du niveau d'essai (`raccourci`) ; la carte du niveau
+/// d'essai passe, puis le robot joue `parcours` jusqu'à l'écran de fin.
+fn jouer_essai(
+    indice_essai: usize,
+    raccourci: crate::entrees::RaccourciNiveau,
+    parcours: &[Entrees],
+) -> PartieEssai {
     let mut app = Application::new(true);
     let mut images = Vec::new();
     let mut appuyee = false;
@@ -581,7 +583,7 @@ pub fn jouer_essai_vertical(parcours: &[Entrees]) -> PartieEssai {
             valider: image == 0,
             ..Trame::default()
         };
-        let en_essai = app.en_jeu() && app.monde.indice == INDICE_ESSAI;
+        let en_essai = app.en_jeu() && app.monde.indice == indice_essai;
         let touche_essai = !appuyee && app.en_jeu() && app.monde.indice == 0;
         appuyee |= touche_essai;
         if en_essai {
@@ -593,8 +595,8 @@ pub fn jouer_essai_vertical(parcours: &[Entrees]) -> PartieEssai {
             valider: trame.valider,
             ..Navigation::default()
         };
-        let raccourci = touche_essai.then_some(RaccourciNiveau::Essai);
-        app.reagir(&nav, &Commandes::default(), raccourci);
+        let raccourci_image = touche_essai.then_some(raccourci);
+        app.reagir(&nav, &Commandes::default(), raccourci_image);
         app.pas(&trame.entrees);
         trame.ecran = nom_ecran(app.ecran);
         trame.x = app.monde.joueur.boite.x;
@@ -627,6 +629,22 @@ pub fn jouer_essai_vertical(parcours: &[Entrees]) -> PartieEssai {
     }
 }
 
+/// Joue le niveau d'essai vertical (touche 0 du build de QA) — voir `jouer_essai`.
+pub fn jouer_essai_vertical(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(crate::monde::INDICE_ESSAI, RaccourciNiveau::Essai, parcours)
+}
+
+/// Joue le niveau d'essai « vent » (touche F1 du build de QA) — voir `jouer_essai`.
+pub fn jouer_essai_vent(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_VENT,
+        RaccourciNiveau::Essai2,
+        parcours,
+    )
+}
+
 /// Parcours du robot dans le niveau d'essai vertical (maladroit, puis précis).
 pub fn parcours_essai_vertical() -> Vec<Entrees> {
     let i = crate::monde::INDICE_ESSAI;
@@ -635,9 +653,61 @@ pub fn parcours_essai_vertical() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai vertical")
 }
 
+/// Parcours du robot dans le niveau d'essai « vent » (maladroit, puis précis) : le
+/// plané qui traverse le vide est porté par le vent latéral du niveau.
+pub fn parcours_essai_vent() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_VENT;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai vent")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Le robot finit aussi le niveau d'essai « vent » (un écran, carte 5.3) sans
+    /// mourir, à travers l'`Application` (touche F1 du build de QA). Le plané qui
+    /// traverse le vide est porté par le vent latéral du niveau ; la caméra reste
+    /// au sol (niveau d'un écran) et les trois gouttes sont ramassées.
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_vent() {
+        let parcours = parcours_essai_vent();
+        let partie = jouer_essai_vent(&parcours);
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(
+            partie.gouttes, 3,
+            "les trois gouttes du niveau d'essai vent"
+        );
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F1, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        assert!(essai.len() > 100, "{} images de jeu", essai.len());
+        // Niveau d'un écran : la caméra reste au bas du niveau (y = -4 : le niveau de
+        // 176 px est aligné au bas de l'écran de 180 px, le ciel remplit le reste).
+        assert!(
+            essai.iter().all(|i| i.camera.1 == -4),
+            "la caméra d'un niveau plat reste au sol"
+        );
+        // Le robot a bel et bien traversé le vide : il arrive à droite de la zone de
+        // vent (x > 400), où se trouve le drapeau.
+        let dernier = essai.last().unwrap();
+        assert!(
+            dernier.trame.x > 400.0,
+            "arrivée à x = {} (le drapeau est à droite du vide)",
+            dernier.trame.x
+        );
+        println!(
+            "essai vent : {} images de jeu, gouttes {}, fin à x = {:.1}",
+            essai.len(),
+            partie.gouttes,
+            dernier.trame.x
+        );
+    }
 
     /// Le robot finit la partie sans mourir, et joue les niveaux dans l'ordre que
     /// donne `levels::apres` avec SES gouttes (bonus sauté s'il en manque).
@@ -754,6 +824,43 @@ mod tests {
         std::fs::write("../target/qa/trace-52.csv", trace).unwrap();
         println!(
             "images : {} ; touche 0 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai « vent » pour le navigateur (build de QA) :
+    /// `target/qa/script-53.txt`, `target/qa/touches-53.txt` (image du pilote où
+    /// appuyer sur F1) et `target/qa/trace-53.csv` (position de Pépin et caméra
+    /// rendue, image par image). Comme la carte 5.2, la touche du pilote tombe une
+    /// image plus tard que dans la trace (le navigateur a un pas de retard).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_vent
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_vent() {
+        let partie = jouer_essai_vent(&parcours_essai_vent());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-53.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-53.txt", format!("{pilote}:F1\n")).unwrap();
+        let mut trace = String::from("image,ecran,essai,x,y,cam_x,cam_y\n");
+        for (k, i) in partie.images.iter().enumerate() {
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1
+            ));
+        }
+        std::fs::write("../target/qa/trace-53.csv", trace).unwrap();
+        println!(
+            "images : {} ; F1 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );
