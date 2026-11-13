@@ -1224,3 +1224,122 @@ Vérification sur une extraction propre de 15e36c2 (`git archive`, nouveau dossi
   `docs/mesure-difficulte.txt`, `target/qa/script.txt` et `trace.csv` (12 131 images, 0 mort).
 - Les 9 captures « après » refaites sur le build de QA de l'extraction (mêmes images du rejeu) :
   identiques à l'octet à celles du dépôt.
+
+## Nombre et ordre de niveaux variables, bonus et épilogue (carte 5.1)
+
+Socle de l'étape 5 (le jeu passera de 5 à 11 niveaux). Aucun niveau, ennemi ni mécanique
+ne change : avec les 5 niveaux actuels, le jeu se comporte exactement comme avant.
+
+Ce qui a été fait :
+- Table ORDONNÉE des niveaux dans `core/src/levels.rs` : `NIVEAUX` est une tranche
+  (`&[InfosNiveau]`), `NB_NIVEAUX` sa longueur ; `zones.rs` les ré-exporte. Chaque niveau a
+  un genre (`GenreNiveau` : `Normal`, `Bonus`, `Epilogue`, champ `genre` de `InfosNiveau`) ;
+  les 5 niveaux actuels sont `Normal`.
+- Fonctions pures, testées sur de FAUSSES listes de niveaux (`levels::tests`) :
+  `apres(niveaux, indice, gouttes)` (niveau suivant ou écran de fin), `bonus_debloque`,
+  `gouttes_pour_le_bonus` (3 par niveau normal), `verifier_ordre`. Règles : le bonus est joué
+  si TOUTES les gouttes des niveaux normaux ont été ramassées pendant la partie, sinon on
+  passe directement au niveau suivant (l'épilogue) ; l'écran de fin vient après l'épilogue,
+  ou après le dernier niveau s'il n'y a pas d'épilogue. `verifier_ordre` impose : numéros =
+  places (1, 2, 3...), au moins un niveau normal, tous les normaux d'abord, au plus un bonus,
+  l'épilogue en dernier. Cet ordre garantit qu'au moment de choisir le bonus, les gouttes
+  de la partie sont exactement celles des niveaux normaux (aucun compteur à part).
+  Tests : 11 niveaux (9 normaux, bonus, épilogue) avec 27 gouttes, 26 et 0 ; sans bonus ;
+  sans épilogue ; indices hors table ; 6 tables mal rangées refusées ; et la vraie table :
+  1, 2, 3, 4, 5 puis la fin, quelles que soient les gouttes.
+- Le jeu (`app.rs`) enchaîne par `levels::apres` ; `Monde::indice` remplace les calculs
+  `numero - 1`. Test `la_suite_de_chaque_niveau_suit_la_table` : pour chaque vrai niveau,
+  avec 0 goutte et avec toutes, l'écran suivant est celui que donne `apres`.
+- Carte de présentation : « NIVEAU n/N » où N = nombre de niveaux NORMAUX (« NIVEAU 2/5 »
+  aujourd'hui, « NIVEAU 9/9 » demain) ; « NIVEAU BONUS » et « ÉPILOGUE » pour les deux
+  autres genres (glyphes vérifiés dans la police).
+- Table d'ambiance par thème (`decor::ambiance`) : la teinte des tuiles (éclaircissement de
+  l'ardoise, briques orangées) et le dessin des dalles friables (nuage ou ardoise), écrits
+  jusqu'ici dans deux `match` séparés (`sprites::remplacer`, `scene.rs`), la rejoignent ;
+  valeurs inchangées (test `teinte_des_tuiles_et_friables_par_theme`). `Theme::TOUS` et
+  `Theme::indice` remplacent les deux listes de 5 thèmes. Ambiance inédite pour un nouveau
+  niveau = un `Theme` de plus (avec `Theme::TOUS`, test `tous_les_themes_dans_l_ordre`) et
+  une entrée dans `ambiance` : le compilateur refuse d'oublier l'une ou l'autre.
+- Build de QA seulement (`debug_niveaux`) : touches 1 à 9 (une touche au-delà du nombre de
+  niveaux ne fait rien), niveau SUIVANT (Page suivante ou N) et PRÉCÉDENT (Page précédente
+  ou B) dans la table, bonus compris et sans condition : tous les niveaux restent
+  atteignables au-delà de 9. Fonction pure `entrees::cible_raccourci` testée avec 11
+  niveaux (aller-retour complet) et avec 5 (touches 6 à 9 sans effet, « suivant » au dernier
+  et « précédent » au premier sans effet). N et B sont à la même place en QWERTY et en
+  AZERTY et ne servent à rien d'autre (test `les_raccourcis_de_niveau_ne_touchent_a_aucune_commande`).
+  Production : test inchangé, aucune touche ne change de niveau.
+- Robot de QA : `empreinte` (FNV-1a sur 64 bits, image par image, de l'écran, du niveau, du
+  score, des gouttes, des morts et du chrono) affichée par `ecrire_script_navigateur` ; le
+  test du robot (`le_robot_finit_tous_les_niveaux_sans_mourir`) vérifie aussi que les
+  niveaux joués suivent `apres` avec ses gouttes.
+
+Hypothèses « 5 niveaux » retirées (`grep -rn` sur `cinq`, `/5`, `1 à 5`, `0 à 4`, `; 5]`,
+`NIVEAUX[`, `[3..5]`) :
+- `core/src/zones.rs` : `NB_NIVEAUX = 5` et `[InfosNiveau; 5]` (devenus la longueur de la
+  table) ; test `cinq_niveaux_dans_l_ordre` (devenu `les_niveaux_sont_numerotes_dans_l_ordre`,
+  `niveau(NB_NIVEAUX)` hors table) ; 5 tests de faisabilité écrits à la main (désormais une
+  macro, et `chaque_niveau_a_son_test_de_faisabilite` échoue si un niveau n'a pas le sien) ;
+  `NIVEAUX[0]`, `NIVEAUX[3]` et le tableau de 5 décors attendus rangés par place (désormais
+  par `INFOS` de niveau : insérer un niveau ne décale plus rien).
+- `game/src/app.rs` : `numero >= NB_NIVEAUX` (fin) et `numero - 1` (2 endroits).
+- `game/src/contenu.rs` : « NIVEAU {numero}/{NB_NIVEAUX} » (comptait bonus et épilogue).
+- `game/src/ecrans/carte.rs` : signature `(indice, numero, nom)`, commentaire « 0 à 4 ».
+- `game/src/entrees.rs` et `main.rs` : touches 1 à 5 seulement (`[KeyCode; 5]`).
+- `game/src/sprites/mod.rs` : `THEMES: [Theme; 5]`, `indice_theme` ; test du pigeon sur
+  `NIVEAUX[3..5]` (désormais `vents::INFOS`, `nuages::INFOS`).
+- `game/src/decor.rs` : `THEMES: [Theme; 5]` des tests.
+- `game/src/scene.rs` : test des ombres par `numero` 1 à 3 et 5 (désormais par thème),
+  `NIVEAUX[3]`.
+- `game/src/bot_qa.rs` : « cinq niveaux », « 1 à 5 » (commentaires, nom du test).
+- `game/src/difficulte.rs` : `fausse_mesure([f32; 5], ...)` (désormais `[f32; NB_NIVEAUX]`).
+- `game/src/monde.rs` : commentaire « 0 à 4 ».
+- `README.md`, `docs/build.md` : touches 1 à 5, marche à suivre pour ajouter un niveau.
+
+Laissés tels quels, volontairement :
+- HUD et écran de fin : « x/N » avec N = `GOUTTES_TOTAL` = 3 × `NB_NIVEAUX` (déjà calculé
+  d'après la table ; avec 11 niveaux : 33, bonus et épilogue compris). Le message « collection
+  complète » demande donc aussi les gouttes du bonus et de l'épilogue.
+- Tableaux typés `[_; NB_NIVEAUX]` (`contenu::INTROS`, `difficulte::BANDES_HABITUE`) : un
+  niveau ajouté sans son texte ou sa bande de difficulté ne compile pas. Les juges de la
+  courbe de difficulté (`ecarts_de_la_courbe` : « niveau 4 sous le niveau 3 »...) parlent des
+  niveaux actuels par leur place : à reprendre par la carte 5.18 (courbe sur 11 niveaux).
+- Tests qui nomment un niveau par son numéro (lanternes sur le trajet d'un danger, pigeons
+  aux niveaux 4 et 5) : insérer un niveau avant eux les fait ÉCHOUER (pas de faux vert) ; la
+  carte qui insère le niveau les renumérote.
+- `README.md` (« en cinq niveaux », liste des niveaux) : décrit le jeu d'aujourd'hui.
+
+Même partie qu'avant (preuve demandée) :
+- Robot de QA, partie complète à travers l'`Application`, avant (8076d65 : seule
+  l'empreinte ajoutée) et après (8c8eac0) : 12 131 images, 0 mort, 5 gouttes, score 800,
+  chrono 10 727 pas (2:58,7), empreinte `e03e19a27c17c283` des deux côtés ;
+  `target/qa/script.txt` et `trace.csv` identiques à l'octet.
+- Mesure de difficulté : aucune entrée ne change (ni niveau, ni ennemi, ni mécanique) ; la
+  mesure et la planche de sprites (aucun sprite ne change) sont régénérées sur l'extraction
+  propre, résultat dans la vérification ci-dessous.
+
+Captures (Chromium 1208 piloté par CDP, fenêtre 1280 x 720 donc image agrandie x4, build de
+QA servi sur 127.0.0.1, onglet au premier plan, canevas focalisé, serveurs arrêtés ensuite ;
+`docs/capture-visibilite.mjs`, qui gagne la demande `touche:` pour appuyer sur une touche).
+Toutes regardées ; 0 pixel hors palette, 0 flou (`docs/mesure-capture.py`, K = 4) sur les 13.
+- Rejeu du robot, AVANT (build de QA d'une extraction propre de 73f844b) et APRÈS, mêmes
+  images : `51-carte-niveau1` (image 143), `51-carte-niveau2` (2408), `51-jeu-niveau4-hud`
+  (8500, HUD 3/15 et 2:06), `51-carte-niveau5` (10 063), `51-fin` (11 950 : 2:58,7, 5/15,
+  0 mort, 800 points). Les 5 paires sont identiques à l'octet ; seules les « après » sont
+  versionnées.
+- Raccourcis du build de QA (après seulement ; le robot lâche son script à l'image 1000, en
+  plein niveau 1) : `51-qa-pagedown-vers-niveau2` (Page suivante : NIVEAU 2/5 GOUTTIÈRES ET
+  CHEMINÉES), puis Entrée ; `51-qa-n-vers-niveau3` (N : NIVEAU 3/5 LE GRAND ORAGE), Entrée ;
+  `51-qa-b-retour-niveau2` (B : NIVEAU 2/5), Entrée ; `51-qa-pageup-vers-niveau1` (Page
+  précédente : NIVEAU 1/5 LES TOITS), Entrée ; `51-qa-pageup-au-premier-sans-effet` (Page
+  précédente au niveau 1 : on reste en jeu au niveau 1, chrono 0:02) ;
+  `51-qa-touche5-vers-niveau5` (5 : NIVEAU 5/5 AU-DESSUS DES NUAGES), Entrée ;
+  `51-qa-pagedown-au-dernier-sans-effet` (Page suivante au dernier niveau : on reste en jeu)
+  et `51-qa-touche7-sans-effet` (7 avec 5 niveaux : rien, le chrono passe de 0:02 à 0:03).
+
+Limites : aucune fausse liste ne passe par l'`Application` ni par le robot (la table du jeu
+est une constante) : bonus et épilogue ne sont vérifiés que par les fonctions pures et par
+`la_suite_de_chaque_niveau_suit_la_table` sur la vraie table ; le premier vrai bonus (carte
+de l'arc-en-ciel) devra le vérifier en jeu. Pas de capture « NIVEAU BONUS » ni « ÉPILOGUE »
+(aucun niveau de ce genre aujourd'hui ; l'étiquette est testée, glyphes compris). Pas testé :
+vrai téléphone, Safari/Firefox, raccourcis sur un vrai clavier AZERTY (touches envoyées par
+CDP avec leur code physique).
