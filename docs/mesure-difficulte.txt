@@ -4,10 +4,10 @@ Morts moyennes par niveau (graine 20261113, 48 essais par profil et par niveau) 
 | --------------------------- | ------------ | ------------ | ------------ |
 | 1. Les toits                | 0,4 (0,4)    | 0,1 (0,1)    | 0,0 (0,0)    |
 | 2. Gouttières et cheminées  | 1,5 (1,5)    | 0,5 (0,5)    | 0,2 (0,2)    |
-| 3. Le grand orage           | 3,6 (3,6)    | 1,0 (1,0)    | 0,2 (0,2)    |
-| 4. Vents d'altitude         | 2,9 (2,9)    | 0,9 (0,9)    | 0,3 (0,3)    |
-| 5. Au-dessus des nuages     | 2,5 (2,5)    | 0,4 (0,4)    | 0,2 (0,2)    |
-| Total                       | 10,9 (10,9)  | 2,9 (2,9)    | 0,9 (0,9)    |
+| 3. Le grand orage           | 3,0 (3,0)    | 0,6 (0,6)    | 0,4 (0,4)    |
+| 4. Vents d'altitude         | 1,3 (1,3)    | 0,4 (0,4)    | 0,1 (0,1)    |
+| 5. Au-dessus des nuages     | 0,5 (0,5)    | 0,1 (0,1)    | 0,0 (0,0)    |
+| Total                       | 6,8 (6,8)    | 1,7 (1,7)    | 0,7 (0,7)    |
 
 Détail par case : essais finis / essais, durée moyenne en secondes, morts en série en moyenne (moins d'1 s après la précédente), pire essai.
 
@@ -15,9 +15,9 @@ Détail par case : essais finis / essais, durée moyenne en secondes, morts en s
 | --------------------------- | ------------------------------ | ------------------------------ | ------------------------------ |
 | 1. Les toits                | 48/48, 38 s, série 0,0, max 4  | 48/48, 36 s, série 0,0, max 1  | 48/48, 34 s, série 0,0, max 1  |
 | 2. Gouttières et cheminées  | 48/48, 55 s, série 0,0, max 5  | 48/48, 46 s, série 0,0, max 3  | 48/48, 42 s, série 0,0, max 2  |
-| 3. Le grand orage           | 48/48, 79 s, série 0,0, max 10 | 48/48, 56 s, série 0,0, max 4  | 48/48, 44 s, série 0,0, max 1  |
-| 4. Vents d'altitude         | 48/48, 55 s, série 0,0, max 10 | 48/48, 44 s, série 0,0, max 4  | 48/48, 40 s, série 0,0, max 2  |
-| 5. Au-dessus des nuages     | 48/48, 46 s, série 0,0, max 9  | 48/48, 32 s, série 0,0, max 2  | 48/48, 31 s, série 0,0, max 2  |
+| 3. Le grand orage           | 48/48, 67 s, série 0,0, max 11 | 48/48, 50 s, série 0,0, max 4  | 48/48, 46 s, série 0,0, max 3  |
+| 4. Vents d'altitude         | 48/48, 49 s, série 0,0, max 6  | 48/48, 41 s, série 0,0, max 2  | 48/48, 38 s, série 0,0, max 1  |
+| 5. Au-dessus des nuages     | 48/48, 32 s, série 0,0, max 4  | 48/48, 29 s, série 0,0, max 1  | 48/48, 29 s, série 0,0, max 0  |
 
 Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur les 48 essais (colonnes voisines de même cause regroupées ; 6 endroits au plus, du plus meurtrier au moins meurtrier).
 
@@ -32,16 +32,16 @@ Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur le
 - Expert   : col. 29-30 chute 3 · col. 54 ennemi 2 · col. 79 ennemi 1 · col. 87 ennemi 1 · col. 121 chute 1 · col. 130 chute 1
 
 3. Le grand orage
-- Débutant : col. 86-102 chute 40 · col. 58-61 chute 21 · col. 77-81 pointes 21 · col. 34-35 pointes 20 · col. 123-126 pointes 15 · col. 136-138 chute 14 · ailleurs 41
-- Habitué  : col. 136-138 chute 9 · col. 77-81 pointes 7 · col. 59 chute 6 · col. 123-126 pointes 6 · col. 34 pointes 4 · col. 167 pointes 3 · ailleurs 12
-- Expert   : col. 80-81 pointes 2 · col. 120-121 éclair 2 · col. 34 pointes 1 · col. 59 chute 1 · col. 91 chute 1 · col. 95 chute 1 · ailleurs 1
+- Débutant : col. 77-81 pointes 26 · col. 32-35 pointes 21 · col. 98-102 chute 15 · col. 50-54 chute 14 · col. 57-61 chute 14 · col. 89-92 chute 11 · ailleurs 45
+- Habitué  : col. 80-81 pointes 7 · col. 34 pointes 5 · col. 49-52 chute 3 · col. 136 chute 3 · col. 24-25 chute 2 · col. 89-91 chute 2 · ailleurs 9
+- Expert   : col. 58-59 chute 4 · col. 129 ennemi 3 · col. 164-166 pointes 3 · col. 136-137 chute 2 · col. 34 pointes 1 · col. 80 pointes 1 · ailleurs 3
 
 4. Vents d'altitude
-- Débutant : col. 121-129 chute 19 · col. 142-146 chute 19 · col. 153-155 chute 19 · col. 33-37 chute 13 · col. 101-104 chute 13 · col. 15 chute 8 · ailleurs 48
-- Habitué  : col. 34 chute 7 · col. 15 chute 6 · col. 83 chute 6 · col. 48-49 chute 4 · col. 154-155 chute 4 · col. 71 chute 3 · ailleurs 12
-- Expert   : col. 34 chute 2 · col. 96 chute 2 · col. 126 chute 2 · col. 143-144 chute 2 · col. 154 chute 2 · col. 15 chute 1 · ailleurs 3
+- Débutant : col. 115-118 chute 21 · col. 111 chute 10 · col. 131 chute 6 · col. 33-34 chute 3 · col. 71 chute 3 · col. 123-124 chute 3 · ailleurs 17
+- Habitué  : col. 83 chute 5 · col. 20 chute 4 · col. 111 chute 3 · col. 57 ennemi 2 · col. 118 chute 2 · col. 131 chute 2 · ailleurs 1
+- Expert   : col. 83 chute 3 · col. 118 chute 1 · col. 131 chute 1
 
 5. Au-dessus des nuages
-- Débutant : col. 17-18 chute 18 · col. 35-36 chute 15 · col. 67-72 chute 14 · col. 113-115 chute 13 · col. 27-28 chute 11 · col. 83-85 chute 7 · ailleurs 42
-- Habitué  : col. 113-114 chute 5 · col. 122-123 chute 4 · col. 17 chute 3 · col. 68-70 chute 2 · col. 35 chute 1 · col. 44 chute 1 · ailleurs 3
-- Expert   : col. 66-70 chute 3 · col. 114 chute 2 · col. 44 chute 1 · col. 59 chute 1 · col. 85 chute 1 · col. 128 chute 1
+- Débutant : col. 26-27 chute 8 · col. 34-36 chute 5 · col. 122 chute 5 · col. 59-61 chute 4 · col. 86 chute 1
+- Habitué  : col. 27 chute 1 · col. 60 chute 1 · col. 122 chute 1
+- Expert   : aucune mort

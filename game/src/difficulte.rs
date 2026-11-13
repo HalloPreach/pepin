@@ -793,6 +793,87 @@ pub(crate) fn tableau(cases: &[Vec<Case>], graine: u64, essais: u32) -> String {
 /// Endroits affichés au plus par niveau et par profil dans les lieux de mort.
 const LIEUX_MAX: usize = 6;
 
+// --- Forme de la courbe (non-régression, carte 3.3) ----------------------------
+
+/// Rangs des profils dans `PROFILS`.
+const DEBUTANT: usize = 0;
+const HABITUE: usize = 1;
+
+/// Bande admise pour les morts moyennes du profil Habitué (le « joueur
+/// moyen »), niveau par niveau : `[min, max[` (le max est exclu). Les niveaux 1
+/// et 2 n'ont pas été retouchés par la carte 3.3 : leur bande entoure la
+/// mesure de référence (0,1 et 0,5).
+const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
+    (0.0, 0.3),  // 1. Les toits : quasi inchangé
+    (0.3, 0.8),  // 2. Gouttières et cheminées : quasi inchangé
+    (0.5, 1.5),  // 3. Le grand orage : le sommet de la courbe
+    (0.3, 0.65), // 4. Vents d'altitude : redescend un peu
+    (0.0, 0.2),  // 5. Au-dessus des nuages : final calme, sous 0,2
+];
+
+/// Écart minimal entre les niveaux 3 et 4 (Habitué) : le 4 doit être
+/// NETTEMENT plus facile que le 3, pas à égalité au hasard près.
+const ECART_3_4: f32 = 0.15;
+
+/// Vérifie la FORME de la courbe sur une mesure complète `cases[niveau][profil]`
+/// et renvoie la liste des écarts (vide si tout va bien) :
+/// - Débutant et Habitué : le niveau 3 est le plus meurtrier des cinq, et le
+///   niveau 4 l'est plus que le 5 ;
+/// - Habitué : chaque niveau dans sa bande (`BANDES_HABITUE`), et le niveau 4
+///   au moins `ECART_3_4` sous le niveau 3.
+///
+/// Renvoyer une liste plutôt que s'arrêter au premier écart : en cas d'échec,
+/// on voit tout ce qui ne va pas d'un coup.
+pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
+    let mut ecarts = Vec::new();
+    let morts = |n: usize, p: usize| cases[n][p].morts_moyennes;
+    for p in [DEBUTANT, HABITUE] {
+        let nom = PROFILS[p].nom;
+        for n in [0, 1, 3, 4] {
+            if morts(n, p) >= morts(2, p) {
+                ecarts.push(format!(
+                    "{nom} : niveau {} ({}) pas sous le niveau 3 ({})",
+                    n + 1,
+                    decimal(morts(n, p)),
+                    decimal(morts(2, p))
+                ));
+            }
+        }
+        if morts(3, p) <= morts(4, p) {
+            ecarts.push(format!(
+                "{nom} : niveau 4 ({}) pas au-dessus du niveau 5 ({})",
+                decimal(morts(3, p)),
+                decimal(morts(4, p))
+            ));
+        }
+    }
+    for (n, &(min, max)) in BANDES_HABITUE.iter().enumerate() {
+        let m = morts(n, HABITUE);
+        if !(min..max).contains(&m) {
+            ecarts.push(format!(
+                "Habitué : niveau {} à {}, hors de sa bande [{} ; {}[",
+                n + 1,
+                centiemes(m),
+                centiemes(min),
+                centiemes(max)
+            ));
+        }
+    }
+    if morts(2, HABITUE) - morts(3, HABITUE) < ECART_3_4 {
+        ecarts.push(format!(
+            "Habitué : niveau 4 ({}) pas nettement sous le niveau 3 ({})",
+            centiemes(morts(3, HABITUE)),
+            centiemes(morts(2, HABITUE))
+        ));
+    }
+    ecarts
+}
+
+/// Nombre à deux décimales, virgule à la française : 0.456 -> « 0,46 ».
+fn centiemes(x: f32) -> String {
+    format!("{x:.2}").replace('.', ",")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1074,5 +1155,108 @@ mod tests {
         }
         let total = |p: usize| cases.iter().map(|l| l[p].morts_moyennes).sum::<f32>();
         assert!(total(0) >= total(1) && total(1) >= total(2), "{t}");
+        let ecarts = ecarts_de_la_courbe(&cases);
+        assert!(ecarts.is_empty(), "{}\n\n{t}", ecarts.join("\n"));
+    }
+
+    /// Une mesure inventée : morts moyennes du Débutant et de l'Habitué par
+    /// niveau (l'Expert ne compte pas pour la forme de la courbe).
+    fn fausse_mesure(debutant: [f32; 5], habitue: [f32; 5]) -> Vec<Vec<Case>> {
+        (0..NB_NIVEAUX)
+            .map(|n| {
+                [debutant[n], habitue[n], 0.0]
+                    .iter()
+                    .map(|&m| Case {
+                        morts_moyennes: m,
+                        ..Case::default()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Le juge de la courbe accepte la bonne forme et refuse les mauvaises.
+    #[test]
+    fn la_forme_de_la_courbe_est_jugee() {
+        let bonne = fausse_mesure([0.4, 1.5, 3.0, 1.3, 0.5], [0.1, 0.5, 0.8, 0.45, 0.1]);
+        assert_eq!(ecarts_de_la_courbe(&bonne), Vec::<String>::new());
+
+        // La courbe d'avant la carte 3.3 : le 4 presque aussi dur que le 3, le 5 à 0,4.
+        let avant = fausse_mesure([0.4, 1.5, 3.6, 2.9, 2.5], [0.1, 0.5, 1.0, 0.9, 0.4]);
+        let e = ecarts_de_la_courbe(&avant);
+        assert!(e.iter().any(|x| x.contains("niveau 4 à 0,90")), "{e:?}");
+        assert!(e.iter().any(|x| x.contains("niveau 5 à 0,40")), "{e:?}");
+        assert!(e.iter().any(|x| x.contains("pas nettement")), "{e:?}");
+
+        // Le 4 plus dur que le 3 (Débutant) ; le 5 aussi dur que le 4 (Habitué).
+        let a_l_envers = fausse_mesure([0.4, 1.5, 2.0, 2.5, 0.5], [0.1, 0.5, 0.8, 0.1, 0.1]);
+        let e = ecarts_de_la_courbe(&a_l_envers);
+        assert!(
+            e.iter()
+                .any(|x| x == "Débutant : niveau 4 (2,5) pas sous le niveau 3 (2,0)"),
+            "{e:?}"
+        );
+        assert!(
+            e.iter()
+                .any(|x| x == "Habitué : niveau 4 (0,1) pas au-dessus du niveau 5 (0,1)"),
+            "{e:?}"
+        );
+    }
+
+    /// NON-RÉGRESSION DE LA COURBE : la vraie mesure (graine officielle, mêmes
+    /// chiffres que `docs/mesure-difficulte.txt`) garde la forme voulue par la
+    /// carte 3.3. Si une retouche de niveau, d'ennemi ou de mécanique la casse,
+    /// ce test le dit (environ 30 s : 15 fils d'exécution en parallèle).
+    #[test]
+    fn courbe_de_difficulte_dans_les_bandes() {
+        let cases = mesurer(GRAINE, ESSAIS);
+        let ecarts = ecarts_de_la_courbe(&cases);
+        assert!(
+            ecarts.is_empty(),
+            "{}\n\n{}",
+            ecarts.join("\n"),
+            tableau(&cases, GRAINE, ESSAIS)
+        );
+    }
+
+    /// Bruit de la mesure : la même mesure avec plusieurs graines (variable
+    /// d'environnement GRAINES, par exemple `GRAINES=1,2,3`, défaut : la graine
+    /// officielle et ses 3 voisines). Montre de combien les morts moyennes
+    /// bougent par le seul hasard : une différence plus petite que ce bruit ne
+    /// prouve rien. Affiche aussi les lieux de mort cumulés sur toutes les
+    /// graines (plus sûrs que ceux d'une seule). N'écrit aucun fichier.
+    #[test]
+    #[ignore]
+    fn bruit_de_la_mesure() {
+        let graines: Vec<u64> = std::env::var("GRAINES")
+            .ok()
+            .map(|g| g.split(',').filter_map(|x| x.trim().parse().ok()).collect())
+            .unwrap_or_else(|| vec![GRAINE, GRAINE + 1, GRAINE + 2, GRAINE + 3]);
+        let mut cumul: Vec<Vec<Vec<LieuMort>>> = vec![vec![Vec::new(); PROFILS.len()]; NB_NIVEAUX];
+        for g in graines {
+            let cases = mesurer(g, ESSAIS);
+            let ligne: Vec<String> = cases
+                .iter()
+                .enumerate()
+                .map(|(n, rang)| {
+                    let profils: Vec<String> =
+                        rang.iter().map(|c| decimal(c.morts_moyennes)).collect();
+                    format!("N{} {}", n + 1, profils.join(" / "))
+                })
+                .collect();
+            println!("graine {g} : {}", ligne.join(" · "));
+            for (n, rang) in cases.iter().enumerate() {
+                for (p, c) in rang.iter().enumerate() {
+                    cumul[n][p].extend(c.lieux.iter().copied());
+                }
+            }
+        }
+        // Lieux de mort cumulés sur toutes les graines : plus stables qu'une seule.
+        for (n, rang) in cumul.iter().enumerate() {
+            for (p, lieux) in rang.iter().enumerate() {
+                let endroits: Vec<String> = regrouper(lieux).iter().take(8).map(decrire).collect();
+                println!("N{} {} : {}", n + 1, PROFILS[p].nom, endroits.join(" · "));
+            }
+        }
     }
 }
