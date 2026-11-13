@@ -168,6 +168,8 @@ pub enum RaccourciNiveau {
     Essai5,
     /// Niveau d'essai « montgolfière » (touche F5), hors de la table : carte 5.7.
     Essai6,
+    /// Niveau d'essai « escargot » (touche F6), hors de la table : carte 5.8.
+    Essai7,
 }
 
 /// Touches de saut direct, dans l'ordre des niveaux 1 à 9. Une touche au-delà du
@@ -201,6 +203,8 @@ const TOUCHES_ESSAI4: [KeyCode; 1] = [KeyCode::F3];
 const TOUCHES_ESSAI5: [KeyCode; 1] = [KeyCode::F4];
 /// Niveau d'essai « montgolfière » : F5, à côté de F4 (même raison).
 const TOUCHES_ESSAI6: [KeyCode; 1] = [KeyCode::F5];
+/// Niveau d'essai « escargot » : F6, à côté de F5 (même raison).
+const TOUCHES_ESSAI7: [KeyCode; 1] = [KeyCode::F6];
 
 /// Raccourci demandé d'après les touches appuyées cette image (saut direct d'abord).
 /// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
@@ -227,6 +231,8 @@ pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<
         Some(RaccourciNiveau::Essai5)
     } else if TOUCHES_ESSAI6.iter().any(|&k| appuyee(k)) {
         Some(RaccourciNiveau::Essai6)
+    } else if TOUCHES_ESSAI7.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai7)
     } else {
         None
     }
@@ -247,6 +253,7 @@ pub fn cible_raccourci(r: RaccourciNiveau, courant: usize, nb: usize) -> Option<
         RaccourciNiveau::Essai4 => return Some(nb + 3),
         RaccourciNiveau::Essai5 => return Some(nb + 4),
         RaccourciNiveau::Essai6 => return Some(nb + 5),
+        RaccourciNiveau::Essai7 => return Some(nb + 6),
     };
     cible.filter(|&i| i < nb)
 }
@@ -457,6 +464,7 @@ mod tests {
             .chain(TOUCHES_ESSAI4)
             .chain(TOUCHES_ESSAI5)
             .chain(TOUCHES_ESSAI6)
+            .chain(TOUCHES_ESSAI7)
     }
 
     #[test]
@@ -511,6 +519,10 @@ mod tests {
         assert_eq!(
             niveau_demande(true, |t| t == KeyCode::F5),
             Some(RaccourciNiveau::Essai6)
+        );
+        assert_eq!(
+            niveau_demande(true, |t| t == KeyCode::F6),
+            Some(RaccourciNiveau::Essai7)
         );
         assert_eq!(niveau_demande(true, |_| false), None);
     }
@@ -612,6 +624,14 @@ mod tests {
                 assert_eq!(
                     cible_raccourci(RaccourciNiveau::Essai6, courant, nb),
                     Some(nb + 5)
+                );
+            }
+            // Le niveau d'essai « escargot » : juste après celui des montgolfières
+            // (carte 5.8).
+            for courant in [0, nb - 1, nb, nb + 4, nb + 5] {
+                assert_eq!(
+                    cible_raccourci(RaccourciNiveau::Essai7, courant, nb),
+                    Some(nb + 6)
                 );
             }
         }

@@ -142,6 +142,10 @@ pub fn intro(indice: usize) -> &'static Intro {
     if indice == crate::monde::INDICE_ESSAI_MONTGOLFIERE {
         return &INTRO_ESSAI_MONTGOLFIERE;
     }
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_ESCARGOT {
+        return &INTRO_ESSAI_ESCARGOT;
+    }
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
 
@@ -190,6 +194,14 @@ pub const INTRO_ESSAI_VENTILATEUR: Intro = Intro {
 pub const INTRO_ESSAI_MONTGOLFIERE: Intro = Intro {
     texte: "Une montgolfière monte quand Pépin est dans sa nacelle, et redescend sans lui.",
     astuce: "Attends en haut qu'elle s'arrête, puis avance vers l'étage.",
+};
+
+/// Intro du niveau d'essai « escargot » (build de QA seulement, voir
+/// `monde::INDICE_ESSAI_ESCARGOT`).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INTRO_ESSAI_ESCARGOT: Intro = Intro {
+    texte: "L'escargot est un champignon qui marche : impossible à écraser, il fait rebondir.",
+    astuce: "Attends-le au pied de la falaise, puis saute-lui dessus.",
 };
 
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau

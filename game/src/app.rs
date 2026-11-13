@@ -879,6 +879,28 @@ mod tests {
         assert_eq!(montgolfieres, 2);
     }
 
+    /// Touche F6 du build de QA : le niveau d'essai « escargot » (hors de la
+    /// table), avec ses deux escargots.
+    #[test]
+    fn le_raccourci_d_essai_charge_le_niveau_des_escargots() {
+        let mut app = en_jeu();
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Essai7),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI_ESCARGOT);
+        assert_eq!(app.monde.infos.nom, "Essai escargot");
+        let escargots = app
+            .monde
+            .entites
+            .iter()
+            .filter(|e| matches!(e, pepin_core::entities::Entite::Escargot(_)))
+            .count();
+        assert_eq!(escargots, 2);
+    }
+
     #[test]
     fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         let mut app = en_jeu();
