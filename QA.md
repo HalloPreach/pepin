@@ -2602,3 +2602,109 @@ Limites (non testé ou à relativiser) :
   trace du robot (Pépin porté par les deux aiguilles, 3 gouttes, 0 mort).
 - Pas de son propre (pas de tic-tac). Captures dans Chromium seulement, à 960 x 540 ; pas de
   vrai téléphone, pas de Safari ni Firefox.
+
+## Grand Nuage, le boss (carte 5.11)
+
+Le Grand Nuage (`O`, lettre réservée de la carte), l'avant-goût de l'œil du cyclone : un boss
+d'arène, un écran, sans drapeau. Trois points de vie ; trois motifs d'éclairs de plus en plus
+serrés sur 17 colonnes (8 de part et d'autre de lui), chaque colonne annoncée comme un éclair
+`e` existant (48 pas d'annonce, 12 de frappe) ; après chaque motif il s'essouffle (5 s) et
+libère un courant ascendant temporaire, à gauche après les motifs 1 et 3, à droite après le
+motif 2 ; Pépin y monte et lui saute sur la tête (un saut = 1 point) ; à 0 point, le ciel se
+déchire (2 s) et le niveau est fini. Mort de Pépin : retour au prélude (1,5 s de grondement),
+le nuage garde ses points perdus.
+
+Logique PURE dans `core/src/entities/nuage.rs` : machine à états en entiers (pas, phases
+`Prélude`, `Colere`, `Essouffle`, `Touche`, `Dechirure`, `Vaincu`), testée pas à pas
+(`le_combat_pas_a_pas` : motifs de 4 à 5 s, de plus en plus serrés, annonce/frappe de 48+12
+pas, essoufflement manqué = le même motif recommence, la tête compte seulement pendant
+l'essoufflement, une mort rend au prélude sans rendre les points) ; la tête est un cercle
+(collision comme les plateformes), les éclairs tuent pendant la frappe, la protection après
+une mort porte aussi le nuage (`apres_une_mort_le_nuage_reprend_avec_ses_points_perdus`).
+Contacts, score (éclat et secousse du coup, tonnerre du grondement), `Niveau::arrivee` devenu
+une `Option` (l'arène n'a pas d'`X`), erreurs typées (une `O` sans sa place de 3 x 2, deux
+`O`, un `X` dans l'arène du boss).
+
+Le niveau d'essai « nuage » (`core/src/levels/essai_nuage.rs`) : 20 x 11 tuiles, un écran,
+thème Orage (le violet de l'œil du cyclone), murs à gauche et à droite (les 17 colonnes
+d'éclairs n'ont pas de coin à l'abri), le nuage au milieu (tête 80 px au-dessus du sol, hors
+de portée d'un saut), trois gouttes (au sol, et une en l'air entre chaque courant et le
+nuage), une lanterne au départ. Hors de la table `NIVEAUX`, il n'existe que dans les tests et
+le build de QA : touche **F10** (`F9` reste au plantage volontaire), carte et intro à part.
+
+Le robot de faisabilité (`core/src/zones.rs`) : `niveau_d_essai_nuage_faisable` et
+`niveau_d_essai_nuage_chaque_courant_mene_a_la_tete` — le nuage est jugé essoufflé, ses deux
+courants actifs, la tête compte comme l'arrivée ; chacun des deux courants mène à la tête,
+aucun sans courant. Le robot de QA (`game/src/bot_qa.rs`) a appris à le battre :
+`le_robot_bat_le_grand_nuage` (éclairement du combat : fin atteinte, 0 mort, 3 gouttes,
+trois coups pendant l'essoufflement à 3, 2 puis 1 point, les trois motifs joués, déchirure de
+2 s, vaincu) et `le_parcours_du_grand_nuage_tient_a_une_image_pres` (le monde une ou deux
+images en avance ou en retard : nuage vaincu, 0 mort, 3 gouttes à chaque fois). Le script
+ignoré `ecrire_script_essai_nuage` écrit `target/qa/script-511.txt`, `touches-511.txt`
+(F10) et `trace-511.csv` (phase du nuage, essoufflement restant, points, coups).
+
+Rendu (`game/src/`) : sprites 48 x 32 (colère x2 : sourcils froncés, yeux d'or, dents
+serrées ; essoufflé x2 : paupières lourdes, bouche qui halète, goutte de sueur ; touché :
+yeux plissés, il clignote ; vaincu : affaissé, yeux fermés), ventre violet d'orage, contour
+sombre, lisible sur tous les ciels ; ses 17 colonnes d'éclairs sont des éclairs `e` (même
+annonce, même frappe) ; il gronde au prélude (tremblement), le ciel se déchire derrière lui
+(fente d'or pâle qui s'ouvre jusqu'à remplir l'écran, bande au milieu) ; ses points de vie
+dans le HUD (trois petits nuages, en haut au milieu : éteints un à un au fil des coups).
+
+Mesure de difficulté : inchangée — aucun niveau du jeu, aucun ennemi, aucune mécanique de
+niveau n'a été modifié (l'arène du nuage n'est pas un niveau du jeu, elle n'est compilée que
+dans le build de QA) ; `docs/mesure-difficulte.txt` régénéré sur l'extraction propre est
+identique à l'octet à la version sous dépôt (même tableau que la carte 5.10 : toits 0,4 /
+0,1 / 0,0, gouttières 1,5 / 0,5 / 0,2, grand orage 3,0 / 0,6 / 0,4, vents d'altitude
+1,3 / 0,4 / 0,1, au-dessus des nuages 0,5 / 0,1 / 0,0).
+
+Captures (`docs/qa/511-*`, 960 x 540, build de QA d'une extraction propre de b482998 servi en
+local sur 127.0.0.1, Chromium piloté par CDP, onglet au premier plan et canvas focalisé,
+pilote `docs/capture-visibilite.mjs` (protocole `docs/pilote-qa.js`) avec
+`SCRIPT=target/qa/script-511.txt` et `TOUCHES=target/qa/touches-511.txt` (F10 au pilote,
+image 229), serveur arrêté à la fin ; numéros d'image de `trace-511.csv` (1877 images,
+écrits par le test ignoré `ecrire_script_essai_nuage`) :
+- `511-carte` (330) : carte « ESSAI NUAGE », le texte et l'astuce dans le cadre ;
+- `511-essai-depart` (470) : l'arène au prélude, Pépin au départ près de la lanterne, la
+  goutte du sol, le nuage qui gronde (sourcils froncés, yeux d'or, dents serrées), 3
+  points de vie en haut ;
+- `511-colere-a` (545), `511-colere-b` (557) : colère, les deux images de l'animation, les
+  colonnes d'éclairs annoncées ;
+- `511-eclair-frappe-1` (596) : la frappe des éclairs (colonnes d'éclairs `e`), Pépin au
+  sol ;
+- `511-essouffle-a` (785), `511-essouffle-b` (800) : essoufflé (deux images), le courant
+  ascendant de gauche visible (particules), la goutte en l'air, Pépin porté ;
+- `511-saut-tete` (838) : Pépin au-dessus de la tête, avant le coup ;
+- `511-coup-1` (845) : touché (yeux plissés), 2 points de vie ;
+- `511-motif-2` (1000) : deuxième motif, 2 points ;
+- `511-coup-2` (1226) : deuxième coup, 1 point, le courant à droite ;
+- `511-motif-3` (1370) : troisième motif (le plus serré), 1 point ;
+- `511-essouffle-3` (1595) : troisième essoufflement, le courant à gauche, la 3e goutte
+  prise ;
+- `511-coup-3` (1734) : troisième coup, 0 point, la déchirure commence (fente d'or pâle) ;
+- `511-dechirure` (1800) : le ciel déchiré, la bande dorée au milieu ;
+- `511-vaincu` (1860) : le nuage vaincu (affaissé, yeux fermés, éteint) ;
+- `511-fin` (1876) : écran de fin, 0:36,6, 3 gouttes, 0 mort.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette,
+0 bloc flou, sur les 17.
+
+Vérification sur une extraction propre de b482998 (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+326 + 282 tests, tous verts (1 + 16 ignorés : écritures de fichiers, scripts, diagnostics) ;
+`./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit (473 Ko de wasm),
+0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` :
+`dist-qa/` produit (« Grand Nuage » : 0 fois dans `dist/game.wasm`, 1 fois dans
+`dist-qa/game.wasm` ; idem « Essai nuage ») ; planche de sprites et mesure de difficulté
+régénérées, identiques à l'octet.
+
+Limites (non testé ou à relativiser) :
+- Le Grand Nuage n'est encore dans aucun niveau du jeu (l'œil du cyclone, niveau 6, viendra
+  avec la suite de l'étape 5) : il ne se voit que dans l'arène d'essai (touche F10 du build
+  de QA).
+- Le robot de faisabilité ne juge pas le timing du combat (la tête compte comme l'arrivée
+  pendant un essoufflement statique) : seul le robot de QA (vraie simulation, coups pendant
+  l'essoufflement, plans tenus à 2 images près) prouve qu'on peut le battre ; à garder vert
+  sur l'œil du cyclone.
+- Captures dans un Chromium piloté par CDP seulement, à 960 x 540 ; pas de vrai téléphone,
+  pas de Safari ni Firefox. Pas de son entendu à l'oreille (le grondement et les éclats ne
+  sont vérifiés que par les tests d'audio).
