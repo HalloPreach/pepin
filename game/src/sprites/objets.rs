@@ -442,6 +442,72 @@ pub const AUVENT1: Image = &[
     "000.............",
 ];
 
+/// Ventilateur : un ventilateur à pied sur sa casette (socle 16x8, en bas de la
+/// case). Trois états : à l'arrêt (pale dorée, rien au-dessus), à l'annonce
+/// (la lampe orange clignote au-dessus de la cage, comme l'annonce d'un éclair)
+/// et en souffle (le courant d'air cyan remonte, les pales tournent). Le
+/// courant ne porte qu'en phase de souffle : la boîte SOLIDE est la casette.
+pub const VENTILATEUR_ARRET: Image = &[
+    "................",
+    "................",
+    "....00000000....",
+    "...0333333330...",
+    "...03BB00BB30...",
+    "...03BB77BB30...",
+    "...03BB00BB30...",
+    "...0333333330...",
+    "....04444440....",
+    "......0440......",
+    "......0440......",
+    "......0440......",
+    ".00000000000000.",
+    ".04444444444440.",
+    ".04444444444440.",
+    "0000000000000000",
+];
+
+/// Ventilateur à l'annonce : la lampe orange clignote (c'est le signal, comme
+/// pour un éclair : « le souffle va reprendre »).
+pub const VENTILATEUR_AVEUGLE: Image = &[
+    "......0AA0......",
+    "......0AA0......",
+    "....00000000....",
+    "...0333333330...",
+    "...03BB00BB30...",
+    "...03BB77BB30...",
+    "...03BB00BB30...",
+    "...0333333330...",
+    "....04444440....",
+    "......0440......",
+    "......0440......",
+    "......0440......",
+    ".00000000000000.",
+    ".04444444444440.",
+    ".04444444444440.",
+    "0000000000000000",
+];
+
+/// Ventilateur en souffle : le courant d'air (cyan) remonte au-dessus de la
+/// cage, les pales sont en mouvement (image du courant actif).
+pub const VENTILATEUR_SOUFFLE: Image = &[
+    "....D..D..D.....",
+    "...D...D...D....",
+    "....D..D..D.....",
+    "...D...D...D....",
+    "....00000000....",
+    "...0333333330...",
+    "...03BB77BB30...",
+    "...0333333330...",
+    "....04444440....",
+    "......0440......",
+    "......0440......",
+    "......0440......",
+    ".00000000000000.",
+    ".04444444444440.",
+    ".04444444444440.",
+    "0000000000000000",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("goutte0", GOUTTE0),
@@ -454,6 +520,9 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("champignon1", CHAMPIGNON1),
     ("auvent0", AUVENT0),
     ("auvent1", AUVENT1),
+    ("ventilateur_arret", VENTILATEUR_ARRET),
+    ("ventilateur_aveugle", VENTILATEUR_AVEUGLE),
+    ("ventilateur_souffle", VENTILATEUR_SOUFFLE),
     ("pointe", POINTE),
     ("friable0", FRIABLE0),
     ("friable1", FRIABLE1),
@@ -482,6 +551,12 @@ pub const LANTERNE: [&str; 2] = ["lanterne0", "lanterne1"];
 pub const CHAMPIGNON: [&str; 2] = ["champignon0", "champignon1"];
 /// Auvent : toile tendue puis enfoncée (rebond).
 pub const AUVENT: [&str; 2] = ["auvent0", "auvent1"];
+/// Ventilateur : arrêt, annonce (lampe clignotante), souffle (courant actif).
+pub const VENTILATEUR: [&str; 3] = [
+    "ventilateur_arret",
+    "ventilateur_aveugle",
+    "ventilateur_souffle",
+];
 /// Plateforme friable (nuages, niveaux 4 et 5) : intacte puis fissurée.
 pub const FRIABLE: [&str; 2] = ["friable0", "friable1"];
 /// Plateforme friable (dalle d'ardoise, niveaux 1 à 3) : intacte puis fendue.

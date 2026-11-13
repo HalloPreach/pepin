@@ -356,6 +356,34 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 };
                 banque.dessiner(nom, sx, sy - HAUT_TOILE + 1.0, false);
             }
+            Entite::Ventilateur(v) => {
+                // Sprite 16x16 qui couvre toute la case : la casette (socle 16x8)
+                // tombe sur le BAS de la boîte `b`, le corps du ventilateur monte au-
+                // dessus. On choisit l'image selon la phase : à l'arrêt, à l'annonce
+                // (la lampe orange clignote de plus en plus vite, comme l'annonce
+                // d'un éclair) ou en souffle (le courant d'air cyan remonte).
+                let nom = if v.souffle() {
+                    objets::VENTILATEUR[2]
+                } else if v.en_annonce() {
+                    // Clignotement de la lampe qui ACCÉLÈRE pendant l'annonce
+                    // (comme l'éclair) : de ~2,5 Hz au début à ~15 Hz à la fin.
+                    if annonce_allumee(v.progression_annonce()) {
+                        objets::VENTILATEUR[1]
+                    } else {
+                        objets::VENTILATEUR[0]
+                    }
+                } else {
+                    objets::VENTILATEUR[0]
+                };
+                banque.dessiner(nom, sx, sy - 8.0, false);
+                // Repère au sol : pendant l'annonce, une barre orange reste allumée
+                // au PIED de la casette (là où elle touche le sol) : on voit la
+                // COLONNE d'où le souffle va reprendre, comme la barre dorée au
+                // pied de l'éclair.
+                if v.en_annonce() {
+                    rect(sx as i32, sy as i32 + 6, 16, 2, OR);
+                }
+            }
             Entite::Grele(g) => {
                 // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
                 let t = TAILLE_TUILE;

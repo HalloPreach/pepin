@@ -634,6 +634,22 @@ mod tests {
         }
     }
 
+    /// Le ventilateur se lit sur TOUS les ciels : sur chaque bande de ciel de chaque
+    /// thème, l'une des couleurs du corps (le contour sombre, le moyeu blanc, le
+    /// courant d'air cyan) contraste d'au moins 4,5:1.
+    #[test]
+    fn le_ventilateur_se_detache_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('0'), ciel)
+                    .max(contraste(couleur_de('7'), ciel))
+                    .max(contraste(couleur_de('D'), ciel));
+                assert!(k >= 4.5, "{theme:?} : ventilateur sur {ciel:?} : {k:.2}");
+            }
+        }
+    }
+
     #[test]
     fn la_plateforme_mobile_couvre_toute_sa_collision() {
         let m = dessin("mobile");
