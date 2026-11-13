@@ -836,7 +836,10 @@ tous les tests (environ 30 s), vérifie sur la mesure officielle la forme ci-des
 (détail dans « Mesure de difficulté ») ; `la_forme_de_la_courbe_est_jugee` vérifie le juge lui-même
 (la courbe d'avant la carte est refusée : niveau 4 à 0,90, niveau 5 à 0,40, 4 pas nettement sous le 3).
 
-Autres vérifications :
+Autres vérifications (sur une extraction propre du commit 7b11de2, `git archive`) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 154 + 176 tests, tous verts ;
+  `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms interdits,
+  seule URL `http://www.w3.org/2000/svg` ; `docs/mesure-difficulte.txt` régénéré identique à l'octet.
 - Faisabilité (`zones.rs`, `faisabilite.rs`) : les 5 niveaux finissables, toutes gouttes et lanternes
   atteignables, reprise depuis chaque lanterne, robot « maladroit » ; lint de grille vert (lanternes
   posées, aucune poche de vide close).
@@ -844,7 +847,8 @@ Autres vérifications :
   (3, 145, flaque)] ; aucun des deux corbeaux du niveau 4 n'atteint une lanterne (le plus proche,
   colonne 178, patrouille de 173 à 183 ; lanterne en 170).
 - Robot de QA : finit les cinq niveaux sans mourir (12130 images au lieu de 12254, 5 gouttes au lieu
-  de 4 : son parcours change avec les niveaux).
+  de 4 : son parcours change avec les niveaux) ; script identique sur l'extraction propre et pour les
+  captures.
 
 Captures (Chromium 1208 piloté par CDP, build de QA servi sur 127.0.0.1, onglet au premier plan, canevas
 focalisé, serveur arrêté ensuite ; script du robot rejoué par `docs/capture-visibilite.mjs`). « Avant » :
