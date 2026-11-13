@@ -20,6 +20,7 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
+use pepin_core::entities::ennemi::PhasePigeon;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::NB_NIVEAUX;
@@ -355,6 +356,9 @@ pub struct Trame {
     pub corbeau: Option<(f32, f32)>,
     /// Boîte de la première plateforme mobile (x, y), pour viser une capture.
     pub mobile: Option<(f32, f32)>,
+    /// Premier pigeon visible du niveau : position et phase (`nom_phase`), pour
+    /// viser une capture (perché, annonce, plongée...).
+    pub pigeon: Option<(f32, f32, &'static str)>,
 }
 
 impl Trame {
@@ -373,6 +377,21 @@ impl Trame {
             v |= 8;
         }
         char::from_digit(v, 16).unwrap()
+    }
+}
+
+/// Nom court d'un état de pigeon, pour la trace (`ecrase` : écrasé, quelle que soit
+/// la phase où on l'a eu).
+fn nom_phase(phase: PhasePigeon, ecrase: bool) -> &'static str {
+    if ecrase {
+        return "ecrase";
+    }
+    match phase {
+        PhasePigeon::Perche => "perche",
+        PhasePigeon::Annonce(_) => "annonce",
+        PhasePigeon::Plongee(_) => "plongee",
+        PhasePigeon::Remontee(_) => "remontee",
+        PhasePigeon::Repos(_) => "repos",
     }
 }
 
@@ -438,6 +457,13 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
             Entite::Mobile(m) => Some((m.boite.x, m.boite.y)),
             _ => None,
         });
+        trame.pigeon = app.monde.entites.iter().find_map(|e| match e {
+            Entite::Ennemi(p) if p.type_ennemi == TypeEnnemi::Pigeon && p.est_visible() => {
+                let ecrase = !p.est_dangereux();
+                Some((p.boite.x, p.boite.y, nom_phase(p.phase(), ecrase)))
+            }
+            _ => None,
+        });
         trame.x = app.monde.joueur.boite.x;
         trame.y = app.monde.joueur.boite.y;
         trames.push(trame);
@@ -499,14 +525,17 @@ mod tests {
         std::fs::create_dir_all("../target/qa").unwrap();
         let script: String = partie.trames.iter().map(Trame::code).collect();
         std::fs::write("../target/qa/script.txt", &script).unwrap();
-        let mut trace =
-            String::from("image,ecran,niveau,x,y,corbeau_x,corbeau_y,mobile_x,mobile_y\n");
+        let mut trace = String::from(
+            "image,ecran,niveau,x,y,corbeau_x,corbeau_y,mobile_x,mobile_y,\
+             pigeon_x,pigeon_y,pigeon_phase\n",
+        );
         for (i, t) in partie.trames.iter().enumerate() {
             let (cx, cy) = t.corbeau.unwrap_or((-1.0, -1.0));
             let (mx, my) = t.mobile.unwrap_or((-1.0, -1.0));
+            let (px, py, phase) = t.pigeon.unwrap_or((-1.0, -1.0, "-"));
             trace.push_str(&format!(
-                "{},{},{},{:.1},{:.1},{:.1},{:.1},{:.1},{:.1}\n",
-                i, t.ecran, t.niveau, t.x, t.y, cx, cy, mx, my
+                "{},{},{},{:.1},{:.1},{:.1},{:.1},{:.1},{:.1},{:.1},{:.1},{}\n",
+                i, t.ecran, t.niveau, t.x, t.y, cx, cy, mx, my, px, py, phase
             ));
         }
         std::fs::write("../target/qa/trace.csv", trace).unwrap();
