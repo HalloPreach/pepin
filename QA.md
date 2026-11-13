@@ -1215,3 +1215,12 @@ fond : au niveau 4, en plongée ou en remontée, le pigeon passe devant les tour
 sur violet 1,5:1) ; son contour, l'aile claire et le cou cyan le gardent lisible (vu sur
 `44-niveau4-pigeon-remontee-apres`). La plongée est muette (aucun son ajouté). Pas testé : vrai
 téléphone, Safari/Firefox.
+
+Vérification sur une extraction propre de 15e36c2 (`git archive`, nouveau dossier daté) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 175 + 207 tests, tous verts (14 + 4
+  de plus qu'à la carte 4.3) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/`
+  produit, 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+- Régénérés dans l'extraction, identiques à l'octet : `docs/planche-sprites.png`,
+  `docs/mesure-difficulte.txt`, `target/qa/script.txt` et `trace.csv` (12 131 images, 0 mort).
+- Les 9 captures « après » refaites sur le build de QA de l'extraction (mêmes images du rejeu) :
+  identiques à l'octet à celles du dépôt.
