@@ -11,6 +11,7 @@ use pepin_core::aabb::{Aabb, Grille, TAILLE_TUILE};
 use pepin_core::entities::auvent::HAUT_TOILE;
 use pepin_core::entities::ennemi::{EtatEnnemi, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
+use pepin_core::entities::montgolfiere::{EtatMontgolfiere, HAUT_BALLON};
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::level::{GenreDecor, GenrePanneau, Tuile};
 use pepin_core::palette::*;
@@ -345,6 +346,18 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
             Entite::Mobile(_) => banque.dessiner("mobile", sx, sy, false),
+            Entite::Montgolfiere(m) => {
+                // Sprite 20x40 : la nacelle (16x8, la boîte `b`) occupe ses 8 dernières
+                // rangées, le ballon les 32 du dessus et déborde de 2 px de chaque
+                // côté. Brûleur allumé (la flamme vacille, une image sur 4 pas)
+                // seulement pendant la MONTÉE : c'est l'indice « Pépin la fait monter ».
+                let nom = if m.etat() == EtatMontgolfiere::Montee {
+                    objets::MONTGOLFIERE[1 + (pas / 4) as usize % 2]
+                } else {
+                    objets::MONTGOLFIERE[0]
+                };
+                banque.dessiner(nom, sx - 2.0, sy - HAUT_BALLON, false);
+            }
             Entite::Auvent(a) => {
                 // Sprite 16x15 posé 1 px sous le haut de la case : le dessus de la
                 // zone de contact (`HAUT_TOILE` sous le haut de la case) tombe au

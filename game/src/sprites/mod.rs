@@ -270,6 +270,7 @@ mod tests {
             &objets::FRIABLE_ARDOISE,
             &objets::DRAPEAU,
             &objets::GRELON,
+            &objets::MONTGOLFIERE,
         ];
         for anim in animations {
             let tailles: Vec<_> = anim.iter().map(|n| taille(n)).collect();
@@ -647,6 +648,67 @@ mod tests {
                     .max(contraste(couleur_de('D'), ciel));
                 assert!(k >= 4.5, "{theme:?} : ventilateur sur {ciel:?} : {k:.2}");
             }
+        }
+    }
+
+    /// La montgolfière (20 x 40) : sa nacelle couvre EXACTEMENT sa boîte solide
+    /// (16 x 8 : colonnes 2 à 17, rangées 32 à 39, dessus en rangée 32), cernée de
+    /// sombre ; le ballon occupe les 32 rangées du dessus. Les images de la flamme
+    /// ne changent que la jupe de l'enveloppe (rangées 14 à 16) : le reste ne
+    /// tremble pas.
+    #[test]
+    fn la_montgolfiere_a_une_nacelle_qui_couvre_sa_boite() {
+        let repos = dessin(objets::MONTGOLFIERE[0]);
+        for nom in objets::MONTGOLFIERE {
+            let m = dessin(nom);
+            assert_eq!((largeur(m), hauteur(m)), (20, 40), "{nom}");
+            for (y, ligne) in m.iter().enumerate() {
+                let r: Vec<char> = repos[y].chars().collect();
+                for (x, c) in ligne.chars().enumerate() {
+                    if c != r[x] {
+                        assert!((14..=16).contains(&y), "{nom} : ({x}, {y}) change");
+                    }
+                }
+            }
+        }
+        // Nacelle : rangées 32 à 39, colonnes 2 à 17, coins du bas arrondis.
+        for y in 32..40 {
+            for x in 2..18 {
+                let c = car(repos, x, y);
+                let coin = y == 39 && (x == 2 || x == 17);
+                assert_eq!(c == '.', coin, "nacelle en ({x}, {y}) : « {c} »");
+            }
+            assert_eq!(car(repos, 1, y), '.');
+            assert_eq!(car(repos, 18, y), '.');
+        }
+        // Le dessus de la nacelle (là où Pépin se tient) est une ligne de contour
+        // sombre, et ses bords aussi.
+        assert!((2..18).all(|x| car(repos, x, 32) == '0'));
+        assert!((32..39).all(|y| car(repos, 2, y) == '0' && car(repos, 17, y) == '0'));
+    }
+
+    /// La montgolfière se lit sur TOUS les ciels (ceux de la nuit comme le corail
+    /// et l'or des niveaux du haut) : sur chaque bande de ciel de chaque thème, l'une
+    /// des couleurs de l'enveloppe (contour sombre, blanc, cyan) contraste d'au moins
+    /// 4,5:1. Ni l'orange ni l'or ne servent à l'enveloppe (ils se fondraient dans les
+    /// ciels du soleil).
+    #[test]
+    fn la_montgolfiere_se_detache_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('0'), ciel)
+                    .max(contraste(couleur_de('7'), ciel))
+                    .max(contraste(couleur_de('D'), ciel));
+                assert!(k >= 4.5, "{theme:?} : montgolfière sur {ciel:?} : {k:.2}");
+            }
+        }
+        let repos = dessin(objets::MONTGOLFIERE[0]);
+        for ligne in &repos[..17] {
+            assert!(
+                !ligne.contains(['A', 'B', 'C']),
+                "enveloppe sans orange ni or : {ligne}"
+            );
         }
     }
 
