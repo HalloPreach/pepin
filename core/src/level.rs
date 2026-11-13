@@ -15,10 +15,15 @@
 //!   F  plateforme friable      e  éclair (colonne jusqu'au 1er solide dessous)
 //!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
+//!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
+//!              antenne, paratonnerre, manche à air, oiseau posé
 //! ```
 //!
+//! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
+//! physique. Remplacer ces lettres par `.` donne exactement le même niveau à jouer.
+//!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
-//! - `enum` (`Tuile`, `GenrePanneau`) et `match` exhaustif ;
+//! - `enum` (`Tuile`, `GenrePanneau`, `GenreDecor`) et `match` exhaustif ;
 //! - `Result<T, E>` avec une erreur typée (`ErreurNiveau`) et l'opérateur `?` ;
 //! - `trait` : `Niveau` implémente `Grille`, donc le moteur de collision le
 //!   comprend sans rien savoir de son format ;
@@ -76,6 +81,58 @@ pub struct Panneau {
     pub genre: GenrePanneau,
 }
 
+/// Genre d'un objet de décor : ne change que le dessin (aucune collision).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenreDecor {
+    /// `H` : souche de cheminée (niveaux 1 et 2).
+    Cheminee,
+    /// `T` : antenne de télévision (niveaux 1 et 2).
+    Antenne,
+    /// `R` : paratonnerre (niveau 3, l'orage).
+    Paratonnerre,
+    /// `Q` : manche à air, au bord d'un courant ascendant qu'elle signale (niveau 4).
+    MancheAAir,
+    /// `K` : oiseau posé (niveau 5).
+    Oiseau,
+}
+
+impl GenreDecor {
+    /// Tous les genres, dans l'ordre de la légende.
+    pub const TOUS: [GenreDecor; 5] = [
+        GenreDecor::Cheminee,
+        GenreDecor::Antenne,
+        GenreDecor::Paratonnerre,
+        GenreDecor::MancheAAir,
+        GenreDecor::Oiseau,
+    ];
+
+    /// Lettre de la grille ASCII.
+    pub fn lettre(self) -> char {
+        match self {
+            GenreDecor::Cheminee => 'H',
+            GenreDecor::Antenne => 'T',
+            GenreDecor::Paratonnerre => 'R',
+            GenreDecor::MancheAAir => 'Q',
+            GenreDecor::Oiseau => 'K',
+        }
+    }
+
+    /// Genre désigné par une lettre de la grille, `None` si ce n'est pas du décor.
+    /// (`find` sur `TOUS` : une seule table à tenir, `lettre`.)
+    pub fn depuis_lettre(c: char) -> Option<GenreDecor> {
+        GenreDecor::TOUS.into_iter().find(|g| g.lettre() == c)
+    }
+}
+
+/// Objet de décor ; `(x, y)` est le coin haut-gauche de sa case. La case du
+/// dessous est toujours solide (le parseur le vérifie) : l'objet y est posé.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ObjetDecor {
+    pub x: f32,
+    pub y: f32,
+    pub genre: GenreDecor,
+}
+
 /// Un niveau entièrement chargé : tuiles, entités, courants, repères.
 #[derive(Debug, Clone)]
 pub struct Niveau {
@@ -92,6 +149,8 @@ pub struct Niveau {
     pub courants: Vec<CourantAscendant>,
     /// Panneaux du tutoriel.
     pub panneaux: Vec<Panneau>,
+    /// Objets de décor (dessin seulement).
+    pub decors: Vec<ObjetDecor>,
 }
 
 impl Niveau {

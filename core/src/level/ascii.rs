@@ -1,13 +1,15 @@
 //! Parseur ASCII -> `Niveau`.
 //!
 //! Étapes : 1) découper les lignes et vérifier le rectangle ; 2) lire chaque
-//! caractère (tuile, entité, repère) ; 3) assembler les éléments qui dépendent
-//! de la grille complète (éclairs, courants, plateformes mobiles) ; 4) valider
-//! (un départ, une arrivée, trois gouttes).
+//! caractère (tuile, entité, repère, décor) ; 3) assembler les éléments qui dépendent
+//! de la grille complète (éclairs, courants, plateformes mobiles, appui du décor) ;
+//! 4) valider (un départ, une arrivée, trois gouttes).
 
 use std::collections::BTreeMap;
 
-use super::{ErreurNiveau, GenrePanneau, Niveau, Panneau, Tuile, GOUTTES_PAR_NIVEAU};
+use super::{
+    ErreurNiveau, GenreDecor, GenrePanneau, Niveau, ObjetDecor, Panneau, Tuile, GOUTTES_PAR_NIVEAU,
+};
 use crate::aabb::{Aabb, TAILLE_TUILE};
 use crate::entities::{
     Champignon, Eclair, Ennemi, Entite, GoutteDor, Lanterne, PlateformeFriable, PlateformeMobile,
@@ -56,6 +58,9 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut tuiles = vec![Tuile::Vide; largeur * hauteur];
     let mut entites: Vec<Entite> = Vec::new();
     let mut panneaux = Vec::new();
+    // Décor : (case, genre), vérifié une fois la grille entière lue (il faut la
+    // case du dessous).
+    let mut decors: Vec<(Case, GenreDecor)> = Vec::new();
     let mut departs: Vec<Case> = Vec::new();
     let mut arrivees: Vec<Case> = Vec::new();
     let mut eclairs: Vec<Case> = Vec::new();
@@ -107,13 +112,17 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 'C' => panneau(GenrePanneau::Champignon),
                 'W' => panneau(GenrePanneau::Vent),
                 '1'..='9' => mobiles.entry(c).or_default().push(case),
-                _ => {
-                    return Err(ErreurNiveau::CaractereInconnu {
-                        ligne: ty + 1,
-                        colonne: tx + 1,
-                        caractere: c,
-                    })
-                }
+                // Le reste : une lettre de décor, ou un caractère hors légende.
+                _ => match GenreDecor::depuis_lettre(c) {
+                    Some(genre) => decors.push((case, genre)),
+                    None => {
+                        return Err(ErreurNiveau::CaractereInconnu {
+                            ligne: ty + 1,
+                            colonne: tx + 1,
+                            caractere: c,
+                        })
+                    }
+                },
             }
         }
     }
@@ -171,6 +180,21 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     }
 
     let courants = fusionner_courants(&vent, largeur, hauteur);
+    // Décor : posé sur la tuile du dessous, qui doit être solide (la dernière
+    // ligne n'a pas de dessous : le décor y serait au-dessus du vide).
+    let mut objets_decor = Vec::with_capacity(decors.len());
+    for ((tx, ty), genre) in decors {
+        let appui = ty + 1 < hauteur && tuiles[(ty + 1) * largeur + tx].est_solide();
+        if !appui {
+            return Err(ErreurNiveau::DecorSansAppui {
+                ligne: ty + 1,
+                colonne: tx + 1,
+                caractere: genre.lettre(),
+            });
+        }
+        let (x, y) = px((tx, ty));
+        objets_decor.push(ObjetDecor { x, y, genre });
+    }
     let (dx, dy) = px(depart_case);
     let (ax, ay) = px(arrivee_case);
     Ok(Niveau {
@@ -187,6 +211,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         entites,
         courants,
         panneaux,
+        decors: objets_decor,
     })
 }
 

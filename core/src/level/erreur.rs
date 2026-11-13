@@ -38,6 +38,13 @@ pub enum ErreurNiveau {
     /// Une plateforme mobile (chiffre 1-9) doit apparaître exactement deux fois
     /// (ses deux extrémités).
     PlateformeMobileIncomplete { marque: char, trouve: usize },
+    /// Un objet de décor (`H T R Q K`) doit être posé sur une tuile solide
+    /// (`#`, `B` ou `N`) : sinon il flotterait dans le ciel.
+    DecorSansAppui {
+        ligne: usize,
+        colonne: usize,
+        caractere: char,
+    },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -71,6 +78,15 @@ impl fmt::Display for ErreurNiveau {
             ErreurNiveau::PlateformeMobileIncomplete { marque, trouve } => write!(
                 f,
                 "plateforme mobile « {marque} » : {trouve} extrémité(s) au lieu de 2"
+            ),
+            ErreurNiveau::DecorSansAppui {
+                ligne,
+                colonne,
+                caractere,
+            } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : le décor « {caractere} » n'est pas posé \
+                 sur un solide"
             ),
         }
     }

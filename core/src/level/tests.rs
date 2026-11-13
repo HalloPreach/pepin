@@ -224,3 +224,77 @@ fn panneaux_et_tuiles_decor() {
     assert_eq!(n.tuile_decor(0, 3), Tuile::Toit);
     assert!(Tuile::Toit.est_solide() && !Tuile::Vide.est_solide());
 }
+
+#[test]
+fn objets_de_decor_lus_et_poses_sur_leur_appui() {
+    let avec = "
+.o.o.o.......
+.@.HTRQK..X..
+#####B#N#####
+";
+    let n = Niveau::depuis_ascii(avec).unwrap();
+    let genres: Vec<GenreDecor> = n.decors.iter().map(|d| d.genre).collect();
+    assert_eq!(
+        genres,
+        GenreDecor::TOUS.to_vec(),
+        "ordre de lecture = ordre de la légende"
+    );
+    // Coin haut-gauche de la case : H en colonne 3, ligne 1.
+    assert_eq!((n.decors[0].x, n.decors[0].y), (48.0, 16.0));
+    // Aucune collision : les cases du décor restent vides, rien d'autre n'est créé.
+    for d in &n.decors {
+        let (tx, ty) = ((d.x / 16.0) as i32, (d.y / 16.0) as i32);
+        assert_eq!(n.tuile_decor(tx, ty), Tuile::Vide);
+        assert!(n.tuile_decor(tx, ty + 1).est_solide());
+    }
+    assert!(n.panneaux.is_empty());
+    assert_eq!(n.entites.len(), 3, "les 3 gouttes seulement");
+    // Chaque lettre se relit dans les deux sens.
+    for g in GenreDecor::TOUS {
+        assert_eq!(GenreDecor::depuis_lettre(g.lettre()), Some(g));
+    }
+    assert_eq!(GenreDecor::depuis_lettre('.'), None);
+    assert_eq!(
+        GenreDecor::depuis_lettre('h'),
+        None,
+        "lettres majuscules seulement"
+    );
+}
+
+#[test]
+fn decor_en_l_air_refuse() {
+    // Oiseau au-dessus du vide (ligne 1, colonne 9 : sous lui, la ligne 2 est vide) : erreur typée.
+    let en_l_air = "
+.o.o.o..K....
+.@........X..
+#############
+";
+    assert_eq!(
+        Niveau::depuis_ascii(en_l_air).unwrap_err(),
+        ErreurNiveau::DecorSansAppui {
+            ligne: 1,
+            colonne: 9,
+            caractere: 'K'
+        }
+    );
+    // Sur la dernière ligne, il n'y a pas de dessous du tout.
+    let tout_en_bas = "
+.o.o.o.......
+.@........X..
+######H######
+";
+    assert!(matches!(
+        Niveau::depuis_ascii(tout_en_bas),
+        Err(ErreurNiveau::DecorSansAppui { caractere: 'H', .. })
+    ));
+    let msg = ErreurNiveau::DecorSansAppui {
+        ligne: 2,
+        colonne: 9,
+        caractere: 'K',
+    }
+    .to_string();
+    assert!(
+        msg.contains("décor « K »") && msg.contains("solide"),
+        "{msg}"
+    );
+}
