@@ -32,7 +32,14 @@
 //!   nacelle en haut (il suffit d'attendre la montée), si sa boîte monte sans
 //!   rien toucher (sinon la vraie nacelle s'arrêterait plus bas : le robot
 //!   renonce, c'est prudent). La redescente n'est pas simulée : la nacelle en
-//!   haut reste là, comme les deux bouts d'une plateforme mobile.
+//!   haut reste là, comme les deux bouts d'une plateforme mobile ;
+//! - un escargot est remplacé par un tremplin IMMOBILE qui couvre tout son
+//!   trajet (`Escargot::etendu_au_trajet`) : partout où il peut passer, un
+//!   joueur patient qui l'attend au bon endroit lui tombe dessus et rebondit.
+//!   Le temps n'existe pas pour le robot : il ne sait pas qu'il faut attendre,
+//!   ni qu'en sautant au-dessus de ce trajet on peut aussi retomber à côté de
+//!   l'escargot (il rebondit toujours). Le robot de QA, sur la vraie
+//!   simulation, attend vraiment l'escargot.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -221,6 +228,17 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
             }
             Entite::Ennemi(_) | Entite::Eclair(_) => {}
+            Entite::Escargot(s) => {
+                // Son trajet sur la grille et les solides immobiles du niveau.
+                let fixes = solides_des_entites(&niveau.entites);
+                let env = Environnement {
+                    grille: niveau,
+                    solides: &fixes,
+                    courants: &[],
+                    vents: &[],
+                };
+                entites.push(Entite::Escargot(s.etendu_au_trajet(&env)));
+            }
             // La grêle reste : elle tue les plans qui la touchent parapluie fermé.
             Entite::Grele(_) => entites.push(e.clone()),
             Entite::Lanterne(l) => {
@@ -1019,5 +1037,74 @@ mod tests {
         let n = niveau_montgolfiere(1, true);
         let r = analyser(&n, n.depart, Options::default());
         assert!(!r.arrivee, "le balcon est trop haut : {r:?}");
+    }
+
+    /// Mini-niveau de l'escargot, 16 x 10 : un sol (rangée 9) entre un mur à gauche
+    /// et une falaise à droite (colonnes 11 à 15, dessus en rangée 4 : 80 px
+    /// au-dessus du sol, plus qu'un saut). L'escargot (`s`, colonne 8) patrouille sur
+    /// le sol, entre le mur et la falaise. Le drapeau et deux gouttes sont en haut
+    /// de la falaise. `avec_escargot` faux : la case reste vide.
+    fn niveau_escargot(avec_escargot: bool) -> Niveau {
+        let sol = if avec_escargot {
+            "B@.o....s..#####"
+        } else {
+            "B@.o.......#####"
+        };
+        let lignes = [
+            "................",
+            "................",
+            "................",
+            "...........o.o.X",
+            "...........#####",
+            "...........#####",
+            "...........#####",
+            "...........#####",
+            sol,
+            "################",
+        ];
+        Niveau::depuis_ascii(&lignes.join("\n")).expect("niveau de test")
+    }
+
+    /// Le robot monte sur la falaise en rebondissant sur l'escargot (témoin : sans
+    /// lui, la falaise est hors de portée). Robot maladroit compris.
+    #[test]
+    fn le_robot_rebondit_sur_l_escargot_pour_monter() {
+        let temoin = niveau_escargot(false);
+        let sans = analyser(&temoin, temoin.depart, Options::default());
+        assert!(!sans.arrivee, "la falaise s'atteint sans escargot ?");
+        let n = niveau_escargot(true);
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(avec.arrivee, "rebond non trouvé : {avec:?}");
+        assert_eq!(avec.gouttes, [true; 3]);
+        let maladroit = analyser(
+            &n,
+            n.depart,
+            Options {
+                precis: false,
+                ..Options::default()
+            },
+        );
+        assert!(maladroit.arrivee, "robot maladroit : {maladroit:?}");
+    }
+
+    /// Le tremplin du robot couvre tout le trajet de l'escargot : du mur (x = 16)
+    /// jusqu'au pied de la falaise (x = 176), au ras du sol (y = 134).
+    #[test]
+    fn le_robot_voit_l_escargot_sur_tout_son_trajet() {
+        use crate::entities::escargot::HAUTEUR_ESCARGOT;
+        let n = niveau_escargot(true);
+        let s = n
+            .entites
+            .iter()
+            .find_map(|e| match e {
+                Entite::Escargot(s) => Some(s.clone()),
+                _ => None,
+            })
+            .unwrap();
+        let env = Environnement::simple(&n);
+        let b = s.etendu_au_trajet(&env).boite;
+        assert!((b.x - 16.0).abs() < 0.01, "{b:?}");
+        assert!((b.droite() - 176.0).abs() < 0.01, "{b:?}");
+        assert_eq!((b.y, b.h), (144.0 - HAUTEUR_ESCARGOT, HAUTEUR_ESCARGOT));
     }
 }
