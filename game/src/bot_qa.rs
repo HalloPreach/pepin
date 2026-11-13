@@ -35,25 +35,33 @@ const PAS_MAX: u16 = 600;
 /// Pas d'immobilité qui valident un atterrissage stable.
 const PAS_STABLE: u16 = 20;
 /// Pas d'attente au départ : Pépin tombe au sol et se pose.
-const PAS_DEPART: u16 = 40;
+pub(crate) const PAS_DEPART: u16 = 40;
+/// Pas passés en l'air avant que le plan `planer` n'ouvre le parapluie.
+const DEBUT_PLANE: u16 = 7;
 
-/// Un plan d'entrées, simulé d'un seul bloc.
-#[derive(Clone, Copy)]
-struct Plan {
-    dir: Direction,
+/// Un plan d'entrées, simulé d'un seul bloc. `pub(crate)` : la mesure de
+/// difficulté rejoue les mêmes plans, avec des erreurs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Plan {
+    pub(crate) dir: Direction,
     /// Pas de course au sol avant le saut.
-    elan: u16,
+    pub(crate) elan: u16,
     /// Pas de maintien du saut (0 = pas de saut, on marche dans le vide).
-    saut: u16,
-    planer: bool,
-    dir_montee: bool,
-    dir_descente: bool,
+    pub(crate) saut: u16,
+    pub(crate) planer: bool,
+    /// Pas de chute avant d'ouvrir le parapluie (si `planer`). Toujours 0 pour le
+    /// robot (il ouvre dès le sommet du saut) ; la mesure de difficulté
+    /// (`difficulte.rs`) l'allonge pour imiter un « plané tardif ».
+    pub(crate) retard_plane: u16,
+    pub(crate) dir_montee: bool,
+    pub(crate) dir_descente: bool,
     /// Plan « attendre » : aucune entrée pendant ce nombre de pas (0 = non).
-    attente: u16,
+    pub(crate) attente: u16,
 }
 
 /// Comment se termine la simulation d'un plan.
-enum Fin {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Fin {
     Mort,
     Arrivee,
     Pose,
@@ -61,7 +69,7 @@ enum Fin {
 }
 
 /// Tous les plans à essayer. `precis` ajoute des élans et des durées plus fins.
-fn plans(precis: bool) -> Vec<Plan> {
+pub(crate) fn plans(precis: bool) -> Vec<Plan> {
     let (elans, sauts): (&[u16], &[u16]) = if precis {
         (&[0, 4, 8, 14, 22, 32, 50, 80, 120], &[0, 5, 9, 13, 40])
     } else {
@@ -82,6 +90,7 @@ fn plans(precis: bool) -> Vec<Plan> {
                                 elan,
                                 saut,
                                 planer,
+                                retard_plane: 0,
                                 dir_montee,
                                 dir_descente,
                                 attente: 0,
@@ -99,6 +108,7 @@ fn plans(precis: bool) -> Vec<Plan> {
             elan: 0,
             saut: 0,
             planer: false,
+            retard_plane: 0,
             dir_montee: false,
             dir_descente: false,
             attente,
@@ -107,13 +117,16 @@ fn plans(precis: bool) -> Vec<Plan> {
     v
 }
 
-fn est_mort(m: &Monde) -> bool {
+/// Pépin est-il mort (ou en train de réapparaître) ? `derniere_mort` n'est jamais
+/// effacée par le jeu : après une mort, l'appelant doit la remettre à `None`
+/// avant de simuler de nouveaux plans (voir `difficulte.rs`).
+pub(crate) fn est_mort(m: &Monde) -> bool {
     m.reapparition > 0 || m.derniere_mort.is_some()
 }
 
 /// Simule `plan` depuis `depart` (copie). Renvoie la fin, le monde final et les
 /// entrées de chaque pas.
-fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) {
+pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) {
     let mut m = depart.clone();
     let mut script = Vec::new();
 
@@ -140,6 +153,7 @@ fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) {
     let mut a_decolle = false;
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
+    let mut chute: u16 = 0;
     for pas in 0..PAS_MAX {
         let mut e = Entrees::default();
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
@@ -151,6 +165,9 @@ fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) {
             }
         } else if a_decolle && stable == 0 {
             let montee = m.joueur.vitesse.y < 0.0;
+            if !montee {
+                chute += 1;
+            }
             let garde = if montee {
                 plan.dir_montee
             } else {
@@ -160,7 +177,8 @@ fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) {
             if saut_envoye > 0 && saut_envoye < plan.saut && montee {
                 e.saut = true;
                 saut_envoye += 1;
-            } else if plan.planer && !montee && en_l_air >= 7 {
+            } else if plan.planer && !montee && en_l_air >= DEBUT_PLANE && chute > plan.retard_plane
+            {
                 e.saut = true;
             }
         }
@@ -187,41 +205,63 @@ fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) {
 }
 
 /// Deux états proches fusionnent : case de 8 px en x, y arrondi.
-fn cle(m: &Monde) -> (i32, i32) {
+pub(crate) fn cle(m: &Monde) -> (i32, i32) {
     (
         (m.joueur.boite.x / 8.0).floor() as i32,
         m.joueur.boite.y.round() as i32,
     )
 }
 
-/// Cherche les entrées (une par pas) qui mènent du début du niveau `indice` à
-/// l'arrivée sans jamais mourir. `None` si rien n'est trouvé.
-pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
-    let mut depart = Monde::new(indice);
-    let mut prefixe = Vec::new();
-    for _ in 0..PAS_DEPART {
-        depart.avancer(&Entrees::default());
-        prefixe.push(Entrees::default());
-    }
-    let tous = plans(precis);
+/// Un morceau de parcours : le plan joué, les entrées exactes qu'il a produites
+/// et la case (`cle`) où Pépin s'est posé (ou a touché l'arrivée).
+#[derive(Clone)]
+pub(crate) struct Etape {
+    pub(crate) plan: Plan,
+    pub(crate) entrees: Vec<Entrees>,
+    pub(crate) cle: (i32, i32),
+}
 
-    // Chaque noeud : le monde posé, son coût (pas), son parent et les entrées
-    // qui y ont mené. La file de priorité ne contient que (coût, indice).
+/// Le monde du niveau `indice` après `PAS_DEPART` pas sans entrée (Pépin posé),
+/// et ces entrées vides.
+pub(crate) fn depart_pose(indice: usize) -> (Monde, Vec<Entrees>) {
+    let mut depart = Monde::new(indice);
+    let prefixe = vec![Entrees::default(); PAS_DEPART as usize];
+    for e in &prefixe {
+        depart.avancer(e);
+    }
+    (depart, prefixe)
+}
+
+/// Plus court chemin (en pas) depuis `depart` jusqu'à l'arrivée, ou jusqu'à un
+/// atterrissage que `est_cible` accepte. `limite` : nombre maximal de noeuds
+/// développés (`usize::MAX` : aucune). `None` si rien n'est trouvé.
+///
+/// Le robot cherche l'arrivée seule (`est_cible` toujours faux) ; la mesure de
+/// difficulté s'en sert aussi pour « rejoindre le parcours » après une erreur.
+pub(crate) fn chercher(
+    depart: &Monde,
+    tous: &[Plan],
+    est_cible: &dyn Fn(&Monde) -> bool,
+    limite: usize,
+) -> Option<Vec<Etape>> {
+    // Chaque noeud : le monde posé, son parent et l'étape qui y a mené. La file
+    // de priorité ne contient que (coût, indice).
     struct Noeud {
         monde: Monde,
         parent: Option<usize>,
-        entrees: Vec<Entrees>,
+        etape: Option<Etape>,
     }
     let mut noeuds = vec![Noeud {
-        monde: depart,
+        monde: depart.clone(),
         parent: None,
-        entrees: prefixe,
+        etape: None,
     }];
     let mut meilleur: HashMap<(i32, i32), u32> = HashMap::new();
     meilleur.insert(cle(&noeuds[0].monde), 0);
     let mut tas = BinaryHeap::new();
     tas.push(Reverse((0u32, 0usize)));
-    let mut arrivee: Option<(u32, usize, Vec<Entrees>)> = None;
+    let mut arrivee: Option<(u32, usize, Etape)> = None;
+    let mut developpes = 0usize;
 
     while let Some(Reverse((cout, i))) = tas.pop() {
         if let Some((cout_arrivee, _, _)) = &arrivee {
@@ -235,23 +275,37 @@ pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
         {
             continue;
         }
-        for &plan in &tous {
-            let (fin, monde, script) = simuler(&noeuds[i].monde, plan);
-            let cout_plan = cout + script.len() as u32;
+        if developpes >= limite {
+            break;
+        }
+        developpes += 1;
+        for &plan in tous {
+            let (fin, monde, entrees) = simuler(&noeuds[i].monde, plan);
+            let cout_plan = cout + entrees.len() as u32;
+            let etape = Etape {
+                plan,
+                entrees,
+                cle: cle(&monde),
+            };
             match fin {
                 Fin::Arrivee => {
                     if arrivee.as_ref().is_none_or(|(c, _, _)| cout_plan < *c) {
-                        arrivee = Some((cout_plan, i, script));
+                        arrivee = Some((cout_plan, i, etape));
+                    }
+                }
+                Fin::Pose if est_cible(&monde) => {
+                    if arrivee.as_ref().is_none_or(|(c, _, _)| cout_plan < *c) {
+                        arrivee = Some((cout_plan, i, etape));
                     }
                 }
                 Fin::Pose => {
-                    let k = cle(&monde);
+                    let k = etape.cle;
                     if meilleur.get(&k).is_none_or(|&c| cout_plan < c) {
                         meilleur.insert(k, cout_plan);
                         noeuds.push(Noeud {
                             monde,
                             parent: Some(i),
-                            entrees: script,
+                            etape: Some(etape),
                         });
                         tas.push(Reverse((cout_plan, noeuds.len() - 1)));
                     }
@@ -261,16 +315,29 @@ pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
         }
     }
 
-    let (_, dernier, fin_script) = arrivee?;
-    // Remonte la chaîne des parents, puis remet les morceaux à l'endroit.
-    let mut morceaux = vec![fin_script];
+    let (_, dernier, etape_finale) = arrivee?;
+    // Remonte la chaîne des parents, puis remet les étapes à l'endroit.
+    let mut etapes = vec![etape_finale];
     let mut courant = Some(dernier);
     while let Some(i) = courant {
-        morceaux.push(noeuds[i].entrees.clone());
+        if let Some(e) = &noeuds[i].etape {
+            etapes.push(e.clone());
+        }
         courant = noeuds[i].parent;
     }
-    morceaux.reverse();
-    Some(morceaux.concat())
+    etapes.reverse();
+    Some(etapes)
+}
+
+/// Cherche les entrées (une par pas) qui mènent du début du niveau `indice` à
+/// l'arrivée sans jamais mourir. `None` si rien n'est trouvé.
+pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
+    let (depart, mut entrees) = depart_pose(indice);
+    let etapes = chercher(&depart, &plans(precis), &|_| false, usize::MAX)?;
+    for e in etapes {
+        entrees.extend(e.entrees);
+    }
+    Some(entrees)
 }
 
 /// Ce que le navigateur doit rejouer à chaque image.
