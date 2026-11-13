@@ -24,6 +24,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Gravir deux étages de nuages en montgolfière : la première monte de 8 tuiles, la seconde s'arrête sous un nuage.",
     duree_cible_s: 30,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// 28 x 18 tuiles, thème Altitude.

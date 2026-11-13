@@ -3,25 +3,31 @@
 //! Étapes : 1) découper les lignes et vérifier le rectangle ; 2) lire chaque
 //! caractère (tuile, entité, repère, décor) ; 3) assembler les éléments qui dépendent
 //! de la grille complète (éclairs, grêle, courants, plateformes mobiles, appui du décor) ;
-//! 4) valider (un départ, une arrivée, trois gouttes).
+//! 4) valider (un départ, une arrivée, trois gouttes) ; 5) poser les aiguilles
+//! d'horloge, dont le cercle se vérifie sur le niveau assemblé.
 
 use std::collections::BTreeMap;
 
 use super::{
-    ErreurNiveau, GenreDecor, GenrePanneau, Niveau, ObjetDecor, Panneau, Tuile, GOUTTES_PAR_NIVEAU,
+    ErreurNiveau, GenreDecor, GenrePanneau, Niveau, ObjetDecor, Panneau, ReglageAiguille, Tuile,
+    GOUTTES_PAR_NIVEAU,
 };
-use crate::aabb::{Aabb, TAILLE_TUILE};
+use crate::aabb::{touche_un_obstacle, Aabb, TAILLE_TUILE};
 use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::{
-    Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, Grele, Lanterne, Montgolfiere,
-    PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi, Ventilateur,
+    Actualisable, Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, Grele, Lanterne,
+    Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi, Ventilateur,
 };
-use crate::physics::{CourantAscendant, VentLateral, JOUEUR_H};
+use crate::physics::{CourantAscendant, Environnement, VentLateral, JOUEUR_H};
 
 /// Vitesse (px/s) des plateformes mobiles.
 pub(super) const VITESSE_MOBILE: f32 = 36.0;
 /// Largeur (px) d'une plateforme mobile : deux tuiles.
 const LARGEUR_MOBILE: f32 = 32.0;
+/// Taille (px) de la plateforme d'une aiguille d'horloge : celle d'une plateforme mobile.
+pub(super) const TAILLE_AIGUILLE: (f32, f32) = (LARGEUR_MOBILE, 8.0);
+/// Vitesse maximale (px/s) d'une aiguille : 2 px par pas, Pépin suit sans peine.
+const VITESSE_MAX_AIGUILLE: f32 = 120.0;
 /// Repos (pas) entre deux coups d'éclair.
 const REPOS_ECLAIR: u16 = 150;
 
@@ -33,7 +39,10 @@ fn px(case: Case) -> (f32, f32) {
     (case.0 as f32 * TAILLE_TUILE, case.1 as f32 * TAILLE_TUILE)
 }
 
-pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
+pub(super) fn analyser(
+    texte: &str,
+    reglages_aiguilles: &[ReglageAiguille],
+) -> Result<Niveau, ErreurNiveau> {
     let mut lignes: Vec<&str> = texte.lines().map(str::trim_end).collect();
     while lignes.first().is_some_and(|l| l.is_empty()) {
         lignes.remove(0);
@@ -79,6 +88,9 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut montgolfieres: Vec<Case> = Vec::new();
     // Chats endormis : il faut la grille entière (appui dessous, place au-dessus).
     let mut chats: Vec<Case> = Vec::new();
+    // Pivots des aiguilles d'horloge : il faut la grille entière (leur cercle ne
+    // doit toucher aucun solide).
+    let mut pivots: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
 
     for (ty, ligne) in lignes.iter().enumerate() {
@@ -130,6 +142,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 'w' => ventilateurs.push(case),
                 'b' => montgolfieres.push(case),
                 'z' => chats.push(case),
+                'h' => pivots.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -358,7 +371,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     }
     let (dx, dy) = px(depart_case);
     let (ax, ay) = px(arrivee_case);
-    Ok(Niveau {
+    let mut niveau = Niveau {
         largeur,
         hauteur,
         tuiles,
@@ -374,7 +387,71 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         vents: vents_laterales,
         panneaux,
         decors: objets_decor,
-    })
+    };
+    // Aiguilles d'horloge : en DERNIER, une fois le niveau assemblé, pour vérifier
+    // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).
+    ajouter_aiguilles(&mut niveau, &pivots, reglages_aiguilles)?;
+    Ok(niveau)
+}
+
+/// Pose une aiguille d'horloge sur chaque pivot `h` (dans l'ordre de lecture),
+/// avec la ligne correspondante de la table `reglages`. Erreurs : pas autant de
+/// réglages que de pivots ; réglage hors des bornes ; cercle qui touche un solide.
+fn ajouter_aiguilles(
+    niveau: &mut Niveau,
+    pivots: &[Case],
+    reglages: &[ReglageAiguille],
+) -> Result<(), ErreurNiveau> {
+    if pivots.len() != reglages.len() {
+        return Err(ErreurNiveau::AiguillesSansReglage {
+            pivots: pivots.len(),
+            reglages: reglages.len(),
+        });
+    }
+    for (&(tx, ty), r) in pivots.iter().zip(reglages) {
+        let ou = (ty + 1, tx + 1);
+        let valide = r.rayon.is_finite()
+            && r.rayon >= 1.0
+            && r.vitesse > 0.0
+            && r.vitesse <= VITESSE_MAX_AIGUILLE
+            && r.phase.is_finite();
+        if !valide {
+            return Err(ErreurNiveau::AiguilleInvalide {
+                ligne: ou.0,
+                colonne: ou.1,
+            });
+        }
+        let (x, y) = px((tx, ty));
+        let centre = (x + TAILLE_TUILE / 2.0, y + TAILLE_TUILE / 2.0);
+        let aiguille = PlateformeMobile::aiguille(
+            TAILLE_AIGUILLE,
+            centre,
+            r.rayon * TAILLE_TUILE,
+            r.vitesse,
+            r.phase / 12.0,
+        );
+        // Un tour complet, pas à pas, exactement comme dans le jeu (sur une copie :
+        // l'aiguille du niveau reste à son heure de départ) : ni la plateforme ni
+        // un Pépin debout dessus (14 px au-dessus d'elle) ne doivent toucher une
+        // tuile solide. Ainsi, porté par l'aiguille, Pépin ne se cogne jamais au
+        // décor (il ne serait plus emporté, et l'aiguille lui passerait au travers).
+        let mut essai = aiguille.clone();
+        let tour = essai.cercle().map_or(0.0, |c| c.pas_par_tour()).ceil() as u32;
+        let env = Environnement::simple(niveau);
+        for _ in 0..=tour {
+            let b = essai.boite;
+            let avec_pepin = Aabb::new(b.x, b.y - JOUEUR_H, b.w, b.h + JOUEUR_H);
+            if touche_un_obstacle(&avec_pepin, niveau, &[]) {
+                return Err(ErreurNiveau::AiguilleBloquee {
+                    ligne: ou.0,
+                    colonne: ou.1,
+                });
+            }
+            essai.actualiser(&env);
+        }
+        niveau.entites.push(Entite::Mobile(aiguille));
+    }
+    Ok(())
 }
 
 /// Regroupe les cases d'un vent en rectangles : d'abord des tronçons

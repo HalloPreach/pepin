@@ -22,6 +22,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Planer avec le vent pour prolonger la traversée du vide. Parapluie fermé pour le résister.",
     duree_cible_s: 30,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// Écran plat (36 x 11 tuiles), thème Soleil.

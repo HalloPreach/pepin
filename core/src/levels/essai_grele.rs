@@ -23,6 +23,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Sauter tôt et planer sous la grêle ; un toit l'arrête, on passe dessous à pied.",
     duree_cible_s: 30,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// 36 x 11 tuiles, thème Altitude (ciel corail : le plus clair des ciels où la

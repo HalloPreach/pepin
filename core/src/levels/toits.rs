@@ -14,6 +14,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Course, saut, planer (maintenir SAUT en l'air).",
     duree_cible_s: 50,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// Dessin du niveau (176 x 11 tuiles). Légende : voir `crate::level`.

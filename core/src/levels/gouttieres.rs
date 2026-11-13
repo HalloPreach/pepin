@@ -14,6 +14,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Flaques à écraser, champignons-trampolines, gouttières suspendues.",
     duree_cible_s: 55,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// Dessin du niveau (190 x 11 tuiles). Légende : voir `crate::level`.

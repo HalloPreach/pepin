@@ -22,6 +22,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
         "Attendre l'escargot au pied de chaque falaise, lui sauter dessus et rebondir en haut.",
     duree_cible_s: 40,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// 35 x 11 tuiles, thème Orage (le ciel violet du futur clocher).

@@ -22,6 +22,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Monter au balcon du drapeau par le souffle du ventilateur (attendre le bon moment), pas par un saut.",
     duree_cible_s: 35,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// 24 x 22 tuiles, thème Gouttières (nuit bleue).

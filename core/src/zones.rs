@@ -13,7 +13,7 @@
 //! - `pub use` : `NIVEAUX` est défini dans `levels` et ré-exporté ici ;
 //! - `Result` : charger un niveau peut échouer, l'appelant décide quoi faire.
 
-use crate::level::{ErreurNiveau, Niveau};
+use crate::level::{ErreurNiveau, Niveau, ReglageAiguille};
 pub use crate::levels::{GenreNiveau, NB_NIVEAUX, NIVEAUX};
 
 /// Ambiance visuelle d'un niveau. Le rendu choisit ciel, parallaxe et pluie
@@ -85,13 +85,16 @@ pub struct InfosNiveau {
     pub duree_cible_s: u16,
     /// Dessin ASCII du niveau (voir la légende dans `level`).
     pub ascii: &'static str,
+    /// Réglage des aiguilles d'horloge du dessin : une ligne par pivot `h`, dans
+    /// l'ordre de lecture (voir `level::ReglageAiguille`). Vide sans aiguille.
+    pub aiguilles: &'static [ReglageAiguille],
 }
 
 impl InfosNiveau {
-    /// Lit le dessin ASCII. Ne peut échouer que si le niveau embarqué est
-    /// invalide, ce que les tests de ce module interdisent.
+    /// Lit le dessin ASCII (et le réglage de ses aiguilles). Ne peut échouer que
+    /// si le niveau embarqué est invalide, ce que les tests de ce module interdisent.
     pub fn charger(&self) -> Result<Niveau, ErreurNiveau> {
-        Niveau::depuis_ascii(self.ascii)
+        Niveau::depuis_ascii_avec_aiguilles(self.ascii, self.aiguilles)
     }
 }
 
@@ -861,7 +864,7 @@ mod tests {
                     None => c,
                 })
                 .collect();
-            let sans = Niveau::depuis_ascii(&sans_texte).unwrap();
+            let sans = Niveau::depuis_ascii_avec_aiguilles(&sans_texte, infos.aiguilles).unwrap();
             let n = infos.numero;
             assert!(!avec.decors.is_empty(), "niveau {n} : aucun décor");
             assert!(sans.decors.is_empty());

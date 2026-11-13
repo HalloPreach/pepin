@@ -665,3 +665,146 @@ fn chat_sans_appui_ou_sans_place_refuse() {
         "{msg}"
     );
 }
+
+// --- Aiguilles d'horloge (carte 5.10) ----------------------------------------
+
+/// Deux pivots `h` : le 1er rencontré en lisant (ligne 2, colonne 4) prend la
+/// 1re ligne de la table, le 2e (ligne 2, colonne 12) la 2e.
+const DEUX_HORLOGES: &str = "
+................
+...h.......h....
+................
+................
+................
+.o.o.o........X.
+.@..............
+################
+";
+
+const DEUX_REGLAGES: [ReglageAiguille; 2] = [
+    ReglageAiguille {
+        rayon: 2.0,
+        vitesse: 30.0,
+        phase: 3.0,
+    },
+    ReglageAiguille {
+        rayon: 1.5,
+        vitesse: 24.0,
+        phase: 6.0,
+    },
+];
+
+#[test]
+fn aiguilles_posees_depuis_leur_table_dans_l_ordre_de_lecture() {
+    let n = Niveau::depuis_ascii_avec_aiguilles(DEUX_HORLOGES, &DEUX_REGLAGES).unwrap();
+    let aiguilles: Vec<_> = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Mobile(m) => m.cercle().map(|c| (m.boite, c.pivot, c.rayon, m.vitesse())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(aiguilles.len(), 2);
+    // 1re : pivot au centre de la case (3, 1), rayon 2 tuiles, partie de 3 h
+    // (à droite du pivot) ; plateforme 32 x 8 centrée sur le cercle.
+    let (b, pivot, rayon, vitesse) = aiguilles[0];
+    assert_eq!((pivot, rayon, vitesse), ((56.0, 24.0), 32.0, 30.0));
+    assert_eq!((b.x, b.y, b.w, b.h), (72.0, 20.0, 32.0, 8.0));
+    // 2e : pivot (11, 1), rayon 1,5 tuile, partie de 6 h (sous le pivot).
+    let (b, pivot, rayon, _) = aiguilles[1];
+    assert_eq!((pivot, rayon), ((184.0, 24.0), 24.0));
+    assert_eq!((b.x, b.y), (168.0, 44.0));
+    assert_eq!(TAILLE_AIGUILLE, (32.0, 8.0));
+}
+
+#[test]
+fn aiguille_sans_reglage_ou_hors_des_bornes_refusee() {
+    // Sans table (lecture simple) : les deux pivots n'ont pas de réglage.
+    assert_eq!(
+        Niveau::depuis_ascii(DEUX_HORLOGES).unwrap_err(),
+        ErreurNiveau::AiguillesSansReglage {
+            pivots: 2,
+            reglages: 0
+        }
+    );
+    // Une ligne de trop dans la table d'un niveau sans pivot.
+    assert_eq!(
+        Niveau::depuis_ascii_avec_aiguilles(PETIT, &DEUX_REGLAGES[..1]).unwrap_err(),
+        ErreurNiveau::AiguillesSansReglage {
+            pivots: 0,
+            reglages: 1
+        }
+    );
+    // Hors des bornes : rayon de moins d'une tuile, vitesse nulle ou trop grande.
+    for faux in [
+        ReglageAiguille {
+            rayon: 0.5,
+            ..DEUX_REGLAGES[1]
+        },
+        ReglageAiguille {
+            vitesse: 0.0,
+            ..DEUX_REGLAGES[1]
+        },
+        ReglageAiguille {
+            vitesse: 121.0,
+            ..DEUX_REGLAGES[1]
+        },
+        ReglageAiguille {
+            phase: f32::NAN,
+            ..DEUX_REGLAGES[1]
+        },
+    ] {
+        assert_eq!(
+            Niveau::depuis_ascii_avec_aiguilles(DEUX_HORLOGES, &[DEUX_REGLAGES[0], faux])
+                .unwrap_err(),
+            ErreurNiveau::AiguilleInvalide {
+                ligne: 2,
+                colonne: 12
+            },
+            "{faux:?}"
+        );
+    }
+    let msg = ErreurNiveau::AiguillesSansReglage {
+        pivots: 2,
+        reglages: 0,
+    }
+    .to_string();
+    assert!(msg.contains("« h »") && msg.contains("réglage"), "{msg}");
+}
+
+#[test]
+fn aiguille_dont_le_cercle_touche_un_solide_refusee() {
+    // Un toit sur le chemin de la 1re aiguille : ligne 4, colonne 4, juste sous
+    // le pivot, là où elle passe à 6 h (bas de la plateforme à y = 60).
+    let mut lignes: Vec<String> = DEUX_HORLOGES.lines().map(String::from).collect();
+    lignes[4].replace_range(3..4, "#");
+    assert_eq!(
+        Niveau::depuis_ascii_avec_aiguilles(&lignes.join("\n"), &DEUX_REGLAGES).unwrap_err(),
+        ErreurNiveau::AiguilleBloquee {
+            ligne: 2,
+            colonne: 4
+        }
+    );
+    // Pépin debout sur l'aiguille compte aussi. Deux lignes vides de plus en haut :
+    // à midi, le dessus de la 1re plateforme est à y = 20 et la tête de Pépin à
+    // y = 6. Une 1re ligne vide : tout va bien. Une 1re ligne de toit (y de 0 à
+    // 16) : la plateforme passe dessous sans la toucher, mais pas Pépin : refusé.
+    let vide = "................";
+    let grand = format!("\n{vide}\n{vide}{DEUX_HORLOGES}");
+    assert!(Niveau::depuis_ascii_avec_aiguilles(&grand, &DEUX_REGLAGES).is_ok());
+    let toit = format!("\n{}\n{vide}{DEUX_HORLOGES}", "#".repeat(16));
+    assert_eq!(
+        Niveau::depuis_ascii_avec_aiguilles(&toit, &DEUX_REGLAGES).unwrap_err(),
+        ErreurNiveau::AiguilleBloquee {
+            ligne: 4,
+            colonne: 4
+        }
+    );
+    let msg = ErreurNiveau::AiguilleBloquee {
+        ligne: 4,
+        colonne: 4,
+    }
+    .to_string();
+    assert!(msg.contains("touche un solide"), "{msg}");
+}

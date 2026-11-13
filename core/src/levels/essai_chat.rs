@@ -24,6 +24,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Attendre que le chat dorme, puis lui tomber dessus ; réveillé, le toucher tue.",
     duree_cible_s: 30,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// 42 x 11 tuiles, thème Toits (la nuit bleue du futur marché couvert).

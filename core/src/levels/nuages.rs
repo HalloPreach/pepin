@@ -19,6 +19,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Final calme : nuages, trampoline, petite traversée de nuages friables, pigeon.",
     duree_cible_s: 45,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// Dessin du niveau (150 x 11 tuiles). Légende : voir `crate::level`.

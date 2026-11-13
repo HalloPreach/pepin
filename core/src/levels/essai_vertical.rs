@@ -27,6 +27,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Caméra verticale : quatre écrans de haut.",
     duree_cible_s: 45,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// Dessin du niveau (24 x 45 tuiles). Légende : voir `crate::level`.

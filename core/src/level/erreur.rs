@@ -57,6 +57,14 @@ pub enum ErreurNiveau {
     /// Un chat endormi (`z`) dort sur un solide (la case du dessous) et il faut
     /// pouvoir lui sauter dessus (la case du dessus libre, dans la carte).
     ChatSansPlace { ligne: usize, colonne: usize },
+    /// Il faut exactement un réglage (`ReglageAiguille`) par pivot `h` de la grille.
+    AiguillesSansReglage { pivots: usize, reglages: usize },
+    /// Le réglage d'une aiguille est hors des bornes : rayon d'au moins 1 tuile,
+    /// vitesse de plus de 0 et d'au plus 120 px/s, heure de départ finie.
+    AiguilleInvalide { ligne: usize, colonne: usize },
+    /// Le cercle d'une aiguille touche un solide (la plateforme, ou Pépin debout
+    /// dessus) : elle passerait à travers le décor.
+    AiguilleBloquee { ligne: usize, colonne: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -117,6 +125,21 @@ impl fmt::Display for ErreurNiveau {
                 f,
                 "ligne {ligne}, colonne {colonne} : le chat « z » doit dormir sur un solide, \
                  sous une case libre (pour qu'on puisse lui sauter dessus)"
+            ),
+            ErreurNiveau::AiguillesSansReglage { pivots, reglages } => write!(
+                f,
+                "{pivots} pivot(s) d'aiguille « h » pour {reglages} réglage(s) dans la table \
+                 des aiguilles (un par pivot)"
+            ),
+            ErreurNiveau::AiguilleInvalide { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : réglage de l'aiguille « h » hors des bornes \
+                 (rayon d'au moins 1 tuile, vitesse de plus de 0 et d'au plus 120 px/s)"
+            ),
+            ErreurNiveau::AiguilleBloquee { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : le cercle de l'aiguille « h » touche un solide \
+                 (la plateforme, ou Pépin debout dessus)"
             ),
         }
     }

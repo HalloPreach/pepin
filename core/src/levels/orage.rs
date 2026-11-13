@@ -16,6 +16,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Éclairs annoncés, plateformes mobiles et friables, ascenseur.",
     duree_cible_s: 60,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// Dessin du niveau (200 x 11 tuiles). Légende : voir `crate::level`.

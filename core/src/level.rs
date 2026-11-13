@@ -43,6 +43,12 @@
 //!      8 tuiles au plus) ; sans lui, elle redescend doucement à sa case
 //!   <  >  vent latéral (zone rectangulaire) : pousse vers la gauche / vers la
 //!           droite ; le plané (parapluie ouvert) est poussé deux fois plus fort
+//!   h  pivot d'une aiguille d'horloge : une plateforme 32 x 8 dont le centre
+//!      tourne autour du centre de la case, dans le sens horaire, le dessus
+//!      toujours horizontal (on s'y tient, elle emporte Pépin) ; rayon, vitesse
+//!      et heure de départ dans la table `aiguilles` du fichier de niveau
+//!      (`ReglageAiguille`, une ligne par `h` dans l'ordre de lecture) ; son
+//!      cercle ne doit toucher aucun solide, ni Pépin debout dessus
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
 //!              antenne, paratonnerre, manche à air, oiseau posé
@@ -67,10 +73,34 @@ pub use erreur::ErreurNiveau;
 
 /// Vitesse (px/s) des plateformes mobiles posées par le parseur.
 pub const VITESSE_PLATEFORMES: f32 = ascii::VITESSE_MOBILE;
+/// Taille (px) de la plateforme d'une aiguille d'horloge (`h`), largeur puis hauteur.
+pub const TAILLE_AIGUILLE: (f32, f32) = ascii::TAILLE_AIGUILLE;
 
 use crate::aabb::{self, Aabb, Grille, TAILLE_TUILE};
 use crate::entities::Entite;
 use crate::physics::{CourantAscendant, VentLateral};
+
+/// Réglage d'une aiguille d'horloge (pivot `h`). Le fichier de niveau en donne
+/// une petite table (`InfosNiveau::aiguilles`) : la 1re ligne règle le 1er `h`
+/// rencontré en lisant la grille (de haut en bas, puis de gauche à droite), la
+/// 2e le 2e, etc. — comme un chiffre désigne une plateforme mobile.
+///
+/// ```text
+/// const AIGUILLES: &[ReglageAiguille] = &[
+///     ReglageAiguille { rayon: 3.0, vitesse: 30.0, phase: 0.0 }, // 1er `h`
+///     ReglageAiguille { rayon: 2.0, vitesse: 20.0, phase: 6.0 }, // 2e `h`
+/// ];
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReglageAiguille {
+    /// Rayon en TUILES, du centre du pivot au centre de la plateforme (au moins 1).
+    pub rayon: f32,
+    /// Vitesse le long du cercle, en px/s (plus de 0, au plus 120 : 2 px par pas).
+    pub vitesse: f32,
+    /// Heure de départ sur le cadran, de 0 à 12 : 0 = midi (au-dessus du pivot),
+    /// 3 = 3 h (à droite), 6 = 6 h (en dessous), 9 = 9 h (à gauche).
+    pub phase: f32,
+}
 
 /// Nombre de gouttes d'or dans chaque niveau.
 pub const GOUTTES_PAR_NIVEAU: usize = 3;
@@ -185,9 +215,19 @@ pub struct Niveau {
 }
 
 impl Niveau {
-    /// Lit un niveau ASCII (voir la légende en tête de module).
+    /// Lit un niveau ASCII (voir la légende en tête de module). Un niveau sans
+    /// aiguille d'horloge : une lettre `h` y est une erreur (son réglage manque).
     pub fn depuis_ascii(texte: &str) -> Result<Niveau, ErreurNiveau> {
-        ascii::analyser(texte)
+        ascii::analyser(texte, &[])
+    }
+
+    /// Lit un niveau ASCII qui a des aiguilles d'horloge : `aiguilles` donne le
+    /// réglage de chaque pivot `h`, dans l'ordre de lecture (voir `ReglageAiguille`).
+    pub fn depuis_ascii_avec_aiguilles(
+        texte: &str,
+        aiguilles: &[ReglageAiguille],
+    ) -> Result<Niveau, ErreurNiveau> {
+        ascii::analyser(texte, aiguilles)
     }
 
     /// Largeur en tuiles.

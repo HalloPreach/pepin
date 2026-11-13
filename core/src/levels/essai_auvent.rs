@@ -23,6 +23,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     mecanique: "Enchaîner six auvents au-dessus du vide : garder la droite pour aller plus loin, la gauche pour retomber plus près.",
     duree_cible_s: 30,
     ascii: ASCII,
+    aiguilles: &[],
 };
 
 /// 44 x 11 tuiles, thème Gouttières (nuit bleue, comme le futur marché couvert).

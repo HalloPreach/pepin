@@ -181,6 +181,7 @@ mod tests {
             mecanique: "",
             duree_cible_s: 0,
             ascii: "",
+            aiguilles: &[],
         }
     }
 
