@@ -22,6 +22,7 @@ use std::collections::{BinaryHeap, HashMap};
 
 use pepin_core::entities::ennemi::PhasePigeon;
 use pepin_core::entities::{Entite, TypeEnnemi};
+use pepin_core::faisabilite::pas_max_plan;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::NB_NIVEAUX;
 
@@ -31,8 +32,6 @@ use crate::entrees::Commandes;
 use crate::monde::Monde;
 use crate::navigation::Navigation;
 
-/// Durée maximale d'un plan, en pas (10 s).
-const PAS_MAX: u16 = 600;
 /// Pas d'immobilité qui valident un atterrissage stable.
 const PAS_STABLE: u16 = 20;
 /// Pas d'attente au départ : Pépin tombe au sol et se pose.
@@ -155,7 +154,9 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
     let mut chute: u16 = 0;
-    for pas in 0..PAS_MAX {
+    // Durée maximale d'un plan : 10 s dans un niveau d'un écran, le temps d'un plané sur
+    // toute la hauteur dans un niveau haut (même règle que le robot du cœur).
+    for pas in 0..pas_max_plan(m.niveau.hauteur_px()) {
         let mut e = Entrees::default();
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
         if !a_decolle && stable == 0 && !marche_finie {
@@ -538,6 +539,102 @@ pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
         .collect()
 }
 
+// --- Niveau d'essai vertical (carte 5.2) -------------------------------------------
+
+/// Une image de la partie d'essai : ce que le navigateur rejoue, et ce qu'on veut
+/// vérifier de la caméra (position RENDUE, celle que la scène dessine, avec `alpha` = 1).
+#[derive(Clone, Copy)]
+pub struct ImageEssai {
+    pub trame: Trame,
+    /// La touche 0 (raccourci du niveau d'essai) est appuyée pendant cette image.
+    pub touche_essai: bool,
+    /// On joue le niveau d'essai (écran de jeu, monde qui avance).
+    pub en_essai: bool,
+    /// Caméra entière `(cx, cy)` et ordonnée de Pépin à l'écran (haut de sa boîte).
+    pub camera: (i32, i32),
+    pub pepin_ecran_y: i32,
+    /// La flèche de repère est dessinée (Pépin au-dessus du cadre).
+    pub repere: bool,
+}
+
+/// Résultat de la partie d'essai jouée à travers l'`Application`.
+pub struct PartieEssai {
+    pub images: Vec<ImageEssai>,
+    pub fin_atteinte: bool,
+    pub morts: u32,
+    pub gouttes: u32,
+}
+
+/// Joue le niveau d'essai vertical à travers l'`Application`, comme le ferait le build de
+/// QA : « JOUER » au titre (image 0), carte du niveau 1, puis, dès la première image de
+/// jeu, la touche 0 ; la carte du niveau d'essai passe, puis le robot joue `parcours`
+/// jusqu'à l'écran de fin.
+pub fn jouer_essai_vertical(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    use crate::monde::INDICE_ESSAI;
+    let mut app = Application::new(true);
+    let mut images = Vec::new();
+    let mut appuyee = false;
+    let mut fin_atteinte = false;
+    for image in 0..60 * 60 * 3 {
+        let mut trame = Trame {
+            valider: image == 0,
+            ..Trame::default()
+        };
+        let en_essai = app.en_jeu() && app.monde.indice == INDICE_ESSAI;
+        let touche_essai = !appuyee && app.en_jeu() && app.monde.indice == 0;
+        appuyee |= touche_essai;
+        if en_essai {
+            if let Some(e) = parcours.get(app.monde.pas as usize) {
+                trame.entrees = *e;
+            }
+        }
+        let nav = Navigation {
+            valider: trame.valider,
+            ..Navigation::default()
+        };
+        let raccourci = touche_essai.then_some(RaccourciNiveau::Essai);
+        app.reagir(&nav, &Commandes::default(), raccourci);
+        app.pas(&trame.entrees);
+        trame.ecran = nom_ecran(app.ecran);
+        trame.x = app.monde.joueur.boite.x;
+        trame.y = app.monde.joueur.boite.y;
+        trame.gouttes = app.monde.etat.gouttes;
+        trame.morts = app.monde.etat.morts;
+        let j = &app.monde.joueur;
+        let camera = app.camera.position_rendue(1.0, (j.boite.x, j.boite.y));
+        let pepin_ecran_y = j.boite.y.round() as i32 - camera.1;
+        let milieu = j.boite.x.round() as i32 - camera.0 + j.boite.w as i32 / 2;
+        let repere = crate::scene::repere_haut(pepin_ecran_y, j.boite.h as i32, milieu).is_some();
+        images.push(ImageEssai {
+            trame,
+            touche_essai,
+            en_essai: en_essai && app.en_jeu(),
+            camera,
+            pepin_ecran_y,
+            repere,
+        });
+        if app.ecran == Ecran::Fin {
+            fin_atteinte = true;
+            break;
+        }
+    }
+    PartieEssai {
+        images,
+        fin_atteinte,
+        morts: app.monde.etat.morts,
+        gouttes: app.monde.etat.gouttes,
+    }
+}
+
+/// Parcours du robot dans le niveau d'essai vertical (maladroit, puis précis).
+pub fn parcours_essai_vertical() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai vertical")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -567,6 +664,93 @@ mod tests {
         }
         let numeros: Vec<u8> = joues.iter().map(|&(n, _)| n).collect();
         assert_eq!(numeros, attendu);
+    }
+
+    /// Le robot finit aussi le niveau d'essai vertical (45 rangées) sans mourir, à travers
+    /// l'`Application` (touche 0 du build de QA). Pendant tout le parcours, la caméra suit
+    /// Pépin en hauteur : elle part de sa borne basse, monte jusqu'en haut du niveau et
+    /// redescend ; Pépin est TOUJOURS entier à l'écran, sauf quand il est lancé au-dessus
+    /// du niveau, et alors la flèche de repère est là (et seulement alors).
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_vertical() {
+        let parcours = parcours_essai_vertical();
+        let partie = jouer_essai_vertical(&parcours);
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche 0, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        assert!(essai.len() > 300, "{} images de jeu", essai.len());
+        let ys: Vec<i32> = essai.iter().map(|i| i.camera.1).collect();
+        let (haut, bas) = (*ys.iter().min().unwrap(), *ys.iter().max().unwrap());
+        assert_eq!((haut, bas), (0, 540), "la caméra parcourt toute la hauteur");
+        assert_eq!(ys[0], 540, "départ en bas");
+        let sommet = ys.iter().position(|&y| y == 0).unwrap();
+        assert!(ys[sommet..].contains(&540), "puis redescend jusqu'en bas");
+        let mut reperes = 0;
+        for (k, i) in essai.iter().enumerate() {
+            let (y, h) = (i.pepin_ecran_y, 14);
+            assert!(y + h <= 180, "image {k} : Pépin sous l'écran (y = {y})");
+            if i.camera.1 > 0 {
+                // Caméra sous sa borne haute : Pépin est entier à l'écran, sans flèche.
+                assert!(
+                    y >= 0 && !i.repere,
+                    "image {k} : Pépin hors de l'écran (y = {y}, caméra {:?})",
+                    i.camera
+                );
+            } else {
+                // Caméra en haut du niveau : la flèche apparaît dès que Pépin est
+                // entièrement au-dessus du cadre, jamais avant.
+                assert_eq!(i.repere, y + h <= 0, "image {k} : y = {y}");
+            }
+            reperes += usize::from(i.repere);
+        }
+        assert!(reperes > 0, "le champignon lance Pépin au-dessus du niveau");
+        println!(
+            "essai vertical : {} images de jeu, {reperes} avec la flèche, gouttes {}",
+            essai.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai vertical pour le navigateur (build de QA) :
+    /// `target/qa/script-52.txt` (un chiffre hexadécimal par image, comme `script.txt`),
+    /// `target/qa/touches-52.txt` (image où appuyer sur la touche 0) et
+    /// `target/qa/trace-52.csv` (position de Pépin et caméra rendue, image par image).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_vertical() {
+        let partie = jouer_essai_vertical(&parcours_essai_vertical());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-52.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        std::fs::write("../target/qa/touches-52.txt", format!("{touche}:Digit0\n")).unwrap();
+        let mut trace = String::from("image,ecran,essai,x,y,cam_x,cam_y,pepin_ecran_y,repere\n");
+        for (k, i) in partie.images.iter().enumerate() {
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                i.pepin_ecran_y,
+                u8::from(i.repere)
+            ));
+        }
+        std::fs::write("../target/qa/trace-52.csv", trace).unwrap();
+        println!(
+            "images : {} ; touche 0 à l'image {touche} ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
     }
 
     /// Écrit le script des touches pour le navigateur : `target/qa/script.txt`

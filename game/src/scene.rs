@@ -449,7 +449,7 @@ const REPERE: (i32, i32) = (5, 3);
 /// boîte de Pépin et sa hauteur ; `milieu_x` : abscisse écran de son milieu. Renvoie l'abscisse
 /// écran (bord gauche) du repère, bornée pour qu'il reste entier dans l'écran, ou `None` tant
 /// que Pépin est visible (au moins une ligne de sa boîte dans le cadre). Fonction pure.
-fn repere_haut(boite_y: i32, boite_h: i32, milieu_x: i32) -> Option<i32> {
+pub(crate) fn repere_haut(boite_y: i32, boite_h: i32, milieu_x: i32) -> Option<i32> {
     if boite_y + boite_h > 0 {
         return None;
     }
