@@ -15,7 +15,7 @@ use crate::entities::{
     Champignon, Eclair, Ennemi, Entite, GoutteDor, Lanterne, PlateformeFriable, PlateformeMobile,
     Pointe, TypeEnnemi,
 };
-use crate::physics::{CourantAscendant, JOUEUR_H};
+use crate::physics::{CourantAscendant, VentLateral, JOUEUR_H};
 
 /// Vitesse (px/s) des plateformes mobiles.
 pub(super) const VITESSE_MOBILE: f32 = 36.0;
@@ -65,6 +65,8 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut arrivees: Vec<Case> = Vec::new();
     let mut eclairs: Vec<Case> = Vec::new();
     let mut vent = vec![false; largeur * hauteur];
+    // Vents latéraux : `<` pousse vers la gauche (-1), `>` vers la droite (+1).
+    let mut vents: Vec<(Case, i8)> = Vec::new();
     let mut mobiles: BTreeMap<char, Vec<Case>> = BTreeMap::new();
     // Pigeons : il faut la grille entière pour trouver leur perchoir.
     let mut pigeons: Vec<Case> = Vec::new();
@@ -109,6 +111,8 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 )))),
                 'e' => eclairs.push(case),
                 'v' => vent[ty * largeur + tx] = true,
+                '<' => vents.push((case, -1)),
+                '>' => vents.push((case, 1)),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -208,6 +212,33 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         )));
     }
 
+    // Vents latéraux : les cases `<` et `>` forment des rectangles de même
+    // sens (deux zones voisines de sens opposés restent distinctes).
+    let grille_vent = |sens: i8| {
+        let mut grille = vec![false; largeur * hauteur];
+        for ((tx, ty), s) in &vents {
+            if *s == sens {
+                grille[ty * largeur + tx] = true;
+            }
+        }
+        grille
+    };
+    let mut vents_laterales: Vec<VentLateral> = Vec::new();
+    for sens in [-1i8, 1] {
+        let grille = grille_vent(sens);
+        for (g, d, h, b) in fusionner_zones(&grille, largeur, hauteur) {
+            vents_laterales.push(VentLateral::new(
+                Aabb::new(
+                    g as f32 * TAILLE_TUILE,
+                    h as f32 * TAILLE_TUILE,
+                    (d - g + 1) as f32 * TAILLE_TUILE,
+                    (b - h + 1) as f32 * TAILLE_TUILE,
+                ),
+                sens,
+            ));
+        }
+    }
+
     let courants = fusionner_courants(&vent, largeur, hauteur);
     // Décor : posé sur la tuile du dessous, qui doit être solide (la dernière
     // ligne n'a pas de dessous : le décor y serait au-dessus du vide).
@@ -239,25 +270,47 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         arrivee: Aabb::new(ax, ay - TAILLE_TUILE, TAILLE_TUILE, 2.0 * TAILLE_TUILE),
         entites,
         courants,
+        vents: vents_laterales,
         panneaux,
         decors: objets_decor,
     })
 }
 
-/// Regroupe les cases de vent en rectangles : d'abord des tronçons verticaux
-/// par colonne, puis fusion des colonnes voisines de même hauteur.
+/// Regroupe les cases d'un vent en rectangles : d'abord des tronçons
+/// verticaux par colonne, puis fusion des colonnes voisines de même hauteur.
 fn fusionner_courants(vent: &[bool], largeur: usize, hauteur: usize) -> Vec<CourantAscendant> {
-    // (colonne gauche, colonne droite, ligne haute, ligne basse), bornes incluses.
+    fusionner_zones(vent, largeur, hauteur)
+        .into_iter()
+        .map(|(g, d, h, b)| {
+            CourantAscendant::new(Aabb::new(
+                g as f32 * TAILLE_TUILE,
+                h as f32 * TAILLE_TUILE,
+                (d - g + 1) as f32 * TAILLE_TUILE,
+                (b - h + 1) as f32 * TAILLE_TUILE,
+            ))
+        })
+        .collect()
+}
+
+/// Regroupe les cases marquées `true` d'une grille en rectangles : d'abord
+/// des tronçons verticaux par colonne, puis fusion des colonnes voisines de
+/// même hauteur. Bornes incluses : (colonne gauche, colonne droite, ligne
+/// haute, ligne basse).
+fn fusionner_zones(
+    zone: &[bool],
+    largeur: usize,
+    hauteur: usize,
+) -> Vec<(usize, usize, usize, usize)> {
     let mut rects: Vec<(usize, usize, usize, usize)> = Vec::new();
     for tx in 0..largeur {
         let mut ty = 0;
         while ty < hauteur {
-            if !vent[ty * largeur + tx] {
+            if !zone[ty * largeur + tx] {
                 ty += 1;
                 continue;
             }
             let haut = ty;
-            while ty < hauteur && vent[ty * largeur + tx] {
+            while ty < hauteur && zone[ty * largeur + tx] {
                 ty += 1;
             }
             let bas = ty - 1;
@@ -271,14 +324,4 @@ fn fusionner_courants(vent: &[bool], largeur: usize, hauteur: usize) -> Vec<Cour
         }
     }
     rects
-        .into_iter()
-        .map(|(g, d, h, b)| {
-            CourantAscendant::new(Aabb::new(
-                g as f32 * TAILLE_TUILE,
-                h as f32 * TAILLE_TUILE,
-                (d - g + 1) as f32 * TAILLE_TUILE,
-                (b - h + 1) as f32 * TAILLE_TUILE,
-            ))
-        })
-        .collect()
 }

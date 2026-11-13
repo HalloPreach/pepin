@@ -18,6 +18,8 @@
 //!   F  plateforme friable      e  éclair (colonne du 1er solide dessus, ou du
 //!                                 haut de la carte, au 1er solide dessous)
 //!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
+//!   <  >  vent latéral (zone rectangulaire) : pousse vers la gauche / vers la
+//!           droite ; le plané (parapluie ouvert) est poussé deux fois plus fort
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
 //!              antenne, paratonnerre, manche à air, oiseau posé
@@ -45,7 +47,7 @@ pub const VITESSE_PLATEFORMES: f32 = ascii::VITESSE_MOBILE;
 
 use crate::aabb::{self, Aabb, Grille, TAILLE_TUILE};
 use crate::entities::Entite;
-use crate::physics::CourantAscendant;
+use crate::physics::{CourantAscendant, VentLateral};
 
 /// Nombre de gouttes d'or dans chaque niveau.
 pub const GOUTTES_PAR_NIVEAU: usize = 3;
@@ -151,6 +153,8 @@ pub struct Niveau {
     pub entites: Vec<Entite>,
     /// Colonnes de vent ascendant.
     pub courants: Vec<CourantAscendant>,
+    /// Zones de vent latéral (`<` vers la gauche, `>` vers la droite).
+    pub vents: Vec<VentLateral>,
     /// Panneaux du tutoriel.
     pub panneaux: Vec<Panneau>,
     /// Objets de décor (dessin seulement).
