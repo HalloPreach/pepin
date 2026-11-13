@@ -8,7 +8,8 @@
 //!   projet : le test `les_niveaux_d_un_ecran_gardent_la_meme_camera` le prouve en
 //!   comparant, pas à pas, avec une copie de l'ancienne caméra ;
 //! - niveau PLUS HAUT que l'écran (les niveaux verticaux de l'étape 5) : la caméra suit
-//!   Pépin en hauteur avec une ZONE MORTE (voir `suivre_en_hauteur`).
+//!   Pépin en hauteur avec une ZONE MORTE et un regard vers le bas pendant les
+//!   descentes (voir `suivre_en_hauteur`).
 //!
 //! La caméra est « pure » (aucun appel graphique) : elle se teste. Elle avance
 //! à pas fixe, comme la physique ; le rendu interpole entre deux pas puis ARRONDIT
@@ -36,17 +37,20 @@ const PART_Y: f32 = 0.58;
 /// monte le centre de Pépin à 0,26 (57 px plus haut) : il reste dans la zone, la caméra
 /// ne bouge pas à chaque saut.
 const ZONE_HAUT: f32 = 0.20;
-/// Bas de la zone morte en chute ou en saut : 126 px.
+/// Bas de la zone morte tant que Pépin n'est pas descendu sous l'endroit où il a quitté
+/// le sol (saut sur place, saut vers le haut) : 126 px.
 const ZONE_BAS: f32 = 0.70;
-/// Bas de la zone morte parapluie ouvert : 90 px. On plane pour descendre : la caméra
-/// laisse voir où l'on va se poser (moitié basse de l'écran).
-const ZONE_BAS_PLANE: f32 = 0.50;
-/// Lissage vertical d'un niveau haut, plus vif que `LISSAGE_Y` : en chute libre
-/// (6 px par pas), la caméra traîne 6 / 0,12 = 50 px derrière sa cible, pas 75.
+/// Bas de la zone morte après une vraie descente (chute ou plané) : 72 px. On voit alors
+/// plus de 100 px sous Pépin, c'est-à-dire où il va se poser.
+const ZONE_BAS_DESCENTE: f32 = 0.40;
+/// Descente (px, sous le point où Pépin a quitté le sol) sur laquelle le bas de la zone
+/// glisse de `ZONE_BAS` à `ZONE_BAS_DESCENTE` : six rangées. Le passage est continu (la
+/// caméra ne saute jamais) ; pendant ces 96 px, elle descend 1,56 fois plus vite que
+/// Pépin, puis à sa vitesse.
+const DESCENTE_REGARD: f32 = 96.0;
+/// Lissage vertical d'un niveau haut (recadrage quand Pépin se pose) : un peu plus vif
+/// que `LISSAGE_Y`.
 const LISSAGE_Y_HAUT: f32 = 0.12;
-/// Marge (px) toujours gardée entre la boîte de Pépin et le haut ou le bas de l'écran,
-/// même en chute rapide (sauf au-dessus du niveau : là, la flèche de repère le montre).
-const MARGE_ECRAN: f32 = 8.0;
 
 /// Coin haut-gauche de la zone visible, en pixels du niveau.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -59,9 +63,12 @@ pub struct Camera {
     avance: f32,
     /// Niveau plus haut que l'écran : la caméra suit Pépin en hauteur.
     en_hauteur: bool,
-    /// Niveau haut seulement : ordonnée VISÉE (avant lissage). Pépin posé la recadre ;
-    /// en l'air elle ne bouge que s'il sort de la zone morte.
+    /// Niveau haut seulement : ordonnée VISÉE (avant lissage), celle du cadrage de Pépin
+    /// la dernière fois qu'il était posé.
     visee_y: f32,
+    /// Niveau haut seulement : ordonnée du centre de Pépin la dernière fois qu'il était
+    /// posé (« point de décollage ») ; mesure de combien il est descendu depuis.
+    decollage_y: f32,
 }
 
 impl Camera {
@@ -74,6 +81,7 @@ impl Camera {
             avance: 0.0,
             en_hauteur: false,
             visee_y: 0.0,
+            decollage_y: 0.0,
         };
         c.recentrer(joueur, largeur_niveau, hauteur_niveau);
         c
@@ -92,6 +100,7 @@ impl Camera {
         self.en_hauteur = Self::suit_en_hauteur(hauteur_niveau);
         // Même cadrage que Pépin posé (`cible` sans anticipation) : y est déjà bornée.
         self.visee_y = self.y;
+        self.decollage_y = joueur.boite.centre().1;
         self.precedente = (self.x, self.y);
         self.avance = 0.0;
     }
@@ -145,34 +154,34 @@ impl Camera {
         }
     }
 
-    /// Suivi vertical d'un niveau plus haut que l'écran, en trois temps :
-    /// 1. visée : Pépin POSÉ est recadré à `PART_Y` (on voit plus haut que lui : le jeu
-    ///    grimpe) ; EN L'AIR, la visée ne bouge pas tant que son centre reste dans la
-    ///    zone morte `[ZONE_HAUT, ZONE_BAS]` de l'écran (`ZONE_BAS_PLANE` parapluie
-    ///    ouvert) : un saut ne fait pas tanguer l'écran, une chute est suivie ;
-    /// 2. la visée est bornée au niveau, puis la caméra s'en rapproche (lissage) ;
-    /// 3. garde-fou : la boîte de Pépin reste à `MARGE_ECRAN` px au moins des bords
-    ///    haut et bas de l'écran, quelle que soit sa vitesse ; seules les bornes du
-    ///    niveau passent avant (au-dessus du niveau, la flèche de repère le montre).
+    /// Suivi vertical d'un niveau plus haut que l'écran, en deux temps :
+    /// 1. recadrage : Pépin POSÉ fixe la visée à `PART_Y` (on voit plus haut que lui :
+    ///    le jeu grimpe) ; la caméra s'en rapproche en douceur (lissage), bornée au
+    ///    niveau. En l'air, la visée reste celle du dernier sol ;
+    /// 2. zone morte : le centre de Pépin doit rester entre `ZONE_HAUT` et le bas de la
+    ///    zone, à l'écran. Ces bords sont DURS (sans lissage, donc sans retard) : s'il les
+    ///    pousse, la caméra avance exactement avec lui. Un saut sur place n'atteint aucun
+    ///    bord : l'écran ne tangue pas. Le bas de la zone remonte, sans à-coup, à mesure
+    ///    que Pépin descend sous son point de décollage (`ZONE_BAS` puis
+    ///    `ZONE_BAS_DESCENTE` après `DESCENTE_REGARD` px) : pendant une longue chute ou un
+    ///    long plané, on voit où l'on va se poser.
+    ///
+    /// Seules les bornes du niveau passent avant : au-dessus du niveau, la caméra s'arrête
+    /// en haut et la flèche de repère montre Pépin.
     fn suivre_en_hauteur(&mut self, joueur: &Joueur, hauteur_niveau: f32) {
         let h = HAUTEUR_LOGIQUE as f32;
         let (_, centre) = joueur.boite.centre();
         if joueur.au_sol {
             self.visee_y = centre - h * PART_Y;
-        } else {
-            let bas = if joueur.plane {
-                ZONE_BAS_PLANE
-            } else {
-                ZONE_BAS
-            };
-            // `clamp(min, max)` : la visée la plus basse garde Pépin sous `ZONE_HAUT`,
-            // la plus haute le garde au-dessus du bas de la zone.
-            self.visee_y = self.visee_y.clamp(centre - h * bas, centre - h * ZONE_HAUT);
+            self.decollage_y = centre;
         }
         self.visee_y = Self::borner(self.visee_y, hauteur_niveau, h);
         self.y += (self.visee_y - self.y) * LISSAGE_Y_HAUT;
-        let (haut, bas) = (joueur.boite.y, joueur.boite.bas());
-        let y = self.y.clamp(bas + MARGE_ECRAN - h, haut - MARGE_ECRAN);
+        let descente = ((centre - self.decollage_y) / DESCENTE_REGARD).clamp(0.0, 1.0);
+        let bas = ZONE_BAS + (ZONE_BAS_DESCENTE - ZONE_BAS) * descente;
+        // `clamp(min, max)` : la caméra la plus haute garde Pépin au-dessus du bas de la
+        // zone, la plus basse le garde sous son haut.
+        let y = self.y.clamp(centre - h * bas, centre - h * ZONE_HAUT);
         self.y = Self::borner(y, hauteur_niveau, h);
     }
 
@@ -702,39 +711,79 @@ mod tests {
         assert!((c.y - (H_TOUR - H_ECRAN)).abs() < 0.01, "y = {}", c.y);
     }
 
-    #[test]
-    fn parapluie_ouvert_on_voit_en_dessous() {
+    /// Pépin quitte la corniche de la rangée 17 (dessus à y = 272) par la droite et
+    /// descend le puits jusqu'au sol (y = 624) : en chute libre, en planant, ou en
+    /// ouvrant le parapluie à mi-chemin. Renvoie, pas par pas, la descente sous le point
+    /// de décollage, le centre de Pépin à l'écran, le déplacement de la caméra, l'état
+    /// « au sol » et la caméra (y).
+    fn descendre_le_puits(plane_des: Option<usize>) -> Vec<(f32, f32, f32, bool, f32)> {
         let g = tour();
         let env = Environnement::simple(&g);
-        // Même puits, d'abord en tombant, puis en planant : on mesure où se tient Pépin à
-        // l'écran une fois le régime établi (après 90 pas).
-        let regime = |saut: bool| {
-            let mut j = Joueur::new(292.0, 4.0);
-            let mut c = Camera::new(&j, L_TOUR, H_TOUR);
-            let mut centres = Vec::new();
-            for pas in 0..150 {
-                let e = Entrees {
-                    direction: Direction::Immobile,
-                    saut,
-                };
-                j.actualiser(&e, &env);
-                c.suivre(&j, L_TOUR, H_TOUR);
-                if pas >= 90 && !j.au_sol {
-                    centres.push(centre_ecran(&j, &c));
-                }
+        let mut j = pose(&g, 272.0, 272.0);
+        let mut c = Camera::new(&j, L_TOUR, H_TOUR);
+        let depart = j.boite.centre().1;
+        let mut suite = Vec::new();
+        for pas in 0..900 {
+            let e = Entrees {
+                direction: if j.boite.x < 292.0 {
+                    Direction::Droite
+                } else {
+                    Direction::Immobile
+                },
+                saut: plane_des.is_some_and(|p| pas >= p),
+            };
+            let avant = c.y;
+            j.actualiser(&e, &env);
+            c.suivre(&j, L_TOUR, H_TOUR);
+            let descente = j.boite.centre().1 - depart;
+            suite.push((descente, centre_ecran(&j, &c), c.y - avant, j.au_sol, c.y));
+            if j.au_sol && descente > 300.0 && (c.y - avant).abs() < 1e-3 {
+                break;
             }
-            assert!(!centres.is_empty());
-            centres.into_iter().fold(0.0_f32, f32::max)
-        };
-        let plane = regime(true);
-        let chute = regime(false);
-        // En planant (0,6 px par pas), la caméra traîne de 5 px au plus derrière le bas de
-        // la zone : au moins 85 px de vue sous Pépin.
-        assert!(plane <= H_ECRAN * ZONE_BAS_PLANE + 6.0, "plané : {plane}");
-        assert!(
-            chute > plane,
-            "en chute, Pépin est plus bas à l'écran : {chute}"
-        );
+        }
+        assert!(suite.last().unwrap().3, "posé au fond du puits");
+        suite
+    }
+
+    #[test]
+    fn une_longue_descente_laisse_voir_ou_l_on_va_se_poser() {
+        for (nom, plane_des) in [("chute", None), ("plané", Some(0)), ("mixte", Some(25))] {
+            let suite = descendre_le_puits(plane_des);
+            for &(descente, centre, dy, au_sol, y) in &suite {
+                // Jamais d'à-coup : au plus 1,6 fois la vitesse de chute maximale (6 px).
+                assert!(dy.abs() <= 1.6 * 6.0 + 0.01, "{nom} : saut de caméra {dy}");
+                // Après 96 px de descente, Pépin est à 72 px du haut de l'écran au plus :
+                // plus de 100 px de vue sous lui. Sauf en bas du niveau : la caméra s'y
+                // arrête (borne basse), Pépin finit sa chute vers le sol, qu'on voit.
+                let en_bas = y >= H_TOUR - H_ECRAN - 0.01;
+                if !au_sol && !en_bas && descente >= DESCENTE_REGARD {
+                    assert!(
+                        centre <= H_ECRAN * ZONE_BAS_DESCENTE + 0.01,
+                        "{nom} : centre à {centre} après {descente} px"
+                    );
+                }
+                // Toujours entier à l'écran (boîte de 14 px).
+                assert!(
+                    centre - 7.0 >= 0.0 && centre + 7.0 <= H_ECRAN,
+                    "{nom} : {centre}"
+                );
+            }
+            // La borne basse a bien été atteinte, et la règle vérifiée avant.
+            assert!(
+                suite.iter().any(|s| s.4 >= H_TOUR - H_ECRAN - 0.01),
+                "{nom}"
+            );
+            let verifies = suite
+                .iter()
+                .filter(|s| !s.3 && s.0 >= DESCENTE_REGARD && s.4 < H_TOUR - H_ECRAN - 0.01)
+                .count();
+            println!(
+                "{nom} : {} pas, {verifies} vérifiés en descente",
+                suite.len()
+            );
+            assert!(verifies >= 10, "{nom} : {verifies}");
+        }
+        assert!(descendre_le_puits(Some(0)).len() > 3 * descendre_le_puits(None).len());
     }
 
     #[test]
