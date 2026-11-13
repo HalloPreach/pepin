@@ -566,3 +566,102 @@ fn montgolfiere_sans_place_pour_le_ballon_refusee() {
         "{msg}"
     );
 }
+
+// --- Chat endormi (carte 5.9) ------------------------------------------------
+
+#[test]
+fn chat_couche_sur_son_toit_et_tourne_vers_le_depart() {
+    use crate::entities::ennemi::{PhaseChat, DORT_PAS};
+    use crate::entities::TypeEnnemi;
+    // Trois chats : en plein toit (colonne 3), contre un mur à sa gauche
+    // (colonne 7 : il regarde à droite), et un troisième (colonne 12).
+    let niveau = "
+.o.o.o..........
+................
+................
+.@.z..Bz....z.X.
+################
+";
+    let n = Niveau::depuis_ascii(niveau).expect("niveau valide");
+    let chats: Vec<_> = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => Some(c),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(chats.len(), 3);
+    // Boîte 14 x 8 au bas de la case, centrée : le dos 8 px au-dessus du toit.
+    for (c, (colonne, droite)) in chats.iter().zip([(3.0, false), (7.0, true), (12.0, false)]) {
+        assert_eq!(
+            (c.boite.x, c.boite.y, c.boite.w, c.boite.h),
+            (colonne * 16.0 + 1.0, 56.0, 14.0, 8.0)
+        );
+        assert_eq!(c.vers_la_droite, droite, "chat de la colonne {colonne}");
+    }
+    // Ils dorment tous au départ, avec des sommeils décalés (0, 40, 80 pas).
+    let phases: Vec<PhaseChat> = chats.iter().map(|c| c.phase_chat()).collect();
+    assert_eq!(
+        phases,
+        vec![
+            PhaseChat::Dort(DORT_PAS),
+            PhaseChat::Dort(DORT_PAS - 40),
+            PhaseChat::Dort(DORT_PAS - 80)
+        ]
+    );
+}
+
+#[test]
+fn chat_sans_appui_ou_sans_place_refuse() {
+    // Dans le vide : rien sous lui.
+    let dans_le_vide = "
+.o.o.o....
+..z.......
+..........
+.@......X.
+##########
+";
+    assert_eq!(
+        Niveau::depuis_ascii(dans_le_vide).unwrap_err(),
+        ErreurNiveau::ChatSansPlace {
+            ligne: 2,
+            colonne: 3
+        }
+    );
+    // Sous un toit : impossible de lui sauter dessus.
+    let sous_un_toit = "
+.o.o.o....
+..#.......
+..z.......
+.@......X.
+##########
+";
+    assert_eq!(
+        Niveau::depuis_ascii(sous_un_toit).unwrap_err(),
+        ErreurNiveau::ChatSansPlace {
+            ligne: 3,
+            colonne: 3
+        }
+    );
+    // Sur la première ligne : le bord haut de la carte le coince aussi.
+    let tout_en_haut = "
+..z.......
+.o#o.o....
+.@......X.
+##########
+";
+    assert!(matches!(
+        Niveau::depuis_ascii(tout_en_haut),
+        Err(ErreurNiveau::ChatSansPlace { ligne: 1, .. })
+    ));
+    let msg = ErreurNiveau::ChatSansPlace {
+        ligne: 3,
+        colonne: 3,
+    }
+    .to_string();
+    assert!(
+        msg.contains("chat « z »") && msg.contains("solide"),
+        "{msg}"
+    );
+}

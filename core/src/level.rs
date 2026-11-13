@@ -22,6 +22,10 @@
 //!   p  pigeon, perché sur le solide du dessous ; il regarde du côté où son
 //!      perchoir s'arrête (à droite seulement si le perchoir continue à gauche
 //!      et s'arrête à droite ; sinon à gauche, vers le départ)
+//!   z  chat endormi, couché sur le solide du dessous, la case du dessus libre ;
+//!      immobile, il dort 4 s, se réveille (annonce de 0,8 s), reste éveillé
+//!      1,2 s, se rendort ; endormi on l'écrase en lui sautant dessus, éveillé
+//!      le toucher tue (même par le dessus)
 //!   F  plateforme friable      e  éclair (colonne du 1er solide dessus, ou du
 //!                                 haut de la carte, au 1er solide dessous)
 //!   g  grêle : colonne de grêlons qui tombe EN CONTINU, de la case `g` au 1er

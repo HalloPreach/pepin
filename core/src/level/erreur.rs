@@ -54,6 +54,9 @@ pub enum ErreurNiveau {
     /// Une montgolfière (`b`) a besoin de deux cases libres au-dessus de sa
     /// nacelle (le ballon) : ni solide, ni bord haut de la carte.
     MontgolfiereSansPlace { ligne: usize, colonne: usize },
+    /// Un chat endormi (`z`) dort sur un solide (la case du dessous) et il faut
+    /// pouvoir lui sauter dessus (la case du dessus libre, dans la carte).
+    ChatSansPlace { ligne: usize, colonne: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -109,6 +112,11 @@ impl fmt::Display for ErreurNiveau {
                 f,
                 "ligne {ligne}, colonne {colonne} : la montgolfière « b » n'a pas deux cases \
                  libres au-dessus d'elle pour son ballon"
+            ),
+            ErreurNiveau::ChatSansPlace { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : le chat « z » doit dormir sur un solide, \
+                 sous une case libre (pour qu'on puisse lui sauter dessus)"
             ),
         }
     }

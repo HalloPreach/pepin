@@ -157,7 +157,9 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                 if e.est_dangereux() && joueur.boite.chevauche(&e.boite) {
                     let par_le_dessus = joueur.vitesse.y > 0.0
                         && joueur.boite.bas() - e.boite.y <= MARGE_ECRASEMENT;
-                    if par_le_dessus {
+                    // Un chat réveillé ne s'écrase pas : même par le dessus, le
+                    // toucher tue (`est_ecrasable` est vrai pour tous les autres).
+                    if par_le_dessus && e.est_ecrasable() {
                         e.ecraser();
                         joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
                         contacts.push(Contact::Ecrase);
@@ -342,6 +344,86 @@ mod tests {
             resoudre_contacts(&mut j, &mut e),
             vec![Contact::Mort(CauseMort::Ennemi)]
         );
+    }
+
+    // --- Chat endormi (carte 5.9) ---
+
+    /// Chat (boîte 14 x 8 en (100, 100)) avancé de `pas` pas dans son cycle.
+    fn chat_apres(pas: u16) -> Entite {
+        let g = GrilleTuiles::vide(16, 16);
+        let env = Environnement::simple(&g);
+        let mut c = Entite::Ennemi(Ennemi::chat(100.0, 100.0, 0));
+        for _ in 0..pas {
+            c.actualiser(&env);
+        }
+        c
+    }
+
+    /// Pépin qui tombe sur le chat, le bas enfoncé de 3 px dans son dos.
+    fn pepin_tombe_sur_le_chat() -> Joueur {
+        let mut j = joueur(102.0, 100.0 - 14.0 + 3.0);
+        j.vitesse.y = 200.0;
+        j
+    }
+
+    #[test]
+    fn le_chat_endormi_s_ecrase_par_le_dessus_et_tue_de_cote() {
+        use crate::entities::ennemi::{DORT_PAS, REVEIL_PAS};
+        // Endormi (début et fin du sommeil) et pendant l'annonce du réveil :
+        // écrasé, Pépin rebondit comme sur les autres ennemis.
+        for pas in [0, DORT_PAS - 1, DORT_PAS, DORT_PAS + REVEIL_PAS - 1] {
+            let mut e = vec![chat_apres(pas)];
+            let mut j = pepin_tombe_sur_le_chat();
+            assert_eq!(
+                resoudre_contacts(&mut j, &mut e),
+                vec![Contact::Ecrase],
+                "pas {pas}"
+            );
+            assert_eq!(j.vitesse.y, -VITESSE_REBOND_ECRASEMENT);
+            assert!(matches!(&e[0], Entite::Ennemi(c) if !c.est_dangereux()));
+        }
+        // Heurté de côté pendant son sommeil : mort (comme une flaque).
+        let mut e = vec![chat_apres(0)];
+        let mut j = joueur(92.0, 94.0);
+        assert_eq!(
+            resoudre_contacts(&mut j, &mut e),
+            vec![Contact::Mort(CauseMort::Ennemi)]
+        );
+    }
+
+    #[test]
+    fn le_chat_eveille_tue_meme_par_le_dessus_et_ne_s_ecrase_pas() {
+        use crate::entities::ennemi::{DORT_PAS, EVEILLE_PAS, REVEIL_PAS};
+        let reveil = DORT_PAS + REVEIL_PAS;
+        for pas in [reveil, reveil + EVEILLE_PAS - 1] {
+            let mut e = vec![chat_apres(pas)];
+            let mut j = pepin_tombe_sur_le_chat();
+            assert_eq!(
+                resoudre_contacts(&mut j, &mut e),
+                vec![Contact::Mort(CauseMort::Ennemi)],
+                "pas {pas}"
+            );
+            assert_eq!(j.vitesse.y, 200.0, "aucun rebond");
+            assert!(matches!(&e[0], Entite::Ennemi(c) if c.est_dangereux()));
+        }
+        // Un pas plus tard, il se rendort : de nouveau écrasable.
+        let mut e = vec![chat_apres(reveil + EVEILLE_PAS)];
+        let mut j = pepin_tombe_sur_le_chat();
+        assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Ecrase]);
+    }
+
+    #[test]
+    fn protege_le_chat_eveille_ne_tue_pas() {
+        use crate::entities::ennemi::{DORT_PAS, REVEIL_PAS};
+        let mut e = vec![chat_apres(DORT_PAS + REVEIL_PAS)];
+        let mut j = pepin_tombe_sur_le_chat();
+        j.proteger();
+        assert!(resoudre_contacts(&mut j, &mut e).is_empty());
+        // Endormi, l'écrasement continue malgré la protection (comme les autres).
+        let mut e = vec![chat_apres(0)];
+        let mut j = pepin_tombe_sur_le_chat();
+        j.proteger();
+        assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Ecrase]);
     }
 
     #[test]

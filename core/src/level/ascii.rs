@@ -77,6 +77,8 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut ventilateurs: Vec<Case> = Vec::new();
     // Montgolfières : il faut la grille entière (place du ballon, plafond au-dessus).
     let mut montgolfieres: Vec<Case> = Vec::new();
+    // Chats endormis : il faut la grille entière (appui dessous, place au-dessus).
+    let mut chats: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
 
     for (ty, ligne) in lignes.iter().enumerate() {
@@ -127,6 +129,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 '>' => vents.push((case, 1)),
                 'w' => ventilateurs.push(case),
                 'b' => montgolfieres.push(case),
+                'z' => chats.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -283,6 +286,31 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         let (x, y) = px((tx, ty));
         let y_haut = Montgolfiere::sommet(y, plafond as f32 * TAILLE_TUILE);
         entites.push(Entite::Montgolfiere(Montgolfiere::nouvelle(x, y, y_haut)));
+    }
+
+    // Chats endormis : couchés sur le solide du dessous (obligatoire), boîte 14 x 8
+    // au bas de la case, centrée. La case du dessus doit être libre (ni solide, ni
+    // bord haut de la carte) : on doit toujours pouvoir lui sauter dessus pendant
+    // son sommeil. Il regarde à gauche (vers le départ), sauf si un solide le
+    // borde à gauche et que la droite est libre. Les premiers sommeils sont
+    // raccourcis de 0, 40, 80 ou 120 pas : deux chats ne se réveillent pas
+    // ensemble (comme les éclairs et les ventilateurs).
+    for (k, &(tx, ty)) in chats.iter().enumerate() {
+        let appui = ty + 1 < hauteur && solide(tx, ty + 1);
+        let place = ty > 0 && !solide(tx, ty - 1);
+        if !appui || !place {
+            return Err(ErreurNiveau::ChatSansPlace {
+                ligne: ty + 1,
+                colonne: tx + 1,
+            });
+        }
+        let mur_gauche = tx > 0 && solide(tx - 1, ty);
+        let libre_droite = tx + 1 < largeur && !solide(tx + 1, ty);
+        let (x, y) = px((tx, ty));
+        let decalage = 40 * (k as u16 % 4);
+        let mut chat = Ennemi::chat(x + 1.0, y + 8.0, decalage);
+        chat.vers_la_droite = mur_gauche && libre_droite;
+        entites.push(Entite::Ennemi(chat));
     }
 
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même

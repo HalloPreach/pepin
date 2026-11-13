@@ -736,6 +736,7 @@ mod tests {
                             TypeEnnemi::Flaque => (en.boite, "flaque"),
                             TypeEnnemi::Corbeau => (en.boite, "corbeau"),
                             TypeEnnemi::Pigeon => (en.boite, "pigeon"),
+                            TypeEnnemi::Chat => (en.boite, "chat"),
                         },
                         Entite::Pointe(p) => (p.zone_danger(), "pointe"),
                         Entite::Eclair(ec) if ec.frappe() => (ec.zone, "éclair"),

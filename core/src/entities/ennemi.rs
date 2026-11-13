@@ -1,13 +1,18 @@
 //! Les ennemis : « flaques » qui patrouillent au sol, corbeaux qui volent en ligne
 //! droite et font demi-tour au bout de leur portée (ou contre un mur), pigeons
-//! perchés qui plongent sur Pépin quand il passe dessous (sous-module `pigeon`).
+//! perchés qui plongent sur Pépin quand il passe dessous (sous-module `pigeon`),
+//! chats endormis qui se réveillent brièvement, en cycle (sous-module `chat`).
 //!
 //! Notions Rust : un `enum` pour le TYPE (`TypeEnnemi`) et un autre pour l'ÉTAT
 //! (`EtatEnnemi`) ; l'état `Ecrase(u8)` PORTE une donnée (les pas d'animation restants) ;
 //! `Option<f32>` pour une portée qui peut ne pas exister (`None` : sans limite).
 
+mod chat;
 mod pigeon;
 
+pub use chat::{
+    phase_chat_suivante, PhaseChat, DORT_PAS, EVEILLE_PAS, PERIODE_CHAT_PAS, REVEIL_PAS,
+};
 pub use pigeon::{
     decalage_vol, phase_suivante, PhasePigeon, ANNONCE_PIGEON_PAS, MARGE_CONE, PLONGEE_PAS,
     PROFONDEUR_PLONGEE, REMONTEE_PAS, REPOS_PIGEON_PAS,
@@ -41,6 +46,9 @@ pub enum TypeEnnemi {
     /// Pigeon : perché, il plonge en diagonale quand Pépin passe dessous, puis
     /// remonte se poser (voir le sous-module `pigeon`).
     Pigeon,
+    /// Chat endormi : immobile ; il dort, se réveille brièvement (annoncé), se
+    /// rendort. Éveillé, on ne peut pas l'écraser (voir le sous-module `chat`).
+    Chat,
 }
 
 impl TypeEnnemi {
@@ -51,6 +59,8 @@ impl TypeEnnemi {
             TypeEnnemi::Corbeau => 40.0,
             // Vitesse de plongée, dans chaque axe (120 px/s).
             TypeEnnemi::Pigeon => PROFONDEUR_PLONGEE / PLONGEE_PAS as f32 * HZ as f32,
+            // Le chat ne bouge jamais.
+            TypeEnnemi::Chat => 0.0,
         }
     }
 
@@ -60,6 +70,8 @@ impl TypeEnnemi {
             TypeEnnemi::Flaque => (12.0, 8.0),
             TypeEnnemi::Corbeau => (12.0, 10.0),
             TypeEnnemi::Pigeon => (12.0, 10.0),
+            // Roulé en boule : plus large que haut (le sprite fait 16 x 14).
+            TypeEnnemi::Chat => (14.0, 8.0),
         }
     }
 
@@ -68,9 +80,10 @@ impl TypeEnnemi {
     /// `Option<f32>` : `None` veut dire « pas de limite ». La flaque n'en a pas
     /// besoin : le bord du vide et les murs la retiennent déjà sur son toit. Le
     /// pigeon non plus : il ne patrouille pas, il revient toujours à son perchoir.
+    /// Le chat ne bouge pas.
     pub fn portee(self) -> Option<f32> {
         match self {
-            TypeEnnemi::Flaque | TypeEnnemi::Pigeon => None,
+            TypeEnnemi::Flaque | TypeEnnemi::Pigeon | TypeEnnemi::Chat => None,
             TypeEnnemi::Corbeau => Some(PORTEE_CORBEAU),
         }
     }
@@ -104,6 +117,8 @@ pub struct Ennemi {
     portee: Option<f32>,
     /// Phase de vol du pigeon (toujours `Perche` pour les autres ennemis).
     phase: PhasePigeon,
+    /// Cycle de sommeil du chat (toujours `Dort(DORT_PAS)` pour les autres).
+    sommeil: PhaseChat,
 }
 
 impl Ennemi {
@@ -122,6 +137,7 @@ impl Ennemi {
             origine_y: y,
             portee: type_ennemi.portee(),
             phase: PhasePigeon::Perche,
+            sommeil: PhaseChat::Dort(DORT_PAS),
         }
     }
 
@@ -212,6 +228,8 @@ impl Actualisable for Ennemi {
                 TypeEnnemi::Corbeau => self.voler(env),
                 // Le pigeon vole sans regarder les tuiles : `env` ne lui sert pas.
                 TypeEnnemi::Pigeon => self.voler_pigeon(),
+                // Le chat ne bouge pas (pas de gravité : il dort sur son toit).
+                TypeEnnemi::Chat => self.dormir(),
             },
             EtatEnnemi::Ecrase(restant) => {
                 self.etat = if restant <= 1 {
