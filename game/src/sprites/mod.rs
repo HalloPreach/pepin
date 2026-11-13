@@ -920,13 +920,13 @@ mod tests {
         let c = dessin("cadran");
         assert_eq!((largeur(c), hauteur(c)), (32, 32));
         let plein = |x: usize, y: usize| c[y].as_bytes()[x] != b'.';
-        for y in 0..32 {
+        for (y, ligne) in c.iter().enumerate() {
             for x in 0..32 {
                 assert_eq!(plein(x, y), plein(31 - x, y), "({x}, {y})");
                 assert_eq!(plein(x, y), plein(x, 31 - y), "({x}, {y})");
                 assert_eq!(plein(x, y), plein(y, x), "({x}, {y})");
             }
-            let l = c[y].trim_matches('.');
+            let l = ligne.trim_matches('.');
             assert!(l.starts_with('0') && l.ends_with('0'), "rangée {y}");
         }
         assert_eq!(&c[15][14..18], "0BB0", "moyeu");
