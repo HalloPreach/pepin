@@ -317,6 +317,16 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 };
                 banque.dessiner(nom, sx, sy - 3.0, false);
             }
+            Entite::Escargot(e) => {
+                // Sprite 16x12 (tourné vers la gauche) posé sur le bas de la boîte
+                // 16x10. Sa coquille de champignon dit déjà « je fais rebondir ».
+                banque.dessiner(
+                    image_escargot(e.est_comprime(), pas),
+                    sx,
+                    sy - 2.0,
+                    e.vers_la_droite,
+                );
+            }
             Entite::Pointe(p) => {
                 // La boîte fait 16 px de large : deux pointes de 8 px.
                 let n = (p.boite.w / 8.0) as i32;
@@ -452,6 +462,16 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
         }
+    }
+}
+
+/// Image de l'escargot : il marche (2 images de 0,25 s), ou sa coquille est
+/// aplatie juste après un rebond. Fonction pure.
+pub(crate) fn image_escargot(comprime: bool, pas: u32) -> &'static str {
+    if comprime {
+        "escargot_rebond"
+    } else {
+        image(&ennemis::ESCARGOT, pas, 15)
     }
 }
 
@@ -1054,6 +1074,22 @@ mod tests {
         };
         immobile = compter_immobile(immobile, &m.joueur, &droite);
         assert_eq!(image_attente(immobile), None);
+    }
+
+    // --- Escargot (carte 5.8) ---
+
+    #[test]
+    fn l_escargot_marche_sur_deux_images_et_s_aplatit_au_rebond() {
+        let marche: Vec<&str> = (0..60).map(|p| image_escargot(false, p)).collect();
+        assert!(marche.contains(&"escargot0") && marche.contains(&"escargot1"));
+        assert!(marche
+            .iter()
+            .all(|n| n.starts_with("escargot") && *n != "escargot_rebond"));
+        assert!((0..60).all(|p| image_escargot(true, p) == "escargot_rebond"));
+        let noms: Vec<&str> = crate::sprites::tous().iter().map(|(n, _)| *n).collect();
+        for n in ["escargot0", "escargot1", "escargot_rebond"] {
+            assert!(noms.contains(&n), "{n}");
+        }
     }
 
     // --- Pigeon (carte 4.4) ---

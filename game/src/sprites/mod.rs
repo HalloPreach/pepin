@@ -263,6 +263,7 @@ mod tests {
             &ennemis::FLAQUE,
             &ennemis::CORBEAU,
             &ennemis::PIGEON,
+            &ennemis::ESCARGOT,
             &objets::GOUTTE,
             &objets::LANTERNE,
             &objets::CHAMPIGNON,
@@ -395,6 +396,82 @@ mod tests {
         }
         assert!(contraste(couleur_de('4'), pepin_core::palette::ARDOISE) >= 3.0);
         assert!(contraste(couleur_de('3'), pepin_core::palette::ARDOISE) < 3.0);
+    }
+
+    // --- Escargot (carte 5.8) ---
+
+    /// Les trois images de l'escargot : marche (2), rebond.
+    const ESCARGOT_TOUT: [&str; 3] = ["escargot0", "escargot1", "escargot_rebond"];
+
+    /// L'escargot (16 x 12) : cerné d'un contour sombre (aucun pixel coloré ne
+    /// touche le vide), posé sur sa boîte 16 x 10 (dernière rangée : contour, sans
+    /// rien dessous). La marche ne change que les cornes (2 rangées du haut).
+    #[test]
+    fn l_escargot_a_trois_images_et_un_contour_sombre() {
+        for nom in ESCARGOT_TOUT {
+            assert_eq!(taille(nom), (16, 12), "{nom}");
+            let d = dessin(nom);
+            for y in 0..12 {
+                for x in 0..16 {
+                    let c = car(d, x, y);
+                    if c == '.' || c == '0' {
+                        continue;
+                    }
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        assert_ne!(
+                            car(d, x + dx, y + dy),
+                            '.',
+                            "{nom} : ({x},{y}) « {c} » touche le vide sans contour"
+                        );
+                    }
+                }
+            }
+            assert!(d[11].chars().all(|c| c == '0' || c == '.'), "{nom}");
+        }
+        let (a, b) = (dessin("escargot0"), dessin("escargot1"));
+        assert_ne!(a, b);
+        assert_eq!(&a[2..], &b[2..], "seules les cornes bougent");
+    }
+
+    /// Sa coquille est celle du champignon : mêmes couleurs (corail 8, corail clair
+    /// 9, pois blancs 7), et le corail domine : on devine qu'il fait rebondir.
+    #[test]
+    fn la_coquille_de_l_escargot_est_un_chapeau_de_champignon() {
+        let couleurs = |nom: &str| -> std::collections::BTreeSet<char> {
+            dessin(nom).iter().flat_map(|l| l.chars()).collect()
+        };
+        let chapeau = couleurs("champignon0");
+        for c in ['7', '8', '9'] {
+            assert!(chapeau.contains(&c), "champignon : {c}");
+            for nom in ESCARGOT_TOUT {
+                assert!(couleurs(nom).contains(&c), "{nom} : {c}");
+            }
+        }
+        // Dans la coquille (et le chapeau), le corail domine nettement.
+        for nom in ["escargot0", "champignon0"] {
+            let compte = |c: char| {
+                dessin(nom)
+                    .iter()
+                    .flat_map(|l| l.chars())
+                    .filter(|&x| x == c)
+                    .count()
+            };
+            assert!(compte('8') > 2 * (compte('9') + compte('7')), "{nom}");
+        }
+    }
+
+    /// L'escargot se lit sur TOUS les ciels : sur chaque bande de ciel de chaque
+    /// thème, le contour sombre ou le corps clair (nuage 6) contraste d'au moins
+    /// 4,5:1.
+    #[test]
+    fn l_escargot_se_detache_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('0'), ciel).max(contraste(couleur_de('6'), ciel));
+                assert!(k >= 4.5, "{theme:?} : escargot sur {ciel:?} : {k:.2}");
+            }
+        }
     }
 
     // --- Pigeon (carte 4.4) ---

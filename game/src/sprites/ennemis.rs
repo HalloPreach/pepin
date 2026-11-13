@@ -1,5 +1,6 @@
-//! Sprites des ennemis : flaques qui patrouillent (16x10), corbeaux (16x12) et
-//! pigeons (16x12).
+//! Sprites des ennemis : flaques qui patrouillent (16x10), corbeaux (16x12),
+//! pigeons (16x12), et l'escargot (16x12), qui n'est pas un ennemi mais patrouille
+//! comme eux.
 
 use super::Image;
 
@@ -186,6 +187,60 @@ pub const PIGEON_ECRASE: Image = &[
     "0000000000000000",
 ];
 
+/// Escargot (16x12, tourné vers la gauche) : « un champignon qui marche ». Sa
+/// coquille reprend le chapeau du champignon (corail, reflet corail clair, pois
+/// blancs) : on devine tout de suite qu'il fait rebondir. Corps bleu-gris pâle
+/// (nuage, ventre brume), œil sombre et joue rose ; deux cornes sombres à
+/// boule. 1re image de la marche : cornes dressées.
+pub const ESCARGOT0: Image = &[
+    ".00.00..........",
+    ".00.00...00000..",
+    "..0..0..0998880.",
+    ".00000.098878880",
+    "0666660888878880",
+    "0606660888888780",
+    "0669660878888880",
+    "0666660888878880",
+    "0666666000000000",
+    "0666666666666660",
+    "0555555555555550",
+    ".00000000000000.",
+];
+
+/// Escargot, 2e image de la marche : les boules des cornes se penchent vers
+/// l'arrière d'un pixel (seules les deux rangées du haut changent).
+pub const ESCARGOT1: Image = &[
+    "..00.00.........",
+    "..00.00..00000..",
+    "..0..0..0998880.",
+    ".00000.098878880",
+    "0666660888878880",
+    "0606660888888780",
+    "0669660878888880",
+    "0666660888878880",
+    "0666666000000000",
+    "0666666666666660",
+    "0555555555555550",
+    ".00000000000000.",
+];
+
+/// Rebond : la coquille s'aplatit sous le poids de Pépin (comme le chapeau du
+/// champignon), les cornes rentrées, l'œil fermé ; il reste mignon.
+pub const ESCARGOT_REBOND: Image = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    ".........00000..",
+    ".00000..0998880.",
+    "0666660098878880",
+    "0600960888888780",
+    "0666666000000000",
+    "0666666666666660",
+    "0555555555555550",
+    ".00000000000000.",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("flaque0", FLAQUE0),
@@ -200,6 +255,9 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pigeon_plongee", PIGEON_PLONGEE),
     ("pigeon_remontee", PIGEON_REMONTEE),
     ("pigeon_ecrase", PIGEON_ECRASE),
+    ("escargot0", ESCARGOT0),
+    ("escargot1", ESCARGOT1),
+    ("escargot_rebond", ESCARGOT_REBOND),
 ];
 
 /// Images de la patrouille d'une flaque (3 images).
@@ -208,3 +266,5 @@ pub const FLAQUE: [&str; 3] = ["flaque0", "flaque1", "flaque2"];
 pub const CORBEAU: [&str; 2] = ["corbeau0", "corbeau1"];
 /// Pigeon perché : il hoche la tête (2 images).
 pub const PIGEON: [&str; 2] = ["pigeon0", "pigeon1"];
+/// Escargot qui marche (2 images).
+pub const ESCARGOT: [&str; 2] = ["escargot0", "escargot1"];
