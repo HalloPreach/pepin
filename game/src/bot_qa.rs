@@ -23,6 +23,7 @@ use std::collections::{BinaryHeap, HashMap};
 
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::ennemi::PhasePigeon;
+use pepin_core::entities::montgolfiere::EtatMontgolfiere;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::faisabilite::pas_max_plan;
 use pepin_core::player::{Direction, Entrees};
@@ -629,6 +630,11 @@ pub struct ImageEssai {
     pub rebond_auvent: bool,
     /// Pépin est posé au sol (sur une tuile ou un solide) à la fin de cette image.
     pub au_sol: bool,
+    /// Haut des nacelles des deux premières montgolfières du niveau, de gauche à
+    /// droite (carte 5.7 ; -1 s'il n'y en a pas).
+    pub nacelles: [f32; 2],
+    /// Une montgolfière monte pendant cette image (Pépin à bord, brûleur allumé).
+    pub montee: bool,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -688,6 +694,25 @@ fn jouer_essai(
             });
         let rebond_auvent = app.monde.contacts.contains(&Contact::Auvent);
         let au_sol = j.au_sol;
+        // Montgolfières rangées de gauche à droite (l'ordre du parcours dans
+        // l'essai), et non dans l'ordre de lecture du niveau (de haut en bas).
+        let mut montgolfieres: Vec<(f32, f32, bool)> = app
+            .monde
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Montgolfiere(m) => {
+                    Some((m.boite.x, m.boite.y, m.etat() == EtatMontgolfiere::Montee))
+                }
+                _ => None,
+            })
+            .collect();
+        montgolfieres.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut nacelles = [-1.0f32; 2];
+        for (y, m) in nacelles.iter_mut().zip(&montgolfieres) {
+            *y = m.1;
+        }
+        let montee = montgolfieres.iter().any(|m| m.2);
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -698,6 +723,8 @@ fn jouer_essai(
             sous_la_grele,
             rebond_auvent,
             au_sol,
+            nacelles,
+            montee,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -850,6 +877,76 @@ pub fn parcours_essai_ventilateur() -> Vec<Entrees> {
     trouver_parcours(i, false)
         .or_else(|| trouver_parcours(i, true))
         .expect("le robot ne trouve aucun parcours au niveau d'essai ventilateur")
+}
+
+/// Joue le niveau d'essai « montgolfière » (touche F5 du build de QA) — voir
+/// `jouer_essai`.
+pub fn jouer_essai_montgolfiere(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_MONTGOLFIERE,
+        RaccourciNiveau::Essai6,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans le niveau d'essai « montgolfière » (maladroit, puis
+/// précis). Rien de spécial pour lui : sur la VRAIE simulation, un plan qui finit
+/// dans la nacelle la fait monter ; il apprend qu'il faut y attendre (plans
+/// « attendre ») jusqu'à ce qu'elle s'arrête en haut, puis avancer vers l'étage.
+/// Un Pépin trop au bord de la nacelle se cognerait la tête et l'arrêterait plus
+/// bas : ces plans-là ne mènent nulle part et sont écartés.
+pub fn parcours_essai_montgolfiere() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_MONTGOLFIERE;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai montgolfière")
+}
+
+/// Parcours « jusqu'en haut » du niveau d'essai « montgolfière » : le robot monte
+/// dans chaque montgolfière à son tour (de gauche à droite) et y reste jusqu'à ce
+/// qu'elle s'arrête EN HAUT (8 tuiles pour la première, sous le nuage pour la
+/// seconde), puis va au drapeau. Chaque morceau est un plus court chemin
+/// (`chercher`) dont la cible est « posé dans CETTE nacelle, arrivée en haut ». Le
+/// parcours le plus rapide, lui, saute de la nacelle avant le haut : celui-ci montre
+/// toute la mécanique (montée, arrêt en haut, redescente à vide) pour les captures.
+pub fn parcours_essai_montgolfiere_jusqu_en_haut() -> Vec<Entrees> {
+    let (mut monde, mut entrees) = depart_pose(crate::monde::INDICE_ESSAI_MONTGOLFIERE);
+    let mut nacelles: Vec<(f32, f32)> = monde
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Montgolfiere(m) => Some((m.boite.x, m.altitudes().1)),
+            _ => None,
+        })
+        .collect();
+    nacelles.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let tous = plans(false);
+    let mut jouer = |monde: &mut Monde, etapes: Vec<Etape>| {
+        for e in etapes {
+            for x in &e.entrees {
+                monde.avancer(x);
+            }
+            entrees.extend(e.entrees);
+        }
+    };
+    for (x, haut) in nacelles {
+        // Posé dans CETTE nacelle, arrivée tout en haut.
+        let en_haut = |m: &Monde| {
+            m.joueur.au_sol
+                && m.entites.iter().any(|e| {
+                    matches!(e, Entite::Montgolfiere(n)
+                        if n.boite.x == x && n.boite.y == haut && n.a_un_passager())
+                })
+        };
+        let etapes = chercher(&monde, &tous, &en_haut, usize::MAX)
+            .expect("le robot ne sait pas monter en haut de la montgolfière suivante");
+        jouer(&mut monde, etapes);
+    }
+    let etapes = chercher(&monde, &tous, &|_| false, usize::MAX)
+        .expect("le robot ne sait pas finir après la dernière montgolfière");
+    jouer(&mut monde, etapes);
+    entrees
 }
 
 #[cfg(test)]
@@ -1050,6 +1147,100 @@ mod tests {
             partie.gouttes,
             dernier.trame.x,
             dernier.trame.y
+        );
+    }
+
+    /// Le robot finit le niveau d'essai « montgolfière » (carte 5.7) sans mourir, à
+    /// travers l'`Application` (touche F5 du build de QA), par le parcours le plus
+    /// RAPIDE : trois gouttes, l'arrivée tout en haut (étage du drapeau). Il saute de
+    /// la nacelle dès que l'étage suivant est à portée de saut, mais il a dû y monter :
+    /// la première l'a porté de plus d'un saut (56 px). Pendant toute montée où il est
+    /// posé, ses pieds sont PILE sur le dessus d'une nacelle (porté, sans glisser).
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_montgolfiere() {
+        let partie = jouer_essai_montgolfiere(&parcours_essai_montgolfiere());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(
+            partie.gouttes, 3,
+            "les trois gouttes de l'essai montgolfière"
+        );
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F5, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let dernier = essai.last().unwrap();
+        assert!(
+            dernier.trame.y < 80.0,
+            "arrivée à l'étage du drapeau (y = {:.1})",
+            dernier.trame.y
+        );
+        let plus_haut = |k: usize| essai.iter().map(|i| i.nacelles[k]).fold(f32::MAX, f32::min);
+        assert!(plus_haut(0) < 256.0 - 48.0, "nacelle 1 : {}", plus_haut(0));
+        let portees: Vec<&&ImageEssai> = essai.iter().filter(|i| i.montee && i.au_sol).collect();
+        assert!(portees.len() > 60, "{} images portées", portees.len());
+        for i in &portees {
+            let pieds = i.trame.y + pepin_core::physics::JOUEUR_H;
+            assert!(
+                i.nacelles.iter().any(|&n| (pieds - n).abs() < 0.01),
+                "pieds en y = {pieds}, nacelles en y = {:?}",
+                i.nacelles
+            );
+        }
+        println!(
+            "essai montgolfière (le plus rapide) : {} images de jeu, {} portées, plus haut : \
+             {:.1} et {:.1}",
+            essai.len(),
+            portees.len(),
+            plus_haut(0),
+            plus_haut(1)
+        );
+    }
+
+    /// Le parcours « jusqu'en haut » (celui des captures) : chaque montgolfière monte
+    /// JUSQU'EN HAUT puis s'arrête — la première de 8 tuiles (nacelle de y = 256 à
+    /// y = 128), la seconde sous le nuage (de y = 144 à y = 64) —, Pépin y est
+    /// toujours posé pendant la montée, et la première, quittée, redescend vers son
+    /// quai pendant que Pépin monte dans la seconde. Trois gouttes, aucune mort.
+    #[test]
+    fn le_robot_monte_jusqu_en_haut_des_deux_montgolfieres() {
+        let partie = jouer_essai_montgolfiere(&parcours_essai_montgolfiere_jusqu_en_haut());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(partie.gouttes, 3);
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let dernier = essai.last().unwrap();
+        let plus_haut = |k: usize| essai.iter().map(|i| i.nacelles[k]).fold(f32::MAX, f32::min);
+        assert_eq!(plus_haut(0), 128.0, "la première monte de 8 tuiles");
+        assert_eq!(plus_haut(1), 64.0, "la seconde s'arrête sous le nuage");
+        let montees = essai.iter().filter(|i| i.montee).count();
+        assert!(
+            montees >= 260,
+            "{montees} images de montée (128 + 80 px à 0,8 px : 260)"
+        );
+        // Une montée où Pépin n'est pas posé ne dure qu'une image : celle où il
+        // saute de la nacelle (elle montait encore au début du pas). Dès l'image
+        // suivante, plus aucune nacelle ne monte.
+        for (k, i) in essai.iter().enumerate() {
+            if i.montee && !i.au_sol {
+                assert!(
+                    essai.get(k + 1).is_none_or(|s| !s.montee),
+                    "image {k} : Pépin en l'air pendant une montée"
+                );
+            }
+        }
+        assert!(
+            dernier.nacelles[0] > 128.0 + 20.0,
+            "quittée, la première redescend (nacelle en y = {:.1})",
+            dernier.nacelles[0]
+        );
+        println!(
+            "essai montgolfière (jusqu'en haut) : {} images de jeu, {montees} de montée, \
+             nacelles à la fin en y = {:?}",
+            essai.len(),
+            dernier.nacelles
         );
     }
 
@@ -1281,6 +1472,48 @@ mod tests {
         std::fs::write("../target/qa/trace-55.csv", trace).unwrap();
         println!(
             "images : {} ; F3 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai « montgolfière » (parcours jusqu'en haut :
+    /// les deux montées complètes) pour le navigateur :
+    /// `target/qa/script-57.txt`, `target/qa/touches-57.txt` (image du pilote où
+    /// appuyer sur F5, une image après la trace : le navigateur a un pas de retard) et
+    /// `target/qa/trace-57.csv` (position de Pépin, caméra, sol, nacelles, montée).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_montgolfiere
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_montgolfiere() {
+        let partie = jouer_essai_montgolfiere(&parcours_essai_montgolfiere_jusqu_en_haut());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-57.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-57.txt", format!("{pilote}:F5\n")).unwrap();
+        let mut trace =
+            String::from("image,ecran,essai,x,y,cam_x,cam_y,au_sol,nacelle1,nacelle2,montee\n");
+        for (k, i) in partie.images.iter().enumerate() {
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{:.1},{:.1},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.au_sol),
+                i.nacelles[0],
+                i.nacelles[1],
+                u8::from(i.montee)
+            ));
+        }
+        std::fs::write("../target/qa/trace-57.csv", trace).unwrap();
+        println!(
+            "images : {} ; F5 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );
