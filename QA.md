@@ -1019,3 +1019,17 @@ Limites : jugé sur captures à l'échelle 3 ; l'oiseau (12 x 8) est petit, voul
 passer pour un ennemi). Les objets sont devant les silhouettes du fond mais derrière Pépin : il passe
 devant une cheminée sans la heurter, ce qui est le comportement attendu d'un décor. Pas testé : vrai
 téléphone, Safari/Firefox ; aucun son ne change.
+
+Vérification sur une extraction propre de 7e9868a (`git archive`, nouveau dossier daté) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 161 + 190 tests, tous verts (14 de
+  plus qu'à la carte 4.1) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit,
+  0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+- `docs/planche-sprites.png` régénérée par les tests de l'extraction : identique à l'octet à celle du
+  commit.
+- Les 7 captures « après » refaites sur le build de QA de l'extraction (mêmes images du rejeu) et
+  regardées : même scène, décor au même endroit. Une est identique à l'octet
+  (`42-niveau1-debut-apres`) ; les 6 autres sont décalées d'un pixel logique en x (la caméra suit la
+  position interpolée de Pépin, et le rejeu ne fige pas toujours au même instant entre deux pas) ;
+  une fois ce décalage compensé, il ne reste que des différences éparses (pluie, parallaxe du fond).
+  Le même décalage d'un pixel existe entre certaines paires avant/après : il vient du rejeu, pas du
+  décor.
