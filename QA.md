@@ -1927,3 +1927,130 @@ Limites (non testé ou à relativiser) :
 - Une seule colonne de souffle (16 px, une case) ; un ventilateur plus large (deux cases) n'a
   pas été fait.
 - Le souffle n'a pas de son : rien n'est entendu (comme la plupart des mécaniques).
+
+## Montgolfière, niveau d'essai « montgolfière » (carte 5.7)
+
+Lettre `b` : une montgolfière. Sa nacelle (16 x 8, moitié HAUTE de la case `b`, SOLIDE :
+son dessus est au ras d'un toit de la même rangée) monte quand Pépin s'y tient, à 48 px/s
+(0,8 px par pas), jusqu'au premier solide au-dessus du ballon ou 8 tuiles au plus, puis
+s'arrête ; quand il la quitte, elle redescend doucement (24 px/s) jusqu'à son altitude de
+départ. Le ballon (deux cases au-dessus de la nacelle) n'est qu'un dessin : on le traverse,
+mais il ne traverse rien (la montée s'arrête quand il toucherait un solide). Aucune touche
+nouvelle. Aucun niveau du jeu n'est modifié.
+
+Ce qui a été fait :
+- Cœur (`core/src/entities/montgolfiere.rs`) : `Montgolfiere { boite, ... }`, états
+  `EtatMontgolfiere` (Repos, Montee, EnHaut, Descente). À chaque pas : `actualiser` fait
+  monter la nacelle si Pépin était à bord au pas précédent (sans dépasser le sommet, et
+  seulement si ni le ballon ni Pépin debout dedans n'entreraient dans un solide : une
+  corniche au-dessus du bord de la nacelle arrête la montée), sinon redescendre (jamais sur
+  Pépin juste en dessous) ; `contacts::porter_par_plateformes` pose les pieds de Pépin PILE
+  sur la nacelle (pas d'addition de déplacement : aucun cheveu d'arrondi, aucun glissement) ;
+  `resoudre_contacts` appelle `embarquer` (Pépin posé dessus à la fin du pas ?). Nouvelle
+  fonction `aabb::touche_un_obstacle`. `Montgolfiere::sommet` (pure) : le plafond ou 8
+  tuiles. Tests sur des MINI-NIVEAUX (8 x 16) : montée portée sans glisser (100 pas : pieds
+  sur la nacelle, x inchangé, 0,8 px par pas), arrêt pile à 8 tuiles, arrêt sous un plafond
+  (le haut du ballon le touche), arrêt avant que la tête de Pépin ne cogne une corniche puis
+  reprise quand il recule, redescente douce jusqu'à l'altitude de départ exacte, saut puis
+  reprise de la montée, pas de redescente sur Pépin, repos sans passager.
+- Analyse ASCII (`core/src/level/ascii.rs`, légende de `core/src/level.rs`) : « b » ; les
+  deux cases au-dessus doivent être libres (ni solide, ni bord haut de la carte), sinon
+  erreur `MontgolfiereSansPlace` (ligne, colonne). Tests du parseur (place de la nacelle,
+  sommet sous un toit ou à 8 tuiles, refus).
+- Robot de faisabilité (`core/src/faisabilite.rs`) : comme une plateforme mobile, deux
+  nacelles immobiles (au repos et en haut) ; posé sur la nacelle au repos, il peut attendre la
+  montée (coût : 128 px à 48 px/s = 160 pas pour 8 tuiles) si sa boîte monte sans rien
+  toucher. Tests sur un mini-niveau : balcon atteint par la seule montgolfière (témoin sans
+  nacelle), robot maladroit compris ; balcon hors de portée au-delà des 8 tuiles.
+- Niveau d'essai « ESSAI MONTGOLFIÈRE » (`core/src/levels/essai_montgolfiere.rs`, 28 x 18,
+  thème Altitude), hors de la table `NIVEAUX`, touche F5 du build de QA seulement
+  (« Essai montgolfi » 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/game.wasm`). Une
+  tour de nuages en deux montgolfières : la première monte de 8 tuiles (rien au-dessus),
+  la seconde s'arrête sous un nuage. Contrôles (`core/src/zones.rs`) : faisable par le robot
+  précis et le maladroit (8,0 s en course rapide, 57 états), 3 gouttes, 3 lanternes ; sans
+  montgolfière rien n'est atteint, et sans la seconde le drapeau reste hors de portée.
+- Jeu (`game/src/monde.rs`, `game/src/entrees.rs`, `game/src/contenu.rs`,
+  `game/src/ecrans/carte.rs`) : raccourci F5 (`RaccourciNiveau::Essai6`,
+  `monde::INDICE_ESSAI_MONTGOLFIERE` = NB_NIVEAUX + 5), intro, carte de présentation ; test
+  `le_raccourci_d_essai_charge_le_niveau_des_montgolfieres`. README : touche F5,
+  `montgolfiere.rs`.
+- Robot de QA (`game/src/bot_qa.rs`, vraie simulation) : `parcours_essai_montgolfiere` (le
+  plus rapide : 399 images de jeu, il saute de la nacelle dès que l'étage est à portée,
+  104 images portées, pieds pile sur la nacelle à chacune) et
+  `parcours_essai_montgolfiere_jusqu_en_haut` (563 images de jeu, 262 de montée : la
+  première monte de 8 tuiles, nacelle de y = 256 à y = 128, la seconde jusque sous le nuage,
+  de y = 144 à y = 64 ; la première, quittée, redescend : y = 251,6 à la fin). Les deux :
+  3 gouttes, 0 mort, F5 une fois. `ecrire_script_essai_montgolfiere` (ignoré) écrit
+  `target/qa/script-57.txt`, `touches-57.txt` (229:F5) et `trace-57.csv`.
+- Rendu (`game/src/sprites/objets.rs`, `game/src/scene.rs`) : trois sprites 20 x 40
+  (enveloppe à fuseaux cyan et blancs, fuseau de droite dans l'ombre, cordes, nacelle
+  tressée orange et or de 16 x 8 qui couvre exactement la boîte solide). Indice visuel : la
+  flamme du brûleur éclaire la jupe de l'enveloppe et vacille (une image sur 4 pas)
+  seulement pendant la MONTÉE. Tests : nacelle = boîte, seules les rangées de la jupe
+  changent d'une image à l'autre, lisible sur tous les ciels (contour sombre, blanc ou cyan :
+  contraste ≥ 4,5:1 sur chaque bande de ciel de chaque thème ; ni orange ni or dans
+  l'enveloppe, qui se fondraient dans les ciels du soleil). Planche régénérée
+  (`docs/planche-sprites.png`), vérifiée à l'œil.
+
+Mesure de difficulté : inchangée (aucun niveau du jeu n'a de montgolfière ; le portage par
+les plateformes mobiles n'a pas changé). `docs/mesure-difficulte.txt` régénéré sur
+l'extraction propre de b524dcf : identique à l'octet au fichier versionné (celui de la
+carte 5.6). Morts moyennes (avant = après) :
+
+| Niveau                      | Débutant (avant = après) | Habitué (avant = après) | Expert (avant = après) |
+| --------------------------- | ------------------------ | ----------------------- | ---------------------- |
+| 1. Les toits                | 0,4                      | 0,1                     | 0,0                    |
+| 2. Gouttières et cheminées  | 1,5                      | 0,5                     | 0,2                    |
+| 3. Le grand orage           | 3,0                      | 0,6                     | 0,4                    |
+| 4. Vents d'altitude         | 1,3                      | 0,4                     | 0,1                    |
+| 5. Au-dessus des nuages     | 0,5                      | 0,1                     | 0,0                    |
+| Total                       | 6,8                      | 1,8                     | 0,7                    |
+
+Même jeu qu'avant, à l'octet (extraction propre de b524dcf contre les fichiers de
+`target/qa/` écrits par les cartes précédentes) : `script.txt` et `trace.csv` du robot
+principal (12 131 images, empreinte `e03e19a27c17c283`), et les scripts des essais vertical
+(52), vent (53), grêle (54) et auvent (55).
+
+Captures (`docs/qa/57-*`, 960 x 540, build de QA d'une extraction propre de b524dcf servi
+en local sur 127.0.0.1, Chromium 145 piloté par CDP, onglet au premier plan et canvas
+focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-57.txt` et
+`TOUCHES=target/qa/touches-57.txt`, serveur arrêté à la fin) :
+- `57-carte-niveau1` (image 101) puis `57-carte-essai` (351) : carte « ESSAI MONTGOLFIÈRE »,
+  texte et astuce dans le cadre ;
+- `57-essai-depart` (481) : Pépin sur le quai, la première nacelle au ras du quai, la
+  seconde au ras de l'étage du milieu ; les ballons cyan et blanc se lisent sur le ciel
+  corail et violet ;
+- `57-essai-montee` (601) : Pépin debout dans la nacelle qui monte, la flamme jaune et
+  orange dans la jupe (vérifié au pixel sur la grille logique, `GRILLE=1`) ;
+- `57-essai-en-haut` (705) : arrêtée 8 tuiles plus haut, flamme éteinte ;
+- `57-essai-redescente` (801) : Pépin sur l'étage du milieu, la première montgolfière
+  redescend à vide sous l'étage ;
+- `57-essai-seconde-montee` (871) : seconde montée, flamme allumée, le nuage au-dessus ;
+- `57-essai-sous-le-nuage` (916) : le haut du ballon touche le nuage, Pépin saute ;
+- `57-essai-arrivee` (1019) : Pépin attrape le drapeau, la seconde montgolfière redescend ;
+- `57-fin` (60 images après la fin du script) : « LE SOLEIL ! », 0:09,3, 3 gouttes (3/15 :
+  celles de l'essai), 0 mort.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette,
+0 bloc flou, sur les 10.
+
+Vérification sur une extraction propre de b524dcf (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+254 + 249 tests, tous verts (1 + 10 ignorés : écritures de fichiers et diagnostics) ;
+`./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms
+interdits, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit.
+
+Limites (non testé ou à relativiser) :
+- Le niveau d'essai n'existe que dans le build de QA ; aucun niveau du jeu n'a encore de
+  montgolfière (la mer de nuages viendra avec sa carte).
+- Le robot de faisabilité garde la nacelle « en haut » comme un solide permanent (comme
+  les deux bouts d'une plateforme mobile) : il pourrait la croire atteignable sans y être
+  monté. Il renonce à la montée quand la boîte de Pépin toucherait un solide (la vraie
+  nacelle s'arrêterait plus bas). Le robot de QA, sur la vraie simulation, fait foi.
+- Pépin peut se tenir sur le BORD de la nacelle (quelques pixels) : il est alors porté, mais
+  paraît à côté des cordes (capture `57-essai-seconde-montee`). Comme pour les autres
+  plateformes.
+- Le parcours le plus rapide saute de la nacelle avant le haut dès que l'étage suivant est à
+  portée : un niveau qui veut imposer la montée complète doit mettre l'étage hors de portée
+  d'un saut depuis toute hauteur intermédiaire.
+- Le brûleur n'a pas de son : rien n'est entendu. Captures dans Chromium seulement, à
+  960 x 540 ; pas de vrai téléphone, pas de Safari ni Firefox.
