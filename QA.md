@@ -1462,6 +1462,106 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  caméra verticale n'a de sens que sur un niveau > 4 écrans, l'essai en fait exactement
  quatre), niveau réel de plus de quatre écrans.
 
+## Vent latéral, niveau d'essai « vent » (carte 5.3)
+
+ Nouvelle mécanique de l'étape 5 : un vent latéral qui pousse Pépin horizontalement
+ (`<` = vers la gauche, `>` = vers la droite dans les ASCII), plus fort quand il plane
+ (parapluie ouvert) que quand il est au sol ou en chute avec le parapluie fermé. Le socle
+ de l'étape 5 reste intact : aucun niveau, ennemi ni mécanique existante ne change, prouvé
+ au bit près (le rejeu des 5 niveaux est inchangé, voir Vérification).
+
+ Ce qui a été fait :
+ - Cœur (`core/src/physics.rs`) : `VentLateral { zone: Aabb, sens: i8 }` (sens -1 gauche,
+ +1 droite) ; `VENT_LAT = 60` px/s (parapluie fermé, 1 px par pas) et
+ `VENT_LAT_PLANE = 2 * VENT_LAT = 120` px/s (en planant) ; champ `vents` ajouté à
+ `Environnement` (vide par défaut dans `simple()`).
+ - Le vent pousse en DÉPLACEMENT, pas dans `vitesse.x` (`core/src/player.rs`,
+ `actualiser`, bloc « 6bis ») : la vitesse du joueur reste propre (l'animation de course et
+ la friction ne la voient pas), le vent s'ajoute au déplacement du pas. On somme les sens
+ des zones qui touchent la boîte : deux vents opposés qui se chevauchent s'annulent,
+ plusieurs vents de même sens ne se cumulent pas au-delà d'un vent. 6 tests physiques
+ (poussée au sol vers la droite et vers la gauche, double en planant, plus faible en
+ chute avec le parapluie fermé, annulation de deux vents opposés, résistance au vent de
+ face au sol).
+ - Analyse des ASCII (`core/src/level/ascii.rs`) : les cases `<` (sens -1) et `>` (sens
+ +1) forment des rectangles de même sens — les tuiles voisines de même sens sont fusionnées
+ en un seul AABB (`fusionner_zones`, le même algorithme que les courants ascendants `v`),
+ les zones de sens opposés restent distinctes. `Niveau.vents` (`core/src/level.rs`) et
+ légende de la doc.
+ - Robot de faisabilité (`core/src/faisabilite.rs`) : le robot compte les vents
+ (`Options.vents`, activé par défaut) dans sa simulation du jeu réel ; 3 tests sur un
+ mini-niveau de 54 x 11 : un vide de 14 tuiles que seul un vent de dos (plané) laisse
+ passer, un vent de face qui bloque la traversée d'un vide que le saut seul passe (le
+ vent rend le niveau IMPOSSIBLE sans lui), et au sol un vent de face qui ralentit sans
+ arrêter (le robot finit toujours).
+ - Niveau d'essai « ESSAI VENT » (`core/src/levels/essai_vent.rs`) : 36 x 11 (un écran),
+ thème Soleil, `GenreNiveau::Normal` (comme l'essai vertical ; l'essai est hors de la
+ table `NIVEAUX`, `numero: 0`), builds de QA et tests uniquement. Un vide de 12 tuiles
+ (192 px) sous une zone de vent `>` (3 rangées) : infranchissable sans vent (test
+ `niveau_d_essai_vent_exige_les_vents`), franchissable avec (test
+ `niveau_d_essai_vent_faisable`) ; 3 gouttes (posées sur le sol, ramassées en marchant)
+ et 3 lanternes ; faisable robot précis ET maladroit, 3 gouttes, 3 lanternes,
+ reprise depuis chaque lanterne, lanternes posées, aucune poche close (suite de tests de
+ `core/src/zones.rs` sur `niveaux_et_essai`, comme l'essai vertical).
+ - Jeu (`game/src`) : la touche F1 charge le niveau (build de QA seulement :
+ `entrees::RaccourciNiveau::Essai2`, et en build de production le raccourci est inactif —
+ `niveau_demande` reçoit `actif = false` et renvoie toujours `None`, comme les touches de
+ la carte 5.1 — et l'indice est hors table : `INDICE_ESSAI_VENT` n'est compilé que dans
+ les tests et le build de QA). L'indice est juste après les essais
+ (`monde::INDICE_ESSAI_VENT = NB_NIVEAUX + 1`), carte « NIVEAU D'ESSAI » et son intro
+ (INTRO_ESSAI_VENT : le vent porte, planer le double). Effet visuel : les zones de vent
+ soufflent des traits horizontaux (`game/src/particules.rs::souffle_lateral`, largeur 3,
+ hauteur 1) qui traversent la zone dans le sens du vent (bornés au rectangle de la zone,
+ ils s'éteignent à l'arête opposée) et `game/src/effets.rs` les dépose d'après
+ `monde.niveau.vents` — en production il n'y a aucune zone de vent, donc aucun trait.
+ - Bot de QA (`game/src/bot_qa.rs`) : `jouer_essai` généralisé (les deux essais se jouent
+ au même endroit, avec leur parcours et leur raccourci) ; `le_robot_finit_le_niveau_d_essai_vent`
+ : le robot finit le niveau d'essai « vent » SANS mourir à travers l'`Application` —
+ l'écran de fin est atteint, 3 gouttes ramassées, F1 appuyée une seule fois, la caméra
+ reste au sol (niveau d'un écran, y toujours -4), Pépin traverse le vide et arrive à
+ x = 533 (le drapeau est à droite de la zone de vent, 343 images de jeu) ;
+ `ecrire_script_essai_vent` (test ignoré, comme les autres scripts) écrit
+ `target/qa/script-53.txt` (824 images), `target/qa/touches-53.txt` (`229:F1`, image du
+ PILOTE — la touche du navigateur tombe une image plus tard que dans la trace, déjà noté
+ à la carte 3.1b) et `target/qa/trace-53.csv` (position de Pépin et caméra rendue, image
+ par image).
+
+ Limites :
+ - Le niveau d'essai « vent » est dans le build de QA seulement (`debug_niveaux`) ; en
+ production l'indice est hors table et la touche F1 n'y fait rien (comme la touche 0 de la
+ carte 5.2 et les touches de raccourci de la carte 5.1). Aucune capture « ESSAI VENT » en
+ build de production.
+ - Le niveau d'essai est d'UN écran (11 rangées) : il valide la mécanique du vent, pas une
+ combinaison avec la caméra verticale de la carte 5.2 (les deux essais restent séparés).
+ - Le vent ne modifie que le DÉPLACEMENT de Pépin : il ne peut pas le faire coller à un
+ mur plus vite qu'au déplacement suivant, et une zone de vent ne l'empêche jamais
+ d'atterrir (les collisions de `deplacer` restent maîtresses, l'axe x d'abord).
+
+ Vérification :
+ - `./docker-cargo.sh test --workspace --no-default-features` : 200 + 227 tests verts ;
+ `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh --qa` : `dist-qa/` produit.
+ - Mêmes jeux qu'avant : sur une extraction propre de cb4a8cb (`git archive`, nouveau
+ dossier), régénérés et identiques à l'octet à l'arbre courant : `target/qa/script.txt`
+ et `trace.csv` (robot principal sur les 5 niveaux, aucune zone de vent n'y existe) et
+ `target/qa/script-52.txt` et `trace-52.csv` (essai vertical, le parcours n'utilise pas
+ de vent) ; `docs/mesure-difficulte.txt` et `docs/planche-sprites.png` régénérés dans
+ l'arbre courant, identiques à l'octet à l'extraction. Les nouveaux artefacts 53
+ (script-53.txt, touches-53.txt, trace-53.csv) sont générés par le bot.
+ - Les 7 captures 53- sont dans `docs/qa/` (build de QA servi en local, pilote de la
+ carte 3.1b avec `TOUCHES` = `target/qa/touches-53.txt`, F1 au pilote image 229) :
+ `53-carte-niveau1` (100 : carte du niveau 1), `53-carte-essai` (350 : carte « ESSAI
+ VENT » avec son intro), `53-essai-depart` (460 : départ au sol), `53-essai-vent` (636 :
+ plané dans le vide, parapluie ouvert, les traits de vent latéral se voient),
+ `53-essai-chute` (680 : fin de la planée, retombe à droite du vide),
+ `53-essai-approche` (780 : approche du drapeau) et `53-fin` (823 : écran de fin,
+ 3 gouttes sur 3). 0 pixel hors palette, 0 semi-transparent (mesure-capture.py,
+ K = 3). Comme la carte 5.2, les moments statiques (cartes, fin) sont déterministes et
+ les frames en mouvement (départ, vent, chute, approche) peuvent décaler d'une image
+ d'une exécution à l'autre (horloge temps réel du navigateur) ; la preuve FORMALISÉE du
+ niveau est le test Rust `jouer_essai_vent` à travers l'`Application` (3 gouttes,
+ 0 mort, F1 une fois, caméra au sol, arrivée à x = 533) ; les captures sont la preuve
+ VISUELLE.
+
  Vérification sur une extraction propre de 36a3e5f (`git archive`, nouveau dossier daté) :
  - `./docker-cargo.sh test --workspace --no-default-features` : 189 + 225 tests, tous verts
  (6 ignorés : les scripts) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/`
