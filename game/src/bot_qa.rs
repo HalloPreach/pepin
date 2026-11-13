@@ -288,6 +288,92 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
     (Fin::Abandon, m, script)
 }
 
+/// Le monde `m` où chaque aiguille d'horloge a `pas` pas d'avance sur Pépin (de
+/// retard si `pas` est négatif) : `PlateformeMobile::tourner`. Pépin debout sur
+/// une aiguille la suit (pieds posés pile sur son dessus), comme s'il avait été
+/// porté.
+pub(crate) fn aiguilles_decalees(m: &Monde, pas: i32) -> Monde {
+    let sous = aiguille_sous_pepin(m);
+    let mut d = m.clone();
+    let mut k = 0;
+    for e in &mut d.entites {
+        let Entite::Mobile(a) = e else {
+            continue;
+        };
+        if a.cercle().is_none() {
+            continue;
+        }
+        let avant = a.boite;
+        a.tourner(pas);
+        if sous == Some(k) {
+            d.joueur.boite.x += a.boite.x - avant.x;
+            d.joueur.boite.y = a.boite.y - d.joueur.boite.h;
+        }
+        k += 1;
+    }
+    d
+}
+
+/// Écart toléré (px, en x comme en y) entre l'arrivée d'un plan et celle du même
+/// plan, aiguilles décalées.
+const ECART_DECALAGE: f32 = 4.0;
+
+/// Décalages (en images) des aiguilles essayés par `tient_au_decalage` : une et
+/// deux images d'avance ou de retard. Deux : de la marge, car les petits écarts
+/// d'un plan à l'autre s'ajoutent tout au long du parcours.
+const DECALAGES_AIGUILLE: [i32; 4] = [-2, -1, 1, 2];
+
+/// Marge (px) que Pépin garde de chaque côté de la plaque quand un plan le pose
+/// sur une aiguille : jamais posé sur le bord, d'où un saut de travers le ferait
+/// tomber au moindre écart.
+const MARGE_PLAQUE: f32 = 3.0;
+
+/// Le plan `plan`, joué depuis `depart` jusqu'à `fin` / `arrivee`, tient-il si les
+/// aiguilles d'horloge ont une ou deux images d'avance ou de retard
+/// (`DECALAGES_AIGUILLE`) ? Il faut la même fin (jamais une mort), les mêmes
+/// gouttes, et Pépin à moins de `ECART_DECALAGE` px du même endroit ; posé sur une
+/// aiguille, il doit avoir `MARGE_PLAQUE` px de plaque de chaque côté. Toujours
+/// vrai dans un niveau sans aiguille.
+///
+/// Pourquoi : une aiguille tourne sans arrêt, et un plan réglé à l'image près (un
+/// saut qui touche le bord de la plaque, un atterrissage au tout dernier moment)
+/// ne laisse aucune marge à un vrai joueur. Le rejeu dans le navigateur, qui peut
+/// démarrer le niveau d'essai une image plus tôt ou plus tard (voir QA.md), le
+/// raterait aussi : c'est arrivé au premier parcours de la carte 5.10.
+pub(crate) fn tient_au_decalage(depart: &Monde, plan: Plan, fin: Fin, arrivee: &Monde) -> bool {
+    let a_des_aiguilles = depart
+        .entites
+        .iter()
+        .any(|e| matches!(e, Entite::Mobile(a) if a.cercle().is_some()));
+    if !a_des_aiguilles {
+        return true;
+    }
+    if let Some(k) = aiguille_sous_pepin(arrivee) {
+        let plaque = arrivee
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Mobile(a) if a.cercle().is_some() => Some(a.boite),
+                _ => None,
+            })
+            .nth(k);
+        let j = &arrivee.joueur.boite;
+        if plaque
+            .is_some_and(|p| j.x < p.x + MARGE_PLAQUE || j.droite() > p.droite() - MARGE_PLAQUE)
+        {
+            return false;
+        }
+    }
+    DECALAGES_AIGUILLE.into_iter().all(|pas| {
+        let (fin_d, m_d, _) = simuler(&aiguilles_decalees(depart, pas), plan);
+        let (a, b) = (&m_d.joueur.boite, &arrivee.joueur.boite);
+        fin_d == fin
+            && m_d.gouttes_niveau == arrivee.gouttes_niveau
+            && (fin == Fin::Arrivee
+                || ((a.x - b.x).abs() <= ECART_DECALAGE && (a.y - b.y).abs() <= ECART_DECALAGE))
+    })
+}
+
 /// Une case du niveau où Pépin choisit son prochain plan : case de 8 px en x, y
 /// arrondi, « lancé par un auvent » (`est_lance`) ou posé, l'escargot proche
 /// (`escargot_proche`, 0 s'il n'y en a pas), les chats (`chats_de_la_case`, 0
@@ -514,6 +600,13 @@ pub(crate) fn chercher(
         };
         for &plan in a_essayer {
             let (fin, monde, entrees) = simuler(&noeuds[i].monde, plan);
+            // Dans un niveau à aiguilles d'horloge : un plan qui ne tient qu'à
+            // l'image près est écarté, comme une mort (`tient_au_decalage`).
+            if !matches!(fin, Fin::Mort | Fin::Abandon)
+                && !tient_au_decalage(&noeuds[i].monde, plan, fin, &monde)
+            {
+                continue;
+            }
             let cout_plan = cout + entrees.len() as u32;
             let etape = Etape {
                 plan,
@@ -1775,6 +1868,53 @@ mod tests {
             assert!((i.trame.y + 14.0 - i.aiguilles[k].1).abs() < 0.01);
         }
         println!("essai horloge : {} images de jeu", essai.len());
+    }
+
+    /// Rejoue `parcours` dans le niveau `indice` avec les entrées décalées de
+    /// `decalage` images par rapport au monde (positif : Pépin agit plus tard ;
+    /// négatif : plus tôt), puis 60 images sans rien toucher (comme le navigateur à
+    /// la fin du script). Renvoie (drapeau atteint, morts, gouttes du niveau).
+    fn rejouer_decale(indice: usize, parcours: &[Entrees], decalage: i32) -> (bool, u32, usize) {
+        let mut p = parcours.to_vec();
+        if decalage > 0 {
+            p.splice(
+                0..0,
+                std::iter::repeat_n(Entrees::default(), decalage as usize),
+            );
+        } else {
+            // Le parcours commence par l'attente du départ : on n'y retire que du vide.
+            assert!(p[..(-decalage) as usize]
+                .iter()
+                .all(|e| *e == Entrees::default()));
+            p.drain(0..(-decalage) as usize);
+        }
+        p.extend(std::iter::repeat_n(Entrees::default(), 60));
+        let mut m = Monde::new(indice);
+        for e in &p {
+            m.avancer(e);
+            if m.termine {
+                break;
+            }
+        }
+        let gouttes = m.gouttes_niveau.iter().filter(|&&g| g).count();
+        (m.termine, m.etat.morts, gouttes)
+    }
+
+    /// Le parcours de l'essai horloge tient si le monde a une ou deux images
+    /// d'avance ou de retard sur les touches (le rejeu dans le navigateur peut
+    /// démarrer le niveau d'essai une image plus tôt ou plus tard) : drapeau, 0
+    /// mort, 3 gouttes à chaque fois. C'est ce que garantit `tient_au_decalage`.
+    #[test]
+    fn le_parcours_de_l_horloge_tient_a_une_image_pres() {
+        let parcours = parcours_essai_horloge();
+        for decalage in [-2, -1, 0, 1, 2] {
+            let (fin, morts, gouttes) =
+                rejouer_decale(crate::monde::INDICE_ESSAI_HORLOGE, &parcours, decalage);
+            assert!(
+                fin && morts == 0 && gouttes == 3,
+                "décalage {decalage} : drapeau {fin}, {morts} mort(s), {gouttes} goutte(s)"
+            );
+        }
     }
 
     /// Le robot finit la partie sans mourir, et joue les niveaux dans l'ordre que
