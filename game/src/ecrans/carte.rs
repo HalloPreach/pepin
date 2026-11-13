@@ -73,11 +73,11 @@ pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pepin_core::zones::InfosNiveau;
 
-    #[test]
-    fn toutes_les_cartes_tiennent_dans_leur_cadre() {
-        // Les niveaux de la table, puis les deux niveaux d'essai (build de QA).
-        let essais = [
+    /// Les niveaux d'essai du build de QA (hors de la table), avec leur indice.
+    fn essais() -> [(usize, &'static InfosNiveau); 3] {
+        [
             (
                 crate::monde::INDICE_ESSAI,
                 &pepin_core::levels::essai_vertical::INFOS,
@@ -86,8 +86,17 @@ mod tests {
                 crate::monde::INDICE_ESSAI_VENT,
                 &pepin_core::levels::essai_vent::INFOS,
             ),
-        ];
-        for (i, n) in NIVEAUX.iter().enumerate().chain(essais) {
+            (
+                crate::monde::INDICE_ESSAI_GRELE,
+                &pepin_core::levels::essai_grele::INFOS,
+            ),
+        ]
+    }
+
+    #[test]
+    fn toutes_les_cartes_tiennent_dans_leur_cadre() {
+        // Les niveaux de la table, puis les niveaux d'essai (build de QA).
+        for (i, n) in NIVEAUX.iter().enumerate().chain(essais()) {
             let intro = contenu::intro(i);
             let a = couper_lignes(intro.texte, LIGNE_MAX);
             let b = couper_lignes(intro.astuce, LIGNE_MAX);
@@ -111,7 +120,7 @@ mod tests {
 
     #[test]
     fn les_noms_de_niveau_sont_en_capitales_avec_un_glyphe_chacun() {
-        for n in NIVEAUX.iter() {
+        for n in NIVEAUX.iter().chain(essais().map(|(_, n)| n)) {
             let nom = titre_niveau(n.nom);
             assert!(!nom.chars().any(|c| c.is_lowercase()), "{nom}");
             for c in nom.chars() {
@@ -130,17 +139,7 @@ mod tests {
 
     #[test]
     fn aucune_ligne_de_carte_ne_commence_par_une_ponctuation_seule() {
-        let essais = [
-            (
-                crate::monde::INDICE_ESSAI,
-                &pepin_core::levels::essai_vertical::INFOS,
-            ),
-            (
-                crate::monde::INDICE_ESSAI_VENT,
-                &pepin_core::levels::essai_vent::INFOS,
-            ),
-        ];
-        for (i, n) in NIVEAUX.iter().enumerate().chain(essais) {
+        for (i, n) in NIVEAUX.iter().enumerate().chain(essais()) {
             let intro = contenu::intro(i);
             for texte in [intro.texte, intro.astuce] {
                 for ligne in couper_lignes(texte, LIGNE_MAX) {

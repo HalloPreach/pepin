@@ -160,6 +160,8 @@ pub enum RaccourciNiveau {
     Essai,
     /// Niveau d'essai « vent » (touche F1), hors de la table : carte 5.3.
     Essai2,
+    /// Niveau d'essai « grêle » (touche F2), hors de la table : carte 5.4.
+    Essai3,
 }
 
 /// Touches de saut direct, dans l'ordre des niveaux 1 à 9. Une touche au-delà du
@@ -185,6 +187,8 @@ const TOUCHES_ESSAI: [KeyCode; 1] = [KeyCode::Key0];
 /// Niveau d'essai « vent » : F1, loin des touches de jeu (aucun appui
 /// accidentel ; même emplacement en QWERTY et en AZERTY).
 const TOUCHES_ESSAI2: [KeyCode; 1] = [KeyCode::F1];
+/// Niveau d'essai « grêle » : F2, à côté de F1 (même raison).
+const TOUCHES_ESSAI3: [KeyCode; 1] = [KeyCode::F2];
 
 /// Raccourci demandé d'après les touches appuyées cette image (saut direct d'abord).
 /// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
@@ -203,6 +207,8 @@ pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<
         Some(RaccourciNiveau::Essai)
     } else if TOUCHES_ESSAI2.iter().any(|&k| appuyee(k)) {
         Some(RaccourciNiveau::Essai2)
+    } else if TOUCHES_ESSAI3.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai3)
     } else {
         None
     }
@@ -219,6 +225,7 @@ pub fn cible_raccourci(r: RaccourciNiveau, courant: usize, nb: usize) -> Option<
         RaccourciNiveau::Precedent => courant.checked_sub(1),
         RaccourciNiveau::Essai => return Some(nb),
         RaccourciNiveau::Essai2 => return Some(nb + 1),
+        RaccourciNiveau::Essai3 => return Some(nb + 2),
     };
     cible.filter(|&i| i < nb)
 }
@@ -425,6 +432,7 @@ mod tests {
             .chain(TOUCHES_PRECEDENT)
             .chain(TOUCHES_ESSAI)
             .chain(TOUCHES_ESSAI2)
+            .chain(TOUCHES_ESSAI3)
     }
 
     #[test]
@@ -463,6 +471,10 @@ mod tests {
         assert_eq!(
             niveau_demande(true, |t| t == KeyCode::F1),
             Some(RaccourciNiveau::Essai2)
+        );
+        assert_eq!(
+            niveau_demande(true, |t| t == KeyCode::F2),
+            Some(RaccourciNiveau::Essai3)
         );
         assert_eq!(niveau_demande(true, |_| false), None);
     }
@@ -534,6 +546,13 @@ mod tests {
                 assert_eq!(
                     cible_raccourci(RaccourciNiveau::Essai2, courant, nb),
                     Some(nb + 1)
+                );
+            }
+            // Le niveau d'essai « grêle » : juste après celui du vent (carte 5.4).
+            for courant in [0, nb - 1, nb, nb + 1] {
+                assert_eq!(
+                    cible_raccourci(RaccourciNiveau::Essai3, courant, nb),
+                    Some(nb + 2)
                 );
             }
         }

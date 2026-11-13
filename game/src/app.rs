@@ -813,6 +813,28 @@ mod tests {
         jusqu_a(&mut app, |e| e == Ecran::Fin);
     }
 
+    /// Touche F2 du build de QA : le niveau d'essai « grêle » (hors de la table),
+    /// avec ses quatre colonnes de grêle.
+    #[test]
+    fn le_raccourci_d_essai_charge_le_niveau_de_grele() {
+        let mut app = en_jeu();
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Essai3),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI_GRELE);
+        assert_eq!(app.monde.infos.nom, "Essai grêle");
+        let greles = app
+            .monde
+            .entites
+            .iter()
+            .filter(|e| matches!(e, pepin_core::entities::Entite::Grele(_)))
+            .count();
+        assert_eq!(greles, 4);
+    }
+
     #[test]
     fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         let mut app = en_jeu();

@@ -41,7 +41,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
 | Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou la ligne « SON » des menus |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
-| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
+| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral et de la grêle : F1 et F2 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
 Les touches sont lues par leur POSITION physique (le « code » du navigateur), pas
 par la lettre imprimée : sur un clavier AZERTY, A et Q (QWERTY) sont à la place de Q
@@ -248,7 +248,8 @@ versionné (`.gitignore`) : c'est un produit régénérable.
 
 Build de mise au point (touches 1 à 9 pour sauter à un niveau, Page suivante / N et
 Page précédente / B pour le niveau suivant ou précédent, 0 pour le niveau d'essai
-vertical de la caméra, F9 pour provoquer un
+vertical de la caméra, F1 et F2 pour les niveaux d'essai du vent latéral et de la
+grêle, F9 pour provoquer un
 vrai plantage et vérifier le message de la page ; sert aux captures et à la QA, jamais
 à publier) :
 
