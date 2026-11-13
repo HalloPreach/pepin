@@ -240,6 +240,51 @@ fn eclair_d_une_grille_haute_part_du_solide_au_dessus() {
     );
 }
 
+/// Zones de grêle d'un niveau, triées de gauche à droite.
+fn zones_de_grele(n: &Niveau) -> Vec<crate::aabb::Aabb> {
+    let mut zones: Vec<_> = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Grele(g) => Some(g.zone),
+            _ => None,
+        })
+        .collect();
+    zones.sort_by(|a, b| a.x.total_cmp(&b.x));
+    zones
+}
+
+/// Grêle (carte 5.4) : la colonne part de la case `g` elle-même (pas du haut de
+/// la carte) et s'arrête au premier solide en dessous ; sans solide dessous, elle
+/// descend jusqu'au bas de la carte (rideau au-dessus d'un vide). Une corniche
+/// AU-DESSUS du `g` ne change rien.
+#[test]
+fn grele_tombe_de_sa_case_au_premier_solide() {
+    let mut lignes = vec!["..............."; 8];
+    lignes[0] = ".o.o.o.........";
+    lignes[1] = "..g......###...";
+    lignes[2] = "..........g....";
+    lignes[3] = ".......####....";
+    lignes[4] = ".......g.......";
+    lignes[5] = ".....g.........";
+    lignes[6] = ".@..........X..";
+    // Un trou dans le sol à la colonne 5, sous le `g` de la ligne 5.
+    lignes[7] = "#####.#########";
+    let n = Niveau::depuis_ascii(&lignes.join("\n")).unwrap();
+    let z = zones_de_grele(&n);
+    assert_eq!(z.len(), 4);
+    let t = |c: usize| c as f32 * 16.0;
+    // Colonne 2 : de la ligne 1 au sol (ligne 7).
+    assert_eq!((z[0].x, z[0].y, z[0].bas()), (t(2) + 2.0, t(1), t(7)));
+    assert_eq!(z[0].w, 12.0);
+    // Colonne 5 : de la ligne 5, à travers le trou du sol, jusqu'au bas de la carte.
+    assert_eq!((z[1].x, z[1].y, z[1].bas()), (t(5) + 2.0, t(5), t(8)));
+    // Colonne 7 : de la ligne 4 au sol, sous la corniche de la ligne 3.
+    assert_eq!((z[2].x, z[2].y, z[2].bas()), (t(7) + 2.0, t(4), t(7)));
+    // Colonne 10 : de la ligne 2, arrêtée par la corniche de la ligne 3.
+    assert_eq!((z[3].x, z[3].y, z[3].bas()), (t(10) + 2.0, t(2), t(3)));
+}
+
 #[test]
 fn panneaux_et_tuiles_decor() {
     let avec = "

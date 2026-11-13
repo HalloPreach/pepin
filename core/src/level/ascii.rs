@@ -2,7 +2,7 @@
 //!
 //! Étapes : 1) découper les lignes et vérifier le rectangle ; 2) lire chaque
 //! caractère (tuile, entité, repère, décor) ; 3) assembler les éléments qui dépendent
-//! de la grille complète (éclairs, courants, plateformes mobiles, appui du décor) ;
+//! de la grille complète (éclairs, grêle, courants, plateformes mobiles, appui du décor) ;
 //! 4) valider (un départ, une arrivée, trois gouttes).
 
 use std::collections::BTreeMap;
@@ -12,8 +12,8 @@ use super::{
 };
 use crate::aabb::{Aabb, TAILLE_TUILE};
 use crate::entities::{
-    Champignon, Eclair, Ennemi, Entite, GoutteDor, Lanterne, PlateformeFriable, PlateformeMobile,
-    Pointe, TypeEnnemi,
+    Champignon, Eclair, Ennemi, Entite, GoutteDor, Grele, Lanterne, PlateformeFriable,
+    PlateformeMobile, Pointe, TypeEnnemi,
 };
 use crate::physics::{CourantAscendant, VentLateral, JOUEUR_H};
 
@@ -64,6 +64,8 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut departs: Vec<Case> = Vec::new();
     let mut arrivees: Vec<Case> = Vec::new();
     let mut eclairs: Vec<Case> = Vec::new();
+    // Grêle : il faut la grille entière pour trouver le solide sous la colonne.
+    let mut greles: Vec<Case> = Vec::new();
     let mut vent = vec![false; largeur * hauteur];
     // Vents latéraux : `<` pousse vers la gauche (-1), `>` vers la droite (+1).
     let mut vents: Vec<(Case, i8)> = Vec::new();
@@ -110,6 +112,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                     x, y, 16.0, 8.0,
                 )))),
                 'e' => eclairs.push(case),
+                'g' => greles.push(case),
                 'v' => vent[ty * largeur + tx] = true,
                 '<' => vents.push((case, -1)),
                 '>' => vents.push((case, 1)),
@@ -171,6 +174,19 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         let zone = Aabb::new(tx as f32 * TAILLE_TUILE + 2.0, haut, 12.0, bas - haut);
         let decalage = 30 + 47 * (k as u16 % 4);
         entites.push(Entite::Eclair(Eclair::new(zone, REPOS_ECLAIR, decalage)));
+    }
+    // Grêle : colonne de la case `g` elle-même (pas du haut de la carte, à la
+    // différence de l'éclair) jusqu'au premier solide en dessous, ou jusqu'au bas
+    // de la carte s'il n'y en a pas (rideau de grêle au-dessus d'un vide). Même
+    // largeur que l'éclair : 12 px centrés dans la case (2 px de pardon par côté).
+    for &(tx, ty) in &greles {
+        let premier_solide = (ty..hauteur)
+            .find(|&r| tuiles[r * largeur + tx].est_solide())
+            .unwrap_or(hauteur);
+        let haut = ty as f32 * TAILLE_TUILE;
+        let bas = premier_solide as f32 * TAILLE_TUILE;
+        let zone = Aabb::new(tx as f32 * TAILLE_TUILE + 2.0, haut, 12.0, bas - haut);
+        entites.push(Entite::Grele(Grele::new(zone)));
     }
     // Plateformes mobiles : un chiffre = deux extrémités (ordre de lecture).
     for (marque, cases) in &mobiles {

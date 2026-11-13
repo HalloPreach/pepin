@@ -17,6 +17,9 @@
 //!      et s'arrête à droite ; sinon à gauche, vers le départ)
 //!   F  plateforme friable      e  éclair (colonne du 1er solide dessus, ou du
 //!                                 haut de la carte, au 1er solide dessous)
+//!   g  grêle : colonne de grêlons qui tombe EN CONTINU, de la case `g` au 1er
+//!      solide dessous (ou au bas de la carte) ; elle tue parapluie fermé, on la
+//!      traverse en planant dessous
 //!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
 //!   <  >  vent latéral (zone rectangulaire) : pousse vers la gauche / vers la
 //!           droite ; le plané (parapluie ouvert) est poussé deux fois plus fort
