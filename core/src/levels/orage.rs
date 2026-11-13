@@ -1,6 +1,8 @@
 //! Niveau 3 : « Le grand orage ».
 //!
 //! Éclairs temporisés, plateformes mobiles (qu'on attend), nuages friables, ascenseur.
+//! Entre les deux plateformes mobiles, une cheminée d'une tuile (colonne 51)
+//! sert de point de repos : on y attend la seconde plateforme.
 
 use crate::zones::{InfosNiveau, Theme};
 
@@ -24,7 +26,7 @@ const ASCII: &str = r"
 .................................................................................................................BBBBBBBBBBBBBBBBBBBBBBB................................................................
 .........o.......................................................................................................BBBBBBBBBBBBBBBBBBBBBBB................................................................
 ..@.................L............^^...........................L...............^^^................................BBBBBBBBBBBBBBBBBBBBBBB.........L........f..........^^.........M.............X.........
-#######################...##################1.....1.2.....2.#########################.FF.FF.FF.FF.F..##########3.BBBBBBBBBBBBBBBBBBBBBBB...#############################################################
-BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBB................BBBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
-BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBB................BBBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+#######################...##################1....1.#2.....2.#########################.FF.FF.FF.FF.F..##########3.BBBBBBBBBBBBBBBBBBBBBBB...#############################################################
+BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBB.......B........BBBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBB.......B........BBBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ";
