@@ -1343,3 +1343,19 @@ de l'arc-en-ciel) devra le vérifier en jeu. Pas de capture « NIVEAU BONUS » n
 (aucun niveau de ce genre aujourd'hui ; l'étiquette est testée, glyphes compris). Pas testé :
 vrai téléphone, Safari/Firefox, raccourcis sur un vrai clavier AZERTY (touches envoyées par
 CDP avec leur code physique).
+
+Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossier daté) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 185 + 212 tests, tous verts (10 + 5
+  de plus qu'à la carte 4.4) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/`
+  produit, 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+- Régénérés dans l'extraction, identiques à l'octet : `docs/planche-sprites.png`,
+  `docs/mesure-difficulte.txt` (tableau avant/après inchangé : aucun niveau, ennemi ni
+  mécanique ne bouge), `target/qa/script.txt` et `trace.csv` (12 131 images, 0 mort, score
+  800, chrono 10 727 pas, empreinte `e03e19a27c17c283`, la même qu'avant la carte).
+- Les 13 captures 51- refaites sur le build de QA de l'extraction : identiques à l'octet à
+  celles du dépôt.
+- Build de PRODUCTION de l'extraction (`dist/`), mêmes touches à l'image 1000 en plein
+  niveau 1 : `51-prod-pagedown-sans-effet` (Page suivante, 100 images plus tard : toujours le
+  niveau 1, chrono 0:14 qui continue, 1/15) et `51-prod-touche3-sans-effet` (N puis 3 : toujours
+  le niveau 1, chrono 0:16) ; un changement de niveau aurait remis le chrono à zéro. 0 pixel
+  hors palette, 0 flou.
