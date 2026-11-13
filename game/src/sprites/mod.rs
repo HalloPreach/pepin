@@ -277,6 +277,7 @@ mod tests {
         let animations: Vec<&[&str]> = vec![
             &pepin::COURSE,
             &pepin::REPOS,
+            &pepin::ATTENTE,
             &pepin::PLANER,
             &pepin::REAPPARITION,
             &ennemis::FLAQUE,
@@ -586,7 +587,7 @@ mod tests {
     // --- Parapluie fermé et attente de Pépin (carte 4.3) ---
 
     /// Toutes les images où Pépin tient son parapluie fermé.
-    const PARAPLUIE_FERME: [&str; 8] = [
+    const PARAPLUIE_FERME: [&str; 11] = [
         "pepin_idle0",
         "pepin_idle1",
         "pepin_course0",
@@ -595,7 +596,15 @@ mod tests {
         "pepin_course3",
         "pepin_saut",
         "pepin_chute",
+        "pepin_cligne",
+        "pepin_ciel",
+        "pepin_tapote",
     ];
+
+    /// Décalage vertical du parapluie fermé : il descend d'un pixel quand Pépin tapote le sol.
+    fn decalage_parapluie(nom: &str) -> i32 {
+        i32::from(nom == "pepin_tapote")
+    }
 
     /// Le parapluie (colonnes 12 à 15, rangées 0 à 14) est le MÊME dessin dans toutes les
     /// images : sinon il tremblerait pendant la course pendant que le corps rebondit.
@@ -603,12 +612,12 @@ mod tests {
     fn le_parapluie_ferme_est_le_meme_dans_toutes_les_images() {
         let reference = dessin("pepin_idle0");
         for nom in PARAPLUIE_FERME {
-            let d = dessin(nom);
+            let (d, dy) = (dessin(nom), decalage_parapluie(nom));
             assert_eq!(taille(nom), (16, 16), "{nom}");
             for y in 0..15 {
                 for x in 12..16 {
                     assert_eq!(
-                        car(d, x, y),
+                        car(d, x, y + dy),
                         car(reference, x, y),
                         "{nom} : parapluie différent en ({x},{y})"
                     );
@@ -671,6 +680,38 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    /// Les images d'attente gardent la silhouette du repos (`pepin_idle0`) : on passe de l'une
+    /// à l'autre sans que Pépin saute. Cligner et regarder le ciel ne changent que les yeux et
+    /// les joues (rangées 4 à 8, aucun pixel ajouté ni retiré) ; tapoter ne bouge que le
+    /// parapluie (colonnes 10 et suivantes).
+    #[test]
+    fn l_attente_ne_change_que_les_yeux_ou_le_parapluie() {
+        let repos = dessin("pepin_idle0");
+        for nom in pepin::ATTENTE {
+            let d = dessin(nom);
+            assert_eq!(taille(nom), taille("pepin_idle0"), "{nom}");
+            let mut differences = 0;
+            for y in 0..16 {
+                for x in 0..16 {
+                    let (a, b) = (car(repos, x, y), car(d, x, y));
+                    if a == b {
+                        continue;
+                    }
+                    differences += 1;
+                    if nom == "pepin_tapote" {
+                        assert!(x >= 10, "{nom} : le corps change en ({x},{y})");
+                    } else {
+                        assert!(
+                            (4..9).contains(&y) && a != '.' && b != '.',
+                            "{nom} : changement hors du visage en ({x},{y})"
+                        );
+                    }
+                }
+            }
+            assert!(differences > 0, "{nom} : identique au repos");
         }
     }
 }

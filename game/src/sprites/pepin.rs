@@ -12,7 +12,8 @@
 //! - embout de métal (`5`) en bas, un pixel au-dessus du sol.
 //!
 //! Seul le corps de Pépin bouge d'une image à l'autre (respiration, course) : le
-//! parapluie reste à sa place.
+//! parapluie reste à sa place, sauf dans `PEPIN_TAPOTE` où il descend d'un pixel
+//! (l'embout touche le sol).
 
 use super::Image;
 
@@ -168,6 +169,71 @@ pub const PEPIN_CHUTE: Image = &[
     "...00....00.....",
 ];
 
+// --- Attente : après 2 s immobile au sol (voir `scene::image_attente`) ---
+// Mêmes pieds et même silhouette que `PEPIN_IDLE0` : on passe de l'une à l'autre
+// sans que Pépin saute. Seuls changent les yeux ou la place du parapluie.
+
+/// Pépin cligne des yeux : chaque œil (2 px de haut) devient un trait de 2 px.
+pub const PEPIN_CLIGNE: Image = &[
+    "...........000..",
+    "..........0AAA0.",
+    ".....0000.0A0A0.",
+    "....077770.00A0.",
+    "...07777770.0A0.",
+    "..07777777709880",
+    "..07777777509880",
+    "..07700700508980",
+    "..07797795507770",
+    "..07777775508980",
+    "..07777775508880",
+    "..05555555500980",
+    "...05555550.080.",
+    "....000000..050.",
+    "...0AA00AA0.000.",
+    "....00..00......",
+];
+
+/// Pépin lève les yeux vers le ciel (va-t-il pleuvoir ?) : yeux et joues remontés d'un pixel.
+pub const PEPIN_CIEL: Image = &[
+    "...........000..",
+    "..........0AAA0.",
+    ".....0000.0A0A0.",
+    "....077770.00A0.",
+    "...07777770.0A0.",
+    "..07770770709880",
+    "..07770770509880",
+    "..07797797508980",
+    "..07777775507770",
+    "..07777775508980",
+    "..07777775508880",
+    "..05555555500980",
+    "...05555550.080.",
+    "....000000..050.",
+    "...0AA00AA0.000.",
+    "....00..00......",
+];
+
+/// Pépin tapote le sol avec son parapluie : le parapluie descend d'un pixel et l'embout
+/// touche le sol (en alternance avec `PEPIN_IDLE0`, ça fait « tac, tac »).
+pub const PEPIN_TAPOTE: Image = &[
+    "................",
+    "...........000..",
+    ".....0000.0AAA0.",
+    "....0777700A0A0.",
+    "...0777777000A0.",
+    "..07777777700A0.",
+    "..07770770509880",
+    "..07770770509880",
+    "..07797795508980",
+    "..07777775507770",
+    "..07777775508980",
+    "..05555555508880",
+    "...05555550.0980",
+    "....000000..080.",
+    "...0AA00AA0.050.",
+    "....00..00..000.",
+];
+
 pub const PEPIN_MORT0: Image = &[
     "................",
     "................",
@@ -281,6 +347,9 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pepin_course3", PEPIN_COURSE3),
     ("pepin_saut", PEPIN_SAUT),
     ("pepin_chute", PEPIN_CHUTE),
+    ("pepin_cligne", PEPIN_CLIGNE),
+    ("pepin_ciel", PEPIN_CIEL),
+    ("pepin_tapote", PEPIN_TAPOTE),
     ("pepin_mort0", PEPIN_MORT0),
     ("pepin_mort1", PEPIN_MORT1),
     ("pepin_mort2", PEPIN_MORT2),
@@ -292,6 +361,8 @@ pub const SPRITES: &[(&str, Image)] = &[
 pub const COURSE: [&str; 4] = ["pepin_course0", "pepin_course1", "pepin_course2", "pepin_course3"];
 /// Images du repos (respiration).
 pub const REPOS: [&str; 2] = ["pepin_idle0", "pepin_idle1"];
+/// Images de l'attente (après 2 s immobile) : cligner, regarder le ciel, tapoter le sol.
+pub const ATTENTE: [&str; 3] = ["pepin_cligne", "pepin_ciel", "pepin_tapote"];
 /// Images du parapluie ouvert (les franges oscillent).
 pub const PLANER: [&str; 2] = ["pepin_plane0", "pepin_plane1"];
 /// Images de la réapparition (étincelles qui se rassemblent puis Pépin).
