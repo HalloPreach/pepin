@@ -1033,3 +1033,64 @@ Vérification sur une extraction propre de 7e9868a (`git archive`, nouveau dossi
   une fois ce décalage compensé, il ne reste que des différences éparses (pluie, parallaxe du fond).
   Le même décalage d'un pixel existe entre certaines paires avant/après : il vient du rejeu, pas du
   décor.
+
+## Parapluie fermé et attente de Pépin (carte 4.3)
+
+- `game/src/sprites/pepin.rs` : le parapluie fermé des 8 images (repos 2, course 4, saut, chute)
+  est redessiné. Avant : un bâton corail de 2 px, sans poignée, qui montait et descendait avec le
+  corps. Maintenant : crosse orange recourbée vers Pépin (la poignée), toile corail repliée avec des
+  plis en corail clair et une sangle blanche, plus large en haut qu'en bas, embout de métal ; contour
+  sombre de 1 px. C'est le MÊME dessin, à la même place, dans les 8 images : il ne tremble plus
+  pendant la course. Le corps de Pépin n'a pas changé (même boîte, mêmes pieds).
+- 3 images d'attente, même silhouette que le repos : `pepin_cligne` (les yeux deviennent un trait),
+  `pepin_ciel` (yeux et joues remontés d'un pixel : il regarde s'il pleut), `pepin_tapote` (le
+  parapluie descend d'un pixel, l'embout touche le sol). Planche de sprites régénérée.
+- `game/src/monde.rs` : `Monde::immobile`, tenu par la fonction pure `compter_immobile` : +1 à
+  chaque pas où Pépin est au sol, à vitesse nulle, sans touche de direction ni de saut ; 0 sinon.
+  Elle ne fait que LIRE le joueur : aucun changement de physique (`core/` n'a pas bougé).
+- `game/src/scene.rs` : fonction pure `image_attente` : rien avant 2 s (120 pas) ; ensuite un cycle
+  de 5 s qui recommence : clignement (8 pas), nez en l'air (1 s), clignement, puis 4 coups de
+  parapluie (« tac » 8 pas, parapluie relevé 8 pas) ; le reste du temps (plus de la moitié), la
+  respiration habituelle. Au premier mouvement la minuterie retombe à 0 : l'attente cesse net.
+
+Tests (13 de plus côté `game`) :
+- `sprites/mod.rs` : même parapluie dans les 8 images ; crosse en crochet, toile, plis, sangle,
+  embout, plus large en haut ; contour sombre ; les images d'attente ne changent que les yeux et les
+  joues (ou le parapluie seul pour le tapotement) ; même taille que le repos.
+- `monde.rs` : la minuterie compte au sol immobile (sans débordement) ; repart de 0 sur une touche
+  (même sans bouger, contre un mur), une vitesse, en l'air ; dans le vrai niveau 1, 3 s sans toucher
+  à rien puis une touche ; deux mondes aux mêmes touches restent identiques quand l'un oublie sa
+  minuterie à chaque pas (elle ne change rien au jeu).
+- `scene.rs` : rien avant 2 s ; contenu du cycle (durées) ; les 4 coups ; répétition (même après
+  1000 cycles) ; arrêt au premier mouvement avec la vraie minuterie.
+
+Jeu inchangé (dessin seulement) :
+- Robot de QA : `target/qa/script.txt` et `trace.csv` régénérés, identiques à l'octet à ceux de la
+  carte 4.2 (12 130 images).
+- Mesure de difficulté relancée : `docs/mesure-difficulte.txt` identique à l'octet au fichier
+  commité ; mêmes morts moyennes qu'à la carte 4.2 (total 6,8 / 1,7 / 0,7).
+
+Captures (Chromium 1208 piloté par CDP, fenêtre 1280 x 720 donc image agrandie x4, build de QA servi
+sur 127.0.0.1, port libre, onglet au premier plan, canevas focalisé, serveurs arrêtés ensuite).
+Script du robot rejoué par `docs/capture-visibilite.mjs` (nouveau mode `attente:` : à l'image 250,
+au début du niveau 1, le robot lâche son script et Pépin reste immobile), mêmes images avant et
+après. « Avant » : build de QA de 06caa93 ; « après » : build de QA de ces commits. L'image de Pépin
+affichée est reconnue dans la grille logique par `docs/reperer-pepin.py`, qui découpe aussi les
+vues rapprochées `43-zoom-*` (64 x 48 pixels logiques autour de Pépin, x4, sans rééchantillonnage).
+Toutes regardées ; 0 pixel hors palette, 0 flou (`docs/mesure-capture.py`, K = 4) sur les 12
+captures pleines.
+- `43-repos-avant` / `-apres` (image 255, `pepin_idle0`) ;
+- `43-course-avant` / `-apres` (image 330, `pepin_course0`) ;
+- `43-saut-avant` / `-apres` (image 395, `pepin_saut`) ; `43-chute-avant` / `-apres` (image 419,
+  `pepin_chute`) : la crosse et la sangle se lisent devant le ciel d'ardoise ;
+- attente, après : `43-attente-cligne-apres` (image 354, `pepin_cligne`), `43-attente-ciel-apres`
+  (image 410, `pepin_ciel`), `43-attente-tapote-apres` (image 530, `pepin_tapote`) ;
+  `43-attente-avant` (image 410 du build d'avant) : Pépin respire, rien d'autre ;
+- une vue `43-zoom-…` pour chacune des 12.
+Exploration préalable (une capture toutes les 8 images de 258 à 570, non versionnée) : respiration
+jusqu'à l'image 346, clignement à 354, nez en l'air de 410 à 466, clignement à 474, tapotements
+alternés avec le repos de 530 à 570, comme prévu par `image_attente`.
+
+Limites : jugé sur captures x4 et sur la planche ; le tapotement n'est qu'un pixel de déplacement
+du parapluie (lisible en mouvement, discret à l'arrêt). Pas testé : vrai téléphone, Safari/Firefox ;
+aucun son (le tapotement est muet).
