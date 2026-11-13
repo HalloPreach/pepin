@@ -6,10 +6,14 @@
 //   suite:prefixe=IMAGE:K     K captures sur K images consécutives à partir de IMAGE
 //   chute:prefixe=IMAGE:K:PAS à IMAGE, le robot lâche son script : Pépin court tout droit (donc
 //                             tombe dans un trou) ; K captures, une toutes les PAS images
+//   attente:prefixe=IMAGE:K:PAS à IMAGE, le robot lâche son script et ne touche plus à rien :
+//                             Pépin reste immobile ; K captures, une toutes les PAS images
 // Variable d'environnement GRILLE=1 : écrit aussi la grille logique 320x180 de chaque capture
 // (un caractère = un pixel logique, indice hexadécimal de palette) dans NOM.txt.
 // Variable d'environnement SCRIPT : autre script à rejouer (défaut : target/qa/script.txt), par
 // exemple target/qa/script-31b.txt (réapparition protégée à la lanterne 104, voir QA.md).
+// Variable d'environnement FENETRE : taille de la fenêtre (défaut 960x540, image agrandie x3) ;
+// FENETRE=1280x720 donne une image agrandie x4.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,12 +22,13 @@ import { fileURLToPath } from 'node:url';
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const [httpPort, sortie, ...demandes] = process.argv.slice(2);
 const CHROME = process.env.CHROME || 'chromium';
+const [largeur, hauteur] = (process.env.FENETRE || '960x540').split('x').map(Number);
 const dbg = 9400 + Math.floor(Math.random() * 400);
 const profil = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'prof-'));
 const chrome = spawn(CHROME, [
   `--remote-debugging-port=${dbg}`, `--user-data-dir=${profil}`, '--headless=new', '--no-sandbox',
   '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
-  '--window-size=960,540', '--force-device-scale-factor=1', 'about:blank',
+  `--window-size=${largeur},${hauteur}`, '--force-device-scale-factor=1', 'about:blank',
 ], { stdio: 'ignore' });
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 let cible;
@@ -40,7 +45,7 @@ const evalue = async (expr) => (await cdp('Runtime.evaluate', { expression: expr
 
 await cdp('Page.enable');
 await cdp('Page.bringToFront');
-await cdp('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
+await cdp('Emulation.setDeviceMetricsOverride', { width: largeur, height: hauteur, deviceScaleFactor: 1, mobile: false });
 await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
 await dormir(4000);
 await cdp('Page.bringToFront');
@@ -76,14 +81,16 @@ for (const d of demandes) {
       await jusqua(image + i + 1);
       await capturer(`${nom}-${String(i).padStart(2, '0')}`);
     }
-  } else if (d.startsWith('chute:')) {
-    const [nom, reste] = d.slice(6).split('=');
+  } else if (d.startsWith('chute:') || d.startsWith('attente:')) {
+    // chute : touche « droite » (masque 4) ; attente : aucune touche (masque 0).
+    const masque = d.startsWith('chute:') ? 4 : 0;
+    const [nom, reste] = d.slice(d.indexOf(':') + 1).split('=');
     const [image, k, pas] = reste.split(':').map(Number);
     await jusqua(image);
-    // Le script du robot s'arrête ici ; on pousse des images « droite » à la place.
+    // Le script du robot s'arrête ici ; on pousse nos propres images à la place.
     await evalue('(() => { const P = window.__P; P.script = P.script.slice(0, P.pos); return 1; })()');
     for (let i = 0; i < k; i++) {
-      await evalue(`(() => { const P = window.__P; P.parRaf = 1; P.gel = 0; P.file.push({ m: 4, n: ${pas} }); return 1; })()`);
+      await evalue(`(() => { const P = window.__P; P.parRaf = 1; P.gel = 0; P.file.push({ m: ${masque}, n: ${pas} }); return 1; })()`);
       for (let j = 0; j < 400; j++) {
         if (await evalue('(() => { const P = window.__P; return P.file.length === 0 && P.gel >= 3; })()')) break;
         await dormir(50);
