@@ -2084,12 +2084,20 @@ Ce qui a été fait :
 - Robot de QA (`game/src/bot_qa.rs`) : la phase du ventilateur entre dans `ImageEssai` ;
   test ignoré `ecrire_script_essai_ventilateur` (`target/qa/script-56b.txt`,
   `touches-56b.txt` : F4 à l'image 229 du pilote, `trace-56b.csv` : phase et souffle
-  restant à chaque image). 772 images, 3 gouttes, 0 mort.
+  restant à chaque image). 772 images, 3 gouttes, 0 mort. Le robot, lui, n'attend jamais
+  posé sur la casette (il saute dans le souffle en cours) : d'où une démonstration à part,
+  `parcours_essai_ventilateur_caisse` (Pépin attend la fin du premier souffle, saute sur la
+  casette pendant l'arrêt, puis ne touche plus à rien ; saut cherché sur la vraie
+  simulation). Test `pepin_attend_sur_la_casette_puis_le_souffle_le_porte` : posé sur la
+  casette à toutes les images de l'annonce, porté à plus de 10 tuiles, retombé sur la
+  casette, 0 mort. Test ignoré `ecrire_script_essai_ventilateur_caisse`
+  (`target/qa/script-56b-caisse.txt`, 1 200 images, et `trace-56b-caisse.csv` ; même F4).
 
 Mesure de difficulté : inchangée. `docs/mesure-difficulte.txt` régénéré sur l'extraction
-propre : identique à l'octet (Débutant 6,8, Habitué 1,8, Expert 0,7 au total, avant =
-après). Script du robot principal (`script.txt`, `trace.csv`) identique à l'octet (12 131
-images, empreinte `e03e19a27c17c283`).
+propre de 971e528 (le dernier commit qui touche au jeu : 7afe2dc n'ajoute que du code de
+test, `bot_qa` étant `#[cfg(test)]`) : identique à l'octet (Débutant 6,8, Habitué 1,8,
+Expert 0,7 au total, avant = après). Script du robot principal (`script.txt`, `trace.csv`)
+identique à l'octet (12 131 images, empreinte `e03e19a27c17c283`).
 
 Captures (`docs/qa/56b-*`, 960 x 540, build de QA d'une extraction propre de 971e528 servi
 en local sur 127.0.0.1, Chromium 145 piloté par CDP, onglet au premier plan et canvas
@@ -2113,13 +2121,29 @@ d'image : ceux de `trace-56b.csv`.
   naissent sur toute la hauteur de la colonne, 312 px, dont l'écran ne montre ici que le bas,
   140 px ; les premiers nés étaient au-dessus du cadre). Chaque capture regardée ;
   `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur les 9.
+- Démonstration « Pépin sur la casette » (`docs/qa/56b-caisse-*`, même méthode, build de QA
+  d'une extraction propre de 7afe2dc, `SCRIPT=target/qa/script-56b-caisse.txt`, même
+  `TOUCHES`, serveur arrêté à la fin ; numéros d'image de `trace-56b-caisse.csv`) :
+  `56b-caisse-annonce` (734 : Pépin posé sur la casette, barre orange au pied, aucun brin) ;
+  `56b-caisse-portee` (840 : Pépin porté 12 tuiles plus haut, la colonne de brins sous lui
+  le relie au ventilateur) ; `56b-caisse-dernier-souffle` (874 : Pépin en haut, brins
+  encore là) ; `56b-caisse-arret` (875 : première image d'arrêt, plus aucun brin) ;
+  `56b-caisse-chute` (915 : Pépin retombe, colonne vide) ; `56b-caisse-retombe` (945 : de
+  nouveau sur la casette, hélice arrêtée). Au pixel (grilles logiques, boîte de Pépin
+  écartée car il est blanc cassé lui aussi) : 0 brin aux images 731 à 736 (annonce), 875,
+  915 et 945 ; 9 brins sous Pépin à l'image 840, 3 à l'image 874. Chaque capture regardée ;
+  0 pixel hors palette, 0 bloc flou, sur les 6.
 
-Vérification sur une extraction propre de 971e528 (`git archive`, nouveau dossier daté) :
-`./docker-cargo.sh test --workspace --no-default-features` : 255 + 251 tests, tous verts
-(1 + 11 ignorés : écritures de fichiers et diagnostics) ; `./docker-cargo.sh lint` :
-`LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms interdits, seule URL
-`http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit (« Essai
-ventilateur » : 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/game.wasm`).
+Vérification sur une extraction propre de 7afe2dc (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+255 + 252 tests, tous verts (1 + 12 ignorés : écritures de fichiers et diagnostics) ;
+`./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms
+interdits, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit
+(« Essai ventilateur » : 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/game.wasm`) ;
+les scripts `script-56b`, `trace-56b`, `touches-56b`, `script-56b-caisse` et
+`trace-56b-caisse` réécrits là-bas sont identiques à l'octet à ceux qui ont servi aux
+captures. (Une première extraction, de 971e528, avait donné les mêmes résultats, avec
+255 + 251 tests.)
 
 Limites (non testé ou à relativiser) :
 - Aucun niveau du jeu n'a encore de ventilateur : l'effet ne se voit que dans le niveau
