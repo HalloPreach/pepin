@@ -35,13 +35,20 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 
 | Action               | Touches                                              |
 |----------------------|------------------------------------------------------|
-| Courir               | flèches gauche/droite, ou Q / A et D                 |
-| Sauter               | Espace, flèche haut, W ou Z                          |
+| Courir               | flèches gauche/droite, ou Q / A et D (AZERTY et QWERTY) |
+| Sauter               | Espace, flèche haut, W ou Z (AZERTY et QWERTY)       |
 | Planer               | maintenir la touche de saut en l'air (parapluie ouvert) |
 | Pause                | Échap ou P                                           |
-| Son (coupé au départ)| M, ou la ligne « SON » des menus                     |
+| Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou la ligne « SON » des menus |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
 | Aller à un niveau    | touches 1 à 5, UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
+
+Les touches sont lues par leur POSITION physique (le « code » du navigateur), pas
+par la lettre imprimée : sur un clavier AZERTY, A et Q (QWERTY) sont à la place de Q
+et A, Z et W sont échangés, et M est à la place du point-virgule. `game/src/entrees.rs`
+accepte donc les deux positions pour chaque lettre et en garde toujours une
+indépendante de la disposition (flèches, Espace, Entrée, Échap). Un effet de bord :
+sur QWERTY, la touche point-virgule coupe aussi le son.
 
 Sur un écran tactile, quatre boutons (gauche, droite, saut, pause) apparaissent
 au premier toucher.

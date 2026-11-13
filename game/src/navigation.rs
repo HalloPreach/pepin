@@ -17,6 +17,7 @@ use macroquad::prelude::{
 };
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
+use crate::entrees::{TOUCHES_BAS, TOUCHES_HAUT, TOUCHES_RETOUR, TOUCHES_SON, TOUCHES_VALIDER};
 use crate::rendu::placement;
 
 /// Ce que le joueur a demandé dans un menu pendant cette image.
@@ -26,7 +27,7 @@ pub struct Navigation {
     pub bas: bool,
     pub valider: bool,
     pub retour: bool,
-    /// Touche M : couper ou remettre le son.
+    /// Touche M (ou la touche de même lettre sur AZERTY) : couper ou remettre le son.
     pub son: bool,
     /// Un clic ou un toucher vient d'avoir lieu ici (pixels logiques).
     pub clic: Option<(f32, f32)>,
@@ -75,11 +76,11 @@ impl LecteurNavigation {
         let bouge = self.dernier != Some((mx, my));
         self.dernier = Some((mx, my));
         Navigation {
-            haut: une_pressee(&[KeyCode::Up, KeyCode::W, KeyCode::Z]),
-            bas: une_pressee(&[KeyCode::Down, KeyCode::S]),
-            valider: une_pressee(&[KeyCode::Enter, KeyCode::KpEnter, KeyCode::Space]),
-            retour: une_pressee(&[KeyCode::Escape, KeyCode::Backspace]),
-            son: is_key_pressed(KeyCode::M),
+            haut: une_pressee(&TOUCHES_HAUT),
+            bas: une_pressee(&TOUCHES_BAS),
+            valider: une_pressee(&TOUCHES_VALIDER),
+            retour: une_pressee(&TOUCHES_RETOUR),
+            son: une_pressee(&TOUCHES_SON),
             clic: if is_mouse_button_pressed(MouseButton::Left) {
                 position
             } else {

@@ -334,3 +334,56 @@ mécanique touchée.
 - Vérifications : tests 145 (noyau) + 146 (jeu) OK ; faisabilité inchangée ; le robot de QA finit
   les 5 niveaux, 0 mort, script identique à l'ancien (12 254 images) ; `./docker-cargo.sh lint`
   OK ; wasm 433 771 octets.
+
+## Revue du 13 novembre : échelle téléphone, raccourcis, AZERTY
+
+Trois défauts constatés, corrigés ; aucun niveau, aucune physique, aucune hitbox ne change.
+
+1. Touche M sur AZERTY. Le moteur lit la position physique des touches ; M d'un clavier AZERTY est à la
+   position du point-virgule QWERTY. Le son ne s'activait donc pas. `game/src/entrees.rs` porte
+   maintenant une table unique de listes de touches (`TOUCHES_*`), lue par `Clavier` et par
+   `navigation.rs` : M et point-virgule coupent/activent le son, A et Q vont à gauche, W et Z sautent,
+   avec toujours une touche indépendante de la disposition (flèches, Espace, Entrée, Échap).
+   Tests : aucune touche en double dans une même situation (en jeu, en menu), au moins une touche fixe
+   par action, et un test « AZERTY » qui traduit les lettres imprimées en position physique.
+2. Touches 1 à 5. Sur AZERTY ce sont & é " ' ( ; un appui accidentel renvoyait au début d'un niveau,
+   remettait le score à zéro et permettait de finir avec un temps truqué. Elles sont retirées de la
+   production : fonctionnalité Cargo `debug_niveaux`, activée par `./build.sh --qa` (dossier `dist-qa/`,
+   ignoré par git). `./docker-cargo.sh lint` vérifie les deux variantes ; des tests couvrent « aucune
+   touche sans la fonctionnalité, même toutes enfoncées » et « chaque touche donne son niveau avec ».
+3. Écrans haute densité. `Conf::high_dpi` est maintenant vrai : le canevas a la résolution physique, et
+   le facteur entier d'agrandissement se calcule en pixels physiques (le rendu, la souris et le tactile
+   convertissaient déjà avec `screen_dpi_scale()`). Avant, un téléphone en paysage de 844x340 pixels CSS
+   (DPR 3) donnait un facteur 1 : le jeu occupait 19 % de l'écran ; maintenant facteur 5, 54 %.
+
+Mesures sur Chromium 1208 piloté par CDP (`docs/qa-clavier-ecran.mjs`, matrice `docs/qa-matrice.sh`,
+sorties JSON de l'exécution ; images `docs/qa/91-*.png`, « avant » = `dist/` construit depuis le commit
+précédent). Les mesures sont des pourcentages de pixels différents ou des rectangles de jeu, vérifiés
+à l'œil sur les captures :
+
+| Cas | Avant | Après |
+|-----|-------|-------|
+| AZERTY : M (position point-virgule) sur le titre | texte « SON » inchangé (6 784 px clairs) | change (6 848 -> 6 336), le 2e appui revient (6 848) |
+| QWERTY : M | change | change |
+| Touches 1 à 5 en plein jeu, production | les touches 1, 3, 4, 5 rechargent un niveau (écart 43 à 64 % ; la 2 donne 0,5 % : son début ressemble au niveau 1) | aucune réaction (0,4 à 0,5 %, la pluie) |
+| Touches 1 à 5, `dist-qa/` | idem | idem (mêmes écarts à 0,01 % près) |
+| Téléphone 844x340, DPR 3 : rectangle de jeu | 960x525 px physiques sur 2532x1020 = 320x175 px CSS (19 % de l'écran, facteur 1 CSS) | 1600x875 = 533x292 px CSS (54 %, facteur 5 physique = 1,67 CSS) |
+| Téléphone 844x390, DPR 3 | 1920x1050 px physiques = 640x350 px CSS (facteur 6) | 1920x1032 : identique (facteur 6) |
+| Bureau 1280x600, DPR 1,5 | facteur 4,5 physique : pixels irréguliers (960x525 px CSS) | facteur 5 entier (1067x573 px CSS) |
+| Bureau 1000x560, DPR 1,25 | facteur 3,75 : blocs de 3 et 4 px mélangés (960x525 px CSS) | facteur 3 : blocs uniformes de 3 px (768x418 px CSS) |
+| Bureau 1280x720, DPR 1 / 1,25 / 1,5 / 2 | 4 / 5 / 6 / 8 (calculé, non mesuré) | 4 / 5 / 6 mesurés ; 8 mesuré en essai préliminaire |
+
+Netteté (`docs/mesure-capture.py` sur la capture du jeu en cours, bureau 1280x720) : DPR 1 (facteur 4),
+DPR 1,25 (5) et DPR 1,5 (6) donnent 0 pixel hors palette et 0 bloc flou. Sur la capture du téléphone, les
+boutons tactiles translucides recouvrent la zone mesurée (35 835 px hors palette sur 1 440 000, 205 blocs
+« non uniformes » sur 57 600) : ce sont les boutons, pas un défaut d'échelle.
+
+Souris et tactile après correction (DPR 1,5 et 3) : clic sur « JOUER » et sur la 2e ligne, doigt sur
+droite, saut, gauche, bouton de pause en haut à droite, doigt sur « REPRENDRE » du menu de pause : chaque
+geste change bien l'écran (`docs/qa/91-tel844x340-apres-*`).
+
+Limites : un seul navigateur (Chromium), émulation CDP (pas un vrai téléphone ni un vrai Windows à 125 %) ;
+le son n'a pas été écouté, seul l'état affiché de la ligne « SON » a été mesuré. Contrepartie de
+`high_dpi` : quand le facteur physique tombe juste sous un entier (1000x560 à 125 % : 3,88 -> 3), le jeu
+est un peu plus petit qu'avant (3 contre 3,75), mais net. Sur QWERTY, la touche point-virgule bascule aussi
+le son (effet de bord inévitable de la table à deux positions).

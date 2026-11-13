@@ -59,6 +59,42 @@ pub trait SourceEntrees {
     fn lire(&mut self) -> Commandes;
 }
 
+// --- Table des touches ----------------------------------------------------
+//
+// Le moteur lit la position PHYSIQUE des touches (le « code » du navigateur), pas
+// la lettre imprimée dessus. Une même position porte donc deux lettres selon la
+// disposition du clavier :
+//
+//     position QWERTY   lettre AZERTY      position QWERTY   lettre AZERTY
+//     Q                 A                  W                 Z
+//     A                 Q                  Z                 W
+//     M                 ,  (virgule)       Semicolon (;)     M
+//
+// Pour chaque action on accepte donc les DEUX positions qui portent la lettre
+// attendue, ainsi qu'au moins une touche qui ne dépend pas de la disposition
+// (flèches, Espace, Entrée, Échap). Les listes d'une même situation (en jeu, dans
+// un menu) ne partagent aucune touche : une touche ne déclenche jamais deux actions.
+
+/// Courir à gauche : flèche, A et Q (WASD / ZQSD).
+pub const TOUCHES_GAUCHE: [KeyCode; 3] = [KeyCode::Left, KeyCode::A, KeyCode::Q];
+/// Courir à droite : flèche et D (même position sur les deux dispositions).
+pub const TOUCHES_DROITE: [KeyCode; 2] = [KeyCode::Right, KeyCode::D];
+/// Sauter / planer : Espace, flèche haut, W et Z (les deux positions du Z/W).
+pub const TOUCHES_SAUT: [KeyCode; 4] = [KeyCode::Space, KeyCode::Up, KeyCode::W, KeyCode::Z];
+/// Pause en jeu : Échap et P (même position sur les deux dispositions).
+pub const TOUCHES_PAUSE: [KeyCode; 2] = [KeyCode::Escape, KeyCode::P];
+/// Son : M (position QWERTY) et point-virgule (position de M sur AZERTY).
+pub const TOUCHES_SON: [KeyCode; 2] = [KeyCode::M, KeyCode::Semicolon];
+
+/// Menus : monter, comme pour le saut (flèche, W, Z).
+pub const TOUCHES_HAUT: [KeyCode; 3] = [KeyCode::Up, KeyCode::W, KeyCode::Z];
+/// Menus : descendre (flèche et S, même position sur les deux dispositions).
+pub const TOUCHES_BAS: [KeyCode; 2] = [KeyCode::Down, KeyCode::S];
+/// Menus : valider.
+pub const TOUCHES_VALIDER: [KeyCode; 3] = [KeyCode::Enter, KeyCode::KpEnter, KeyCode::Space];
+/// Menus : retour.
+pub const TOUCHES_RETOUR: [KeyCode; 2] = [KeyCode::Escape, KeyCode::Backspace];
+
 /// Le clavier : flèches, Q/A/D (WASD et ZQSD), Espace, Haut, W, Z, Échap, P.
 pub struct Clavier;
 
@@ -69,14 +105,13 @@ fn une_enfoncee(touches: &[KeyCode]) -> bool {
 
 impl SourceEntrees for Clavier {
     fn lire(&mut self) -> Commandes {
-        const SAUT: [KeyCode; 4] = [KeyCode::Space, KeyCode::Up, KeyCode::W, KeyCode::Z];
         // `is_key_pressed` rattrape un appui très bref, relâché avant l'image suivante.
-        let saut = une_enfoncee(&SAUT) || SAUT.iter().any(|&t| is_key_pressed(t));
+        let saut = une_enfoncee(&TOUCHES_SAUT) || TOUCHES_SAUT.iter().any(|&t| is_key_pressed(t));
         Commandes {
-            gauche: une_enfoncee(&[KeyCode::Left, KeyCode::A, KeyCode::Q]),
-            droite: une_enfoncee(&[KeyCode::Right, KeyCode::D]),
+            gauche: une_enfoncee(&TOUCHES_GAUCHE),
+            droite: une_enfoncee(&TOUCHES_DROITE),
             saut,
-            pause: is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::P),
+            pause: TOUCHES_PAUSE.iter().any(|&t| is_key_pressed(t)),
         }
     }
 }
@@ -200,6 +235,109 @@ mod tests {
         })));
         let c = s.lire();
         assert!(c.gauche && c.saut && !c.droite);
+    }
+
+    /// Toutes les listes d'une même situation : aucune touche en double.
+    fn sans_doublon(listes: &[(&str, &[KeyCode])]) {
+        for (i, (nom_a, a)) in listes.iter().enumerate() {
+            for (nom_b, b) in &listes[i + 1..] {
+                for k in *a {
+                    assert!(
+                        !b.contains(k),
+                        "{k:?} sert à la fois à « {nom_a} » et « {nom_b} »"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn en_jeu_aucune_touche_ne_declenche_deux_actions() {
+        sans_doublon(&[
+            ("gauche", &TOUCHES_GAUCHE),
+            ("droite", &TOUCHES_DROITE),
+            ("saut", &TOUCHES_SAUT),
+            ("pause", &TOUCHES_PAUSE),
+            ("son", &TOUCHES_SON),
+        ]);
+    }
+
+    #[test]
+    fn dans_les_menus_aucune_touche_ne_declenche_deux_actions() {
+        // « Échap » est à la fois retour (menus) et pause (en jeu) : ce sont deux
+        // situations distinctes, et dans le menu pause les deux veulent dire REPRENDRE.
+        sans_doublon(&[
+            ("haut", &TOUCHES_HAUT),
+            ("bas", &TOUCHES_BAS),
+            ("valider", &TOUCHES_VALIDER),
+            ("retour", &TOUCHES_RETOUR),
+            ("son", &TOUCHES_SON),
+        ]);
+    }
+
+    #[test]
+    fn chaque_action_a_une_touche_independante_de_la_disposition() {
+        // Une touche qui ne change pas de place entre QWERTY et AZERTY.
+        let fixes = [
+            KeyCode::Left,
+            KeyCode::Right,
+            KeyCode::Up,
+            KeyCode::Down,
+            KeyCode::Space,
+            KeyCode::Enter,
+            KeyCode::Escape,
+        ];
+        let actions: [(&str, &[KeyCode]); 7] = [
+            ("gauche", &TOUCHES_GAUCHE),
+            ("droite", &TOUCHES_DROITE),
+            ("saut", &TOUCHES_SAUT),
+            ("pause", &TOUCHES_PAUSE),
+            ("haut", &TOUCHES_HAUT),
+            ("bas", &TOUCHES_BAS),
+            ("valider", &TOUCHES_VALIDER),
+        ];
+        for (nom, touches) in actions {
+            assert!(
+                touches.iter().any(|k| fixes.contains(k)),
+                "« {nom} » n'a que des lettres : injouable sur une disposition"
+            );
+        }
+        // Retour : Échap. Le son n'a que des lettres : voir le test AZERTY.
+        assert!(TOUCHES_RETOUR.contains(&KeyCode::Escape));
+    }
+
+    #[test]
+    fn azerty_les_lettres_imprimees_tombent_sur_une_touche_acceptee() {
+        // Position physique (nom QWERTY) de la lettre imprimée sur un clavier AZERTY.
+        let azerty = |lettre: char| match lettre {
+            'A' => KeyCode::Q,
+            'Q' => KeyCode::A,
+            'Z' => KeyCode::W,
+            'W' => KeyCode::Z,
+            'M' => KeyCode::Semicolon,
+            'D' => KeyCode::D,
+            'S' => KeyCode::S,
+            'P' => KeyCode::P,
+            autre => panic!("lettre non prévue : {autre}"),
+        };
+        // Gauche : A et Q (ZQSD ou WASD) ; droite : D ; saut : Z et W.
+        for l in ['A', 'Q'] {
+            assert!(TOUCHES_GAUCHE.contains(&azerty(l)), "gauche : {l}");
+        }
+        assert!(TOUCHES_DROITE.contains(&azerty('D')));
+        for l in ['Z', 'W'] {
+            assert!(TOUCHES_SAUT.contains(&azerty(l)), "saut : {l}");
+            assert!(TOUCHES_HAUT.contains(&azerty(l)), "menu haut : {l}");
+        }
+        assert!(TOUCHES_BAS.contains(&azerty('S')));
+        assert!(TOUCHES_PAUSE.contains(&azerty('P')));
+        assert!(TOUCHES_SON.contains(&azerty('M')), "M sur AZERTY");
+    }
+
+    #[test]
+    fn qwerty_la_touche_m_reste_acceptee() {
+        assert!(TOUCHES_SON.contains(&KeyCode::M));
+        assert!(TOUCHES_SON.contains(&KeyCode::Semicolon));
     }
 
     #[test]
