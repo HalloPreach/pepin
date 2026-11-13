@@ -835,6 +835,28 @@ mod tests {
         assert_eq!(greles, 4);
     }
 
+    /// Touche F3 du build de QA : le niveau d'essai « auvent » (hors de la table),
+    /// avec ses six auvents.
+    #[test]
+    fn le_raccourci_d_essai_charge_le_niveau_des_auvents() {
+        let mut app = en_jeu();
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Essai4),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI_AUVENT);
+        assert_eq!(app.monde.infos.nom, "Essai auvent");
+        let auvents = app
+            .monde
+            .entites
+            .iter()
+            .filter(|e| matches!(e, pepin_core::entities::Entite::Auvent(_)))
+            .count();
+        assert_eq!(auvents, 6);
+    }
+
     #[test]
     fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         let mut app = en_jeu();

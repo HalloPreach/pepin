@@ -72,9 +72,15 @@ pub const INDICE_ESSAI_VENT: usize = pepin_core::levels::NB_NIVEAUX + 1;
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_GRELE: usize = pepin_core::levels::NB_NIVEAUX + 2;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les trois niveaux
+/// Indice du niveau d'essai « auvent » (carte 5.5) : juste après celui de la
+/// grêle (touche F3 du build de QA).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_AUVENT: usize = pepin_core::levels::NB_NIVEAUX + 3;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les quatre niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
-/// `INDICE_ESSAI_GRELE` grêle) — tests et build de QA seulement. `None` au-delà.
+/// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent) — tests et build de
+/// QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
 }
@@ -87,6 +93,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_vent::INFOS)
     } else if indice == INDICE_ESSAI_GRELE {
         Some(&pepin_core::levels::essai_grele::INFOS)
+    } else if indice == INDICE_ESSAI_AUVENT {
+        Some(&pepin_core::levels::essai_auvent::INFOS)
     } else {
         None
     }

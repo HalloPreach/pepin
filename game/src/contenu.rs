@@ -115,7 +115,8 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
 ];
 
 /// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
-/// sauf, dans les tests et le build de QA, ceux des niveaux d'essai (vertical, vent, grêle).
+/// sauf, dans les tests et le build de QA, ceux des niveaux d'essai (vertical, vent,
+/// grêle, auvent).
 pub fn intro(indice: usize) -> &'static Intro {
     #[cfg(any(test, feature = "debug_niveaux"))]
     if indice == crate::monde::INDICE_ESSAI {
@@ -128,6 +129,10 @@ pub fn intro(indice: usize) -> &'static Intro {
     #[cfg(any(test, feature = "debug_niveaux"))]
     if indice == crate::monde::INDICE_ESSAI_GRELE {
         return &INTRO_ESSAI_GRELE;
+    }
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_AUVENT {
+        return &INTRO_ESSAI_AUVENT;
     }
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
@@ -153,6 +158,14 @@ pub const INTRO_ESSAI_VENT: Intro = Intro {
 pub const INTRO_ESSAI_GRELE: Intro = Intro {
     texte: "La grêle tombe sans arrêt : parapluie fermé, elle est mortelle.",
     astuce: "Saute tôt et plane dessous.",
+};
+
+/// Intro du niveau d'essai « auvent » (build de QA seulement, voir
+/// `monde::INDICE_ESSAI_AUVENT`).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INTRO_ESSAI_AUVENT: Intro = Intro {
+    texte: "Un auvent relance Pépin en diagonale : quatre tuiles plus loin.",
+    astuce: "Droite : plus loin. Gauche : plus près.",
 };
 
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau

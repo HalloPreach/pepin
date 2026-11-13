@@ -8,7 +8,8 @@
 //! au-dessus d'un vide de 23 tuiles, sans toucher le sol. Ils sont espacés de 4,
 //! 4, 5, 3 et 4 tuiles : sans rien toucher, un rebond retombe 4 tuiles plus loin ;
 //! il faut garder la droite pour le 5 et retenir (gauche) pour le 3. Le toit
-//! d'arrivée commence 3 tuiles après le dernier auvent.
+//! d'arrivée commence 3 tuiles après le dernier auvent. (Un joueur pressé peut
+//! aussi en sauter : en gardant la droite, un rebond porte à 7 ou 8 tuiles.)
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
