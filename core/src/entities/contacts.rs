@@ -9,8 +9,8 @@
 //! d'entités (deux emprunts distincts, donc permis en même temps) ; `match` sur
 //! `&mut Entite` pour modifier la variante concernée ; `enum` à données.
 
-use super::{solides_des_entites, Entite};
-use crate::aabb::{touche_un_obstacle, Aabb};
+use super::{solides_des_entites, Entite, PlateformeMobile};
+use crate::aabb::{deplacer, touche_un_obstacle, Aabb};
 use crate::physics::Environnement;
 use crate::player::Joueur;
 
@@ -60,8 +60,9 @@ pub fn verifier_vide(joueur: &Joueur, bas_monde: f32) -> Option<Contact> {
     }
 }
 
-/// Fait suivre au joueur les plateformes mobiles et les nacelles de montgolfière
-/// sur lesquelles il se tient.
+/// Fait suivre au joueur les plateformes mobiles (aiguilles d'horloge comprises,
+/// voir `porter_sur_aiguille`) et les nacelles de montgolfière sur lesquelles il
+/// se tient.
 ///
 /// À appeler APRÈS le déplacement des plateformes, AVANT `Joueur::actualiser`.
 /// `env.solides` doit contenir les plateformes à leur NOUVELLE position
@@ -73,11 +74,15 @@ pub fn porter_par_plateformes(joueur: &mut Joueur, entites: &[Entite], env: &Env
     for entite in entites {
         if let Entite::Mobile(p) = entite {
             // Où était la plateforme avant ce pas ?
-            let avant = p.boite.decale(-p.deplacement.x, -p.deplacement.y);
+            let avant = p.boite_avant();
             let pose_dessus =
                 joueur.boite.decale(0.0, 1.0).chevauche(&avant) && !joueur.boite.chevauche(&avant);
             if pose_dessus {
-                joueur.porter(p.deplacement.x, p.deplacement.y, env);
+                if p.cercle().is_some() {
+                    porter_sur_aiguille(joueur, p, env);
+                } else {
+                    joueur.porter(p.deplacement.x, p.deplacement.y, env);
+                }
                 return; // une seule plateforme porte le joueur
             }
         }
@@ -112,6 +117,33 @@ pub fn porter_par_plateformes(joueur: &mut Joueur, entites: &[Entite], env: &Env
 /// Le joueur est-il posé sur le dessus de `boite` (à 1 px près, sans la chevaucher) ?
 fn pose_sur(joueur: &Joueur, boite: &Aabb) -> bool {
     joueur.boite.decale(0.0, 1.0).chevauche(boite) && !joueur.boite.chevauche(boite)
+}
+
+/// Porte Pépin, debout sur une aiguille d'horloge, d'un pas.
+///
+/// L'aiguille bouge en x ET en y à chaque pas (elle suit un cercle). Déplacer
+/// Pépin des deux d'un coup, comme pour une plateforme en aller-retour, ne marche
+/// pas : la collision traite l'axe X d'abord, et quand l'aiguille MONTE, ses pieds
+/// sont déjà un peu dans l'aiguille (qui a bougé avant lui) : il serait repoussé
+/// sur le côté, et tomberait. Donc, en deux temps :
+/// 1. en x, il suit l'aiguille en ignorant CETTE aiguille (les murs l'arrêtent) ;
+/// 2. en y, ses pieds sont posés PILE sur le dessus de l'aiguille, comme dans la
+///    nacelle de la montgolfière, si la place est libre et s'il est encore
+///    au-dessus d'elle (un mur a pu le retenir pendant qu'elle filait).
+fn porter_sur_aiguille(joueur: &mut Joueur, p: &PlateformeMobile, env: &Environnement<'_>) {
+    let autres: Vec<Aabb> = env
+        .solides
+        .iter()
+        .copied()
+        .filter(|s| *s != p.boite)
+        .collect();
+    deplacer(&mut joueur.boite, p.deplacement.x, 0.0, env.grille, &autres);
+    let b = joueur.boite;
+    let cible = Aabb::new(b.x, p.boite.y - b.h, b.w, b.h);
+    let au_dessus = cible.x < p.boite.droite() && p.boite.x < cible.droite();
+    if au_dessus && !touche_un_obstacle(&cible, env.grille, &autres) {
+        joueur.boite = cible;
+    }
 }
 
 /// Examine tous les contacts de ce pas. Modifie le joueur (rebonds) et les
@@ -789,5 +821,170 @@ mod tests {
             verifier_vide(&j, 160.0),
             Some(Contact::Mort(CauseMort::Vide))
         );
+    }
+
+    // --- Aiguilles d'horloge (carte 5.10) : mini-niveau de test ---
+
+    /// Mini-niveau : un pivot `h` au centre de la case (7, 5), soit (120, 88) ;
+    /// aiguille de 2 tuiles de rayon à 30 px/s. Sol en ligne 11 (dessus à y = 176) :
+    /// à 6 h, le bas de la plateforme est à y = 124 : un saut depuis le sol (57 px)
+    /// y cogne la tête de Pépin.
+    const MINI_HORLOGE: &str = "
+...............
+...............
+...............
+...............
+...............
+.......h.......
+...............
+...............
+...............
+...............
+.@.o.o.o.....X.
+###############
+";
+
+    /// Le mini-niveau, son aiguille partie de l'heure `phase`, et ses entités.
+    fn mini_horloge(phase: f32) -> (crate::level::Niveau, Vec<Entite>) {
+        let reglage = crate::level::ReglageAiguille {
+            rayon: 2.0,
+            vitesse: 30.0,
+            phase,
+        };
+        let n = crate::level::Niveau::depuis_ascii_avec_aiguilles(MINI_HORLOGE, &[reglage])
+            .expect("mini-niveau valide");
+        let e = n.entites.clone();
+        (n, e)
+    }
+
+    /// L'aiguille du mini-niveau (seule plateforme mobile).
+    fn aiguille(e: &[Entite]) -> PlateformeMobile {
+        e.iter()
+            .find_map(|x| match x {
+                Entite::Mobile(m) => Some(m.clone()),
+                _ => None,
+            })
+            .expect("une aiguille")
+    }
+
+    /// Un pas de simulation complet, dans l'ordre du jeu (voir l'en-tête de
+    /// `entities`) : les entités bougent, le joueur est porté, il bouge, contacts.
+    fn pas_du_jeu(
+        n: &crate::level::Niveau,
+        e: &mut [Entite],
+        j: &mut Joueur,
+        entrees: &crate::player::Entrees,
+    ) {
+        let env = Environnement::simple(n);
+        for x in e.iter_mut() {
+            x.actualiser(&env);
+        }
+        let s = solides(e);
+        let env = Environnement {
+            grille: n,
+            solides: &s,
+            courants: &[],
+            vents: &[],
+        };
+        porter_par_plateformes(j, e, &env);
+        j.actualiser(entrees, &env);
+        resoudre_contacts(j, e);
+    }
+
+    /// Debout sur l'aiguille (partie de midi), sans toucher à rien, Pépin fait
+    /// deux tours complets : à chaque pas il a les pieds PILE sur le dessus de la
+    /// plateforme, au même endroit de la plateforme (11 px de son bord gauche).
+    /// Il monte et descend de toute la hauteur du cercle (64 px).
+    #[test]
+    fn l_aiguille_porte_pepin_pendant_deux_tours() {
+        let (n, mut e) = mini_horloge(0.0);
+        let p = aiguille(&e);
+        let mut j = joueur(p.boite.x + 11.0, p.boite.y - 14.0);
+        j.au_sol = true;
+        let pas = (2.0 * p.cercle().unwrap().pas_par_tour()) as u32;
+        let (mut haut, mut bas) = (f32::MAX, f32::MIN);
+        for k in 0..pas {
+            pas_du_jeu(&n, &mut e, &mut j, &crate::player::Entrees::default());
+            let p = aiguille(&e);
+            assert!(j.au_sol, "pas {k} : Pépin n'est plus sur l'aiguille");
+            assert!(
+                (j.boite.bas() - p.boite.y).abs() < 1e-3,
+                "pas {k} : pieds à {} pour un dessus à {}",
+                j.boite.bas(),
+                p.boite.y
+            );
+            assert!(
+                (j.boite.x - p.boite.x - 11.0).abs() < 0.01,
+                "pas {k} : Pépin glisse sur l'aiguille ({} / {})",
+                j.boite.x,
+                p.boite.x
+            );
+            haut = haut.min(j.boite.bas());
+            bas = bas.max(j.boite.bas());
+        }
+        assert!((bas - haut - 64.0).abs() < 0.1, "{haut} -> {bas}");
+    }
+
+    /// Pas de traversée par le dessus : lâché 40 px au-dessus de l'aiguille, à
+    /// pleine vitesse de chute, à chacune des 12 heures du cadran (elle monte, elle
+    /// descend, elle file de côté), Pépin ne la chevauche jamais et finit posé dessus.
+    #[test]
+    fn pepin_tombe_sur_l_aiguille_sans_la_traverser() {
+        for heure in 0..12 {
+            let (n, mut e) = mini_horloge(heure as f32);
+            let p = aiguille(&e);
+            let mut j = joueur(p.boite.x + 11.0, p.boite.y - 14.0 - 40.0);
+            j.vitesse.y = crate::physics::VITESSE_MAX_CHUTE;
+            for k in 0..40 {
+                pas_du_jeu(&n, &mut e, &mut j, &crate::player::Entrees::default());
+                let p = aiguille(&e);
+                assert!(
+                    !j.boite.chevauche(&p.boite),
+                    "{heure} h, pas {k} : Pépin est dans l'aiguille"
+                );
+            }
+            let p = aiguille(&e);
+            assert!(j.au_sol, "{heure} h : pas posé");
+            assert!(
+                (j.boite.bas() - p.boite.y).abs() < 1e-3,
+                "{heure} h : posé à {} au lieu de {}",
+                j.boite.bas(),
+                p.boite.y
+            );
+        }
+    }
+
+    /// Pas de traversée par le dessous : Pépin saute sous l'aiguille (partie de
+    /// 5 h 30, elle passe au plus bas pendant le saut) ; il s'y cogne la tête sans
+    /// jamais la chevaucher, puis retombe au sol.
+    #[test]
+    fn pepin_se_cogne_sous_l_aiguille_sans_la_traverser() {
+        let (n, mut e) = mini_horloge(5.5);
+        let mut j = joueur(115.0, 176.0 - 14.0);
+        let saut = crate::player::Entrees {
+            direction: crate::player::Direction::Immobile,
+            saut: true,
+        };
+        for _ in 0..5 {
+            pas_du_jeu(&n, &mut e, &mut j, &crate::player::Entrees::default());
+        }
+        assert!(j.au_sol);
+        let mut cogne = false;
+        for k in 0..120 {
+            let entrees = if k < 30 {
+                saut
+            } else {
+                crate::player::Entrees::default()
+            };
+            pas_du_jeu(&n, &mut e, &mut j, &entrees);
+            let p = aiguille(&e);
+            assert!(
+                !j.boite.chevauche(&p.boite),
+                "pas {k} : Pépin est dans l'aiguille"
+            );
+            cogne |= (j.boite.y - p.boite.bas()).abs() < 1e-3;
+        }
+        assert!(cogne, "Pépin aurait dû se cogner sous l'aiguille");
+        assert!(j.au_sol && j.boite.bas() == 176.0, "retombé au sol");
     }
 }
