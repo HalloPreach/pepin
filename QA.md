@@ -493,3 +493,112 @@ essayé) ; un vrai iPhone sous Brave (ses erreurs ont été imitées d'après l'
 ligne, « Script error. », promesse) ; Firefox ; une vraie perte de contexte par le pilote graphique
 (provoquée par l'extension `WEBGL_lose_context`). Une erreur de notre propre script de page qui ne
 serait pas protégée ne déclencherait pas de message (choix assumé, voir plus haut).
+
+## Mesure de difficulté
+
+Outil ajouté par la carte 3.1 (`game/src/difficulte.rs`, compilé pour les tests seulement). Il répond à
+« combien de fois meurt-on dans chaque niveau ? » par un chiffre reproductible, à comparer avant/après
+chaque carte qui touche un niveau, un ennemi ou une mécanique.
+
+### Commande
+
+    ./docker-cargo.sh test -p game --no-default-features mesure_de_difficulte -- --ignored --nocapture
+
+Elle affiche les tableaux et réécrit `docs/mesure-difficulte.txt` (fichier versionné : `git diff` montre
+l'effet d'une carte). Durée : 30 à 90 s sur la machine de développement (un fil d'exécution par niveau
+puis par niveau et profil ; la durée dépend de la charge). Le test échoue si un profil finit moins de la
+moitié de ses essais sur un niveau, ou si l'ordre Débutant > Habitué > Expert n'est plus respecté sur le
+total.
+
+Pour le tableau avant/après d'une carte : lancer la commande sur une extraction propre du commit de départ
+(`git archive <commit> | tar -x -C <nouveau dossier>`), puis sur le commit final, et recopier les deux
+tableaux « Morts moyennes » dans la section de la carte. Ne jamais changer `GRAINE`, `ESSAIS` ni `PROFILS`
+d'une carte à l'autre (sinon les chiffres ne sont plus comparables) ; si c'est indispensable, refaire la
+mesure « avant » avec les nouvelles valeurs.
+
+### Méthode : intention parfaite, exécution imparfaite
+
+1. Itinéraires : pour chaque niveau, toutes les cases où Pépin peut se poser sont explorées avec les plans
+   du robot de QA (courir, sauter, planer, attendre ; case = 8 px en x, y au pixel), puis une passe à
+   rebours depuis le drapeau (Dijkstra) donne, pour chaque case, le plan le plus rapide vers le drapeau.
+   243 à 685 cases par niveau. Si les plans grossiers ne suffisent pas, les plans précis du robot prennent
+   le relais (même repli que le robot).
+2. Le joueur simulé joue dans la vraie simulation (`Monde`, comme le robot). Avant chaque plan, il
+   l'essaie sur une copie du monde : il « voit » l'ennemi arriver et ne choisit qu'un plan sûr qui le
+   rapproche du drapeau ; posé hors des cases connues (après une erreur), il essaie les conseils des cases
+   voisines, puis un court détour calculé, puis il attend 1/3 s.
+3. Il exécute ensuite ce plan avec, selon son profil, une erreur tirée au hasard parmi : élan trop court ou
+   trop long (saut parti trop tôt / trop tard), touche de saut lâchée trop tôt / trop tard, parapluie ouvert
+   en retard, direction gardée ou lâchée à tort en redescendant.
+4. Une mort le renvoie à la lanterne comme dans le jeu (animation de réapparition comprise, le monde
+   continue d'avancer). Les morts comptées sont celles du compteur du jeu (`etat.morts`).
+
+Hasard : petit générateur maison (xorshift64*, graine mélangée par splitmix64), graine fixe 20261113 ;
+chaque essai a sa propre graine (profil, niveau, numéro d'essai), donc le résultat ne dépend pas de l'ordre
+des fils d'exécution. 48 essais par profil et par niveau.
+
+| Profil   | Gestes ratés | Élan        | Durée du saut | Parapluie en retard |
+|----------|--------------|-------------|---------------|---------------------|
+| Débutant | 40 %         | ± 12 pas    | ± 8 pas       | jusqu'à 30 pas      |
+| Habitué  | 20 %         | ± 8 pas     | ± 5 pas       | jusqu'à 15 pas      |
+| Expert   | 8 %          | ± 4 pas     | ± 3 pas       | jusqu'à 6 pas       |
+
+(1 pas = 1/60 s ; un « geste » = un plan entier, de l'élan jusqu'à l'atterrissage.)
+
+### Mesure de référence (commit de la carte 3.1, aucun niveau modifié)
+
+Morts moyennes par niveau ; entre parenthèses : sans les morts « en série » (moins d'1 s après la
+précédente, voir le constat plus bas).
+
+| Niveau                      | Débutant     | Habitué      | Expert       |
+| --------------------------- | ------------ | ------------ | ------------ |
+| 1. Les toits                | 0,4 (0,4)    | 0,1 (0,1)    | 0,0 (0,0)    |
+| 2. Gouttières et cheminées  | 6,9 (1,4)    | 1,2 (0,4)    | 0,2 (0,2)    |
+| 3. Le grand orage           | 3,6 (3,6)    | 1,0 (1,0)    | 0,2 (0,2)    |
+| 4. Vents d'altitude         | 2,9 (2,9)    | 0,9 (0,9)    | 0,3 (0,3)    |
+| 5. Au-dessus des nuages     | 2,5 (2,5)    | 0,4 (0,4)    | 0,2 (0,2)    |
+| Total                       | 16,3 (10,8)  | 3,6 (2,8)    | 0,9 (0,9)    |
+
+Les 720 essais finissent tous (détail, durées et pire essai : `docs/mesure-difficulte.txt`). Lecture :
+le niveau 1 est presque sans danger, le niveau 3 (éclairs, corbeaux) est le plus meurtrier hors morts en
+série, la difficulté redescend aux niveaux 4 et 5.
+
+Vérifié :
+- Reproductible : trois exécutions (dont une sur extraction propre du commit final) donnent un fichier
+  `docs/mesure-difficulte.txt` identique à l'octet ; test `niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles`
+  (même graine = même essai, mort pour mort ; sans erreur = aucune mort au niveau 1).
+- Robot de QA inchangé : sa recherche a été rendue réutilisable (`bot_qa::chercher`), mais
+  `target/qa/script.txt` et `trace.csv` sont identiques à l'octet avant/après ; il finit toujours les
+  cinq niveaux sans mourir.
+- Tests du générateur (bornes, même graine même suite) et des erreurs (la direction ne change jamais,
+  « attendre » n'est jamais perturbé, écarts bornés par le profil).
+
+### Constat : morts en série à la lanterne du niveau 2
+
+La mesure a révélé un défaut du jeu (non corrigé ici : cette carte ne touche ni niveau ni mécanique).
+Niveau 2, lanterne de la colonne 104 : deux flaques (colonnes 98 et 108) patrouillent sur le même toit et
+passent sur la lanterne. Si Pépin meurt après l'avoir allumée et qu'une flaque passe sur la lanterne,
+il y réapparaît sur elle et meurt de nouveau à CHAQUE pas (aucune protection pendant la réapparition :
+`Monde::avancer` traite les contacts même quand `reapparition > 0`), jusqu'à ce que la flaque s'éloigne.
+Débutant, essai 0 : 46 morts en 46 images (0,8 s), Pépin en (1667, 114) ; pire essai : 57 morts. C'est
+presque tout l'écart entre 6,9 et 1,4 au niveau 2. Piste pour une carte à venir (décision du
+coordinateur) : une courte invulnérabilité à la réapparition, ou une lanterne hors de la patrouille.
+
+Preuve en vrai navigateur : `ecrire_script_morts_en_serie` (test ignoré) écrit `target/qa/script-31.txt`
+(le robot finit le niveau 1, puis le niveau 2 est joué par cet essai, entrées exactes) ; rejoué dans
+Chromium 1208 piloté par CDP sur le build de QA servi en local (`SCRIPT=target/qa/script-31.txt node
+docs/capture-visibilite.mjs PORT DOSSIER ...`, onglet au premier plan, canevas focalisé).
+Captures `docs/qa/31-essai-debutant-*` : 1 avant (deux flaques sur le toit), 2 Pépin réapparu sur la
+lanterne, la flaque collée à lui, 3 éclats de mort, 4 toujours au même endroit après 25 morts, 5 la flaque
+partie, Pépin repart (0 pixel hors palette, 0 flou, `docs/mesure-capture.py`, K = 3).
+
+### Limites
+
+- Un modèle, pas des joueurs : réflexes parfaits (il voit chaque danger avant d'agir), erreurs tirées
+  uniformément, ni fatigue ni apprentissage. Les chiffres absolus sont indicatifs ; seule la comparaison
+  avant/après à graine égale a un sens.
+- Le joueur simulé ne ramasse pas les gouttes d'or (il va droit au drapeau) : les détours vers les gouttes
+  ne sont pas mesurés.
+- Pas de tactile, pas de manette : les erreurs ne dépendent pas de l'appareil.
+- Le son n'intervient pas. Aucune vérification sur un vrai téléphone ni sur Safari/Firefox (rien d'affiché
+  ne change dans cette carte).

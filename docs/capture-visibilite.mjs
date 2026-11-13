@@ -8,6 +8,8 @@
 //                             tombe dans un trou) ; K captures, une toutes les PAS images
 // Variable d'environnement GRILLE=1 : écrit aussi la grille logique 320x180 de chaque capture
 // (un caractère = un pixel logique, indice hexadécimal de palette) dans NOM.txt.
+// Variable d'environnement SCRIPT : autre script à rejouer (défaut : target/qa/script.txt), par
+// exemple target/qa/script-31.txt (essai de la mesure de difficulté, voir QA.md).
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -44,7 +46,7 @@ await dormir(4000);
 await cdp('Page.bringToFront');
 await evalue('window.focus(); document.querySelector("canvas").focus(); 1');
 await evalue(fs.readFileSync(path.join(ici, 'pilote-qa.js'), 'utf8'));
-const script = fs.readFileSync(path.join(ici, '..', 'target/qa/script.txt'), 'utf8').trim();
+const script = fs.readFileSync(process.env.SCRIPT || path.join(ici, '..', 'target/qa/script.txt'), 'utf8').trim();
 await evalue(`window.__P.script = ${JSON.stringify(script)}; 1`);
 fs.mkdirSync(sortie, { recursive: true });
 
