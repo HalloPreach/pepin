@@ -718,8 +718,13 @@ mod tests {
 
     /// Écrit le script du niveau d'essai vertical pour le navigateur (build de QA) :
     /// `target/qa/script-52.txt` (un chiffre hexadécimal par image, comme `script.txt`),
-    /// `target/qa/touches-52.txt` (image où appuyer sur la touche 0) et
+    /// `target/qa/touches-52.txt` (image du pilote où appuyer sur la touche 0) et
     /// `target/qa/trace-52.csv` (position de Pépin et caméra rendue, image par image).
+    /// Dans le navigateur, le jeu a un pas de retard sur la numérotation du pilote (déjà
+    /// noté à la carte 3.1b, voir QA.md) : sans effet sur des touches tenues plusieurs
+    /// images, mais une touche d'UNE image doit tomber une image plus tard que dans la
+    /// trace, sinon elle arrive pendant la dernière image de la carte du niveau 1 et le jeu
+    /// l'ignore (vérifié : à l'image 228, rien ; à 229, la carte « NIVEAU D'ESSAI »).
     /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai
     #[test]
     #[ignore]
@@ -730,7 +735,8 @@ mod tests {
         let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
         std::fs::write("../target/qa/script-52.txt", &script).unwrap();
         let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
-        std::fs::write("../target/qa/touches-52.txt", format!("{touche}:Digit0\n")).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-52.txt", format!("{pilote}:Digit0\n")).unwrap();
         let mut trace = String::from("image,ecran,essai,x,y,cam_x,cam_y,pepin_ecran_y,repere\n");
         for (k, i) in partie.images.iter().enumerate() {
             trace.push_str(&format!(
@@ -747,7 +753,7 @@ mod tests {
         }
         std::fs::write("../target/qa/trace-52.csv", trace).unwrap();
         println!(
-            "images : {} ; touche 0 à l'image {touche} ; gouttes : {}",
+            "images : {} ; touche 0 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );
