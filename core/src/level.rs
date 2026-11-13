@@ -15,7 +15,8 @@
 //!   p  pigeon, perché sur le solide du dessous ; il regarde du côté où son
 //!      perchoir s'arrête (à droite seulement si le perchoir continue à gauche
 //!      et s'arrête à droite ; sinon à gauche, vers le départ)
-//!   F  plateforme friable      e  éclair (colonne jusqu'au 1er solide dessous)
+//!   F  plateforme friable      e  éclair (colonne du 1er solide dessus, ou du
+//!                                 haut de la carte, au 1er solide dessous)
 //!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,

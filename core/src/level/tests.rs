@@ -207,6 +207,39 @@ fn eclair_tombe_jusqu_au_premier_solide() {
     assert_eq!(zone.bas(), 32.0, "s'arrête au sommet du sol (ligne 2)");
 }
 
+/// Grille haute (carte 5.2) : un éclair posé sous une corniche part du DESSOUS de la
+/// corniche, pas du haut de la carte ; sans rien au-dessus, il part du haut de la carte.
+#[test]
+fn eclair_d_une_grille_haute_part_du_solide_au_dessus() {
+    let mut lignes = vec![".............."; 30];
+    lignes[0] = ".o.o.o...e....";
+    lignes[11] = "....####......";
+    lignes[13] = "......e.......";
+    lignes[28] = ".@..........X.";
+    lignes[29] = "##############";
+    let n = Niveau::depuis_ascii(&lignes.join("\n")).unwrap();
+    assert_eq!(n.hauteur(), 30);
+    let mut zones: Vec<_> = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Eclair(c) => Some(c.zone),
+            _ => None,
+        })
+        .collect();
+    zones.sort_by(|a, b| a.x.total_cmp(&b.x));
+    // Colonne 6 : sous la corniche de la ligne 11 (y = 12 x 16) jusqu'au sol (ligne 29).
+    assert_eq!(
+        (zones[0].x, zones[0].y, zones[0].bas()),
+        (98.0, 192.0, 464.0)
+    );
+    // Colonne 9 : rien au-dessus, du haut de la carte jusqu'au sol.
+    assert_eq!(
+        (zones[1].x, zones[1].y, zones[1].bas()),
+        (146.0, 0.0, 464.0)
+    );
+}
+
 #[test]
 fn panneaux_et_tuiles_decor() {
     let avec = "

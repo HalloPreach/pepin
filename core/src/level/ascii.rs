@@ -154,13 +154,17 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     }
 
     // --- Éléments qui dépendent de la grille complète ----------------------
-    // Éclair : colonne depuis le haut de la carte jusqu'au premier solide en dessous.
+    // Éclair : colonne depuis le premier solide AU-DESSUS du `e` (le haut de la carte s'il
+    // n'y en a pas) jusqu'au premier solide en dessous. Dans un niveau d'un écran, le `e` est
+    // posé sur la rangée du haut : la colonne part du haut de la carte, comme toujours. Dans
+    // une grille haute, elle ne traverse pas les corniches au-dessus d'elle.
     for (k, &(tx, ty)) in eclairs.iter().enumerate() {
-        let premier_solide = (ty..hauteur)
-            .find(|&r| tuiles[r * largeur + tx].est_solide())
-            .unwrap_or(hauteur);
-        let bas = (premier_solide as f32 * TAILLE_TUILE).max(TAILLE_TUILE);
-        let zone = Aabb::new(tx as f32 * TAILLE_TUILE + 2.0, 0.0, 12.0, bas);
+        let solide = |r: usize| tuiles[r * largeur + tx].est_solide();
+        let premier_solide = (ty..hauteur).find(|&r| solide(r)).unwrap_or(hauteur);
+        let plafond = (0..ty).rev().find(|&r| solide(r)).map_or(0, |r| r + 1);
+        let haut = plafond as f32 * TAILLE_TUILE;
+        let bas = (premier_solide as f32 * TAILLE_TUILE).max(haut + TAILLE_TUILE);
+        let zone = Aabb::new(tx as f32 * TAILLE_TUILE + 2.0, haut, 12.0, bas - haut);
         let decalage = 30 + 47 * (k as u16 % 4);
         entites.push(Entite::Eclair(Eclair::new(zone, REPOS_ECLAIR, decalage)));
     }
