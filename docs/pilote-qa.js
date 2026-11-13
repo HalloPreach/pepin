@@ -12,6 +12,10 @@
   const P = window.__P = {
     t: 1e6, n: 0, script: '', pos: 0, cible: 0, masque: 0,
     file: [], parRaf: 4, erreurs: [], gel: 0,
+    // Touches à appuyer PENDANT le rejeu du script : { image : code DOM }. La touche est
+    // enfoncée juste avant l'image, relâchée juste après (une seule image), comme une
+    // demande « touche: » mais sans lâcher le script (carte 5.2 : touche 0 du build de QA).
+    touches: {},
   };
   Date.now = () => P.t;
   window.requestAnimationFrame = () => 0; // arrête la boucle propre du jeu
@@ -39,7 +43,10 @@
       let fait = 0;
       for (let k = 0; k < P.parRaf; k++) {
         if (P.pos < P.cible && P.pos < P.script.length) {
+          const touche = P.touches[P.pos];
+          if (touche) P.bas(touche);
           P.appliquer(parseInt(P.script[P.pos], 16)); P.pos++; image(true); fait++;
+          if (touche) P.haut(touche);
         } else if (P.file.length) {
           const s = P.file[0];
           const debut = s.taper && !s.fait;

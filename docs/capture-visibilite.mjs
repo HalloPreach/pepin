@@ -14,6 +14,9 @@
 // (un caractère = un pixel logique, indice hexadécimal de palette) dans NOM.txt.
 // Variable d'environnement SCRIPT : autre script à rejouer (défaut : target/qa/script.txt), par
 // exemple target/qa/script-31b.txt (réapparition protégée à la lanterne 104, voir QA.md).
+// Variable d'environnement TOUCHES : touches à appuyer pendant le rejeu, sans lâcher le script,
+// « IMAGE:CODE[,IMAGE:CODE...] » ou un fichier qui en contient (une par ligne) ; par exemple
+// TOUCHES=target/qa/touches-52.txt (touche 0 du build de QA : niveau d'essai vertical).
 // Variable d'environnement FENETRE : taille de la fenêtre (défaut 960x540, image agrandie x3) ;
 // FENETRE=1280x720 donne une image agrandie x4.
 import { spawn } from 'node:child_process';
@@ -55,6 +58,17 @@ await evalue('window.focus(); document.querySelector("canvas").focus(); 1');
 await evalue(fs.readFileSync(path.join(ici, 'pilote-qa.js'), 'utf8'));
 const script = fs.readFileSync(process.env.SCRIPT || path.join(ici, '..', 'target/qa/script.txt'), 'utf8').trim();
 await evalue(`window.__P.script = ${JSON.stringify(script)}; 1`);
+if (process.env.TOUCHES) {
+  const texte = fs.existsSync(process.env.TOUCHES)
+    ? fs.readFileSync(process.env.TOUCHES, 'utf8')
+    : process.env.TOUCHES;
+  const touches = {};
+  for (const t of texte.split(/[\s,]+/).filter(Boolean)) {
+    const [image, code] = t.split(':');
+    touches[Number(image)] = code;
+  }
+  await evalue(`window.__P.touches = ${JSON.stringify(touches)}; 1`);
+}
 fs.mkdirSync(sortie, { recursive: true });
 
 const jusqua = async (image) => {
