@@ -381,7 +381,12 @@ mod tests {
         let ascii = essai_escargot::INFOS.ascii;
         let sans = Niveau::depuis_ascii(&ascii.replace('s', ".")).unwrap();
         let r = analyser(&sans, sans.depart, Options::default());
-        assert!(!r.arrivee && !r.gouttes[1], "sans escargot : {r:?}");
+        // Gouttes dans l'ordre de lecture : 0 en l'air (ligne 1), 1 sur la falaise 2
+        // (ligne 2), 2 sur la falaise 1 (ligne 3).
+        assert!(
+            !r.arrivee && r.gouttes == [false; 3],
+            "sans escargot : {r:?}"
+        );
         // Le second (colonne 28) retiré, le premier gardé.
         let lignes: Vec<String> = ascii
             .lines()
@@ -407,8 +412,8 @@ mod tests {
             "sans le second, le drapeau doit rester hors de portée"
         );
         assert!(
-            r.gouttes[1],
-            "mais le premier porte bien sur la falaise 1 : {r:?}"
+            r.gouttes[0] && r.gouttes[2] && !r.gouttes[1],
+            "mais le premier porte bien sur la falaise 1 (et à la goutte en l'air) : {r:?}"
         );
     }
 

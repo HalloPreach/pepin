@@ -34,19 +34,20 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// - Falaise 2 (colonnes 30 à 34, lignes 3 à 8, dessus à y = 48 : 96 px au-dessus
 ///   du fond de la fosse ; le rebond, lui, monte de 103 px), le drapeau au bout. Depuis la falaise 1, même en planant, elle est
 ///   trop loin : il faut descendre dans la fosse et rebondir sur l'escargot 2.
-/// - Gouttes : sol (colonne 5), falaise 1 (colonne 17), falaise 2 (colonne 32),
-///   sur le chemin du robot de QA. Lanternes : sol (2), falaise 1 (15), fond de la
-///   fosse (21).
+/// - Gouttes : en l'air au-dessus du sol (colonne 10, ligne 1 : bien plus haut
+///   qu'un saut, on l'attrape en rebondissant), falaise 1 (colonne 17), falaise 2
+///   (colonne 32), sur le chemin du robot de QA. Lanternes : sol (2), falaise 1
+///   (15), fond de la fosse (21).
 const ASCII: &str = r"
 ...................................
-...................................
+..........o........................
 ................................o.X
 ...............L.o............#####
 ..............######..........#####
 ..............######..........#####
 ..............######..........#####
 ..............######..........#####
-.@L..o..s.....######.L......s.#####
+.@L.....s.....######.L......s.#####
 ###################################
 ###################################
 ";
