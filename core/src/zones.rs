@@ -107,7 +107,7 @@ pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
 mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
-    use crate::levels::{essai_grele, essai_vent, essai_vertical};
+    use crate::levels::{essai_auvent, essai_grele, essai_vent, essai_vertical};
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
@@ -137,6 +137,7 @@ mod tests {
             &essai_vertical::INFOS,
             &essai_vent::INFOS,
             &essai_grele::INFOS,
+            &essai_auvent::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -162,6 +163,7 @@ mod tests {
             &essai_vertical::INFOS,
             &essai_vent::INFOS,
             &essai_grele::INFOS,
+            &essai_auvent::INFOS,
         ])
     }
 
@@ -239,6 +241,39 @@ mod tests {
             },
         );
         assert!(!r.arrivee, "sans parapluie, la grêle et le vide bloquent");
+    }
+
+    /// Le niveau d'essai « auvent » passe les mêmes contrôles (arrivée, 3 gouttes,
+    /// lanternes, robot maladroit) : le robot enchaîne les six auvents.
+    #[test]
+    fn niveau_d_essai_auvent_faisable() {
+        verifier_infos(&essai_auvent::INFOS);
+    }
+
+    /// Six auvents au-dessus du vide, aux colonnes 9, 13, 17, 22, 25 et 29 (écarts
+    /// de 4, 4, 5, 3 et 4 tuiles) ; sans eux, le vide est infranchissable : c'est
+    /// bien la chaîne d'auvents qui fait la traversée.
+    #[test]
+    fn niveau_d_essai_auvent_exige_les_auvents() {
+        use crate::entities::Entite;
+        let niv = essai_auvent::INFOS.charger().unwrap();
+        let t = crate::aabb::TAILLE_TUILE;
+        let colonnes: Vec<i32> = niv
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Auvent(a) => Some((a.boite.x / t) as i32),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(colonnes, vec![9, 13, 17, 22, 25, 29]);
+        let mut sans = niv.clone();
+        sans.entites.retain(|e| !matches!(e, Entite::Auvent(_)));
+        let r = analyser(&sans, sans.depart, Options::default());
+        assert!(
+            !r.arrivee,
+            "sans auvents, le vide doit rester infranchissable"
+        );
     }
 
     /// Ni le départ ni aucune lanterne sous la grêle : Pépin y apparaît (ou y
