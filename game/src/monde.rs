@@ -13,9 +13,11 @@ use pepin_core::aabb::Aabb;
 use pepin_core::entities::contacts::{
     porter_par_plateformes, resoudre_contacts, verifier_vide, CauseMort, Contact,
 };
-use pepin_core::entities::{solides_des_entites, Actualisable, Entite};
+use pepin_core::entities::{
+    courants_des_ventilateurs, solides_des_entites, Actualisable, Entite,
+};
 use pepin_core::level::Niveau;
-use pepin_core::physics::{Environnement, Vec2};
+use pepin_core::physics::{CourantAscendant, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
 use pepin_core::state::{EtatJeu, Ordre};
 use pepin_core::zones::{self, InfosNiveau};
@@ -77,9 +79,15 @@ pub const INDICE_ESSAI_GRELE: usize = pepin_core::levels::NB_NIVEAUX + 2;
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_AUVENT: usize = pepin_core::levels::NB_NIVEAUX + 3;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les quatre niveaux
+/// Indice du niveau d'essai « ventilateur » (carte 5.6) : juste après celui de
+/// l'auvent (touche F4 du build de QA).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_VENTILATEUR: usize = pepin_core::levels::NB_NIVEAUX + 4;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les cinq niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
-/// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent) — tests et build de
+/// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
+/// `INDICE_ESSAI_VENTILATEUR` ventilateur) — tests et build de
 /// QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
@@ -95,6 +103,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_grele::INFOS)
     } else if indice == INDICE_ESSAI_AUVENT {
         Some(&pepin_core::levels::essai_auvent::INFOS)
+    } else if indice == INDICE_ESSAI_VENTILATEUR {
+        Some(&pepin_core::levels::essai_ventilateur::INFOS)
     } else {
         None
     }
@@ -165,10 +175,20 @@ impl Monde {
         }
         // 2. Les plateformes ont bougé : on recalcule les solides, le joueur est porté.
         let solides = solides_des_entites(&self.entites);
+        // Les courants des ventilateurs (actifs uniquement pendant leur phase de
+        // souffle) s'ajoutent aux courants statiques du niveau : c'est ce courant
+        // qui porte Pépin vers le haut quand l'hélice souffle.
+        let courants: Vec<CourantAscendant> = self
+            .niveau
+            .courants
+            .iter()
+            .cloned()
+            .chain(courants_des_ventilateurs(&self.entites))
+            .collect();
         let env = Environnement {
             grille: &self.niveau,
             solides: &solides,
-            courants: &self.niveau.courants,
+            courants: &courants,
             vents: &self.niveau.vents,
         };
         porter_par_plateformes(&mut self.joueur, &self.entites, &env);
