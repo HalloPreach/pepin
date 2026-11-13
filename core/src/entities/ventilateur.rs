@@ -160,7 +160,10 @@ mod tests {
     #[test]
     fn le_cycle_est_exact() {
         // 72 + 48 = 2 s d'arrêt, 120 pas de souffle, période 240 (4 s).
-        assert_eq!((ARRET_PAS, ANNONCE_PAS, SOUFFLE_PAS, PERIODE_PAS), (72, 48, 120, 240));
+        assert_eq!(
+            (ARRET_PAS, ANNONCE_PAS, SOUFFLE_PAS, PERIODE_PAS),
+            (72, 48, 120, 240)
+        );
         let mut v = ventilateur();
         assert_eq!(v.phase(), PhaseVentilateur::Arret);
         pas(&mut v, ARRET_PAS - 1);
@@ -209,12 +212,21 @@ mod tests {
         assert!(v.courant_actif().is_some(), "courant pendant le souffle");
         let mut v2 = ventilateur();
         pas(&mut v2, ARRET_PAS + ANNONCE_PAS / 2); // 72 + 24 = 96 : au milieu de l'annonce
-        assert!(v2.courant_actif().is_none(), "pas de courant pendant l'annonce");
+        assert!(
+            v2.courant_actif().is_none(),
+            "pas de courant pendant l'annonce"
+        );
         pas(&mut v2, ANNONCE_PAS / 2); // 96 + 24 = 120 : on rentre dans le souffle
-        assert!(v2.courant_actif().is_some(), "le courant reprend à la reprise");
+        assert!(
+            v2.courant_actif().is_some(),
+            "le courant reprend à la reprise"
+        );
         pas(&mut v2, SOUFFLE_PAS); // 120 + 120 = 240 : on rentre dans l'arrêt
         assert_eq!(v2.phase(), PhaseVentilateur::Arret);
-        assert!(v2.courant_actif().is_none(), "pas de courant pendant l'arrêt");
+        assert!(
+            v2.courant_actif().is_none(),
+            "pas de courant pendant l'arrêt"
+        );
     }
 
     /// Le joueur est posé dans la zone du courant, à l'intérieur d'une grille LARGES
@@ -263,13 +275,7 @@ mod tests {
         // est vide. La zone du courant (y 16..128) remonte juste sous ce plafond.
         let lignes = vec![
             "########", // plafond (rangée du haut)
-            "........",
-            "........",
-            "........",
-            "........",
-            "........",
-            "........",
-            "........",
+            "........", "........", "........", "........", "........", "........", "........",
         ];
         let g = GrilleTuiles::depuis_texte(&lignes);
         let mut j = Joueur::new(70.0, 100.0);
@@ -340,7 +346,11 @@ mod tests {
 
     #[test]
     fn le_decalage_raccourcit_le_premier_arret() {
-        let mut v = Ventilateur::nouveau(Aabb::new(0.0, 0.0, 16.0, 8.0), Aabb::new(0.0, 0.0, 16.0, 8.0), 12);
+        let mut v = Ventilateur::nouveau(
+            Aabb::new(0.0, 0.0, 16.0, 8.0),
+            Aabb::new(0.0, 0.0, 16.0, 8.0),
+            12,
+        );
         pas(&mut v, 11);
         assert_eq!(v.phase(), PhaseVentilateur::Arret);
         pas(&mut v, 1);

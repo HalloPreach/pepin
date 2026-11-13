@@ -13,9 +13,7 @@ use pepin_core::aabb::Aabb;
 use pepin_core::entities::contacts::{
     porter_par_plateformes, resoudre_contacts, verifier_vide, CauseMort, Contact,
 };
-use pepin_core::entities::{
-    courants_des_ventilateurs, solides_des_entites, Actualisable, Entite,
-};
+use pepin_core::entities::{courants_des_ventilateurs, solides_des_entites, Actualisable, Entite};
 use pepin_core::level::Niveau;
 use pepin_core::physics::{CourantAscendant, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};

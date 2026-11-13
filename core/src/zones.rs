@@ -107,9 +107,7 @@ pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
 mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
-    use crate::levels::{
-        essai_auvent, essai_grele, essai_vent, essai_ventilateur, essai_vertical,
-    };
+    use crate::levels::{essai_auvent, essai_grele, essai_vent, essai_ventilateur, essai_vertical};
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
@@ -301,7 +299,10 @@ mod tests {
                 ..Options::default()
             },
         );
-        assert!(!r.arrivee, "sans le souffle du ventilateur, le balcon doit rester hors de portée");
+        assert!(
+            !r.arrivee,
+            "sans le souffle du ventilateur, le balcon doit rester hors de portée"
+        );
     }
 
     /// Ni le départ ni aucune lanterne sous la grêle : Pépin y apparaît (ou y

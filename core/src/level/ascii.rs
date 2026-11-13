@@ -253,7 +253,9 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         let boite = Aabb::new(tx as f32 * TAILLE_TUILE, dessus_socle, 16.0, 8.0);
         // Désynchronisation des ventilateurs (comme pour les éclairs).
         let decalage = 12 + 18 * (k as u16 % 4);
-        entites.push(Entite::Ventilateur(Ventilateur::nouveau(boite, zone, decalage)));
+        entites.push(Entite::Ventilateur(Ventilateur::nouveau(
+            boite, zone, decalage,
+        )));
     }
 
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même
