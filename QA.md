@@ -873,3 +873,51 @@ le niveau 4 Habitué (0,4) est un peu sous le niveau 2 (0,5), ce que la cible n'
 le 4 qu'au 3 et au 5) ; le niveau 3 a baissé lui aussi (point de repos et hasard ; toujours le plus dur,
 au-dessus du bas de sa bande, 0,5, mais de peu sur la graine officielle : 0,6). Pas testé : vrai téléphone,
 Safari/Firefox, ressenti d'un vrai joueur face aux corbeaux du niveau 4, son (rien de sonore ne change).
+
+## Variantes de brique et ombre sous les toits (carte 4.1)
+
+Habillage des tuiles, dessin seulement : aucune collision, aucun niveau, aucun ennemi ni aucune
+mécanique ne change (la mesure de difficulté n'est donc pas relancée ; ses tests de non-régression
+restent verts).
+
+- `game/src/sprites/tuiles.rs` : trois variantes de `BRIQUE_PLEIN`, même taille 16 x 16, mêmes
+  couleurs, mêmes bords (le raccord avec les tuiles voisines est intact) :
+  `BRIQUE_FISSURE` (trait sombre en biais sur deux assises), `BRIQUE_MANQUANTE` (trou d'une brique,
+  ombre portée en haut, fond sombre), `BRIQUE_COULURE` (traînée humide sombre qui part d'un joint et
+  finit en goutte). Une première version de la coulure était cyan : sur capture, elle se confondait
+  avec les gouttes de pluie qui tombent devant le mur ; refaite en ardoise (le cyan reste à la pluie
+  et aux flaques). Et `OMBRE_TOIT` : bande de 16 x 2 px (0 contre le rebord, puis 1), deux niveaux
+  d'ombre, sans dégradé.
+- `game/src/scene.rs` : `variante_brique(tx, ty)`, fonction pure de la position (hachage entier fixe
+  `hachage_case`, aucun aléatoire) : une brique pleine sur 6 tire une variante ; une case y renonce si
+  sa voisine de gauche ou du dessus a tiré la même, donc deux variantes identiques ne se touchent
+  jamais (ni côte à côte, ni l'une sur l'autre). La bande d'ombre se pose par-dessus la brique dont
+  la case du dessus est un toit (`ombre_sous_toit`) : c'est la première tuile pleine sous le rebord.
+- Dans les vrais niveaux : 229 variantes sur 1291 briques pleines (17,7 %, une sur 5,6) ;
+  niveau 1 : 70 sur 423 (fissure 22, manquante 25, coulure 23), niveau 2 : 79 sur 420, niveau 3 :
+  76 sur 418, niveau 4 : 4 sur 30, niveau 5 : aucune brique. Bandes d'ombre : 164, 157, 161, 15, 0.
+- Tests (`scene.rs`) : choix fixe (valeurs de référence du hachage et de la rangée 9), répartition
+  sur 16 000 cases (entre 1/8 et 1/5, chacun des trois dessins entre 25 et 42 % des variantes),
+  voisines jamais identiques, vrais niveaux (part des variantes entre 1/8 et 1/5 ; plus de 100 bandes
+  d'ombre aux niveaux 1 à 3, aucune au 5), règle de l'ombre (toit sur brique seulement).
+  (`sprites/mod.rs`) : chaque variante a les bords de la brique pleine, 4 à 63 pixels changés, aucun
+  trou transparent ; l'ombre fait 16 px de large, 1 à 2 px de haut, en couleurs 0 et 1 seulement.
+  Planche de sprites `docs/planche-sprites.png` régénérée.
+
+Captures (Chromium 1208 piloté par CDP, build de QA servi sur 127.0.0.1, onglet au premier plan, canevas
+focalisé, serveur arrêté ensuite ; script du robot `target/qa/script.txt` rejoué par
+`docs/capture-visibilite.mjs`, mêmes images du parcours avant et après). « Avant » : build de QA de
+b5da413 ; « après » : build de QA avec ces commits. Toutes regardées ; 0 pixel hors palette, 0 flou
+(`docs/mesure-capture.py`, K = 3) sur les 12.
+- `41-niveau1-debut-avant` / `-apres` (image 350) : toit bas puis toit surélevé ; après, la bande
+  d'ombre court sous les deux rebords, deux briques manquantes et une fissure dans le mur.
+- `41-niveau1-briques-avant` / `-apres` (image 1348) : l'escalier de toits ; une bande d'ombre sous
+  chaque marche, variantes clairsemées dans les grands murs.
+- `41-niveau2-debut-avant` / `-apres` (image 2615) et `41-niveau2-briques-avant` / `-apres`
+  (image 3365) : thème des gouttières (briques plus claires) ; la flaque cyan reste seule à être cyan.
+- `41-niveau3-debut-avant` / `-apres` (image 5201) et `41-niveau3-briques-avant` / `-apres`
+  (image 6619) : l'orage, le grand mur sous la cheminée.
+
+Limites : jugé sur captures à l'échelle 3 (960 x 540) ; la fissure est plus discrète que le trou à
+cette taille (voulu : variantes rares et calmes, le mur ne doit pas attirer l'œil plus que les
+dangers). Pas testé : vrai téléphone, Safari/Firefox ; aucun son ne change.
