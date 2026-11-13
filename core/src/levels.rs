@@ -28,6 +28,7 @@ pub mod essai_auvent;
 pub mod essai_chat;
 pub mod essai_escargot;
 pub mod essai_grele;
+pub mod essai_horloge;
 pub mod essai_montgolfiere;
 pub mod essai_vent;
 pub mod essai_ventilateur;

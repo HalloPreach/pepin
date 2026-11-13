@@ -111,8 +111,8 @@ mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
     use crate::levels::{
-        essai_auvent, essai_chat, essai_escargot, essai_grele, essai_montgolfiere, essai_vent,
-        essai_ventilateur, essai_vertical,
+        essai_auvent, essai_chat, essai_escargot, essai_grele, essai_horloge, essai_montgolfiere,
+        essai_vent, essai_ventilateur, essai_vertical,
     };
 
     #[test]
@@ -148,6 +148,7 @@ mod tests {
             &essai_montgolfiere::INFOS,
             &essai_escargot::INFOS,
             &essai_chat::INFOS,
+            &essai_horloge::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -444,6 +445,39 @@ mod tests {
         assert!(
             !r.arrivee && r.gouttes == [true, false, false],
             "passage bouché : {r:?}"
+        );
+    }
+
+    /// Le niveau d'essai « horloge » passe les mêmes contrôles (arrivée, 3 gouttes,
+    /// lanternes, robot maladroit) : le robot se laisse porter par les deux
+    /// aiguilles d'une tour à l'autre.
+    #[test]
+    fn niveau_d_essai_horloge_faisable() {
+        verifier_infos(&essai_horloge::INFOS);
+    }
+
+    /// Les deux aiguilles servent. Sans aiguille (les `h` vidés), ni la tour B ni
+    /// le drapeau ne sont atteints : seule la goutte du sol l'est. Sans la petite
+    /// (la 1re, en haut), la tour B l'est (goutte 1) mais pas la tour C.
+    #[test]
+    fn niveau_d_essai_horloge_exige_les_deux_aiguilles() {
+        let ascii = essai_horloge::INFOS.ascii;
+        let sans = Niveau::depuis_ascii(&ascii.replace('h', ".")).unwrap();
+        let r = analyser(&sans, sans.depart, Options::default());
+        // Gouttes dans l'ordre de lecture : 0 sur la tour C, 1 sur la tour B, 2 au sol.
+        assert!(
+            !r.arrivee && r.gouttes == [false, false, true],
+            "sans aiguille : {r:?}"
+        );
+        let grande = Niveau::depuis_ascii_avec_aiguilles(
+            &ascii.replacen('h', ".", 1),
+            &essai_horloge::INFOS.aiguilles[1..],
+        )
+        .unwrap();
+        let r = analyser(&grande, grande.depart, Options::default());
+        assert!(
+            !r.arrivee && r.gouttes == [false, true, true],
+            "sans la petite aiguille : {r:?}"
         );
     }
 
