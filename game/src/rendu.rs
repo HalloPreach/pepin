@@ -129,4 +129,83 @@ mod tests {
             assert!((l as i32 - 2 * x - (LARGEUR_LOGIQUE * k) as i32).abs() <= 1);
         }
     }
+
+    /// Fenêtre en pixels CSS + facteur d'écran -> pixels PHYSIQUES du canevas
+    /// (c'est ce que voit le jeu depuis que `high_dpi` est activé dans `Conf`).
+    fn physique(css_l: f32, css_h: f32, dpr: f32) -> (u32, u32) {
+        ((css_l * dpr).round() as u32, (css_h * dpr).round() as u32)
+    }
+
+    #[test]
+    fn le_facteur_sur_des_tailles_physiques_realistes() {
+        // (largeur CSS, hauteur CSS, DPR, facteur attendu en pixels physiques)
+        let cas = [
+            // Téléphone en paysage, barre du navigateur affichée (844x340) : x5, et non x1.
+            (844.0, 340.0, 3.0, 5),
+            // Même téléphone, barre rentrée (844x390 = 2532x1170 physiques) : x6.
+            (844.0, 390.0, 3.0, 6),
+            // Portable à 100 %, 125 % et 150 % (1280x720 CSS) : toujours entier.
+            (1280.0, 720.0, 1.0, 4),
+            (1280.0, 720.0, 1.25, 5),
+            (1280.0, 720.0, 1.5, 6),
+            // Écran 4K à 200 %.
+            (1920.0, 1080.0, 2.0, 12),
+        ];
+        for (cl, ch, dpr, k) in cas {
+            let (l, h) = physique(cl, ch, dpr);
+            assert_eq!(
+                facteur_entier(l, h),
+                k,
+                "{cl}x{ch} @ {dpr} = {l}x{h} physiques"
+            );
+        }
+        assert_eq!(physique(844.0, 390.0, 3.0), (2532, 1170));
+        assert_eq!(facteur_entier(2532, 1170), 6);
+        assert_eq!(facteur_entier(2532, 1020), 5);
+        assert_eq!(facteur_entier(1280, 720), 4);
+    }
+
+    #[test]
+    fn sur_telephone_le_jeu_n_est_plus_un_tiers_de_l_ecran() {
+        // Avant `high_dpi`, le jeu voyait 844x340 (pixels CSS) : facteur 1, soit 180 px
+        // CSS de haut. Maintenant il voit 2532x1020 : facteur 5, soit 900 px physiques,
+        // 300 px CSS de haut.
+        assert_eq!(
+            facteur_entier(844, 340),
+            1,
+            "en pixels CSS : x1 (le défaut corrigé)"
+        );
+        assert_eq!(
+            facteur_entier(844, 359),
+            1,
+            "en pixels CSS : x2 seulement dès 360 px"
+        );
+        let (l, h) = physique(844.0, 340.0, 3.0);
+        let k = facteur_entier(l, h);
+        let haut_css = (HAUTEUR_LOGIQUE * k) as f32 / 3.0;
+        assert!(haut_css >= 300.0, "{haut_css} px CSS de haut");
+    }
+
+    #[test]
+    fn le_placement_physique_est_entier_centre_et_sans_debordement() {
+        for (l, h) in [
+            (2532u32, 1020u32),
+            (2532, 1170),
+            (1600, 900),
+            (1920, 1080),
+            (1920, 1081),
+            (2400, 1080),
+        ] {
+            let (x, y, k) = placement(l, h);
+            assert!(k >= 1);
+            assert!(x >= 0 && y >= 0, "{l}x{h}");
+            assert!(x as u32 + LARGEUR_LOGIQUE * k <= l, "{l}x{h}");
+            assert!(y as u32 + HAUTEUR_LOGIQUE * k <= h, "{l}x{h}");
+            // Bandes équilibrées à un pixel physique près.
+            assert!((l as i32 - 2 * x - (LARGEUR_LOGIQUE * k) as i32).abs() <= 1);
+            assert!((h as i32 - 2 * y - (HAUTEUR_LOGIQUE * k) as i32).abs() <= 1);
+        }
+        assert_eq!(placement(2532, 1020), (466, 60, 5));
+        assert_eq!(placement(1600, 900), (0, 0, 5));
+    }
 }

@@ -47,11 +47,19 @@ use sprites::Banque;
 use tactile::Tactile;
 
 /// Configuration de la fenêtre (échelle x4 de la résolution logique).
+///
+/// `high_dpi` : le canevas a la résolution PHYSIQUE de l'écran (et non celle en pixels
+/// CSS). Sans cela, le facteur entier d'agrandissement était calculé en pixels CSS : sur
+/// un téléphone en paysage (844x340 CSS, DPR 3) le jeu restait en x1, un tiers de
+/// l'écran ; et à 125 % / 150 % d'échelle les pixels étaient irréguliers. Le rendu
+/// (`rendu.rs`), la souris (`navigation.rs`) et le tactile (`tactile.rs`) convertissent
+/// déjà entre pixels physiques et logiques avec `screen_dpi_scale()`.
 fn conf() -> Conf {
     Conf {
         window_title: "PÉPIN — un jeu de plateformes".to_owned(),
         window_width: (LARGEUR_LOGIQUE * 4) as i32,
         window_height: (HAUTEUR_LOGIQUE * 4) as i32,
+        high_dpi: true,
         ..Default::default()
     }
 }
