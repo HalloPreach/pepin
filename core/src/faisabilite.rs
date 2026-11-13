@@ -11,6 +11,11 @@
 //! Simplifications volontaires (documentées pour rester honnêtes) :
 //! - ennemis, corbeaux et éclairs sont ignorés : ils sont évitables en
 //!   attendant ou en écrasant, et leur timing ne change pas l'atteignabilité ;
+//! - SAUF le chat endormi : il ne bouge pas et garde un passage, on ne peut
+//!   donc pas l'éviter. Le robot le garde, TOUJOURS endormi (comme le
+//!   ventilateur toujours actif : un joueur patient attend son sommeil). Le
+//!   heurter de côté tue ; il faut lui sauter dessus. Un chat écrasé le reste :
+//!   chaque état du robot retient les chats déjà écrasés (`Noeud::chats`) ;
 //! - la grêle, elle, est GARDÉE : sa colonne est fixe et tombe sans arrêt, donc
 //!   attendre ne sert à rien. Un plan qui la touche parapluie fermé finit par une
 //!   mort (`resoudre_contacts`) et il est écarté ; le robot la traverse avec ses
@@ -52,7 +57,7 @@ use std::collections::{BinaryHeap, HashMap};
 use crate::aabb::{touche_un_obstacle, Aabb};
 use crate::entities::contacts::{resoudre_contacts, verifier_vide, Contact};
 use crate::entities::montgolfiere::VITESSE_MONTEE;
-use crate::entities::{solides_des_entites, Entite};
+use crate::entities::{solides_des_entites, Entite, TypeEnnemi};
 use crate::level::{Niveau, VITESSE_PLATEFORMES};
 use crate::physics::{
     CourantAscendant, Environnement, VentLateral, HZ, JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
@@ -174,24 +179,41 @@ enum Fin {
 ///   sont remis à neuf par `Joueur::lancer_par_auvent`) : c'est donc un vrai
 ///   point de décision, comme un atterrissage. Chaque rebond d'une chaîne
 ///   d'auvents est ainsi un nouveau choix (garder la droite, la gauche, rien).
+///
+/// `chats` : les chats déjà écrasés (bit `k` = `k`-ième chat du niveau). Le même
+/// endroit, chat écrasé ou non, donne deux états différents : derrière un chat
+/// vivant on ne repasse pas, derrière un chat écrasé si.
 #[derive(Clone, Copy)]
 struct Noeud {
     x: f32,
     y: f32,
     lance: bool,
+    chats: u32,
 }
+
+/// Clé de fusion d'un noeud (voir `Noeud::cle`).
+type CleNoeud = (i32, i32, bool, u32);
 
 impl Noeud {
-    fn pose(x: f32, y: f32) -> Self {
-        Self { x, y, lance: false }
+    fn pose(x: f32, y: f32, chats: u32) -> Self {
+        Self {
+            x,
+            y,
+            lance: false,
+            chats,
+        }
     }
 
-    /// Clé de fusion : une case de 8 px en x, y arrondi, et le genre du noeud.
-    fn cle(self) -> (i32, i32, bool) {
+    /// Clé de fusion : une case de 8 px en x, y arrondi, le genre du noeud et
+    /// les chats écrasés.
+    fn cle(self) -> CleNoeud {
         let (kx, ky) = cle((self.x, self.y));
-        (kx, ky, self.lance)
+        (kx, ky, self.lance, self.chats)
     }
 }
+
+/// Au plus 32 chats par niveau (un bit chacun dans `Noeud::chats`).
+const CHATS_MAX: usize = 32;
 
 /// Trajet d'une plateforme mobile : (extrémité a, extrémité b, largeur).
 type Trajet = ((f32, f32), (f32, f32), f32);
@@ -227,6 +249,10 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                     montees.push((m.boite.x, bas, haut, m.boite.w));
                 }
             }
+            // Le chat endormi est gardé : il garde un passage (voir l'en-tête). Ses
+            // entités ne sont jamais actualisées pendant la recherche : il reste
+            // dans son premier sommeil.
+            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => entites.push(e.clone()),
             Entite::Ennemi(_) | Entite::Eclair(_) => {}
             Entite::Escargot(s) => {
                 // Son trajet sur la grille et les solides immobiles du niveau.
@@ -251,6 +277,15 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // Les friables sont déjà dans `solides` : on les retire des entités pour
     // qu'elles ne s'effritent jamais pendant la recherche.
     entites.retain(|e| !matches!(e, Entite::Friable(_)));
+    // Place des chats dans `entites` : le bit `k` de `Noeud::chats` est le chat
+    // `chats[k]`.
+    let chats: Vec<usize> = entites
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| matches!(e, Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat))
+        .map(|(i, _)| i)
+        .collect();
+    assert!(chats.len() <= CHATS_MAX, "trop de chats : {}", chats.len());
 
     let mut courants: Vec<CourantAscendant> = if options.courants {
         niveau.courants.clone()
@@ -298,21 +333,28 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // connu pour chaque case de 8 px (et chaque genre de noeud : posé ou lancé) ;
     // `tas` sert les états du moins coûteux au plus coûteux (`Reverse`
     // transforme le tas max en tas min).
-    let mut meilleur: HashMap<(i32, i32, bool), u32> = HashMap::new();
-    let mut tas: BinaryHeap<Reverse<(u32, u32, u32, bool)>> = BinaryHeap::new();
-    let n0 = Noeud::pose(depart.0, depart.1);
+    let mut meilleur: HashMap<CleNoeud, u32> = HashMap::new();
+    let mut tas: BinaryHeap<Reverse<(u32, u32, u32, bool, u32)>> = BinaryHeap::new();
+    let n0 = Noeud::pose(depart.0, depart.1, 0);
     meilleur.insert(n0.cle(), 0);
-    tas.push(Reverse((0, depart.0.to_bits(), depart.1.to_bits(), false)));
+    tas.push(Reverse((
+        0,
+        depart.0.to_bits(),
+        depart.1.to_bits(),
+        false,
+        0,
+    )));
     let tous_les_plans: Vec<Plan> = plans(options).collect();
     // Après un rebond d'auvent, on est en l'air : seuls les choix « en vol »
     // ont un sens (ni élan au sol ni saut).
     let plans_lance: Vec<Plan> = plans_en_vol(options).collect();
 
-    while let Some(Reverse((cout, bx, by, lance))) = tas.pop() {
+    while let Some(Reverse((cout, bx, by, lance, ecrases))) = tas.pop() {
         let noeud = Noeud {
             x: f32::from_bits(bx),
             y: f32::from_bits(by),
             lance,
+            chats: ecrases,
         };
         let etat = (noeud.x, noeud.y);
         if meilleur.get(&noeud.cle()).is_some_and(|&c| c < cout) {
@@ -326,11 +368,27 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         let a_essayer = if lance { &plans_lance } else { &tous_les_plans };
         for plan in a_essayer {
             let mut ents = entites.clone();
+            // Les chats déjà écrasés dans cet état le restent.
+            for (k, &i) in chats.iter().enumerate() {
+                if noeud.chats & (1 << k) != 0 {
+                    if let Entite::Ennemi(c) = &mut ents[i] {
+                        c.ecraser();
+                    }
+                }
+            }
             let mut touches: Vec<Contact> = Vec::new();
             let (fin, duree) = simuler(niveau, &env, noeud, *plan, &mut ents, &mut touches);
             if matches!(fin, Fin::Mort | Fin::Abandon) {
                 continue;
             }
+            // Chats écrasés à la fin du plan (ceux d'avant, plus ceux de ce plan).
+            let ecrases = chats
+                .iter()
+                .enumerate()
+                .fold(0u32, |m, (k, &i)| match &ents[i] {
+                    Entite::Ennemi(c) if !c.est_dangereux() => m | (1 << k),
+                    _ => m,
+                });
             for c in &touches {
                 match *c {
                     Contact::Goutte(i) if (i as usize) < 3 => rapport.gouttes[i as usize] = true,
@@ -352,6 +410,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         arrive.x.to_bits(),
                         arrive.y.to_bits(),
                         arrive.lance,
+                        arrive.chats,
                     )));
                 }
             };
@@ -363,9 +422,17 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         rapport.pas_arrivee = Some(cout_plan);
                     }
                 }
-                Fin::Lance(x, y) => ajouter(Noeud { x, y, lance: true }, cout_plan),
+                Fin::Lance(x, y) => ajouter(
+                    Noeud {
+                        x,
+                        y,
+                        lance: true,
+                        chats: ecrases,
+                    },
+                    cout_plan,
+                ),
                 Fin::Pose(x, y) => {
-                    ajouter(Noeud::pose(x, y), cout_plan);
+                    ajouter(Noeud::pose(x, y, ecrases), cout_plan);
                     // Debout sur un bout de plateforme mobile ? On peut attendre
                     // d'être emporté à l'autre bout : on ajoute cet état-là aussi,
                     // avec le temps de trajet comme coût.
@@ -378,7 +445,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                                 let (dx, dy) = (vers.0 - de.0, vers.1 - de.1);
                                 let trajet = (dx * dx + dy * dy).sqrt() / VITESSE_PLATEFORMES;
                                 let attente = (trajet * HZ as f32) as u32;
-                                ajouter(Noeud::pose(x + dx, y + dy), cout_plan + attente);
+                                ajouter(Noeud::pose(x + dx, y + dy, ecrases), cout_plan + attente);
                             }
                         }
                     }
@@ -397,7 +464,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         let balayage = Aabb::new(x, y + dy, JOUEUR_L, JOUEUR_H - dy);
                         if !touche_un_obstacle(&balayage, niveau, &[]) {
                             let attente = (-dy / VITESSE_MONTEE * HZ as f32).ceil() as u32;
-                            ajouter(Noeud::pose(x, y + dy), cout_plan + attente);
+                            ajouter(Noeud::pose(x, y + dy, ecrases), cout_plan + attente);
                         }
                     }
                 }
@@ -1106,5 +1173,106 @@ mod tests {
         assert!((b.x - 16.0).abs() < 0.01, "{b:?}");
         assert!((b.droite() - 176.0).abs() < 0.01, "{b:?}");
         assert_eq!((b.y, b.h), (144.0 - HAUTEUR_ESCARGOT, HAUTEUR_ESCARGOT));
+    }
+
+    /// Mini-niveau du chat, 16 x 5 : une niche d'une tuile de haut (colonnes 6 à
+    /// 11, sous un toit de nuages, fermée à droite par un mur de briques) cache
+    /// une goutte ; un chat endormi (`z`, colonne 5) dort devant son entrée. Le
+    /// drapeau est derrière le mur (on passe par-dessus le toit). Une goutte
+    /// avant le chat, une dans la niche, une derrière le mur. `avec_chat` faux :
+    /// la case du chat reste vide ; `dans_la_niche` : Pépin part du fond de la
+    /// niche (colonne 10) au lieu de la colonne 1.
+    fn niveau_chat(avec_chat: bool, dans_la_niche: bool) -> Niveau {
+        let mut rangee: Vec<char> = "...o.z...o..Bo.X".chars().collect();
+        if !avec_chat {
+            rangee[5] = '.';
+        }
+        rangee[if dans_la_niche { 10 } else { 1 }] = '@';
+        let rangee: String = rangee.into_iter().collect();
+        let lignes = [
+            "................",
+            "................",
+            "......NNNNNNB...",
+            &rangee,
+            "################",
+        ];
+        Niveau::depuis_ascii(&lignes.join("\n")).expect("niveau de test")
+    }
+
+    /// Le robot prend la goutte cachée : il saute sur le chat (endormi), l'écrase,
+    /// entre dans la niche puis en ressort (le chat écrasé le reste), et finit.
+    #[test]
+    fn le_robot_ecrase_le_chat_pour_prendre_la_goutte_cachee() {
+        let n = niveau_chat(true, false);
+        let r = analyser(&n, n.depart, Options::default());
+        assert!(r.arrivee, "drapeau non atteint : {r:?}");
+        assert_eq!(r.gouttes, [true; 3], "{r:?}");
+        let maladroit = analyser(
+            &n,
+            n.depart,
+            Options {
+                precis: false,
+                ..Options::default()
+            },
+        );
+        assert!(maladroit.arrivee, "robot maladroit : {maladroit:?}");
+        assert_eq!(
+            maladroit.gouttes, [true; 3],
+            "robot maladroit : {maladroit:?}"
+        );
+    }
+
+    /// Le robot ne traverse pas un chat vivant : parti du fond de la niche, il
+    /// marche vers la sortie et heurte le chat de côté (mort). Le même plan, chat
+    /// déjà écrasé (bit de `Noeud::chats`), le fait sortir ; sans chat aussi.
+    #[test]
+    fn marcher_dans_un_chat_vivant_tue_le_robot() {
+        let sortir = Plan {
+            dir: Direction::Gauche,
+            elan: 120,
+            saut: 0,
+            planer: false,
+            dir_montee: true,
+            dir_descente: true,
+        };
+        let essayer = |n: &Niveau, ecrase: bool| {
+            let solides = solides_des_entites(&n.entites);
+            let env = Environnement {
+                grille: n,
+                solides: &solides,
+                courants: &[],
+                vents: &[],
+            };
+            let mut ents = n.entites.clone();
+            for e in &mut ents {
+                if let Entite::Ennemi(c) = e {
+                    if ecrase {
+                        c.ecraser();
+                    }
+                }
+            }
+            let depart = Noeud::pose(n.depart.0, n.depart.1, 0);
+            let mut touches = Vec::new();
+            let (fin, _) = simuler(n, &env, depart, sortir, &mut ents, &mut touches);
+            (fin, touches)
+        };
+        let (fin, _) = essayer(&niveau_chat(true, true), false);
+        assert!(matches!(fin, Fin::Mort), "le chat vivant est traversé");
+        let (fin, touches) = essayer(&niveau_chat(true, true), true);
+        assert!(matches!(fin, Fin::Pose(..)), "chat écrasé : il sort");
+        assert!(touches.contains(&Contact::Goutte(0)));
+        let (fin, _) = essayer(&niveau_chat(false, true), false);
+        assert!(matches!(fin, Fin::Pose(..)), "sans chat : il sort");
+    }
+
+    /// Enfermé au fond de la niche, le robot en sort quand même : une petite
+    /// détente contre le plafond le fait retomber sur le dos du chat (il l'écrase
+    /// par le dessus, comme le ferait un joueur). Le vrai jeu aussi : le chat
+    /// garde la niche, il ne la mure pas.
+    #[test]
+    fn du_fond_de_la_niche_le_robot_ecrase_le_chat_pour_sortir() {
+        let n = niveau_chat(true, true);
+        let r = analyser(&n, n.depart, Options::default());
+        assert!(r.arrivee && r.gouttes == [true; 3], "{r:?}");
     }
 }
