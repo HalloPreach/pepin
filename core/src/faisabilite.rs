@@ -29,7 +29,9 @@ use crate::aabb::Aabb;
 use crate::entities::contacts::{resoudre_contacts, verifier_vide, Contact};
 use crate::entities::{solides_des_entites, Entite};
 use crate::level::{Niveau, VITESSE_PLATEFORMES};
-use crate::physics::{CourantAscendant, Environnement, HZ, JOUEUR_H, JOUEUR_L};
+use crate::physics::{
+    CourantAscendant, Environnement, HZ, JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
+};
 use crate::player::{Direction, Entrees, Joueur};
 
 /// Ce que le robot a le droit d'utiliser.
@@ -95,10 +97,23 @@ const SAUTS: [u16; 5] = [0, 5, 9, 13, 40];
 /// Choix grossiers du robot maladroit.
 const ELANS_GROSSIERS: [u16; 5] = [0, 8, 22, 50, 120];
 const SAUTS_GROSSIERS: [u16; 3] = [0, 13, 40];
-/// Durée maximale d'un plan (pas) : 10 s.
+/// Durée maximale d'un plan (pas) dans un niveau d'un écran de haut : 10 s.
 const PAS_MAX: u16 = 600;
 /// Pas d'immobilité qui valident un atterrissage « stable ».
 const PAS_STABILISATION: u16 = 20;
+
+/// Durée maximale d'un plan (pas) dans un niveau de `hauteur_px` pixels de haut.
+///
+/// Un plan se termine posé : dans un niveau haut (quatre écrans, carte 5.2), un plané
+/// d'un bout à l'autre du niveau dure plus de 10 s (le parapluie ouvert descend à
+/// `VITESSE_PLANER_CHUTE`, 36 px/s : 720 px en 20 s). La limite est donc le temps de
+/// planer sur TOUTE la hauteur, plus 2 s ; jamais moins de 10 s (`PAS_MAX`). Un niveau
+/// d'un écran (176 px : 5 s de plané) garde exactement les 10 s d'avant. Le robot de QA
+/// du jeu (`game/src/bot_qa.rs`) applique la même règle.
+pub fn pas_max_plan(hauteur_px: f32) -> u16 {
+    let plane_complet = (hauteur_px / VITESSE_PLANER_CHUTE * HZ as f32).ceil() as u32;
+    (plane_complet + 2 * HZ).clamp(u32::from(PAS_MAX), u32::from(u16::MAX)) as u16
+}
 
 fn direction(sens: i8) -> Direction {
     match sens {
@@ -309,12 +324,13 @@ fn simuler(
     // Un pas à vide pour que `au_sol` soit vrai dès le début.
     j.actualiser(&Entrees::default(), env);
     let bas_monde = niveau.hauteur_px();
+    let pas_max = pas_max_plan(bas_monde);
     let mut en_l_air: u16 = 0;
     let mut a_decolle = false;
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
 
-    for pas in 0..PAS_MAX {
+    for pas in 0..pas_max {
         let mut entrees = Entrees::default();
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
         if !a_decolle && stable == 0 && !marche_finie {
@@ -370,7 +386,7 @@ fn simuler(
             }
         }
     }
-    (Fin::Abandon, PAS_MAX)
+    (Fin::Abandon, pas_max)
 }
 
 #[cfg(test)]
@@ -463,5 +479,49 @@ mod tests {
                 precis: true
             }
         ));
+    }
+
+    /// Mini-niveau HAUT (45 rangées, quatre écrans) : départ sur une corniche en haut à
+    /// gauche, puis un vide de 40 rangées ; le seul sol est en bas, loin à droite. Sans
+    /// parapluie, la chute est trop courte en largeur (on tombe dans le vide) ; avec, le
+    /// plané dure environ 18 s, plus que les 10 s d'un plan dans un niveau d'un écran.
+    fn niveau_haut_a_long_plane() -> Niveau {
+        let (largeur, hauteur) = (60, 45);
+        let mut lignes = vec![".".repeat(largeur); hauteur];
+        lignes[0].replace_range(10..13, "ooo");
+        lignes[2].replace_range(2..3, "@");
+        lignes[3].replace_range(0..6, "######");
+        lignes[43].replace_range(56..57, "X");
+        lignes[44].replace_range(30..60, &"#".repeat(30));
+        Niveau::depuis_ascii(&lignes.join("\n")).expect("niveau de test")
+    }
+
+    #[test]
+    fn la_duree_d_un_plan_suit_la_hauteur_du_niveau() {
+        // Un écran (11 rangées) : exactement les 10 s d'avant.
+        assert_eq!(pas_max_plan(11.0 * 16.0), PAS_MAX);
+        assert_eq!(pas_max_plan(0.0), PAS_MAX);
+        // Quatre écrans (45 rangées) : un plané de 720 px (20 s) tient dans un plan.
+        let quatre_ecrans = pas_max_plan(45.0 * 16.0);
+        assert!(quatre_ecrans >= 20 * HZ as u16, "{quatre_ecrans}");
+        assert!(pas_max_plan(1.0e9) == u16::MAX, "borné, pas de débordement");
+    }
+
+    #[test]
+    fn un_long_plane_d_une_grille_haute_est_trouve() {
+        let n = niveau_haut_a_long_plane();
+        assert_eq!(n.hauteur(), 45);
+        let avec = analyser(&n, n.depart, Options::default());
+        assert!(avec.arrivee, "le long plané doit être trouvé : {avec:?}");
+        // Le même niveau sans parapluie : bloqué (le vide est trop large).
+        let sans = analyser(
+            &n,
+            n.depart,
+            Options {
+                planer: false,
+                ..Options::default()
+            },
+        );
+        assert!(!sans.arrivee, "sans parapluie, la chute est trop courte");
     }
 }
