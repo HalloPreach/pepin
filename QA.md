@@ -1701,3 +1701,143 @@ Limites (non testé ou à relativiser) :
 - Captures faites dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de
  Safari ni Firefox. Les images en mouvement peuvent décaler d'une image d'un rejeu à
  l'autre (horloge du navigateur) ; la preuve formelle est le test Rust du robot.
+
+## Auvent, niveau d'essai « auvent » (carte 5.5)
+
+Lettre `A` : une toile de boutique inclinée (haute à gauche, rayée, sur son armature) qui
+relance Pépin en DIAGONALE, vers le haut et vers l'avant (vers la droite), quand il tombe
+dessus. Ce n'est pas un solide : par-dessous ou par le côté, on passe à travers. Aucune
+touche nouvelle. Aucun niveau du jeu n'est modifié (le marché couvert viendra avec sa carte).
+
+Réglage retenu (prototypes en Python avant d'écrire le Rust, puis tests) :
+- vers le haut : `VITESSE_AUVENT` = 300 px/s, soit 50 px de haut et 40 pas de vol pour
+  retomber à la même hauteur (un peu moins qu'un saut : l'auvent sert à avancer) ;
+- vers l'avant : un ÉLAN rangé à part de `vitesse.x` (comme la poussée du vent latéral),
+  `ELAN_AUVENT` = 192 px/s, qui s'éteint en ligne droite en 40 pas. Sans rien toucher,
+  Pépin retombe 4 tuiles plus loin (65,5 px mesurés) ; les commandes s'AJOUTENT à l'élan :
+  garder la droite porte à 119,5 px (7,5 tuiles), garder la gauche à 11,6 px seulement ;
+- la vitesse horizontale propre repart de 0 à chaque rebond : le vol ne dépend que de
+  l'endroit où Pépin touche la toile, pas de la façon dont il arrive. C'est ce qui rend
+  les enchaînements prévisibles pour le joueur, et ce qui fait de chaque rebond un vrai
+  point de décision pour les robots. L'élan tombe à 0 contre un mur et à l'atterrissage.
+
+Ce qui a été fait :
+- Cœur (`core/src/entities/auvent.rs`, `core/src/player.rs`, `core/src/physics.rs`) :
+  `Auvent { boite }` (zone de contact 16 x 8, dessus 4 px sous le haut de la case :
+  `HAUT_TOILE`), `Auvent::recoit` (Pépin descend et ses pieds sont à moins de
+  `MARGE_AUVENT` = 7 px sous le dessus), `Auvent::lancer` (posé sur la toile puis
+  `Joueur::lancer_par_auvent`), toile enfoncée 8 pas ; `Entite::Auvent`, `Contact::Auvent`
+  (même son et mêmes éclaboussures que le champignon). Sans auvent, le déplacement du
+  joueur est calculé exactement comme avant (l'élan n'est ajouté que s'il existe).
+  Tests sur un MINI-NIVEAU de six auvents au-dessus du vide (grille vide 60 x 12) :
+  trajectoire d'un rebond (diagonale haut-droite dès le premier pas, 45 à 52 px de haut,
+  40 pas ± 1, 60 à 70 px d'avance), élan qui baisse de 4,8 px/s par pas et commandes qui
+  allongent ou raccourcissent le vol (rien 65,5 px, droite 119,5 px, gauche 11,6 px :
+  affiché par le test), rien par-dessous ni par le côté, élan coupé par un
+  mur et à l'atterrissage, six auvents espacés de 3, 4, 5 et 6 tuiles enchaînés SANS
+  TOUCHER LE SOL en dosant la direction (5 points de départ sur le premier), à 4 tuiles
+  sans rien toucher (même point de contact à chaque rebond, à moins de 3 px), et à 3 ou
+  5 tuiles un joueur qui ne touche à rien finit par tomber (il faut doser).
+- Analyse ASCII (`core/src/level/ascii.rs`, légende de `core/src/level.rs`) : test
+  `auvent_pose_dans_sa_case_et_traversable` (position de la zone, case vide, pas solide).
+- Robot de faisabilité (`core/src/faisabilite.rs`) : il joue l'auvent avec la vraie
+  physique et chaque rebond devient un noeud « lancé » (`Noeud { x, y, lance }`,
+  `Fin::Lance`) d'où il essaie 18 plans en vol (gauche, droite ou rien ; gardés en montée
+  et/ou en descente ; parapluie ou non). Mini-niveaux : six auvents au-dessus d'un vide
+  qu'aucun saut plané ne franchit (témoin sans auvents : bloqué), écarts 3-3-3-3-3,
+  4-4-4-4-4, 5-5-5-5-5 et 3-5-3-5-4 : traversés par le robot précis ET le maladroit.
+- Robot de QA et mesure de difficulté (`game/src/bot_qa.rs`, `game/src/difficulte.rs`) :
+  même idée sur la vraie simulation du jeu (`Fin::Lance` quand `m.contacts` contient
+  `Contact::Auvent`, `est_lance`, `plans_en_vol`, clé `CaseParcours` = (x/8, y, lancé)).
+- Niveau d'essai « ESSAI AUVENT » (`core/src/levels/essai_auvent.rs`, 44 x 11, thème
+  Gouttières : nuit bleue comme le futur marché), hors de la table `NIVEAUX`, touche F3 du
+  build de QA seulement (« Essai auvent » 0 fois dans `dist/game.wasm`, 1 fois dans
+  `dist-qa/`). Six auvents au-dessus d'un vide de 23 tuiles, colonnes 9, 13, 17, 22, 25,
+  29 (écarts 4, 4, 5, 3, 4 : rien à toucher pour 4, la droite pour 5, la gauche pour 3),
+  une goutte en l'air entre deux rebonds, 3 lanternes. Contrôles : faisable robot précis
+  et maladroit (4,3 s en course rapide), reprise depuis chaque lanterne, contrôles de
+  grille, et sans auvents le vide est infranchissable. Jeu : `RaccourciNiveau::Essai4`
+  (F3), `monde::INDICE_ESSAI_AUVENT`, `INTRO_ESSAI_AUVENT` ; README : touche F3.
+- Rendu (`game/src/sprites/objets.rs`, `game/src/scene.rs`) : `auvent0` et `auvent1`
+  (16 x 15, de profil : mât de métal sombre, toile en pente rayée corail / blanc cassé,
+  lambrequin festonné au bout, jambe de force ; image 1 : la toile plie au milieu et le
+  lambrequin descend, pendant les 8 pas qui suivent un rebond). Tests : toile de deux
+  couleurs cernée de sombre, mât identique d'une image à l'autre, rayure claire ou contour
+  à au moins 4,5:1 sur toutes les bandes de ciel de tous les thèmes. Planche régénérée.
+- Robot de QA, niveau d'essai : `le_robot_finit_le_niveau_d_essai_auvent` (le plus rapide :
+  326 images de jeu, 0 mort, 4 rebonds sans toucher le sol entre le premier et le dernier :
+  en gardant la droite il saute deux auvents) et `le_robot_enchaine_les_six_auvents_de_l_essai`
+  (parcours « rebond par rebond » : `chercher` vise chaque auvent à son tour ; les six, dans
+  l'ordre, un rebond toutes les 40 images, jamais au sol entre le premier et le sixième,
+  3 gouttes, 0 mort, 418 images de jeu). Script du navigateur : `ecrire_script_essai_auvent`
+  (ignoré) écrit `target/qa/script-55.txt` (899 images), `touches-55.txt` (`229:F3`) et
+  `trace-55.csv` (colonnes `rebond_auvent` et `au_sol`).
+
+Mesure de difficulté : inchangée (aucun niveau, ennemi ni mécanique d'un niveau du jeu ne
+bouge). Avant (extraction propre de 77d6611) et après (extraction propre de d606ab4) :
+`docs/mesure-difficulte.txt` identique à l'octet.
+
+| Niveau                      | Débutant (avant = après) | Habitué (avant = après) | Expert (avant = après) |
+| --------------------------- | ------------------------ | ----------------------- | ---------------------- |
+| 1. Les toits                | 0,4                      | 0,1                     | 0,0                    |
+| 2. Gouttières et cheminées  | 1,5                      | 0,5                     | 0,2                    |
+| 3. Le grand orage           | 3,0                      | 0,6                     | 0,4                    |
+| 4. Vents d'altitude         | 1,3                      | 0,4                     | 0,1                    |
+| 5. Au-dessus des nuages     | 0,5                      | 0,1                     | 0,0                    |
+| Total                       | 6,8                      | 1,8                     | 0,7                    |
+
+Même jeu qu'avant, à l'octet (régénérés sur les deux extractions propres) :
+`target/qa/script.txt` et `trace.csv` (robot principal, 12 131 images, empreinte
+`e03e19a27c17c283`), et les scripts, traces et touches des essais vertical (52), vent (53)
+et grêle (54).
+
+Captures (`docs/qa/55-*`, 960 x 540, build de QA d'une extraction propre de d606ab4 servi
+en local sur 127.0.0.1, Chromium 145 piloté par CDP, onglet au premier plan et canvas
+focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-55.txt` et
+`TOUCHES=target/qa/touches-55.txt`, serveur arrêté à la fin) :
+- `55-carte-niveau1` (image 100) puis `55-carte-essai` (350) : carte « ESSAI AUVENT »,
+  texte et astuce (« Droite : plus loin. Gauche : plus près. ») dans le cadre ;
+- `55-essai-depart` (470) : le toit de départ, et au bord du toit les premiers auvents en
+  rang au-dessus du vide, lisibles sur la nuit bleue ;
+- `55-essai-rebond` (574) : juste après le premier rebond, Pépin part en diagonale, les
+  éclaboussures corail sur la toile. Vérifié au pixel sur la grille logique (`GRILLE=1`) :
+  à cette image le premier auvent est dessiné enfoncé (`auvent1`), les autres tendus ; aux
+  images 570 et 590, tous tendus ;
+- `55-essai-diagonale` (590) : au sommet du premier vol, entre les deux premiers auvents ;
+- `55-essai-goutte` (660) : la goutte attrapée en l'air après le 3e rebond (2/15) ;
+- `55-essai-retenir` (726) : avant l'auvent de la colonne 25 (3 tuiles seulement après le
+  précédent), Pépin regarde à GAUCHE : il retient pour retomber plus près ;
+- `55-essai-dernier` (774) : juste après le 6e rebond, le toit d'arrivée en vue ;
+- `55-essai-arrivee` (830) : posé sur le toit d'arrivée, la dernière goutte devant lui ;
+- `55-fin` (959, 60 images après la fin du script) : « LE SOLEIL ! », 0:06,9, 3 gouttes
+  (3/15 : celles de l'essai), 0 mort.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette,
+0 bloc flou, sur les 10.
+
+Vérification sur une extraction propre de c78bdd4 (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+227 + 242 tests, tous verts (1 + 9 ignorés : écritures de fichiers et diagnostics de la
+mesure) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0
+occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`, « Essai auvent »
+absent ; `./build.sh --qa` : `dist-qa/` produit. Les deux `game.wasm` (production et QA)
+sont identiques à l'octet à ceux de d606ab4 qui ont servi aux captures (c78bdd4 ne change
+que des commentaires, un affichage de test et le README).
+
+Limites (non testé ou à relativiser) :
+- Le niveau d'essai n'existe que dans le build de QA ; aucun niveau du jeu n'a encore
+  d'auvent (le marché couvert viendra avec sa carte).
+- Le dessus de la zone de contact est plat (4 px sous le haut de la case) alors que la
+  toile dessinée est en pente (de 2 à 6 px sous le haut de la case) : au moment du rebond,
+  les pieds de Pépin peuvent paraître 2 px dans la toile ou au-dessus, pendant une image.
+- Un seul sens : l'auvent relance toujours vers la DROITE (demande de la carte). Un auvent
+  « vers la gauche » demanderait une autre lettre.
+- En gardant la droite, un rebond porte à 7,5 tuiles : un joueur pressé peut sauter
+  des auvents (le robot le plus rapide le fait). La carte du marché couvert devra en tenir
+  compte si elle veut imposer les six rebonds (par exemple un plafond, ou des écarts qui
+  ne laissent pas de raccourci).
+- L'auvent fait le même « boing » que le champignon : pas de son propre, rien entendu.
+- 16 px de large (une case) : à petite taille, l'auvent peut faire penser à un fanion ;
+  un auvent plus large (deux cases) n'a pas été fait.
+- Captures faites dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de
+  Safari ni Firefox. Les images en mouvement peuvent décaler d'une image d'un rejeu à
+  l'autre (horloge du navigateur) ; la preuve formelle est le test Rust du robot.
