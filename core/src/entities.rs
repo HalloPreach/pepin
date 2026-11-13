@@ -2,7 +2,7 @@
 //!
 //! Le module est découpé en petits fichiers (un par famille d'entités) :
 //! - `ennemi` : les flaques patrouilleuses (écrasables) et les corbeaux volants ;
-//! - `pointe`, `eclair` : les dangers fixes et temporisés ;
+//! - `pointe`, `eclair`, `grele` : les dangers fixes, temporisés et continus ;
 //! - `friable`, `mobile` : les plateformes qui s'effritent ou qui voyagent ;
 //! - `champignon` : le trampoline ;
 //! - `collectibles` : les gouttes d'or et les lanternes (checkpoints) ;
@@ -17,7 +17,7 @@
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `trait` : le contrat `Actualisable` (« je sais avancer d'un pas de temps ») ;
-//! - `enum` à données : `Entite` est UNE des huit familles, chacune portant ses
+//! - `enum` à données : `Entite` est UNE des neuf familles, chacune portant ses
 //!   propres champs ; `match` oblige à traiter toutes les variantes ;
 //! - ownership : l'enum POSSÈDE l'entité qu'il contient (pas de pointeur partagé) ;
 //! - emprunts : `&self` pour lire, `&mut self` pour modifier, `&[T]` / `&mut [T]`
@@ -29,6 +29,7 @@ pub mod contacts;
 pub mod eclair;
 pub mod ennemi;
 pub mod friable;
+pub mod grele;
 pub mod mobile;
 pub mod pointe;
 
@@ -40,6 +41,7 @@ pub use collectibles::{GoutteDor, Lanterne};
 pub use eclair::Eclair;
 pub use ennemi::{Ennemi, TypeEnnemi};
 pub use friable::PlateformeFriable;
+pub use grele::Grele;
 pub use mobile::PlateformeMobile;
 pub use pointe::Pointe;
 
@@ -64,6 +66,7 @@ pub enum Entite {
     Ennemi(Ennemi),
     Pointe(Pointe),
     Eclair(Eclair),
+    Grele(Grele),
     Friable(PlateformeFriable),
     Mobile(PlateformeMobile),
     Champignon(Champignon),
@@ -80,6 +83,7 @@ impl Actualisable for Entite {
             Entite::Ennemi(e) => e.actualiser(env),
             Entite::Pointe(e) => e.actualiser(env),
             Entite::Eclair(e) => e.actualiser(env),
+            Entite::Grele(e) => e.actualiser(env),
             Entite::Friable(e) => e.actualiser(env),
             Entite::Mobile(e) => e.actualiser(env),
             Entite::Champignon(e) => e.actualiser(env),
@@ -96,6 +100,7 @@ impl Entite {
             Entite::Ennemi(e) => e.boite,
             Entite::Pointe(e) => e.boite,
             Entite::Eclair(e) => e.zone,
+            Entite::Grele(e) => e.zone,
             Entite::Friable(e) => e.boite,
             Entite::Mobile(e) => e.boite,
             Entite::Champignon(e) => e.boite,

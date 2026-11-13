@@ -28,6 +28,8 @@ pub enum CauseMort {
     Ennemi,
     Pointe,
     Eclair,
+    /// Grêle reçue parapluie fermé.
+    Grele,
     Vide,
 }
 
@@ -91,7 +93,7 @@ fn pose_sur(joueur: &Joueur, boite: &Aabb) -> bool {
 /// et il n'y en a qu'une, même si plusieurs dangers touchent en même temps.
 ///
 /// Protection de réapparition (`Joueur::est_protege`) : aucun danger ne tue
-/// (ennemi touché de côté, pointe, éclair) ; tout le reste continue (gouttes,
+/// (ennemi touché de côté, pointe, éclair, grêle) ; tout le reste continue (gouttes,
 /// lanternes, champignons, écrasement d'un ennemi par le dessus). Tout NOUVEAU
 /// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
 /// pas traitée ici (`verifier_vide`) : elle reste mortelle.
@@ -144,6 +146,12 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
             Entite::Eclair(e) => {
                 if !protege && e.frappe() && joueur.boite.chevauche(&e.zone) {
                     mort.get_or_insert(CauseMort::Eclair);
+                }
+            }
+            Entite::Grele(g) => {
+                // Parapluie fermé dans la colonne : mortel. En planant, rien.
+                if !protege && g.blesse(joueur) {
+                    mort.get_or_insert(CauseMort::Grele);
                 }
             }
             Entite::Champignon(c) => {
@@ -603,6 +611,30 @@ mod tests {
             100.0,
         ))];
         assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Ecrase]);
+    }
+
+    /// Grêle : parapluie fermé dans la colonne, mort (cause `Grele`) ; en planant
+    /// au même endroit, rien ; protégé après une réapparition, rien non plus (la
+    /// règle commune à tous les dangers).
+    #[test]
+    fn la_grele_tue_parapluie_ferme_et_epargne_le_plane() {
+        use crate::entities::Grele;
+        let colonne = || vec![Entite::Grele(Grele::new(Aabb::new(98.0, 0.0, 12.0, 160.0)))];
+        let mut j = joueur(100.0, 80.0);
+        let mut e = colonne();
+        assert_eq!(
+            resoudre_contacts(&mut j, &mut e),
+            vec![Contact::Mort(CauseMort::Grele)]
+        );
+        let mut j = joueur(100.0, 80.0);
+        j.plane = true;
+        assert!(resoudre_contacts(&mut j, &mut colonne()).is_empty());
+        let mut j = joueur(100.0, 80.0);
+        j.proteger();
+        assert!(resoudre_contacts(&mut j, &mut colonne()).is_empty());
+        // Hors de la colonne, parapluie fermé : rien.
+        let mut j = joueur(120.0, 80.0);
+        assert!(resoudre_contacts(&mut j, &mut colonne()).is_empty());
     }
 
     /// La chute dans le vide reste mortelle pendant la protection (sinon Pépin

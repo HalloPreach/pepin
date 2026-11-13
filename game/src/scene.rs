@@ -338,6 +338,8 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
             Entite::Mobile(_) => banque.dessiner("mobile", sx, sy, false),
+            // La grêle n'a pas encore de dessin (il vient avec ses sprites).
+            Entite::Grele(_) => {}
             Entite::Eclair(e) => dessiner_eclair(
                 &e.zone,
                 e.en_annonce(),
