@@ -1,7 +1,9 @@
-//! Les ennemis : « flaques » qui patrouillent au sol, corbeaux qui volent en ligne droite.
+//! Les ennemis : « flaques » qui patrouillent au sol, corbeaux qui volent en ligne
+//! droite et font demi-tour au bout de leur portée (ou contre un mur).
 //!
 //! Notions Rust : un `enum` pour le TYPE (`TypeEnnemi`) et un autre pour l'ÉTAT
-//! (`EtatEnnemi`) ; l'état `Ecrase(u8)` PORTE une donnée (les pas d'animation restants).
+//! (`EtatEnnemi`) ; l'état `Ecrase(u8)` PORTE une donnée (les pas d'animation restants) ;
+//! `Option<f32>` pour une portée qui peut ne pas exister (`None` : sans limite).
 
 use super::Actualisable;
 use crate::aabb::{deplacer, Aabb, TAILLE_TUILE};
@@ -10,12 +12,23 @@ use crate::physics::{Environnement, DT, GRAVITE, VITESSE_MAX_CHUTE};
 /// Nombre de pas pendant lesquels une flaque écrasée reste affichée (aplatie).
 pub const ANIMATION_ECRASE_PAS: u8 = 20;
 
+/// Portée de patrouille du corbeau (px) : distance maximale entre sa position et
+/// son point d'apparition, de chaque côté. Il fait demi-tour en l'atteignant, ou
+/// plus tôt s'il rencontre un mur : le premier des deux atteint.
+///
+/// 5 tuiles de chaque côté = une patrouille de 10 tuiles (160 px, la moitié de
+/// l'écran logique de 320 px), soit 4 s pour un aller à 40 px/s : on le voit
+/// revenir, on peut donc l'attendre. Sans portée, dans un niveau ouvert (niveau 4,
+/// sans murs en altitude), il traverserait toute la carte.
+pub const PORTEE_CORBEAU: f32 = 5.0 * TAILLE_TUILE;
+
 /// Espèce d'ennemi. `Copy` : un simple petit « tag », on peut le dupliquer sans souci.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeEnnemi {
     /// Flaque : glisse au sol, fait demi-tour aux murs et au bord du vide.
     Flaque,
-    /// Corbeau : vole droit, fait demi-tour aux murs (ignore la gravité et le vide).
+    /// Corbeau : vole droit (ignore la gravité et le vide), fait demi-tour au bout
+    /// de sa portée (`PORTEE_CORBEAU`) ou contre un mur.
     Corbeau,
 }
 
@@ -33,6 +46,17 @@ impl TypeEnnemi {
         match self {
             TypeEnnemi::Flaque => (12.0, 8.0),
             TypeEnnemi::Corbeau => (12.0, 10.0),
+        }
+    }
+
+    /// Portée de patrouille par défaut (px de chaque côté du point d'apparition).
+    ///
+    /// `Option<f32>` : `None` veut dire « pas de limite ». La flaque n'en a pas
+    /// besoin : le bord du vide et les murs la retiennent déjà sur son toit.
+    pub fn portee(self) -> Option<f32> {
+        match self {
+            TypeEnnemi::Flaque => None,
+            TypeEnnemi::Corbeau => Some(PORTEE_CORBEAU),
         }
     }
 }
@@ -57,10 +81,15 @@ pub struct Ennemi {
     pub vers_la_droite: bool,
     vitesse_y: f32,
     au_sol: bool,
+    /// Abscisse (px) du coin haut-gauche à l'apparition : le centre de la patrouille.
+    origine_x: f32,
+    /// Distance maximale (px) à `origine_x`, de chaque côté (`None` : sans limite).
+    portee: Option<f32>,
 }
 
 impl Ennemi {
     /// Crée un ennemi dont le coin haut-gauche est en `(x, y)`, qui part vers la gauche.
+    /// Sa patrouille est centrée sur ce point, avec la portée par défaut de son type.
     pub fn new(type_ennemi: TypeEnnemi, x: f32, y: f32) -> Self {
         let (w, h) = type_ennemi.taille();
         Self {
@@ -70,6 +99,8 @@ impl Ennemi {
             vers_la_droite: false,
             vitesse_y: 0.0,
             au_sol: false,
+            origine_x: x,
+            portee: type_ennemi.portee(),
         }
     }
 
@@ -144,11 +175,34 @@ impl Ennemi {
         }
     }
 
-    /// Vol du corbeau : ligne droite horizontale, demi-tour au mur.
+    /// Distance (px) qui reste avant la limite de portée, dans le sens de la marche.
+    /// `None` si l'ennemi n'a pas de portée.
+    fn reste_avant_limite(&self) -> Option<f32> {
+        // `map` transforme l'intérieur d'une `Option` : `None` reste `None`.
+        self.portee.map(|portee| {
+            if self.vers_la_droite {
+                self.origine_x + portee - self.boite.x
+            } else {
+                self.boite.x - (self.origine_x - portee)
+            }
+        })
+    }
+
+    /// Vol du corbeau : ligne droite horizontale, demi-tour au mur OU à la limite
+    /// de sa portée, le premier des deux atteint.
     fn voler(&mut self, env: &Environnement<'_>) {
-        let dx = self.sens() * self.type_ennemi.vitesse() * DT;
+        let mut dx = self.sens() * self.type_ennemi.vitesse() * DT;
+        // Si le pas dépasse la limite, on le raccourcit pour s'arrêter PILE dessus :
+        // la patrouille reste exactement symétrique, sans dérive au fil des allers.
+        let mut limite_atteinte = false;
+        if let Some(reste) = self.reste_avant_limite() {
+            if dx.abs() >= reste {
+                dx = self.sens() * reste.max(0.0);
+                limite_atteinte = true;
+            }
+        }
         let contacts = deplacer(&mut self.boite, dx, 0.0, env.grille, env.solides);
-        if contacts.mur() {
+        if contacts.mur() || limite_atteinte {
             self.retourner();
         }
     }
@@ -255,6 +309,111 @@ mod tests {
             assert_eq!(c.boite.y, 24.0, "reste à la même altitude");
         }
         assert!(a_change_de_sens);
+    }
+
+    /// Fait voler (ou marcher) `e` pendant `pas` pas ; renvoie `(x min, x max,
+    /// nombre de demi-tours)` de son coin haut-gauche.
+    fn patrouille(e: &mut Ennemi, env: &Environnement<'_>, pas: usize) -> (f32, f32, usize) {
+        let (mut min_x, mut max_x, mut demi_tours) = (f32::MAX, f32::MIN, 0);
+        for _ in 0..pas {
+            let avant = e.vers_la_droite;
+            e.actualiser(env);
+            min_x = min_x.min(e.boite.x);
+            max_x = max_x.max(e.boite.x);
+            if avant != e.vers_la_droite {
+                demi_tours += 1;
+            }
+        }
+        (min_x, max_x, demi_tours)
+    }
+
+    #[test]
+    fn en_monde_ouvert_le_corbeau_oscille_autour_de_son_point() {
+        // 40 tuiles de large, aucun mur à moins de 5 tuiles du corbeau.
+        let g = GrilleTuiles::vide(40, 10);
+        let env = Environnement::simple(&g);
+        let origine = 300.0;
+        let mut c = Ennemi::new(TypeEnnemi::Corbeau, origine, 50.0);
+        let (min_x, max_x, demi_tours) = patrouille(&mut c, &env, 1500);
+        // Exactement la portée de chaque côté, jamais au-delà.
+        assert!(
+            (min_x - (origine - PORTEE_CORBEAU)).abs() < 1e-3,
+            "min = {min_x}"
+        );
+        assert!(
+            (max_x - (origine + PORTEE_CORBEAU)).abs() < 1e-3,
+            "max = {max_x}"
+        );
+        // 1500 pas à 40 px/s = 1000 px parcourus : plusieurs allers-retours.
+        assert!(demi_tours >= 5, "demi-tours : {demi_tours}");
+        assert_eq!(c.boite.y, 50.0, "reste à la même altitude");
+
+        // Il repasse régulièrement par son point d'apparition : la patrouille
+        // est centrée dessus, elle ne dérive pas au fil des allers-retours.
+        let mut c = Ennemi::new(TypeEnnemi::Corbeau, origine, 50.0);
+        let mut passages = 0;
+        let mut cote = c.boite.x < origine;
+        for _ in 0..1500 {
+            c.actualiser(&env);
+            let nouveau_cote = c.boite.x < origine;
+            if nouveau_cote != cote {
+                passages += 1;
+                cote = nouveau_cote;
+            }
+        }
+        // 1000 px parcourus, un passage tous les 160 px environ.
+        assert!(passages >= 5, "passages par l'origine : {passages}");
+    }
+
+    #[test]
+    fn le_mur_fait_faire_demi_tour_au_corbeau_avant_sa_portee() {
+        // Mur à gauche (colonne 0, x < 16), rien à droite sur 19 tuiles.
+        let g = GrilleTuiles::depuis_texte(&[
+            "#...................",
+            "#...................",
+            "#...................",
+            "#...................",
+        ]);
+        let env = Environnement::simple(&g);
+        // Le mur est à 32 px (2 tuiles) : il arrive AVANT la portée de 80 px.
+        let mut c = Ennemi::new(TypeEnnemi::Corbeau, 48.0, 24.0);
+        let (min_x, max_x, demi_tours) = patrouille(&mut c, &env, 1500);
+        assert!(
+            (min_x - TAILLE_TUILE).abs() < 1e-3,
+            "s'arrête au mur : {min_x}"
+        );
+        // À droite, pas de mur : c'est la portée qui joue.
+        assert!(
+            (max_x - (48.0 + PORTEE_CORBEAU)).abs() < 1e-3,
+            "max = {max_x}"
+        );
+        assert!(demi_tours >= 5, "demi-tours : {demi_tours}");
+    }
+
+    #[test]
+    fn la_flaque_n_a_pas_de_portee() {
+        assert_eq!(TypeEnnemi::Flaque.portee(), None);
+        assert_eq!(TypeEnnemi::Corbeau.portee(), Some(PORTEE_CORBEAU));
+        // Toit de 28 tuiles entre deux murs : la flaque va d'un mur à l'autre,
+        // bien plus loin que la portée d'un corbeau.
+        let g = GrilleTuiles::depuis_texte(&[
+            "##############################",
+            "#............................#",
+            "#............................#",
+            "##############################",
+        ]);
+        let env = Environnement::simple(&g);
+        let mut f = Ennemi::new(TypeEnnemi::Flaque, 240.0, 40.0);
+        let (min_x, max_x, _) = patrouille(&mut f, &env, 2400);
+        assert!(
+            min_x < TAILLE_TUILE + 1.0,
+            "atteint le mur gauche : {min_x}"
+        );
+        assert!(
+            max_x + 12.0 > 29.0 * TAILLE_TUILE - 1.0,
+            "atteint le mur droit : {max_x}"
+        );
+        assert!(240.0 - min_x > PORTEE_CORBEAU && max_x - 240.0 > PORTEE_CORBEAU);
     }
 
     #[test]
