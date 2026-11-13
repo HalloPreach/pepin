@@ -1358,4 +1358,121 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
   niveau 1 : `51-prod-pagedown-sans-effet` (Page suivante, 100 images plus tard : toujours le
   niveau 1, chrono 0:14 qui continue, 1/15) et `51-prod-touche3-sans-effet` (N puis 3 : toujours
   le niveau 1, chrono 0:16) ; un changement de niveau aurait remis le chrono à zéro. 0 pixel
-  hors palette, 0 flou.
+ hors palette, 0 flou.
+
+ ## Caméra verticale des niveaux hauts, niveau d'essai (carte 5.2)
+
+ Socle de l'étape 5 : un niveau peut dépasser un écran (11 rangées / 176 px). La caméra suit
+ Pépin en hauteur (niveau d'essai de 24 x 45, soit quatre écrans, 720 px). Aucun niveau,
+ ennemi ni mécanique ne change : les 5 niveaux actuels (un écran chacun) se comportent
+ exactement comme avant, prouvé au bit près.
+
+ Ce qui a été fait :
+ - Caméra (`game/src/camera.rs`) : au sol, Pépin est recadré à 0,58 de l'écran ; en l'air,
+ zone morte verticale (0,20-0,70 de l'écran, 0,50 parapluie ouvert), lissage 0,12, Pépin
+ toujours à 8 px des bords, bornes du niveau en haut et en bas, arrondi vertical par
+ l'écart Pépin-caméra. Le bas de la zone remonte de 0,70 à 0,40 sur les 96 px sous le point
+ de décollage (regard vers le bas en descente, sans à-coup) : dans le puits du niveau
+ d'essai, Pépin restait collé en bas de l'écran (y = 158). Jamais plus de 9,6 px de caméra
+ par pas ; plus de 100 px de vue sous Pépin en chute. Niveaux d'un écran : ancien calcul
+ inchangé, test bit à bit contre une copie VERBATIM de l'ancienne caméra sur les 5 niveaux
+ (5000 pas chacun, 68 morts/reparutions) ; 7 tests sur un mini-niveau vertical (saut sans
+ bouger l'écran, recadrage doux, longue chute visible, plané, au-dessus du niveau, arrondi,
+ pas de tremblement).
+ - Parallaxe verticale du fond (`game/src/decor.rs`, `scene.rs`) : le fond compte la caméra
+ depuis le bas du niveau (`decor::camera_fond`) ; les silhouettes descendent quand la caméra
+ monte (`enfoncement` : 27, 38 et 54 px en haut d'un niveau de quatre écrans, proche > îlots
+ > lointaine, toutes moindres que les tuiles), facteurs nommés `VERT_*`. Niveau d'un écran :
+ même fond qu'avant, secousse comprise (test) ; contraste couches/ciel vérifié jusqu'à
+ 64 rangées.
+ - Cœur (`core/src`) : éclair d'une grille haute — la colonne part du premier solide au-dessus
+ du « e » (ou du haut de la carte s'il n'y en a pas), niveaux d'un écran inchangés (« e » sur
+ la rangée du haut), test sur une grille de 30 rangées ; durée d'un plan selon la hauteur du
+ niveau (`faisabilite::pas_max_plan` : plané sur toute la hauteur + 2 s, jamais moins des
+ 10 s d'avant ; mini-niveau de 45 rangées où seul un plané de ~18 s mène à l'arrivée, trouvé
+ avec parapluie, bloqué sans, échoue avec l'ancienne limite) ; niveau d'essai vertical
+ 24 x 45 HORS de la table `NIVEAUX` (échelle de corniches en zigzag, champignon qui lance
+ au-dessus du niveau, puits de droite, 3 gouttes, 3 lanternes, thème Altitude) ; faisable
+ (robot précis et maladroit, 3 gouttes, 3 lanternes, reprise depuis chaque lanterne),
+ lanternes posées, aucune poche close ; un niveau du jeu peut avoir plus de 11 rangées.
+ - Jeu (`game/src`) : le niveau d'essai n'est chargé que dans le build de QA
+ (`debug_niveaux`) — touche 0 (`entrees::RaccourciNiveau::Essai`), indice juste après la
+ table (`monde::INDICE_ESSAI`, `monde::infos_niveau`), carte « NIVEAU D'ESSAI » et son intro
+ (`contenu::INTRO_ESSAI`, « L'altitude et le puits vous attendent »). En PRODUCTION l'indice
+ reste hors table et le niveau n'est référencé nulle part (test). Tests : raccourci, cible,
+ carte qui tient dans son cadre, glyphes, chargement par l'`Application` avec la caméra en
+ bas du niveau. README, docs/build.md, build.sh, Cargo.toml.
+ - Robot de QA (`game/src/bot_qa.rs`) : `pas_max_plan` du cœur ; le robot FINIT le niveau
+ d'essai vertical à travers l'`Application` (touche 0), sans mourir : la caméra va de 540 à
+ 0 et revient, Pépin est toujours entier à l'écran sauf quand le champignon le lance au-
+ dessus du niveau, et la flèche de repère (`scene::repere_haut`) apparaît exactement alors.
+ Test ignoré `ecrire_script_essai_vertical` : `target/qa/script-52.txt`, `touches-52.txt` et
+ `trace-52.csv` pour le navigateur.
+ - Navigateur (`docs/pilote-qa.js`, `docs/capture-visibilite.mjs`) : variable `TOUCHES`
+ (« IMAGE:CODE » ou fichier) pour appuyer une touche pendant le rejeu sans lâcher le script
+ (la touche 0 du niveau d'essai).
+
+ Même partie qu'avant (preuve demandée) :
+ - Robot de QA, partie complète à travers l'`Application`, AVANT (extraction propre de
+ abd1483, parent de la carte) et APRÈS (extraction propre de 36a3e5f) : `target/qa/script.txt`
+ et `trace.csv` IDENTIQUES À L'OKTET (12 131 images, 0 mort, 5 gouttes, score 800, chrono
+ 10 727 pas — les 5 niveaux d'un écran n'ayant ni caméra ni durée de plan modifiées).
+ - Mesure de difficulté et planche de sprites : aucune entrée ne change (ni niveau, ni ennemi,
+ ni mécanique, ni sprite) ; régénérés sur l'extraction propre, IDENTIQUES À L'OKTET.
+ - Rejeu du robot, AVANT (build de QA de l'extraction abd1483) et APRÈS : les 11 captures des
+ 5 niveaux sont identiques à l'octet ; seules les « après » sont versionnées.
+
+ Captures (Chromium 1208 piloté par CDP, fenêtre 1280 x 720 donc image agrandie x4, build de
+ QA servi sur 127.0.0.1, onglet au premier plan, canevas focalisé, serveurs arrêtés ensuite ;
+ `docs/capture-visibilite.mjs` avec sa variable `TOUCHES` ; `docs/mesure-capture.py`, K = 3).
+ Toutes regardées ; 0 pixel hors palette, 0 pixel semi-transparent sur les 19.
+ - Rejeu du robot sur les 5 niveaux, AVANT et APRÈS, mêmes images : `52-carte-niveau1` (143),
+ `52-niveau1` (1500), `52-carte-niveau2` (2408), `52-niveau2` (4000), `52-niveau3-a` (6000),
+ `52-niveau3-b` (7000), `52-niveau4-a` (8500), `52-niveau4-b` (9500), `52-carte-niveau5`
+ (10 063), `52-niveau5` (11 000), `52-fin` (11 950 : 2:58,7, 5/15, 0 mort, 800 points).
+ Les 11 paires avant/après sont identiques à l'octet ; seules les « après » sont versionnées.
+ - Niveau d'essai vertical (après seulement ; le robot joue `script-52.txt` et la touche 0 est
+ appuyée à l'image 229 du pilote, `TOUCHES=229:Digit0`) : `52-essai-carte` (300 : carte
+ « NIVEAU D'ESSAI », intro, NIVEAU 1/15 0/15 gouttes 15 s), `52-essai-depart` (470 : bas du
+ niveau, caméra en bas, silhouettes hautes), `52-essai-montee` (806 : montée sur les
+ corniches, la caméra suit), `52-essai-haut` (1156 : sommet, champignon, goutte, puits à
+ droite), `52-essai-repere` (1181 : Pépin lancé au-dessus du niveau, flèche de repère en haut
+ de l'écran, caméra en haut), `52-essai-chute` (1256 : chute dans le puits, la caméra suit,
+ plus de 100 px de vue sous Pépin), `52-essai-fin-de-chute` (1306 : fin de chute, sol,
+ drapeau), `52-essai-arrivee` (1381 : arrivée).
+
+ Limites :
+ - Le niveau d'essai est dans le build de QA seulement (`debug_niveaux`) ; en production
+ l'indice est hors table et le niveau n'est référencé nulle part (test). Aucune capture
+ « NIVEAU D'ESSAI » en build de production (la touche 0 n'y fait rien, comme les touches de
+ raccourci de la carte 5.1).
+ - Dans le navigateur, le jeu a un PAS de retard sur la numérotation du pilote (déjà noté à la
+ carte 3.1b) : sans effet sur des touches tenues plusieurs images, mais une touche d'UNE
+ image doit tomber une image plus tard que dans la trace — d'où `touches-52.txt` = 229
+ (pilote) et non 228 (trace) ; à l'image 228 la touche arrive sur la dernière image de la
+ carte du niveau 1 et le jeu l'ignore.
+ - Captures du niveau d'essai : les frames en MOUVEMENT (montée, haut, chute, fin de chute,
+ arrivée) peuvent décaler d'UNE image d'une exécution à l'autre (horloge temps réel du
+ navigateur, événement de touche `TOUCHES` à la frontière d'image) ; les moments statiques
+ (carte, départ, repère) et tout le rejeu sans `TOUCHES` sont déterministes, identiques à
+ l'octet. La preuve FORMALISÉE du niveau d'essai est le test Rust `jouer_essai_vertical` à
+ travers l'`Application` (caméra 540 -> 0 -> 540, Pépin toujours entier à l'écran sauf lancé
+ au-dessus, flèche de repère exactement alors) ; les captures sont la preuve VISUELLE.
+ - Pas testé : vrai téléphone, Safari/Firefox, ressenti d'un vrai joueur sur la durée (la
+ caméra verticale n'a de sens que sur un niveau > 4 écrans, l'essai en fait exactement
+ quatre), niveau réel de plus de quatre écrans.
+
+ Vérification sur une extraction propre de 36a3e5f (`git archive`, nouveau dossier daté) :
+ - `./docker-cargo.sh test --workspace --no-default-features` : 189 + 225 tests, tous verts
+ (6 ignorés : les scripts) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/`
+ produit, 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+ - Régénérés dans l'extraction, identiques à l'octet : `docs/planche-sprites.png`,
+ `docs/mesure-difficulte.txt` (tableau avant/après inchangé : aucun niveau, ennemi ni
+ mécanique ne bouge), `target/qa/script.txt` et `trace.csv` (robot principal, mêmes 12 131
+ images que l'avant de la carte), `target/qa/script-52.txt` et `trace-52.csv` (1 429 images,
+ 1 goutte, caméra 540 -> 0 -> 540) ; `touches-52.txt` = `229:Digit0` (image du pilote).
+ - Les 19 captures 52- refaites sur le build de QA de l'extraction : les 11 du rejeu et les 3
+ moments statiques du niveau d'essai (carte, départ, repère) sont identiques à l'octet à
+ celles du dépôt ; les 5 frames en mouvement du niveau d'essai décalent d'une image (wasm
+ identique à l'octet, jitter de l'horloge navigateur, voir Limites). 0 pixel hors palette,
+ 0 semi-transparent.
