@@ -1877,6 +1877,54 @@ mod tests {
         );
     }
 
+    /// Écrit le script du niveau d'essai « escargot » pour les captures de la carte
+    /// 5.8 : `target/qa/script-58.txt`, `target/qa/touches-58.txt` (l'image où
+    /// appuyer sur F6, une image après la trace : le navigateur a un pas de retard) et
+    /// `target/qa/trace-58.csv` (position de Pépin, caméra, sol, escargots, rebond,
+    /// contact de côté).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_escargot
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_escargot() {
+        let partie = jouer_essai_escargot(&parcours_essai_escargot());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-58.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-58.txt", format!("{pilote}:F6\n")).unwrap();
+        let mut trace = String::from(
+            "image,ecran,essai,x,y,cam_x,cam_y,au_sol,escargot1_x,escargot1_aplati,\
+             escargot2_x,escargot2_aplati,rebond,contre\n",
+        );
+        for (k, i) in partie.images.iter().enumerate() {
+            let [e1, e2] = i.escargots;
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{:.1},{},{:.1},{},{},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.au_sol),
+                e1.0,
+                u8::from(e1.2),
+                e2.0,
+                u8::from(e2.2),
+                u8::from(i.rebond_escargot),
+                u8::from(i.contre_escargot)
+            ));
+        }
+        std::fs::write("../target/qa/trace-58.csv", trace).unwrap();
+        println!(
+            "images : {} ; F6 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
     /// Écrit le script des touches pour le navigateur : `target/qa/script.txt`
     /// (un chiffre hexadécimal par image) et `target/qa/trace.csv`.
     /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script
