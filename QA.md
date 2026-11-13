@@ -2279,3 +2279,144 @@ Limites (non testé ou à relativiser) :
   sur les plateformes mobiles en route (il suit les solides comme la flaque).
 - Pas de son propre (le « boing » du champignon). Captures dans Chromium seulement, à
   960 x 540 ; pas de vrai téléphone, pas de Safari ni Firefox.
+
+## Chat endormi, niveau d'essai « chat » (carte 5.9)
+
+Demande : le chat endormi (`z`, pour le marché couvert) : immobile ; cycle annoncé : il dort
+(« zzz », plusieurs secondes) puis se réveille brièvement. Endormi, on l'écrase en lui sautant
+dessus ; éveillé, le toucher tue Pépin. Il bloque l'accès à une goutte cachée.
+
+Reprise : le cœur et la faisabilité avaient été écrits par erreur pendant la carte 5.8 et mis
+de côté sur la branche locale `brouillon-5.9-chat` (voir le commentaire de la carte). Ils sont
+repris par cherry-pick sur le HEAD de la 5.8 (7790fe5, b9494d3 : un conflit d'ajout de tests
+résolu à la main dans `faisabilite.rs`), puis vérifiés ; le rendu (brouillon non compilé) a
+été réappliqué à la main, relu et corrigé. La branche de brouillon n'est plus utile (non
+supprimée : à faire par le coordinateur s'il le souhaite).
+
+Ce qui a été fait :
+- Cœur, `core/src/entities/ennemi/chat.rs` : `TypeEnnemi::Chat` (boîte 14 x 8, immobile),
+  cycle `PhaseChat` en pas entiers : `Dort` 240 pas (4 s) → `Reveil` 48 pas (0,8 s,
+  l'annonce, comme l'éclair) → `Eveille` 72 pas (1,2 s) → `Dort`… Endormi ou en train de se
+  réveiller, c'est un ennemi comme les autres (écrasé par le dessus, mortel de côté) ; éveillé,
+  `est_ecrasable` est faux : le toucher tue, même par le dessus (`contacts.rs`). La protection
+  de réapparition s'applique aussi au chat. Lettre `z` : posé sur le solide du dessous, la case
+  du dessus libre (sinon `ErreurNiveau::ChatSansPlace`), tourné vers le départ sauf s'il est
+  adossé à un mur ; deux chats d'un niveau ne se réveillent pas ensemble (premiers sommeils
+  raccourcis de 0, 40, 80 ou 120 pas). Légende de `core/src/level.rs` à jour. Ajout de cette
+  carte : `pas_du_cycle` (où en est le chat dans son cycle de 360 pas), fonction pure testée.
+- Rendu : 5 sprites 16 x 14 (`game/src/sprites/ennemis.rs`) : dort (2 images, le dos respire),
+  réveil (tête levée, un œil d'or ouvert), éveillé (assis, hérissé, queue dressée, deux yeux
+  d'or), écrasé (redessiné par rapport au brouillon : aplati, oreilles rentrées, yeux plissés,
+  petit nez rose, il reste mignon). Indices : deux « z » blancs cernés de sombre qui montent
+  pendant le sommeil, puis un « ! » doré qui clignote de plus en plus vite pendant l'annonce
+  (même accélération que l'éclair). Contour sombre ou blanc : contraste d'au moins 4,5:1 sur
+  toutes les bandes de ciel de tous les thèmes (test). Planche `docs/planche-sprites.png`
+  régénérée.
+- Robot de faisabilité (`core/src/faisabilite.rs`) : il ne connaît pas le temps ; le chat y
+  est toujours endormi (le joueur patient attend son sommeil) : il le heurte de côté (mort) ou
+  l'écrase par le dessus, et chaque état retient les chats écrasés (`Noeud::chats`, un bit par
+  chat), sinon « derrière le chat vivant » et « derrière le chat écrasé » fusionneraient. Le
+  lint a demandé un alias de type pour la file de priorité (`EntreeTas`, 4be9968).
+- Robot de QA (`game/src/bot_qa.rs`) : la case de parcours gagne un 5e terme,
+  `chats_de_la_case` = 16 × (chats écrasés, un bit chacun) + tranche de 0,5 s du cycle du chat
+  vivant le plus proche (à 6 tuiles en x et 4 en y ; 0 sinon). Sans la tranche, attendre sur
+  place ramènerait à une case connue et le robot ne pourrait jamais laisser le chat se
+  rendormir. Dans un niveau sans chat le terme vaut toujours 0 (`difficulte.rs` suit le type).
+  De plus, un chat écrasé à moins de 6 pas (0,1 s) de son éveil compte comme une mort pour le
+  robot (`chat_ecrase_de_justesse`) : son premier parcours tombait sur le chat au tout premier
+  pas de son sommeil, et le rejeu dans le navigateur, décalé d'une image, tombait sur le chat
+  encore éveillé (mort vue sur capture). Avec la marge, le chat est écrasé 6 pas après son
+  endormissement.
+- Niveau d'essai `core/src/levels/essai_chat.rs` (42 x 11, thème Toits), hors de la table
+  `NIVEAUX`, touche F7 du build de QA seulement (`RaccourciNiveau::Essai8`,
+  `INDICE_ESSAI_CHAT`, intro et carte ; absent de `dist/`). Le chat dort au fond d'une fente
+  d'une tuile entre un bloc de toit (plein jusqu'au sol) et un grand mur qui monte jusqu'au
+  haut de la carte ; le seul passage vers la goutte cachée et le drapeau part de sa case, sous
+  le mur. La course jusqu'au bloc est assez longue pour que Pépin y arrive pendant l'éveil :
+  il faut l'y attendre. Gouttes : en haut de la fente (prise en se laissant tomber), cachée
+  derrière le chat, avant le drapeau. Aucun niveau du jeu n'est modifié.
+
+Tests (tous sur la vraie physique) :
+- `entities::ennemi::chat` (mini-niveau « niche » : une goutte au fond d'un renfoncement
+  gardé par le chat) : durées du cycle, ordre des phases, décalage du premier sommeil,
+  écrasable en dormant et pendant l'annonce jamais éveillé, immobile, foncer dedans tue,
+  tomber dessus endormi l'écrase et ouvre la niche, tomber dessus éveillé tue, un chat écrasé
+  ne se réveille plus et disparaît, `pas_du_cycle`. `contacts` : écrasé par le dessus endormi,
+  mortel de côté, éveillé mortel même par le dessus, protection de réapparition. `level` :
+  couché sur son toit et tourné vers le départ, refusé sans appui ou sans place.
+- `faisabilite` (mini-niveau) : le robot, précis et maladroit, écrase le chat pour prendre la
+  goutte cachée ; marcher dans un chat vivant le tue (le même plan passe si le chat est déjà
+  écrasé) ; enfermé au fond de la niche, il en sort en retombant sur le chat.
+- `zones` : l'essai passe les contrôles d'un vrai niveau (arrivée, 3 gouttes, lanternes,
+  robot maladroit, reprise depuis chaque lanterne, lint de grille) ; la case du chat bouchée
+  par un toit, ni la goutte cachée ni le drapeau ne sont atteints (c'est le seul passage).
+- Jeu : sprites (5 images de même taille, contour, yeux fermés endormi et écrasé, un œil
+  ouvert au réveil, deux éveillé, contraste sur tous les ciels), image choisie par phase,
+  « z » qui montent et « ! » qui clignote plus vite à la fin, touche F7 et niveau chargé avec
+  son chat, carte dans son cadre ; robot de QA `le_robot_finit_le_niveau_d_essai_chat` : fin
+  atteinte, 0 mort, 3 gouttes, F7 une fois, un seul écrasement, chat endormi au moment du
+  contact et pas de justesse (Dort(234) : 6 pas après l'endormissement), passage sous le mur
+  seulement après, attente sur le bloc pendant l'éveil (1 réveil vu avant l'écrasement).
+  `le_robot_finit_tous_les_niveaux_sans_mourir` reste vert.
+
+Mesure de difficulté : inchangée (aucun niveau du jeu n'a de chat ; le terme ajouté à la case
+de parcours y vaut toujours 0). `docs/mesure-difficulte.txt` régénéré sur l'extraction propre
+de 75724e8 : identique à l'octet au fichier versionné. Morts moyennes (avant = après) :
+
+| Niveau                      | Débutant (avant = après) | Habitué (avant = après) | Expert (avant = après) |
+| --------------------------- | ------------------------ | ----------------------- | ---------------------- |
+| 1. Les toits                | 0,4                      | 0,1                     | 0,0                    |
+| 2. Gouttières et cheminées  | 1,5                      | 0,5                     | 0,2                    |
+| 3. Le grand orage           | 3,0                      | 0,6                     | 0,4                    |
+| 4. Vents d'altitude         | 1,3                      | 0,4                     | 0,1                    |
+| 5. Au-dessus des nuages     | 0,5                      | 0,1                     | 0,0                    |
+| Total                       | 6,8                      | 1,8                     | 0,7                    |
+
+Captures (`docs/qa/59-*`, 960 x 540, build de QA d'une extraction propre de 75724e8 servi en
+local sur 127.0.0.1, Chromium (révision 1208) piloté par CDP, onglet au premier plan et
+canvas focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-59.txt`
+et `TOUCHES=target/qa/touches-59.txt` (F7 à l'image 229), serveur arrêté à la fin ;
+numéros d'image de `trace-59.csv`, écrits par le test ignoré `ecrire_script_essai_chat`) :
+- `59-carte-niveau1` (101) puis `59-carte-essai` (351) : carte « ESSAI CHAT », texte et
+  astuce (« Attends les « z », puis tombe-lui dessus. ») dans le cadre ;
+- `59-essai-depart` (481) : Pépin au départ, le bloc et le grand mur à droite ;
+- `59-essai-dort` (685) : le chat roulé en boule au fond de la fente, deux « z » au-dessus ;
+- `59-essai-reveil` (700) et `59-essai-reveil-fin` (730) : il lève la tête, le « ! » doré
+  au-dessus ; Pépin plane vers le bloc, puis arrive au-dessus ;
+- `59-essai-eveille` (760) : le chat assis, hérissé, yeux d'or ; Pépin attend sur le bloc ;
+- `59-essai-attente` (800) : Pépin au bord du bloc, le chat toujours éveillé ;
+- `59-essai-chute` (816) : le chat rendormi (« z »), Pépin tombe dans la fente et prend la
+  goutte du haut (1/15) ;
+- `59-essai-ecrase` (821) et `59-essai-ecrase-suite` (830) : le chat aplati sous Pépin
+  (éclaboussures), puis Pépin rebondit au-dessus de lui ;
+- `59-essai-passage` (870) puis `59-essai-goutte-cachee` (899) : Pépin passe sous le grand
+  mur et prend la goutte cachée (2/15) ;
+- `59-essai-arrivee` (1028) : Pépin au drapeau, 3/15 ;
+- `59-fin` (60 images après la fin du script) : « LE SOLEIL ! », 0:09,5, 3 gouttes (3/15 :
+  celles de l'essai), 0 mort ;
+- `59-mort-contact` (808) : série « chute » du pilote, le robot lâché à l'image 744 (chat
+  éveillé, Pépin sur le bloc) court tout droit : Pépin tombe du bloc dans la fente sur le chat
+  ÉVEILLÉ ; `59-mort-suite` (812) : éclats sur le chat resté assis (il ne s'écrase pas),
+  Pépin réapparaît à la lanterne du bloc.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette,
+0 bloc flou, sur les 17.
+
+Vérification sur une extraction propre de 75724e8 (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+291 + 265 tests, tous verts (1 + 14 ignorés : écritures de fichiers et diagnostics) ;
+`./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms
+interdits, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit
+(« Essai chat » : 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/game.wasm`) ; planche
+de sprites régénérée identique à l'octet.
+
+Limites (non testé ou à relativiser) :
+- Aucun niveau du jeu n'a encore de chat (le marché couvert viendra ensuite) : il ne se voit
+  que dans le niveau d'essai (touche F7 du build de QA).
+- Le robot de faisabilité voit le chat toujours endormi : il ne juge pas le timing. Seul le
+  robot de QA (vraie simulation, avec la marge de 0,1 s) prouve qu'on peut attendre son
+  sommeil ; il faudra garder les deux verts sur chaque niveau qui en aura.
+- La marge de 0,1 s est une règle du robot, pas du jeu : un joueur peut écraser le chat au
+  tout dernier pas de son annonce.
+- Pas de son propre (l'écrasement réutilise celui des autres ennemis) ; pas de miaulement au
+  réveil. Captures dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de Safari
+  ni Firefox.
