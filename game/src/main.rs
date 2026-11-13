@@ -4,8 +4,9 @@
 //!
 //! Commandes : flèches ou Q/D (ou A/D) pour courir ; Espace, Haut, W ou Z pour sauter
 //! (maintenu en l'air : parapluie ouvert) ; Échap ou P pour la pause ; M active/coupe
-//! le son (coupé par défaut) ; touches 1 à 5 pour changer de niveau. Dans les menus :
-//! flèches + Entrée, ou clic / toucher. Sur écran tactile : boutons virtuels.
+//! le son (coupé par défaut). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
+//! tactile : boutons virtuels. Touches 1 à 5 (changer de niveau) : uniquement dans un build de
+//! mise au point (`--features debug_niveaux`, voir `./build.sh --qa`).
 
 mod app;
 mod audio;

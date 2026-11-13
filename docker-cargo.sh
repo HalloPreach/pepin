@@ -42,6 +42,10 @@ if [ "$1" = lint ]; then
   cargo clippy -p game --target wasm32-unknown-unknown -- -D warnings
   echo "== clippy game (natif, tests inclus, sans son) =="
   cargo clippy -p game --all-targets --no-default-features -- -D warnings
+  echo "== clippy game (natif, tests inclus, sans son, avec debug_niveaux) =="
+  cargo clippy -p game --all-targets --no-default-features --features debug_niveaux -- -D warnings
+  echo "== clippy game (wasm32, avec debug_niveaux) =="
+  cargo clippy -p game --target wasm32-unknown-unknown --features debug_niveaux -- -D warnings
   echo "LINT-OK"
   exit 0
 fi

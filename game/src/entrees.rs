@@ -105,17 +105,35 @@ impl Sources {
     }
 }
 
-/// Raccourci de mise au point : touches 1 à 5 pour sauter à un niveau.
+/// Les raccourcis 1 à 5 (saut à un niveau) n'existent que dans un build de mise au
+/// point : fonctionnalité Cargo `debug_niveaux`, absente de la production.
+/// En production, un appui accidentel ne doit jamais perdre la partie ni permettre
+/// de finir avec un temps truqué (sur AZERTY, ces touches sont & é " ' ( ).
+pub const RACCOURCIS_NIVEAUX: bool = cfg!(feature = "debug_niveaux");
+
+/// Touches de saut de niveau, dans l'ordre des niveaux 1 à 5.
+const TOUCHES_NIVEAUX: [KeyCode; 5] = [
+    KeyCode::Key1,
+    KeyCode::Key2,
+    KeyCode::Key3,
+    KeyCode::Key4,
+    KeyCode::Key5,
+];
+
+/// Niveau demandé (indice 0 à 4) d'après les touches appuyées cette image.
+/// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
+/// testée sans fenêtre, avec ou sans la fonctionnalité.
+pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<usize> {
+    if !actif {
+        return None;
+    }
+    TOUCHES_NIVEAUX.iter().position(|&k| appuyee(k))
+}
+
+/// Raccourci de mise au point : touches 1 à 5 pour sauter à un niveau
+/// (uniquement avec la fonctionnalité `debug_niveaux`).
 pub fn raccourci_niveau() -> Option<usize> {
-    [
-        KeyCode::Key1,
-        KeyCode::Key2,
-        KeyCode::Key3,
-        KeyCode::Key4,
-        KeyCode::Key5,
-    ]
-    .iter()
-    .position(|&k| is_key_pressed(k))
+    niveau_demande(RACCOURCIS_NIVEAUX, is_key_pressed)
 }
 
 #[cfg(test)]
@@ -182,5 +200,39 @@ mod tests {
         })));
         let c = s.lire();
         assert!(c.gauche && c.saut && !c.droite);
+    }
+
+    #[test]
+    fn sans_la_fonctionnalite_aucune_touche_ne_saute_de_niveau() {
+        // Même avec TOUTES les touches enfoncées : rien.
+        assert_eq!(niveau_demande(false, |_| true), None);
+        for k in TOUCHES_NIVEAUX {
+            assert_eq!(niveau_demande(false, |t| t == k), None, "{k:?}");
+        }
+    }
+
+    #[test]
+    fn avec_la_fonctionnalite_chaque_touche_donne_son_niveau() {
+        for (i, k) in TOUCHES_NIVEAUX.into_iter().enumerate() {
+            assert_eq!(niveau_demande(true, |t| t == k), Some(i));
+        }
+        assert_eq!(niveau_demande(true, |_| false), None);
+    }
+
+    #[cfg(not(feature = "debug_niveaux"))]
+    #[test]
+    fn le_build_de_production_n_a_pas_de_raccourci() {
+        // Clavier où TOUT est enfoncé, avec le réglage réel du build : aucun saut.
+        assert_eq!(niveau_demande(RACCOURCIS_NIVEAUX, |_| true), None);
+    }
+
+    #[cfg(feature = "debug_niveaux")]
+    #[test]
+    fn le_build_de_mise_au_point_a_les_raccourcis() {
+        // Clavier où seule la touche 3 est enfoncée : niveau 3 (indice 2).
+        assert_eq!(
+            niveau_demande(RACCOURCIS_NIVEAUX, |k| k == KeyCode::Key3),
+            Some(2)
+        );
     }
 }

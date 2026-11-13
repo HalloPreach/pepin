@@ -20,6 +20,16 @@ Essai en local :
 
     cd dist && python3 -m http.server 8080      # puis http://127.0.0.1:8080/
 
+## Build de mise au point
+
+    ./build.sh --qa
+
+produit `dist-qa/` (ignoré par git) avec la fonctionnalité Cargo `debug_niveaux` : les
+touches 1 à 5 sautent au niveau demandé. Elles n'existent PAS dans `dist/` : sur
+AZERTY ce sont les touches & é " ' (, et un appui accidentel faisait perdre la partie
+(et permettait de finir avec un temps truqué). `docs/capture-fond.mjs` utilise ce build ; `./docker-cargo.sh lint` vérifie les
+deux variantes.
+
 ## Ce que fait build.sh
 
 1. `./docker-cargo.sh build -p game --release --locked --target wasm32-unknown-unknown`

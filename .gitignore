@@ -2,6 +2,7 @@
 target/
 # Sorties de distribution (régénérables)
 dist/
+dist-qa/
 # Cache cargo local éventuel
 cargo-home/
 .cargo-home/

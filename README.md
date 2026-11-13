@@ -41,7 +41,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Pause                | Échap ou P                                           |
 | Son (coupé au départ)| M, ou la ligne « SON » des menus                     |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
-| Aller à un niveau    | touches 1 à 5 (raccourci de mise au point)           |
+| Aller à un niveau    | touches 1 à 5, UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
 Sur un écran tactile, quatre boutons (gauche, droite, saut, pause) apparaissent
 au premier toucher.
@@ -229,6 +229,11 @@ Compiler ET préparer le dossier à publier (une seule commande) :
 `wasm-opt -Oz`, copie la page `web/index.html` et produit le dossier `dist/`,
 complet et statique. `docs/build.md` détaille chaque étape. `dist/` n'est pas
 versionné (`.gitignore`) : c'est un produit régénérable.
+
+Build de mise au point (touches 1 à 5 pour sauter à un niveau ; sert aux captures
+et à la QA, jamais à publier) :
+
+    ./build.sh --qa        # produit dist-qa/ (ignoré par git)
 
 Essayer le jeu dans un navigateur :
 

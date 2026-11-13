@@ -4,6 +4,9 @@
 #
 # Usage :   ./build.sh
 #           WASM_OPT=0 ./build.sh     # saute l'optimisation wasm-opt
+#           ./build.sh --qa           # build de MISE AU POINT dans dist-qa/ (jamais à publier) :
+#                                     # active la fonctionnalité « debug_niveaux » (touches 1 à 5
+#                                     # pour sauter à un niveau), utilisée par les captures et la QA
 #
 # Prérequis : Docker (aucun compilateur ni Rust nécessaire sur la machine hôte).
 # Le script :
@@ -26,11 +29,18 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DIST="dist"
+FONCTIONNALITES=""
+case "${1:-}" in
+  "") ;;
+  --qa) DIST="dist-qa"; FONCTIONNALITES="--features debug_niveaux" ;;
+  *) echo "Usage : ./build.sh [--qa]" >&2; exit 2 ;;
+esac
 CARGO_HOME_HOTE="${PEPIN_CARGO_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/pepin-cargo-home}"
 WASM_BRUT="target/wasm32-unknown-unknown/release/game.wasm"
 
 echo "== 1/4 Compilation release (wasm32-unknown-unknown) dans Docker =="
-./docker-cargo.sh build -p game --release --locked --target wasm32-unknown-unknown
+# shellcheck disable=SC2086  # FONCTIONNALITES est volontairement vide ou « --features x »
+./docker-cargo.sh build -p game --release --locked --target wasm32-unknown-unknown $FONCTIONNALITES
 [ -s "$WASM_BRUT" ] || { echo "ERREUR : $WASM_BRUT absent après la compilation" >&2; exit 1; }
 
 echo "== 2/4 Chargeur JavaScript de macroquad =="

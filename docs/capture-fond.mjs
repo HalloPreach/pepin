@@ -1,5 +1,6 @@
 // Pilote CDP : charge le jeu, saute au niveau N (touche), avance et capture à plusieurs positions.
 // Usage : node cap.mjs PORT_HTTP NIVEAU PREFIXE  (écrit PREFIXE-debut|milieu|fin.png)
+// À servir depuis dist-qa/ (`./build.sh --qa`) : les touches 1 à 5 n'existent plus dans dist/.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

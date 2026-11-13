@@ -15,3 +15,8 @@ macroquad = { version = "0.4", default-features = false }
 # la version web (wasm) garde le son par défaut.
 default = ["son"]
 son = ["macroquad/audio"]
+# Raccourcis de mise au point : touches 1 à 5 pour sauter à un niveau (score et
+# chrono remis à zéro). JAMAIS dans la production : sur AZERTY ce sont les touches
+# & é " ' ( et un appui accidentel perdrait la partie. Activée seulement par
+# `./build.sh --qa` (dist-qa/) pour les captures et la QA.
+debug_niveaux = []
