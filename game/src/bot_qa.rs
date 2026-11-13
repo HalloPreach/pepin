@@ -26,6 +26,7 @@ use pepin_core::entities::ennemi::{
     pas_du_cycle, EtatEnnemi, PhaseChat, PhasePigeon, ANIMATION_ECRASE_PAS, DORT_PAS, REVEIL_PAS,
 };
 use pepin_core::entities::montgolfiere::EtatMontgolfiere;
+use pepin_core::entities::nuage::PhaseNuage;
 use pepin_core::entities::ventilateur::PhaseVentilateur;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::faisabilite::pas_max_plan;
@@ -291,12 +292,18 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
 /// Le monde `m` où chaque aiguille d'horloge a `pas` pas d'avance sur Pépin (de
 /// retard si `pas` est négatif) : `PlateformeMobile::tourner`. Pépin debout sur
 /// une aiguille la suit (pieds posés pile sur son dessus), comme s'il avait été
-/// porté.
+/// porté. Le Grand Nuage aussi a `pas` pas d'avance ou de retard
+/// (`GrandNuage::decaler`) : ses éclairs et son essoufflement arrivent plus tôt ou
+/// plus tard.
 pub(crate) fn aiguilles_decalees(m: &Monde, pas: i32) -> Monde {
     let sous = aiguille_sous_pepin(m);
     let mut d = m.clone();
     let mut k = 0;
     for e in &mut d.entites {
+        if let Entite::Nuage(g) = e {
+            g.decaler(pas);
+            continue;
+        }
         let Entite::Mobile(a) = e else {
             continue;
         };
@@ -329,11 +336,22 @@ const DECALAGES_AIGUILLE: [i32; 4] = [-2, -1, 1, 2];
 const MARGE_PLAQUE: f32 = 3.0;
 
 /// Le plan `plan`, joué depuis `depart` jusqu'à `fin` / `arrivee`, tient-il si les
-/// aiguilles d'horloge ont une ou deux images d'avance ou de retard
-/// (`DECALAGES_AIGUILLE`) ? Il faut la même fin (jamais une mort), les mêmes
+/// aiguilles d'horloge (et le Grand Nuage) ont une ou deux images d'avance ou de
+/// retard (`DECALAGES_AIGUILLE`) ? Il faut la même fin (jamais une mort), les mêmes
 /// gouttes, et Pépin à moins de `ECART_DECALAGE` px du même endroit ; posé sur une
 /// aiguille, il doit avoir `MARGE_PLAQUE` px de plaque de chaque côté. Toujours
-/// vrai dans un niveau sans aiguille.
+/// vrai dans un niveau sans aiguille ni Grand Nuage.
+///
+/// Le Grand Nuage (carte 5.11) : un éclair évité d'une image, un saut sur sa tête au
+/// tout dernier pas de son essoufflement ne laissent aucune marge non plus. Avec le
+/// nuage décalé, le même plan doit aussi donner le même nombre de coups
+/// (`pv_nuage`). Et un plan qui le frappe doit le frapper au MÊME pas du plan, quel
+/// que soit le décalage (même phase, même temps écoulé dans la phase à la fin du
+/// plan : `horloge_du_nuage`) : un coup donne le départ du combat suivant (touché,
+/// puis le motif suivant), et un coup qui dépendrait de l'heure exacte du nuage (un
+/// saut lancé avant que son courant ne souffle) décalerait tout le reste du
+/// parcours. Le premier parcours trouvé, sans cette règle, frappait le nuage une
+/// image plus tard une fois rejoué avec deux images d'avance, et mourait ensuite.
 ///
 /// Pourquoi : une aiguille tourne sans arrêt, et un plan réglé à l'image près (un
 /// saut qui touche le bord de la plaque, un atterrissage au tout dernier moment)
@@ -341,13 +359,15 @@ const MARGE_PLAQUE: f32 = 3.0;
 /// démarrer le niveau d'essai une image plus tôt ou plus tard (voir QA.md), le
 /// raterait aussi : c'est arrivé au premier parcours de la carte 5.10.
 pub(crate) fn tient_au_decalage(depart: &Monde, plan: Plan, fin: Fin, arrivee: &Monde) -> bool {
-    let a_des_aiguilles = depart
-        .entites
-        .iter()
-        .any(|e| matches!(e, Entite::Mobile(a) if a.cercle().is_some()));
+    let a_des_aiguilles = depart.entites.iter().any(|e| match e {
+        Entite::Mobile(a) => a.cercle().is_some(),
+        Entite::Nuage(_) => true,
+        _ => false,
+    });
     if !a_des_aiguilles {
         return true;
     }
+    let coup = arrivee.pv_nuage() != depart.pv_nuage();
     if let Some(k) = aiguille_sous_pepin(arrivee) {
         let plaque = arrivee
             .entites
@@ -369,17 +389,35 @@ pub(crate) fn tient_au_decalage(depart: &Monde, plan: Plan, fin: Fin, arrivee: &
         let (a, b) = (&m_d.joueur.boite, &arrivee.joueur.boite);
         fin_d == fin
             && m_d.gouttes_niveau == arrivee.gouttes_niveau
+            && m_d.pv_nuage() == arrivee.pv_nuage()
+            && (!coup || horloge_du_nuage(&m_d) == horloge_du_nuage(arrivee))
             && (fin == Fin::Arrivee
                 || ((a.x - b.x).abs() <= ECART_DECALAGE && (a.y - b.y).abs() <= ECART_DECALAGE))
     })
 }
 
+/// Une arrivée compte-t-elle ? Toujours, sauf dans l'arène du Grand Nuage : là, le
+/// dernier coup finit le niveau, et le robot doit avoir pris toutes les gouttes
+/// avant (comme un joueur qui veut les trois gouttes du niveau).
+pub(crate) fn gouttes_avant_la_victoire(m: &Monde) -> bool {
+    m.pv_nuage().is_none() || m.gouttes_niveau.iter().all(|&g| g)
+}
+
+/// La phase du Grand Nuage et le temps passé dans cette phase (`None` sans nuage).
+fn horloge_du_nuage(m: &Monde) -> Option<(PhaseNuage, u16)> {
+    m.entites.iter().find_map(|e| match e {
+        Entite::Nuage(g) => Some((g.phase(), g.ecoule())),
+        _ => None,
+    })
+}
+
 /// Une case du niveau où Pépin choisit son prochain plan : case de 8 px en x, y
-/// arrondi, « lancé par un auvent » (`est_lance`) ou posé, l'escargot proche
+/// arrondi, « lancé par un auvent » (`est_lance`) ou posé, le Grand Nuage
+/// (`nuage_de_la_case`, 0 sans nuage), l'escargot proche
 /// (`escargot_proche`, 0 s'il n'y en a pas), les chats (`chats_de_la_case`, 0
 /// dans un niveau sans chat) et l'heure de l'aiguille d'horloge proche
 /// (`aiguille_proche`, 0 s'il n'y en a pas). Deux états proches fusionnent.
-pub(crate) type CaseParcours = (i32, i32, bool, i32, i32, i32);
+pub(crate) type CaseParcours = (i32, i32, bool, i32, i32, i32, i32);
 
 /// La case (`CaseParcours`) de Pépin dans `m`.
 pub(crate) fn cle(m: &Monde) -> CaseParcours {
@@ -390,7 +428,50 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         escargot_proche(m),
         chats_de_la_case(m),
         aiguille_proche(m),
+        nuage_de_la_case(m),
     )
+}
+
+/// Tranche du temps du Grand Nuage (pas) retenue dans la case : 15 pas (1/4 s).
+const TRANCHE_NUAGE_PAS: u16 = 15;
+
+/// Le Grand Nuage, résumé en un entier : `1 + tranche + 64 × (phase + 8 × points de
+/// vie) + 2048 × gouttes`, où `tranche` est le temps passé dans sa phase, par
+/// tranches de `TRANCHE_NUAGE_PAS` (au plus 63), et `gouttes` un bit par goutte d'or
+/// déjà prise dans le niveau ; 0 sans nuage (la case est alors exactement celle
+/// d'avant la carte 5.11).
+///
+/// Pourquoi : comme le chat, le nuage s'ATTEND. Sans son temps dans la case, attendre
+/// à l'abri d'un éclair ramènerait à une case déjà connue et le plan « attendre »
+/// serait jeté : le robot ne pourrait ni laisser passer une salve, ni attendre
+/// l'essoufflement. Ses points de vie et sa phase séparent les étapes du combat. Les
+/// gouttes : le dernier coup finit le niveau, le robot doit donc les prendre AVANT
+/// (`gouttes_avant_la_victoire`) ; sans elles dans la case, le même endroit avec et
+/// sans une goutte fusionnerait.
+pub(crate) fn nuage_de_la_case(m: &Monde) -> i32 {
+    m.entites
+        .iter()
+        .find_map(|e| match e {
+            Entite::Nuage(g) => {
+                let phase = match g.phase() {
+                    PhaseNuage::Prelude => 0,
+                    PhaseNuage::Colere => 1,
+                    PhaseNuage::Essouffle => 2,
+                    PhaseNuage::Touche => 3,
+                    PhaseNuage::Dechirure => 4,
+                    PhaseNuage::Vaincu => 5,
+                };
+                let tranche = i32::from(g.ecoule() / TRANCHE_NUAGE_PAS).min(63);
+                let gouttes = m
+                    .gouttes_niveau
+                    .iter()
+                    .enumerate()
+                    .fold(0, |b, (k, &g)| b | (i32::from(g) << k));
+                Some(1 + tranche + 64 * (phase + 8 * i32::from(g.pv())) + 2048 * gouttes)
+            }
+            _ => None,
+        })
+        .unwrap_or(0)
 }
 
 /// Portée (px) à laquelle une aiguille d'horloge compte dans la case de Pépin :
@@ -614,6 +695,8 @@ pub(crate) fn chercher(
                 cle: cle(&monde),
             };
             match fin {
+                // Le Grand Nuage vaincu sans toutes les gouttes : impasse.
+                Fin::Arrivee if !gouttes_avant_la_victoire(&monde) => {}
                 Fin::Arrivee => {
                     if arrivee.as_ref().is_none_or(|(c, _, _)| cout_plan < *c) {
                         arrivee = Some((cout_plan, i, etape));
@@ -911,6 +994,11 @@ pub struct ImageEssai {
     pub aiguilles: [(f32, f32); 2],
     /// L'aiguille qui porte Pépin à la fin de cette image (`aiguille_sous_pepin`).
     pub sur_aiguille: Option<usize>,
+    /// Le Grand Nuage (carte 5.11 ; `None` s'il n'y en a pas) : sa phase, le temps
+    /// passé dans cette phase et ses points de vie.
+    pub nuage: Option<(PhaseNuage, u16, u8)>,
+    /// Pépin vient de sauter sur la tête du Grand Nuage pendant cette image.
+    pub coup_nuage: bool,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -1031,6 +1119,11 @@ fn jouer_essai(
             *place = (b.x, b.y);
         }
         let sur_aiguille = aiguille_sous_pepin(&app.monde);
+        let nuage = app.monde.entites.iter().find_map(|e| match e {
+            Entite::Nuage(g) => Some((g.phase(), g.ecoule(), g.pv())),
+            _ => None,
+        });
+        let coup_nuage = app.monde.contacts.contains(&Contact::Nuage);
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -1051,6 +1144,8 @@ fn jouer_essai(
             ecrase_chat,
             aiguilles,
             sur_aiguille,
+            nuage,
+            coup_nuage,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -1410,6 +1505,29 @@ pub fn parcours_essai_chat() -> Vec<Entrees> {
     trouver_parcours(i, false)
         .or_else(|| trouver_parcours(i, true))
         .expect("le robot ne trouve aucun parcours au niveau d'essai chat")
+}
+
+/// Joue l'arène du Grand Nuage (touche F10 du build de QA) — voir `jouer_essai`.
+pub fn jouer_essai_nuage(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_NUAGE,
+        RaccourciNiveau::Essai10,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans l'arène du Grand Nuage (maladroit, puis précis). Sur la
+/// VRAIE simulation, le nuage lance ses éclairs : le robot apprend à les esquiver
+/// (attendre à l'abri, filer entre deux salves : le temps du nuage est dans la case,
+/// voir `nuage_de_la_case`), puis, quand il s'essouffle, à monter dans son courant
+/// et à lui retomber sur la tête, trois fois. Chaque plan doit tenir avec le nuage
+/// décalé d'une ou deux images (`tient_au_decalage`).
+pub fn parcours_essai_nuage() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_NUAGE;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours dans l'arène du Grand Nuage")
 }
 
 /// Joue le niveau d'essai « horloge » (touche F8 du build de QA) — voir `jouer_essai`.
@@ -1868,6 +1986,83 @@ mod tests {
             assert!((i.trame.y + 14.0 - i.aiguilles[k].1).abs() < 0.01);
         }
         println!("essai horloge : {} images de jeu", essai.len());
+    }
+
+    /// Le robot bat le Grand Nuage (arène, touche F10) sans mourir : trois coups sur
+    /// sa tête, chacun PENDANT un essoufflement, le ciel qui se déchire, puis l'écran
+    /// de fin ; les trois gouttes. Ses points de vie descendent de 3 à 0, un coup à la
+    /// fois, et il a traversé ses trois motifs d'éclairs.
+    #[test]
+    fn le_robot_bat_le_grand_nuage() {
+        let partie = jouer_essai_nuage(&parcours_essai_nuage());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(partie.gouttes, 3, "les trois gouttes de l'arène");
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F10, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let coups: Vec<usize> = (0..essai.len()).filter(|&k| essai[k].coup_nuage).collect();
+        assert_eq!(coups.len(), 3, "trois coups : {coups:?}");
+        for (n, &k) in coups.iter().enumerate() {
+            // Juste avant le coup, le nuage était essoufflé, avec `3 - n` points.
+            let (phase, _, pv) = essai[k - 1].nuage.unwrap();
+            assert_eq!(
+                (phase, pv),
+                (PhaseNuage::Essouffle, 3 - n as u8),
+                "coup {n}"
+            );
+            let (apres, _, pv) = essai[k].nuage.unwrap();
+            assert_eq!(pv, 2 - n as u8);
+            let attendu = if n == 2 {
+                PhaseNuage::Dechirure
+            } else {
+                PhaseNuage::Touche
+            };
+            assert_eq!(apres, attendu);
+        }
+        // Les trois motifs ont été joués (une colère à 3, à 2, puis à 1 point).
+        for pv in 1..=3 {
+            assert!(
+                essai
+                    .iter()
+                    .any(|i| matches!(i.nuage, Some((PhaseNuage::Colere, _, p)) if p == pv)),
+                "aucune colère à {pv} point(s)"
+            );
+        }
+        // Le ciel s'est déchiré jusqu'au bout (120 images après le dernier coup),
+        // puis le nuage est vaincu et la partie passe à l'écran de fin.
+        let dernier = coups[2];
+        assert!(essai[dernier..]
+            .iter()
+            .all(|i| matches!(i.nuage, Some((PhaseNuage::Dechirure, _, 0)))));
+        assert_eq!(essai.len() - dernier, 120, "déchirure : 2 s");
+        assert!(partie
+            .images
+            .iter()
+            .any(|i| matches!(i.nuage, Some((PhaseNuage::Vaincu, _, 0)))));
+        println!(
+            "essai nuage : {} images de jeu, coups aux images {coups:?}",
+            essai.len()
+        );
+    }
+
+    /// Le parcours de l'arène tient si le monde a une ou deux images d'avance ou de
+    /// retard sur les touches (comme celui de l'horloge) : nuage vaincu, 0 mort, 3
+    /// gouttes à chaque fois.
+    #[test]
+    fn le_parcours_du_grand_nuage_tient_a_une_image_pres() {
+        let parcours = parcours_essai_nuage();
+        for decalage in [-2, -1, 0, 1, 2] {
+            let (fin, morts, gouttes) =
+                rejouer_decale(crate::monde::INDICE_ESSAI_NUAGE, &parcours, decalage);
+            assert!(
+                fin && morts == 0 && gouttes == 3,
+                "décalage {decalage} : fin {fin}, {morts} mort(s), {gouttes} goutte(s)"
+            );
+        }
     }
 
     /// Rejoue `parcours` dans le niveau `indice` avec les entrées décalées de
@@ -2463,6 +2658,50 @@ mod tests {
         std::fs::write("../target/qa/trace-510.csv", trace).unwrap();
         println!(
             "images : {} ; F8 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Arène du Grand Nuage (carte 5.11) : écrit `target/qa/script-511.txt` (touches
+    /// du robot, une par image), `target/qa/touches-511.txt` (F10 à l'image du
+    /// pilote) et `target/qa/trace-511.csv` (position de Pépin, phase, temps et
+    /// points de vie du nuage, coups), pour rejouer la partie dans un navigateur et
+    /// viser les captures. Lancer avec : cargo test -p game --no-default-features --
+    /// --ignored ecrire_script_essai_nuage
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_nuage() {
+        let partie = jouer_essai_nuage(&parcours_essai_nuage());
+        assert!(partie.fin_atteinte && partie.morts == 0 && partie.gouttes == 3);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-511.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-511.txt", format!("{pilote}:F10\n")).unwrap();
+        let mut trace =
+            String::from("image,ecran,essai,x,y,cam_x,cam_y,au_sol,gouttes,phase,ecoule,pv,coup\n");
+        for (k, i) in partie.images.iter().enumerate() {
+            let (phase, ecoule, pv) = i.nuage.map_or(("-".to_string(), 0, 0), |(p, e, v)| {
+                (format!("{p:?}"), e, v)
+            });
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{},{phase},{ecoule},{pv},{}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.au_sol),
+                i.trame.gouttes,
+                u8::from(i.coup_nuage),
+            ));
+        }
+        std::fs::write("../target/qa/trace-511.csv", trace).unwrap();
+        println!(
+            "images : {} ; F10 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );

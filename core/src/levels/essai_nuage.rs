@@ -36,13 +36,13 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// - Ses courants : colonnes 6-7 (à gauche, après les motifs 1 et 3) et 13-14 (à
 ///   droite, après le motif 2), de y = 24 (une demi-case au-dessus de sa tête) au
 ///   sol.
-/// - Gouttes : au sol à gauche (colonne 5), en haut du courant de gauche (colonne
-///   7, ligne 1 : on la prend en montant vers le premier coup), en haut du courant
-///   de droite (colonne 13, ligne 1 : au deuxième coup). Lanterne : au départ (le
-///   début de l'arène, où l'on reprend après une mort).
+/// - Gouttes : au sol à gauche (colonne 5) et, à la hauteur de sa tête, entre
+///   chaque courant et le nuage (colonnes 8 et 12, ligne 1) : on y passe forcément
+///   pour aller du courant à sa tête. Lanterne : au départ (le début de l'arène, où
+///   l'on reprend après une mort).
 const ASCII: &str = r"
 ##.................#
-##.....o.....o.....#
+##......o...o......#
 ##........O........#
 ##.................#
 ##.................#
