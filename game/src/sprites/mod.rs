@@ -513,6 +513,54 @@ mod tests {
         }
     }
 
+    /// Contraste d'au moins 3:1 entre le pigeon et le ciel derrière lui, dans les vrais
+    /// niveaux 4 et 5 : pour chaque pigeon posé, toutes les bandes de ciel qu'il traverse
+    /// (perché, puis jusqu'au fond de sa plongée) contrastent avec son corps (ardoise) et
+    /// son contour. Le haut du ciel du niveau 4 est violet (ARDOISE et violet : 1,5:1) :
+    /// ce test interdit d'y percher un pigeon.
+    #[test]
+    fn le_pigeon_se_detache_du_ciel_des_niveaux_4_et_5() {
+        use crate::decor::{ambiance, ciel_a};
+        use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
+        use pepin_core::entities::{Entite, TypeEnnemi};
+        use pepin_core::zones::NIVEAUX;
+        use pepin_core::HAUTEUR_LOGIQUE;
+        let mut vus = 0;
+        for infos in &NIVEAUX[3..5] {
+            let niveau = infos.charger().unwrap();
+            // Niveau pas plus haut que l'écran : la caméra aligne son bas sur celui de
+            // l'écran (`Camera::borner`) et ne bouge pas en hauteur.
+            assert!(niveau.hauteur_px() <= HAUTEUR_LOGIQUE as f32);
+            let cam_y = niveau.hauteur_px() - HAUTEUR_LOGIQUE as f32;
+            let a = ambiance(infos.theme);
+            for e in &niveau.entites {
+                let Entite::Ennemi(p) = e else { continue };
+                if p.type_ennemi != TypeEnnemi::Pigeon {
+                    continue;
+                }
+                vus += 1;
+                // Sprite 16x12 posé 2 px au-dessus de la boîte (voir `scene.rs`).
+                let haut = (p.boite.y - 2.0 - cam_y) as i32;
+                let bas = (p.boite.bas() + PROFONDEUR_PLONGEE - cam_y) as i32;
+                // Les 6 dernières lignes d'une bande sont tramées avec la suivante.
+                for y in haut..bas.min(HAUTEUR_LOGIQUE as i32) {
+                    for ciel in [ciel_a(&a, y), ciel_a(&a, y + 6)] {
+                        for c in ['2', '0'] {
+                            let k = contraste(couleur_de(c), ciel);
+                            assert!(
+                                k >= 3.0,
+                                "niveau {} : pigeon en {:?}, « {c} » sur {ciel:?} à y = {y} : {k:.2}",
+                                infos.numero,
+                                p.perchoir()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        assert!(vus >= 2, "{vus} pigeon(s) dans les niveaux 4 et 5");
+    }
+
     #[test]
     fn la_plateforme_mobile_couvre_toute_sa_collision() {
         let m = dessin("mobile");

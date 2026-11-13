@@ -58,8 +58,9 @@ Les cinq niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
 1. Les toits : course, saut, planer.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines.
 3. Le grand orage : éclairs annoncés, plateformes mobiles et friables.
-4. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux.
-5. Au-dessus des nuages : final calme, nuages friables.
+4. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux,
+   pigeon.
+5. Au-dessus des nuages : final calme, nuages friables, pigeon.
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition). Il n'y a pas de « game over » : on réapparaît à la dernière
@@ -93,9 +94,10 @@ Contenu de `core/src` :
 - `player.rs` : Pépin (`Joueur::actualiser` : course, saut variable, coyote
   time, tampon de saut, planer, courants ascendants).
 - `entities/` : un fichier par famille d'entités (flaques et corbeaux dans
-  `ennemi.rs`, `pointe.rs`, `eclair.rs`, plateformes `friable.rs` et
-  `mobile.rs`, `champignon.rs`, gouttes et lanternes dans `collectibles.rs`) et
-  `contacts.rs` pour ce qui se passe quand Pépin touche quelque chose.
+  `ennemi.rs`, pigeons dans `ennemi/pigeon.rs`, `pointe.rs`, `eclair.rs`,
+  plateformes `friable.rs` et `mobile.rs`, `champignon.rs`, gouttes et
+  lanternes dans `collectibles.rs`) et `contacts.rs` pour ce qui se passe quand
+  Pépin touche quelque chose.
 - `level.rs`, `level/ascii.rs`, `level/erreur.rs` : le format de niveau ASCII
   et son analyseur.
 - `levels/` et `zones.rs` : les cinq niveaux et leurs métadonnées (nom, texte
