@@ -706,6 +706,31 @@ mod tests {
         );
     }
 
+    /// Le marché couvert : on RESSORT de la cachette. Pépin posé sur la goutte
+    /// cachée (colonne 67, rangée 8), le chat de la fente déjà écrasé (on n'entre
+    /// pas autrement) : le drapeau reste atteignable (on remonte la fente d'un
+    /// saut, sur le bloc de boutique). Aucun piège sans retour au fond du passage.
+    #[test]
+    fn niveau_3_on_ressort_de_la_cachette_du_chat() {
+        let lignes: Vec<String> = crate::levels::marche::INFOS
+            .ascii
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| {
+                let mut l = l.to_string();
+                if l.as_bytes().get(64) == Some(&b'z') {
+                    l.replace_range(64..65, "."); // le chat de la fente, écrasé
+                }
+                l
+            })
+            .collect();
+        let ecrase = Niveau::depuis_ascii(&lignes.join("\n")).unwrap();
+        let t = crate::aabb::TAILLE_TUILE;
+        let cachette = (67.0 * t + 3.0, 9.0 * t - crate::physics::JOUEUR_H);
+        let r = analyser(&ecrase, cachette, Options::default());
+        assert!(r.arrivee, "coincé dans la cachette : {r:?}");
+    }
+
     /// Vérifie un niveau : arrivée, 3 gouttes, toutes les lanternes atteignables,
     /// y compris par le robot « maladroit » (pas de précision au pixel près).
     fn verifier(i: usize) {
