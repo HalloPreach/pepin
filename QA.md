@@ -1923,7 +1923,10 @@ Limites (non testé ou à relativiser) :
 - Le rendu EN JEU (clignotement qui accélère, repère au sol) n'a PAS été capturé dans un
   navigateur : le clignotement réutilise le code éprouvé de l'éclair
   (`annonce_allumee` + `progression_annonce`) et le repère au sol est une simple barre de
-  2 px ; la preuve visuelle est la planche de sprites.
+  2 px ; la preuve visuelle est la planche de sprites. Complété par la carte 5.6b : courant
+  visible sur toute la colonne pendant le souffle et 15 captures `docs/qa/56-*` en jeu
+  (annonce, souffle, arrêt, Pépin sur la casette, porté, au balcon), voir la section
+  « Courant visible du ventilateur (carte 5.6b) ».
 - Une seule colonne de souffle (16 px, une case) ; un ventilateur plus large (deux cases) n'a
   pas été fait.
 - Le souffle n'a pas de son : rien n'est entendu (comme la plupart des mécaniques).
@@ -2099,20 +2102,21 @@ test, `bot_qa` étant `#[cfg(test)]`) : identique à l'octet (Débutant 6,8, Hab
 Expert 0,7 au total, avant = après). Script du robot principal (`script.txt`, `trace.csv`)
 identique à l'octet (12 131 images, empreinte `e03e19a27c17c283`).
 
-Captures (`docs/qa/56b-*`, 960 x 540, build de QA d'une extraction propre de 971e528 servi
-en local sur 127.0.0.1, Chromium 145 piloté par CDP, onglet au premier plan et canvas
-focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-56b.txt`,
-`TOUCHES=target/qa/touches-56b.txt` et `GRILLE=1`, serveur arrêté à la fin). Numéros
-d'image : ceux de `trace-56b.csv`.
-- `56b-carte-essai` (351) : carte « ESSAI VENTILATEUR ».
+Captures (`docs/qa/56-*` : le préfixe 56- est celui que demande la carte, ce sont les
+captures que la carte 5.6 n'avait pas faites ; 960 x 540, build de QA d'une extraction
+propre de 971e528 servi en local sur 127.0.0.1, Chromium 145 piloté par CDP, onglet au
+premier plan et canvas focalisé, pilote `docs/capture-visibilite.mjs` avec
+`SCRIPT=target/qa/script-56b.txt`, `TOUCHES=target/qa/touches-56b.txt` et `GRILLE=1`,
+serveur arrêté à la fin). Numéros d'image : ceux de `trace-56b.csv`.
+- `56-carte-essai` (351) : carte « ESSAI VENTILATEUR ».
 - Pépin laissé au départ (demande `attente:d=470:300:1`, une capture par image pendant
-  300 images, un cycle complet) : `56b-annonce` (497 : lampe orange allumée, barre au pied,
-  aucun brin) ; `56b-souffle-colonne` (614 : courant cyan sur la cage, brins dans la colonne
-  du sol au haut de l'écran) ; `56b-dernier-souffle` (634 : dernière image de souffle, brins
-  encore là) ; `56b-arret` (635 : première image d'arrêt, plus aucun brin).
-- Parcours du robot : `56b-montee` (544 : Pépin porté, brins sous lui dans la colonne) ;
-  `56b-haut-dernier-souffle` (634 : Pépin au-dessus du cadre, flèche de repère, brins sur
-  toute la colonne) ; `56b-haut-arret` (635 : colonne vide) ; `56b-balcon` (680 : Pépin sur
+  300 images, un cycle complet) : `56-annonce` (497 : lampe orange allumée, barre au pied,
+  aucun brin) ; `56-souffle-colonne` (614 : courant cyan sur la cage, brins dans la colonne
+  du sol au haut de l'écran) ; `56-dernier-souffle` (634 : dernière image de souffle, brins
+  encore là) ; `56-arret` (635 : première image d'arrêt, plus aucun brin).
+- Parcours du robot : `56-montee` (544 : Pépin porté, brins sous lui dans la colonne) ;
+  `56-haut-dernier-souffle` (634 : Pépin au-dessus du cadre, flèche de repère, brins sur
+  toute la colonne) ; `56-haut-arret` (635 : colonne vide) ; `56-balcon` (680 : Pépin sur
   le balcon, colonne vide).
 - Contrôle au pixel sur les 300 grilles logiques du cycle : sprite de souffle sur 120 images
   consécutives, d'arrêt sur 72, d'annonce sur 48 (le cycle du cœur) ; 0 pixel blanc cassé
@@ -2121,14 +2125,14 @@ d'image : ceux de `trace-56b.csv`.
   naissent sur toute la hauteur de la colonne, 312 px, dont l'écran ne montre ici que le bas,
   140 px ; les premiers nés étaient au-dessus du cadre). Chaque capture regardée ;
   `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur les 9.
-- Démonstration « Pépin sur la casette » (`docs/qa/56b-caisse-*`, même méthode, build de QA
+- Démonstration « Pépin sur la casette » (`docs/qa/56-caisse-*`, même méthode, build de QA
   d'une extraction propre de 7afe2dc, `SCRIPT=target/qa/script-56b-caisse.txt`, même
   `TOUCHES`, serveur arrêté à la fin ; numéros d'image de `trace-56b-caisse.csv`) :
-  `56b-caisse-annonce` (734 : Pépin posé sur la casette, barre orange au pied, aucun brin) ;
-  `56b-caisse-portee` (840 : Pépin porté 12 tuiles plus haut, la colonne de brins sous lui
-  le relie au ventilateur) ; `56b-caisse-dernier-souffle` (874 : Pépin en haut, brins
-  encore là) ; `56b-caisse-arret` (875 : première image d'arrêt, plus aucun brin) ;
-  `56b-caisse-chute` (915 : Pépin retombe, colonne vide) ; `56b-caisse-retombe` (945 : de
+  `56-caisse-annonce` (734 : Pépin posé sur la casette, barre orange au pied, aucun brin) ;
+  `56-caisse-portee` (840 : Pépin porté 12 tuiles plus haut, la colonne de brins sous lui
+  le relie au ventilateur) ; `56-caisse-dernier-souffle` (874 : Pépin en haut, brins
+  encore là) ; `56-caisse-arret` (875 : première image d'arrêt, plus aucun brin) ;
+  `56-caisse-chute` (915 : Pépin retombe, colonne vide) ; `56-caisse-retombe` (945 : de
   nouveau sur la casette, hélice arrêtée). Au pixel (grilles logiques, boîte de Pépin
   écartée car il est blanc cassé lui aussi) : 0 brin aux images 731 à 736 (annonce), 875,
   915 et 945 ; 9 brins sous Pépin à l'image 840, 3 à l'image 874. Chaque capture regardée ;
