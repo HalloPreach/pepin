@@ -107,7 +107,9 @@ pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
 mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
-    use crate::levels::{essai_auvent, essai_grele, essai_vent, essai_vertical};
+    use crate::levels::{
+        essai_auvent, essai_grele, essai_vent, essai_ventilateur, essai_vertical,
+    };
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
@@ -138,6 +140,7 @@ mod tests {
             &essai_vent::INFOS,
             &essai_grele::INFOS,
             &essai_auvent::INFOS,
+            &essai_ventilateur::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -164,6 +167,7 @@ mod tests {
             &essai_vent::INFOS,
             &essai_grele::INFOS,
             &essai_auvent::INFOS,
+            &essai_ventilateur::INFOS,
         ])
     }
 
@@ -274,6 +278,30 @@ mod tests {
             !r.arrivee,
             "sans auvents, le vide doit rester infranchissable"
         );
+    }
+
+    /// Le niveau d'essai « ventilateur » passe les mêmes contrôles (arrivée, 3
+    /// gouttes, lanternes, robot maladroit) : le robot monte par le souffle.
+    #[test]
+    fn niveau_d_essai_ventilateur_faisable() {
+        verifier_infos(&essai_ventilateur::INFOS);
+    }
+
+    /// Sans les courants ascendants (le souffle du ventilateur), le balcon du
+    /// drapeau est hors de portée : c'est bien le ventilateur seul qui fait la
+    /// montée (le saut ne porte pas à 18 tuiles).
+    #[test]
+    fn niveau_d_essai_ventilateur_exige_les_courants() {
+        let niv = essai_ventilateur::INFOS.charger().unwrap();
+        let r = analyser(
+            &niv,
+            niv.depart,
+            Options {
+                courants: false,
+                ..Options::default()
+            },
+        );
+        assert!(!r.arrivee, "sans le souffle du ventilateur, le balcon doit rester hors de portée");
     }
 
     /// Ni le départ ni aucune lanterne sous la grêle : Pépin y apparaît (ou y

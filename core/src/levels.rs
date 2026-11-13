@@ -27,6 +27,7 @@
 pub mod essai_auvent;
 pub mod essai_grele;
 pub mod essai_vent;
+pub mod essai_ventilateur;
 pub mod essai_vertical;
 pub mod gouttieres;
 pub mod nuages;
