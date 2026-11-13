@@ -38,7 +38,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Courir               | flèches gauche/droite, ou Q / A et D (AZERTY et QWERTY) |
 | Sauter               | Espace, flèche haut, W ou Z (AZERTY et QWERTY)       |
 | Planer               | maintenir la touche de saut en l'air (parapluie ouvert) |
-| Pause                | Échap ou P                                           |
+| Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
 | Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou la ligne « SON » des menus |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
 | Aller à un niveau    | touches 1 à 5, UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
@@ -117,7 +117,8 @@ Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
   `transition.rs` : le rendu du monde.
 - `sprites/` : le pixel art ; `texte.rs` : le dessin de texte ; `rendu.rs` : la
   cible 320x180 et l'agrandissement entier.
-- `entrees.rs`, `tactile.rs`, `navigation.rs`, `menu.rs` : entrées et menus.
+- `entrees.rs`, `tactile.rs`, `navigation.rs`, `menu.rs` : entrées et menus ;
+  `focus.rs` : perte de focus de la fenêtre (pause automatique).
 - `audio.rs` : joue les sons fabriqués par `core`.
 
 Dans `game`, la même idée se répète à plus petite échelle : la logique (qui

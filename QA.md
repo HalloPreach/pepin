@@ -335,7 +335,7 @@ mécanique touchée.
   les 5 niveaux, 0 mort, script identique à l'ancien (12 254 images) ; `./docker-cargo.sh lint`
   OK ; wasm 433 771 octets.
 
-## Revue du 13 novembre : échelle téléphone, raccourcis, AZERTY
+## Revue du 13 novembre : échelle téléphone, raccourcis, AZERTY, pause automatique, plantage
 
 Trois défauts constatés, corrigés ; aucun niveau, aucune physique, aucune hitbox ne change.
 
@@ -387,3 +387,61 @@ le son n'a pas été écouté, seul l'état affiché de la ligne « SON » a ét
 `high_dpi` : quand le facteur physique tombe juste sous un entier (1000x560 à 125 % : 3,88 -> 3), le jeu
 est un peu plus petit qu'avant (3 contre 3,75), mais net. Sur QWERTY, la touche point-virgule bascule aussi
 le son (effet de bord inévitable de la table à deux positions).
+
+### Pause automatique à la perte de focus
+
+Défaut constaté : onglet masqué, autre fenêtre au premier plan ou téléphone verrouillé, le jeu se figeait
+mais la musique continuait, puis l'action reprenait sans prévenir au retour.
+
+Faisabilité, vérifiée dans les sources (miniquad 0.4.11, macroquad 0.4.16, cache cargo) : le chargeur
+`mq_js_bundle.js` écoute déjà `visibilitychange`, `focus` et `blur` et appelle la fonction exportée
+`focus(vrai/faux)` du wasm (« focus » = `document.hasFocus()` ET page visible) ; X11, Windows, macOS et
+Android envoient le même signal. miniquad en fait `window_minimized_event` / `window_restored_event`,
+que macroquad range dans la file de chaque abonné (`input::utils`). Solution retenue, la plus simple :
+`game/src/focus.rs` s'abonne à cette file ; ni touche simulée, ni fonction exportée en plus.
+
+- `Application::focus` (`game/src/app.rs`) : en pleine partie, ouvre l'écran Pause (curseur sur
+  REPRENDRE) ; déjà en pause, ne fait rien (pas de seconde ouverture, curseur conservé) ; titre, aide,
+  fin : rien. Pendant la carte de présentation ou les volets qui mènent au jeu, la pause est différée
+  au premier pas de jeu (avant que le monde ne bouge), et annulée si le focus revient avant.
+- La musique et la pluie s'arrêtent pendant toute pause (manuelle ou automatique) et ne repartent qu'à
+  la sortie de la pause, par le joueur (`EtatSon` dans `game/src/audio.rs`, testé sans son réel). Les
+  sons du menu restent audibles.
+- Un onglet masqué ne dessine plus : le jeu ne voit l'événement qu'au RETOUR, à la première image,
+  avant tout pas de simulation. La page (`web/index.html`) suspend donc elle-même les AudioContext
+  pendant l'absence (sinon la musique continuerait en fond) et les reprend deux images après le retour,
+  quand la pause a coupé la musique. Elle les connaît en enveloppant le constructeur `AudioContext`
+  avant de charger `mq_js_bundle.js` (le chargeur garde le sien dans une variable privée).
+- Aucun saut du temps : le chrono ne compte que les pas de jeu (rien en pause) ; le `PasFixe` plafonne
+  déjà une image à 0,25 s et 5 pas (`core/src/timestep.rs`), pas qui tombent dans l'écran de pause ;
+  l'accumulateur est en plus remis à zéro à chaque changement de focus.
+
+Tests unitaires (9) : pause ouverte en partie et temps figé (monde et chrono identiques après 600 pas,
+reprise à +1 pas exactement), jamais deux fois, rien sur titre/aide/fin ni après des volets vers le
+titre ou la fin, carte (pause différée, puis une seule fois), focus revenu pendant la carte (aucune
+pause), volets de « recommencer » qui se ferment ou s'ouvrent, boucles sonores coupées en pause.
+
+Preuves dans Chromium 1208 piloté par CDP (`docs/qa-focus-plantage.mjs`, `dist/` de production ;
+« avant » = `dist/` du commit précédent). Chromium sans écran ne masque jamais vraiment un onglet : un
+script injecté avant la page force `visibilityState` à « hidden », envoie `visibilitychange` et retient
+les rappels de `requestAnimationFrame` comme un vrai onglet masqué ; la perte de focus « fenêtre
+visible » force `document.hasFocus()` à faux et envoie `blur`. Les boucles sonores sont comptées en
+observant `AudioBufferSourceNode.start` (en boucle) et leur arrêt (`disconnect`).
+
+| Cas (son activé, niveau 1 en cours) | Avant | Après |
+|-----|-------|-------|
+| Onglet masqué 6 s : AudioContext | « running » (la musique continue) | « suspended » |
+| Retour sur l'onglet | jeu relancé aussitôt (0,4 % d'écart avec l'image d'avant : la pluie) | écran PAUSE, REPRENDRE en surbrillance ; 0 % d'écart 3 s plus tard (tout est figé) |
+| Boucles musique + pluie au retour | 2 | 0 (contextes « running » : les sons du menu marchent) |
+| Échap (reprise) | ouvre la pause | jeu à la même place, chrono 0:04 avant le masquage et 0:04 après (6 s masqué + 3 s de pause), 2 boucles relancées |
+| Fenêtre visible sans focus (`blur`) | rien | écran PAUSE, contextes suspendus, 0 boucle |
+| Titre : onglet masqué, retour, puis `blur` | rien | rien (écran titre, 2 boucles : la musique du titre continue au retour) ; Entrée lance bien la carte du niveau 1 |
+
+Captures : `docs/qa/92-focus-jeu-apres-*` (1 avant le masquage, 2 retour = PAUSE, 4 après Échap,
+5 fenêtre sans focus = PAUSE, 6 focus revenu = toujours PAUSE), `92-focus-jeu-avant-1/2` (ancien build :
+au retour, le jeu tourne), `92-focus-titre-apres-*` (titre intact, puis carte du niveau 1).
+
+Non testé : un vrai téléphone verrouillé, Safari iOS (qui peut suspendre l'audio de lui-même),
+Firefox, un vrai changement d'onglet ou d'application (simulé par script, voir plus haut) ; la version
+de bureau native (X11/Windows) n'a pas été lancée ; le son n'a pas été écouté (seuls l'état des
+AudioContext et le nombre de boucles sont mesurés).

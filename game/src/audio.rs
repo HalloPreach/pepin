@@ -90,12 +90,44 @@ fn eclair_en_vue(monde: &Monde, cam_x: f32) -> bool {
     })
 }
 
+/// Ce qu'il faut faire aux sons quand le réglage change (voir `EtatSon::regler`).
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Consignes {
+    pub demarrer_boucles: bool,
+    pub arreter_boucles: bool,
+    pub arreter_effets: bool,
+}
+
+/// État du son, sans macroquad (donc testable) : le son est-il activé, et la
+/// musique et la pluie (les « boucles ») tournent-elles ?
+#[derive(Debug, Default)]
+pub struct EtatSon {
+    actif: bool,
+    boucles: bool,
+}
+
+impl EtatSon {
+    /// `actif` : le joueur veut du son. `boucles_voulues` : faux pendant la pause.
+    /// Les boucles ne tournent que si les deux sont vrais ; renvoie les changements.
+    pub fn regler(&mut self, actif: bool, boucles_voulues: bool) -> Consignes {
+        let boucles = actif && boucles_voulues;
+        let consignes = Consignes {
+            demarrer_boucles: boucles && !self.boucles,
+            arreter_boucles: !boucles && self.boucles,
+            arreter_effets: !actif && self.actif,
+        };
+        self.actif = actif;
+        self.boucles = boucles;
+        consignes
+    }
+}
+
 /// Tous les sons chargés, prêts à jouer.
 pub struct Audio {
     effets: HashMap<Effet, Sound>,
     musique: Sound,
     pluie: Sound,
-    actif: bool,
+    etat: EtatSon,
     detecteur: Detecteur,
 }
 
@@ -110,24 +142,22 @@ impl Audio {
             effets,
             musique: charger_son(&musique()).await,
             pluie: charger_son(&pluie()).await,
-            actif: false,
+            etat: EtatSon::default(),
             detecteur: Detecteur::default(),
         }
     }
 
     /// Le son est-il activé ?
     pub fn est_actif(&self) -> bool {
-        self.actif
+        self.etat.actif
     }
 
-    /// Active ou coupe le son. Au passage à « actif » les boucles démarrent ;
-    /// au passage à « coupé » tout s'arrête. Sans effet si rien ne change.
-    pub fn regler(&mut self, actif: bool) {
-        if actif == self.actif {
-            return;
-        }
-        self.actif = actif;
-        if actif {
+    /// Active ou coupe le son, et dit si la musique et la pluie doivent tourner
+    /// (`boucles` : faux pendant la pause). Appelé à chaque image ; n'agit que sur
+    /// un changement. Une boucle arrêtée puis relancée repart de son début.
+    pub fn regler(&mut self, actif: bool, boucles: bool) {
+        let c = self.etat.regler(actif, boucles);
+        if c.demarrer_boucles {
             play_sound(
                 &self.musique,
                 PlaySoundParams {
@@ -142,18 +172,21 @@ impl Audio {
                     volume: VOLUME_PLUIE,
                 },
             );
-        } else {
+        }
+        if c.arreter_boucles {
+            stop_sound(&self.musique);
+            stop_sound(&self.pluie);
+        }
+        if c.arreter_effets {
             for s in self.effets.values() {
                 stop_sound(s);
             }
-            stop_sound(&self.musique);
-            stop_sound(&self.pluie);
         }
     }
 
     /// Joue un effet (ignoré si le son est coupé).
     pub fn jouer(&self, effet: Effet) {
-        if !self.actif {
+        if !self.etat.actif {
             return;
         }
         if let Some(s) = self.effets.get(&effet) {
@@ -229,5 +262,35 @@ mod tests {
         assert!(d.comparer(false, false).is_empty());
         assert_eq!(d.comparer(true, true), vec![Effet::Eclair, Effet::Victoire]);
         assert!(d.comparer(true, true).is_empty(), "victoire déjà annoncée");
+    }
+
+    #[test]
+    fn la_pause_coupe_les_boucles_et_la_sortie_les_relance() {
+        let mut s = EtatSon::default();
+        // Son coupé au départ : rien ne tourne, pause ou pas.
+        assert_eq!(s.regler(false, true), Consignes::default());
+        assert_eq!(s.regler(false, false), Consignes::default());
+        // Le joueur active le son en pause : les boucles attendent la sortie de pause.
+        assert_eq!(s.regler(true, false), Consignes::default());
+        // Sortie de pause : musique et pluie démarrent.
+        let c = s.regler(true, true);
+        assert!(c.demarrer_boucles && !c.arreter_boucles && !c.arreter_effets);
+        // Image suivante, rien ne change : aucune consigne (pas de redémarrage en boucle).
+        assert_eq!(s.regler(true, true), Consignes::default());
+        // Pause (manuelle ou perte de focus) : les boucles s'arrêtent, le son reste actif.
+        let c = s.regler(true, false);
+        assert!(c.arreter_boucles && !c.arreter_effets && !c.demarrer_boucles);
+        assert!(s.actif);
+        assert_eq!(s.regler(true, false), Consignes::default());
+        // Reprise : elles repartent.
+        assert!(s.regler(true, true).demarrer_boucles);
+        // Couper le son : tout s'arrête.
+        let c = s.regler(false, true);
+        assert!(c.arreter_boucles && c.arreter_effets);
+        // Couper le son pendant la pause : les boucles étaient déjà arrêtées.
+        s.regler(true, true);
+        s.regler(true, false);
+        let c = s.regler(false, false);
+        assert!(!c.arreter_boucles && c.arreter_effets);
     }
 }

@@ -138,6 +138,56 @@
   // Le menu contextuel (appui long tactile, clic droit) gênerait le jeu.
   canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
+  // --- Son suspendu quand la page est masquée ou perd le focus --------------------------
+  // Le jeu (Rust) détecte lui-même la perte de focus et ouvre l'écran de pause, qui arrête
+  // la musique et la pluie (game/src/focus.rs). Mais un onglet masqué ne dessine plus : le
+  // navigateur cesse d'appeler requestAnimationFrame, et le jeu ne voit l'événement qu'au
+  // RETOUR. Sans ceci, la musique continuerait donc en fond, onglet masqué ou téléphone
+  // verrouillé. Le chargeur de macroquad garde son AudioContext dans une variable privée :
+  // on enveloppe le constructeur AVANT de charger mq_js_bundle.js pour connaître les
+  // contextes créés, et on suspend ceux qui jouent. Au retour, on attend deux images (le
+  // jeu a alors ouvert la pause et arrêté la musique) avant de les reprendre : les sons du
+  // menu marchent, la musique ne repart qu'à la sortie de la pause, par le joueur.
+  var contextesAudio = [];
+  var suspendusParLaPage = [];
+  var AudioOrigine = window.AudioContext || window.webkitAudioContext;
+  if (AudioOrigine) {
+    var AudioSurveille = function (options) {
+      var c = options === undefined ? new AudioOrigine() : new AudioOrigine(options);
+      contextesAudio.push(c);
+      return c;
+    };
+    AudioSurveille.prototype = AudioOrigine.prototype;
+    if (window.AudioContext) { window.AudioContext = AudioSurveille; }
+    if (window.webkitAudioContext) { window.webkitAudioContext = AudioSurveille; }
+  }
+  function pageActive() {
+    return document.visibilityState === "visible" && document.hasFocus();
+  }
+  function suivreFocus() {
+    if (!pageActive()) {
+      contextesAudio.forEach(function (c) {
+        if (c.state === "running" && suspendusParLaPage.indexOf(c) < 0) {
+          suspendusParLaPage.push(c);
+          try { c.suspend(); } catch (e) { /* sans suspend() : la pause coupera au retour */ }
+        }
+      });
+      return;
+    }
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (!pageActive()) { return; }
+        suspendusParLaPage.forEach(function (c) {
+          if (c.state === "suspended") { try { c.resume(); } catch (e) { /* idem */ } }
+        });
+        suspendusParLaPage = [];
+      });
+    });
+  }
+  document.addEventListener("visibilitychange", suivreFocus);
+  window.addEventListener("blur", suivreFocus);
+  window.addEventListener("focus", suivreFocus);
+
   if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {
     afficherErreur();
     return;

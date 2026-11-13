@@ -102,6 +102,9 @@ pub struct Application {
     /// Photo de la partie au début du niveau, pour « recommencer le niveau ».
     debut_niveau: EtatJeu,
     bilan: Bilan,
+    /// Le focus a été perdu juste avant que le jeu ne (re)démarre (carte de présentation,
+    /// volets) : la pause s'ouvrira au premier pas de jeu, sauf si le focus revient avant.
+    pause_differee: bool,
 }
 
 impl Application {
@@ -125,6 +128,7 @@ impl Application {
             pas_partie: 0,
             debut_niveau,
             bilan: Bilan::default(),
+            pause_differee: false,
         };
         app.ouvrir(Ecran::Titre);
         app
@@ -136,6 +140,8 @@ impl Application {
         self.anim = 0;
         self.choix = choix_pour(ecran, self.son_disponible);
         self.menu = Menu::new(self.choix.len());
+        // Pause, titre, aide ou fin : une pause différée n'a plus lieu d'être.
+        self.pause_differee = false;
     }
 
     /// Prépare un changement d'écran derrière la transition en volets.
@@ -147,6 +153,46 @@ impl Application {
     /// Le monde de jeu est-il en train d'avancer (donc à interpoler) ?
     pub fn en_jeu(&self) -> bool {
         self.ecran == Ecran::Jeu && !self.transition.est_active()
+    }
+
+    /// La fenêtre perd (`present = false`) ou retrouve (`true`) le focus : onglet masqué,
+    /// autre application, téléphone verrouillé (voir `focus.rs`).
+    ///
+    /// - En pleine partie : l'écran de pause s'ouvre (le monde et le chrono s'arrêtent,
+    ///   la musique et la pluie aussi) ; seul le joueur en sort.
+    /// - Déjà en pause : rien (la pause ne s'ouvre jamais deux fois, le curseur reste).
+    /// - Titre, aide, fin : rien. Carte de présentation ou volets qui mènent au jeu :
+    ///   la pause est DIFFÉRÉE au premier pas de jeu, et annulée si le focus revient avant
+    ///   (sinon, fenêtre visible mais sans focus, la carte finirait et Pépin partirait seul).
+    pub fn focus(&mut self, present: bool) {
+        if present {
+            self.pause_differee = false;
+        } else if self.en_jeu() {
+            self.ouvrir(Ecran::Pause);
+        } else if self.partie_imminente() {
+            self.pause_differee = true;
+        }
+    }
+
+    /// Le jeu va-t-il démarrer tout seul (carte de présentation, volets vers un niveau) ?
+    fn partie_imminente(&self) -> bool {
+        match self.suite {
+            // Volets qui se ferment : tout dépend de ce qui vient derrière.
+            Some(Suite::Niveau { .. }) | Some(Suite::Recommencer) => true,
+            Some(Suite::Titre) | Some(Suite::Fin) => false,
+            // Rien en attente : carte de présentation, ou volets qui s'ouvrent sur le
+            // niveau recommencé.
+            None => {
+                matches!(self.ecran, Ecran::Carte(_))
+                    || (self.ecran == Ecran::Jeu && self.transition.est_active())
+            }
+        }
+    }
+
+    /// La musique et la pluie doivent-elles tourner ? Non pendant la pause : elles
+    /// reprennent quand le joueur en sort (la boucle principale le transmet à l'audio).
+    pub fn boucles_sonores(&self) -> bool {
+        self.ecran != Ecran::Pause
     }
 
     // --- Réactions aux appuis (une fois par image) -------------------------------
@@ -253,8 +299,13 @@ impl Application {
                     };
                 }
                 Ecran::Jeu => {
-                    self.pas_jeu(entrees);
-                    monde_avance = true;
+                    if std::mem::take(&mut self.pause_differee) {
+                        // Focus perdu pendant la carte : on s'arrête avant le premier pas.
+                        self.ouvrir(Ecran::Pause);
+                    } else {
+                        self.pas_jeu(entrees);
+                        monde_avance = true;
+                    }
                 }
                 Ecran::Fin => fin::confettis(&mut self.particules, self.anim),
                 Ecran::Titre | Ecran::Aide | Ecran::Pause => {}
@@ -747,5 +798,188 @@ mod tests {
         app.reagir(&rien(), &pause(), None);
         avancer(&mut app, 100);
         assert_eq!(app.pas_partie, 100, "rien ne compte en pause");
+    }
+
+    // --- Perte de focus (onglet masqué, autre application, téléphone verrouillé) ---
+
+    #[test]
+    fn la_perte_de_focus_en_partie_ouvre_la_pause_et_fige_le_temps() {
+        let mut app = en_jeu();
+        avancer(&mut app, 30);
+        let (pas_monde, chrono) = (app.monde.pas, app.pas_partie);
+        app.focus(false);
+        assert_eq!(app.ecran, Ecran::Pause);
+        assert_eq!(app.choix[app.menu.selection()], Choix::Reprendre);
+        // Retour sur l'onglet : la pause RESTE (seul le joueur en sort).
+        app.focus(true);
+        assert_eq!(app.ecran, Ecran::Pause);
+        avancer(&mut app, 600);
+        assert_eq!(app.monde.pas, pas_monde, "le monde ne bouge pas");
+        assert_eq!(app.pas_partie, chrono, "le chrono ne compte pas l'absence");
+        // Reprise : le temps repart exactement d'où il était, sans rattrapage.
+        app.reagir(&rien(), &pause(), None);
+        assert_eq!(app.ecran, Ecran::Jeu);
+        avancer(&mut app, 1);
+        assert_eq!(app.monde.pas, pas_monde + 1);
+        assert_eq!(app.pas_partie, chrono + 1);
+    }
+
+    #[test]
+    fn la_pause_ne_s_ouvre_pas_deux_fois() {
+        let mut app = en_jeu();
+        app.focus(false);
+        let bas = Navigation {
+            bas: true,
+            ..Navigation::default()
+        };
+        app.reagir(&bas, &Commandes::default(), None);
+        let curseur = app.menu.selection();
+        assert_eq!(app.choix[curseur], Choix::Recommencer);
+        // Nouvelle perte (masqué puis fenêtre quittée...) : l'écran n'est pas rouvert.
+        app.focus(false);
+        app.focus(false);
+        assert_eq!(app.ecran, Ecran::Pause);
+        assert_eq!(
+            app.menu.selection(),
+            curseur,
+            "le curseur n'est pas remis en haut"
+        );
+        // Pause manuelle puis perte de focus : toujours la même pause.
+        app.reagir(&rien(), &pause(), None);
+        assert_eq!(app.ecran, Ecran::Jeu);
+        app.reagir(&rien(), &pause(), None);
+        app.focus(false);
+        assert_eq!(app.ecran, Ecran::Pause);
+    }
+
+    #[test]
+    fn la_perte_de_focus_hors_partie_n_ouvre_rien() {
+        // Titre
+        let mut app = Application::new(true);
+        app.focus(false);
+        app.focus(true);
+        assert_eq!(app.ecran, Ecran::Titre);
+        // Aide
+        app.valider_choix(Choix::Aide);
+        app.focus(false);
+        assert_eq!(app.ecran, Ecran::Aide);
+        // Fin
+        let mut app = en_jeu();
+        app.ecran = Ecran::Fin;
+        app.focus(false);
+        assert_eq!(app.ecran, Ecran::Fin);
+        // Volets vers le titre (« quitter ») : rien, ni maintenant ni après.
+        let mut app = en_jeu();
+        app.reagir(&rien(), &pause(), None);
+        app.valider_choix(Choix::QuitterAuTitre);
+        app.focus(false);
+        jusqu_a(&mut app, |e| e == Ecran::Titre);
+        assert!(!app.pause_differee);
+    }
+
+    #[test]
+    fn focus_perdu_pendant_la_carte_la_pause_attend_le_jeu() {
+        let mut app = Application::new(true);
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        app.focus(false);
+        assert!(
+            matches!(app.ecran, Ecran::Carte(_)),
+            "pas de pause sur la carte"
+        );
+        // La carte se termine seule (fenêtre visible mais sans focus) : la pause s'ouvre
+        // au premier pas de jeu, AVANT que le monde ne bouge.
+        avancer(&mut app, carte::DUREE_PAS as u32 + 2);
+        assert_eq!(app.ecran, Ecran::Pause);
+        assert_eq!(app.monde.pas, 0);
+        assert_eq!(app.pas_partie, 0);
+        // Une seule fois : après la reprise, le jeu avance normalement.
+        app.reagir(&rien(), &pause(), None);
+        avancer(&mut app, 10);
+        assert_eq!(app.ecran, Ecran::Jeu);
+        assert_eq!(app.monde.pas, 10);
+    }
+
+    #[test]
+    fn focus_revenu_pendant_la_carte_aucune_pause() {
+        let mut app = Application::new(true);
+        app.reagir(&valider(), &Commandes::default(), None);
+        // Perte pendant les volets, retour pendant la carte (onglet masqué puis revenu).
+        app.focus(false);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        app.focus(true);
+        avancer(&mut app, carte::DUREE_PAS as u32 + 12);
+        assert_eq!(app.ecran, Ecran::Jeu);
+        assert!(app.monde.pas > 0);
+    }
+
+    #[test]
+    fn focus_perdu_pendant_les_volets_de_recommencer() {
+        // Volets qui se ferment (la suite « recommencer » est en attente).
+        let mut app = en_jeu();
+        app.reagir(&rien(), &pause(), None);
+        app.valider_choix(Choix::Recommencer);
+        app.focus(false);
+        // Les volets se referment sur la pause, s'ouvrent sur le niveau tout neuf, puis la
+        // pause différée s'ouvre au premier pas de jeu.
+        jusqu_a(&mut app, |e| e == Ecran::Pause);
+        avancer(&mut app, 30);
+        assert_eq!(
+            app.ecran,
+            Ecran::Pause,
+            "le niveau recommencé attend le joueur"
+        );
+        assert_eq!(app.monde.pas, 0);
+        // Volets qui s'OUVRENT sur le niveau recommencé (plus rien en attente).
+        app.valider_choix(Choix::Recommencer);
+        for _ in 0..200 {
+            if app.ecran == Ecran::Jeu {
+                break;
+            }
+            avancer(&mut app, 1);
+        }
+        assert!(app.ecran == Ecran::Jeu && app.transition.est_active());
+        app.focus(false);
+        jusqu_a(&mut app, |e| e == Ecran::Pause);
+        assert_eq!(app.monde.pas, 0);
+    }
+
+    #[test]
+    fn focus_perdu_en_allant_vers_la_fin_aucune_pause_plus_tard() {
+        let mut app = en_jeu();
+        let (monde, camera) = charger(NB_NIVEAUX - 1, None);
+        app.monde = monde;
+        app.camera = camera;
+        app.monde.termine = true;
+        avancer(&mut app, 1);
+        // Volets vers l'écran de fin : perte de focus, la fenêtre reste sans focus.
+        app.focus(false);
+        jusqu_a(&mut app, |e| e == Ecran::Fin);
+        // « Rejouer » (au clic, sans que le focus soit revenu) : le jeu démarre normalement.
+        app.valider_choix(Choix::Rejouer);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        app.reagir(&valider(), &Commandes::default(), None);
+        avancer(&mut app, 5);
+        assert_eq!(app.ecran, Ecran::Jeu);
+        assert_eq!(app.monde.pas, 5);
+    }
+
+    #[test]
+    fn la_musique_et_la_pluie_s_arretent_pendant_la_pause() {
+        let app = Application::new(true);
+        assert!(app.boucles_sonores(), "titre");
+        let mut app = en_jeu();
+        assert!(app.boucles_sonores(), "jeu");
+        app.focus(false);
+        assert!(!app.boucles_sonores(), "pause automatique");
+        app.focus(true);
+        assert!(
+            !app.boucles_sonores(),
+            "retour sur l'onglet : toujours en pause"
+        );
+        app.reagir(&rien(), &pause(), None);
+        assert!(app.boucles_sonores(), "le joueur sort de la pause");
+        app.reagir(&rien(), &pause(), None);
+        assert!(!app.boucles_sonores(), "pause manuelle");
     }
 }

@@ -4,7 +4,9 @@
 //!
 //! Commandes : flèches ou Q/D (ou A/D) pour courir ; Espace, Haut, W ou Z pour sauter
 //! (maintenu en l'air : parapluie ouvert) ; Échap ou P pour la pause ; M active/coupe
-//! le son (coupé par défaut). Les touches sont lues par POSITION physique : les listes
+//! le son (coupé par défaut). La pause s'ouvre aussi toute seule si la fenêtre perd le
+//! focus en pleine partie (onglet masqué, autre application : voir `focus.rs`).
+//! Les touches sont lues par POSITION physique : les listes
 //! de `entrees.rs` couvrent QWERTY et AZERTY (sur AZERTY, M est à la position du
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 5 (changer de niveau) : uniquement dans un
@@ -21,6 +23,7 @@ mod decor;
 mod ecrans;
 mod effets;
 mod entrees;
+mod focus;
 mod hud;
 mod menu;
 mod monde;
@@ -44,6 +47,7 @@ use app::Application;
 use audio::Audio;
 use ecrans::Ecran;
 use entrees::{Clavier, Sources};
+use focus::Focus;
 use navigation::LecteurNavigation;
 use rendu::Cible;
 use sprites::Banque;
@@ -78,6 +82,8 @@ async fn main() {
     let tactile = Tactile::new();
     sources.ajouter(Box::new(tactile.clone()));
     let mut navigation = LecteurNavigation::new();
+    // Perte de focus (onglet masqué, autre application...) : voir `focus.rs`.
+    let mut focus = Focus::new();
     // Sons fabriqués en mémoire. Désactivés tant que le joueur ne les demande pas
     // (et un navigateur n'autorise l'audio qu'après une première interaction).
     let mut audio = Audio::charger().await;
@@ -86,6 +92,18 @@ async fn main() {
     loop {
         let commandes = sources.lire();
         let nav = navigation.lire();
+        // Focus perdu en pleine partie : la pause s'ouvre AVANT tout pas de simulation.
+        // Sur le web, un onglet masqué ne dessine plus : on lit l'événement au retour, et
+        // le long « temps d'image » du retour est plafonné par le `PasFixe` (0,25 s, 5 pas
+        // au plus, qui tombent alors dans l'écran de pause : rien ne bouge). On remet
+        // aussi l'accumulateur à zéro pour repartir d'un temps propre.
+        let changements = focus.lire();
+        if !changements.is_empty() {
+            for present in changements {
+                app.focus(present);
+            }
+            pas_fixe.reinitialiser();
+        }
         // Téléphone tactile en portrait : message « Tourne ton téléphone » et jeu en pause.
         let a_tourner =
             orientation::doit_afficher(screen_width(), screen_height(), tactile.est_actif());
@@ -93,8 +111,10 @@ async fn main() {
             app.reagir(&nav, &commandes, entrees::raccourci_niveau());
         }
         // Le réglage son vient des menus ou de la touche M ; l'audio ne fait que l'appliquer.
-        if app.son != audio.est_actif() {
-            audio.regler(app.son);
+        // La musique et la pluie se taisent pendant la pause et reprennent à sa sortie.
+        let bascule_son = app.son != audio.est_actif();
+        audio.regler(app.son, app.boucles_sonores());
+        if bascule_son {
             audio.jouer(Effet::Menu);
         }
         let entrees = commandes.vers_entrees();
