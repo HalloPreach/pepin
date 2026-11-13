@@ -82,11 +82,16 @@ pub const INDICE_ESSAI_AUVENT: usize = pepin_core::levels::NB_NIVEAUX + 3;
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_VENTILATEUR: usize = pepin_core::levels::NB_NIVEAUX + 4;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les cinq niveaux
+/// Indice du niveau d'essai « montgolfière » (carte 5.7) : juste après celui du
+/// ventilateur (touche F5 du build de QA).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_MONTGOLFIERE: usize = pepin_core::levels::NB_NIVEAUX + 5;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les six niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
-/// `INDICE_ESSAI_VENTILATEUR` ventilateur) — tests et build de
-/// QA seulement. `None` au-delà.
+/// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
+/// montgolfière) — tests et build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
 }
@@ -103,6 +108,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_auvent::INFOS)
     } else if indice == INDICE_ESSAI_VENTILATEUR {
         Some(&pepin_core::levels::essai_ventilateur::INFOS)
+    } else if indice == INDICE_ESSAI_MONTGOLFIERE {
+        Some(&pepin_core::levels::essai_montgolfiere::INFOS)
     } else {
         None
     }

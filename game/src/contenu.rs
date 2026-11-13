@@ -116,7 +116,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
 
 /// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
 /// sauf, dans les tests et le build de QA, ceux des niveaux d'essai (vertical, vent,
-/// grêle, auvent, ventilateur).
+/// grêle, auvent, ventilateur, montgolfière).
 pub fn intro(indice: usize) -> &'static Intro {
     #[cfg(any(test, feature = "debug_niveaux"))]
     if indice == crate::monde::INDICE_ESSAI {
@@ -137,6 +137,10 @@ pub fn intro(indice: usize) -> &'static Intro {
     #[cfg(any(test, feature = "debug_niveaux"))]
     if indice == crate::monde::INDICE_ESSAI_VENTILATEUR {
         return &INTRO_ESSAI_VENTILATEUR;
+    }
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_MONTGOLFIERE {
+        return &INTRO_ESSAI_MONTGOLFIERE;
     }
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
@@ -178,6 +182,14 @@ pub const INTRO_ESSAI_AUVENT: Intro = Intro {
 pub const INTRO_ESSAI_VENTILATEUR: Intro = Intro {
     texte: "Un ventilateur souffle vers le haut : il porte Pépin bien plus haut qu'un saut.",
     astuce: "Attends le souffle (la lampe clignote), reste dans la colonne.",
+};
+
+/// Intro du niveau d'essai « montgolfière » (build de QA seulement, voir
+/// `monde::INDICE_ESSAI_MONTGOLFIERE`).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INTRO_ESSAI_MONTGOLFIERE: Intro = Intro {
+    texte: "Une montgolfière monte quand Pépin est dans sa nacelle, et redescend sans lui.",
+    astuce: "Attends en haut qu'elle s'arrête, puis avance vers l'étage.",
 };
 
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau

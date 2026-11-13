@@ -857,6 +857,28 @@ mod tests {
         assert_eq!(auvents, 6);
     }
 
+    /// Touche F5 du build de QA : le niveau d'essai « montgolfière » (hors de la
+    /// table), avec ses deux montgolfières.
+    #[test]
+    fn le_raccourci_d_essai_charge_le_niveau_des_montgolfieres() {
+        let mut app = en_jeu();
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Essai6),
+        );
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI_MONTGOLFIERE);
+        assert_eq!(app.monde.infos.nom, "Essai montgolfière");
+        let montgolfieres = app
+            .monde
+            .entites
+            .iter()
+            .filter(|e| matches!(e, pepin_core::entities::Entite::Montgolfiere(_)))
+            .count();
+        assert_eq!(montgolfieres, 2);
+    }
+
     #[test]
     fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         let mut app = en_jeu();
