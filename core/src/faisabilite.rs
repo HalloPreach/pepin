@@ -22,7 +22,10 @@
 //!   « lancé », voir `Noeud`) d'où il essaie les plans « en vol » ;
 //! - une plateforme mobile est remplacée par DEUX plateformes immobiles à ses
 //!   extrémités, et un joueur posé sur un bout est aussi considéré posé sur
-//!   l'autre (il suffit d'attendre d'être emporté).
+//!   l'autre (il suffit d'attendre d'être emporté) ;
+//! - un ventilateur est traité comme un courant ascendant TOUJOURS actif : le
+//!   robot ne connaît pas le temps, et son cycle (2 s de souffle, 2 s d'arrêt)
+//!   ne change pas l'atteignabilité, un joueur patient attendant le souffle.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -208,11 +211,23 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // qu'elles ne s'effritent jamais pendant la recherche.
     entites.retain(|e| !matches!(e, Entite::Friable(_)));
 
-    let courants: Vec<CourantAscendant> = if options.courants {
+    let mut courants: Vec<CourantAscendant> = if options.courants {
         niveau.courants.clone()
     } else {
         Vec::new()
     };
+    // Ventilateurs : le robot est INSENSIBLE au temps, donc on considère leur
+    // courant comme TOUJOURS actif (un joueur patient attend simplement le
+    // bon moment du cycle de 4 s). C'est une simplification documentée, à
+    // l'image de l'ignorance des éclairs : le timing ne change pas
+    // l'atteignabilité, on peut attendre la phase de souffle.
+    if options.courants {
+        for e in &niveau.entites {
+            if let Entite::Ventilateur(v) = e {
+                courants.push(CourantAscendant::new(v.zone));
+            }
+        }
+    }
     // Le robot joue avec la VRAIE physique : le vent latéral pousse ses plans
     // (ou les fait échouer) comme à un joueur. Ses plans « planer » s'en
     // servent pour allonger la portée d'un plané dans le sens du vent, et il
