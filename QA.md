@@ -935,3 +935,87 @@ Vérification sur une extraction propre de 76b3e0f (`git archive`, nouveau dossi
 Limites : jugé sur captures à l'échelle 3 (960 x 540) ; la fissure est plus discrète que le trou à
 cette taille (voulu : variantes rares et calmes, le mur ne doit pas attirer l'œil plus que les
 dangers). Pas testé : vrai téléphone, Safari/Firefox ; aucun son ne change.
+
+## Objets de décor sans collision (carte 4.2)
+
+Sur le modèle des panneaux : une lettre dans la grille, un sprite, aucune physique.
+
+- `core/src/level.rs` : `GenreDecor` (`H` cheminée, `T` antenne, `R` paratonnerre, `Q` manche à air,
+  `K` oiseau posé ; `lettre` / `depuis_lettre`, une seule table) et `ObjetDecor` dans `Niveau::decors`.
+  Ni tuile ni entité : la grille de collision, les entités et les courants ne les voient pas. Légende
+  en tête du fichier mise à jour.
+- `core/src/level/ascii.rs` : le parseur lit ces lettres et refuse un décor qui n'est pas posé sur un
+  solide (`ErreurNiveau::DecorSansAppui`, ligne et colonne comme les autres erreurs).
+- Placement (`core/src/levels/*.rs`), 25 objets, tous au milieu d'un toit, loin des dangers et des
+  repères : niveau 1, 4 cheminées et 4 antennes ; niveau 2, 2 et 2 (les toits libres y sont rares :
+  flaques partout) ; niveau 3, 3 paratonnerres (pas sous une colonne d'éclair : on ne doit pas croire
+  que l'éclair y tombe) ; niveau 4, une manche à air au bord gauche de chacun des 4 courants
+  ascendants (colonnes 13, 46, 92 et 124) ; niveau 5, 6 oiseaux.
+- `game/src/sprites/objets_decor.rs` : cheminée 12 x 20 (chapeau de pierre, deux mitrons, corps en
+  brique violette des murs), antenne 15 x 24 (trois barres), paratonnerre 7 x 24, manche à air
+  16 x 22 (rayures orange et blanc, contraste fort sur le ciel corail du niveau 4), oiseau 12 x 8
+  en 2 images (tête tournée). Contour sombre de 1 px ; ni or, ni cyan, ni corail (réservés aux
+  gouttes, à l'eau et à Pépin). Planche de sprites régénérée.
+- `game/src/scene.rs` : dessinés juste après les tuiles (Pépin, ennemis, panneaux et objets passent
+  devant), centrés dans leur case, posés sur la tuile du dessous. La manche à air s'étire vers le
+  courant le plus proche (retournée s'il est à gauche ; aujourd'hui les 4 sont à gauche de leur
+  courant). Chaque oiseau tourne la tête 2/3 s toutes les 5 s, décalé de 97 pas d'un oiseau à
+  l'autre (jamais tous ensemble).
+
+Tests :
+- `core/src/level/tests.rs` : lecture des 5 lettres (positions, cases restées vides, aucune entité
+  créée), aller-retour lettre <-> genre, décor en l'air ou sur la dernière ligne refusé, message.
+- `core/src/zones.rs`, sur les vrais niveaux : chaque objet a 3 solides sous lui (jamais au bord d'un
+  toit, là où l'on prend son élan) ; en remplaçant les lettres de décor par `.`, le niveau est
+  identique (toutes les tuiles, entités, courants, panneaux, départ et arrivée) ; chaque niveau a
+  son décor (au moins 3 objets, les bons genres) ; chaque manche à air est à 4 tuiles au plus d'un
+  courant, à une hauteur qu'il traverse ; pendant 2 min de jeu (plus qu'un aller-retour de chaque
+  ennemi), aucune entité (ennemi, pointe, colonne d'éclair, plateforme, lanterne, goutte,
+  champignon) ni aucun panneau, ni le départ, ni l'arrivée ne touche la place d'un objet (sa case et
+  celle du dessus, élargies de 4 px). Contrôle de ce dernier test : une cheminée posée exprès en
+  colonne 12 du niveau 2 le fait échouer (flaque au pas 276), puis retirée.
+- `game/src/sprites/mod.rs` : taille (une case de large au plus, moins de deux de haut, posé),
+  contour sombre, aucune couleur réservée, l'oiseau ne bouge que la tête.
+- `game/src/scene.rs` : coin du sprite, sens de la manche sur le vrai niveau 4, rythme de l'oiseau.
+
+Jeu inchangé (dessin seulement) :
+- Faisabilité, lint de grille (lanternes posées, aucune poche close) et lanternes sur le trajet d'un
+  danger : verts, sans retouche.
+- Robot de QA : `target/qa/script.txt` et `trace.csv` régénérés, identiques à l'octet à ceux de la
+  carte 4.1 (12 130 images, 0 mort, 5 gouttes).
+- Mesure de difficulté relancée : `docs/mesure-difficulte.txt` identique à l'octet au fichier commité
+  (aucune différence avant/après) :
+
+| Niveau                      | Débutant     | Habitué      | Expert       |
+| --------------------------- | ------------ | ------------ | ------------ |
+| 1. Les toits                | 0,4 (0,4)    | 0,1 (0,1)    | 0,0 (0,0)    |
+| 2. Gouttières et cheminées  | 1,5 (1,5)    | 0,5 (0,5)    | 0,2 (0,2)    |
+| 3. Le grand orage           | 3,0 (3,0)    | 0,6 (0,6)    | 0,4 (0,4)    |
+| 4. Vents d'altitude         | 1,3 (1,3)    | 0,4 (0,4)    | 0,1 (0,1)    |
+| 5. Au-dessus des nuages     | 0,5 (0,5)    | 0,1 (0,1)    | 0,0 (0,0)    |
+| Total                       | 6,8 (6,8)    | 1,7 (1,7)    | 0,7 (0,7)    |
+
+Captures (Chromium 1208 piloté par CDP, build de QA servi sur 127.0.0.1, port libre, onglet au
+premier plan, canevas focalisé, serveur arrêté ensuite ; script du robot rejoué par
+`docs/capture-visibilite.mjs`, mêmes images avant et après). « Avant » : build de QA de 5edb6c7 ;
+« après » : build de QA de ces commits. Toutes regardées ; 0 pixel hors palette, 0 flou
+(`docs/mesure-capture.py`, K = 3) sur les 14.
+- `42-niveau1-debut-avant` / `-apres` (image 717) : une antenne à gauche de la lanterne, une
+  cheminée à droite, sur le toit du début.
+- `42-niveau1-toit-haut-avant` / `-apres` (image 1524) : le toit surélevé, cheminée et antenne de
+  part et d'autre de Pépin, la goutte d'or au-dessus, dégagée.
+- `42-niveau2-fin-avant` / `-apres` (image 4774) : antenne, cheminée, puis le drapeau, sans
+  chevauchement.
+- `42-niveau3-paratonnerres-avant` / `-apres` (image 5906) : un paratonnerre sur le grand toit, hors
+  de la colonne d'éclair annoncée (pointillé or) à droite ; clair sur le ciel violet, il ne se
+  confond pas avec l'éclair.
+- `42-niveau4-manche-avant` / `-apres` (image 7824) : la manche à air au bout du premier toit, tendue
+  vers le courant (brins blancs qui montent) ; `42-niveau4-manche-nuage-avant` / `-apres`
+  (image 9164) : celle du nuage haut, devant la bande corail.
+- `42-niveau5-oiseaux-avant` / `-apres` (image 11652) : deux oiseaux posés sur les nuages (l'un tête
+  tournée).
+
+Limites : jugé sur captures à l'échelle 3 ; l'oiseau (12 x 8) est petit, voulu (il ne doit pas
+passer pour un ennemi). Les objets sont devant les silhouettes du fond mais derrière Pépin : il passe
+devant une cheminée sans la heurter, ce qui est le comportement attendu d'un décor. Pas testé : vrai
+téléphone, Safari/Firefox ; aucun son ne change.
