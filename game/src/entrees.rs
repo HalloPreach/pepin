@@ -156,6 +156,8 @@ pub enum RaccourciNiveau {
     Suivant,
     /// Niveau précédent dans la table.
     Precedent,
+    /// Niveau d'essai vertical (touche 0), hors de la table : carte 5.2.
+    Essai,
 }
 
 /// Touches de saut direct, dans l'ordre des niveaux 1 à 9. Une touche au-delà du
@@ -176,6 +178,8 @@ const TOUCHES_NIVEAUX: [KeyCode; 9] = [
 const TOUCHES_SUIVANT: [KeyCode; 2] = [KeyCode::PageDown, KeyCode::N];
 /// Niveau précédent : Page précédente, ou B (à gauche de N).
 const TOUCHES_PRECEDENT: [KeyCode; 2] = [KeyCode::PageUp, KeyCode::B];
+/// Niveau d'essai vertical : 0 (« à » en AZERTY), juste après les touches 1 à 9.
+const TOUCHES_ESSAI: [KeyCode; 1] = [KeyCode::Key0];
 
 /// Raccourci demandé d'après les touches appuyées cette image (saut direct d'abord).
 /// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
@@ -190,6 +194,8 @@ pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<
         Some(RaccourciNiveau::Suivant)
     } else if TOUCHES_PRECEDENT.iter().any(|&k| appuyee(k)) {
         Some(RaccourciNiveau::Precedent)
+    } else if TOUCHES_ESSAI.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai)
     } else {
         None
     }
@@ -197,12 +203,14 @@ pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<
 
 /// Indice du niveau à charger pour le raccourci `r`, depuis le niveau `courant`, dans
 /// un jeu de `nb` niveaux ; `None` : rien à faire (touche 7 avec 5 niveaux, « suivant »
-/// au dernier niveau, « précédent » au premier). Fonction pure.
+/// au dernier niveau, « précédent » au premier). Le niveau d'essai a l'indice `nb`,
+/// juste après la table (« suivant » et « précédent » ne le rencontrent jamais). Pure.
 pub fn cible_raccourci(r: RaccourciNiveau, courant: usize, nb: usize) -> Option<usize> {
     let cible = match r {
         RaccourciNiveau::Aller(i) => Some(i),
         RaccourciNiveau::Suivant => courant.checked_add(1),
         RaccourciNiveau::Precedent => courant.checked_sub(1),
+        RaccourciNiveau::Essai => return Some(nb),
     };
     cible.filter(|&i| i < nb)
 }
@@ -407,6 +415,7 @@ mod tests {
             .into_iter()
             .chain(TOUCHES_SUIVANT)
             .chain(TOUCHES_PRECEDENT)
+            .chain(TOUCHES_ESSAI)
     }
 
     #[test]
@@ -438,6 +447,10 @@ mod tests {
                 Some(RaccourciNiveau::Precedent)
             );
         }
+        assert_eq!(
+            niveau_demande(true, |t| t == KeyCode::Key0),
+            Some(RaccourciNiveau::Essai)
+        );
         assert_eq!(niveau_demande(true, |_| false), None);
     }
 
@@ -492,6 +505,18 @@ mod tests {
             assert_eq!(cible_raccourci(Aller(k), 2, 5), None);
         }
         assert_eq!(cible_raccourci(Suivant, 4, 5), None);
+        // Niveau d'essai : juste après la table, depuis n'importe quel niveau ; de là,
+        // « précédent » ramène au dernier niveau et « suivant » ne fait rien.
+        for nb in [5, 11] {
+            for courant in [0, nb - 1, nb] {
+                assert_eq!(
+                    cible_raccourci(RaccourciNiveau::Essai, courant, nb),
+                    Some(nb)
+                );
+            }
+            assert_eq!(cible_raccourci(Precedent, nb, nb), Some(nb - 1));
+            assert_eq!(cible_raccourci(Suivant, nb, nb), None);
+        }
     }
 
     #[cfg(not(feature = "debug_niveaux"))]

@@ -114,16 +114,30 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
 ];
 
-/// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier.
+/// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
+/// sauf, dans les tests et le build de QA, celui du niveau d'essai vertical.
 pub fn intro(indice: usize) -> &'static Intro {
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI {
+        return &INTRO_ESSAI;
+    }
     &INTROS[indice.min(NB_NIVEAUX - 1)]
 }
 
+/// Intro du niveau d'essai vertical (build de QA seulement, voir `monde::INDICE_ESSAI`).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INTRO_ESSAI: Intro = Intro {
+    texte: "Niveau d'essai : quatre écrans de haut. La caméra suit Pépin en hauteur.",
+    astuce: "Grimpe, saute sur le champignon, redescends.",
+};
+
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau
 /// normal (`nb_normaux` : nombre de niveaux normaux du jeu ; le bonus et l'épilogue ne
-/// comptent pas), « NIVEAU BONUS » ou « ÉPILOGUE » pour les deux autres genres.
+/// comptent pas), « NIVEAU BONUS » ou « ÉPILOGUE » pour les deux autres genres. Le
+/// numéro 0 est celui d'un niveau hors de la table (le niveau d'essai du build de QA).
 pub fn etiquette_niveau(infos: &InfosNiveau, nb_normaux: usize) -> String {
     match infos.genre {
+        GenreNiveau::Normal if infos.numero == 0 => "NIVEAU D'ESSAI".to_string(),
         GenreNiveau::Normal => format!("NIVEAU {}/{nb_normaux}", infos.numero),
         GenreNiveau::Bonus => "NIVEAU BONUS".to_string(),
         GenreNiveau::Epilogue => "ÉPILOGUE".to_string(),
@@ -268,8 +282,16 @@ mod tests {
         assert_eq!(etiquette_niveau(&infos, 9), "NIVEAU BONUS");
         infos.genre = GenreNiveau::Epilogue;
         assert_eq!(etiquette_niveau(&infos, 9), "ÉPILOGUE");
+        // Le niveau d'essai vertical (numéro 0, hors de la table) et son intro.
+        let essai = pepin_core::levels::essai_vertical::INFOS;
+        assert_eq!(essai.numero, 0);
+        assert_eq!(etiquette_niveau(&essai, 5), "NIVEAU D'ESSAI");
+        assert_eq!(intro(crate::monde::INDICE_ESSAI).texte, INTRO_ESSAI.texte);
         // Chaque caractère existe dans la police.
-        for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10"] {
+        for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10", "NIVEAU D'ESSAI"]
+            .into_iter()
+            .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
+        {
             for c in e.chars() {
                 assert!(pepin_core::font::glyphe(c).is_some(), "{c:?}");
             }

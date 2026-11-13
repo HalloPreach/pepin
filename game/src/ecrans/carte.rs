@@ -76,7 +76,12 @@ mod tests {
 
     #[test]
     fn toutes_les_cartes_tiennent_dans_leur_cadre() {
-        for (i, n) in NIVEAUX.iter().enumerate() {
+        // Les niveaux de la table, puis le niveau d'essai vertical (build de QA).
+        let essai = (
+            crate::monde::INDICE_ESSAI,
+            &pepin_core::levels::essai_vertical::INFOS,
+        );
+        for (i, n) in NIVEAUX.iter().enumerate().chain([essai]) {
             let intro = contenu::intro(i);
             let a = couper_lignes(intro.texte, LIGNE_MAX);
             let b = couper_lignes(intro.astuce, LIGNE_MAX);
@@ -119,7 +124,11 @@ mod tests {
 
     #[test]
     fn aucune_ligne_de_carte_ne_commence_par_une_ponctuation_seule() {
-        for (i, n) in NIVEAUX.iter().enumerate() {
+        let essai = (
+            crate::monde::INDICE_ESSAI,
+            &pepin_core::levels::essai_vertical::INFOS,
+        );
+        for (i, n) in NIVEAUX.iter().enumerate().chain([essai]) {
             let intro = contenu::intro(i);
             for texte in [intro.texte, intro.astuce] {
                 for ligne in couper_lignes(texte, LIGNE_MAX) {

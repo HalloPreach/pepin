@@ -55,11 +55,36 @@ pub struct Monde {
     precedent_entites: Vec<(f32, f32)>,
 }
 
+/// Indice du niveau d'essai vertical (carte 5.2) : juste après la table `NIVEAUX`. Il
+/// n'existe QUE dans les tests et dans le build de QA (fonctionnalité `debug_niveaux`,
+/// touche 0) ; en production, cet indice est hors de la table comme n'importe quel autre
+/// et le niveau d'essai n'est pas dans le binaire.
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI: usize = pepin_core::levels::NB_NIVEAUX;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis le niveau d'essai vertical à
+/// `INDICE_ESSAI` (tests et build de QA seulement). `None` au-delà.
+pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
+    zones::niveau(indice).or_else(|| niveau_essai(indice))
+}
+
+#[cfg(any(test, feature = "debug_niveaux"))]
+fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
+    (indice == INDICE_ESSAI).then_some(&pepin_core::levels::essai_vertical::INFOS)
+}
+
+/// Production : aucun niveau en dehors de la table.
+#[cfg(not(any(test, feature = "debug_niveaux")))]
+fn niveau_essai(_indice: usize) -> Option<&'static InfosNiveau> {
+    None
+}
+
 impl Monde {
-    /// Charge le niveau `indice` de la table `NIVEAUX`. Les niveaux sont validés par les tests du
-    /// cœur : un échec ici est une erreur de programmation, d'où le `expect`.
+    /// Charge le niveau `indice` de la table `NIVEAUX` (ou le niveau d'essai, voir
+    /// `infos_niveau`). Les niveaux sont validés par les tests du cœur : un échec ici est
+    /// une erreur de programmation, d'où le `expect`.
     pub fn new(indice: usize) -> Self {
-        let infos = zones::niveau(indice).expect("indice de niveau valide");
+        let infos = infos_niveau(indice).expect("indice de niveau valide");
         let niveau = infos.charger().expect("niveau embarqué valide");
         let joueur = Joueur::new(niveau.depart.0, niveau.depart.1);
         let mut etat = EtatJeu::new(niveau.depart);

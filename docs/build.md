@@ -28,7 +28,9 @@ produit `dist-qa/` (ignoré par git) avec les fonctionnalités Cargo `debug_nive
 `qa_plantage`. Avec `debug_niveaux`, les touches 1 à 9 sautent au niveau demandé (sans
 effet au-delà du nombre de niveaux), Page suivante ou N au niveau suivant, Page
 précédente ou B au niveau précédent (tous les niveaux restent atteignables au-delà de
-9). Elles n'existent PAS dans `dist/` : sur AZERTY ce sont les touches & é " ' (, et un appui
+9), et 0 au niveau d'essai vertical (`core/src/levels/essai_vertical.rs`, quatre écrans
+de haut, hors de la table des niveaux : il sert aux captures de la caméra verticale ;
+le finir mène à l'écran de fin). Elles n'existent PAS dans `dist/` : sur AZERTY ce sont les touches & é " ' (, et un appui
 accidentel faisait perdre la partie (et permettait de finir avec un temps truqué).
 Avec `qa_plantage`, F9 provoque une vraie panique Rust (« RuntimeError: unreachable »
 dans le navigateur) pour vérifier le message de plantage de la page

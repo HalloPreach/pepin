@@ -5,8 +5,9 @@
 # Usage :   ./build.sh
 #           WASM_OPT=0 ./build.sh     # saute l'optimisation wasm-opt
 #           ./build.sh --qa           # build de MISE AU POINT dans dist-qa/ (jamais à publier) :
-#                                     # active les fonctionnalités « debug_niveaux » (touches 1 à 5
-#                                     # pour sauter à un niveau) et « qa_plantage » (F9 provoque un
+#                                     # active les fonctionnalités « debug_niveaux » (touches 1 à 9
+#                                     # pour sauter à un niveau, 0 pour le niveau
+#                                     # d'essai vertical) et « qa_plantage » (F9 provoque un
 #                                     # vrai plantage), utilisées par les captures et la QA
 #
 # Prérequis : Docker (aucun compilateur ni Rust nécessaire sur la machine hôte).

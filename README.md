@@ -41,7 +41,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
 | Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou la ligne « SON » des menus |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
-| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
+| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
 Les touches sont lues par leur POSITION physique (le « code » du navigateur), pas
 par la lettre imprimée : sur un clavier AZERTY, A et Q (QWERTY) sont à la place de Q
@@ -247,7 +247,8 @@ complet et statique. `docs/build.md` détaille chaque étape. `dist/` n'est pas
 versionné (`.gitignore`) : c'est un produit régénérable.
 
 Build de mise au point (touches 1 à 9 pour sauter à un niveau, Page suivante / N et
-Page précédente / B pour le niveau suivant ou précédent, F9 pour provoquer un
+Page précédente / B pour le niveau suivant ou précédent, 0 pour le niveau d'essai
+vertical de la caméra, F9 pour provoquer un
 vrai plantage et vérifier le message de la page ; sert aux captures et à la QA, jamais
 à publier) :
 
@@ -521,7 +522,10 @@ existantes :
   genre), d'une ligne dans la macro des tests de faisabilité de `core/src/zones.rs`,
   de son texte dans `game/src/contenu.rs` et de sa bande de difficulté dans
   `game/src/difficulte.rs` (les tests et le compilateur signalent chaque oubli). Une
-  ambiance inédite = un `Theme` de plus et une entrée dans `decor::ambiance`.
+  ambiance inédite = un `Theme` de plus et une entrée dans `decor::ambiance`. Un niveau
+  peut être plus haut que l'écran (plus de 11 rangées, par exemple 45 pour quatre
+  écrans) : la caméra le suit alors en hauteur (`game/src/camera.rs`) ; le niveau
+  d'essai `core/src/levels/essai_vertical.rs` (touche 0 du build de QA) en est l'exemple.
 - Ajouter de nouveaux ennemis ou plateformes en suivant le modèle de
   `core/src/entities/` (une variante de plus dans `Entite`, et le compilateur
   indique tous les `match` à compléter).

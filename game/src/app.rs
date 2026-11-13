@@ -795,6 +795,24 @@ mod tests {
         assert_eq!(app.monde.infos.numero, 4);
     }
 
+    /// Touche 0 du build de QA : le niveau d'essai vertical (hors de la table), avec sa
+    /// caméra qui suit en hauteur ; le finir mène à l'écran de fin (rien après lui).
+    #[test]
+    fn le_raccourci_d_essai_charge_le_niveau_vertical() {
+        let mut app = en_jeu();
+        app.reagir(&rien(), &Commandes::default(), Some(RaccourciNiveau::Essai));
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, crate::monde::INDICE_ESSAI);
+        assert_eq!(app.monde.infos.nom, "Essai vertical");
+        assert_eq!(app.monde.niveau.hauteur(), 45);
+        // Départ en bas du niveau : caméra sur sa borne basse (720 - 180).
+        assert_eq!(app.camera.y, 540.0);
+        app.monde.termine = true;
+        app.reagir(&valider(), &Commandes::default(), None);
+        avancer(&mut app, 1);
+        jusqu_a(&mut app, |e| e == Ecran::Fin);
+    }
+
     #[test]
     fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         let mut app = en_jeu();
