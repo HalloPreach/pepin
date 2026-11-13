@@ -561,5 +561,8 @@ fn montgolfiere_sans_place_pour_le_ballon_refusee() {
         colonne: 3,
     }
     .to_string();
-    assert!(msg.contains("montgolfière") && msg.contains("ballon"), "{msg}");
+    assert!(
+        msg.contains("montgolfière") && msg.contains("ballon"),
+        "{msg}"
+    );
 }

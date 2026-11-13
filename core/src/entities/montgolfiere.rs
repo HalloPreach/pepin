@@ -133,9 +133,8 @@ impl Montgolfiere {
     /// la chevaucher) ou juste en dessous. La réponse sert au pas suivant.
     pub fn embarquer(&mut self, joueur: &Joueur) {
         let b = joueur.boite;
-        let pose = joueur.au_sol
-            && b.decale(0.0, 1.0).chevauche(&self.boite)
-            && !b.chevauche(&self.boite);
+        let pose =
+            joueur.au_sol && b.decale(0.0, 1.0).chevauche(&self.boite) && !b.chevauche(&self.boite);
         self.passager = pose.then_some(b);
         // Juste sous la nacelle : la bande que la nacelle balaierait en
         // descendant d'un pas (plus 1 px de marge).
@@ -505,7 +504,10 @@ mod tests {
         assert!(a_descendu, "sans passager, elle a redescendu");
         assert!(banc.joueur.au_sol, "Pépin est retombé dans la nacelle");
         assert_eq!(banc.nacelle().etat(), EtatMontgolfiere::Montee);
-        assert!(banc.nacelle().boite.y < avant_saut, "et elle a repris la montée");
+        assert!(
+            banc.nacelle().boite.y < avant_saut,
+            "et elle a repris la montée"
+        );
     }
 
     /// Une nacelle qui redescend ne s'écrase jamais sur Pépin juste en dessous :
@@ -515,8 +517,9 @@ mod tests {
         let grille = crate::aabb::GrilleTuiles::vide(8, 16);
         let env = Environnement::simple(&grille);
         let mut m = Montgolfiere::nouvelle(32.0, 192.0, 64.0);
-        m.boite.y = 100.0; // en l'air, au-dessus de son altitude de départ
-        // Pépin juste sous la nacelle (en plein saut, par exemple).
+        // En l'air, au-dessus de son altitude de départ, et Pépin juste sous la
+        // nacelle (en plein saut, par exemple).
+        m.boite.y = 100.0;
         let mut j = Joueur::new(35.0, 108.2);
         j.au_sol = false;
         m.embarquer(&j);

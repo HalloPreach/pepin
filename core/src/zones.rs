@@ -327,12 +327,21 @@ mod tests {
         let ascii = essai_montgolfiere::INFOS.ascii;
         let sans = Niveau::depuis_ascii(&ascii.replace('b', ".")).unwrap();
         let r = analyser(&sans, sans.depart, Options::default());
-        assert!(!r.arrivee, "sans montgolfière, le drapeau doit rester hors de portée");
+        assert!(
+            !r.arrivee,
+            "sans montgolfière, le drapeau doit rester hors de portée"
+        );
         // La seconde (ligne 9) retirée, la première (ligne 16) gardée.
         let lignes: Vec<String> = ascii
             .lines()
             .enumerate()
-            .map(|(i, l)| if i == 10 { l.replace('b', ".") } else { l.to_string() })
+            .map(|(i, l)| {
+                if i == 10 {
+                    l.replace('b', ".")
+                } else {
+                    l.to_string()
+                }
+            })
             .collect();
         let une = Niveau::depuis_ascii(&lignes.join("\n")).unwrap();
         assert_eq!(
@@ -343,8 +352,14 @@ mod tests {
             1
         );
         let r = analyser(&une, une.depart, Options::default());
-        assert!(!r.arrivee, "sans la seconde, le drapeau doit rester hors de portée");
-        assert!(r.gouttes[1], "mais la première porte bien à l'étage B : {r:?}");
+        assert!(
+            !r.arrivee,
+            "sans la seconde, le drapeau doit rester hors de portée"
+        );
+        assert!(
+            r.gouttes[1],
+            "mais la première porte bien à l'étage B : {r:?}"
+        );
     }
 
     /// Ni le départ ni aucune lanterne sous la grêle : Pépin y apparaît (ou y
