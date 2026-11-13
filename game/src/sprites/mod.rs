@@ -586,6 +586,54 @@ mod tests {
         }
     }
 
+    /// Auvent (carte 5.5) : deux images de 16x15 ; la toile n'a que deux couleurs
+    /// (corail 8 et blanc cassé 7, les rayures) et chacun de ses pixels est cerné de
+    /// sombre (aucun ne touche le vide) ; le reste est l'armature (contour 0, métal 3).
+    /// L'image enfoncée (la toile plie, le lambrequin descend) garde le même mât.
+    #[test]
+    fn l_auvent_a_une_toile_rayee_cernee_de_sombre() {
+        for nom in objets::AUVENT {
+            assert_eq!(taille(nom), (16, 15), "{nom}");
+            let d = dessin(nom);
+            let mut toile = std::collections::BTreeSet::new();
+            for (y, ligne) in d.iter().enumerate() {
+                for (x, c) in ligne.chars().enumerate() {
+                    match c {
+                        '.' | '0' | '3' => {}
+                        '7' | '8' => {
+                            toile.insert(c);
+                            for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                                let v = car(d, x as i32 + dx, y as i32 + dy);
+                                assert_ne!(v, '.', "{nom} : toile ({x}, {y}) au bord du vide");
+                            }
+                        }
+                        autre => panic!("{nom} : couleur {autre:?} en ({x}, {y})"),
+                    }
+                }
+            }
+            assert_eq!(toile.len(), 2, "{nom} : rayures {toile:?}");
+        }
+        // Le rebond se voit : les deux images diffèrent, le mât (colonnes 0 à 2) non.
+        let (a, b) = (dessin("auvent0"), dessin("auvent1"));
+        assert_ne!(a, b);
+        for y in 0..15 {
+            assert_eq!(&a[y][..3], &b[y][..3], "mât, rangée {y}");
+        }
+    }
+
+    /// L'auvent se lit sur TOUS les ciels : sur chaque bande de ciel de chaque thème,
+    /// la rayure claire (blanc cassé) ou le contour sombre contraste d'au moins 4,5:1.
+    #[test]
+    fn l_auvent_se_detache_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('7'), ciel).max(contraste(couleur_de('0'), ciel));
+                assert!(k >= 4.5, "{theme:?} : auvent sur {ciel:?} : {k:.2}");
+            }
+        }
+    }
+
     #[test]
     fn la_plateforme_mobile_couvre_toute_sa_collision() {
         let m = dessin("mobile");

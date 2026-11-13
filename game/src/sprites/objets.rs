@@ -400,6 +400,48 @@ pub const GRELE_ECLAT: Image = &[
     ".0...0.",
 ];
 
+/// Auvent de boutique (lettre `A`, 16x15), vu de profil : un mât de métal sombre
+/// (« 030 »), la toile en pente haute à gauche (rayée corail / blanc cassé /
+/// corail), le lambrequin au bout (rayures verticales, bas festonné) et une jambe
+/// de force. La pente dit d'où part le rebond : vers le haut et vers la droite.
+pub const AUVENT0: Image = &[
+    "000.............",
+    "03000...........",
+    "0308800.........",
+    "030778800.......",
+    "03088778800.....",
+    "0300088778800000",
+    "030..00887787870",
+    "030....008887870",
+    "030......0087870",
+    "030.......087870",
+    "030....00.080800",
+    "030..00....0.0..",
+    "03000...........",
+    "030.............",
+    "000.............",
+];
+
+/// Auvent enfoncé : la toile plie au milieu sous le poids de Pépin et le
+/// lambrequin descend d'un pixel (image du rebond).
+pub const AUVENT1: Image = &[
+    "000.............",
+    "03000...........",
+    "0308800.........",
+    "03077880........",
+    "030887700.......",
+    "03000888800.....",
+    "030..00778800000",
+    "030...0887787870",
+    "030....008887870",
+    "030......0087870",
+    "030....00.087870",
+    "030..00...080800",
+    "03000......0.0..",
+    "030.............",
+    "000.............",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("goutte0", GOUTTE0),
@@ -410,6 +452,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("lanterne1", LANTERNE1),
     ("champignon0", CHAMPIGNON0),
     ("champignon1", CHAMPIGNON1),
+    ("auvent0", AUVENT0),
+    ("auvent1", AUVENT1),
     ("pointe", POINTE),
     ("friable0", FRIABLE0),
     ("friable1", FRIABLE1),
@@ -436,6 +480,8 @@ pub const GOUTTE: [&str; 4] = ["goutte0", "goutte1", "goutte2", "goutte3"];
 pub const LANTERNE: [&str; 2] = ["lanterne0", "lanterne1"];
 /// Champignon-trampoline : détendu puis comprimé.
 pub const CHAMPIGNON: [&str; 2] = ["champignon0", "champignon1"];
+/// Auvent : toile tendue puis enfoncée (rebond).
+pub const AUVENT: [&str; 2] = ["auvent0", "auvent1"];
 /// Plateforme friable (nuages, niveaux 4 et 5) : intacte puis fissurée.
 pub const FRIABLE: [&str; 2] = ["friable0", "friable1"];
 /// Plateforme friable (dalle d'ardoise, niveaux 1 à 3) : intacte puis fendue.

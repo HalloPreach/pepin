@@ -8,6 +8,7 @@
 
 use macroquad::prelude::draw_rectangle;
 use pepin_core::aabb::{Aabb, Grille, TAILLE_TUILE};
+use pepin_core::entities::auvent::HAUT_TOILE;
 use pepin_core::entities::ennemi::{EtatEnnemi, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::{Entite, TypeEnnemi};
@@ -344,8 +345,17 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
             Entite::Mobile(_) => banque.dessiner("mobile", sx, sy, false),
-            // Dessin de l'auvent : commit suivant (sprites).
-            Entite::Auvent(_) => {}
+            Entite::Auvent(a) => {
+                // Sprite 16x15 posé 1 px sous le haut de la case : le dessus de la
+                // zone de contact (`HAUT_TOILE` sous le haut de la case) tombe au
+                // milieu de la pente de la toile.
+                let nom = if a.est_enfonce() {
+                    objets::AUVENT[1]
+                } else {
+                    objets::AUVENT[0]
+                };
+                banque.dessiner(nom, sx, sy - HAUT_TOILE + 1.0, false);
+            }
             Entite::Grele(g) => {
                 // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
                 let t = TAILLE_TUILE;

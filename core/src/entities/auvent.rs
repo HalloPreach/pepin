@@ -29,8 +29,9 @@ pub const MARGE_AUVENT: f32 = 7.0;
 /// Pas pendant lesquels la toile reste « enfoncée » à l'écran après un rebond.
 pub const ENFONCEMENT_PAS: u8 = 8;
 /// Distance (px) entre le haut de la case `A` et le dessus de la zone de
-/// contact : la toile dessinée descend de 2 px (à gauche) à 9 px (à droite) sous
-/// le haut de la case ; le dessus de la zone est au milieu de cette pente.
+/// contact. Le dessin (`game/src/sprites/objets.rs`, posé 1 px sous le haut de la
+/// case) a le haut de sa toile de 2 px (près du mât) à 6 px (au lambrequin) sous
+/// le haut de la case : le dessus de la zone est au milieu de cette pente.
 pub const HAUT_TOILE: f32 = 4.0;
 
 #[derive(Debug, Clone)]
