@@ -765,6 +765,17 @@ pub fn jouer_essai_auvent(parcours: &[Entrees]) -> PartieEssai {
     )
 }
 
+/// Joue le niveau d'essai « ventilateur » (touche F4 du build de QA) — voir
+/// `jouer_essai`.
+pub fn jouer_essai_ventilateur(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_VENTILATEUR,
+        RaccourciNiveau::Essai5,
+        parcours,
+    )
+}
+
 /// Parcours du robot dans le niveau d'essai « auvent » (maladroit, puis précis) :
 /// chaque rebond d'auvent est un point de décision (`Fin::Lance`), d'où il essaie
 /// les plans en vol (`plans_en_vol`). Il cherche le plus RAPIDE : en gardant la
@@ -829,6 +840,16 @@ pub fn parcours_essai_grele() -> Vec<Entrees> {
     trouver_parcours(i, false)
         .or_else(|| trouver_parcours(i, true))
         .expect("le robot ne trouve aucun parcours au niveau d'essai grêle")
+}
+
+/// Parcours du robot dans le niveau d'essai « ventilateur » (maladroit, puis précis).
+/// Le ventilateur porte Pépin d'un étage entier ; le robot apprend à attendre le
+/// souffle sur la casette, puis à marcher sur le balcon qu'il atteint.
+pub fn parcours_essai_ventilateur() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_VENTILATEUR;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai ventilateur")
 }
 
 #[cfg(test)]
@@ -992,6 +1013,43 @@ mod tests {
         println!(
             "essai auvent (rebond par rebond) : {} images de jeu, rebonds aux images {r:?}",
             essai.len()
+        );
+    }
+
+    /// Le robot finit le niveau d'essai « ventilateur » (carte 5.6) sans mourir, à
+    /// travers l'`Application` (touche F4 du build de QA) : trois gouttes, et il
+    /// monte réellement au balcon du drapeau — le seul chemin passe par le souffle
+    /// du ventilateur, car le balcon est trop haut pour un saut direct.
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_ventilateur() {
+        let partie = jouer_essai_ventilateur(&parcours_essai_ventilateur());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(
+            partie.gouttes, 3,
+            "les trois gouttes du niveau d'essai ventilateur"
+        );
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F4, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        assert!(essai.len() > 100, "{} images de jeu", essai.len());
+        // Le balcon du drapeau est en HAUT du niveau (y petit). Le robot y est bien
+        // arrivé : sa trame finale est nettement plus haute que le sol.
+        let dernier = essai.last().unwrap();
+        assert!(
+            dernier.trame.y < 100.0,
+            "arrivée en haut du niveau (y = {:.1}) : le balcon a été atteint",
+            dernier.trame.y
+        );
+        println!(
+            "essai ventilateur : {} images de jeu, gouttes {}, fin à x = {:.1}, y = {:.1}",
+            essai.len(),
+            partie.gouttes,
+            dernier.trame.x,
+            dernier.trame.y
         );
     }
 
