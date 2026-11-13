@@ -277,7 +277,7 @@ impl Itineraires {
                 continue;
             };
             // Case « lancée » (un auvent vient de relancer Pépin) : plans en vol.
-            let a_essayer = if k.2 { &en_vol } else { &tous };
+            let a_essayer = if k.lance { &en_vol } else { &tous };
             for &plan in a_essayer {
                 let (fin, apres, entrees) = simuler(&monde, plan);
                 let duree = entrees.len() as u32;
@@ -346,13 +346,17 @@ impl Itineraires {
     /// arriver) ; on garde le premier qui rapproche sans risque du drapeau. Sinon :
     /// court détour calculé vers une case plus proche du drapeau, sinon attendre.
     fn intention(&self, monde: &Monde) -> (Plan, Choix) {
-        let (kx, ky, lance, escargot, chats, aiguille, nuage) = cle(monde);
-        let ici = self.distance((kx, ky, lance, escargot, chats, aiguille, nuage));
+        let case = cle(monde);
+        let ici = self.distance(case);
         let mut voisines: Vec<(u32, i32, Plan)> = Vec::new();
         for dy in -VOISINAGE_Y..=VOISINAGE_Y {
             for dx in -VOISINAGE_X..=VOISINAGE_X {
                 // Une case voisine du même genre (posée, ou lancée par un auvent).
-                let voisine = (kx + dx, ky + dy, lance, escargot, chats, aiguille, nuage);
+                let voisine = CaseNiveau {
+                    x: case.x + dx,
+                    y: case.y + dy,
+                    ..case
+                };
                 if let Some(&(d, plan)) = self.conseils.get(&voisine) {
                     voisines.push((d, dx.abs() + dy.abs(), plan));
                 }
