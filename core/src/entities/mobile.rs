@@ -201,6 +201,24 @@ impl PlateformeMobile {
         self.vitesse
     }
 
+    /// Fait avancer une aiguille d'horloge de `pas` pas d'un coup sur son cercle
+    /// (en arrière si `pas` est négatif), comme si le temps avait passé : sert au
+    /// robot de QA pour essayer un plan avec l'aiguille en avance ou en retard
+    /// d'une image. Le déplacement mémorisé est remis à zéro (un saut, pas un
+    /// mouvement). Sans effet sur une plateforme en aller-retour.
+    pub fn tourner(&mut self, pas: i32) {
+        let taille = (self.boite.w, self.boite.h);
+        if let Trajet::Cercle(c) = &mut self.trajet {
+            let t = c.tour + pas as f32 * c.pas_tour;
+            c.tour = t - t.floor();
+            let (x, y) = coin(c, c.tour, taille);
+            c.avant = (x, y);
+            self.boite.x = x;
+            self.boite.y = y;
+            self.deplacement = Vec2::default();
+        }
+    }
+
     /// Boîte de la plateforme AVANT le dernier pas : c'est sur elle que Pépin
     /// avait les pieds (`contacts::porter_par_plateformes`).
     /// - Aller-retour : recalculée en reculant du dernier déplacement (calcul
@@ -405,5 +423,40 @@ mod tests {
         assert!(p.deplacement.y > 0.59 && p.deplacement.x.abs() < 0.01);
         // La boîte d'avant le pas est retenue EXACTEMENT (pas de recul arrondi).
         assert_eq!(p.boite_avant(), b0);
+    }
+
+    /// `tourner` : 30 pas d'un coup donnent (presque) la même place que 30 pas
+    /// d'`actualiser` ; en arrière, on revient au départ. Sans effet sur une
+    /// plateforme en aller-retour.
+    #[test]
+    fn tourner_d_un_coup_comme_pas_a_pas() {
+        let g = GrilleTuiles::vide(30, 20);
+        let env = Environnement::simple(&g);
+        let mut pas_a_pas = aiguille(0.0);
+        for _ in 0..30 {
+            pas_a_pas.actualiser(&env);
+        }
+        let mut d_un_coup = aiguille(0.0);
+        d_un_coup.tourner(30);
+        assert!((d_un_coup.boite.x - pas_a_pas.boite.x).abs() < 1e-3);
+        assert!((d_un_coup.boite.y - pas_a_pas.boite.y).abs() < 1e-3);
+        assert_eq!(d_un_coup.deplacement, Vec2::default());
+        assert_eq!(d_un_coup.boite_avant(), d_un_coup.boite);
+        d_un_coup.tourner(-30);
+        assert!((d_un_coup.boite.x - aiguille(0.0).boite.x).abs() < 1e-3);
+        assert!((d_un_coup.boite.y - aiguille(0.0).boite.y).abs() < 1e-3);
+        // En retard d'un pas sur midi : juste avant midi, à gauche du pivot.
+        let mut avant_midi = aiguille(0.0);
+        avant_midi.tourner(-1);
+        assert!(avant_midi.cercle().unwrap().tour() > 0.99);
+        assert!(avant_midi.boite.x < aiguille(0.0).boite.x);
+        let mut p = PlateformeMobile::new(
+            Aabb::new(0.0, 0.0, 32.0, 8.0),
+            (16.0, 40.0),
+            (96.0, 40.0),
+            60.0,
+        );
+        p.tourner(10);
+        assert_eq!((p.boite.x, p.boite.y), (16.0, 40.0));
     }
 }
