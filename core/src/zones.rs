@@ -107,6 +107,7 @@ pub fn niveau(indice: usize) -> Option<&'static InfosNiveau> {
 mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
+    use crate::levels::essai_vertical;
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
@@ -132,12 +133,35 @@ mod tests {
 
     #[test]
     fn tous_les_niveaux_se_chargent() {
-        for n in NIVEAUX {
+        for n in NIVEAUX.iter().chain([&essai_vertical::INFOS]) {
             let niv = n
                 .charger()
                 .unwrap_or_else(|e| panic!("niveau {} : {e}", n.numero));
-            assert_eq!(niv.hauteur(), 11, "niveau {} : 11 lignes", n.numero);
+            // Au moins un écran de haut (11 rangées, 176 px) : un niveau plus haut que
+            // l'écran (carte 5.2) fait défiler la caméra en hauteur.
+            assert!(
+                niv.hauteur() >= 11,
+                "niveau {} : 11 lignes au moins",
+                n.numero
+            );
         }
+        // Le niveau d'essai vertical fait quatre écrans de haut et n'est pas dans la table.
+        let essai = essai_vertical::INFOS.charger().unwrap();
+        assert_eq!(essai.hauteur(), 45);
+        assert!(NIVEAUX.iter().all(|n| n.nom != essai_vertical::INFOS.nom));
+    }
+
+    /// Les niveaux du jeu, puis le niveau d'essai vertical (hors de la table) : les
+    /// contrôles de grille s'appliquent aussi à lui.
+    fn niveaux_et_essai() -> impl Iterator<Item = &'static InfosNiveau> {
+        NIVEAUX.iter().chain([&essai_vertical::INFOS])
+    }
+
+    /// Le niveau d'essai vertical (45 rangées) passe les mêmes contrôles qu'un vrai
+    /// niveau : arrivée, 3 gouttes, lanternes, robot maladroit compris.
+    #[test]
+    fn niveau_d_essai_vertical_faisable() {
+        verifier_infos(&essai_vertical::INFOS);
     }
 
     /// Un test de faisabilité PAR niveau (ils tournent en parallèle). La macro écrit
@@ -203,7 +227,10 @@ mod tests {
     /// Vérifie un niveau : arrivée, 3 gouttes, toutes les lanternes atteignables,
     /// y compris par le robot « maladroit » (pas de précision au pixel près).
     fn verifier(i: usize) {
-        let infos = &NIVEAUX[i];
+        verifier_infos(&NIVEAUX[i]);
+    }
+
+    fn verifier_infos(infos: &InfosNiveau) {
         let niv = infos.charger().unwrap();
         let r = analyser(&niv, niv.depart, Options::default());
         let n = infos.numero;
@@ -248,7 +275,7 @@ mod tests {
     /// terminer DEPUIS elle (sinon un respawn pourrait coincer le joueur).
     #[test]
     fn reprise_depuis_chaque_lanterne() {
-        for infos in NIVEAUX {
+        for infos in niveaux_et_essai() {
             let niv = infos.charger().unwrap();
             for e in &niv.entites {
                 if let crate::entities::Entite::Lanterne(l) = e {
@@ -335,7 +362,7 @@ mod tests {
     /// dessous est un solide (`#`, `B` ou `N`).
     #[test]
     fn aucune_lanterne_ne_flotte() {
-        for infos in NIVEAUX {
+        for infos in niveaux_et_essai() {
             infos.charger().unwrap();
             let g = grille(infos);
             for (y, ligne) in g.iter().enumerate() {
@@ -358,7 +385,7 @@ mod tests {
     /// chaque rangée est inaccessible et se voit comme un trou sombre.
     #[test]
     fn aucune_poche_de_vide_close() {
-        for infos in NIVEAUX {
+        for infos in niveaux_et_essai() {
             infos.charger().unwrap();
             let g = grille(infos);
             for y in 1..g.len() as i32 {
