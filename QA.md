@@ -1106,3 +1106,112 @@ Vérification sur une extraction propre de aea406c (`git archive`, nouveau dossi
   clignement, nez en l'air, tapotement : Pépin immobile) ; course, saut et chute sont décalées d'un
   pixel logique en x (caméra) et Pépin d'un ou deux pixels en y, comme à la carte 4.2 : le rejeu ne
   fige pas toujours au même instant entre deux pas (position interpolée).
+
+## Pigeon, deuxième ennemi des niveaux 4 et 5 (carte 4.4)
+
+- `core/src/entities/ennemi/pigeon.rs` (sous-module de `ennemi.rs`) : `TypeEnnemi::Pigeon`, lettre
+  `p`. Perché, il guette un cône sous lui et devant lui : Pépin entièrement plus bas que ses pattes
+  (de 0 à 64 px), entre la verticale (6 px de tolérance vers l'arrière) et la diagonale à 45° vers
+  l'avant. Pépin dedans : annonce 0,3 s (il tremble, ailes dressées, œil corail), plongée en
+  diagonale à 45° (4 tuiles vers le bas et vers l'avant, 120 px/s, sens fixé au déclenchement),
+  remontée deux fois plus lente sur le même trait jusqu'à son perchoir exact, repos 1,5 s avant de
+  pouvoir replonger. Machine à états pure (`PhasePigeon`, `phase_suivante`, `decalage_vol` : la
+  position est recalculée depuis le perchoir à chaque pas, sans dérive). `guetter` est appelé par
+  `resoudre_contacts` : le jeu, le robot de QA et la mesure ont les mêmes pigeons sans rien ajouter.
+  Écrasable par le dessus (perché ou en vol), tout autre contact tue ; protection de réapparition
+  respectée (même règle que les autres ennemis).
+- Grille : `p` est perché sur la tuile du dessous (sinon erreur typée `PigeonSansPerchoir`). Il
+  regarde du côté où son perchoir s'arrête : à droite seulement si le perchoir continue à gauche
+  et s'arrête à droite, sinon à gauche (vers le départ). Légende de `core/src/level.rs` à jour.
+- 6 dessins 16x12 (`game/src/sprites/ennemis.rs`) : perché (2 images, il hoche la tête), annonce,
+  plongée, remontée (la scène le retourne : il regarde son perchoir), écrasé. Ardoise sombre, deux
+  barres noires sur l'aile, cou irisé (sarcelle et cyan), œil orange sous un sourcil sombre ; rien
+  de blanc. Planche de sprites régénérée.
+- Placement (2 pigeons, chacun sur un petit nuage d'une tuile ajouté 4 rangées au-dessus d'un
+  toit) : niveau 4, colonne 167, au-dessus du dernier toit (avant le corbeau et le drapeau) ;
+  niveau 5, colonne 108, au-dessus du long toit de la fin, à 13 tuiles de l'oiseau de décor de la
+  colonne 95 et à 8 de celui de la colonne 116. Tous deux regardent vers l'arrivée de Pépin : ils
+  plongent derrière quelqu'un qui court, et ne touchent que celui qui s'arrête, hésite ou revient
+  sous eux. Premier essai refusé : un pigeon au-dessus du toit qui suit le 1er courant du niveau 4
+  (colonne 40, sur le chemin des réapparitions) donnait Habitué 0,52 au niveau 4, refusé par
+  `courbe_de_difficulte_dans_les_bandes` (le 4 doit rester 0,15 sous le 3, à 0,65).
+- Exigences du coordinateur (oiseau de décor contre pigeon) : silhouette plus grosse (16x12 contre
+  12x8, 116 pixels pleins contre 53), corps ardoise contre corps blanc (contraste 10:1
+  entre les deux couleurs principales), aucune couleur claire de l'oiseau, regard froncé ; aucun
+  oiseau de décor à moins de 4 tuiles d'un pigeon (testé sur les vrais niveaux) ; aucun oiseau
+  déplacé ni retiré.
+- Robot de QA : `trace.csv` donne aussi la position et la phase du premier pigeon (pour viser les
+  captures). Il n'a rien eu à apprendre : il subit la vraie simulation et écarte les plans mortels.
+
+Tests (14 de plus côté `core`, 4 côté `game`) :
+- `pigeon.rs` : déclenchement seulement dessous et devant (pas à côté, pas au-dessus, pas trop
+  loin, pas derrière ; cône retourné avec le pigeon) ; plongée à 45° vers l'avant, dans les deux
+  sens ; sens fixé au déclenchement ; retour exact au perchoir à 1 px par pas ; pas de nouvelle
+  plongée pendant le repos même si Pépin reste dessous ; durée du cycle ; écrasé (en vol aussi) il
+  ne bouge plus et ne guette plus ; flaque et corbeau ne guettent pas.
+- `contacts.rs` : écrasé par le dessus, tue de côté ou en montant ; la plongée tue Pépin immobile
+  sous lui, pas avant la fin de l'annonce ; écrasé en pleine plongée.
+- `level/tests.rs` : position, boîte, sens selon le perchoir ; pigeon sans perchoir refusé.
+- `zones.rs` (vrais niveaux) : 1 à 3 pigeons aux niveaux 4 et 5, aucun ailleurs ; jamais à moins
+  de 4 tuiles d'un oiseau de décor ; plongée entièrement dans le ciel (aucune tuile solide, sauf
+  le coin de son perchoir), ni sur une lanterne ni sur le départ. Vérifié en les cassant exprès
+  (copie jetable) : plongée de 5 tuiles (elle entre dans le dernier toit du niveau 4), pigeon à 3
+  tuiles d'un oiseau, pigeon dont la plongée passe sur la lanterne 102 du niveau 5 : 3 échecs.
+- `sprites/mod.rs` : 6 images 16x12 au contour sombre ; perché, seule la tête bouge ; différences
+  avec l'oiseau de décor (ci-dessus) ; contraste d'au moins 3:1 entre le corps (ardoise) et le
+  contour du pigeon et chaque bande de ciel qu'il traverse, perché puis jusqu'au fond de sa plongée
+  (niveau 4 : corail, corail clair, orange ; niveau 5 : les quatre bandes). Le violet du haut du
+  ciel du niveau 4 (1,5:1 contre l'ardoise) y est interdit : le test refuserait un pigeon perché
+  sur les îlots des rangées 2 et 3.
+- `scene.rs` : une image par phase, tremblement seulement pendant l'annonce, retourné à la
+  remontée, écrasé quelle que soit la phase.
+
+Mesure de difficulté (graine officielle), morts moyennes avant (755df73) → après :
+
+| Niveau                      | Débutant      | Habitué      | Expert       |
+| --------------------------- | ------------- | ------------ | ------------ |
+| 1. Les toits                | 0,4 → 0,4     | 0,1 → 0,1    | 0,0 → 0,0    |
+| 2. Gouttières et cheminées  | 1,5 → 1,5     | 0,5 → 0,5    | 0,2 → 0,2    |
+| 3. Le grand orage           | 3,0 → 3,0     | 0,6 → 0,6    | 0,4 → 0,4    |
+| 4. Vents d'altitude         | 1,3 → 1,3     | 0,4 → 0,4    | 0,1 → 0,1    |
+| 5. Au-dessus des nuages     | 0,5 → 0,5     | 0,1 → 0,1    | 0,0 → 0,0    |
+| Total                       | 6,8 → 6,8     | 1,7 → 1,8    | 0,7 → 0,7    |
+
+Le niveau 4 reste dans [0,35 ; 0,65] et nettement sous le 3, le niveau 5 sous 0,2. Le pigeon du
+niveau 5 tue une fois (Habitué et Débutant, colonne 107, « ennemi ») sur 48 essais ; celui du
+niveau 4 aucune fois (les 4 morts « ennemi » colonnes 180-182 chez le Débutant sont le corbeau de la
+colonne 178 : la suite des tirages change dès que le pigeon modifie un choix). Bruit (4 graines,
+`bruit_de_la_mesure`), Habitué : N4 0,4 / 0,4 / 0,5 / 0,5 et N5 0,1 / 0,1 / 0,1 / 0,1, exactement
+les chiffres de la carte 3.3 ; une seule mort de pigeon sur les 4 graines (N5, colonne 107).
+
+Robot de QA : finit les cinq niveaux sans mourir (12 131 images au lieu de 12 130, 5 gouttes). Son
+script est identique à celui de 755df73 jusqu'à l'image 11 400 : au niveau 4 le pigeon plonge
+derrière lui (annonce à l'image 9685) sans rien changer à son parcours ; au niveau 5 (annonce à
+l'image 11 400) son chemin s'en écarte de 0,2 px.
+
+Captures (Chromium 1208 piloté par CDP, fenêtre 1280 x 720 donc image agrandie x4, build de QA
+servi sur 127.0.0.1, port libre, onglet au premier plan, canevas focalisé, serveurs arrêtés
+ensuite ; script du robot rejoué par `docs/capture-visibilite.mjs`). « Avant » : build de QA et
+script d'une extraction propre de 755df73, même image du parcours (même position de Pépin).
+Toutes regardées ; 0 pixel hors palette, 0 flou (`docs/mesure-capture.py`, K = 4) sur les 12
+captures pleines.
+- `44-niveau5-oiseau-et-pigeon-apres` (image 11 341) : capture côte à côte demandée. À gauche
+  sur le toit, l'oiseau de décor (petit, blanc, bec orange) ; à droite, le pigeon perché sur son
+  petit nuage (plus gros, ardoise, cou cyan) ; Pépin et la lanterne entre eux. On ne les confond
+  pas : couleur, taille, place (l'oiseau au sol sur le chemin, le pigeon en hauteur).
+  `44-zoom-niveau5-oiseau-et-pigeon-apres` : les deux découpés à la même échelle x4 et posés
+  côte à côte (aucun rééchantillonnage). `-avant` : même endroit, ni nuage ni pigeon.
+- `44-niveau5-pigeon-annonce-apres` (11 406) : ailes dressées, il tremble ; Pépin passe dessous ;
+  un second oiseau de décor est visible à droite, à 8 tuiles. `-plongee-apres` (11 433) : en
+  diagonale, tête en avant, derrière Pépin qui court. `-remontee-apres` (11 471) : ailes levées,
+  tourné vers son perchoir.
+- `44-niveau4-pigeon-perche-apres` (9661) / `-avant` : le petit nuage et le pigeon sur le ciel
+  corail, au-dessus du dernier toit ; Pépin arrive par le haut (repère en haut de l'écran).
+  `44-niveau4-pigeon-annonce-apres` (9693), `-plongee-apres` (9716), `-fond-apres` (9734, au
+  ras du toit, Pépin déjà passé), `-remontee-apres` (9761).
+
+Limites : le contraste n'est testé que contre les bandes de ciel, pas contre les silhouettes du
+fond : au niveau 4, en plongée ou en remontée, le pigeon passe devant les tours violettes (ardoise
+sur violet 1,5:1) ; son contour, l'aile claire et le cou cyan le gardent lisible (vu sur
+`44-niveau4-pigeon-remontee-apres`). La plongée est muette (aucun son ajouté). Pas testé : vrai
+téléphone, Safari/Firefox.
