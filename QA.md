@@ -2160,3 +2160,122 @@ Limites (non testé ou à relativiser) :
   pixel, un brin qui passe sur Pépin se confond avec lui.
 - Pas de son. Captures dans Chromium seulement, à 960 x 540 ; pas de vrai téléphone, pas de
   Safari ni Firefox.
+
+## Escargot, niveau d'essai « escargot » (carte 5.8)
+
+Demande : l'escargot (`s`), « un champignon qui marche : impossible à écraser, il fait
+rebondir. Il faut l'attendre au bon endroit. »
+
+Ce qui a été fait :
+- Cœur, `core/src/entities/escargot.rs` : entité `Escargot` (boîte 16 x 10 au bas de sa case).
+  Il patrouille EXACTEMENT comme la flaque (demi-tour contre un mur et juste avant le bord
+  du vide) : la marche au sol est sortie dans `core/src/entities/marche.rs`
+  (`patrouiller`, `sol_devant`), que la flaque appelle désormais (même calcul). Il marche
+  lentement : 16 px/s (une tuile par seconde, les deux tiers d'une flaque). Ce n'est pas un
+  ennemi : lui tomber dessus (même règle que l'écrasement : en descendant, pieds enfoncés
+  de 7 px au plus) fait rebondir Pépin à `VITESSE_CHAMPIGNON` (≈ 103 px, contre 57 pour un
+  saut) avec le contact `Rebond` (même son, mêmes éclats que le champignon) ; sa coquille
+  s'aplatit et il s'arrête 8 pas ; le toucher de côté ou en montant ne fait rien (Pépin le
+  traverse). Lettre `s` dans le parseur, légende de `core/src/level.rs` à jour.
+- Rendu : 3 sprites 16 x 12 (`game/src/sprites/ennemis.rs`, planche
+  `docs/planche-sprites.png` régénérée) : marche (2 images, seules les cornes bougent) et
+  coquille aplatie, œil fermé, au rebond. L'indice visuel est la coquille elle-même : c'est
+  le chapeau du champignon (corail, reflet corail clair, pois blancs), on devine qu'il fait
+  rebondir. Corps nuage, ventre brume, contour sombre : contraste d'au moins 4,5:1 sur toutes
+  les bandes de ciel de tous les thèmes (test).
+- Robot de faisabilité (`core/src/faisabilite.rs`) : il ne connaît pas le temps ; chaque
+  escargot est remplacé par un tremplin immobile qui couvre TOUT son trajet
+  (`Escargot::etendu_au_trajet`, trajet simulé sur la grille). Simplification documentée
+  dans l'en-tête du module : le robot y rebondit partout, alors qu'un joueur doit attendre
+  que l'escargot passe ; le robot de QA, lui, joue la vraie simulation.
+- Robot de QA (`game/src/bot_qa.rs`) : l'escargot est un tremplin MOBILE, il faut
+  l'attendre. La case de parcours (`CaseParcours`) ne retenait que la place de Pépin :
+  attendre sur place ramenait à une case connue, le plan « attendre » était jeté et le
+  robot ne trouvait aucun parcours. Elle gagne un 4e terme, `escargot_proche` (case de
+  16 px et sens de l'escargot le plus proche, à 6 tuiles en x et 4 en y ; 0 sinon). Dans un
+  niveau sans escargot il vaut toujours 0 : rien ne change pour les niveaux du jeu
+  (`difficulte.rs` suit le nouveau type ; mesure identique, voir plus bas).
+- Niveau d'essai `core/src/levels/essai_escargot.rs` (35 x 11, thème Orage), hors de la
+  table `NIVEAUX`, touche F6 du build de QA seulement (`RaccourciNiveau::Essai7`,
+  `INDICE_ESSAI_ESCARGOT`, intro et carte ; absent de `dist/`). Deux falaises : la première
+  (80 px) est trop haute pour un saut, la seconde (96 px au-dessus d'une fosse de 160 px)
+  trop loin de la première même en planant ; un escargot patrouille au pied de chacune.
+  Une goutte en l'air (ligne 1, bien plus haut qu'un saut) sur la trajectoire du premier
+  rebond. Aucun niveau du jeu n'est modifié.
+
+Tests (tous sur la vraie physique) :
+- `entities::escargot` (mini-niveau : un toit entre un mur et le vide) : place dans la case,
+  patrouille lente entre le mur et le bord du vide sans jamais tomber, trajet, un seul
+  rebond de champignon (coquille aplatie 8 pas, immobile, puis il remarche), rebond plus
+  haut qu'un saut, traversée de côté sans aucun contact, pas de rebond en montant ni pieds
+  trop enfoncés.
+- `faisabilite` (mini-niveau : falaise de 80 px) : sans escargot la falaise est hors de
+  portée ; avec lui le robot, précis et maladroit, y monte et prend les 3 gouttes ; le
+  tremplin couvre bien du mur au pied de la falaise.
+- `zones` : l'essai passe les contrôles d'un vrai niveau (arrivée, 3 gouttes, lanternes,
+  robot maladroit, reprise depuis chaque lanterne, lint de grille) ; sans escargot rien
+  n'est atteint, sans le second le drapeau reste hors de portée (chacun sert).
+- Jeu : sprites (taille, contour, coquille de champignon, contraste), images choisies par la
+  scène, touche F6 et niveau chargé avec ses deux escargots, carte dans son cadre ; robot de
+  QA `le_robot_finit_le_niveau_d_essai_escargot` : fin atteinte, 0 mort, 3 gouttes, F6 une
+  fois, arrivée en haut de la falaise 2, 2 rebonds sur un escargot (coquille aplatie à
+  chaque fois), 137 images où l'escargot traverse Pépin posé au sol sans rien faire.
+  `le_robot_finit_tous_les_niveaux_sans_mourir` reste vert.
+
+Mesure de difficulté : inchangée (aucun niveau du jeu n'a d'escargot ; la marche de la
+flaque est le même calcul, déplacé ; la case de parcours ne change que près d'un escargot).
+`docs/mesure-difficulte.txt` régénéré sur l'extraction propre de 35a6654 : identique à
+l'octet au fichier versionné. Morts moyennes (avant = après) :
+
+| Niveau                      | Débutant (avant = après) | Habitué (avant = après) | Expert (avant = après) |
+| --------------------------- | ------------------------ | ----------------------- | ---------------------- |
+| 1. Les toits                | 0,4                      | 0,1                     | 0,0                    |
+| 2. Gouttières et cheminées  | 1,5                      | 0,5                     | 0,2                    |
+| 3. Le grand orage           | 3,0                      | 0,6                     | 0,4                    |
+| 4. Vents d'altitude         | 1,3                      | 0,4                     | 0,1                    |
+| 5. Au-dessus des nuages     | 0,5                      | 0,1                     | 0,0                    |
+| Total                       | 6,8                      | 1,8                     | 0,7                    |
+
+Captures (`docs/qa/58-*`, 960 x 540, build de QA d'une extraction propre de 35a6654 servi en
+local sur 127.0.0.1, Chromium (révision 1208) piloté par CDP, onglet au premier plan et
+canvas focalisé, pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-58.txt`
+et `TOUCHES=target/qa/touches-58.txt` (F6 à l'image 229), serveur arrêté à la fin ;
+numéros d'image de `trace-58.csv`, écrits par le test ignoré `ecrire_script_essai_escargot`) :
+- `58-carte-niveau1` (101) puis `58-carte-essai` (351) : carte « ESSAI ESCARGOT », texte et
+  astuce dans le cadre ;
+- `58-essai-depart` (481) : Pépin au départ, l'escargot sur le sol, la falaise à droite ;
+- `58-essai-de-cote` (860) : l'escargot passe à travers Pépin posé au sol : rien ne se
+  passe (ni mort, ni rebond) ;
+- `58-essai-attente` (1200) : Pépin attend au bord gauche, l'escargot repart vers la falaise ;
+- `58-essai-saut` (1250) : Pépin saute et plane vers lui ;
+- `58-essai-rebond` (1332) et `58-essai-rebond-suite` (1336) : Pépin retombe sur la coquille,
+  qui s'aplatit (œil fermé), éclats corail, Pépin repart vers le haut ;
+- `58-essai-goutte-en-l-air` (1347) puis `58-essai-haut` (1356) : porté bien plus haut que la
+  falaise, il prend la goutte en l'air (1/15) ;
+- `58-essai-falaise1` (1450) : posé sur la falaise 1, lanterne allumée ;
+- `58-essai-fosse` (1560) puis `58-essai-rebond2` (1583) : au fond de la fosse, second rebond
+  au pied de la falaise 2 (coquille aplatie) ;
+- `58-essai-arrivee` (1660) : Pépin au drapeau, 3/15 ;
+- `58-fin` (60 images après la fin du script) : « LE SOLEIL ! », 0:20,1, 3 gouttes (3/15 :
+  celles de l'essai), 0 mort.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette,
+0 bloc flou, sur les 15.
+
+Vérification sur une extraction propre de 35a6654 (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+267 + 258 tests, tous verts (1 + 13 ignorés : écritures de fichiers et diagnostics) ;
+`./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit, 0 occurrence des noms
+interdits, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit
+(« Essai escargot » : 0 fois dans `dist/game.wasm`, 1 fois dans `dist-qa/game.wasm`).
+
+Limites (non testé ou à relativiser) :
+- Aucun niveau du jeu n'a encore d'escargot (le clocher viendra ensuite) : il ne se voit
+  que dans le niveau d'essai (touche F6 du build de QA).
+- Le robot de faisabilité voit l'escargot comme un tremplin immobile sur tout son trajet :
+  il peut juger faisable un passage où le timing serait très serré. Seul le robot de QA
+  (vraie simulation) prouve qu'on peut l'attendre ; il faudra garder les deux verts sur
+  chaque niveau qui en aura.
+- Un escargot ne pousse pas Pépin et ne réagit pas à lui (il le traverse) ; il ne monte pas
+  sur les plateformes mobiles en route (il suit les solides comme la flaque).
+- Pas de son propre (le « boing » du champignon). Captures dans Chromium seulement, à
+  960 x 540 ; pas de vrai téléphone, pas de Safari ni Firefox.
