@@ -108,7 +108,8 @@ Code : `game/src/orientation.rs` (décision, sprites, dessin, 10 tests), branch�
 
 ## Ce qui a été ajouté pour la QA
 
-- `game/src/bot_qa.rs` (compilé uniquement pour les tests) : le robot. `cargo test -p game --no-default-features -- --ignored ecrire_script_navigateur` écrit `target/qa/script.txt` (un chiffre hexadécimal par image : 1 Entrée, 2 gauche, 4 droite, 8 saut) et `trace.csv`. Un petit pilote JavaScript, collé dans la console, rejoue ce script avec une horloge virtuelle.
+- `game/src/bot_qa/` (module, compilé uniquement pour les tests) : le robot (voir
+  « Refactor du robot de QA (carte 5.11b) »). `cargo test -p game --no-default-features -- --ignored ecrire_script_navigateur` écrit `target/qa/script.txt` (un chiffre hexadécimal par image : 1 Entrée, 2 gauche, 4 droite, 8 saut) et `trace.csv`. Un petit pilote JavaScript, collé dans la console, rejoue ce script avec une horloge virtuelle.
 - `docs/qa/` : 29 captures réelles du navigateur.
 
 ## Limites (non vérifié ou à relativiser)
@@ -2708,3 +2709,67 @@ Limites (non testé ou à relativiser) :
 - Captures dans un Chromium piloté par CDP seulement, à 960 x 540 ; pas de vrai téléphone,
   pas de Safari ni Firefox. Pas de son entendu à l'oreille (le grondement et les éclats ne
   sont vérifiés que par les tests d'audio).
+
+## Refactor du robot de QA (carte 5.11b)
+
+Refactorisation PURE de `game/src/bot_qa.rs` (2 748 lignes) : aucun niveau,
+aucun ennemi, aucune mécanique modifiés — seuls des fichiers de code ont bougé.
+Le module est découpé en `game/src/bot_qa/` (cinq fichiers, aucun ne dépasse
+~800 lignes, chacun avec une documentation de module en français : rôle, ce qui
+va où, comment ajouter une nouvelle mécanique ou un niveau d'essai). La carte
+proposait quatre fichiers ; les tests des essais (676 lignes) ne pouvaient pas
+rester dans `essais.rs` sous la limite de ~800 lignes, d'où `essais_tests.rs`.
+
+- `mod.rs` (335) : le rejouage complet à travers l'`Application` (`Trame`,
+  `Partie`, `jouer_tout`, `tous_les_parcours`, `empreinte` FNV-1a), le test
+  « le robot finit tous les niveaux sans mourir » et le test ignore
+  `ecrire_script_navigateur` (script de tous les niveaux, `script.txt`/`trace.csv`).
+- `parcours.rs` (798) : le « cerveau » du robot — plans et simulation sur copie
+  du monde (`Plan`, `plans`, `simuler`), les cases du niveau et la recherche
+  (`cle`, `chercher`, Dijkstra), la tenue au décalage (`tient_au_decalage`).
+  **`CaseParcours` est maintenant un `struct` à champs nommés et commentés**
+  (au lieu d'un 7-uple) : `x`, `y`, `lance`, `escargot`, `chats`, `aiguille`,
+  `nuage` ; `Ord` dérivé dans l'ordre des champs, soit l'ordre EXACT de
+  l'ancien 7-uple (la mesure de difficulté trie ses cases dans un tas, et un
+  ordre changé fausserait les comparaisons). `game/src/difficulte.rs` est
+  adapté (quatre lignes) sans changer de comportement ; `MARGE_CHAT_PAS` passe
+  `pub(crate)` (les tests y vont par `bot_qa::parcours`).
+- `essais.rs` (625) : les parties des niveaux d'essai — la fonction GÉNÉRIQUE
+  `jouer_essai(indice, raccourci, parcours)` est paramétrée par le niveau et sa
+  touche raccourci ; les dix `jouer_essai_*` sont chacun une ligne (doc
+  comprise), `ImageEssai`/`PartieEssai` et les parcours de référence
+  (`parcours_essai_*`) sont inchangés.
+- `essais_tests.rs` (676) : les tests des niveaux d'essai (le robot finit sans
+  mourir ; les parcours à horloge tiennent à une image près ; la démo casette).
+- `scripts.rs` (517) : les onze tests ignore `ecrire_script_essai_*` qui
+  écrivent `target/qa/*` (script, touches, trace) pour le rejeu navigateur.
+
+Preuves (sur l'extraction propre du commit final — `git archive`, nouveau
+dossier daté) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 326 (core) +
+  282 (game) tests, tous verts, MEME nombre de tests qu'avant (1 + 16 ignorés :
+  écritures de scripts, mesure, diagnostics).
+- `./docker-cargo.sh lint` : `LINT-OK`.
+- Mesure de difficulté : `docs/mesure-difficulte.txt` régénéré, identique à
+  l'octet au fichier commité (même tableau, même graine).
+- Les 35 scripts/touches/traces régénérés par la commande `-- --ignored ecrire_script`
+  (les onze essais `52-`…`511-`, `script.txt`/`trace.csv` de tous les niveaux,
+  `script-31b.txt` de la mesure) sont tous `cmp`-identiques à la régénération
+  faite sur l'extraction AVANT la refactorisation ; l'empreinte du robot
+  principal est inchangée : `e03e19a27c17c283` (`ecrire_script_navigateur`,
+  12 131 images, 0 mort, 5 gouttes). Deux autres fichiers de `target/qa/`
+  (`script-31.txt`, `trace-57-rapide.csv`) viennent de cartes antérieures, ne
+  sont plus régénérés par un test courant (fichiers de travail de cartes
+  antérieures) et ne sont donc pas dans une extraction propre — sans
+  importance : aucun code de production n'a changé.
+- Wasm de production : IDENTIQUE à l'octet (473 390 octets, SHA-256
+  `505b3a4c89e0c…`, delta 0 %, bien dans ±1 %) — le robot et `difficulte.rs`
+  sont compilés seulement sous `#[cfg(test)]`, ils n'entrent pas dans le
+  binaire de production ; `dist/` : 0 occurrence des noms interdits, seule URL
+  `http://www.w3.org/2000/svg`.
+
+Limites (non testé ou à relativiser) :
+- Aucun comportement n'a changé (preuve ci-dessus) : pas de captures à
+  refaire, pas de vrai téléphone, pas de Safari, pas de son à l'oreille.
+- La mesure « identique à l'octet » couvre les cinq niveaux officiels ; les
+  niveaux d'essai ne font pas partie de la mesure officielle.
