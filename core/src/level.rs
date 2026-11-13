@@ -12,6 +12,9 @@
 //!   L  lanterne (checkpoint)   o  goutte d'or (3 par niveau)
 //!   ^  pointes                 M  champignon-trampoline
 //!   f  flaque (patrouille)     c  corbeau (vol)
+//!   p  pigeon, perché sur le solide du dessous ; il regarde du côté où son
+//!      perchoir s'arrête (à droite seulement si le perchoir continue à gauche
+//!      et s'arrête à droite ; sinon à gauche, vers le départ)
 //!   F  plateforme friable      e  éclair (colonne jusqu'au 1er solide dessous)
 //!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent

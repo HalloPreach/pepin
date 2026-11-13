@@ -298,3 +298,72 @@ fn decor_en_l_air_refuse() {
         "{msg}"
     );
 }
+
+// --- Pigeon (carte 4.4) ------------------------------------------------------
+
+#[test]
+fn pigeon_perche_et_tourne_du_cote_ou_son_perchoir_s_arrete() {
+    use crate::entities::ennemi::PhasePigeon;
+    use crate::entities::TypeEnnemi;
+    // Trois pigeons : sur un perchoir d'une tuile (colonne 3), au bout droit d'un
+    // perchoir de trois tuiles (colonne 10), au bout gauche du même (colonne 8).
+    let niveau = "
+.o.o.o..........
+...p....p.p.....
+...N....NNN.....
+.@............X.
+################
+";
+    let n = Niveau::depuis_ascii(niveau).expect("niveau valide");
+    let pigeons: Vec<_> = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Ennemi(p) if p.type_ennemi == TypeEnnemi::Pigeon => Some(p),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(pigeons.len(), 3);
+    // Ordre de lecture ; boîte 12 x 10 centrée, pattes sur le perchoir (y = 32).
+    let attendus = [(3.0, false), (8.0, false), (10.0, true)];
+    for (p, (col, droite)) in pigeons.iter().zip(attendus) {
+        assert_eq!((p.boite.x, p.boite.y), (col * 16.0 + 2.0, 22.0));
+        assert_eq!((p.boite.w, p.boite.h), (12.0, 10.0));
+        assert_eq!(p.boite.bas(), 32.0, "posé sur la tuile du dessous");
+        assert_eq!(p.vers_la_droite, droite, "colonne {col}");
+        assert_eq!(p.perchoir(), (p.boite.x, p.boite.y));
+        assert_eq!(p.phase(), PhasePigeon::Perche);
+    }
+}
+
+#[test]
+fn pigeon_sans_perchoir_refuse() {
+    let en_l_air = "
+.o.o.o.......
+.......p.....
+.@........X..
+#############
+";
+    assert_eq!(
+        Niveau::depuis_ascii(en_l_air).unwrap_err(),
+        ErreurNiveau::PigeonSansPerchoir {
+            ligne: 2,
+            colonne: 8
+        }
+    );
+    let tout_en_bas = "
+.o.o.o.......
+.@........X..
+######p######
+";
+    assert!(matches!(
+        Niveau::depuis_ascii(tout_en_bas),
+        Err(ErreurNiveau::PigeonSansPerchoir { ligne: 3, .. })
+    ));
+    let msg = ErreurNiveau::PigeonSansPerchoir {
+        ligne: 2,
+        colonne: 8,
+    }
+    .to_string();
+    assert!(msg.contains("pigeon") && msg.contains("solide"), "{msg}");
+}

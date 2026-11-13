@@ -66,6 +66,8 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut eclairs: Vec<Case> = Vec::new();
     let mut vent = vec![false; largeur * hauteur];
     let mut mobiles: BTreeMap<char, Vec<Case>> = BTreeMap::new();
+    // Pigeons : il faut la grille entière pour trouver leur perchoir.
+    let mut pigeons: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
 
     for (ty, ligne) in lignes.iter().enumerate() {
@@ -101,6 +103,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                     x + 2.0,
                     y + 3.0,
                 ))),
+                'p' => pigeons.push(case),
                 'F' => entites.push(Entite::Friable(PlateformeFriable::new(Aabb::new(
                     x, y, 16.0, 8.0,
                 )))),
@@ -176,6 +179,28 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
             pa,
             pb,
             VITESSE_MOBILE,
+        )));
+    }
+
+    // Pigeons : perchés sur la tuile du dessous (obligatoire), boîte 12 x 10
+    // centrée dans la case, pattes sur le perchoir. Ils regardent du côté où le
+    // perchoir s'arrête : à droite seulement si le perchoir continue à gauche et
+    // s'arrête à droite (sinon à gauche, vers le départ de Pépin).
+    let solide = |tx: usize, ty: usize| tuiles[ty * largeur + tx].est_solide();
+    for (tx, ty) in pigeons {
+        if ty + 1 >= hauteur || !solide(tx, ty + 1) {
+            return Err(ErreurNiveau::PigeonSansPerchoir {
+                ligne: ty + 1,
+                colonne: tx + 1,
+            });
+        }
+        let gauche = tx > 0 && solide(tx - 1, ty + 1);
+        let droite = tx + 1 < largeur && solide(tx + 1, ty + 1);
+        let (x, y) = px((tx, ty));
+        entites.push(Entite::Ennemi(Ennemi::pigeon(
+            x + 2.0,
+            y + 6.0,
+            gauche && !droite,
         )));
     }
 
