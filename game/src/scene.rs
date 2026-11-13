@@ -15,7 +15,6 @@ use pepin_core::level::{GenreDecor, GenrePanneau, Tuile};
 use pepin_core::palette::*;
 use pepin_core::physics::{CourantAscendant, HZ};
 use pepin_core::player::EtatJoueur;
-use pepin_core::zones::Theme;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
 use crate::decor;
@@ -323,10 +322,11 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     EtatFriable::Absente(_) => continue,
                     EtatFriable::Stable => 0.0,
                 };
-                // Dalle d'ardoise sur les toits (niveaux 1 à 3), nuage en altitude (4 et 5).
-                let anim = match monde.infos.theme {
-                    Theme::Altitude | Theme::Soleil => &objets::FRIABLE,
-                    Theme::Toits | Theme::Gouttieres | Theme::Orage => &objets::FRIABLE_ARDOISE,
+                // Dalle d'ardoise sur les toits, nuage en altitude (table d'ambiance).
+                let anim = if decor::ambiance(monde.infos.theme).friable_nuage {
+                    &objets::FRIABLE
+                } else {
+                    &objets::FRIABLE_ARDOISE
                 };
                 let nom = if matches!(f.etat, EtatFriable::Effritement(_)) {
                     anim[1]
@@ -664,7 +664,7 @@ mod tests {
     /// briques qui reçoivent la bande d'ombre d'un toit.
     #[test]
     fn variantes_et_ombres_dans_les_vrais_niveaux() {
-        use pepin_core::zones::NIVEAUX;
+        use pepin_core::zones::{Theme, NIVEAUX};
         let (mut pleines, mut variantes) = (0, 0);
         for infos in NIVEAUX {
             let n = infos.charger().unwrap();
@@ -682,10 +682,12 @@ mod tests {
                 }
             }
             // Les trois niveaux de toits ont un long rebord ; les nuages n'en ont pas.
-            match infos.numero {
-                1..=3 => assert!(ombres > 100, "{} : {ombres} ombres", infos.nom),
-                5 => assert_eq!(ombres, 0, "{}", infos.nom),
-                _ => {}
+            match infos.theme {
+                Theme::Toits | Theme::Gouttieres | Theme::Orage => {
+                    assert!(ombres > 100, "{} : {ombres} ombres", infos.nom)
+                }
+                Theme::Soleil => assert_eq!(ombres, 0, "{}", infos.nom),
+                Theme::Altitude => {}
             }
         }
         let part = variantes as f32 / pleines as f32;
@@ -839,7 +841,7 @@ mod tests {
     /// droite. Retournée si le courant le plus proche est à gauche.
     #[test]
     fn la_manche_a_air_s_etire_vers_son_courant() {
-        let niv = pepin_core::zones::NIVEAUX[3].charger().unwrap();
+        let niv = pepin_core::levels::vents::INFOS.charger().unwrap();
         let manches: Vec<f32> = niv
             .decors
             .iter()

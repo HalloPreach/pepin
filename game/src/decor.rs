@@ -76,9 +76,29 @@ pub struct Ambiance {
     pub fenetres: Option<(Couleur, Couleur)>,
     /// Petites îles de nuages flottantes (corps, dessous), s'il y en a.
     pub ilots: Option<(Couleur, Couleur)>,
+    /// Teinte des TUILES du niveau (toits, briques, nuages) : voir `TeinteTuiles`.
+    pub tuiles: TeinteTuiles,
+    /// Les dalles friables sont-elles des nuages (sinon des dalles d'ardoise) ?
+    pub friable_nuage: bool,
+}
+
+/// Éclaircissement des tuiles d'un thème : les toits pâlissent d'un niveau à l'autre.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TeinteTuiles {
+    /// Crans gagnés par la rampe d'ardoise (0 = couleurs du dessin, jusqu'au blanc cassé).
+    pub eclaircissement: u32,
+    /// Les briques violettes virent à l'orange (sous le soleil).
+    pub briques_orangees: bool,
 }
 
 /// Ambiance d'un thème : l'orage noir s'éclaircit jusqu'au soleil doré.
+///
+/// C'est LA table d'ambiance des niveaux : chaque niveau désigne son thème
+/// (`InfosNiveau::theme`) et tout ce qui en dépend au rendu (ciel, silhouettes, pluie,
+/// teinte des tuiles, dessin des dalles friables) se lit ici. Un nouveau niveau à
+/// l'ambiance inédite = un nouveau `Theme` (dans `pepin_core::zones`, avec
+/// `Theme::TOUS`) et une entrée de plus dans ce `match` : le compilateur refuse
+/// d'oublier l'une ou l'autre.
 pub fn ambiance(theme: Theme) -> Ambiance {
     match theme {
         Theme::Toits => Ambiance {
@@ -96,6 +116,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             socle: true,
             fenetres: None,
             ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 0,
+                briques_orangees: false,
+            },
+            friable_nuage: false,
         },
         // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
         // discrets en haut du ciel.
@@ -118,6 +143,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             socle: true,
             fenetres: None,
             ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 1,
+                briques_orangees: false,
+            },
+            friable_nuage: false,
         },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
         // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit. Un plafond
@@ -143,6 +173,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             // orange (loin) et corail clair (près).
             fenetres: Some((ORANGE_SOLEIL, CORAIL_CLAIR)),
             ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 0,
+                briques_orangees: false,
+            },
+            friable_nuage: false,
         },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
         // plus sombres, petites îles flottantes dans le tiers médian.
@@ -163,6 +198,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             socle: true,
             fenetres: None,
             ilots: Some((VIOLET_ORAGE, ARDOISE_NUIT)),
+            tuiles: TeinteTuiles {
+                eclaircissement: 2,
+                briques_orangees: false,
+            },
+            friable_nuage: true,
         },
         // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
         // sommets restent sous la ligne du sol), d'une couleur absente des
@@ -182,6 +222,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             socle: false,
             fenetres: None,
             ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 3,
+                briques_orangees: true,
+            },
+            friable_nuage: true,
         },
     }
 }
@@ -622,17 +667,30 @@ pub fn dessiner_avant(theme: Theme, pas: u32) {
 mod tests {
     use super::*;
 
-    const THEMES: [Theme; 5] = [
-        Theme::Toits,
-        Theme::Gouttieres,
-        Theme::Orage,
-        Theme::Altitude,
-        Theme::Soleil,
-    ];
+    /// Teinte des tuiles et dalles friables : mêmes valeurs qu'avant la carte 5.1 (elles
+    /// étaient écrites dans `sprites::remplacer` et `scene.rs`) ; seule leur place change.
+    #[test]
+    fn teinte_des_tuiles_et_friables_par_theme() {
+        let attendu = |t: Theme| match t {
+            Theme::Toits | Theme::Orage => (0, false, false),
+            Theme::Gouttieres => (1, false, false),
+            Theme::Altitude => (2, false, true),
+            Theme::Soleil => (3, true, true),
+        };
+        for t in Theme::TOUS {
+            let a = ambiance(t);
+            let lu = (
+                a.tuiles.eclaircissement,
+                a.tuiles.briques_orangees,
+                a.friable_nuage,
+            );
+            assert_eq!(lu, attendu(t), "{t:?}");
+        }
+    }
 
     #[test]
     fn toutes_les_couleurs_du_decor_sont_dans_la_palette() {
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             let mut couleurs = a.ciel.to_vec();
             couleurs.extend([a.lointain, a.proche, a.pluie.0, a.pluie.1]);
@@ -650,7 +708,7 @@ mod tests {
 
     #[test]
     fn aucune_silhouette_n_a_la_couleur_du_ciel_derriere_elle() {
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             for z in zones(&a) {
                 assert!(z.haut < z.bas, "{t:?} {} : zone vide", z.nom);
@@ -668,7 +726,7 @@ mod tests {
 
     #[test]
     fn la_couche_lointaine_monte_a_40_px_au_moins_dans_chaque_theme() {
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             // Le niveau 5 est l'exception voulue : ses bancs de nuages restent BAS
             // (sous la ligne du sol, test ci-dessous) pour ne pas imiter les plateformes.
@@ -781,7 +839,7 @@ mod tests {
     /// la ligne du sol, même avec la parallaxe verticale maximale (-10 px).
     #[test]
     fn la_couche_proche_ne_depasse_pas_de_la_ligne_du_sol() {
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             let proche = zones(&a).into_iter().find(|z| z.nom == "proche").unwrap();
             if a.forme == Forme::Nuages {
@@ -819,7 +877,7 @@ mod tests {
     /// I-17 : l'or ne sert qu'aux gouttes à ramasser et aux éclairs.
     #[test]
     fn aucun_decor_n_utilise_l_or() {
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             let (c1, c2) = a.fenetres.unwrap_or((ORANGE_SOLEIL, ORANGE_SOLEIL));
             assert!(c1 != OR && c2 != OR, "{t:?}");
@@ -829,7 +887,7 @@ mod tests {
     /// I-19 : les étoiles ne se dessinent que dans une bande de ciel où elles se voient.
     #[test]
     fn les_etoiles_se_voient_sur_leur_bande_de_ciel() {
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             if let Some(ymax) = a.etoiles {
                 for y in 0..ymax {
@@ -848,9 +906,9 @@ mod tests {
     /// et ses deux couleurs ne se confondent avec aucune bande de ciel.
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
-        let n: Vec<i32> = THEMES.iter().map(|t| ambiance(*t).gouttes).collect();
+        let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
         assert_eq!(n, [24, 48, 60, 18, 0]);
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");
             if a.gouttes == 0 {
@@ -871,7 +929,7 @@ mod tests {
     /// de celle-ci, et il n'existe qu'aux niveaux 2 et 3.
     #[test]
     fn le_plafond_de_nuages_tient_dans_la_bande_du_haut() {
-        for t in THEMES {
+        for t in Theme::TOUS {
             let a = ambiance(t);
             let attendu = matches!(t, Theme::Gouttieres | Theme::Orage);
             assert_eq!(a.plafond.is_some(), attendu, "{t:?}");

@@ -35,6 +35,7 @@ use macroquad::prelude::{
 use pepin_core::palette::{Couleur, TOUTES};
 use pepin_core::zones::Theme;
 
+use crate::decor::ambiance;
 use crate::rendu::couleur_mq;
 
 /// Un dessin : une liste de lignes de texte, toutes de même longueur.
@@ -95,43 +96,22 @@ pub fn tous() -> Vec<(&'static str, Image)> {
 }
 
 /// Table de substitution de couleurs d'un thème : les tuiles s'éclaircissent
-/// d'un niveau à l'autre (l'ardoise gagne `decalage` crans, jusqu'au blanc cassé).
+/// d'un niveau à l'autre (l'ardoise gagne `eclaircissement` crans, jusqu'au blanc
+/// cassé). Les réglages viennent de la table d'ambiance (`decor::ambiance`).
 fn remplacer(c: char, theme: Theme) -> char {
-    let decalage = match theme {
-        Theme::Toits | Theme::Orage => 0,
-        Theme::Gouttieres => 1,
-        Theme::Altitude => 2,
-        Theme::Soleil => 3,
-    };
+    let teinte = ambiance(theme).tuiles;
     match c {
         // Rampe d'ardoise 1..=4 : on avance sur la rampe sans dépasser 7.
-        '1'..='4' => {
-            char::from_digit((c.to_digit(10).unwrap_or(1) + decalage).min(7), 10).unwrap_or(c)
-        }
+        '1'..='4' => char::from_digit(
+            (c.to_digit(10).unwrap_or(1) + teinte.eclaircissement).min(7),
+            10,
+        )
+        .unwrap_or(c),
         // Les briques violettes virent à l'orange sous le soleil.
-        'F' if theme == Theme::Soleil => 'A',
+        'F' if teinte.briques_orangees => 'A',
         _ => c,
     }
 }
-
-/// Indice d'un thème (0 à 4), pour ranger ses tuiles dans un tableau.
-pub fn indice_theme(theme: Theme) -> usize {
-    match theme {
-        Theme::Toits => 0,
-        Theme::Gouttieres => 1,
-        Theme::Orage => 2,
-        Theme::Altitude => 3,
-        Theme::Soleil => 4,
-    }
-}
-
-const THEMES: [Theme; 5] = [
-    Theme::Toits,
-    Theme::Gouttieres,
-    Theme::Orage,
-    Theme::Altitude,
-    Theme::Soleil,
-];
 
 /// Convertit une grille en texture « nearest ». `theme` : substitution de couleurs.
 fn texture(image: Image, theme: Option<Theme>) -> Texture2D {
@@ -170,7 +150,7 @@ impl Banque {
         .into_iter()
         .map(|(nom, dessin)| (nom, texture(dessin, None)))
         .collect();
-        let tuiles = THEMES
+        let tuiles = Theme::TOUS
             .iter()
             .map(|&t| {
                 tuiles::SPRITES
@@ -192,7 +172,7 @@ impl Banque {
 
     /// Dessine la tuile `nom` du thème donné.
     pub fn dessiner_tuile(&self, theme: Theme, nom: &str, x: f32, y: f32) {
-        if let Some(t) = self.tuiles[indice_theme(theme)].get(nom) {
+        if let Some(t) = self.tuiles[theme.indice()].get(nom) {
             Self::poser(t, x, y, false);
         }
     }
@@ -301,7 +281,7 @@ mod tests {
 
     #[test]
     fn la_substitution_de_theme_reste_dans_la_palette() {
-        for theme in THEMES {
+        for theme in Theme::TOUS {
             for c in "0123456789ABCDEF.".chars() {
                 assert!(pixel(remplacer(c, theme)).is_ok());
             }
@@ -523,10 +503,10 @@ mod tests {
         use crate::decor::{ambiance, ciel_a};
         use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
         use pepin_core::entities::{Entite, TypeEnnemi};
-        use pepin_core::zones::NIVEAUX;
+        use pepin_core::levels::{nuages, vents};
         use pepin_core::HAUTEUR_LOGIQUE;
         let mut vus = 0;
-        for infos in &NIVEAUX[3..5] {
+        for infos in [vents::INFOS, nuages::INFOS] {
             let niveau = infos.charger().unwrap();
             // Niveau pas plus haut que l'écran : la caméra aligne son bas sur celui de
             // l'écran (`Camera::borner`) et ne bouge pas en hauteur.
