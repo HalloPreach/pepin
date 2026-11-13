@@ -346,13 +346,13 @@ impl Itineraires {
     /// arriver) ; on garde le premier qui rapproche sans risque du drapeau. Sinon :
     /// court détour calculé vers une case plus proche du drapeau, sinon attendre.
     fn intention(&self, monde: &Monde) -> (Plan, Choix) {
-        let (kx, ky, lance, escargot, chats) = cle(monde);
-        let ici = self.distance((kx, ky, lance, escargot, chats));
+        let (kx, ky, lance, escargot, chats, aiguille) = cle(monde);
+        let ici = self.distance((kx, ky, lance, escargot, chats, aiguille));
         let mut voisines: Vec<(u32, i32, Plan)> = Vec::new();
         for dy in -VOISINAGE_Y..=VOISINAGE_Y {
             for dx in -VOISINAGE_X..=VOISINAGE_X {
                 // Une case voisine du même genre (posée, ou lancée par un auvent).
-                let voisine = (kx + dx, ky + dy, lance, escargot, chats);
+                let voisine = (kx + dx, ky + dy, lance, escargot, chats, aiguille);
                 if let Some(&(d, plan)) = self.conseils.get(&voisine) {
                     voisines.push((d, dx.abs() + dy.abs(), plan));
                 }

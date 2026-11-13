@@ -290,9 +290,10 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
 
 /// Une case du niveau où Pépin choisit son prochain plan : case de 8 px en x, y
 /// arrondi, « lancé par un auvent » (`est_lance`) ou posé, l'escargot proche
-/// (`escargot_proche`, 0 s'il n'y en a pas) et les chats (`chats_de_la_case`, 0
-/// dans un niveau sans chat). Deux états proches fusionnent.
-pub(crate) type CaseParcours = (i32, i32, bool, i32, i32);
+/// (`escargot_proche`, 0 s'il n'y en a pas), les chats (`chats_de_la_case`, 0
+/// dans un niveau sans chat) et l'heure de l'aiguille d'horloge proche
+/// (`aiguille_proche`, 0 s'il n'y en a pas). Deux états proches fusionnent.
+pub(crate) type CaseParcours = (i32, i32, bool, i32, i32, i32);
 
 /// La case (`CaseParcours`) de Pépin dans `m`.
 pub(crate) fn cle(m: &Monde) -> CaseParcours {
@@ -302,7 +303,59 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         est_lance(m),
         escargot_proche(m),
         chats_de_la_case(m),
+        aiguille_proche(m),
     )
+}
+
+/// Portée (px) à laquelle une aiguille d'horloge compte dans la case de Pépin :
+/// son rayon plus 6 tuiles, en x comme en y, entre le centre de Pépin et le pivot.
+const MARGE_AIGUILLE: f32 = 96.0;
+
+/// Nombre de tranches d'un tour d'aiguille retenues dans la case : une par heure.
+const TRANCHES_AIGUILLE: f32 = 12.0;
+
+/// L'aiguille d'horloge la plus proche de Pépin (pivot à moins de son rayon plus
+/// `MARGE_AIGUILLE`), résumée en un entier : `1 + l'heure où elle se trouve`
+/// (de 1 à 12) ; 0 si aucune n'est proche (toujours 0 dans un niveau sans
+/// aiguille : la case est alors exactement celle d'avant la carte 5.10).
+///
+/// Pourquoi : comme l'escargot et le chat, l'aiguille se rattrape au bon MOMENT.
+/// Sans son heure dans la case, attendre au pied de l'aiguille ramène à une case
+/// déjà connue et le plan « attendre » est jeté : le robot ne pourrait jamais la
+/// laisser descendre jusqu'à lui. Posé sur l'aiguille, sa position suffirait ;
+/// l'heure ne gêne pas.
+pub(crate) fn aiguille_proche(m: &Monde) -> i32 {
+    let j = &m.joueur.boite;
+    let (px, py) = (j.x + j.w / 2.0, j.y + j.h / 2.0);
+    m.entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Mobile(a) => a.cercle(),
+            _ => None,
+        })
+        .filter_map(|c| {
+            let (dx, dy) = ((c.pivot.0 - px).abs(), (c.pivot.1 - py).abs());
+            let portee = c.rayon + MARGE_AIGUILLE;
+            (dx <= portee && dy <= portee).then_some((dx * dx + dy * dy, c.tour()))
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .map_or(0, |(_, tour)| 1 + (tour * TRANCHES_AIGUILLE) as i32)
+}
+
+/// Pépin est-il debout sur une aiguille d'horloge ? Son indice parmi les aiguilles
+/// du niveau (ordre des entités), ou `None`.
+pub(crate) fn aiguille_sous_pepin(m: &Monde) -> Option<usize> {
+    if !m.joueur.au_sol {
+        return None;
+    }
+    let j = &m.joueur.boite;
+    m.entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Mobile(a) if a.cercle().is_some() => Some(a.boite),
+            _ => None,
+        })
+        .position(|b| (j.bas() - b.y).abs() < 0.01 && j.x < b.droite() && b.x < j.droite())
 }
 
 /// Portée (px) à laquelle un chat compte dans la case de Pépin : la même que
@@ -760,6 +813,11 @@ pub struct ImageEssai {
     pub chat: Option<(PhaseChat, bool)>,
     /// Pépin vient d'écraser un chat pendant cette image.
     pub ecrase_chat: bool,
+    /// Coin haut-gauche des deux premières aiguilles d'horloge du niveau, dans
+    /// l'ordre des entités (carte 5.10 ; `(-1, -1)` s'il n'y en a pas).
+    pub aiguilles: [(f32, f32); 2],
+    /// L'aiguille qui porte Pépin à la fin de cette image (`aiguille_sous_pepin`).
+    pub sur_aiguille: Option<usize>,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -871,6 +929,15 @@ fn jouer_essai(
             && images
                 .last()
                 .is_some_and(|i: &ImageEssai| i.chat.is_some_and(|c| !c.1));
+        let mut aiguilles = [(-1.0f32, -1.0f32); 2];
+        let liste = app.monde.entites.iter().filter_map(|e| match e {
+            Entite::Mobile(a) if a.cercle().is_some() => Some(a.boite),
+            _ => None,
+        });
+        for (place, b) in aiguilles.iter_mut().zip(liste) {
+            *place = (b.x, b.y);
+        }
+        let sur_aiguille = aiguille_sous_pepin(&app.monde);
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -889,6 +956,8 @@ fn jouer_essai(
             contre_escargot,
             chat,
             ecrase_chat,
+            aiguilles,
+            sur_aiguille,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -1248,6 +1317,27 @@ pub fn parcours_essai_chat() -> Vec<Entrees> {
     trouver_parcours(i, false)
         .or_else(|| trouver_parcours(i, true))
         .expect("le robot ne trouve aucun parcours au niveau d'essai chat")
+}
+
+/// Joue le niveau d'essai « horloge » (touche F8 du build de QA) — voir `jouer_essai`.
+pub fn jouer_essai_horloge(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_HORLOGE,
+        RaccourciNiveau::Essai9,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans le niveau d'essai « horloge » (maladroit, puis précis).
+/// Sur la VRAIE simulation, l'aiguille tourne : le robot apprend à l'attendre
+/// (son heure est dans la case, voir `aiguille_proche`), à sauter dessus, à se
+/// laisser porter (plans « attendre » posé sur elle), puis à sauter plus haut.
+pub fn parcours_essai_horloge() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_HORLOGE;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai horloge")
 }
 
 #[cfg(test)]
@@ -1647,6 +1737,44 @@ mod tests {
              {eveils} réveil(s) avant",
             essai.len()
         );
+    }
+
+    /// Le robot finit le niveau d'essai « horloge » (touche F8) sans mourir, avec
+    /// les trois gouttes, porté par les DEUX aiguilles : il monte sur chacune (au
+    /// moins une tuile de montée pendant qu'elle le porte) avant de sauter plus haut.
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_horloge() {
+        let partie = jouer_essai_horloge(&parcours_essai_horloge());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(partie.gouttes, 3, "les trois gouttes de l'essai horloge");
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F8, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        for k in 0..2 {
+            let portees: Vec<f32> = essai
+                .iter()
+                .filter(|i| i.sur_aiguille == Some(k))
+                .map(|i| i.trame.y)
+                .collect();
+            assert!(!portees.is_empty(), "jamais porté par l'aiguille {k}");
+            let montee = portees.iter().fold(f32::MIN, |a, &y| a.max(y))
+                - portees.iter().fold(f32::MAX, |a, &y| a.min(y));
+            println!(
+                "essai horloge : aiguille {k}, {} images portées, {montee:.1} px de montée",
+                portees.len()
+            );
+            assert!(montee >= 16.0, "aiguille {k} : {montee} px");
+        }
+        // Porté, Pépin a les pieds pile sur le dessus de son aiguille.
+        for i in essai.iter().filter(|i| i.sur_aiguille.is_some()) {
+            let k = i.sur_aiguille.unwrap();
+            assert!((i.trame.y + 14.0 - i.aiguilles[k].1).abs() < 0.01);
+        }
+        println!("essai horloge : {} images de jeu", essai.len());
     }
 
     /// Le robot finit la partie sans mourir, et joue les niveaux dans l'ordre que
@@ -2149,6 +2277,52 @@ mod tests {
         std::fs::write("../target/qa/trace-59.csv", trace).unwrap();
         println!(
             "images : {} ; F7 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
+            partie.images.len(),
+            partie.gouttes
+        );
+    }
+
+    /// Écrit le script du niveau d'essai « horloge » pour le navigateur :
+    /// `target/qa/script-510.txt` (un chiffre hexadécimal par image),
+    /// `target/qa/touches-510.txt` (F8 à l'image où le robot l'appuie) et
+    /// `target/qa/trace-510.csv` (position de Pépin, des deux aiguilles, et
+    /// l'aiguille qui le porte), pour choisir les images à photographier.
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_essai_horloge
+    #[test]
+    #[ignore]
+    fn ecrire_script_essai_horloge() {
+        let partie = jouer_essai_horloge(&parcours_essai_horloge());
+        assert!(partie.fin_atteinte && partie.morts == 0);
+        std::fs::create_dir_all("../target/qa").unwrap();
+        let script: String = partie.images.iter().map(|i| i.trame.code()).collect();
+        std::fs::write("../target/qa/script-510.txt", &script).unwrap();
+        let touche = partie.images.iter().position(|i| i.touche_essai).unwrap();
+        let pilote = touche + 1;
+        std::fs::write("../target/qa/touches-510.txt", format!("{pilote}:F8\n")).unwrap();
+        let mut trace = String::from(
+            "image,ecran,essai,x,y,cam_x,cam_y,au_sol,gouttes,a0_x,a0_y,a1_x,a1_y,porte\n",
+        );
+        for (k, i) in partie.images.iter().enumerate() {
+            let porte = i.sur_aiguille.map_or(-1, |a| a as i32);
+            trace.push_str(&format!(
+                "{k},{},{},{:.1},{:.1},{},{},{},{},{:.1},{:.1},{:.1},{:.1},{porte}\n",
+                i.trame.ecran,
+                u8::from(i.en_essai),
+                i.trame.x,
+                i.trame.y,
+                i.camera.0,
+                i.camera.1,
+                u8::from(i.au_sol),
+                i.trame.gouttes,
+                i.aiguilles[0].0,
+                i.aiguilles[0].1,
+                i.aiguilles[1].0,
+                i.aiguilles[1].1,
+            ));
+        }
+        std::fs::write("../target/qa/trace-510.csv", trace).unwrap();
+        println!(
+            "images : {} ; F8 à l'image {touche} (pilote : {pilote}) ; gouttes : {}",
             partie.images.len(),
             partie.gouttes
         );

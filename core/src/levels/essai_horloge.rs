@@ -61,11 +61,12 @@ const AIGUILLES: &[ReglageAiguille] = &[
 /// - Entre les tours B et C, un gouffre (colonnes 23 à 32) : y tomber tue, on
 ///   reprend à la lanterne de la tour B. Sous la grande aiguille, le sol : une
 ///   chute y ramène au départ de l'aiguille, sans mourir.
-/// - Gouttes : sol (colonne 5), tour B (colonne 20), tour C (colonne 37), sur le
-///   chemin du robot de QA. Lanternes : départ (2), tour B (17), tour C (34).
+/// - Gouttes : sol (colonne 5), tour B (colonne 20), tour C (colonne 33, au bord
+///   où l'on atterrit en sautant de la petite aiguille), sur le chemin du robot de
+///   QA. Lanternes : départ (2), tour B (17), tour C (34).
 const ASCII: &str = r"
 ..........................................
-..................................L..o..X.
+.................................oL.....X.
 .................................#########
 .................................#########
 .................................#########
