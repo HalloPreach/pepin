@@ -11,7 +11,8 @@ mod chat;
 mod pigeon;
 
 pub use chat::{
-    phase_chat_suivante, PhaseChat, DORT_PAS, EVEILLE_PAS, PERIODE_CHAT_PAS, REVEIL_PAS,
+    pas_du_cycle, phase_chat_suivante, PhaseChat, DORT_PAS, EVEILLE_PAS, PERIODE_CHAT_PAS,
+    REVEIL_PAS,
 };
 pub use pigeon::{
     decalage_vol, phase_suivante, PhasePigeon, ANNONCE_PIGEON_PAS, MARGE_CONE, PLONGEE_PAS,

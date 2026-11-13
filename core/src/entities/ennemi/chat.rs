@@ -61,6 +61,18 @@ pub fn phase_chat_suivante(phase: PhaseChat) -> PhaseChat {
     }
 }
 
+/// Pas écoulés depuis le début du sommeil en cours : où en est le chat dans son
+/// cycle, de 0 (il vient de s'endormir) à `PERIODE_CHAT_PAS - 1` (il va se
+/// rendormir). Fonction pure : le robot de QA s'en sert pour savoir combien de
+/// temps attendre (voir `game/src/bot_qa.rs`).
+pub fn pas_du_cycle(phase: PhaseChat) -> u16 {
+    match phase {
+        PhaseChat::Dort(n) => DORT_PAS - n,
+        PhaseChat::Reveil(n) => DORT_PAS + REVEIL_PAS - n,
+        PhaseChat::Eveille(n) => PERIODE_CHAT_PAS - n,
+    }
+}
+
 impl Ennemi {
     /// Pose un chat endormi dont le coin haut-gauche est en `(x, y)`. Son premier
     /// sommeil est raccourci de `decalage_pas` (borné : il dort au moins 1 pas) :
@@ -153,6 +165,28 @@ mod tests {
         assert_eq!(c.phase_chat(), PhaseChat::Eveille(EVEILLE_PAS));
         avancer(&mut c, u32::from(EVEILLE_PAS));
         assert_eq!(c.phase_chat(), PhaseChat::Dort(DORT_PAS));
+    }
+
+    /// `pas_du_cycle` compte les pas depuis l'endormissement : 0, 1, 2… jusqu'à
+    /// `PERIODE_CHAT_PAS - 1`, puis retour à 0 ; un chat décalé part plus loin.
+    #[test]
+    fn le_pas_du_cycle_avance_d_un_a_chaque_pas() {
+        let mut c = Ennemi::chat(0.0, 0.0, 0);
+        for attendu in (0..PERIODE_CHAT_PAS).chain(0..3) {
+            assert_eq!(
+                pas_du_cycle(c.phase_chat()),
+                attendu,
+                "{:?}",
+                c.phase_chat()
+            );
+            avancer(&mut c, 1);
+        }
+        assert_eq!(pas_du_cycle(PhaseChat::Reveil(REVEIL_PAS)), DORT_PAS);
+        assert_eq!(
+            pas_du_cycle(PhaseChat::Eveille(EVEILLE_PAS)),
+            DORT_PAS + REVEIL_PAS
+        );
+        assert_eq!(pas_du_cycle(Ennemi::chat(0.0, 0.0, 40).phase_chat()), 40);
     }
 
     #[test]
