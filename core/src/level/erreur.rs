@@ -48,6 +48,9 @@ pub enum ErreurNiveau {
     /// Un pigeon (`p`) doit être perché sur une tuile solide : c'est là qu'il
     /// revient se poser après chaque plongée.
     PigeonSansPerchoir { ligne: usize, colonne: usize },
+    /// Un ventilateur (`w`) doit être posé sur une tuile solide : sa casette
+    /// (le socle de l'hélice) repose dessus.
+    VentilateurSansAppui { ligne: usize, colonne: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -94,6 +97,10 @@ impl fmt::Display for ErreurNiveau {
             ErreurNiveau::PigeonSansPerchoir { ligne, colonne } => write!(
                 f,
                 "ligne {ligne}, colonne {colonne} : le pigeon « p » n'est pas perché sur un solide"
+            ),
+            ErreurNiveau::VentilateurSansAppui { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : le ventilateur « w » n'est pas posé sur un solide"
             ),
         }
     }

@@ -178,6 +178,9 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                 f.reapparaitre_si_libre(&joueur.boite);
             }
             Entite::Mobile(_) => {}
+            // La casette du ventilateur est un SOLIDE (on s'y pose), géré par
+            // `solides_des_entites` : aucun contact ni danger ici.
+            Entite::Ventilateur(_) => {}
         }
     }
 

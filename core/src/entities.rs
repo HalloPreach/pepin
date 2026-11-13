@@ -33,9 +33,10 @@ pub mod friable;
 pub mod grele;
 pub mod mobile;
 pub mod pointe;
+pub mod ventilateur;
 
 use crate::aabb::Aabb;
-use crate::physics::Environnement;
+use crate::physics::{CourantAscendant, Environnement};
 
 pub use auvent::Auvent;
 pub use champignon::Champignon;
@@ -46,6 +47,7 @@ pub use friable::PlateformeFriable;
 pub use grele::Grele;
 pub use mobile::PlateformeMobile;
 pub use pointe::Pointe;
+pub use ventilateur::Ventilateur;
 
 /// Contrat : « savoir avancer d'un pas de simulation fixe (1/60 s) ».
 ///
@@ -73,6 +75,7 @@ pub enum Entite {
     Mobile(PlateformeMobile),
     Champignon(Champignon),
     Auvent(Auvent),
+    Ventilateur(Ventilateur),
     Goutte(GoutteDor),
     Lanterne(Lanterne),
 }
@@ -81,7 +84,7 @@ pub enum Entite {
 impl Actualisable for Entite {
     fn actualiser(&mut self, env: &Environnement<'_>) {
         // `match self` avec `self: &mut Entite` : chaque `e` est un `&mut` vers
-        // l'entité interne (le compilateur gère l'emprunt pour nous).
+        // l'entité interne (le compilateur gère les emprunts pour nous).
         match self {
             Entite::Ennemi(e) => e.actualiser(env),
             Entite::Pointe(e) => e.actualiser(env),
@@ -91,6 +94,7 @@ impl Actualisable for Entite {
             Entite::Mobile(e) => e.actualiser(env),
             Entite::Champignon(e) => e.actualiser(env),
             Entite::Auvent(e) => e.actualiser(env),
+            Entite::Ventilateur(e) => e.actualiser(env),
             Entite::Goutte(e) => e.actualiser(env),
             Entite::Lanterne(e) => e.actualiser(env),
         }
@@ -109,6 +113,7 @@ impl Entite {
             Entite::Mobile(e) => e.boite,
             Entite::Champignon(e) => e.boite,
             Entite::Auvent(e) => e.boite,
+            Entite::Ventilateur(e) => e.boite,
             Entite::Goutte(e) => e.boite,
             Entite::Lanterne(e) => e.boite,
         }
@@ -120,6 +125,7 @@ impl Entite {
         match self {
             Entite::Friable(p) => p.solide(),
             Entite::Mobile(p) => Some(p.boite),
+            Entite::Ventilateur(v) => Some(v.boite),
             _ => None,
         }
     }
@@ -130,6 +136,20 @@ impl Entite {
 /// garde ses entités, et la fonction renvoie un nouveau `Vec` qu'il possédera.
 pub fn solides_des_entites(entites: &[Entite]) -> Vec<Aabb> {
     entites.iter().filter_map(Entite::solide).collect()
+}
+
+/// Rassemble les courants ascendants des ventilateurs qui SOUFFLENT en ce
+/// moment, à ajouter aux courants du niveau (`niveau.courants`). Le courant
+/// d'un ventilateur n'existe que pendant sa phase de souffle : on ne le met
+/// dans `niveau.courants` (statique) que s'il est actif.
+pub fn courants_des_ventilateurs(entites: &[Entite]) -> Vec<CourantAscendant> {
+    entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Ventilateur(v) => v.courant_actif(),
+            _ => None,
+        })
+        .collect()
 }
 
 #[cfg(test)]
