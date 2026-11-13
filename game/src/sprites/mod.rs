@@ -582,4 +582,95 @@ mod tests {
             "{differences} pixels changés"
         );
     }
+
+    // --- Parapluie fermé et attente de Pépin (carte 4.3) ---
+
+    /// Toutes les images où Pépin tient son parapluie fermé.
+    const PARAPLUIE_FERME: [&str; 8] = [
+        "pepin_idle0",
+        "pepin_idle1",
+        "pepin_course0",
+        "pepin_course1",
+        "pepin_course2",
+        "pepin_course3",
+        "pepin_saut",
+        "pepin_chute",
+    ];
+
+    /// Le parapluie (colonnes 12 à 15, rangées 0 à 14) est le MÊME dessin dans toutes les
+    /// images : sinon il tremblerait pendant la course pendant que le corps rebondit.
+    #[test]
+    fn le_parapluie_ferme_est_le_meme_dans_toutes_les_images() {
+        let reference = dessin("pepin_idle0");
+        for nom in PARAPLUIE_FERME {
+            let d = dessin(nom);
+            assert_eq!(taille(nom), (16, 16), "{nom}");
+            for y in 0..15 {
+                for x in 12..16 {
+                    assert_eq!(
+                        car(d, x, y),
+                        car(reference, x, y),
+                        "{nom} : parapluie différent en ({x},{y})"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Le parapluie fermé se lit : crosse orange en haut (crochet ouvert vers Pépin), toile
+    /// corail repliée (plis en corail clair, sangle blanche), plus large en haut qu'en bas,
+    /// embout de métal en bas.
+    #[test]
+    fn le_parapluie_ferme_a_une_crosse_une_toile_repliee_et_un_embout() {
+        let d = dessin("pepin_idle0");
+        // Pixels de couleur `c` du parapluie (colonnes 11 à 15) dans les rangées données.
+        let compter = |c: char, rangees: std::ops::Range<i32>| {
+            rangees
+                .flat_map(|y| (11..16).map(move |x| (x, y)))
+                .filter(|&(x, y)| car(d, x, y) == c)
+                .count()
+        };
+        // Crosse : l'orange n'est que dans les 5 rangées du haut.
+        assert!(compter('A', 0..5) >= 6, "crosse trop petite");
+        assert_eq!(compter('A', 5..16), 0, "de l'orange hors de la crosse");
+        // C'est un crochet : une rangée a deux bouts d'orange séparés (le bec et la tige).
+        let crochet = (0..5).any(|y| {
+            let oranges: Vec<i32> = (11..16).filter(|&x| car(d, x, y) == 'A').collect();
+            oranges.windows(2).any(|p| p[1] - p[0] > 1)
+        });
+        assert!(crochet, "la crosse n'est pas recourbée");
+        // Toile repliée : corail, plis en corail clair, sangle blanche.
+        assert!(compter('8', 5..13) >= 8, "toile trop petite");
+        assert!(compter('9', 5..13) >= 3, "pas de plis");
+        let sangle = (5..13).any(|y| (12..15).all(|x| car(d, x, y) == '7'));
+        assert!(sangle, "pas de sangle");
+        // Plus large en haut (rangée 5) qu'en bas (rangée 12).
+        let pleins = |y: i32| (12..16).filter(|&x| !".0".contains(car(d, x, y))).count();
+        assert!(pleins(5) > pleins(12), "la toile ne s'affine pas");
+        // Embout de métal (gris `5`) sous la toile.
+        assert_eq!(compter('5', 12..16), 1, "embout");
+    }
+
+    /// Contour sombre de 1 px autour du parapluie dans toutes les images : tout pixel coloré
+    /// des colonnes 11 à 15 a ses quatre voisins pleins.
+    #[test]
+    fn le_parapluie_ferme_a_un_contour_sombre() {
+        for nom in PARAPLUIE_FERME {
+            let d = dessin(nom);
+            for y in 0..16 {
+                for x in 11..16 {
+                    if ".0".contains(car(d, x, y)) {
+                        continue;
+                    }
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        assert_ne!(
+                            car(d, x + dx, y + dy),
+                            '.',
+                            "{nom} : ({x},{y}) touche le vide sans contour"
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
