@@ -720,7 +720,9 @@ l'autre. Niveau 2, colonne 66 (flaque de la colonne 70, toit des colonnes 62 à 
 (flaque de la colonne 108, toit des colonnes 102 à 118 : le cas de la mesure 3.1) ; niveau 3, colonne 145
 (flaque de la colonne 154, toit de 61 tuiles). Aucun corbeau, aucune pointe, aucun éclair sur une
 lanterne. Aucune lanterne déplacée : la protection suffit (au plus une mort par passage de la flaque, comme
-n'importe où ailleurs sur le toit).
+n'importe où ailleurs sur le toit). (Carte 5.12 : le grand orage est devenu le niveau 4, la liste est
+désormais (2, 66), (2, 104), (4, 145) ; le marché couvert n'ajoute aucune lanterne sur le trajet d'un
+danger, chats compris.)
 
 Vérifié sur une extraction propre du commit 8d2a66a (`git archive`) :
 - `./docker-cargo.sh test --workspace --no-default-features` : 154 + 173 tests, tous verts ;
@@ -2773,3 +2775,152 @@ Limites (non testé ou à relativiser) :
   refaire, pas de vrai téléphone, pas de Safari, pas de son à l'oreille.
 - La mesure « identique à l'octet » couvre les cinq niveaux officiels ; les
   niveaux d'essai ne font pas partie de la mesure officielle.
+
+## Le marché couvert, niveau 3 (carte 5.12)
+
+« Sous les toiles, tout rebondit. » Premier des nouveaux niveaux de l'étape 5, inséré à sa
+place (3) entre les Gouttières et l'Orage : le grand orage devient le niveau 4, Vents d'altitude
+le 5, Au-dessus des nuages le 6 (« NIVEAU 3/6 »). Grille `core/src/levels/marche.rs`
+(153 x 11 tuiles, lettres `A` et `z` des cartes 5.5 et 5.9, aucune lettre nouvelle). Nouveautés
+du niveau : l'auvent (et le chat endormi, qui garde la goutte cachée).
+
+Le parcours :
+- départ sur un toit avec un chat endormi (on l'écrase ou on le saute) ; un premier auvent au
+  BORD du toit : en marchant droit devant, Pépin tombe dessus et rebondit, la première goutte
+  est sur la trajectoire du rebond ;
+- un toit gardé par une flaque, puis une paire d'auvents au-dessus de la RUE du marché
+  (rangée 10, deux tuiles sous les toits : on y tombe sans mourir, on remonte d'un saut) ;
+- la goutte CACHÉE : un bloc de boutique, une fente d'une tuile où dort un chat, un mur dont le
+  pied est creusé d'un passage en cul-de-sac ; le chemin principal passe par-dessus (bloc puis
+  mur) ; la goutte est au fond du passage, derrière le chat : on se laisse tomber dans la fente
+  pendant qu'il dort, on l'écrase, on prend la goutte et on remonte la fente d'un saut ;
+- le MOMENT FORT : six auvents à la suite au-dessus d'un vide de 23 tuiles (colonnes 85 à 105),
+  tous espacés de 4 tuiles (sans rien toucher, chaque rebond retombe pile sur le suivant), la
+  deuxième goutte en l'air sur le rebond du troisième ;
+- un chat au pied d'un bloc (on le saute en montant sur le bloc), une flaque, une dernière
+  paire d'auvents au-dessus de la rue, le drapeau.
+4 lanternes (3, 50, 73, 110), toutes posées sur un toit et loin des chats et des flaques ;
+décor : cheminées et antennes, AUCUNE manche à air.
+
+Note du coordinateur (l'auvent seul au-dessus du vide se lisait comme une manche à air) :
+- chaque auvent est accroché à une boutique. Au bord d'un toit, le toit est sa façade ; au-dessus
+  du vide, une FAÇADE DE BOUTIQUE est dessinée dans la colonne à gauche du mât
+  (`scene::facade_d_auvent`, dessin seulement, aucune collision, physique de l'auvent
+  inchangée) : la vitrine (16 x 20, corniche au sommet du mât, deux carreaux orange, étalages en
+  silhouette) puis le mur (16 x 16, bleu nuit, fenêtres éteintes, sans briques : un fond, pas un
+  mur où se poser) jusqu'au premier solide ou au bas du niveau. Elle vaut pour TOUS les auvents,
+  donc aussi pour ceux du niveau d'essai « auvent » (F3). Tests :
+  `chaque_auvent_est_accroche_a_une_boutique` (12 façades : 7 au marché, 5 à l'essai ; les
+  autres auvents sont au bord d'un toit) et `la_facade_de_boutique_a_sa_taille_et_ses_couleurs`
+  (ni or, ni cyan, ni corail : aucune couleur qui a un sens dans le jeu) ;
+- aucune manche à air dans le niveau (test `chaque_niveau_a_son_decor` : cheminées et antennes
+  seulement) ;
+- capture côte à côte `512-auvent-ou-manche-a-air` (ci-dessous).
+
+Ambiance : un thème de plus, `Theme::Marche` (`decor::ambiance`) : nuit bleue qui s'éclaircit
+vers l'horizon (ardoise ombre, nuit, ardoise, ardoise claire), étoiles en haut, immeubles bleu
+nuit en parallaxe avec quelques fenêtres allumées orange et corail (l'or reste réservé aux
+gouttes), pluie de 36 gouttes (entre l'averse et l'orage), tuiles des gouttières. Les tests du
+décor passent sur les six thèmes (dont : aucune silhouette de la couleur du ciel derrière elle,
+fond jamais plat). Carte de titre : « LE MARCHÉ COUVERT », la phrase d'AGA, le conseil
+« Tombe sur un auvent : il te relance. Un chat ne s'écrase qu'endormi. »
+
+Robots :
+- faisabilité (`core/src/zones.rs`) : `niveau_3_faisable` (arrivée, 3 gouttes, 4 lanternes,
+  robot maladroit), `reprise_depuis_chaque_lanterne`, `niveau_3_le_marche_exige_ses_six_auvents`
+  (sans les six auvents du moment fort, le vide est infranchissable),
+  `niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee` (fente bouchée : arrivée atteinte, goutte
+  cachée non) et `niveau_3_on_ressort_de_la_cachette_du_chat` (posé sur la goutte cachée, chat
+  écrasé : le drapeau reste atteignable, aucun piège sans retour) ; lint de grille vert (aucune
+  lanterne qui flotte, aucune poche de vide close) ;
+- robot de QA : `le_robot_finit_tous_les_niveaux_sans_mourir` vert sur les six niveaux. Nouvelle
+  empreinte de la partie complète (un niveau de plus, donc attendue) : `5594ca471d004d32`,
+  13 878 images, 0 mort, 7 gouttes, score 1000, chrono 12 246 pas. Le marché : images 5076 à
+  6618 du script. Le robot ne va pas chercher la goutte cachée (il ne vise pas toutes les gouttes) :
+  la preuve qu'on l'atteint et qu'on en ressort est celle du robot de faisabilité.
+Aucune mécanique ne s'est mal comportée : rien n'a été corrigé dans l'auvent, le chat ni la flaque.
+
+Renumérotation (le niveau inséré décale les suivants) : tests qui nommaient un niveau par sa
+place — lanterne de l'orage sur la patrouille d'une flaque désormais (4, 145), pigeons rangés par
+NOM de niveau (Vents d'altitude, Au-dessus des nuages), `niveau_5_exige_les_courants_ascendants`,
+étiquette « NIVEAU 2/6 », coupures de la carte de l'orage et du conseil final, juge de la courbe
+de difficulté (constantes `SOMMET`, `APRES_SOMMET`, `FINAL` — l'orage, les vents, les nuages —
+vérifiées par leur nom) ; README : six niveaux.
+
+Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais) :
+
+| Niveau                      | Avant (5.11) D / H / E | Après (5.12) D / H / E |
+| --------------------------- | ---------------------- | ---------------------- |
+| 1. Les toits                | 0,4 / 0,1 / 0,0        | 0,4 / 0,1 / 0,0        |
+| 2. Gouttières et cheminées  | 1,5 / 0,5 / 0,2        | 1,5 / 0,5 / 0,2        |
+| 3. Le marché couvert        | —                      | 0,8 / 0,5 / 0,2        |
+| 4. Le grand orage (ex-3)    | 3,0 / 0,6 / 0,4        | 3,0 / 0,6 / 0,4        |
+| 5. Vents d'altitude (ex-4)  | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
+| 6. Au-dessus des nuages     | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
+| Total                       | 6,8 / 1,8 / 0,7        | 7,6 / 2,3 / 0,9        |
+
+Le marché se place entre les Gouttières et l'Orage (Débutant 0,8 < 3,0 ; Habitué 0,5, bande
+admise [0,3 ; 1,2[), l'orage reste le sommet. Ses lieux de mort : les chutes du moment fort
+(colonnes 87 à 104) et les chats (colonnes 11 et 113 : réveillés, ils tuent). Les cinq autres niveaux sont
+identiques LIGNE À LIGNE à la mesure d'avant (renumérotés ; seule la ligne Total change).
+Deux retouches pour y arriver :
+- première version (auvents espacés de 4, 4, 5, 3 et 4 tuiles comme l'essai, vide sous toutes les
+  paires) : Habitué 1,0, au-dessus de l'orage (0,7) — chutes au 5 et au 3 du moment fort et sous
+  les paires d'auvents. D'où la chaîne régulière (tout de 4) et la rue sous les paires ;
+- la graine d'un essai dépendait de la PLACE du niveau dans la table : insérer le marché changeait
+  les tirages (donc les chiffres, au bruit près) des trois niveaux suivants sans qu'aucun ne change
+  (orage mesuré 0,7 au lieu de 0,6). `difficulte::RANGS_DE_GRAINE` donne désormais à chaque niveau
+  un rang d'ARRIVÉE (les cinq anciens gardent leur ancienne place, le marché est le 6e ; test
+  `chaque_niveau_a_un_rang_de_graine`) : un niveau inséré plus tard ne déplacera plus la mesure des
+  autres. `LIMITE_CASES` (garde-fou des itinéraires de la mesure) passe de 6 000 à 20 000 : le
+  marché (quatre chats, dont l'état compte dans la case) en explore plus que les autres.
+
+Captures (`docs/qa/512-*`, 960 x 540, build de QA d'une extraction propre de 22c6955 servi en
+local sur 127.0.0.1, navigateur Chromium sans tête (CDP) du poste, onglet au premier plan
+(`Page.bringToFront`) et canvas focalisé, protocole `docs/pilote-qa.js` (horloge virtuelle) avec
+le script du robot `target/qa/script.txt` régénéré sur la même extraction, serveur arrêté à la
+fin ; numéros d'image de `trace.csv`) :
+- `512-carte` (5000) : « NIVEAU 3/6 », « LE MARCHÉ COUVERT », la phrase d'AGA, le conseil ;
+- `512-depart` (5110) : Pépin au départ, lanterne, cheminée, chat endormi (« z »), ciel étoilé ;
+- `512-premier-auvent` (5352) : le rebond sur le premier auvent (toile enfoncée) au bord du toit,
+  la goutte sur la trajectoire, la flaque du toit suivant, le chat du départ qui se réveille (« ! ») ;
+- `512-fente` (5792) : le bloc, la fente où dort le chat, le passage et la goutte cachée au fond,
+  Pépin passe au-dessus ;
+- `512-moment-fort-a` (6068), `-b` (6112), `-c` (6150) : la chaîne des six auvents, chacun devant
+  sa façade de boutique (le premier au bord du toit, sous l'antenne), Pépin en l'air de rebond en
+  rebond, la goutte en l'air puis prise (3/18 puis 4/18), le toit suivant et sa lanterne en vue ;
+- `512-arrivee` (6588), `512-arrivee-drapeau` (6600) : la dernière paire d'auvents au-dessus de
+  la rue (façade posée sur la rue), Pépin plane jusqu'au drapeau, la transition commence ;
+- `512-vents-manche-a-air` (9480) : la manche à air de Vents d'altitude (niveau 5) ;
+- `512-auvent-ou-manche-a-air` : côte à côte, SANS AUCUN pixel recalculé, la moitié gauche de
+  `512-moment-fort-a` (colonnes 201 à 680) et la moitié droite de `512-vents-manche-a-air`
+  (colonnes 330 à 806), séparées d'une colonne de 3 px d'ardoise ombre, découpes alignées sur la
+  grille de 3 px. On ne les confond pas : l'auvent est une toile rayée corail et blanc, EN PENTE
+  vers le bas, sur un mât court fixé au bord d'un toit ou à une vitrine allumée ; la manche à air
+  est un tube orange et blanc, à l'HORIZONTALE, au bout d'un grand mât planté seul sur un toit,
+  sans boutique.
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc
+flou, sur les 11.
+
+Vérification sur une extraction propre de 9626e51 (dernier commit de code ; `git archive`,
+nouveau dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` :
+330 + 285 tests, tous verts (1 + 16 ignorés : écritures de fichiers, scripts, diagnostics) ;
+`./docker-cargo.sh lint` : `LINT-OK` ; script du robot régénéré (empreinte `5594ca471d004d32`,
+0 mort) ; mesure de difficulté et planche de sprites régénérées : identiques à l'octet aux
+versions sous dépôt ; `./build.sh` : `dist/` produit (477 110 octets de wasm, + 3 720 octets,
++0,8 %, pour le niveau, son thème et la façade), 0 occurrence des noms interdits, seule URL
+`http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit ; les deux wasm sont
+identiques à l'octet à ceux de l'extraction de 22c6955 qui a servi aux captures (9626e51 n'ajoute
+qu'un test).
+
+Limites (non testé ou à relativiser) :
+- Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Pas de
+  son entendu à l'oreille (rebonds, chats : vérifiés par les tests d'audio existants).
+- La goutte cachée n'est prise par aucun robot qui joue vraiment (le robot de QA l'ignore) : seul
+  le robot de faisabilité prouve qu'on l'atteint, qu'il faut écraser le chat endormi et qu'on en
+  ressort ; le minutage réel de la descente dans la fente (chat endormi 4 s sur 6) n'est pas
+  mesuré par un humain.
+- La mesure n'a qu'une graine (bruit de l'ordre de 0,1 à 0,2) ; le marché à 0,5 (Habitué) est
+  proche des Gouttières : la courbe complète sur 11 niveaux reste à juger (carte 5.18).
+- La façade se dessine pour TOUS les auvents posés au-dessus du vide : le niveau d'essai
+  « auvent » (F3) en a gagné cinq (vérifié par test, pas recapturé).
