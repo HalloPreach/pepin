@@ -220,6 +220,15 @@ fn pour_chaque_obstacle(
     }
 }
 
+/// `boite` chevauche-t-elle un obstacle (tuile solide de `grille`, ou une des
+/// boîtes `solides`) ? Sert aux entités qui vérifient qu'elles ont la place de
+/// bouger AVANT de bouger (la montgolfière qui monte, par exemple).
+pub fn touche_un_obstacle(boite: &Aabb, grille: &dyn Grille, solides: &[Aabb]) -> bool {
+    let mut touche = false;
+    pour_chaque_obstacle(boite, grille, solides, |o| touche |= boite.chevauche(o));
+    touche
+}
+
 /// Déplace `boite` de `(dx, dy)` en résolvant les collisions AXE PAR AXE :
 /// d'abord X (on se repousse hors des murs), puis Y (sol / plafond).
 /// C'est ce qui permet de glisser le long d'un mur sans rester collé.

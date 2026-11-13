@@ -479,3 +479,87 @@ fn pigeon_sans_perchoir_refuse() {
     .to_string();
     assert!(msg.contains("pigeon") && msg.contains("solide"), "{msg}");
 }
+
+/// « b » : la nacelle occupe la moitié HAUTE de sa case (16 x 8, dessus au ras
+/// d'un toit de la même rangée) ; elle monte au plus jusqu'au 1er solide
+/// au-dessus du ballon, ou de 8 tuiles. Elle est solide (on s'y pose).
+#[test]
+fn montgolfiere_dans_sa_case_et_son_sommet() {
+    use crate::entities::montgolfiere::{HAUT_BALLON, MONTEE_MAX};
+    let texte = "
+..........
+..........
+..........
+..........
+..........
+..........
+..........
+..........
+..........
+..........
+.....#....
+..........
+..........
+.o.o.o....
+.@b..b..X.
+##########
+";
+    let n = Niveau::depuis_ascii(texte).expect("niveau valide");
+    let nacelles: Vec<_> = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Montgolfiere(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(nacelles.len(), 2);
+    // Colonne 2 : rien au-dessus, montée de 8 tuiles (la carte est assez haute).
+    let m = nacelles[0];
+    assert_eq!(m.boite, crate::aabb::Aabb::new(32.0, 224.0, 16.0, 8.0));
+    assert_eq!(m.altitudes(), (224.0, 224.0 - MONTEE_MAX));
+    // Colonne 5 : un toit en ligne 10 (bas à y = 176) : le haut du ballon s'y arrête.
+    assert_eq!(nacelles[1].altitudes(), (224.0, 176.0 + HAUT_BALLON));
+    // La nacelle est un solide (pour le joueur et les robots).
+    assert_eq!(Entite::Montgolfiere(m.clone()).solide(), Some(m.boite));
+}
+
+/// Le ballon occupe les deux cases au-dessus de la nacelle : un solide ou le bord
+/// haut de la carte à cet endroit est refusé, avec la ligne et la colonne.
+#[test]
+fn montgolfiere_sans_place_pour_le_ballon_refusee() {
+    let sous_un_toit = "
+..........
+..#.......
+..........
+..b.......
+.o.o.o....
+.@......X.
+##########
+";
+    assert_eq!(
+        Niveau::depuis_ascii(sous_un_toit).unwrap_err(),
+        ErreurNiveau::MontgolfiereSansPlace {
+            ligne: 4,
+            colonne: 3
+        }
+    );
+    let trop_haut = "
+..........
+..b.......
+..........
+.o.o.o....
+.@......X.
+##########
+";
+    assert!(matches!(
+        Niveau::depuis_ascii(trop_haut),
+        Err(ErreurNiveau::MontgolfiereSansPlace { ligne: 2, .. })
+    ));
+    let msg = ErreurNiveau::MontgolfiereSansPlace {
+        ligne: 4,
+        colonne: 3,
+    }
+    .to_string();
+    assert!(msg.contains("montgolfière") && msg.contains("ballon"), "{msg}");
+}

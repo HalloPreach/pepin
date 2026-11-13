@@ -11,9 +11,10 @@ use super::{
     ErreurNiveau, GenreDecor, GenrePanneau, Niveau, ObjetDecor, Panneau, Tuile, GOUTTES_PAR_NIVEAU,
 };
 use crate::aabb::{Aabb, TAILLE_TUILE};
+use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::{
-    Auvent, Champignon, Eclair, Ennemi, Entite, GoutteDor, Grele, Lanterne, PlateformeFriable,
-    PlateformeMobile, Pointe, TypeEnnemi, Ventilateur,
+    Auvent, Champignon, Eclair, Ennemi, Entite, GoutteDor, Grele, Lanterne, Montgolfiere,
+    PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi, Ventilateur,
 };
 use crate::physics::{CourantAscendant, VentLateral, JOUEUR_H};
 
@@ -74,6 +75,8 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
     let mut pigeons: Vec<Case> = Vec::new();
     // Ventilateurs : il faut la grille entière (appui en dessous, plafond au-dessus).
     let mut ventilateurs: Vec<Case> = Vec::new();
+    // Montgolfières : il faut la grille entière (place du ballon, plafond au-dessus).
+    let mut montgolfieres: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
 
     for (ty, ligne) in lignes.iter().enumerate() {
@@ -120,6 +123,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 '<' => vents.push((case, -1)),
                 '>' => vents.push((case, 1)),
                 'w' => ventilateurs.push(case),
+                'b' => montgolfieres.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -256,6 +260,26 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
         entites.push(Entite::Ventilateur(Ventilateur::nouveau(
             boite, zone, decalage,
         )));
+    }
+
+    // Montgolfières : la nacelle occupe la moitié HAUTE de la case `b` (son dessus
+    // est au ras d'un toit de la même rangée : on y monte en marchant). Le ballon
+    // occupe les deux cases au-dessus : elles doivent être libres. La nacelle
+    // monte au plus jusqu'au 1er solide au-dessus de la colonne (le haut du
+    // ballon s'y arrête ; le haut de la carte s'il n'y en a pas), et jamais plus
+    // de `MONTEE_MAX` (8 tuiles).
+    let rangees_ballon = (HAUT_BALLON / TAILLE_TUILE) as usize;
+    for &(tx, ty) in &montgolfieres {
+        if ty < rangees_ballon || (ty - rangees_ballon..ty).any(|r| solide(tx, r)) {
+            return Err(ErreurNiveau::MontgolfiereSansPlace {
+                ligne: ty + 1,
+                colonne: tx + 1,
+            });
+        }
+        let plafond = (0..ty).rev().find(|&r| solide(tx, r)).map_or(0, |r| r + 1);
+        let (x, y) = px((tx, ty));
+        let y_haut = Montgolfiere::sommet(y, plafond as f32 * TAILLE_TUILE);
+        entites.push(Entite::Montgolfiere(Montgolfiere::nouvelle(x, y, y_haut)));
     }
 
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même

@@ -10,7 +10,7 @@
 //! `&mut Entite` pour modifier la variante concernée ; `enum` à données.
 
 use super::{solides_des_entites, Entite};
-use crate::aabb::Aabb;
+use crate::aabb::{touche_un_obstacle, Aabb};
 use crate::physics::Environnement;
 use crate::player::Joueur;
 
@@ -60,7 +60,8 @@ pub fn verifier_vide(joueur: &Joueur, bas_monde: f32) -> Option<Contact> {
     }
 }
 
-/// Fait suivre au joueur les plateformes mobiles sur lesquelles il se tient.
+/// Fait suivre au joueur les plateformes mobiles et les nacelles de montgolfière
+/// sur lesquelles il se tient.
 ///
 /// À appeler APRÈS le déplacement des plateformes, AVANT `Joueur::actualiser`.
 /// `env.solides` doit contenir les plateformes à leur NOUVELLE position
@@ -78,6 +79,31 @@ pub fn porter_par_plateformes(joueur: &mut Joueur, entites: &[Entite], env: &Env
             if pose_dessus {
                 joueur.porter(p.deplacement.x, p.deplacement.y, env);
                 return; // une seule plateforme porte le joueur
+            }
+        }
+        if let Entite::Montgolfiere(m) = entite {
+            if m.deplacement.y == 0.0 {
+                continue; // immobile : rien à porter
+            }
+            let avant = m.boite.decale(0.0, -m.deplacement.y);
+            if pose_sur(joueur, &avant) {
+                // La nacelle ne bouge qu'en hauteur. Au lieu d'AJOUTER son
+                // déplacement (un arrondi de flottant peut alors laisser les pieds
+                // un cheveu DANS la nacelle, et la collision repousserait Pépin
+                // dessous), on pose ses pieds PILE sur le dessus de la nacelle :
+                // `y - h + h` redonne exactement `y`. La nacelle a déjà vérifié
+                // (`Montgolfiere::actualiser`) que cette place est libre ; on
+                // revérifie quand même contre les solides de ce pas.
+                let cible = Aabb::new(
+                    joueur.boite.x,
+                    m.boite.y - joueur.boite.h,
+                    joueur.boite.w,
+                    joueur.boite.h,
+                );
+                if !touche_un_obstacle(&cible, env.grille, env.solides) {
+                    joueur.boite = cible;
+                }
+                return;
             }
         }
     }
@@ -178,6 +204,10 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                 f.reapparaitre_si_libre(&joueur.boite);
             }
             Entite::Mobile(_) => {}
+            // La nacelle est un SOLIDE (géré par `solides_des_entites`) ; elle
+            // regarde si Pépin est à bord APRÈS cette boucle (un rebond plus loin
+            // dans la liste peut encore le faire décoller).
+            Entite::Montgolfiere(_) => {}
             // La casette du ventilateur est un SOLIDE (on s'y pose), géré par
             // `solides_des_entites` : aucun contact ni danger ici.
             Entite::Ventilateur(_) => {}
@@ -192,6 +222,14 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                     l.eteindre();
                 }
             }
+        }
+    }
+
+    // Montgolfières : Pépin est-il posé sur la nacelle à la fin de ce pas ? (La
+    // réponse décide si elle monte ou redescend au pas suivant.)
+    for entite in entites.iter_mut() {
+        if let Entite::Montgolfiere(m) = entite {
+            m.embarquer(joueur);
         }
     }
 

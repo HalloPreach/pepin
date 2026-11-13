@@ -51,6 +51,9 @@ pub enum ErreurNiveau {
     /// Un ventilateur (`w`) doit être posé sur une tuile solide : sa casette
     /// (le socle de l'hélice) repose dessus.
     VentilateurSansAppui { ligne: usize, colonne: usize },
+    /// Une montgolfière (`b`) a besoin de deux cases libres au-dessus de sa
+    /// nacelle (le ballon) : ni solide, ni bord haut de la carte.
+    MontgolfiereSansPlace { ligne: usize, colonne: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -101,6 +104,11 @@ impl fmt::Display for ErreurNiveau {
             ErreurNiveau::VentilateurSansAppui { ligne, colonne } => write!(
                 f,
                 "ligne {ligne}, colonne {colonne} : le ventilateur « w » n'est pas posé sur un solide"
+            ),
+            ErreurNiveau::MontgolfiereSansPlace { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : la montgolfière « b » n'a pas deux cases \
+                 libres au-dessus d'elle pour son ballon"
             ),
         }
     }

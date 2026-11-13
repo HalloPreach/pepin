@@ -4,15 +4,18 @@
 //! - `ennemi` : les flaques patrouilleuses (écrasables) et les corbeaux volants ;
 //! - `pointe`, `eclair`, `grele` : les dangers fixes, temporisés et continus ;
 //! - `friable`, `mobile` : les plateformes qui s'effritent ou qui voyagent ;
+//! - `montgolfiere` : la nacelle qui monte avec Pépin et redescend sans lui ;
 //! - `champignon` : le trampoline ; `auvent` : la toile qui relance en diagonale ;
 //! - `collectibles` : les gouttes d'or et les lanternes (checkpoints) ;
 //! - `contacts` : ce qui se passe quand le joueur touche une entité.
 //!
 //! Ordre conseillé pour UN pas de simulation (60 Hz), à respecter par le jeu :
 //! 1. `Entite::actualiser` sur chaque entité (les plateformes bougent, les éclairs avancent) ;
-//! 2. `contacts::porter_par_plateformes` (le joueur suit sa plateforme mobile) ;
+//! 2. `contacts::porter_par_plateformes` (le joueur suit sa plateforme mobile ou
+//!    la nacelle de sa montgolfière) ;
 //! 3. `Joueur::actualiser` (le joueur bouge) ;
-//! 4. `contacts::resoudre_contacts` (ramassage, écrasement, dégâts...) ;
+//! 4. `contacts::resoudre_contacts` (ramassage, écrasement, dégâts... et chaque
+//!    montgolfière note si Pépin est à bord) ;
 //! 5. `EtatJeu::traiter` (score, checkpoint, mort et réapparition).
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
@@ -32,6 +35,7 @@ pub mod ennemi;
 pub mod friable;
 pub mod grele;
 pub mod mobile;
+pub mod montgolfiere;
 pub mod pointe;
 pub mod ventilateur;
 
@@ -46,6 +50,7 @@ pub use ennemi::{Ennemi, TypeEnnemi};
 pub use friable::PlateformeFriable;
 pub use grele::Grele;
 pub use mobile::PlateformeMobile;
+pub use montgolfiere::Montgolfiere;
 pub use pointe::Pointe;
 pub use ventilateur::Ventilateur;
 
@@ -73,6 +78,7 @@ pub enum Entite {
     Grele(Grele),
     Friable(PlateformeFriable),
     Mobile(PlateformeMobile),
+    Montgolfiere(Montgolfiere),
     Champignon(Champignon),
     Auvent(Auvent),
     Ventilateur(Ventilateur),
@@ -92,6 +98,7 @@ impl Actualisable for Entite {
             Entite::Grele(e) => e.actualiser(env),
             Entite::Friable(e) => e.actualiser(env),
             Entite::Mobile(e) => e.actualiser(env),
+            Entite::Montgolfiere(e) => e.actualiser(env),
             Entite::Champignon(e) => e.actualiser(env),
             Entite::Auvent(e) => e.actualiser(env),
             Entite::Ventilateur(e) => e.actualiser(env),
@@ -111,6 +118,7 @@ impl Entite {
             Entite::Grele(e) => e.zone,
             Entite::Friable(e) => e.boite,
             Entite::Mobile(e) => e.boite,
+            Entite::Montgolfiere(e) => e.boite,
             Entite::Champignon(e) => e.boite,
             Entite::Auvent(e) => e.boite,
             Entite::Ventilateur(e) => e.boite,
@@ -125,6 +133,8 @@ impl Entite {
         match self {
             Entite::Friable(p) => p.solide(),
             Entite::Mobile(p) => Some(p.boite),
+            // La nacelle seulement : le ballon au-dessus n'est qu'un dessin.
+            Entite::Montgolfiere(m) => Some(m.boite),
             Entite::Ventilateur(v) => Some(v.boite),
             _ => None,
         }

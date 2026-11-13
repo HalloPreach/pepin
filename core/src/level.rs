@@ -29,6 +29,10 @@
 //!      la carte) souffle 2 s puis s'arrête 2 s ; la reprise est annoncée
 //!      comme l'éclair (clignotement qui accélère) ; le socle est solide, on
 //!      se tient dessus
+//!   b  montgolfière : nacelle (moitié haute de la case, solide : on se tient
+//!      dessus), ballon dans les deux cases au-dessus (libres, traversable) ;
+//!      Pépin à bord, elle monte jusqu'au 1er solide au-dessus du ballon (ou
+//!      8 tuiles au plus) ; sans lui, elle redescend doucement à sa case
 //!   <  >  vent latéral (zone rectangulaire) : pousse vers la gauche / vers la
 //!           droite ; le plané (parapluie ouvert) est poussé deux fois plus fort
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
