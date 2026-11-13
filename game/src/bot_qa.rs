@@ -263,9 +263,9 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
 }
 
 /// Une case du niveau où Pépin choisit son prochain plan : case de 8 px en x, y
-/// arrondi, et « lancé par un auvent » (`est_lance`) ou posé. Deux états proches
-/// fusionnent.
-pub(crate) type CaseParcours = (i32, i32, bool);
+/// arrondi, « lancé par un auvent » (`est_lance`) ou posé, et l'escargot proche
+/// (`escargot_proche`, 0 s'il n'y en a pas). Deux états proches fusionnent.
+pub(crate) type CaseParcours = (i32, i32, bool, i32);
 
 /// La case (`CaseParcours`) de Pépin dans `m`.
 pub(crate) fn cle(m: &Monde) -> CaseParcours {
@@ -273,7 +273,42 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         (m.joueur.boite.x / 8.0).floor() as i32,
         m.joueur.boite.y.round() as i32,
         est_lance(m),
+        escargot_proche(m),
     )
+}
+
+/// Portée (px) à laquelle un escargot compte dans la case de Pépin : 6 tuiles en x
+/// (entre les centres), 4 tuiles en y (entre les pieds).
+const PORTEE_ESCARGOT: (f32, f32) = (96.0, 64.0);
+
+/// L'escargot le plus proche de Pépin (dans `PORTEE_ESCARGOT`), résumé en un
+/// entier : `1 + 2 × (case de 16 px de son x) + (1 s'il va à droite)` ; 0 si aucun
+/// escargot n'est proche (toujours 0 dans un niveau sans escargot : la case est
+/// alors exactement celle d'avant la carte 5.8).
+///
+/// Pourquoi : l'escargot est un tremplin MOBILE, il faut l'ATTENDRE au bon endroit.
+/// Sans lui dans la case, attendre sur place ramène à une case déjà connue et le
+/// plan « attendre » est jeté : le robot ne pourrait jamais laisser l'escargot
+/// venir sous lui. Avec lui, chaque attente où l'escargot a avancé d'une case est
+/// un nouvel état. Loin des escargots, rien ne change (pas d'explosion du nombre
+/// d'états).
+pub(crate) fn escargot_proche(m: &Monde) -> i32 {
+    let j = &m.joueur.boite;
+    let centre = j.x + j.w / 2.0;
+    m.entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Escargot(s) => {
+                let dx = (s.boite.x + s.boite.w / 2.0 - centre).abs();
+                let dy = (s.boite.bas() - j.bas()).abs();
+                (dx <= PORTEE_ESCARGOT.0 && dy <= PORTEE_ESCARGOT.1).then_some((dx, s))
+            }
+            _ => None,
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .map_or(0, |(_, s)| {
+            1 + 2 * (s.boite.x / 16.0).floor() as i32 + i32::from(s.vers_la_droite)
+        })
 }
 
 /// Un morceau de parcours : le plan joué, les entrées exactes qu'il a produites
@@ -639,6 +674,13 @@ pub struct ImageEssai {
     /// Phase du premier ventilateur du niveau et pas de souffle qui lui restent
     /// (carte 5.6b ; `None` s'il n'y en a pas) : sert à choisir les images à capturer.
     pub ventilateur: Option<(PhaseVentilateur, u16)>,
+    /// Coin haut-gauche des deux premiers escargots du niveau, de gauche à droite
+    /// au départ (carte 5.8 ; `(-1, -1)` s'il n'y en a pas), et coquille aplatie.
+    pub escargots: [(f32, f32, bool); 2],
+    /// Pépin vient de rebondir sur un escargot pendant cette image (carte 5.8).
+    pub rebond_escargot: bool,
+    /// Pépin touche un escargot sans rebondir (de côté : rien ne se passe).
+    pub contre_escargot: bool,
 }
 
 /// Résultat de la partie d'essai jouée à travers l'`Application`.
@@ -721,6 +763,23 @@ fn jouer_essai(
             Entite::Ventilateur(v) => Some((v.phase(), v.souffle_restant())),
             _ => None,
         });
+        // Escargots dans l'ordre du niveau (de gauche à droite au départ : l'ordre
+        // de lecture d'une même rangée).
+        let mut escargots = [(-1.0f32, -1.0f32, false); 2];
+        let liste = app.monde.entites.iter().filter_map(|e| match e {
+            Entite::Escargot(s) => Some(s),
+            _ => None,
+        });
+        for (place, s) in escargots.iter_mut().zip(liste) {
+            *place = (s.boite.x, s.boite.y, s.est_comprime());
+        }
+        let touche_escargot = app
+            .monde
+            .entites
+            .iter()
+            .any(|e| matches!(e, Entite::Escargot(s) if s.boite.chevauche(&j.boite)));
+        let rebond_escargot = touche_escargot && app.monde.contacts.contains(&Contact::Rebond);
+        let contre_escargot = touche_escargot && !rebond_escargot && j.au_sol;
         images.push(ImageEssai {
             trame,
             touche_essai,
@@ -734,6 +793,9 @@ fn jouer_essai(
             nacelles,
             montee,
             ventilateur,
+            escargots,
+            rebond_escargot,
+            contre_escargot,
         });
         if app.ecran == Ecran::Fin {
             fin_atteinte = true;
@@ -1049,6 +1111,30 @@ pub fn parcours_essai_montgolfiere_jusqu_en_haut() -> Vec<Entrees> {
     entrees
 }
 
+/// Joue le niveau d'essai « escargot » (touche F6 du build de QA) — voir
+/// `jouer_essai`.
+pub fn jouer_essai_escargot(parcours: &[Entrees]) -> PartieEssai {
+    use crate::entrees::RaccourciNiveau;
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_ESCARGOT,
+        RaccourciNiveau::Essai7,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans le niveau d'essai « escargot » (maladroit, puis précis).
+/// Rien de spécial pour lui : sur la VRAIE simulation, un plan qui retombe sur la
+/// coquille de l'escargot le fait rebondir. Il apprend où et quand sauter (plans
+/// « attendre », élans) pour que l'escargot soit sous lui au bon moment, au pied
+/// de chaque falaise ; un plan où l'escargot est déjà passé retombe au sol et ne
+/// mène nulle part.
+pub fn parcours_essai_escargot() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_ESCARGOT;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai escargot")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1341,6 +1427,46 @@ mod tests {
              nacelles à la fin en y = {:?}",
             essai.len(),
             dernier.nacelles
+        );
+    }
+
+    /// Le robot finit le niveau d'essai « escargot » (touche F6 du build de QA) sans
+    /// mourir : trois gouttes, l'arrivée en haut de la falaise 2 (y < 48). Il a
+    /// rebondi au moins deux fois sur un escargot (une par falaise) ; chaque rebond
+    /// relance Pépin vers le haut et aplatit la coquille de l'escargot touché.
+    #[test]
+    fn le_robot_finit_le_niveau_d_essai_escargot() {
+        let partie = jouer_essai_escargot(&parcours_essai_escargot());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        assert_eq!(partie.gouttes, 3, "les trois gouttes de l'essai escargot");
+        assert_eq!(
+            partie.images.iter().filter(|i| i.touche_essai).count(),
+            1,
+            "la touche F6, une seule fois"
+        );
+        let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+        let dernier = essai.last().unwrap();
+        assert!(
+            dernier.trame.y < 48.0,
+            "arrivée en haut de la falaise 2 (y = {:.1})",
+            dernier.trame.y
+        );
+        let rebonds: Vec<usize> = (0..essai.len())
+            .filter(|&k| essai[k].rebond_escargot)
+            .collect();
+        assert!(rebonds.len() >= 2, "{} rebond(s)", rebonds.len());
+        for &k in &rebonds {
+            assert!(
+                essai[k].escargots.iter().any(|e| e.2),
+                "image {k} : rebond sans coquille aplatie"
+            );
+        }
+        let contre = essai.iter().filter(|i| i.contre_escargot).count();
+        println!(
+            "essai escargot : {} images de jeu, rebonds aux images {rebonds:?}, {contre} \
+             image(s) au sol contre un escargot",
+            essai.len()
         );
     }
 
