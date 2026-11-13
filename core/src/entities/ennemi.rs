@@ -1,13 +1,21 @@
 //! Les ennemis : « flaques » qui patrouillent au sol, corbeaux qui volent en ligne
-//! droite et font demi-tour au bout de leur portée (ou contre un mur).
+//! droite et font demi-tour au bout de leur portée (ou contre un mur), pigeons
+//! perchés qui plongent sur Pépin quand il passe dessous (sous-module `pigeon`).
 //!
 //! Notions Rust : un `enum` pour le TYPE (`TypeEnnemi`) et un autre pour l'ÉTAT
 //! (`EtatEnnemi`) ; l'état `Ecrase(u8)` PORTE une donnée (les pas d'animation restants) ;
 //! `Option<f32>` pour une portée qui peut ne pas exister (`None` : sans limite).
 
+mod pigeon;
+
+pub use pigeon::{
+    decalage_vol, phase_suivante, PhasePigeon, ANNONCE_PIGEON_PAS, MARGE_CONE, PLONGEE_PAS,
+    PROFONDEUR_PLONGEE, REMONTEE_PAS, REPOS_PIGEON_PAS,
+};
+
 use super::Actualisable;
 use crate::aabb::{deplacer, Aabb, TAILLE_TUILE};
-use crate::physics::{Environnement, DT, GRAVITE, VITESSE_MAX_CHUTE};
+use crate::physics::{Environnement, DT, GRAVITE, HZ, VITESSE_MAX_CHUTE};
 
 /// Nombre de pas pendant lesquels une flaque écrasée reste affichée (aplatie).
 pub const ANIMATION_ECRASE_PAS: u8 = 20;
@@ -30,6 +38,9 @@ pub enum TypeEnnemi {
     /// Corbeau : vole droit (ignore la gravité et le vide), fait demi-tour au bout
     /// de sa portée (`PORTEE_CORBEAU`) ou contre un mur.
     Corbeau,
+    /// Pigeon : perché, il plonge en diagonale quand Pépin passe dessous, puis
+    /// remonte se poser (voir le sous-module `pigeon`).
+    Pigeon,
 }
 
 impl TypeEnnemi {
@@ -38,6 +49,8 @@ impl TypeEnnemi {
         match self {
             TypeEnnemi::Flaque => 24.0,
             TypeEnnemi::Corbeau => 40.0,
+            // Vitesse de plongée, dans chaque axe (120 px/s).
+            TypeEnnemi::Pigeon => PROFONDEUR_PLONGEE / PLONGEE_PAS as f32 * HZ as f32,
         }
     }
 
@@ -46,16 +59,18 @@ impl TypeEnnemi {
         match self {
             TypeEnnemi::Flaque => (12.0, 8.0),
             TypeEnnemi::Corbeau => (12.0, 10.0),
+            TypeEnnemi::Pigeon => (12.0, 10.0),
         }
     }
 
     /// Portée de patrouille par défaut (px de chaque côté du point d'apparition).
     ///
     /// `Option<f32>` : `None` veut dire « pas de limite ». La flaque n'en a pas
-    /// besoin : le bord du vide et les murs la retiennent déjà sur son toit.
+    /// besoin : le bord du vide et les murs la retiennent déjà sur son toit. Le
+    /// pigeon non plus : il ne patrouille pas, il revient toujours à son perchoir.
     pub fn portee(self) -> Option<f32> {
         match self {
-            TypeEnnemi::Flaque => None,
+            TypeEnnemi::Flaque | TypeEnnemi::Pigeon => None,
             TypeEnnemi::Corbeau => Some(PORTEE_CORBEAU),
         }
     }
@@ -83,8 +98,12 @@ pub struct Ennemi {
     au_sol: bool,
     /// Abscisse (px) du coin haut-gauche à l'apparition : le centre de la patrouille.
     origine_x: f32,
+    /// Ordonnée (px) du coin haut-gauche à l'apparition (le perchoir du pigeon).
+    origine_y: f32,
     /// Distance maximale (px) à `origine_x`, de chaque côté (`None` : sans limite).
     portee: Option<f32>,
+    /// Phase de vol du pigeon (toujours `Perche` pour les autres ennemis).
+    phase: PhasePigeon,
 }
 
 impl Ennemi {
@@ -100,7 +119,9 @@ impl Ennemi {
             vitesse_y: 0.0,
             au_sol: false,
             origine_x: x,
+            origine_y: y,
             portee: type_ennemi.portee(),
+            phase: PhasePigeon::Perche,
         }
     }
 
@@ -217,6 +238,8 @@ impl Actualisable for Ennemi {
             EtatEnnemi::Actif => match self.type_ennemi {
                 TypeEnnemi::Flaque => self.patrouiller(env),
                 TypeEnnemi::Corbeau => self.voler(env),
+                // Le pigeon vole sans regarder les tuiles : `env` ne lui sert pas.
+                TypeEnnemi::Pigeon => self.voler_pigeon(),
             },
             EtatEnnemi::Ecrase(restant) => {
                 self.etat = if restant <= 1 {

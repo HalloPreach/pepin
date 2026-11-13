@@ -8,7 +8,7 @@
 
 use macroquad::prelude::draw_rectangle;
 use pepin_core::aabb::{Aabb, TAILLE_TUILE};
-use pepin_core::entities::ennemi::EtatEnnemi;
+use pepin_core::entities::ennemi::{EtatEnnemi, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::level::{GenreDecor, GenrePanneau, Tuile};
@@ -370,9 +370,47 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                             !e.vers_la_droite,
                         );
                     }
+                    TypeEnnemi::Pigeon => {
+                        // Le pigeon du dessin regarde à droite. Sprite 16x12 centré sur la
+                        // boîte 12x10, sa dernière rangée (les pattes) sur le bas de la boîte.
+                        let (nom, tremble, retourne) = image_pigeon(e.phase(), ecrase, pas);
+                        banque.dessiner(
+                            nom,
+                            sx - 2.0 + tremble,
+                            sy - 2.0,
+                            e.vers_la_droite == retourne,
+                        );
+                    }
                 }
             }
         }
+    }
+}
+
+/// Image du pigeon selon sa phase : `(nom du sprite, tremblement en px, retourné)`.
+/// Perché ou au repos, il hoche la tête ; pendant l'annonce il tremble d'un pixel
+/// (comme une plateforme friable qui va céder) ; pendant la remontée il est
+/// « retourné » : il revient vers son perchoir, donc il regarde derrière lui.
+/// Fonction pure.
+pub(crate) fn image_pigeon(
+    phase: PhasePigeon,
+    ecrase: bool,
+    pas: u32,
+) -> (&'static str, f32, bool) {
+    if ecrase {
+        return ("pigeon_ecrase", 0.0, false);
+    }
+    match phase {
+        PhasePigeon::Perche | PhasePigeon::Repos(_) => {
+            (image(&ennemis::PIGEON, pas, 24), 0.0, false)
+        }
+        PhasePigeon::Annonce(_) => (
+            "pigeon_annonce",
+            [0.0, 1.0, 0.0, -1.0][(pas / 2) as usize % 4],
+            false,
+        ),
+        PhasePigeon::Plongee(_) => ("pigeon_plongee", 0.0, false),
+        PhasePigeon::Remontee(_) => ("pigeon_remontee", 0.0, true),
     }
 }
 
@@ -942,5 +980,49 @@ mod tests {
         };
         immobile = compter_immobile(immobile, &m.joueur, &droite);
         assert_eq!(image_attente(immobile), None);
+    }
+
+    // --- Pigeon (carte 4.4) ---
+
+    #[test]
+    fn le_pigeon_a_une_image_par_phase() {
+        use pepin_core::entities::ennemi::{ANNONCE_PIGEON_PAS, REPOS_PIGEON_PAS};
+        // Perché ou au repos : il hoche la tête (2 images), sans trembler.
+        let perche: Vec<_> = (0..48)
+            .map(|p| image_pigeon(PhasePigeon::Perche, false, p))
+            .collect();
+        assert!(perche.iter().all(|&(_, t, r)| t == 0.0 && !r));
+        assert!(perche.iter().any(|&(n, _, _)| n == "pigeon0"));
+        assert!(perche.iter().any(|&(n, _, _)| n == "pigeon1"));
+        assert_eq!(
+            image_pigeon(PhasePigeon::Repos(REPOS_PIGEON_PAS), false, 0),
+            image_pigeon(PhasePigeon::Perche, false, 0)
+        );
+        // Annonce : il tremble d'un pixel, d'un côté puis de l'autre.
+        let tremble: Vec<f32> = (0..8)
+            .map(|p| {
+                let (nom, t, r) = image_pigeon(PhasePigeon::Annonce(ANNONCE_PIGEON_PAS), false, p);
+                assert_eq!((nom, r), ("pigeon_annonce", false));
+                t
+            })
+            .collect();
+        assert!(tremble.contains(&1.0) && tremble.contains(&-1.0) && tremble.contains(&0.0));
+        // Plongée, puis remontée : retourné, il regarde son perchoir.
+        assert_eq!(
+            image_pigeon(PhasePigeon::Plongee(3), false, 5),
+            ("pigeon_plongee", 0.0, false)
+        );
+        assert_eq!(
+            image_pigeon(PhasePigeon::Remontee(3), false, 5),
+            ("pigeon_remontee", 0.0, true)
+        );
+        // Écrasé : quelle que soit la phase où on l'a eu.
+        for phase in [
+            PhasePigeon::Perche,
+            PhasePigeon::Plongee(10),
+            PhasePigeon::Remontee(1),
+        ] {
+            assert_eq!(image_pigeon(phase, true, 7), ("pigeon_ecrase", 0.0, false));
+        }
     }
 }

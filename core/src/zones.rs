@@ -396,6 +396,7 @@ mod tests {
                         Entite::Ennemi(en) if en.est_dangereux() => match en.type_ennemi {
                             TypeEnnemi::Flaque => (en.boite, "flaque"),
                             TypeEnnemi::Corbeau => (en.boite, "corbeau"),
+                            TypeEnnemi::Pigeon => (en.boite, "pigeon"),
                         },
                         Entite::Pointe(p) => (p.zone_danger(), "pointe"),
                         Entite::Eclair(ec) if ec.frappe() => (ec.zone, "éclair"),

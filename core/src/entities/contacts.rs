@@ -95,6 +95,12 @@ fn pose_sur(joueur: &Joueur, boite: &Aabb) -> bool {
 /// lanternes, champignons, écrasement d'un ennemi par le dessus). Tout NOUVEAU
 /// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
 /// pas traitée ici (`verifier_vide`) : elle reste mortelle.
+///
+/// C'est aussi ici que les pigeons regardent Pépin (`Ennemi::guetter`) : un
+/// pigeon perché qui le voit passer dessous commence son annonce, et plongera
+/// aux pas suivants (`Entite::actualiser`). Tous les jeux de simulation qui
+/// appellent cette fonction (le jeu, le robot de QA, la mesure de difficulté)
+/// ont donc les mêmes pigeons, sans rien ajouter.
 pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Contact> {
     let mut contacts = Vec::new();
     let mut mort: Option<CauseMort> = None;
@@ -117,6 +123,7 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                 }
             }
             Entite::Ennemi(e) => {
+                e.guetter(&joueur.boite);
                 if e.est_dangereux() && joueur.boite.chevauche(&e.boite) {
                     let par_le_dessus = joueur.vitesse.y > 0.0
                         && joueur.boite.bas() - e.boite.y <= MARGE_ECRASEMENT;
@@ -242,6 +249,72 @@ mod tests {
             resoudre_contacts(&mut j, &mut e),
             vec![Contact::Mort(CauseMort::Ennemi)]
         );
+    }
+
+    #[test]
+    fn le_pigeon_s_ecrase_par_le_dessus_et_tue_autrement() {
+        // Perché (boîte 12x10 en (100, 100)) : on lui tombe dessus, il est écrasé.
+        let mut j = joueur(100.0, 100.0 - 14.0 + 3.0);
+        j.vitesse.y = 200.0;
+        let mut e = vec![Entite::Ennemi(Ennemi::pigeon(100.0, 100.0, false))];
+        assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Ecrase]);
+        assert_eq!(j.vitesse.y, -VITESSE_REBOND_ECRASEMENT);
+        assert!(matches!(&e[0], Entite::Ennemi(p) if !p.est_dangereux()));
+
+        // Touché de côté, ou en montant dans lui : mort.
+        let mut j = joueur(95.0, 96.0);
+        let mut e = vec![Entite::Ennemi(Ennemi::pigeon(100.0, 100.0, false))];
+        assert_eq!(
+            resoudre_contacts(&mut j, &mut e),
+            vec![Contact::Mort(CauseMort::Ennemi)]
+        );
+        let mut j = joueur(100.0, 104.0);
+        j.vitesse.y = -100.0;
+        let mut e = vec![Entite::Ennemi(Ennemi::pigeon(100.0, 100.0, false))];
+        assert_eq!(
+            resoudre_contacts(&mut j, &mut e),
+            vec![Contact::Mort(CauseMort::Ennemi)]
+        );
+    }
+
+    #[test]
+    fn le_pigeon_qui_plonge_sur_pepin_le_tue_et_s_ecrase_en_vol_par_le_dessus() {
+        use crate::entities::ennemi::{PhasePigeon, ANNONCE_PIGEON_PAS};
+        let g = GrilleTuiles::vide(30, 20);
+        let env = Environnement::simple(&g);
+        // Pigeon tourné vers la gauche en (200, 40) ; Pépin immobile sous lui,
+        // sur sa diagonale (40 px plus bas, 40 px devant).
+        let mut e = vec![Entite::Ennemi(Ennemi::pigeon(200.0, 40.0, false))];
+        let mut j = joueur(160.0, 90.0);
+        // `resoudre_contacts` le fait guetter : l'annonce commence.
+        assert!(resoudre_contacts(&mut j, &mut e).is_empty());
+        assert!(matches!(&e[0], Entite::Ennemi(p)
+            if p.phase() == PhasePigeon::Annonce(ANNONCE_PIGEON_PAS)));
+        let mut mort_au_pas = None;
+        for pas in 0..120 {
+            e[0].actualiser(&env);
+            if resoudre_contacts(&mut j, &mut e) == vec![Contact::Mort(CauseMort::Ennemi)] {
+                mort_au_pas = Some(pas);
+                break;
+            }
+        }
+        let pas = mort_au_pas.expect("la plongée atteint Pépin");
+        assert!(
+            pas >= ANNONCE_PIGEON_PAS as u32,
+            "pas avant la fin de l'annonce ({pas})"
+        );
+
+        // En pleine plongée, Pépin qui lui retombe dessus l'écrase quand même.
+        let mut e = vec![Entite::Ennemi(Ennemi::pigeon(200.0, 40.0, false))];
+        let mut loin = joueur(170.0, 100.0);
+        resoudre_contacts(&mut loin, &mut e);
+        for _ in 0..(ANNONCE_PIGEON_PAS as u32 + 10) {
+            e[0].actualiser(&env);
+        }
+        let b = e[0].boite();
+        let mut j = joueur(b.x, b.y - 14.0 + 3.0);
+        j.vitesse.y = 200.0;
+        assert_eq!(resoudre_contacts(&mut j, &mut e), vec![Contact::Ecrase]);
     }
 
     #[test]

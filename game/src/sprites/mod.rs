@@ -282,6 +282,7 @@ mod tests {
             &pepin::REAPPARITION,
             &ennemis::FLAQUE,
             &ennemis::CORBEAU,
+            &ennemis::PIGEON,
             &objets::GOUTTE,
             &objets::LANTERNE,
             &objets::CHAMPIGNON,
@@ -412,6 +413,104 @@ mod tests {
         }
         assert!(contraste(couleur_de('4'), pepin_core::palette::ARDOISE) >= 3.0);
         assert!(contraste(couleur_de('3'), pepin_core::palette::ARDOISE) < 3.0);
+    }
+
+    // --- Pigeon (carte 4.4) ---
+
+    /// Les six images du pigeon : perché (2), annonce, plongée, remontée, écrasé.
+    const PIGEON_TOUT: [&str; 6] = [
+        "pigeon0",
+        "pigeon1",
+        "pigeon_annonce",
+        "pigeon_plongee",
+        "pigeon_remontee",
+        "pigeon_ecrase",
+    ];
+
+    /// Nombre de pixels opaques d'un dessin.
+    fn opaques(d: Image) -> usize {
+        d.iter()
+            .map(|l| l.chars().filter(|&c| c != '.').count())
+            .sum()
+    }
+
+    /// Couleur la plus fréquente d'un dessin, contour sombre (`0`) et vide exclus.
+    fn couleur_principale(d: Image) -> char {
+        let mut compte: HashMap<char, usize> = HashMap::new();
+        for c in d.iter().flat_map(|l| l.chars()) {
+            if c != '.' && c != '0' {
+                *compte.entry(c).or_default() += 1;
+            }
+        }
+        // À égalité, le plus petit caractère : résultat stable d'une exécution à l'autre.
+        compte
+            .into_iter()
+            .max_by_key(|&(c, n)| (n, std::cmp::Reverse(c)))
+            .unwrap()
+            .0
+    }
+
+    #[test]
+    fn le_pigeon_a_six_images_de_meme_taille_et_un_contour_sombre() {
+        for nom in PIGEON_TOUT {
+            assert_eq!(taille(nom), (16, 12), "{nom}");
+            let d = dessin(nom);
+            for y in 0..12 {
+                for x in 0..16 {
+                    let c = car(d, x, y);
+                    if c == '.' || c == '0' {
+                        continue;
+                    }
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        assert_ne!(
+                            car(d, x + dx, y + dy),
+                            '.',
+                            "{nom} : ({x},{y}) « {c} » touche le vide sans contour"
+                        );
+                        assert!((0..16).contains(&(x + dx)) && (0..12).contains(&(y + dy)));
+                    }
+                }
+            }
+        }
+        // Perché, il ne fait que hocher la tête : le dessous du corps ne bouge pas.
+        let (a, b) = (dessin("pigeon0"), dessin("pigeon1"));
+        assert_eq!(&a[6..], &b[6..]);
+        assert_ne!(a, b);
+    }
+
+    /// Exigence du coordinateur (carte 4.4) : on distingue d'un coup d'œil l'oiseau de
+    /// décor, inoffensif, du pigeon qui plonge.
+    #[test]
+    fn le_pigeon_ne_ressemble_pas_a_l_oiseau_de_decor() {
+        let oiseau = dessin("oiseau0");
+        for nom in PIGEON_TOUT {
+            let d = dessin(nom);
+            // Pas blanc : aucune des couleurs claires de l'oiseau (brume, nuage, blanc).
+            assert!(
+                d.iter().all(|l| !l.contains(['5', '6', '7'])),
+                "{nom} : couleur claire de l'oiseau de décor"
+            );
+            // Cou irisé : sarcelle (E) et cyan (D), toujours visibles.
+            assert!(d.iter().any(|l| l.contains('E')) && d.iter().any(|l| l.contains('D')));
+        }
+        // Plus gros : 16 x 12 contre 12 x 8, et au moins 1,5 fois plus de pixels pleins.
+        assert_eq!(taille("oiseau0"), (12, 8));
+        let (p, o) = (opaques(dessin("pigeon0")), opaques(oiseau));
+        assert!(2 * p >= 3 * o, "pigeon {p} px, oiseau {o} px");
+        // Corps sombre (ardoise) contre corps blanc : contraste fort entre les deux.
+        assert_eq!(couleur_principale(dessin("pigeon0")), '2');
+        assert_eq!(couleur_principale(oiseau), '7');
+        assert!(contraste(couleur_de('2'), couleur_de('7')) >= 7.0);
+        // Regard menaçant : l'œil (orange, ou corail pendant l'annonce) a un pixel sombre
+        // juste au-dessus (le sourcil froncé).
+        for nom in ["pigeon0", "pigeon1", "pigeon_annonce"] {
+            let d = dessin(nom);
+            let oeil = (0..12)
+                .flat_map(|y| (0..16).map(move |x| (x, y)))
+                .find(|&(x, y)| matches!(car(d, x, y), 'A' | '8'))
+                .unwrap_or_else(|| panic!("{nom} : pas d'œil"));
+            assert_eq!(car(d, oeil.0, oeil.1 - 1), '0', "{nom} : pas de sourcil");
+        }
     }
 
     #[test]
