@@ -949,6 +949,111 @@ mod tests {
         }
     }
 
+    // --- Grand Nuage (carte 5.11) ---
+
+    /// Les cinq images du Grand Nuage : colère (2), essoufflé (2), touché.
+    const NUAGE_TOUT: [&str; 5] = [
+        "nuage_colere0",
+        "nuage_colere1",
+        "nuage_essouffle0",
+        "nuage_essouffle1",
+        "nuage_touche",
+    ];
+
+    /// 48 x 32 (sa boîte), contour sombre de 1 px ; la même silhouette dans les cinq
+    /// images (seul le visage change). Il remplit sa boîte : la tête, sur laquelle on
+    /// saute, touche le haut du dessin (rangée 0), ses flancs les bords gauche et
+    /// droit, ses festons descendent jusqu'à l'avant-dernière rangée (ses éclairs
+    /// partent du bas de la boîte).
+    #[test]
+    fn le_grand_nuage_a_cinq_images_de_sa_taille_et_un_contour_sombre() {
+        let reference = dessin("nuage_colere0");
+        for nom in NUAGE_TOUT {
+            assert_eq!(taille(nom), (48, 32), "{nom}");
+            verifier_contour(nom);
+            let d = dessin(nom);
+            for y in 0..32 {
+                for x in 0..48 {
+                    assert_eq!(
+                        car(d, x, y) == '.',
+                        car(reference, x, y) == '.',
+                        "{nom} : silhouette différente en ({x},{y})"
+                    );
+                }
+            }
+        }
+        let d = reference;
+        assert!(d[0].contains('0') && d[30].contains('0'));
+        assert!((0..32).any(|y| car(d, 0, y) != '.') && (0..32).any(|y| car(d, 47, y) != '.'));
+        // Une ombre (ventre violet) et un reflet (nuage clair) seulement, en plus du corps.
+        let couleurs: std::collections::BTreeSet<char> = d
+            .iter()
+            .flat_map(|l| l.chars())
+            .filter(|&c| c != '.')
+            .collect();
+        assert_eq!(
+            couleurs.into_iter().collect::<String>(),
+            "0467BF",
+            "contour, corps, reflet, dents, ventre, yeux d'or"
+        );
+    }
+
+    /// L'état se lit au visage : en colère, des yeux d'or (aucun ailleurs) ; essoufflé,
+    /// une langue corail et une goutte de sueur cyan ; touché, ni or, ni blanc, ni
+    /// corail (les yeux plissés et la bouche sont des traits sombres).
+    #[test]
+    fn le_visage_du_grand_nuage_dit_son_etat() {
+        let compte = |nom: &str, c: char| {
+            dessin(nom)
+                .iter()
+                .flat_map(|l| l.chars())
+                .filter(|&x| x == c)
+                .count()
+        };
+        for nom in ["nuage_colere0", "nuage_colere1"] {
+            assert!(compte(nom, 'B') >= 8, "{nom} : yeux d'or");
+            assert_eq!(compte(nom, '8') + compte(nom, 'D'), 0, "{nom}");
+        }
+        for nom in ["nuage_essouffle0", "nuage_essouffle1"] {
+            assert_eq!(compte(nom, 'B'), 0, "{nom} : plus de colère");
+            assert!(compte(nom, '8') >= 4 && compte(nom, 'D') >= 2, "{nom}");
+        }
+        for c in ['B', '7', '8', 'D'] {
+            assert_eq!(compte("nuage_touche", c), 0, "touché : « {c} »");
+        }
+        // Les deux images d'une animation diffèrent.
+        assert_ne!(dessin("nuage_colere0"), dessin("nuage_colere1"));
+        assert_ne!(dessin("nuage_essouffle0"), dessin("nuage_essouffle1"));
+    }
+
+    /// Le Grand Nuage se lit sur TOUS les ciels : son contour sombre ou son corps
+    /// clair contraste d'au moins 4,5:1 avec chaque bande de ciel de chaque thème.
+    /// Ses points de vie du HUD aussi (même contour, même corps).
+    #[test]
+    fn le_grand_nuage_et_ses_points_de_vie_se_detachent_de_tous_les_ciels() {
+        use crate::decor::ambiance;
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('0'), ciel).max(contraste(couleur_de('6'), ciel));
+                assert!(k >= 4.5, "{theme:?} : nuage sur {ciel:?} : {k:.2}");
+            }
+        }
+        for nom in ["pv_nuage", "pv_nuage_perdu"] {
+            assert_eq!(taille(nom), (10, 6), "{nom}");
+            verifier_contour(nom);
+        }
+        // Plein : le corps clair du nuage ; perdu : éteint (aucune couleur claire).
+        let clairs = |nom: &str| {
+            dessin(nom)
+                .iter()
+                .flat_map(|l| l.chars())
+                .filter(|c| "4567".contains(*c))
+                .count()
+        };
+        assert!(clairs("pv_nuage") >= 12);
+        assert_eq!(clairs("pv_nuage_perdu"), 0);
+    }
+
     #[test]
     fn les_friables_d_ardoise_ont_la_taille_des_nuages() {
         for k in 0..2 {

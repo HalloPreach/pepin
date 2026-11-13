@@ -279,6 +279,15 @@ impl Monde {
         self.pas += 1;
     }
 
+    /// Points de vie du Grand Nuage du niveau (`None` s'il n'y en a pas) : le HUD les
+    /// affiche.
+    pub fn pv_nuage(&self) -> Option<u8> {
+        self.entites.iter().find_map(|e| match e {
+            Entite::Nuage(g) => Some(g.pv()),
+            _ => None,
+        })
+    }
+
     /// Position interpolée de Pépin (coin haut-gauche), `alpha` entre 0 et 1.
     pub fn joueur_interpole(&self, alpha: f32) -> (f32, f32) {
         interpoler(

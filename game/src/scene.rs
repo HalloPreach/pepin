@@ -1,7 +1,8 @@
 //! Scène : dessine un `Monde` dans la cible 320x180, couche par couche.
 //!
-//! Ordre (arrière -> avant) : fond (ciel, silhouettes) -> tuiles -> décor -> panneaux ->
-//! cadrans des aiguilles d'horloge -> plateformes -> objets -> ennemis -> Pépin ->
+//! Ordre (arrière -> avant) : fond (ciel, silhouettes) -> déchirure du ciel (Grand
+//! Nuage vaincu) -> tuiles -> décor -> panneaux -> cadrans des aiguilles d'horloge ->
+//! plateformes -> objets -> ennemis (Grand Nuage et ses éclairs compris) -> Pépin ->
 //! particules -> pluie.
 //! L'interface (compteurs, chrono) est dessinée par `hud`, les menus par `ecrans`.
 //! Chaque sprite est posé à une position ENTIÈRE (positions interpolées puis
@@ -13,6 +14,7 @@ use pepin_core::entities::auvent::HAUT_TOILE;
 use pepin_core::entities::ennemi::{EtatEnnemi, PhaseChat, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::montgolfiere::{EtatMontgolfiere, HAUT_BALLON};
+use pepin_core::entities::nuage::{EtatColonne, GrandNuage, PhaseNuage, NB_COLONNES};
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::level::{GenreDecor, GenrePanneau, Tuile};
 use pepin_core::palette::*;
@@ -276,6 +278,107 @@ fn dessiner_eclair(zone: &Aabb, annonce: bool, progression: f32, frappe: bool, c
     }
 }
 
+/// Image du Grand Nuage (fonction pure) selon sa phase, le temps passé dans cette
+/// phase (`ecoule`) et le pas du jeu ; `None` : rien à dessiner à cette image.
+/// - prélude et colère : il fronce les sourcils (2 images de 0,2 s) ;
+/// - essoufflé : il halète (2 images de 0,25 s) ;
+/// - touché : il clignote (4 images visibles, 4 cachées) ;
+/// - le ciel se déchire : touché, visible la 1re seconde, puis il clignote de plus en
+///   plus (2 images sur 3, puis 1 sur 3) et disparaît ;
+/// - vaincu : plus rien.
+pub(crate) fn image_nuage(phase: PhaseNuage, ecoule: u16, pas: u32) -> Option<&'static str> {
+    match phase {
+        PhaseNuage::Prelude | PhaseNuage::Colere => Some(image(&ennemis::NUAGE_COLERE, pas, 12)),
+        PhaseNuage::Essouffle => Some(image(&ennemis::NUAGE_ESSOUFFLE, pas, 15)),
+        PhaseNuage::Touche => (ecoule / 4 % 2 == 0).then_some("nuage_touche"),
+        PhaseNuage::Dechirure => {
+            let visible = match ecoule {
+                0..60 => true,
+                60..90 => ecoule % 3 != 0,
+                _ => ecoule % 3 == 0,
+            };
+            visible.then_some("nuage_touche")
+        }
+        PhaseNuage::Vaincu => None,
+    }
+}
+
+/// Décalage horizontal (px) du Grand Nuage : il gronde pendant le prélude (un pixel
+/// de chaque côté, toutes les 3 images) et tremble pendant la déchirure du ciel (deux
+/// pixels, chaque image). Le dessin bouge, jamais sa boîte. Fonction pure.
+pub(crate) fn tremblement_nuage(phase: PhaseNuage, pas: u32) -> i32 {
+    match phase {
+        PhaseNuage::Prelude => [0, 1, 0, -1][(pas / 3) as usize % 4],
+        PhaseNuage::Dechirure => [-2, 2][pas as usize % 2],
+        _ => 0,
+    }
+}
+
+/// Le Grand Nuage : d'abord ses 17 colonnes d'éclairs, dessinées EXACTEMENT comme un
+/// éclair `e` (même annonce : barre dorée au pied, pointillé qui clignote de plus en
+/// plus vite ; même frappe), puis son corps par-dessus. `(sx, sy)` : coin de sa boîte
+/// à l'écran.
+fn dessiner_nuage(g: &GrandNuage, banque: &Banque, pas: u32, sx: f32, sy: f32, cx: i32, cy: i32) {
+    for (i, zone) in g.colonnes.iter().enumerate().take(NB_COLONNES) {
+        match g.etat_colonne(i) {
+            EtatColonne::Calme => {}
+            EtatColonne::Annonce(p) => dessiner_eclair(zone, true, p, false, cx, cy),
+            EtatColonne::Frappe => dessiner_eclair(zone, false, 0.0, true, cx, cy),
+        }
+    }
+    if let Some(nom) = image_nuage(g.phase(), g.ecoule(), pas) {
+        let dx = tremblement_nuage(g.phase(), pas) as f32;
+        banque.dessiner(nom, sx + dx, sy, false);
+    }
+}
+
+/// Hauteur (px) d'une bande de la déchirure du ciel.
+const BANDE_DECHIRURE: i32 = 4;
+/// Zigzag des bords de la déchirure (px, d'une bande à l'autre).
+const ZIGZAG_DECHIRURE: [i32; 6] = [0, 3, -2, 4, -3, 1];
+
+/// La déchirure du ciel (fonction pure) : pour chaque bande de 4 px de l'écran, de haut
+/// en bas, les abscisses (à l'écran) de ses bords gauche et droit. Elle s'ouvre autour
+/// de `milieu` (abscisse à l'écran du milieu du nuage) : vide au début
+/// (`progression` 0), plus large que l'écran à la fin (1). Ses bords sont en zigzag,
+/// comme une étoffe qui craque.
+pub(crate) fn bandes_dechirure(progression: f32, milieu: i32) -> Vec<(i32, i32)> {
+    let p = progression.clamp(0.0, 1.0);
+    if p <= 0.0 {
+        return Vec::new();
+    }
+    let demi = (p * p * (LARGEUR_LOGIQUE as f32 * 0.75)).round() as i32 + 1;
+    (0..HAUTEUR_LOGIQUE as i32 / BANDE_DECHIRURE)
+        .map(|k| {
+            // Le zigzag ne referme jamais la fente : au plus `demi - 1` de chaque côté.
+            let z = ZIGZAG_DECHIRURE[k as usize % ZIGZAG_DECHIRURE.len()].min(demi - 1);
+            let w = ZIGZAG_DECHIRURE[(k as usize + 2) % ZIGZAG_DECHIRURE.len()].min(demi - 1);
+            (milieu - demi + z, milieu + demi - w)
+        })
+        .collect()
+}
+
+/// Le ciel se déchire derrière le Grand Nuage vaincu : une fente de lumière d'or pâle,
+/// bordée d'or, qui s'ouvre jusqu'à remplir l'écran. Dessinée juste après le fond (les
+/// tuiles, Pépin et le nuage passent devant).
+fn dessiner_dechirure(monde: &Monde, cx: i32) {
+    let Some(g) = monde.entites.iter().find_map(|e| match e {
+        Entite::Nuage(g) => Some(g),
+        _ => None,
+    }) else {
+        return;
+    };
+    let milieu = (g.boite.x + g.boite.w / 2.0).round() as i32 - cx;
+    for (k, (x0, x1)) in bandes_dechirure(g.progression_dechirure(), milieu)
+        .into_iter()
+        .enumerate()
+    {
+        let y = k as i32 * BANDE_DECHIRURE;
+        rect(x0 - 2, y, x1 - x0 + 4, BANDE_DECHIRURE, OR);
+        rect(x0, y, x1 - x0, BANDE_DECHIRURE, OR_PALE);
+    }
+}
+
 /// Écart (px) entre deux maillons de la tige d'une aiguille d'horloge.
 const PAS_MAILLON: f32 = 6.0;
 
@@ -469,8 +572,9 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     rect(sx as i32, sy as i32 + 6, 16, 2, OR);
                 }
             }
-            // Le Grand Nuage n'a pas encore de dessin (carte 5.11, commit suivant).
-            Entite::Nuage(_) => {}
+            // Le Grand Nuage et ses éclairs (son courant : des brins, `effets` ; la
+            // déchirure du ciel : `dessiner_dechirure`, derrière les tuiles).
+            Entite::Nuage(g) => dessiner_nuage(g, banque, pas, sx, sy, cx, cy),
             Entite::Grele(g) => {
                 // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
                 let t = TAILLE_TUILE;
@@ -810,6 +914,7 @@ pub fn dessiner(
     // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    dessiner_dechirure(monde, cx);
     dessiner_tuiles(monde, banque, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
@@ -825,6 +930,74 @@ pub fn dessiner(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- Grand Nuage (carte 5.11) ---
+
+    /// Chaque phase a son image : colère (prélude compris) et essoufflé s'animent,
+    /// touché clignote, la déchirure le fait disparaître, vaincu il n'est plus là.
+    #[test]
+    fn le_grand_nuage_change_d_image_selon_sa_phase() {
+        use PhaseNuage::*;
+        assert_eq!(image_nuage(Prelude, 0, 0), Some("nuage_colere0"));
+        assert_eq!(image_nuage(Colere, 5, 12), Some("nuage_colere1"));
+        assert_eq!(image_nuage(Essouffle, 0, 0), Some("nuage_essouffle0"));
+        assert_eq!(image_nuage(Essouffle, 0, 15), Some("nuage_essouffle1"));
+        // Touché : 4 images visibles, 4 cachées.
+        let vues: Vec<bool> = (0..16)
+            .map(|e| image_nuage(Touche, e, 0).is_some())
+            .collect();
+        assert_eq!(vues.iter().filter(|&&v| v).count(), 8);
+        assert!(vues[..4].iter().all(|&v| v) && vues[4..8].iter().all(|&v| !v));
+        assert_eq!(image_nuage(Touche, 0, 0), Some("nuage_touche"));
+        // Déchirure : visible la 1re seconde, de moins en moins ensuite.
+        let compte = |r: std::ops::Range<u16>| {
+            r.filter(|&e| image_nuage(Dechirure, e, 0).is_some())
+                .count()
+        };
+        assert_eq!(compte(0..60), 60);
+        assert_eq!(compte(60..90), 20);
+        assert_eq!(compte(90..120), 10);
+        assert_eq!(image_nuage(Vaincu, 0, 0), None);
+    }
+
+    /// Il gronde au prélude (au plus 1 px), tremble à la déchirure (2 px), et reste
+    /// immobile le reste du combat.
+    #[test]
+    fn le_grand_nuage_gronde_puis_tremble() {
+        let prelude: Vec<i32> = (0..12)
+            .map(|p| tremblement_nuage(PhaseNuage::Prelude, p))
+            .collect();
+        assert_eq!(prelude, vec![0, 0, 0, 1, 1, 1, 0, 0, 0, -1, -1, -1]);
+        assert_eq!(tremblement_nuage(PhaseNuage::Dechirure, 0), -2);
+        assert_eq!(tremblement_nuage(PhaseNuage::Dechirure, 1), 2);
+        for phase in [
+            PhaseNuage::Colere,
+            PhaseNuage::Essouffle,
+            PhaseNuage::Touche,
+        ] {
+            assert!((0..20).all(|p| tremblement_nuage(phase, p) == 0));
+        }
+    }
+
+    /// La déchirure : rien avant, une fente autour du nuage qui s'élargit, plus large
+    /// que l'écran à la fin ; une bande de 4 px pour chaque rangée de l'écran (45),
+    /// bords en zigzag (pas tous alignés).
+    #[test]
+    fn le_ciel_se_dechire_autour_du_nuage() {
+        assert!(bandes_dechirure(0.0, 160).is_empty());
+        let debut = bandes_dechirure(0.1, 160);
+        assert_eq!(debut.len(), 45);
+        assert!(debut.iter().all(|&(a, b)| a < 160 && b > 160 && b - a < 20));
+        let milieu = bandes_dechirure(0.5, 160);
+        let fin = bandes_dechirure(1.0, 160);
+        let largeur = |v: &[(i32, i32)]| v.iter().map(|&(a, b)| b - a).min().unwrap();
+        assert!(largeur(&debut) < largeur(&milieu) && largeur(&milieu) < largeur(&fin));
+        assert!(fin
+            .iter()
+            .all(|&(a, b)| a <= 0 && b >= LARGEUR_LOGIQUE as i32));
+        let gauches: std::collections::BTreeSet<i32> = milieu.iter().map(|b| b.0).collect();
+        assert!(gauches.len() >= 4, "bord en zigzag");
+    }
 
     // --- Aiguilles d'horloge (carte 5.10) ---
 

@@ -451,7 +451,12 @@ impl Application {
                 );
                 // Sous la trame (carte, pause) le HUD serait illisible : on ne le montre qu'en jeu.
                 if self.ecran == Ecran::Jeu {
-                    hud::dessiner(banque, self.monde.etat.gouttes, self.pas_partie);
+                    hud::dessiner(
+                        banque,
+                        self.monde.etat.gouttes,
+                        self.pas_partie,
+                        self.monde.pv_nuage(),
+                    );
                 }
                 match self.ecran {
                     Ecran::Carte(_) => {
