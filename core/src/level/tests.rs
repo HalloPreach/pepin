@@ -285,6 +285,40 @@ fn grele_tombe_de_sa_case_au_premier_solide() {
     assert_eq!((z[3].x, z[3].y, z[3].bas()), (t(10) + 2.0, t(2), t(3)));
 }
 
+/// Auvent (carte 5.5) : la lettre `A` pose une zone de contact de 16 x 8 px dont
+/// le dessus est `HAUT_TOILE` px sous le haut de la case. Ce n'est ni une tuile ni
+/// un solide : la case reste vide pour les collisions.
+#[test]
+fn auvent_pose_dans_sa_case_et_traversable() {
+    use crate::entities::auvent::HAUT_TOILE;
+    let texte = "
+.o.o.o..........
+.....A.....A....
+.@.........B..X.
+################
+";
+    let n = Niveau::depuis_ascii(texte).unwrap();
+    let auvents: Vec<_> = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Auvent(a) => Some(a.boite),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(auvents.len(), 2);
+    assert_eq!(
+        (auvents[0].x, auvents[0].y, auvents[0].w, auvents[0].h),
+        (5.0 * 16.0, 16.0 + HAUT_TOILE, 16.0, 8.0)
+    );
+    assert_eq!(auvents[1].x, 11.0 * 16.0);
+    assert!(!n.est_solide(5, 1), "la case de l'auvent reste vide");
+    assert!(n.entites.iter().all(|e| match e {
+        Entite::Auvent(_) => e.solide().is_none(),
+        _ => true,
+    }));
+}
+
 #[test]
 fn panneaux_et_tuiles_decor() {
     let avec = "

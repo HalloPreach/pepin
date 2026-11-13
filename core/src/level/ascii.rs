@@ -12,7 +12,7 @@ use super::{
 };
 use crate::aabb::{Aabb, TAILLE_TUILE};
 use crate::entities::{
-    Champignon, Eclair, Ennemi, Entite, GoutteDor, Grele, Lanterne, PlateformeFriable,
+    Auvent, Champignon, Eclair, Ennemi, Entite, GoutteDor, Grele, Lanterne, PlateformeFriable,
     PlateformeMobile, Pointe, TypeEnnemi,
 };
 use crate::physics::{CourantAscendant, VentLateral, JOUEUR_H};
@@ -97,6 +97,7 @@ pub(super) fn analyser(texte: &str) -> Result<Niveau, ErreurNiveau> {
                 }
                 '^' => entites.push(Entite::Pointe(Pointe::new(x, y + 8.0))),
                 'M' => entites.push(Entite::Champignon(Champignon::new(x, y + 8.0))),
+                'A' => entites.push(Entite::Auvent(Auvent::dans_la_case(x, y))),
                 'f' => entites.push(Entite::Ennemi(Ennemi::new(
                     TypeEnnemi::Flaque,
                     x + 2.0,

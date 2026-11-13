@@ -11,6 +11,9 @@
 //!   N  nuage (solide)          @  départ de Pépin     X  arrivée (drapeau)
 //!   L  lanterne (checkpoint)   o  goutte d'or (3 par niveau)
 //!   ^  pointes                 M  champignon-trampoline
+//!   A  auvent : toile de boutique inclinée (haute à gauche), traversable ;
+//!      tombé dessus par le haut, Pépin est relancé en diagonale, vers le haut et
+//!      vers la droite (4 tuiles plus loin sans rien toucher, 3 à 5 en dosant)
 //!   f  flaque (patrouille)     c  corbeau (vol)
 //!   p  pigeon, perché sur le solide du dessous ; il regarde du côté où son
 //!      perchoir s'arrête (à droite seulement si le perchoir continue à gauche
