@@ -30,6 +30,7 @@ pub mod essai_escargot;
 pub mod essai_grele;
 pub mod essai_horloge;
 pub mod essai_montgolfiere;
+pub mod essai_nuage;
 pub mod essai_vent;
 pub mod essai_ventilateur;
 pub mod essai_vertical;

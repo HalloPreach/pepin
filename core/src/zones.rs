@@ -112,7 +112,7 @@ mod tests {
     use crate::faisabilite::{analyser, Options};
     use crate::levels::{
         essai_auvent, essai_chat, essai_escargot, essai_grele, essai_horloge, essai_montgolfiere,
-        essai_vent, essai_ventilateur, essai_vertical,
+        essai_nuage, essai_vent, essai_ventilateur, essai_vertical,
     };
 
     #[test]
@@ -149,6 +149,7 @@ mod tests {
             &essai_escargot::INFOS,
             &essai_chat::INFOS,
             &essai_horloge::INFOS,
+            &essai_nuage::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -179,6 +180,7 @@ mod tests {
             &essai_montgolfiere::INFOS,
             &essai_escargot::INFOS,
             &essai_chat::INFOS,
+            &essai_nuage::INFOS,
         ])
     }
 
@@ -478,6 +480,66 @@ mod tests {
         assert!(
             !r.arrivee && r.gouttes == [false, true, true],
             "sans la petite aiguille : {r:?}"
+        );
+    }
+
+    /// L'arène du Grand Nuage (essai) : pas de drapeau, l'« arrivée » du robot est
+    /// la tête du nuage (essoufflé, ses deux courants actifs : voir l'en-tête de
+    /// `faisabilite`). Il l'atteint, précis comme maladroit, prend les 3 gouttes ;
+    /// une seule lanterne (le début de l'arène : on y reprend après une mort), d'où
+    /// il l'atteint aussi.
+    #[test]
+    fn niveau_d_essai_nuage_faisable() {
+        let niv = essai_nuage::INFOS.charger().unwrap();
+        let r = analyser(&niv, niv.depart, Options::default());
+        assert!(r.arrivee && r.gouttes == [true; 3], "{r:?}");
+        assert!(r.lanternes.iter().all(|&l| l) && r.lanternes.len() == 1);
+        let maladroit = Options {
+            precis: false,
+            ..Options::default()
+        };
+        assert!(analyser(&niv, niv.depart, maladroit).arrivee);
+    }
+
+    /// Chacun des deux courants suffit pour atteindre sa tête (ils alternent d'un
+    /// motif à l'autre). Sans courant, la tête est hors de portée (80 px au-dessus
+    /// du sol), et seule la goutte du sol est prise.
+    #[test]
+    fn niveau_d_essai_nuage_chaque_courant_mene_a_la_tete() {
+        use crate::entities::Entite;
+        let niv = essai_nuage::INFOS.charger().unwrap();
+        // Un courant « éteint » : réduit à une zone vide, sous le sol.
+        let eteint = crate::aabb::Aabb::new(0.0, 400.0, 0.0, 0.0);
+        let avec = |gauche: bool, droite: bool| {
+            let mut n = niv.clone();
+            for e in &mut n.entites {
+                if let Entite::Nuage(g) = e {
+                    if !gauche {
+                        g.courants[0] = eteint;
+                    }
+                    if !droite {
+                        g.courants[1] = eteint;
+                    }
+                }
+            }
+            analyser(&n, n.depart, Options::default())
+        };
+        // Gouttes dans l'ordre de lecture : 0 en haut à gauche, 1 en haut à droite,
+        // 2 au sol.
+        let gauche = avec(true, false);
+        assert!(
+            gauche.arrivee && gauche.gouttes == [true, false, true],
+            "{gauche:?}"
+        );
+        let droite = avec(false, true);
+        assert!(
+            droite.arrivee && droite.gouttes == [false, true, true],
+            "{droite:?}"
+        );
+        let aucun = avec(false, false);
+        assert!(
+            !aucun.arrivee && aucun.gouttes == [false, false, true],
+            "{aucun:?}"
         );
     }
 
