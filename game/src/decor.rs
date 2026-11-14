@@ -246,6 +246,39 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: false,
             vertige: 2.5,
         },
+        // L'œil du cyclone (le boss) : violet et or. Tout en haut, la trouée d'or
+        // (le ciel au-dessus de l'œil), bordée des nuages d'orage qui tournent
+        // autour (plafond) ; plus bas, le mur de l'œil s'assombrit jusqu'à la nuit,
+        // et des tours de nuages violettes montent du fond, les proches presque
+        // noires. Un peu de pluie que le cyclone fait tourner.
+        Theme::Cyclone => Ambiance {
+            ciel: [ORANGE_SOLEIL, ARDOISE, ARDOISE_NUIT, ARDOISE_NUIT],
+            lointain: VIOLET_ORAGE,
+            proche: ARDOISE_OMBRE,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            // Pas d'étoiles : la bande du haut est la trouée d'or.
+            etoiles: None,
+            gouttes: 32,
+            descente: DESCENTE_PICS,
+            plafond: Some(Plafond {
+                loin: ARDOISE_NUIT,
+                proche: VIOLET_ORAGE,
+                ampleur: 2,
+            }),
+            soleil: false,
+            forme: Forme::Pics,
+            relief: 26,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            // L'arène est faite de nuages (`N`) : la rampe d'ardoise ne sert pas.
+            tuiles: TeinteTuiles {
+                eclaircissement: 0,
+                briques_orangees: false,
+            },
+            friable_nuage: true,
+            vertige: 1.0,
+        },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
         // plus sombres, petites îles flottantes dans le tiers médian.
         Theme::Altitude => Ambiance {
@@ -769,6 +802,7 @@ mod tests {
         let attendu = |t: Theme| match t {
             Theme::Toits | Theme::Orage | Theme::Clocher => (0, false, false),
             Theme::Gouttieres | Theme::Marche => (1, false, false),
+            Theme::Cyclone => (0, false, true),
             Theme::Altitude => (2, false, true),
             Theme::Soleil => (3, true, true),
         };
@@ -1104,7 +1138,7 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 36, 60, 16, 18, 0]);
+        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0]);
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");
@@ -1123,12 +1157,13 @@ mod tests {
     }
 
     /// I-21 : le plafond de nuages tient dans la bande du haut, sa couleur diffère
-    /// de celle-ci, et il n'existe qu'aux niveaux 2 et 3.
+    /// de celle-ci, et il n'existe qu'aux gouttières, à l'orage et dans l'œil du
+    /// cyclone (les nuages qui tournent autour de la trouée d'or).
     #[test]
     fn le_plafond_de_nuages_tient_dans_la_bande_du_haut() {
         for t in Theme::TOUS {
             let a = ambiance(t);
-            let attendu = matches!(t, Theme::Gouttieres | Theme::Orage);
+            let attendu = matches!(t, Theme::Gouttieres | Theme::Orage | Theme::Cyclone);
             assert_eq!(a.plafond.is_some(), attendu, "{t:?}");
             if let Some(p) = a.plafond {
                 for c in [p.loin, p.proche] {

@@ -31,6 +31,9 @@ pub enum Theme {
     /// Le clocher : nuit violette au-dessus de la ville, que l'on voit s'enfoncer
     /// en montant (niveau vertical).
     Clocher,
+    /// L'œil du cyclone : l'arène du Grand Nuage (le boss), violet et or ; une
+    /// trouée d'or tout en haut, des murs et des tours de nuages violets.
+    Cyclone,
     /// Le ciel se déchire, vent d'altitude.
     Altitude,
     /// Au-dessus des nuages : le soleil doré.
@@ -41,12 +44,13 @@ impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 7] = [
+    pub const TOUS: [Theme; 8] = [
         Theme::Toits,
         Theme::Gouttieres,
         Theme::Marche,
         Theme::Orage,
         Theme::Clocher,
+        Theme::Cyclone,
         Theme::Altitude,
         Theme::Soleil,
     ];
@@ -65,6 +69,7 @@ impl Theme {
             Theme::Marche => 1,
             Theme::Orage => 0,
             Theme::Clocher => 1,
+            Theme::Cyclone => 2,
             Theme::Altitude => 3,
             Theme::Soleil => 4,
         }
@@ -605,6 +610,7 @@ mod tests {
         niveau_5_faisable => 4,
         niveau_6_faisable => 5,
         niveau_7_faisable => 6,
+        niveau_8_faisable => 7,
     }
 
     #[test]
@@ -630,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn niveau_6_exige_les_courants_ascendants() {
+    fn niveau_7_exige_les_courants_ascendants() {
         let niv = crate::levels::vents::INFOS.charger().unwrap();
         assert!(!niv.courants.is_empty());
         let r = analyser(
@@ -641,7 +647,7 @@ mod tests {
                 ..Options::default()
             },
         );
-        assert!(!r.arrivee, "sans vent le niveau 6 doit être bloqué");
+        assert!(!r.arrivee, "sans vent le niveau 7 doit être bloqué");
     }
 
     /// Le marché couvert (niveau 3) : son moment fort, six auvents au-dessus d'un
@@ -738,7 +744,9 @@ mod tests {
     }
 
     /// Vérifie un niveau : arrivée, 3 gouttes, toutes les lanternes atteignables,
-    /// y compris par le robot « maladroit » (pas de précision au pixel près).
+    /// y compris par le robot « maladroit » (pas de précision au pixel près). Au
+    /// moins 3 lanternes, sauf dans l'arène du Grand Nuage (l'« arrivée » y est sa
+    /// tête, voir `faisabilite`) : une seule, au début de l'arène.
     fn verifier(i: usize) {
         verifier_infos(&NIVEAUX[i]);
     }
@@ -764,10 +772,17 @@ mod tests {
             r.lanternes
         );
         assert_eq!(r.lanternes.len(), niv.nb_lanternes());
-        assert!(
-            niv.nb_lanternes() >= 3,
-            "niveau {n} : au moins 3 checkpoints"
-        );
+        if niv.arrivee.is_some() {
+            assert!(
+                niv.nb_lanternes() >= 3,
+                "niveau {n} : au moins 3 checkpoints"
+            );
+        } else {
+            // L'arène du Grand Nuage (pas de drapeau) : un seul écran, une seule
+            // lanterne, au début de l'arène (décision du coordinateur : une mort
+            // ramène au début de l'arène).
+            assert_eq!(niv.nb_lanternes(), 1, "niveau {n} : arène du boss");
+        }
 
         let maladroit = analyser(
             &niv,
@@ -806,12 +821,32 @@ mod tests {
 
     /// Un niveau dure 40 à 60 s pour un joueur normal. Le robot « course
     /// rapide » est ~2 fois plus rapide qu'un humain découvrant le niveau.
+    ///
+    /// L'arène du Grand Nuage : le robot de faisabilité le juge toujours essoufflé
+    /// et atteint sa tête en une seconde ; ce qui fait la durée, c'est le combat.
+    /// On compte donc le combat le plus court (grondement, les trois motifs, deux
+    /// fois « touché », la déchirure du ciel), sans même les montées dans le
+    /// courant.
     #[test]
     fn durees_plausibles() {
+        use crate::entities::nuage::{
+            duree_motif, DECHIRURE_PAS, PRELUDE_PAS, PV_NUAGE, TOUCHE_PAS,
+        };
         for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let r = analyser(&niv, niv.depart, Options::default());
-            let s = r.pas_arrivee.unwrap() as f32 / 60.0;
+            let pas = if niv.arrivee.is_some() {
+                r.pas_arrivee.unwrap()
+            } else {
+                let motifs: u32 = (0..PV_NUAGE as usize)
+                    .map(|m| u32::from(duree_motif(m)))
+                    .sum();
+                u32::from(PRELUDE_PAS)
+                    + motifs
+                    + u32::from(PV_NUAGE - 1) * u32::from(TOUCHE_PAS)
+                    + u32::from(DECHIRURE_PAS)
+            };
+            let s = pas as f32 / 60.0;
             println!(
                 "niveau {} : course rapide {s:.1} s (cible {} s)",
                 infos.numero, infos.duree_cible_s
@@ -1069,7 +1104,13 @@ mod tests {
                 .collect();
             let sans = Niveau::depuis_ascii_avec_aiguilles(&sans_texte, infos.aiguilles).unwrap();
             let n = infos.numero;
-            assert!(!avec.decors.is_empty(), "niveau {n} : aucun décor");
+            // Chaque niveau a son décor, sauf l'arène du Grand Nuage (pas de
+            // drapeau) : ses 17 colonnes d'éclairs couvrent tout le sol, et un objet
+            // de décor n'est jamais devant un danger (carte 4.2). Son décor, c'est
+            // le fond (trouée d'or, tours de nuages) et le nuage lui-même.
+            if avec.arrivee.is_some() {
+                assert!(!avec.decors.is_empty(), "niveau {n} : aucun décor");
+            }
             assert!(sans.decors.is_empty());
             assert_eq!(
                 (avec.largeur(), avec.hauteur()),

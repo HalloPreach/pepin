@@ -1187,7 +1187,8 @@ mod tests {
                     assert!(ombres > 100, "{} : {ombres} ombres", infos.nom)
                 }
                 Theme::Clocher => assert!(ombres > 50, "{} : {ombres} ombres", infos.nom),
-                Theme::Soleil => assert_eq!(ombres, 0, "{}", infos.nom),
+                // L'œil du cyclone : une arène de nuages, sans toit ni brique.
+                Theme::Soleil | Theme::Cyclone => assert_eq!(ombres, 0, "{}", infos.nom),
                 Theme::Altitude => {}
             }
         }

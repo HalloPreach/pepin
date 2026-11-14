@@ -192,10 +192,10 @@ mod tests {
                 "garde la tête froide !"
             ]
         );
-        // Conseil d'« Au-dessus des nuages » (niveau 7 depuis l'arrivée du clocher) :
-        // une seule ligne.
+        // Conseil d'« Au-dessus des nuages » (niveau 8 depuis l'arrivée de l'œil du
+        // cyclone) : une seule ligne.
         assert_eq!(
-            couper_lignes(contenu::intro(6).astuce, LIGNE_MAX),
+            couper_lignes(contenu::intro(7).astuce, LIGNE_MAX),
             ["Dernière ligne droite : le champignon t'aide."]
         );
         assert!(!contenu::intro(3).texte.to_lowercase().contains("flash"));

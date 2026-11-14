@@ -113,6 +113,10 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "L'escargot est un tremplin. Sur une aiguille, laisse-toi porter.",
     },
     Intro {
+        texte: "Le Grand Nuage ne veut pas te laisser passer.",
+        astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
+    },
+    Intro {
         texte: "Le ciel se déchire. Les courants montent : laisse-toi porter, puis plane.",
         astuce: "Les brins de vent montrent où ça monte.",
     },
@@ -385,11 +389,11 @@ mod tests {
     #[test]
     fn etiquette_de_niveau() {
         use pepin_core::levels::{nb_normaux, NIVEAUX};
-        // Les sept niveaux actuels (le marché couvert inséré en 3e place, carte 5.12 ;
-        // le clocher en 5e, carte 5.13).
+        // Les huit niveaux actuels (le marché couvert inséré en 3e place, carte 5.12 ;
+        // le clocher en 5e, carte 5.13 ; l'œil du cyclone en 6e, carte 5.14).
         assert_eq!(
             etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
-            "NIVEAU 2/7"
+            "NIVEAU 2/8"
         );
         // Un jeu de 11 niveaux (9 normaux, bonus, épilogue) : le bonus et l'épilogue
         // ne sont pas comptés dans « /9 ».

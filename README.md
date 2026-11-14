@@ -2,7 +2,7 @@
 
 PÉPIN (« pépin » : parapluie, en argot) est un petit jeu de plateformes en
 pixel art. Pépin est une créature ronde armée d'un grand parapluie corail. Elle
-grimpe de toit en toit, de l'orage jusqu'au soleil, en sept niveaux : le ciel
+grimpe de toit en toit, de l'orage jusqu'au soleil, en huit niveaux : le ciel
 passe peu à peu du bleu nuit à l'or.
 
 Le projet a deux buts : un jeu qui tourne **dans un navigateur** (WebAssembly),
@@ -53,7 +53,7 @@ sur QWERTY, la touche point-virgule coupe aussi le son.
 Sur un écran tactile, quatre boutons (gauche, droite, saut, pause) apparaissent
 au premier toucher.
 
-Les sept niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
+Les huit niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
 
 1. Les toits : course, saut, planer.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines.
@@ -63,9 +63,13 @@ Les sept niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
 5. Le clocher : niveau vertical (quatre écrans de haut) ; escargots-tremplins,
    ventilateur, pigeons sur les corniches, et la cage de l'horloge dont les
    aiguilles emportent Pépin.
-6. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux,
+6. L'œil du cyclone : le boss. Une arène d'un écran ; le Grand Nuage lance trois
+   motifs d'éclairs de plus en plus serrés, puis s'essouffle et laisse échapper un
+   courant : on y monte et on lui saute sur la tête. Trois fois, et le ciel se
+   déchire (pas de drapeau, une seule lanterne).
+7. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux,
    pigeon.
-7. Au-dessus des nuages : final calme, nuages friables, pigeon.
+8. Au-dessus des nuages : final calme, nuages friables, pigeon.
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition). Il n'y a pas de « game over » : on réapparaît à la dernière
