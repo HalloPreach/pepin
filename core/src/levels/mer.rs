@@ -177,10 +177,11 @@ mod tests {
     }
 
     /// Les deux marches de la tour ne sont pas des culs-de-sac : de chacune, on
-    /// finit le niveau (en remontant à la tour, ou en planant de là). Avant leur
-    /// abaissement (marches à 48 px sous la tour, puis 32 px plus bas), le joueur
-    /// simulé de la mesure de difficulté y restait bloqué, faute de pouvoir
-    /// remonter sous le vent de la couche du haut.
+    /// finit le niveau (en remontant à la tour, ou en planant de là). Dans une
+    /// première version, les marches étaient 16 px plus bas (48 px sous la tour,
+    /// puis 32 px plus bas) : le joueur simulé de la mesure de difficulté, repoussé
+    /// par la couche du milieu, y restait jusqu'à la fin de l'essai (aucun chemin
+    /// connu depuis ces cases).
     #[test]
     fn on_repart_de_chaque_marche() {
         let n = INFOS.charger().unwrap();
