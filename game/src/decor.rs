@@ -371,12 +371,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // ventre violet. Pas de pluie : seule la grêle tombe, en colonnes. Les
         // nuages du niveau (clairs, bleutés) ne se confondent avec aucune de ces
         // couleurs, et les gouttes d'or (lignes 1 à 3) se détachent sur le corail.
-        // Carte 5.18 : les bancs roses du fond restent nettement SOUS les quais
-        // (relief -8 : leurs sommets entre y = 142 et y = 155, au moins 10 px sous
-        // la ligne du sol). Avec 10 px de relief, leur sommet plat montait jusqu'au
-        // dessus des plateformes, dans les trouées : on aurait cru pouvoir s'y
-        // poser (captures 515-plane-porte et 518-mer-plane-avant) ; avec 0 (comme au
-        // niveau 9), le plus haut arrivait encore à la hauteur du bord des quais.
+        // Carte 5.18 : les bancs roses du fond restent SOUS le plus bas des quais du
+        // niveau (relief -16 : sommets à y = 150 au plus haut, le quai le plus bas
+        // est à y = 144 ; en dessous, la mer de nuages, pleine jusqu'en bas). Avec
+        // 10 px de relief, leur sommet plat montait jusqu'au dessus des plateformes,
+        // dans les trouées : on aurait cru pouvoir s'y poser (captures
+        // 515-plane-porte et 518-mer-plane-avant) ; avec -8, ils arrivaient encore à
+        // la hauteur du quai bas de l'arrivée du moment fort (518-mer-rive).
         Theme::Mer => Ambiance {
             ciel: [CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL, OR],
             lointain: CORAIL_CLAIR,
@@ -390,7 +391,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             plafond: None,
             soleil: false,
             forme: Forme::Nuages,
-            relief: -8,
+            relief: -16,
             socle: true,
             fenetres: None,
             ilots: Some((CORAIL, VIOLET_ORAGE)),
@@ -1603,11 +1604,35 @@ mod tests {
                 loin.haut
             );
         }
-        // La mer : ses trouées sont des vides mortels entre des quais de trois
-        // rangées ; ses bancs descendent 10 px de plus (relief négatif).
-        let mer = zones(&ambiance(Theme::Mer))[0];
-        assert!(mer.haut >= LIGNE_SOL + 10, "mer : bancs à y={}", mer.haut);
         assert!(themes.contains(&Theme::Mer) && themes.contains(&Theme::Soleil));
+        // Et, niveau par niveau (niveaux d'un écran de haut, où le fond ne bouge pas
+        // en hauteur) : les bancs restent au moins 4 px sous le PLUS BAS des dessus
+        // où l'on se pose (tuiles et plateformes : friables, nacelles...). La mer a
+        // des quais à y = 144, plus bas que la ligne du sol (relief négatif).
+        for infos in pepin_core::levels::NIVEAUX {
+            let a = ambiance(infos.theme);
+            let n = infos.charger().unwrap();
+            if a.forme != Forme::Nuages || n.hauteur() > 11 {
+                continue;
+            }
+            let t = pepin_core::aabb::TAILLE_TUILE;
+            let tuiles = (0..n.largeur() as i32).filter_map(|tx| {
+                (0..n.hauteur() as i32)
+                    .find(|&ty| n.tuile_decor(tx, ty).est_solide())
+                    .map(|ty| ty as f32 * t)
+            });
+            let entites = pepin_core::entities::solides_des_entites(&n.entites)
+                .into_iter()
+                .map(|b| b.y);
+            let plus_bas = tuiles.chain(entites).fold(0.0f32, f32::max) as i32;
+            let loin = zones(&a)[0];
+            assert!(
+                loin.haut >= plus_bas + 4,
+                "{} : bancs du fond à y={}, quai le plus bas à y={plus_bas}",
+                infos.nom,
+                loin.haut
+            );
+        }
     }
 
     /// I-03 : au niveau 5, les bancs de nuages du fond restent sous la ligne du sol
