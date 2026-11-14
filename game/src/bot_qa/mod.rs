@@ -263,6 +263,27 @@ pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
         .collect()
 }
 
+/// Parcours « complet » de chaque niveau de la table : les trois gouttes d'or
+/// ramassées avant l'arrivée (`trouver_parcours_complet`, carte 5.16). Joués à la
+/// suite, ils font la partie qui débloque le bonus. Un fil d'exécution par niveau
+/// (`std::thread::scope` : les fils empruntent la portée, sans `Arc`).
+pub fn tous_les_parcours_complets() -> Vec<Vec<Entrees>> {
+    std::thread::scope(|portee| {
+        let fils: Vec<_> = (0..NB_NIVEAUX)
+            .map(|i| {
+                portee.spawn(move || {
+                    trouver_parcours_complet(i, false)
+                        .or_else(|| trouver_parcours_complet(i, true))
+                        .unwrap_or_else(|| panic!("aucun parcours complet au niveau {}", i + 1))
+                })
+            })
+            .collect();
+        fils.into_iter()
+            .map(|f| f.join().expect("fil du parcours complet"))
+            .collect()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,6 +313,71 @@ mod tests {
         }
         let numeros: Vec<u8> = joues.iter().map(|&(n, _)| n).collect();
         assert_eq!(numeros, attendu);
+        // Le robot ne ramasse pas toutes les gouttes : le bonus (10e) est SAUTÉ, la
+        // fin vient juste après le 9e (carte 5.16 : l'un des deux chemins).
+        assert!(partie.gouttes < pepin_core::levels::gouttes_pour_le_bonus(NIVEAUX));
+        assert_eq!(numeros, (1..=9).collect::<Vec<u8>>(), "bonus sauté");
+    }
+
+    /// L'autre chemin (carte 5.16) : la partie « complète » ramasse les trois
+    /// gouttes de chaque niveau ; après le 9e, avec les 27 gouttes des niveaux
+    /// normaux, le BONUS est joué (« NIVEAU BONUS », l'arc-en-ciel), puis l'écran
+    /// de fin, avec les 30 gouttes du jeu ; aucune mort.
+    #[test]
+    fn la_partie_complete_joue_le_bonus() {
+        use pepin_core::zones::GOUTTES_TOTAL;
+        let partie = jouer_tout(&tous_les_parcours_complets());
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0);
+        let mut joues: Vec<(u8, u32)> = Vec::new();
+        for t in partie.trames.iter().filter(|t| t.niveau > 0) {
+            match joues.last_mut() {
+                Some((n, g)) if *n == t.niveau => *g = t.gouttes,
+                _ => joues.push((t.niveau, t.gouttes)),
+            }
+        }
+        // Trois gouttes de plus à chaque niveau ; le bonus (10e) joué après le 9e.
+        let attendu: Vec<(u8, u32)> = (1..=10).map(|n| (n, 3 * u32::from(n))).collect();
+        assert_eq!(joues, attendu);
+        assert_eq!(partie.gouttes as usize, GOUTTES_TOTAL);
+        println!(
+            "partie complète : {} images, chrono {} pas, empreinte {:016x}",
+            partie.trames.len(),
+            partie.chrono,
+            empreinte(&partie.trames)
+        );
+    }
+
+    /// Le bonus (« L'arc-en-ciel », carte 5.16) : la partie du robot ne le joue
+    /// pas (il ne ramasse pas toutes les gouttes), on rejoue donc son parcours à
+    /// part, dans la vraie simulation : le pont friable se traverse d'un bout à
+    /// l'autre sans mourir, et sans jamais rester posé plus d'une demi-seconde sur
+    /// la même dalle (elle tomberait).
+    #[test]
+    fn le_robot_traverse_l_arc_en_ciel_sans_mourir() {
+        use crate::monde::Monde;
+        use pepin_core::levels::{arc, GenreNiveau, NIVEAUX};
+        let i = NIVEAUX
+            .iter()
+            .position(|n| n.genre == GenreNiveau::Bonus)
+            .unwrap();
+        assert_eq!(NIVEAUX[i].nom, arc::INFOS.nom);
+        let parcours = trouver_parcours(i, false)
+            .or_else(|| trouver_parcours(i, true))
+            .expect("parcours du bonus");
+        let mut m = Monde::new(i);
+        for e in &parcours {
+            m.avancer(e);
+            assert!(m.derniere_mort.is_none(), "mort au pas {}", m.pas);
+        }
+        assert!(m.termine, "arrivée non atteinte");
+        assert_eq!(m.etat.morts, 0);
+        println!(
+            "arc-en-ciel : {} pas ({:.1} s), gouttes {:?}",
+            parcours.len(),
+            parcours.len() as f32 / 60.0,
+            m.gouttes_niveau
+        );
     }
 
     /// Le clocher (carte 5.13) : le parcours le plus RAPIDE du robot allume les
@@ -340,12 +426,29 @@ mod tests {
     #[test]
     #[ignore]
     fn ecrire_script_navigateur() {
-        let parcours = tous_les_parcours();
-        let partie = jouer_tout(&parcours);
+        let partie = jouer_tout(&tous_les_parcours());
+        ecrire_partie(&partie, "script.txt", "trace.csv");
+    }
+
+    /// Écrit le script de la partie COMPLÈTE (carte 5.16 : toutes les gouttes, donc le
+    /// bonus joué après le 9e niveau) : `target/qa/script-516.txt` et
+    /// `target/qa/trace-516.csv`, même format que `ecrire_script_navigateur` (le
+    /// navigateur rejoue l'un ou l'autre avec `SCRIPT=...`).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script
+    #[test]
+    #[ignore]
+    fn ecrire_script_partie_complete() {
+        let partie = jouer_tout(&tous_les_parcours_complets());
+        ecrire_partie(&partie, "script-516.txt", "trace-516.csv");
+    }
+
+    /// Écrit le script (un chiffre hexadécimal par image) et la trace d'une partie
+    /// dans `target/qa/`, puis affiche son bilan et son empreinte.
+    fn ecrire_partie(partie: &Partie, fichier_script: &str, fichier_trace: &str) {
         assert!(partie.fin_atteinte);
         std::fs::create_dir_all("../target/qa").unwrap();
         let script: String = partie.trames.iter().map(Trame::code).collect();
-        std::fs::write("../target/qa/script.txt", &script).unwrap();
+        std::fs::write(format!("../target/qa/{fichier_script}"), &script).unwrap();
         let mut trace = String::from(
             "image,ecran,niveau,x,y,corbeau_x,corbeau_y,mobile_x,mobile_y,\
              pigeon_x,pigeon_y,pigeon_phase\n",
@@ -359,7 +462,7 @@ mod tests {
                 i, t.ecran, t.niveau, t.x, t.y, cx, cy, mx, my, px, py, phase
             ));
         }
-        std::fs::write("../target/qa/trace.csv", trace).unwrap();
+        std::fs::write(format!("../target/qa/{fichier_trace}"), trace).unwrap();
         println!(
             "images : {} ({:.1} s) ; morts : {} ; gouttes : {} ; score : {} ; chrono : {} pas ; \
              empreinte : {:016x}",

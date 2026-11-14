@@ -679,10 +679,25 @@ pub(crate) fn depart_pose(indice: usize) -> (Monde, Vec<Entrees>) {
 ///
 /// Le robot cherche l'arrivée seule (`est_cible` toujours faux) ; la mesure de
 /// difficulté s'en sert aussi pour « rejoindre le parcours » après une erreur.
+/// Une arrivée compte si `gouttes_avant_la_victoire` l'admet (voir `chercher_avec`).
 pub(crate) fn chercher(
     depart: &Monde,
     tous: &[Plan],
     est_cible: &dyn Fn(&Monde) -> bool,
+    limite: usize,
+) -> Option<Vec<Etape>> {
+    chercher_avec(depart, tous, est_cible, &gouttes_avant_la_victoire, limite)
+}
+
+/// Comme `chercher`, mais une arrivée ne compte que si `arrivee_admise` l'accepte
+/// (sinon c'est une impasse, comme une mort). La partie « complète » de la carte
+/// 5.16 (`trouver_parcours_complet`) refuse ainsi de finir un niveau tant qu'une
+/// goutte manque.
+pub(crate) fn chercher_avec(
+    depart: &Monde,
+    tous: &[Plan],
+    est_cible: &dyn Fn(&Monde) -> bool,
+    arrivee_admise: &dyn Fn(&Monde) -> bool,
     limite: usize,
 ) -> Option<Vec<Etape>> {
     // Chaque noeud : le monde posé, son parent et l'étape qui y a mené. La file
@@ -743,8 +758,9 @@ pub(crate) fn chercher(
                 cle: cle(&monde),
             };
             match fin {
-                // Le Grand Nuage vaincu sans toutes les gouttes : impasse.
-                Fin::Arrivee if !gouttes_avant_la_victoire(&monde) => {}
+                // Une arrivée refusée (le Grand Nuage vaincu sans toutes les
+                // gouttes, ou une goutte qui manque dans la partie complète) : impasse.
+                Fin::Arrivee if !arrivee_admise(&monde) => {}
                 Fin::Arrivee => {
                     if arrivee.as_ref().is_none_or(|(c, _, _)| cout_plan < *c) {
                         arrivee = Some((cout_plan, i, etape));
@@ -793,6 +809,42 @@ pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     let etapes = chercher(&depart, &plans(precis), &|_| false, usize::MAX)?;
     for e in etapes {
         entrees.extend(e.entrees);
+    }
+    Some(entrees)
+}
+
+/// Nombre de gouttes d'or du niveau déjà prises dans `m`.
+fn gouttes_prises(m: &Monde) -> usize {
+    m.gouttes_niveau.iter().filter(|&&g| g).count()
+}
+
+/// Comme `trouver_parcours`, mais en ramassant les TROIS gouttes d'or du niveau
+/// avant l'arrivée (carte 5.16 : la partie « complète », celle qui débloque le
+/// bonus). Recherche par étapes, comme pour les auvents de l'essai : la goutte la
+/// plus proche (en temps), puis la suivante, puis l'arrivée ; une arrivée avec une
+/// goutte en moins est une impasse (`chercher_avec`). Chaque étape est rejouée sur
+/// le vrai monde (la simulation est déterministe : on retrouve exactement l'état
+/// trouvé par la recherche). Le parcours n'est pas forcément le plus court qui
+/// ramasse tout (on prend les gouttes dans l'ordre où elles sont les plus proches),
+/// mais il est sûr par construction, comme celui du robot.
+pub fn trouver_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
+    let (mut monde, mut entrees) = depart_pose(indice);
+    let tous = plans(precis);
+    let toutes = |m: &Monde| gouttes_prises(m) == m.gouttes_niveau.len();
+    while !monde.termine {
+        let prises = gouttes_prises(&monde);
+        let etapes = if toutes(&monde) {
+            chercher(&monde, &tous, &|_| false, usize::MAX)?
+        } else {
+            let une_de_plus = |m: &Monde| gouttes_prises(m) > prises;
+            chercher_avec(&monde, &tous, &une_de_plus, &toutes, usize::MAX)?
+        };
+        for e in etapes {
+            for x in &e.entrees {
+                monde.avancer(x);
+            }
+            entrees.extend(e.entrees);
+        }
     }
     Some(entrees)
 }

@@ -1034,6 +1034,45 @@ mod tests {
         }
     }
 
+    /// Carte 5.16, les DEUX chemins au sortir du 9e niveau (le dernier normal) :
+    /// avec les 27 gouttes des niveaux normaux, la carte suivante est celle du
+    /// bonus (« NIVEAU BONUS », l'arc-en-ciel) ; avec une de moins, l'écran de fin
+    /// (pas encore d'épilogue). Le bonus fini, c'est l'écran de fin.
+    #[test]
+    fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes() {
+        use pepin_core::levels::{arc, nb_normaux, GenreNiveau};
+        for (gouttes, bonus) in [(27, true), (26, false), (0, false)] {
+            let mut app = en_jeu();
+            let (monde, camera) = charger(8, None);
+            app.monde = monde;
+            app.camera = camera;
+            assert_eq!(app.monde.infos.numero, 9);
+            app.monde.etat.gouttes = gouttes;
+            app.monde.termine = true;
+            avancer(&mut app, 1);
+            if bonus {
+                jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+                assert_eq!(app.monde.indice, 9);
+                assert_eq!(app.monde.infos.nom, arc::INFOS.nom);
+                assert_eq!(app.monde.infos.genre, GenreNiveau::Bonus);
+                assert_eq!(
+                    contenu::etiquette_niveau(app.monde.infos, nb_normaux(NIVEAUX)),
+                    "NIVEAU BONUS"
+                );
+                // Le bonus fini (30 gouttes avec les siennes) : l'écran de fin.
+                app.reagir(&valider(), &Commandes::default(), None);
+                app.monde.etat.gouttes = 30;
+                app.monde.termine = true;
+                avancer(&mut app, 1);
+                jusqu_a(&mut app, |e| e == Ecran::Fin);
+                assert_eq!(app.bilan.gouttes, 30);
+            } else {
+                jusqu_a(&mut app, |e| e == Ecran::Fin);
+                assert_eq!(app.bilan.gouttes, gouttes, "bonus sauté");
+            }
+        }
+    }
+
     #[test]
     fn rien_ne_reagit_pendant_une_transition() {
         let mut app = Application::new(true);
