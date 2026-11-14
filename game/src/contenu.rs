@@ -421,7 +421,10 @@ pub(crate) mod tests {
     #[test]
     fn les_astuces_tiennent() {
         for a in ASTUCES_AIDE {
-            assert!(a.chars().count() <= 48, "« {a} » : trop long pour une ligne");
+            assert!(
+                a.chars().count() <= 48,
+                "« {a} » : trop long pour une ligne"
+            );
         }
     }
 

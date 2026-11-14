@@ -1591,8 +1591,15 @@ mod tests {
                 continue;
             }
             themes.push(t);
-            let loin = zones(&a).into_iter().find(|z| z.nom == "lointaine").unwrap();
-            assert!(loin.haut >= LIGNE_SOL, "{t:?} : bancs du fond à y={}", loin.haut);
+            let loin = zones(&a)
+                .into_iter()
+                .find(|z| z.nom == "lointaine")
+                .unwrap();
+            assert!(
+                loin.haut >= LIGNE_SOL,
+                "{t:?} : bancs du fond à y={}",
+                loin.haut
+            );
         }
         assert!(themes.contains(&Theme::Mer) && themes.contains(&Theme::Soleil));
     }

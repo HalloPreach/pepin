@@ -206,7 +206,10 @@ mod tests {
     fn la_rive_du_moment_fort_commence_une_tuile_apres_le_vent() {
         let n = INFOS.charger().unwrap();
         for ty in 0..n.hauteur() as i32 {
-            assert!(!n.tuile_decor(130, ty).est_solide(), "colonne 130, ligne {ty}");
+            assert!(
+                !n.tuile_decor(130, ty).est_solide(),
+                "colonne 130, ligne {ty}"
+            );
         }
         assert!(n.tuile_decor(131, 9).est_solide());
         assert!(!n.tuile_decor(131, 8).est_solide());
