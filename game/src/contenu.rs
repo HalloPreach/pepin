@@ -19,7 +19,9 @@ use crate::menu::Choix;
 
 /// Le nom du jeu (« pépin » = parapluie, en argot).
 pub const TITRE: &str = "PÉPIN";
-pub const SOUS_TITRE: &str = "Grimpe de l'orage jusqu'au soleil";
+/// Le voyage des onze niveaux (carte 5.18) : on monte de l'orage au soleil, puis
+/// l'épilogue redescend jusqu'aux toits du départ.
+pub const SOUS_TITRE: &str = "De l'orage jusqu'au soleil, et retour";
 /// Rappel des touches sous les menus.
 pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
 
@@ -68,10 +70,16 @@ pub const COMMANDES_AIDE: [(&str, &str); 5] = [
     ("ÉCHAP, P", "Pause"),
     ("M", "Son : oui ou non"),
 ];
-/// Conseils de jeu, une ligne chacun.
-pub const ASTUCES_AIDE: [&str; 4] = [
+/// Conseils de jeu, une ligne chacun. Carte 5.18 : les nouveautés des onze
+/// niveaux (vent, grêle, auvents, ventilateurs, montgolfières, escargots, chats,
+/// aiguilles, Grand Nuage) se jouent avec les MÊMES touches : l'aide le dit, et
+/// rappelle la seule règle à savoir d'avance (la grêle, parapluie ouvert).
+/// 48 caractères au plus : une ligne du panneau (test `les_astuces_tiennent`).
+pub const ASTUCES_AIDE: [&str; 6] = [
     "Écrase les flaques en leur sautant dessus.",
     "Les courants d'air te portent vers le haut.",
+    "Sous la grêle, garde le parapluie ouvert !",
+    "Vent, auvent, horloge : aucune touche en plus !",
     "Les lanternes sont des points de reprise.",
     "Trois gouttes d'or par niveau : facultatives !",
 ];
@@ -405,6 +413,15 @@ pub(crate) mod tests {
         let tout = tous_les_textes().join(" ");
         for c in ['É', 'è', 'é', 'ê', 'à'] {
             assert!(tout.contains(c), "l'accent {c} a disparu des textes");
+        }
+    }
+
+    /// Les astuces de l'aide tiennent chacune sur une ligne du panneau (312 px de
+    /// large, marges comprises : 48 caractères de 6 px au plus).
+    #[test]
+    fn les_astuces_tiennent() {
+        for a in ASTUCES_AIDE {
+            assert!(a.chars().count() <= 48, "« {a} » : trop long pour une ligne");
         }
     }
 
