@@ -3,9 +3,10 @@
 //! « Une seule direction : en haut. » Après l'Orage, le niveau VERTICAL du jeu :
 //! 34 tuiles de large, 45 de haut (quatre écrans), à gravir autour de la tour du
 //! clocher (colonnes 14 à 18), sous un ciel violet. La caméra suit Pépin en
-//! hauteur (carte 5.2). Ici, tomber ne tue jamais (le bas de la carte est plein) :
-//! on retombe sur un étage plus bas, et on a perdu de la hauteur. Le danger, ce
-//! sont les pigeons.
+//! hauteur (carte 5.2). En bas, tomber ne tue pas (le bas de la carte est plein) :
+//! on retombe sur un étage plus bas, et on a perdu de la hauteur ; le danger, ce
+//! sont les pigeons. En haut, dans la cage de l'horloge, une poutre hérissée de
+//! pointes anti-pigeons barre le vide sous les aiguilles : là, tomber tue.
 //!
 //! Le parcours, de bas en haut :
 //! 1. le pied de la tour (à gauche) : un escargot (lettre `s`) patrouille le
@@ -28,7 +29,9 @@
 //!    l'horloge. Deux aiguilles (lettre `h`) tournent dans le sens horaire : on
 //!    saute sur la grande quand elle passe au plus bas, elle emporte Pépin
 //!    jusqu'au sommet du pilier (la 3e goutte) ; de là, la petite aiguille,
-//!    puis la tour du drapeau, avec un paratonnerre.
+//!    puis la tour du drapeau, avec un paratonnerre. Entre le pilier et la
+//!    tour, sous la petite aiguille, la poutre aux pointes : une chute y tue,
+//!    on reprend à la lanterne du pilier.
 //!
 //! La cage reprend la géométrie du niveau d'essai « horloge » (mêmes rayons,
 //! vitesses et heures de départ, mêmes écarts entre pivots et tours) : le
@@ -89,7 +92,9 @@ const AIGUILLES: &[ReglageAiguille] = &[
 /// - Cage : sol en ligne 17 (colonnes 0 à 13, lanterne en 12) ; grande aiguille
 ///   (pivot (8, 11)) ; pilier (dessus en ligne 7 : lanterne 15, goutte 3 en 17) ;
 ///   petite aiguille (pivot (24, 6)) ; tour du drapeau (colonnes 29 à 33,
-///   dessus en ligne 3, drapeau en colonne 30).
+///   dessus en ligne 3, drapeau en colonne 30) ; entre les deux, la poutre
+///   (ligne 14, colonnes 19 à 28) et ses pointes (ligne 13), 3 rangées sous le
+///   plus bas de la petite aiguille.
 /// - Décor : trois paratonnerres (cage, galerie, tour du drapeau).
 const ASCII: &str = r"
 ..................................
@@ -105,8 +110,8 @@ const ASCII: &str = r"
 ..............BBBBB..........BBBBB
 ........h.....BBBBB..........BBBBB
 ..............BBBBB..........BBBBB
-..............BBBBB..........BBBBB
-..............BBBBB..........BBBBB
+..............BBBBB^^^^^^^^^^BBBBB
+..............BBBBBBBBBBBBBBBBBBBB
 .............................BBBBB
 .R..........L................BBBBB
 ########################........BB
@@ -274,8 +279,9 @@ mod tests {
         assert_eq!(aiguilles, 2);
     }
 
-    /// Les pièces du clocher sont là où le commentaire le dit : deux escargots,
-    /// deux pigeons, un ventilateur, deux aiguilles (pivots, rayons, heures).
+    /// Les pièces du clocher sont là où le commentaire le dit : deux escargots, un
+    /// ventilateur, deux aiguilles (pivots, rayons, heures) et les dix pointes de la
+    /// poutre, sous la petite aiguille.
     #[test]
     fn les_pieces_du_clocher_a_leur_place() {
         let n = INFOS.charger().unwrap();
@@ -285,8 +291,10 @@ mod tests {
         let mut escargots = Vec::new();
         let mut ventilateurs = Vec::new();
         let mut aiguilles = Vec::new();
+        let mut pointes = Vec::new();
         for e in &n.entites {
             match e {
+                Entite::Pointe(p) => pointes.push(case(p.boite.x, p.boite.y)),
                 Entite::Escargot(s) => escargots.push(case(s.boite.x, s.boite.y)),
                 Entite::Ventilateur(v) => ventilateurs.push(case(v.boite.x, v.boite.y)),
                 Entite::Mobile(m) => {
@@ -299,6 +307,7 @@ mod tests {
         }
         assert_eq!(escargots, vec![(10, 37), (5, 42)]);
         assert_eq!(ventilateurs, vec![(30, 36)]);
+        assert_eq!(pointes, (19..=28).map(|c| (c, 13)).collect::<Vec<_>>());
         assert_eq!(
             aiguilles,
             vec![
