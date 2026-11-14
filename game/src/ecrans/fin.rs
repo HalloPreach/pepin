@@ -209,6 +209,12 @@ mod tests {
         }
         let plein = couper_lignes(contenu::message_fin(0, 15, BonusFin::Absent), LIGNE_MAX_MOT);
         assert_eq!(plein, ["Il reste plein de gouttes d'or à dénicher."]);
+        let tout = BonusFin::Joue {
+            gouttes: 3,
+            total: 3,
+        };
+        let complet = couper_lignes(contenu::message_fin(30, 30, tout), LIGNE_MAX_MOT);
+        assert_eq!(complet, [contenu::COLLECTION_COMPLETE], "sur une ligne");
         // Le bonus manqué ou trouvé (carte 5.17) : chaque phrase sur sa ligne.
         let coupe = |gouttes, bonus| couper_lignes(contenu::message_fin(gouttes, 30, bonus), 42);
         assert_eq!(

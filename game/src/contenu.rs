@@ -297,6 +297,11 @@ pub const LIBELLE_BONUS: &str = "NIVEAU SECRET";
 pub const LIBELLE_MORTS: &str = "MORTS";
 pub const LIBELLE_SCORE: &str = "SCORE";
 
+/// Mot de fin quand tout a été ramassé. Sur UNE ligne de l'écran de fin (42
+/// caractères au plus) : « Collection complète : pas une goutte oubliée ! » laissait
+/// « oubliée ! » seul sur une seconde ligne (vu sur la capture 517-complet-fin).
+pub const COLLECTION_COMPLETE: &str = "Collection complète : rien n'est oublié !";
+
 /// Le niveau bonus, vu de l'écran de fin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BonusFin {
@@ -317,11 +322,11 @@ pub fn message_fin(gouttes: u32, total: u32, bonus: BonusFin) -> &'static str {
         BonusFin::Joue {
             gouttes: b,
             total: tb,
-        } if gouttes >= total && b >= tb => "Collection complète : pas une goutte oubliée !",
+        } if gouttes >= total && b >= tb => COLLECTION_COMPLETE,
         BonusFin::Joue { .. } => {
             "Bravo, tu as trouvé le niveau secret ! Quelques gouttes d'or manquent encore."
         }
-        BonusFin::Absent if gouttes >= total => "Collection complète : pas une goutte oubliée !",
+        BonusFin::Absent if gouttes >= total => COLLECTION_COMPLETE,
         BonusFin::Absent if gouttes * 2 >= total => {
             "Pas mal ! Il reste des gouttes d'or ici et là."
         }
