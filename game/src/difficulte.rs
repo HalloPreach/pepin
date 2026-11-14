@@ -55,6 +55,12 @@ pub(crate) const ESSAIS: u32 = 48;
 const PAS_MAX_ESSAI: u32 = 6 * 60 * 60;
 /// Noeuds développés au plus pour un détour calculé sur place (borne le temps).
 const LIMITE_RECHERCHE: usize = 12;
+/// Idem dans l'arène du Grand Nuage (carte 5.14) : sous ses motifs serrés, la
+/// sortie est souvent à plusieurs plans de là (filer entre deux salves).
+const LIMITE_RECHERCHE_NUAGE: usize = 100;
+/// Arène du Grand Nuage : plans suivis d'avance pour juger un candidat
+/// (`Itineraires::chaine_sure`).
+const PROFONDEUR_CHAINE: usize = 8;
 /// Cases explorées au plus par niveau pour les itinéraires (garde-fou). Relevé de
 /// 6 000 à 20 000 par la carte 5.12 : le marché couvert (quatre chats, dont l'état
 /// compte dans la case, et une rue sous deux paires d'auvents) en explore plus que
@@ -69,6 +75,10 @@ const CANDIDATS_MAX: usize = 8;
 /// Attente quand aucun chemin sûr n'est trouvé tout de suite (laisser passer
 /// un ennemi, un éclair, une plateforme).
 const ATTENTE_SECOURS: u16 = 20;
+/// Arène du Grand Nuage (carte 5.14) : tranches de temps du nuage voisines
+/// essayées autour de celle de la case (une tranche = 15 pas, voir
+/// `bot_qa::nuage_de_la_case`).
+const VOISINAGE_TEMPS: i32 = 1;
 
 // --- Hasard reproductible ------------------------------------------------------
 
@@ -234,6 +244,8 @@ type CaseNiveau = CaseParcours;
 /// l'autre, et la mesure ne serait plus reproductible.
 pub(crate) struct Itineraires {
     indice: usize,
+    /// Le niveau est-il l'arène du Grand Nuage (voir `explorer` et `intention`) ?
+    nuage: bool,
     /// Les plans essayés (ceux du robot, grossiers ou précis : voir `calculer`).
     tous: Vec<Plan>,
     /// Case -> (pas restants jusqu'au drapeau, plan à jouer).
@@ -256,6 +268,7 @@ impl Itineraires {
     /// inatteignable depuis le départ.
     fn explorer(indice: usize, tous: Vec<Plan>) -> Option<Self> {
         let (depart, _) = depart_pose(indice);
+        let nuage = depart.pv_nuage().is_some();
 
         // 1. Vers l'avant. `meilleur` : coût et monde du meilleur arrivant connu
         //    de chaque case ; une case n'est développée qu'une fois, au plus tôt,
@@ -299,6 +312,21 @@ impl Itineraires {
                             tas.push(Reverse((c2, k2)));
                         }
                     }
+                    // Arène du Grand Nuage : une mort renvoie à la lanterne, le nuage
+                    // reprend son grondement en gardant ses points perdus. Ces cases
+                    // de reprise (une par nombre de points et de gouttes prises)
+                    // n'arrivent jamais sans mourir : on les ajoute à l'exploration,
+                    // SANS arête (mourir n'est pas un chemin conseillé), pour que le
+                    // joueur sache quoi faire après une mort.
+                    Fin::Mort if nuage => {
+                        let reprise = reprendre_apres_une_mort(apres);
+                        let k2 = cle(&reprise);
+                        let c2 = cout + duree + PAS_DEPART as u32;
+                        if meilleur.get(&k2).is_none_or(|(c, _)| c2 < *c) {
+                            meilleur.insert(k2, (c2, Some(reprise)));
+                            tas.push(Reverse((c2, k2)));
+                        }
+                    }
                     Fin::Mort | Fin::Abandon => {}
                 }
             }
@@ -331,6 +359,7 @@ impl Itineraires {
         }
         Some(Self {
             indice,
+            nuage,
             tous,
             conseils,
             cases: developpees.len(),
@@ -342,51 +371,85 @@ impl Itineraires {
         self.conseils.get(&k).map(|&(d, _)| d)
     }
 
-    /// Ce que le joueur VEUT faire depuis `monde` (posé), et pourquoi.
-    ///
-    /// Candidats : le conseil de sa case, puis ceux des cases voisines (une
-    /// erreur d'élan pose Pépin un peu à côté des cases explorées). Chaque
-    /// candidat est essayé sur une COPIE du monde (le joueur voit l'ennemi
-    /// arriver) ; on garde le premier qui rapproche sans risque du drapeau. Sinon :
-    /// court détour calculé vers une case plus proche du drapeau, sinon attendre.
-    fn intention(&self, monde: &Monde) -> (Plan, Choix) {
+    /// Les plans candidats depuis `monde` (posé) : le conseil de sa case, puis ceux
+    /// des cases voisines (une erreur d'élan pose Pépin un peu à côté des cases
+    /// explorées), au plus `CANDIDATS_MAX` cases, sans doublon ; et la distance de
+    /// sa case (`None` si elle est inconnue), et le seuil qu'un plan doit passer
+    /// pour le rapprocher de la fin.
+    fn candidats(&self, monde: &Monde) -> (Option<u32>, Option<u32>, Vec<Plan>) {
         let case = cle(monde);
         let ici = self.distance(case);
         let mut voisines: Vec<(u32, i32, Plan)> = Vec::new();
-        for dy in -VOISINAGE_Y..=VOISINAGE_Y {
-            for dx in -VOISINAGE_X..=VOISINAGE_X {
-                // Une case voisine du même genre (posée, ou lancée par un auvent).
-                let voisine = CaseNiveau {
-                    x: case.x + dx,
-                    y: case.y + dy,
-                    ..case
-                };
-                if let Some(&(d, plan)) = self.conseils.get(&voisine) {
-                    voisines.push((d, dx.abs() + dy.abs(), plan));
+        // Arène du Grand Nuage : aussi les tranches de temps voisines (une erreur
+        // d'élan fait arriver Pépin quelques pas plus tôt ou plus tard).
+        let temps = if self.nuage { VOISINAGE_TEMPS } else { 0 };
+        for dt in -temps..=temps {
+            let nuage = case.nuage + dt;
+            // Même phase, mêmes points, mêmes gouttes : seule la tranche change.
+            if (nuage - 1).div_euclid(64) != (case.nuage - 1).div_euclid(64) {
+                continue;
+            }
+            for dy in -VOISINAGE_Y..=VOISINAGE_Y {
+                for dx in -VOISINAGE_X..=VOISINAGE_X {
+                    // Une case voisine du même genre (posée, ou lancée par un auvent).
+                    let voisine = CaseNiveau {
+                        x: case.x + dx,
+                        y: case.y + dy,
+                        nuage,
+                        ..case
+                    };
+                    if let Some(&(d, plan)) = self.conseils.get(&voisine) {
+                        voisines.push((d, dx.abs() + dy.abs() + dt.abs(), plan));
+                    }
                 }
             }
         }
         // La case elle-même d'abord, puis les plus proches, puis les plus avancées.
         voisines.sort_by_key(|&(d, ecart, _)| (ecart, d));
         let seuil = ici.or(voisines.iter().map(|v| v.0).max());
-        let progresse = |m: &Monde| {
-            self.distance(cle(m))
-                .is_some_and(|d| seuil.is_none_or(|s| d < s))
-        };
-        let mut essayes: Vec<Plan> = Vec::new();
+        let mut plans: Vec<Plan> = Vec::new();
         for &(_, _, plan) in voisines.iter().take(CANDIDATS_MAX) {
-            if essayes.contains(&plan) {
-                continue;
+            if !plans.contains(&plan) {
+                plans.push(plan);
             }
-            essayes.push(plan);
+        }
+        (ici, seuil, plans)
+    }
+
+    /// Le monde `m` est-il plus près de la fin que `seuil` ?
+    fn progresse(&self, m: &Monde, seuil: Option<u32>) -> bool {
+        self.distance(cle(m))
+            .is_some_and(|d| seuil.is_none_or(|s| d < s))
+    }
+
+    /// Ce que le joueur VEUT faire depuis `monde` (posé), et pourquoi.
+    ///
+    /// Candidats : voir `candidats`. Chaque candidat est essayé sur une COPIE du
+    /// monde (le joueur voit l'ennemi arriver) ; on garde le premier qui rapproche
+    /// sans risque du drapeau. Sinon : court détour calculé vers une case plus
+    /// proche du drapeau, sinon attendre.
+    ///
+    /// Arène du Grand Nuage (carte 5.14) : la case ne connaît le nuage qu'à 15 pas
+    /// près, et le conseil d'une case, calculé pour l'heure exacte où l'exploration
+    /// y est passée, peut mener sous un éclair à une autre heure de la même
+    /// tranche. Le joueur, qui VOIT les colonnes annoncées, ne garde donc un
+    /// candidat que si la suite des conseils, à partir de là, ne le fait pas
+    /// mourir (`chaine_sure`) ; et s'il ne sait pas quoi faire, il ne reste pas
+    /// sous une colonne qui va frapper (`secours_sous_les_eclairs`).
+    fn intention(&self, monde: &Monde) -> (Plan, Choix) {
+        let (ici, seuil, candidats) = self.candidats(monde);
+        let progresse = |m: &Monde| self.progresse(m, seuil);
+        for (k, &plan) in candidats.iter().enumerate() {
             let (fin, apres, _) = simuler(monde, plan);
             let ok = match fin {
                 Fin::Arrivee => true,
-                Fin::Pose | Fin::Lance => progresse(&apres),
+                Fin::Pose | Fin::Lance => {
+                    progresse(&apres) && (!self.nuage || self.chaine_sure(&apres))
+                }
                 Fin::Mort | Fin::Abandon => false,
             };
             if ok {
-                let choix = if ici.is_some() && essayes.len() == 1 {
+                let choix = if ici.is_some() && k == 0 {
                     Choix::Parcours
                 } else {
                     Choix::Voisin
@@ -394,7 +457,13 @@ impl Itineraires {
                 return (plan, choix);
             }
         }
-        if let Some(etapes) = chercher(monde, &self.tous, &progresse, LIMITE_RECHERCHE) {
+        let limite = if self.nuage {
+            LIMITE_RECHERCHE_NUAGE
+        } else {
+            LIMITE_RECHERCHE
+        };
+        let cible = |m: &Monde| progresse(m) && (!self.nuage || self.chaine_sure(m));
+        if let Some(etapes) = chercher(monde, &self.tous, &cible, limite) {
             return (etapes[0].plan, Choix::Detour);
         }
         let attendre = Plan {
@@ -407,8 +476,94 @@ impl Itineraires {
             dir_descente: false,
             attente: ATTENTE_SECOURS,
         };
+        if self.nuage {
+            return (
+                self.secours_sous_les_eclairs(monde, attendre),
+                Choix::Secours,
+            );
+        }
         (attendre, Choix::Secours)
     }
+
+    /// Arène du Grand Nuage : en suivant les conseils depuis `depart` (le premier
+    /// candidat qui rapproche de la fin, sans autre vérification), Pépin
+    /// reste-t-il en vie pendant `PROFONDEUR_CHAINE` plans (ou jusqu'à la fin) ?
+    fn chaine_sure(&self, depart: &Monde) -> bool {
+        let mut m = depart.clone();
+        for _ in 0..PROFONDEUR_CHAINE {
+            let (_, seuil, candidats) = self.candidats(&m);
+            let suivant = candidats.iter().find_map(|&plan| {
+                let (fin, apres, _) = simuler(&m, plan);
+                match fin {
+                    Fin::Arrivee => Some(None),
+                    Fin::Pose | Fin::Lance if self.progresse(&apres, seuil) => Some(Some(apres)),
+                    _ => None,
+                }
+            });
+            match suivant {
+                None => return false,
+                Some(None) => return true,
+                Some(Some(apres)) => m = apres,
+            }
+        }
+        true
+    }
+
+    /// Arène du Grand Nuage : le joueur VOIT les éclairs annoncés. S'il ne sait pas
+    /// où aller, il attend sur place si cela le laisse en vie ET libre d'en
+    /// repartir (pas coincé sous une colonne qui va frapper) ; sinon il prend le
+    /// plan qui le laisse ainsi, de préférence vers la case connue la plus proche
+    /// de la fin ; s'il n'y en a aucun, il attend quand même.
+    fn secours_sous_les_eclairs(&self, monde: &Monde, attendre: Plan) -> Plan {
+        let tient = |plan: Plan| {
+            let (fin, apres, _) = simuler(monde, plan);
+            (!matches!(fin, Fin::Mort | Fin::Abandon) && self.survit_ensuite(&apres))
+                .then_some(apres)
+        };
+        if tient(attendre).is_some() {
+            return attendre;
+        }
+        let mut meilleur: Option<(u32, Plan)> = None;
+        let mut premier_sur: Option<Plan> = None;
+        for &plan in &self.tous {
+            let Some(apres) = tient(plan) else { continue };
+            premier_sur.get_or_insert(plan);
+            if let Some(d) = self.distance(cle(&apres)) {
+                if meilleur.is_none_or(|(m, _)| d < m) {
+                    meilleur = Some((d, plan));
+                }
+            }
+        }
+        // Coincé : au moins un plan qui le laisse en vie tout de suite.
+        let vivant = || {
+            self.tous
+                .iter()
+                .copied()
+                .find(|&p| !matches!(simuler(monde, p).0, Fin::Mort | Fin::Abandon))
+        };
+        meilleur
+            .map(|(_, p)| p)
+            .or(premier_sur)
+            .or_else(vivant)
+            .unwrap_or(attendre)
+    }
+
+    /// Depuis `monde` (Pépin posé), au moins un plan le laisse-t-il en vie ?
+    fn survit_ensuite(&self, monde: &Monde) -> bool {
+        self.tous
+            .iter()
+            .any(|&p| !matches!(simuler(monde, p).0, Fin::Mort | Fin::Abandon))
+    }
+}
+
+/// Comme dans le jeu (et dans `jouer_essai`) après une mort : l'animation de
+/// réapparition à la lanterne, puis Pépin retombe au sol.
+fn reprendre_apres_une_mort(mut monde: Monde) -> Monde {
+    for _ in 0..PAS_DEPART {
+        monde.avancer(&Entrees::default());
+    }
+    monde.derniere_mort = None;
+    monde
 }
 
 /// D'où vient l'intention du joueur (pour le diagnostic de la mesure).
