@@ -153,10 +153,11 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     }
 }
 
-/// Pixels dont la vitrine d'une façade dépasse au-dessus de sa case (19 rangées pour
-/// 16) : le faîte de son toit en appentis arrive au sommet du mât de l'auvent (dessiné
-/// `HAUT_TOILE - 1` px au-dessus de la case), jamais plus haut (carte 5.12b).
-const DEBORD_VITRINE: i32 = 3;
+/// Pixels entre le haut de la case d'un auvent et le sommet de son mât : le sprite de
+/// l'auvent est posé 1 px sous le haut de sa case (`dessiner_entites`). La façade de
+/// boutique part de la même hauteur (carte 5.12b) : le faîte de son toit est au sommet
+/// du mât, jamais plus haut, 1 px sous le dessus des toits voisins.
+const SOMMET_DU_MAT: i32 = 1;
 
 /// Façade de boutique derrière l'auvent de la case `(ax, ay)` (carte 5.12) : les cases
 /// `(tx, ty, sprite)` à dessiner. Elle occupe la colonne à GAUCHE du mât : la vitrine
@@ -201,11 +202,13 @@ fn dessiner_facades(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
         };
         let (ax, ay) = case_auvent(&a.boite);
         for (tx, ty, nom) in facade_d_auvent(&monde.niveau, ax, ay) {
-            let debord = if ty == ay { DEBORD_VITRINE } else { 0 };
+            // La vitrine part du sommet du mât (elle remplit sa case jusqu'en bas) ;
+            // le mur, en dessous, remplit ses cases entières.
+            let retrait = if ty == ay { SOMMET_DU_MAT } else { 0 };
             banque.dessiner(
                 nom,
                 (tx * t - cx) as f32,
-                (ty * t - debord - cy) as f32,
+                (ty * t + retrait - cy) as f32,
                 false,
             );
         }
@@ -594,15 +597,15 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 banque.dessiner(nom, sx - 2.0, sy - HAUT_BALLON, false);
             }
             Entite::Auvent(a) => {
-                // Sprite 16x15 posé 1 px sous le haut de la case : le dessus de la
-                // zone de contact (`HAUT_TOILE` sous le haut de la case) tombe au
-                // milieu de la pente de la toile.
+                // Sprite 16x15 posé `SOMMET_DU_MAT` (1 px) sous le haut de la case :
+                // le dessus de la zone de contact (`HAUT_TOILE` sous le haut de la
+                // case) tombe au milieu de la pente de la toile.
                 let nom = if a.est_enfonce() {
                     objets::AUVENT[1]
                 } else {
                     objets::AUVENT[0]
                 };
-                banque.dessiner(nom, sx, sy - HAUT_TOILE + 1.0, false);
+                banque.dessiner(nom, sx, sy - HAUT_TOILE + SOMMET_DU_MAT as f32, false);
             }
             Entite::Ventilateur(v) => {
                 // Sprite 16x16 qui couvre toute la case : la casette (socle 16x8)
@@ -1662,14 +1665,15 @@ mod tests {
         assert_eq!(dessinees, 7 + 5);
     }
 
-    /// La façade se dessine dans la colonne à gauche du mât, la vitrine
-    /// `DEBORD_VITRINE` px au-dessus de sa case (le faîte au sommet du mât), et ne
-    /// garde de la palette que des couleurs sans rôle dans le jeu : ni or (gouttes,
-    /// éclairs), ni cyan (flaques, pluie), ni corail (parapluie, toile de l'auvent).
+    /// La façade se dessine dans la colonne à gauche du mât, la vitrine à partir du
+    /// sommet du mât (`SOMMET_DU_MAT` sous le haut de sa case) jusqu'au bas de sa case,
+    /// et ne garde de la palette que des couleurs sans rôle dans le jeu : ni or
+    /// (gouttes, éclairs), ni cyan (flaques, pluie), ni corail (parapluie, toile de
+    /// l'auvent).
     #[test]
     fn la_facade_de_boutique_a_sa_taille_et_ses_couleurs() {
         let (l, h, vitrine) = dessin_facade("facade_vitrine");
-        assert_eq!((l, h as i32), (16, 16 + DEBORD_VITRINE));
+        assert_eq!((l, h as i32), (16, 16 - SOMMET_DU_MAT));
         let (l, h, mur) = dessin_facade("facade_mur");
         assert_eq!((l, h), (16, 16));
         for d in [vitrine, mur] {
@@ -1753,9 +1757,10 @@ mod tests {
             assert_eq!(vitrine[y].as_bytes()[x], b'0', "colonne {x}");
         }
 
-        // 3. Le faîte arrive au sommet du mât (dessiné `HAUT_TOILE - 1` px au-dessus
-        //    de la case de l'auvent), jamais plus haut que lui.
-        assert_eq!(DEBORD_VITRINE, HAUT_TOILE as i32 - 1);
+        // 3. Hauteur. La façade et l'auvent sont posés à partir du même
+        //    `SOMMET_DU_MAT` (1 px sous le haut de leur case, donc sous le dessus des
+        //    toits voisins) : la rangée 0 de la vitrine (le faîte) est à la hauteur
+        //    de la rangée 0 de l'auvent (le haut du mât), jamais plus haut.
         let (_, _, auvent) = dessin_facade(objets::AUVENT[0]);
         assert!(auvent[0].starts_with("000"), "{}", auvent[0]);
     }

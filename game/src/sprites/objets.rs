@@ -507,22 +507,24 @@ pub const AUVENT1: Image = &[
     "000.............",
 ];
 
-/// Façade de boutique (16x19) : la vitrine allumée derrière le mât d'un auvent
+/// Façade de boutique (16x15) : la vitrine allumée derrière le mât d'un auvent
 /// (carte 5.12). Dessin SEUL, aucune collision : posée dans la case à gauche de
-/// l'auvent, 3 px plus haut que la case, elle accroche la toile à une boutique.
+/// l'auvent, à partir du sommet du mât (1 px sous le haut de la case, voir
+/// `SOMMET_DU_MAT` dans `scene.rs`), elle accroche la toile à une boutique.
 ///
 /// Carte 5.12b : elle n'a plus de « dessus ». Sa première version finissait par
-/// une corniche claire et plate à la hauteur des toits : vue de loin, une tour
-/// d'une tuile où l'on croyait pouvoir se poser, au-dessus du vide. Désormais :
+/// une corniche claire et plate 4 px AU-DESSUS des toits voisins : vue de loin,
+/// une tour d'une tuile où l'on croyait pouvoir se poser, au-dessus du vide.
+/// Désormais :
 /// - un toit en APPENTIS adossé au mât : le faîte (en haut à droite) est au
 ///   sommet du mât, la pente descend vers la gauche d'un pixel tous les deux
-///   pixels. Avec la toile, qui descend vers la droite, cela fait un seul toit à
-///   deux pentes dont le haut est l'auvent : le seul endroit où l'on se pose.
-///   Dans ce jeu, tout ce qui porte Pépin est PLAT avec une arête claire ; une
-///   pente sombre n'est jamais un sol ;
+///   pixels, comme la toile descend vers la droite. Les deux font un seul toit
+///   dont le haut est l'auvent : le seul endroit où l'on se pose. Le faîte est
+///   1 px SOUS le dessus des toits voisins. Dans ce jeu, tout ce qui porte Pépin
+///   est PLAT avec une arête claire ; une pente sombre n'est jamais un sol ;
 /// - les teintes du fond (ardoise ombre et ardoise nuit, comme les immeubles
 ///   de l'arrière-plan) : rien de clair au sommet, la seule lumière est la
-///   vitrine orange (deux carreaux, des étalages en silhouette), sous l'auvent.
+///   vitrine orange (deux carreaux, des étalages en silhouette), sous l'avant-toit.
 ///
 /// Ni or (gouttes, éclairs), ni corail (parapluie, toile de l'auvent), ni cyan
 /// (flaques, pluie).
@@ -536,15 +538,11 @@ pub const FACADE_VITRINE: Image = &[
     "..00111111111110",
     "0011111111111110",
     "0000000000000000",
-    "0111111111111110",
-    "0100000000000010",
-    "010AAAA00AAAA010",
     "010AAAA00AAAA010",
     "010AAAA00AAAA010",
     "010A11A00A11A010",
     "0101111001111010",
     "0100000000000010",
-    "0111111111111110",
     "0111111111111110",
 ];
 
