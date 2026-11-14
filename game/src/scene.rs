@@ -153,9 +153,10 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     }
 }
 
-/// Pixels dont la vitrine d'une façade dépasse au-dessus de sa case (20 rangées pour
-/// 16) : sa corniche arrive au sommet du mât de l'auvent.
-const DEBORD_VITRINE: i32 = 4;
+/// Pixels dont la vitrine d'une façade dépasse au-dessus de sa case (19 rangées pour
+/// 16) : le faîte de son toit en appentis arrive au sommet du mât de l'auvent (dessiné
+/// `HAUT_TOILE - 1` px au-dessus de la case), jamais plus haut (carte 5.12b).
+const DEBORD_VITRINE: i32 = 3;
 
 /// Façade de boutique derrière l'auvent de la case `(ax, ay)` (carte 5.12) : les cases
 /// `(tx, ty, sprite)` à dessiner. Elle occupe la colonne à GAUCHE du mât : la vitrine
@@ -1661,36 +1662,111 @@ mod tests {
         assert_eq!(dessinees, 7 + 5);
     }
 
-    /// La façade se dessine dans la colonne à gauche du mât, la vitrine 4 px
-    /// au-dessus de sa case (corniche au sommet du mât), et ne garde de la
-    /// palette que des couleurs sans rôle dans le jeu : ni or (gouttes, éclairs),
-    /// ni cyan (flaques, pluie), ni corail (parapluie, toile de l'auvent).
+    /// La façade se dessine dans la colonne à gauche du mât, la vitrine
+    /// `DEBORD_VITRINE` px au-dessus de sa case (le faîte au sommet du mât), et ne
+    /// garde de la palette que des couleurs sans rôle dans le jeu : ni or (gouttes,
+    /// éclairs), ni cyan (flaques, pluie), ni corail (parapluie, toile de l'auvent).
     #[test]
     fn la_facade_de_boutique_a_sa_taille_et_ses_couleurs() {
-        let taille = |nom: &str| {
-            let d = crate::sprites::tous()
-                .into_iter()
-                .find(|(n, _)| *n == nom)
-                .unwrap()
-                .1;
-            (largeur(d), hauteur(d), d)
-        };
-        let (l, h, vitrine) = taille("facade_vitrine");
+        let (l, h, vitrine) = dessin_facade("facade_vitrine");
         assert_eq!((l, h as i32), (16, 16 + DEBORD_VITRINE));
-        let (l, h, mur) = taille("facade_mur");
+        let (l, h, mur) = dessin_facade("facade_mur");
         assert_eq!((l, h), (16, 16));
         for d in [vitrine, mur] {
             for ligne in d {
+                assert!(!ligne.contains(['B', 'C', 'D', 'E', '8', '9']), "{ligne}");
+                // Transparent seulement à GAUCHE (au-dessus de la pente du toit) :
+                // contre le mât, chaque rangée finit par le contour sombre, et son
+                // premier pixel opaque est sombre lui aussi.
+                let opaques = ligne.trim_start_matches('.');
+                assert!(!opaques.contains('.'), "{ligne}");
                 assert!(
-                    !ligne.contains(['.', 'B', 'C', 'D', 'E', '8', '9']),
+                    opaques.starts_with('0') && opaques.ends_with('0'),
                     "{ligne}"
                 );
-                // Contour sombre à gauche et à droite.
-                assert!(ligne.starts_with('0') && ligne.ends_with('0'), "{ligne}");
             }
         }
+        // Le mur remplit toute sa case (il descend jusqu'au premier solide).
+        assert!(mur.iter().all(|l| !l.contains('.')));
         // La vitrine est allumée (orange), le mur n'a que des fenêtres éteintes.
         assert!(vitrine.iter().any(|l| l.contains('A')));
         assert!(mur.iter().all(|l| !l.contains('A')));
+    }
+
+    /// Carte 5.12b : la façade n'offre aucun « dessus » qui ressemble à un sol.
+    /// Ce qui porte Pépin a une arête CLAIRE et PLATE (le haut des tuiles de toit et
+    /// de brique) ; la façade, elle, monte en pente jusqu'au mât (toit en appentis :
+    /// avec la toile, un seul toit dont le haut est l'auvent) et n'a que les
+    /// teintes sombres du fond, plus l'orange de sa vitrine.
+    #[test]
+    fn la_facade_n_a_pas_de_dessus_ou_se_poser() {
+        use crate::sprites::tuiles::{BRIQUE_HAUT, TOIT_HAUT};
+        let (_, _, vitrine) = dessin_facade("facade_vitrine");
+        let (_, _, mur) = dessin_facade("facade_mur");
+
+        // 1. Couleurs. L'arête d'un dessus de tuile (rangées 1 et 2) est un ton
+        //    clair, de l'ardoise claire (3) à la brume (5) ; les thèmes ne font que
+        //    l'éclaircir (jusqu'au blanc cassé, 7). La façade n'en a aucun : ombre,
+        //    nuit, ardoise (0, 1, 2) et l'orange de la vitrine (A), rien d'autre.
+        for tuile in [TOIT_HAUT, BRIQUE_HAUT] {
+            for ligne in &tuile[1..=2] {
+                assert!(ligne.chars().all(|c| ('3'..='7').contains(&c)), "{ligne}");
+            }
+        }
+        for d in [vitrine, mur] {
+            for ligne in d {
+                assert!(
+                    ligne.chars().all(|c| ".012A".contains(c)),
+                    "ton clair sur la façade : {ligne}"
+                );
+            }
+        }
+        // Sa rangée supérieure : le seul contour sombre du faîte, contre le mât.
+        assert_eq!(vitrine[0].trim_start_matches('.'), "00");
+
+        // 2. Silhouette. Le haut de chaque colonne (premier pixel opaque) monte de
+        //    la gauche vers le mât, d'un pixel toutes les deux colonnes au plus :
+        //    aucun palier où un Pépin de 10 px croirait tenir debout.
+        let haut = |x: usize| -> usize {
+            vitrine
+                .iter()
+                .position(|l| l.as_bytes()[x] != b'.')
+                .unwrap()
+        };
+        let hauts: Vec<usize> = (0..16).map(haut).collect();
+        assert_eq!(hauts[15], 0, "le faîte est contre le mât : {hauts:?}");
+        for x in 0..15 {
+            assert!(hauts[x] >= hauts[x + 1], "le toit redescend : {hauts:?}");
+            assert!(
+                hauts[x] <= hauts[x + 1] + 1,
+                "le toit fait une marche : {hauts:?}"
+            );
+        }
+        let palier_max = hauts
+            .chunk_by(|a, b| a == b)
+            .map(<[usize]>::len)
+            .max()
+            .unwrap();
+        assert!(palier_max <= 2, "palier de {palier_max} px : {hauts:?}");
+        // Le bord du toit est du contour sombre, jamais une arête claire.
+        for (x, &y) in hauts.iter().enumerate() {
+            assert_eq!(vitrine[y].as_bytes()[x], b'0', "colonne {x}");
+        }
+
+        // 3. Le faîte arrive au sommet du mât (dessiné `HAUT_TOILE - 1` px au-dessus
+        //    de la case de l'auvent), jamais plus haut que lui.
+        assert_eq!(DEBORD_VITRINE, HAUT_TOILE as i32 - 1);
+        let (_, _, auvent) = dessin_facade(objets::AUVENT[0]);
+        assert!(auvent[0].starts_with("000"), "{}", auvent[0]);
+    }
+
+    /// Dessin d'un sprite par son nom, avec sa largeur et sa hauteur.
+    fn dessin_facade(nom: &str) -> (usize, usize, crate::sprites::Image) {
+        let d = crate::sprites::tous()
+            .into_iter()
+            .find(|(n, _)| *n == nom)
+            .unwrap()
+            .1;
+        (largeur(d), hauteur(d), d)
     }
 }

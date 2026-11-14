@@ -507,16 +507,33 @@ pub const AUVENT1: Image = &[
     "000.............",
 ];
 
-/// Façade de boutique (16x20) : la vitrine allumée derrière le mât d'un auvent
+/// Façade de boutique (16x19) : la vitrine allumée derrière le mât d'un auvent
 /// (carte 5.12). Dessin SEUL, aucune collision : posée dans la case à gauche de
-/// l'auvent, 4 px plus haut que la case (la corniche arrive au sommet du mât),
-/// elle accroche la toile à une boutique. Corniche claire, vitrine orange (deux
-/// carreaux, des étalages en silhouette), soubassement d'ardoise. Ni or (gouttes,
-/// éclairs), ni corail (parapluie, toile de l'auvent), ni cyan (flaques, pluie).
+/// l'auvent, 3 px plus haut que la case, elle accroche la toile à une boutique.
+///
+/// Carte 5.12b : elle n'a plus de « dessus ». Sa première version finissait par
+/// une corniche claire et plate à la hauteur des toits : vue de loin, une tour
+/// d'une tuile où l'on croyait pouvoir se poser, au-dessus du vide. Désormais :
+/// - un toit en APPENTIS adossé au mât : le faîte (en haut à droite) est au
+///   sommet du mât, la pente descend vers la gauche d'un pixel tous les deux
+///   pixels. Avec la toile, qui descend vers la droite, cela fait un seul toit à
+///   deux pentes dont le haut est l'auvent : le seul endroit où l'on se pose.
+///   Dans ce jeu, tout ce qui porte Pépin est PLAT avec une arête claire ; une
+///   pente sombre n'est jamais un sol ;
+/// - les teintes du fond (ardoise ombre et ardoise nuit, comme les immeubles
+///   de l'arrière-plan) : rien de clair au sommet, la seule lumière est la
+///   vitrine orange (deux carreaux, des étalages en silhouette), sous l'auvent.
+/// Ni or (gouttes, éclairs), ni corail (parapluie, toile de l'auvent), ni cyan
+/// (flaques, pluie).
 pub const FACADE_VITRINE: Image = &[
-    "0000000000000000",
-    "0333333333333330",
-    "0222222222222220",
+    "..............00",
+    "............0010",
+    "..........001110",
+    "........00111110",
+    "......0011111110",
+    "....001111111110",
+    "..00111111111110",
+    "0011111111111110",
     "0000000000000000",
     "0111111111111110",
     "0100000000000010",
@@ -527,13 +544,7 @@ pub const FACADE_VITRINE: Image = &[
     "0101111001111010",
     "0100000000000010",
     "0111111111111110",
-    "0110000000000110",
-    "0110222222220110",
-    "0110222222220110",
-    "0110222222220110",
-    "0110222222220110",
-    "0110222222220110",
-    "0110222222220110",
+    "0111111111111110",
 ];
 
 /// Mur de la façade de boutique (16x16), répété sous la vitrine jusqu'au premier
