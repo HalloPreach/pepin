@@ -133,6 +133,11 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         texte: "Il ne tient que le temps de le traverser.",
         astuce: "Ne t'arrête pas : tout s'effrite derrière toi.",
     },
+    // L'épilogue (carte 5.17) : la descente, du soleil jusqu'aux toits.
+    Intro {
+        texte: "Maintenant, on rentre.",
+        astuce: "Parapluie ouvert, la grêle ne te touche pas.",
+    },
 ];
 
 /// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
@@ -398,13 +403,16 @@ mod tests {
     #[test]
     fn etiquette_de_niveau() {
         use pepin_core::levels::{nb_normaux, NIVEAUX};
-        // Les neuf niveaux actuels (le marché couvert inséré en 3e place, carte 5.12 ;
+        // Les neuf niveaux normaux (le marché couvert inséré en 3e place, carte 5.12 ;
         // le clocher en 5e, carte 5.13 ; l'œil du cyclone en 6e, carte 5.14 ; la mer
-        // de nuages en 8e, carte 5.15).
+        // de nuages en 8e, carte 5.15), puis le bonus (carte 5.16) et l'épilogue
+        // (carte 5.17).
         assert_eq!(
             etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
             "NIVEAU 2/9"
         );
+        assert_eq!(etiquette_niveau(&NIVEAUX[9], 9), "NIVEAU BONUS");
+        assert_eq!(etiquette_niveau(&NIVEAUX[10], 9), "ÉPILOGUE");
         // Un jeu de 11 niveaux (9 normaux, bonus, épilogue) : le bonus et l'épilogue
         // ne sont pas comptés dans « /9 ».
         let mut infos = NIVEAUX[0];

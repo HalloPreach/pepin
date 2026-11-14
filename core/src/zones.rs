@@ -45,13 +45,18 @@ pub enum Theme {
     /// s'éclaircit vers le bas, un grand arc-en-ciel de huit bandes, et les nuages
     /// clairs du pont ; pas de pluie.
     ArcEnCiel,
+    /// La descente (l'épilogue, niveau vertical à l'envers) : le ciel refait tout
+    /// le voyage en sens inverse, de l'or du soleil (en haut) à la nuit des toits
+    /// (en bas), selon la hauteur ; en bas, la ville du premier niveau. Pas de
+    /// pluie : l'orage est fini.
+    Descente,
 }
 
 impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 10] = [
+    pub const TOUS: [Theme; 11] = [
         Theme::Toits,
         Theme::Gouttieres,
         Theme::Marche,
@@ -62,6 +67,7 @@ impl Theme {
         Theme::Mer,
         Theme::Soleil,
         Theme::ArcEnCiel,
+        Theme::Descente,
     ];
 
     /// Place du thème dans `Theme::TOUS` (son rang de déclaration).
@@ -84,14 +90,19 @@ impl Theme {
             Theme::Soleil => 4,
             // L'arc-en-ciel : le ciel d'ardoise après l'averse, éclairé par l'arc.
             Theme::ArcEnCiel => 2,
+            // La descente va du soleil (4) à la nuit (0) : la moyenne.
+            Theme::Descente => 2,
         }
     }
 
     /// Pleut-il dans ce thème ? Ni au soleil, ni au-dessus de la mer de nuages
     /// (seule la grêle y tombe, en colonnes), ni sous l'arc-en-ciel (la pluie
-    /// vient de s'arrêter).
+    /// vient de s'arrêter), ni pendant la descente (l'orage est fini : on rentre).
     pub fn pluie(self) -> bool {
-        !matches!(self, Theme::Soleil | Theme::Mer | Theme::ArcEnCiel)
+        !matches!(
+            self,
+            Theme::Soleil | Theme::Mer | Theme::ArcEnCiel | Theme::Descente
+        )
     }
 }
 
@@ -627,6 +638,7 @@ mod tests {
         niveau_8_faisable => 7,
         niveau_9_faisable => 8,
         niveau_10_faisable => 9,
+        niveau_11_faisable => 10,
     }
 
     #[test]
@@ -1168,7 +1180,9 @@ mod tests {
     /// auvent), paratonnerres sous l'orage, manches à air au vent, oiseaux au soleil.
     #[test]
     fn chaque_niveau_a_son_decor() {
-        use crate::levels::{arc, clocher, gouttieres, marche, mer, nuages, orage, toits, vents};
+        use crate::levels::{
+            arc, clocher, descente, gouttieres, marche, mer, nuages, orage, toits, vents,
+        };
         use GenreDecor::*;
         // Rangé par niveau (et non par place dans la table) : insérer un niveau ne
         // décale rien ; un niveau absent de cette liste n'a pas de décor imposé.
@@ -1183,6 +1197,9 @@ mod tests {
             (nuages::INFOS, &[Oiseau]),
             // Le bonus : des oiseaux sur les deux seuls nuages solides (départ, arrivée).
             (arc::INFOS, &[Oiseau]),
+            // L'épilogue : des oiseaux sur le nuage du départ, et le décor du toit du
+            // premier niveau à l'arrivée (cheminée, antenne).
+            (descente::INFOS, &[Oiseau, Cheminee, Antenne]),
         ];
         for &(infos, genres) in attendus {
             assert!(
@@ -1354,17 +1371,24 @@ mod tests {
         ((x / t) as i32, (y / t) as i32)
     }
 
-    /// Un à trois pigeons dans le Clocher (sur les corniches), Vents d'altitude et
-    /// Au-dessus des nuages (le deuxième ennemi de ces niveaux), aucun ailleurs ;
-    /// jamais à moins de 4 tuiles d'un oiseau de décor.
+    /// Un à trois pigeons dans le Clocher (sur les corniches), Vents d'altitude, Au-dessus
+    /// des nuages (le deuxième ennemi de ces niveaux) et La descente (l'épilogue,
+    /// au-dessus de la première couche de nuages), aucun ailleurs ; jamais à moins de
+    /// 4 tuiles d'un oiseau de décor.
     #[test]
-    fn les_pigeons_sont_dans_le_clocher_vents_et_nuages_loin_des_oiseaux_de_decor() {
-        use crate::levels::{clocher, nuages, vents};
+    fn les_pigeons_sont_dans_le_clocher_vents_nuages_et_descente_loin_des_oiseaux_de_decor() {
+        use crate::levels::{clocher, descente, nuages, vents};
+        let avec_pigeons = [
+            clocher::INFOS.nom,
+            vents::INFOS.nom,
+            nuages::INFOS.nom,
+            descente::INFOS.nom,
+        ];
         for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let n = infos.numero;
             let ps = pigeons(&niv);
-            if [clocher::INFOS.nom, vents::INFOS.nom, nuages::INFOS.nom].contains(&infos.nom) {
+            if avec_pigeons.contains(&infos.nom) {
                 assert!(
                     (1..=3).contains(&ps.len()),
                     "niveau {n} : {} pigeons",

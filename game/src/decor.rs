@@ -91,6 +91,11 @@ pub struct Ambiance {
     /// Un grand arc-en-ciel derrière les silhouettes (carte 5.16, le bonus) :
     /// `dessiner_arc`.
     pub arc: bool,
+    /// Le ciel du voyage de retour (carte 5.17, l'épilogue) : au lieu des quatre
+    /// bandes fixes, les bandes de `VOYAGE` défilent selon la hauteur de la caméra
+    /// (`dessiner_voyage`) ; `ciel` et les silhouettes décrivent alors le BAS de la
+    /// descente (la ville du premier niveau, la nuit).
+    pub voyage: bool,
 }
 
 /// Couleurs d'une traînée de vent latéral (`particules::souffle_lateral`) : une
@@ -157,6 +162,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             vent: VENT_NUIT,
         },
         // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
@@ -187,6 +193,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             vent: VENT_NUIT,
         },
         // Marché couvert : nuit bleue qui s'éclaircit vers l'horizon (la lueur du
@@ -217,6 +224,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             vent: VENT_NUIT,
         },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
@@ -250,6 +258,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             vent: VENT_NUIT,
         },
         // Clocher (niveau vertical) : nuit violette après l'orage, une lueur pâle
@@ -283,6 +292,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: false,
             vertige: 2.5,
             arc: false,
+            voyage: false,
             vent: VENT_NUIT,
         },
         // L'œil du cyclone (le boss) : violet et or. Tout en haut, la trouée d'or
@@ -318,6 +328,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             vent: VENT_NUIT,
         },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
@@ -346,6 +357,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             // Le ciel du haut est violet : la queue des traînées est bleu nuit.
             vent: CouleursVent {
                 traine: ARDOISE_NUIT,
@@ -383,6 +395,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             vent: VENT_JOUR,
         },
         // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
@@ -410,6 +423,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
+            voyage: false,
             vent: VENT_JOUR,
         },
         // L'arc-en-ciel (carte 5.16, le bonus) : TOUTE LA PALETTE. L'averse vient
@@ -444,8 +458,164 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             friable_nuage: true,
             vertige: 1.0,
             arc: true,
+            voyage: false,
             vent: VENT_NUIT,
         },
+        // La descente (carte 5.17, l'épilogue) : le ciel refait le voyage en sens
+        // inverse, de l'or du soleil (en haut du niveau) à la nuit des toits (en bas),
+        // voir `VOYAGE` et `dessiner_voyage`. Les champs ci-dessous décrivent le BAS
+        // de la descente, là où l'on arrive : le ciel et la ville du premier niveau
+        // (mêmes bandes, mêmes immeubles), avec quelques fenêtres allumées : on rentre
+        // à la maison. Plus de pluie : l'orage est fini.
+        Theme::Descente => Ambiance {
+            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE, ARDOISE],
+            lointain: ARDOISE_NUIT,
+            proche: ARDOISE_OMBRE,
+            // Sans pluie (`Theme::pluie`) : couleurs jamais dessinées, celles des toits.
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: Some(H / 2),
+            gouttes: 0,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            // Le soleil du haut de la descente est dessiné par `dessiner_voyage`.
+            soleil: false,
+            forme: Forme::Immeubles,
+            relief: 0,
+            socle: true,
+            // Comme au clocher : l'or est réservé aux gouttes et aux éclairs.
+            fenetres: Some((ORANGE_SOLEIL, CORAIL_CLAIR)),
+            // Les îlots du milieu de la descente sont dessinés par `dessiner_voyage`
+            // (devant la bande corail), pas ici (ils seraient devant la nuit).
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 0,
+                briques_orangees: false,
+            },
+            friable_nuage: false,
+            vertige: 1.0,
+            arc: false,
+            voyage: true,
+            vent: VENT_NUIT,
+        },
+    }
+}
+
+/// Le ciel du voyage de retour (carte 5.17, « La descente ») : dix bandes de H/4 =
+/// 45 px, du haut du niveau vers le bas. On part de l'or du soleil (le 9e niveau),
+/// on passe par le corail du couchant (la mer de nuages, les vents) et le violet de
+/// l'orage (le clocher, le cyclone), et l'on arrive à la nuit des toits : les quatre
+/// dernières bandes sont EXACTEMENT le ciel du premier niveau. Chaque couleur est
+/// déjà une bande du ciel d'un autre niveau (test
+/// `chaque_couleur_du_voyage_est_deja_le_ciel_d_un_autre_niveau`) : tout ce qui se
+/// lit sur les autres ciels (sprites, grêle) se lit aussi ici.
+pub const VOYAGE: [Couleur; 10] = [
+    OR_PALE,
+    OR,
+    ORANGE_SOLEIL,
+    CORAIL_CLAIR,
+    CORAIL,
+    VIOLET_ORAGE,
+    ARDOISE_OMBRE,
+    ARDOISE_NUIT,
+    ARDOISE,
+    ARDOISE,
+];
+/// Hauteur (px) du ciel du voyage, et remontée maximale de son « fenêtrage » : en
+/// bas du niveau, l'écran montre les 4 dernières bandes ; en haut, les 4 premières.
+const HAUTEUR_VOYAGE: i32 = VOYAGE.len() as i32 * (H / 4);
+pub const REMONTEE_VOYAGE_MAX: i32 = HAUTEUR_VOYAGE - H;
+/// Parallaxe verticale du voyage : une descente de quatre écrans (540 px de caméra)
+/// fait défiler les 270 px du voyage. Le ciel, le soleil, les îlots, les étoiles et
+/// la ville bougent ENSEMBLE : chaque élément reste devant la même bande de ciel.
+const FACTEUR_VOYAGE: f32 = 0.5;
+/// Soleil du haut de la descente (repère du voyage : 0 = haut de la 1re bande),
+/// dans la bande d'or (45 à 89), à l'abscisse du soleil du 9e niveau.
+const SOLEIL_VOYAGE_Y: i32 = 70;
+/// Îlots du milieu de la descente (repère du voyage) : leur haut le plus haut, devant
+/// la bande corail (180 à 224 : 185 + 20 + 8 = 213 au plus bas).
+const ILOTS_VOYAGE_Y: i32 = 185;
+/// Couleurs des îlots du voyage (corps, dessous) : celles des îlots des vents
+/// d'altitude, qui se lisent déjà sur le corail.
+const ILOTS_VOYAGE: (Couleur, Couleur) = (VIOLET_ORAGE, ARDOISE_NUIT);
+
+/// Remontée du fond du voyage (px, de 0 en bas du niveau à `REMONTEE_VOYAGE_MAX` en
+/// haut d'un niveau de quatre écrans) pour une caméra du fond `cam_y_fond`
+/// (`camera_fond` : 0 tout en bas, négative en montant). Entière, bornée. Pure.
+pub fn remontee_voyage(cam_y_fond: i32) -> i32 {
+    decalage(-cam_y_fond, FACTEUR_VOYAGE).clamp(0, REMONTEE_VOYAGE_MAX)
+}
+
+/// Bande de `VOYAGE` derrière la ligne d'écran `y` quand le fond est remonté de
+/// `remontee` px (sans la trame des 6 dernières lignes de chaque bande) : la règle
+/// que suit `dessiner_voyage`, pour les tests. Pure.
+#[cfg(test)]
+pub fn bande_voyage(y: i32, remontee: i32) -> usize {
+    let s = y + REMONTEE_VOYAGE_MAX - remontee;
+    (s.max(0) / (H / 4)).min(VOYAGE.len() as i32 - 1) as usize
+}
+
+/// Ordonnée écran d'un point du repère du voyage (0 = haut de la 1re bande).
+fn y_voyage(y: i32, remontee: i32) -> i32 {
+    y - REMONTEE_VOYAGE_MAX + remontee
+}
+
+/// Le fond de la descente : le ciel du voyage (dix bandes séparées par la même
+/// trame que `dessiner_ciel`), le soleil en haut, des îlots devant le corail, les
+/// étoiles dans la nuit, et en bas la ville du premier niveau. Tout défile de la
+/// même remontée : en bas du niveau (et sur l'écran de fin), l'écran est celui du
+/// premier niveau, fenêtres allumées en plus.
+fn dessiner_voyage(a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
+    let r = remontee_voyage(cam_y);
+    let bande = H / 4;
+    for (i, &c) in VOYAGE.iter().enumerate() {
+        let y = y_voyage(i as i32 * bande, r);
+        if y >= H || y + bande + 1 <= 0 {
+            continue;
+        }
+        rect(0, y, L, bande + 1, c);
+        if let Some(&suivante) = VOYAGE.get(i + 1) {
+            for k in 0..3 {
+                rect(0, y + bande - 6 + k * 2 + 1, L, 1, suivante);
+            }
+        }
+    }
+    let soleil = y_voyage(SOLEIL_VOYAGE_Y, r);
+    if soleil > -30 {
+        dessiner_soleil_en(cam_x, soleil);
+    }
+    let ilots = y_voyage(ILOTS_VOYAGE_Y, r);
+    if ilots > -30 && ilots < H {
+        dessiner_ilots(ILOTS_VOYAGE.0, ILOTS_VOYAGE.1, cam_x, ilots - ILOT_Y_MIN);
+    }
+    // Étoiles et ville : celles du premier niveau, descendues de la remontée.
+    if let Some(ymax) = a.etoiles {
+        dessiner_etoiles_en(pas, cam_x, ymax, r);
+    }
+    let (fen_loin, fen_proche) = match a.fenetres {
+        Some((l, p)) => (Some(l), Some(p)),
+        None => (None, None),
+    };
+    if BASE_LOINTAINE + r - 80 < H {
+        dessiner_couche(
+            a,
+            cam_x,
+            BASE_LOINTAINE + r,
+            FACTEUR_LOINTAINE,
+            a.lointain,
+            GRAINE_LOINTAINE,
+            a.relief,
+            fen_loin,
+        );
+        dessiner_couche(
+            a,
+            cam_x,
+            BASE_PROCHE + a.descente + r,
+            FACTEUR_PROCHE,
+            a.proche,
+            GRAINE_PROCHE,
+            0,
+            fen_proche,
+        );
     }
 }
 
@@ -791,6 +961,12 @@ fn dessiner_ciel(a: &Ambiance) {
 }
 
 fn dessiner_etoiles(pas: u32, cam_x: i32, ymax: i32) {
+    dessiner_etoiles_en(pas, cam_x, ymax, 0);
+}
+
+/// Les étoiles, descendues de `dy` px (le voyage de la descente) : semées sur
+/// `[dy, dy + ymax)`.
+fn dessiner_etoiles_en(pas: u32, cam_x: i32, ymax: i32, dy: i32) {
     let dec = decalage(cam_x, 0.03);
     for i in 0..40 {
         let h = hache(i, 77);
@@ -803,14 +979,19 @@ fn dessiner_etoiles(pas: u32, cam_x: i32, ymax: i32) {
         } else {
             ARDOISE_PALE
         };
-        if !eteinte {
-            rect(x, y, 1, 1, couleur);
+        if !eteinte && y + dy < H {
+            rect(x, y + dy, 1, 1, couleur);
         }
     }
 }
 
 fn dessiner_soleil(cam_x: i32) {
-    let (cx, cy, r) = (236 - decalage(cam_x, 0.02) % 40, 44, 22);
+    dessiner_soleil_en(cam_x, 44);
+}
+
+/// Le soleil, centré à l'ordonnée écran `cy`.
+fn dessiner_soleil_en(cam_x: i32, cy: i32) {
+    let (cx, r) = (236 - decalage(cam_x, 0.02) % 40, 22);
     for dy in -r..=r {
         let w = ((r * r - dy * dy) as f32).sqrt() as i32;
         rect(cx - w, cy + dy, 2 * w + 1, 1, OR_PALE);
@@ -935,6 +1116,10 @@ fn dessiner_pluie(a: &Ambiance, pas: u32) {
 /// `cam_y` : ordonnée de la caméra vue par le fond (`camera_fond`).
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     let a = ambiance(theme);
+    if a.voyage {
+        dessiner_voyage(&a, cam_x, cam_y, pas);
+        return;
+    }
     dessiner_ciel(&a);
     if let Some(ymax) = a.etoiles {
         dessiner_etoiles(pas, cam_x, ymax);
@@ -1003,7 +1188,7 @@ mod tests {
     #[test]
     fn teinte_des_tuiles_et_friables_par_theme() {
         let attendu = |t: Theme| match t {
-            Theme::Toits | Theme::Orage | Theme::Clocher => (0, false, false),
+            Theme::Toits | Theme::Orage | Theme::Clocher | Theme::Descente => (0, false, false),
             Theme::Gouttieres | Theme::Marche => (1, false, false),
             Theme::Cyclone => (0, false, true),
             Theme::Altitude | Theme::Mer | Theme::ArcEnCiel => (2, false, true),
@@ -1441,7 +1626,7 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0, 0]);
+        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0]);
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");
@@ -1479,6 +1664,115 @@ mod tests {
             assert_eq!(nuage_plafond(c, 31, 4), nuage_plafond(c, 31, 4));
             let (_, l, d) = nuage_plafond(c, 31, 4);
             assert!((40..=64).contains(&l) && (6..=34).contains(&d), "{l} {d}");
+        }
+    }
+
+    // --- Le voyage de la descente (carte 5.17) ------------------------------------
+
+    /// Seule la descente a le ciel du voyage.
+    #[test]
+    fn seule_la_descente_refait_le_voyage() {
+        for t in Theme::TOUS {
+            assert_eq!(ambiance(t).voyage, t == Theme::Descente, "{t:?}");
+        }
+    }
+
+    /// Le voyage va de l'or à la nuit : de plus en plus sombre, du haut jusqu'à la
+    /// bande la plus noire (l'ombre), puis les bandes du ciel du premier niveau.
+    #[test]
+    fn le_voyage_va_de_l_or_a_la_nuit() {
+        assert_eq!(VOYAGE[0], OR_PALE);
+        for k in 0..6 {
+            assert!(
+                luminance(VOYAGE[k]) > luminance(VOYAGE[k + 1]),
+                "bande {k} : {:?} puis {:?}",
+                VOYAGE[k],
+                VOYAGE[k + 1]
+            );
+        }
+        // Le ciel de la descente (`ciel`, le bas du voyage) EST celui du premier niveau.
+        assert_eq!(VOYAGE[6..], ambiance(Theme::Toits).ciel);
+        assert_eq!(VOYAGE[6..], ambiance(Theme::Descente).ciel);
+        assert_eq!(REMONTEE_VOYAGE_MAX, 6 * H / 4);
+    }
+
+    /// En bas du niveau (caméra du fond à 0, comme sur l'écran de fin), l'écran montre
+    /// exactement le ciel du premier niveau ; en haut d'un niveau de quatre écrans
+    /// (45 rangées), les quatre premières bandes, l'or. Entre les deux, la remontée
+    /// est entière et suit la caméra (deux fois plus lentement).
+    #[test]
+    fn la_remontee_du_voyage_suit_la_hauteur_de_la_camera() {
+        let toits = ambiance(Theme::Toits);
+        let haut_niveau = 45 * 16;
+        let fond = |cam_y: i32| camera_fond(cam_y, haut_niveau);
+        // En bas : la caméra du fond vaut 0, la remontée aussi.
+        assert_eq!(remontee_voyage(fond(haut_niveau - H)), 0);
+        for y in 0..H {
+            assert_eq!(VOYAGE[bande_voyage(y, 0)], ciel_a(&toits, y), "y = {y}");
+        }
+        // En haut : la remontée est maximale, l'écran montre les bandes 0 à 3.
+        assert_eq!(remontee_voyage(fond(0)), REMONTEE_VOYAGE_MAX);
+        for y in 0..H {
+            assert_eq!(bande_voyage(y, REMONTEE_VOYAGE_MAX), (y / (H / 4)) as usize);
+        }
+        let mut avant = REMONTEE_VOYAGE_MAX;
+        for cam_y in 0..=(haut_niveau - H) {
+            let r = remontee_voyage(fond(cam_y));
+            assert!(
+                r <= avant && avant - r <= 1,
+                "caméra {cam_y} : {avant} puis {r}"
+            );
+            assert_eq!(r, (((haut_niveau - H - cam_y) as f32) * 0.5).round() as i32);
+            avant = r;
+        }
+        // Hors du niveau (secousse de mort) : bornée.
+        assert_eq!(remontee_voyage(5), 0);
+        assert_eq!(remontee_voyage(-10_000), REMONTEE_VOYAGE_MAX);
+    }
+
+    /// Chaque couleur du voyage est déjà une bande du ciel d'un autre niveau : les
+    /// tests de contraste des sprites, de la grêle, des gouttes (faits sur les ciels
+    /// de tous les thèmes) couvrent donc aussi la descente.
+    #[test]
+    fn chaque_couleur_du_voyage_est_deja_le_ciel_d_un_autre_niveau() {
+        for c in VOYAGE {
+            assert!(
+                Theme::TOUS
+                    .iter()
+                    .filter(|&&t| t != Theme::Descente)
+                    .any(|&t| ambiance(t).ciel.contains(&c)),
+                "{c:?}"
+            );
+        }
+    }
+
+    /// Ce qui défile avec le voyage reste devant les bandes où il se voit : le
+    /// soleil dans l'or (son disque pâle tranche sur l'or et l'orange), les îlots
+    /// devant le corail (violets, comme aux vents d'altitude), les étoiles et la
+    /// ville dans la nuit (comme au premier niveau).
+    #[test]
+    fn soleil_ilots_etoiles_et_ville_restent_devant_leur_bande() {
+        let bande = |y: i32| VOYAGE[(y / (H / 4)) as usize];
+        for y in SOLEIL_VOYAGE_Y - 22..=SOLEIL_VOYAGE_Y + 22 {
+            assert!([OR, ORANGE_SOLEIL].contains(&bande(y)), "soleil, y = {y}");
+        }
+        for y in ILOTS_VOYAGE_Y..ILOTS_VOYAGE_Y + ILOT_Y_ALEA as i32 + ILOT_HAUTEUR {
+            assert_eq!(bande(y), CORAIL, "îlots, y = {y}");
+            assert!(bande(y) != ILOTS_VOYAGE.0 && bande(y) != ILOTS_VOYAGE.1);
+        }
+        let d = ambiance(Theme::Descente);
+        let ymax = d.etoiles.unwrap();
+        for y in 0..ymax {
+            let fond = bande(REMONTEE_VOYAGE_MAX + y);
+            assert!(
+                [ARDOISE_OMBRE, ARDOISE_NUIT].contains(&fond),
+                "étoile, y = {y}"
+            );
+        }
+        // La ville : les mêmes zones que celles du premier niveau, devant le même ciel.
+        let toits = ambiance(Theme::Toits);
+        for (z, zt) in zones(&d).iter().zip(zones(&toits).iter()) {
+            assert_eq!((z.haut, z.bas, z.couleur), (zt.haut, zt.bas, zt.couleur));
         }
     }
 }

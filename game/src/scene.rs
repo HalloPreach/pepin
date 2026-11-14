@@ -1204,6 +1204,9 @@ mod tests {
                     assert!(ombres > 100, "{} : {ombres} ombres", infos.nom)
                 }
                 Theme::Clocher => assert!(ombres > 50, "{} : {ombres} ombres", infos.nom),
+                // La descente : des couches de nuages, puis le toit du premier niveau
+                // (32 tuiles de large, briques dessous).
+                Theme::Descente => assert!(ombres >= 30, "{} : {ombres} ombres", infos.nom),
                 // L'œil du cyclone, la mer de nuages et l'arc-en-ciel : des nuages,
                 // sans toit ni brique.
                 Theme::Soleil | Theme::Cyclone | Theme::Mer | Theme::ArcEnCiel => {

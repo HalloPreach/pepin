@@ -27,6 +27,7 @@
 pub mod arc;
 pub mod clocher;
 pub mod cyclone;
+pub mod descente;
 pub mod essai_auvent;
 pub mod essai_chat;
 pub mod essai_escargot;
@@ -71,6 +72,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     mer::INFOS,
     nuages::INFOS,
     arc::INFOS,
+    descente::INFOS,
 ];
 
 /// Nombre de niveaux du jeu (bonus et épilogue compris).
@@ -221,29 +223,36 @@ mod tests {
         assert_eq!(NB_NIVEAUX, NIVEAUX.len());
     }
 
-    /// La vraie table depuis la carte 5.16 : neuf niveaux normaux puis le bonus
-    /// (« L'arc-en-ciel », 10e). Les DEUX chemins : avec les 27 gouttes des neuf
-    /// niveaux normaux, le bonus est joué après le 9e, puis la fin ; avec une
-    /// goutte de moins (ou aucune), on passe du 9e directement à la fin (pas
-    /// encore d'épilogue : il arrive à la carte 5.17). Avant le 9e, les gouttes ne
-    /// changent rien.
+    /// La vraie table depuis la carte 5.17 : neuf niveaux normaux, le bonus
+    /// (« L'arc-en-ciel », 10e) et l'épilogue (« La descente », 11e). Les DEUX
+    /// chemins : avec les 27 gouttes des neuf niveaux normaux, le bonus est joué
+    /// après le 9e, puis l'épilogue ; avec une goutte de moins (ou aucune), on passe
+    /// du 9e directement à l'épilogue. Après l'épilogue : la fin. Avant le 9e, les
+    /// gouttes ne changent rien.
     #[test]
-    fn la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_le_saute_sinon() {
-        let normaux = NB_NIVEAUX - 1;
+    fn la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_finit_par_l_epilogue() {
+        let normaux = NB_NIVEAUX - 2;
         assert_eq!(normaux, 9);
+        assert_eq!(NB_NIVEAUX, 11);
         assert!(NIVEAUX[..normaux].iter().all(|n| n.genre == Normal));
         assert_eq!(NIVEAUX[normaux].genre, Bonus);
         assert_eq!(NIVEAUX[normaux].nom, arc::INFOS.nom);
+        assert_eq!(NIVEAUX[normaux + 1].genre, Epilogue);
+        assert_eq!(NIVEAUX[normaux + 1].nom, descente::INFOS.nom);
         assert_eq!(gouttes_pour_le_bonus(NIVEAUX), 27);
-        // Toutes les gouttes : 1 à 9, le bonus, puis la fin.
-        assert_eq!(parcours(NIVEAUX, 27), (0..10).collect::<Vec<_>>());
-        // Une goutte manque : de 9 à la fin, sans le bonus.
-        assert_eq!(parcours(NIVEAUX, 26), (0..9).collect::<Vec<_>>());
-        assert_eq!(parcours(NIVEAUX, 0), (0..9).collect::<Vec<_>>());
+        // Toutes les gouttes : 1 à 9, le bonus, l'épilogue, puis la fin.
+        assert_eq!(parcours(NIVEAUX, 27), (0..11).collect::<Vec<_>>());
+        // Une goutte manque : de 9 à l'épilogue, sans le bonus.
+        let sans_bonus: Vec<usize> = (0..9).chain([10]).collect();
+        assert_eq!(parcours(NIVEAUX, 26), sans_bonus);
+        assert_eq!(parcours(NIVEAUX, 0), sans_bonus);
         assert_eq!(apres(NIVEAUX, 8, 27), Apres::Niveau(9));
-        assert_eq!(apres(NIVEAUX, 8, 26), Apres::Fin);
-        // Après le bonus : la fin, quelles que soient les gouttes (30 avec les siennes).
-        assert_eq!(apres(NIVEAUX, 9, 30), Apres::Fin);
+        assert_eq!(apres(NIVEAUX, 8, 26), Apres::Niveau(10));
+        // Après le bonus : l'épilogue, quelles que soient les gouttes (30 avec les
+        // siennes) ; après l'épilogue : la fin.
+        assert_eq!(apres(NIVEAUX, 9, 30), Apres::Niveau(10));
+        assert_eq!(apres(NIVEAUX, 10, 33), Apres::Fin);
+        assert_eq!(apres(NIVEAUX, 10, 0), Apres::Fin);
         // Avant le 9e : toujours le niveau suivant.
         for gouttes in [0, 26, 27] {
             for i in 0..normaux - 1 {

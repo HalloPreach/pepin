@@ -527,7 +527,7 @@ mod tests {
     }
 
     /// La preuve demandée : sur chaque niveau du jeu d'un écran de haut (11 rangées :
-    /// tous sauf le clocher), la nouvelle caméra et
+    /// tous sauf le clocher et la descente), la nouvelle caméra et
     /// l'ancienne, menées par la VRAIE simulation (`Monde`, morts et recentrages compris,
     /// comme dans `app.rs`), sont identiques au bit près à chaque pas, et la position
     /// rendue (celle que la scène dessine) aussi, pour plusieurs `alpha`.
@@ -540,11 +540,17 @@ mod tests {
         for (indice, infos) in NIVEAUX.iter().enumerate() {
             let mut m = Monde::new(indice);
             let (l, h) = (m.niveau.largeur_px(), m.niveau.hauteur_px());
-            // Le clocher (carte 5.13), quatre écrans de haut, est le seul niveau du jeu
-            // que la caméra suit en hauteur : il n'a pas d'« ancienne » caméra à
-            // comparer (la caméra verticale a ses propres tests, plus bas).
+            // Le clocher (carte 5.13) et la descente (carte 5.17), quatre écrans de
+            // haut, sont les seuls niveaux du jeu que la caméra suit en hauteur : ils
+            // n'ont pas d'« ancienne » caméra à comparer (la caméra verticale a ses
+            // propres tests, plus bas).
             if Camera::suit_en_hauteur(h) {
-                assert_eq!(infos.nom, pepin_core::levels::clocher::INFOS.nom);
+                use pepin_core::levels::{clocher, descente};
+                assert!(
+                    [clocher::INFOS.nom, descente::INFOS.nom].contains(&infos.nom),
+                    "{}",
+                    infos.nom
+                );
                 continue;
             }
             let mut nouvelle = Camera::new(&m.joueur, l, h);

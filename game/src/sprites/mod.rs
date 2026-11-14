@@ -712,6 +712,52 @@ mod tests {
         assert!(vus >= 2, "{vus} pigeon(s) dans les niveaux 4 et 5");
     }
 
+    /// Même contrôle dans la descente (carte 5.17), dont le ciel défile avec la
+    /// caméra (`decor::VOYAGE`) : pour chaque pigeon, chaque ligne qu'il occupe
+    /// (perché, puis jusqu'au fond de sa plongée) et CHAQUE position de la caméra où
+    /// cette ligne est à l'écran, la bande de ciel derrière lui (et celle de sa trame)
+    /// contraste d'au moins 3:1 avec son corps et son contour. Les pigeons sont
+    /// perchés assez haut pour n'avoir derrière eux que l'or, l'orange et le corail,
+    /// jamais le violet ni la nuit.
+    #[test]
+    fn le_pigeon_se_detache_du_ciel_de_la_descente() {
+        use crate::decor::{bande_voyage, camera_fond, remontee_voyage, VOYAGE};
+        use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
+        use pepin_core::entities::{Entite, TypeEnnemi};
+        use pepin_core::levels::descente;
+        use pepin_core::HAUTEUR_LOGIQUE;
+        let niveau = descente::INFOS.charger().unwrap();
+        let (h_ecran, h_niveau) = (HAUTEUR_LOGIQUE as i32, niveau.hauteur_px() as i32);
+        let mut vus = 0;
+        for e in &niveau.entites {
+            let Entite::Ennemi(p) = e else { continue };
+            if p.type_ennemi != TypeEnnemi::Pigeon {
+                continue;
+            }
+            vus += 1;
+            let haut = (p.boite.y - 2.0) as i32;
+            let bas = (p.boite.bas() + PROFONDEUR_PLONGEE) as i32;
+            for y_niveau in haut..bas {
+                let cameras = (y_niveau - h_ecran + 1).max(0)..=y_niveau.min(h_niveau - h_ecran);
+                for cam_y in cameras {
+                    let r = remontee_voyage(camera_fond(cam_y, h_niveau));
+                    let y = y_niveau - cam_y;
+                    for ciel in [VOYAGE[bande_voyage(y, r)], VOYAGE[bande_voyage(y + 6, r)]] {
+                        for c in ['2', '0'] {
+                            let k = contraste(couleur_de(c), ciel);
+                            assert!(
+                                k >= 3.0,
+                                "pigeon en {:?}, « {c} » sur {ciel:?} (caméra {cam_y}) : {k:.2}",
+                                p.perchoir()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(vus, 2);
+    }
+
     /// Grêle (carte 5.4) : grêlons de 4x4 (bille de glace de 2x2), éclat de 7x3 ; chaque
     /// pixel de glace est entouré de contour sombre (aucun pixel clair ne touche le
     /// vide), et 3 couleurs de glace au plus (reflet, teinte, une ombre).

@@ -1034,13 +1034,14 @@ mod tests {
         }
     }
 
-    /// Carte 5.16, les DEUX chemins au sortir du 9e niveau (le dernier normal) :
-    /// avec les 27 gouttes des niveaux normaux, la carte suivante est celle du
-    /// bonus (« NIVEAU BONUS », l'arc-en-ciel) ; avec une de moins, l'écran de fin
-    /// (pas encore d'épilogue). Le bonus fini, c'est l'écran de fin.
+    /// Les DEUX chemins au sortir du 9e niveau (le dernier normal, cartes 5.16 et
+    /// 5.17) : avec les 27 gouttes des niveaux normaux, la carte suivante est celle du
+    /// bonus (« NIVEAU BONUS », l'arc-en-ciel), puis celle de l'épilogue ; avec une de
+    /// moins, directement l'épilogue (« ÉPILOGUE », la descente). L'épilogue fini,
+    /// c'est l'écran de fin.
     #[test]
-    fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes() {
-        use pepin_core::levels::{arc, nb_normaux, GenreNiveau};
+    fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes_puis_l_epilogue() {
+        use pepin_core::levels::{arc, descente, nb_normaux, GenreNiveau};
         for (gouttes, bonus) in [(27, true), (26, false), (0, false)] {
             let mut app = en_jeu();
             let (monde, camera) = charger(8, None);
@@ -1050,8 +1051,9 @@ mod tests {
             app.monde.etat.gouttes = gouttes;
             app.monde.termine = true;
             avancer(&mut app, 1);
+            jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+            let mut gouttes_finales = gouttes;
             if bonus {
-                jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
                 assert_eq!(app.monde.indice, 9);
                 assert_eq!(app.monde.infos.nom, arc::INFOS.nom);
                 assert_eq!(app.monde.infos.genre, GenreNiveau::Bonus);
@@ -1059,17 +1061,29 @@ mod tests {
                     contenu::etiquette_niveau(app.monde.infos, nb_normaux(NIVEAUX)),
                     "NIVEAU BONUS"
                 );
-                // Le bonus fini (30 gouttes avec les siennes) : l'écran de fin.
+                // Le bonus fini (29 gouttes avec 2 des siennes) : l'épilogue.
                 app.reagir(&valider(), &Commandes::default(), None);
-                app.monde.etat.gouttes = 30;
+                app.monde.etat.gouttes = 29;
                 app.monde.termine = true;
                 avancer(&mut app, 1);
-                jusqu_a(&mut app, |e| e == Ecran::Fin);
-                assert_eq!(app.bilan.gouttes, 30);
-            } else {
-                jusqu_a(&mut app, |e| e == Ecran::Fin);
-                assert_eq!(app.bilan.gouttes, gouttes, "bonus sauté");
+                jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+                gouttes_finales = 29;
             }
+            assert_eq!(app.monde.indice, 10);
+            assert_eq!(app.monde.infos.nom, descente::INFOS.nom);
+            assert_eq!(app.monde.infos.genre, GenreNiveau::Epilogue);
+            assert_eq!(
+                contenu::etiquette_niveau(app.monde.infos, nb_normaux(NIVEAUX)),
+                "ÉPILOGUE"
+            );
+            assert_eq!(app.monde.etat.gouttes, gouttes_finales, "gouttes gardées");
+            // L'épilogue fini avec ses 3 gouttes : l'écran de fin.
+            app.reagir(&valider(), &Commandes::default(), None);
+            app.monde.etat.gouttes += 3;
+            app.monde.termine = true;
+            avancer(&mut app, 1);
+            jusqu_a(&mut app, |e| e == Ecran::Fin);
+            assert_eq!(app.bilan.gouttes, gouttes_finales + 3);
         }
     }
 

@@ -3,7 +3,8 @@
 PÉPIN (« pépin » : parapluie, en argot) est un petit jeu de plateformes en
 pixel art. Pépin est une créature ronde armée d'un grand parapluie corail. Elle
 grimpe de toit en toit, de l'orage jusqu'au soleil, en neuf niveaux (et un
-niveau bonus) : le ciel passe peu à peu du bleu nuit à l'or.
+niveau bonus) : le ciel passe peu à peu du bleu nuit à l'or. Puis elle rentre
+chez elle : un épilogue la ramène du soleil jusqu'au toit du départ, la nuit.
 
 Le projet a deux buts : un jeu qui tourne **dans un navigateur** (WebAssembly),
 et un code **lisible par quelqu'un qui apprend Rust**. Presque chaque fichier
@@ -53,7 +54,7 @@ sur QWERTY, la touche point-virgule coupe aussi le son.
 Sur un écran tactile, quatre boutons (gauche, droite, saut, pause) apparaissent
 au premier toucher.
 
-Les neuf niveaux, puis le bonus (noms et mécaniques tirés de
+Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
 `core/src/levels/*.rs`) :
 
 1. Les toits : course, saut, planer.
@@ -76,9 +77,14 @@ Les neuf niveaux, puis le bonus (noms et mécaniques tirés de
 9. Au-dessus des nuages : final calme, nuages friables, pigeon.
 10. L'arc-en-ciel (bonus) : joué seulement si TOUTES les gouttes d'or des neuf
     niveaux ont été ramassées pendant la partie (sinon on passe directement à
-    l'écran de fin). Un pont de nuages friables d'un bout à l'autre, sans ennemi
+    l'épilogue). Un pont de nuages friables d'un bout à l'autre, sans ennemi
     ni lanterne : tout s'effrite derrière Pépin, on ne s'arrête jamais. Un sprint
     d'une minute, pour le chronomètre.
+11. La descente (épilogue) : le niveau vertical à l'envers (quatre écrans de
+    haut). Du soleil jusqu'au toit du premier niveau, à travers trois couches de
+    nuages percées, entre deux pigeons et deux colonnes de grêle ; le ciel refait
+    tout le voyage en sens inverse, de l'or à la nuit. Le plus calme de tous :
+    aucune chute n'y tue. L'écran de fin suit.
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.

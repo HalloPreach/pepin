@@ -36,7 +36,8 @@ use std::fmt::Write as _;
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::CauseMort;
 use pepin_core::levels::{
-    arc, clocher, cyclone, gouttieres, marche, mer, nuages, orage, toits, vents, GenreNiveau,
+    arc, clocher, cyclone, descente, gouttieres, marche, mer, nuages, orage, toits, vents,
+    GenreNiveau,
 };
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
@@ -739,6 +740,7 @@ const RANGS_DE_GRAINE: &[&str] = &[
     cyclone::INFOS.nom,
     mer::INFOS.nom,
     arc::INFOS.nom,
+    descente::INFOS.nom,
 ];
 
 /// Rang de graine du niveau d'indice `n` de la table (voir `RANGS_DE_GRAINE`).
@@ -1021,6 +1023,7 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.2, 1.0),  // 8. La mer de nuages (carte 5.15) : au niveau des vents (0,33), sous le boss
     (0.0, 0.2),  // 9. Au-dessus des nuages : final calme, sous 0,2
     (0.0, 2.0),  // 10. L'arc-en-ciel (carte 5.16) : le bonus, jugé au chrono (garde-fou large)
+    (0.0, 0.2),  // 11. La descente (carte 5.17) : l'épilogue, le plus calme de tous
 ];
 
 /// Le bonus (« L'arc-en-ciel », carte 5.16) se juge au CHRONO, pas aux morts
@@ -1476,8 +1479,8 @@ mod tests {
         assert_eq!(NIVEAUX[FINAL].nom, nuages::INFOS.nom);
 
         let bonne = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 1.0],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 0.3],
+            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 0.3, 0.05],
         );
         assert_eq!(ecarts_de_la_courbe(&bonne), Vec::<String>::new());
 
@@ -1485,8 +1488,8 @@ mod tests {
         // il passe ; un sprint de 80 s pour l'Expert, non.
         assert!(est_bonus(9) && (0..9).all(|n| !est_bonus(n)));
         let mut bonus_dur = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 8.8],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 1.2],
+            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 8.8, 0.3],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 1.2, 0.05],
         );
         assert_eq!(ecarts_de_la_courbe(&bonus_dur), Vec::<String>::new());
         bonus_dur[9][EXPERT].duree_s = 80.0;
@@ -1498,8 +1501,8 @@ mod tests {
         // La courbe d'avant la carte 3.3 : le 7 (vents) presque aussi dur que le 4
         // (orage), le 9 (final) à 0,4.
         let avant = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.6, 1.0, 2.0, 2.9, 1.5, 2.5, 1.0],
-            [0.1, 0.5, 0.6, 1.0, 0.4, 0.6, 0.9, 0.6, 0.4, 0.3],
+            [0.4, 1.5, 2.0, 3.6, 1.0, 2.0, 2.9, 1.5, 2.5, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 1.0, 0.4, 0.6, 0.9, 0.6, 0.4, 0.3, 0.05],
         );
         let e = ecarts_de_la_courbe(&avant);
         assert!(e.iter().any(|x| x.contains("niveau 7 à 0,90")), "{e:?}");
@@ -1509,8 +1512,8 @@ mod tests {
         // Le 7 plus dur que le 4 (Débutant) ; le 9 aussi dur que le 7 (Habitué) ;
         // le marché (3) plus dur que l'orage (Débutant).
         let a_l_envers = fausse_mesure(
-            [0.4, 1.5, 2.2, 2.0, 1.0, 1.5, 2.5, 1.5, 0.5, 1.0],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.1, 0.6, 0.1, 0.3],
+            [0.4, 1.5, 2.2, 2.0, 1.0, 1.5, 2.5, 1.5, 0.5, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.1, 0.6, 0.1, 0.3, 0.05],
         );
         let e = ecarts_de_la_courbe(&a_l_envers);
         assert!(
