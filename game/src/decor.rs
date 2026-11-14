@@ -569,7 +569,7 @@ fn dessiner_voyage(a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let bande = H / 4;
     for (i, &c) in VOYAGE.iter().enumerate() {
         let y = y_voyage(i as i32 * bande, r);
-        if y >= H || y + bande + 1 <= 0 {
+        if y >= H || y + bande < 0 {
             continue;
         }
         rect(0, y, L, bande + 1, c);
