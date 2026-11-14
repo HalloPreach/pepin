@@ -3162,3 +3162,150 @@ Limites (non testé ou à relativiser) :
   choisies parmi des sessions au même cadrage, vérifié pixel par pixel.
 - Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Le niveau
   d'essai « auvent » (F3), qui a aussi cinq façades, n'est pas recapturé (couvert par les tests).
+
+## L'œil du cyclone, niveau 6, le boss (carte 5.14)
+
+« Le Grand Nuage ne veut pas te laisser passer. » Troisième des nouveaux niveaux de l'étape 5, inséré à sa
+place (6) après le clocher : Vents d'altitude devient le niveau 7, Au-dessus des nuages le 8 (« NIVEAU
+6/8 »). Grille `core/src/levels/cyclone.rs` : 20 x 11 tuiles, un seul écran, murs et sol de nuages (`N`).
+Lettre `O` de la carte 5.11 ; aucune lettre nouvelle. Nouveauté du niveau : le Grand Nuage, le boss.
+
+Le combat, celui de la carte 5.11 sans rien changer : le nuage gronde (1,5 s), lance un motif d'éclairs
+sur les 17 colonnes de l'arène (chacune annoncée comme un éclair `e`), s'essouffle (5 s) et laisse
+échapper un courant à côté de lui (à gauche après les motifs 1 et 3, à droite après le 2) ; Pépin y monte
+et lui retombe sur la tête ; trois motifs de plus en plus serrés, trois coups, et le ciel se déchire : le
+niveau est fini (pas de drapeau). Une seule lanterne, au début de l'arène (décision du coordinateur : une
+mort ramène au début de l'arène, le nuage garde ses points perdus). Trois gouttes : au sol, et deux à la
+hauteur de sa tête, entre chaque courant et lui (celle de droite attend le deuxième motif). L'arène
+reprend EXACTEMENT la géométrie du niveau d'essai « nuage » (sur laquelle le combat a été réglé et le
+robot de QA entraîné) : test `l_arene_du_cyclone_reprend_celle_du_niveau_d_essai` (mêmes cases pleines,
+même départ, mêmes entités, même nuage, mêmes colonnes et courants) ; seules les tuiles changent de
+dessin. Pas de décor (`H T R Q K`) : ses éclairs couvrent tout le sol, et un objet de décor n'est jamais
+devant un danger (carte 4.2).
+
+Ambiance, violet et or : un thème de plus, `Theme::Cyclone` (`decor::ambiance`). En haut, la trouée d'or
+(bande orange soleil : le ciel au-dessus de l'œil), bordée d'un plafond de nuages violets et bleu nuit qui
+tournent autour ; plus bas, le mur de l'œil, ardoise puis bleu nuit ; des tours de nuages violettes
+montent du fond, les proches presque noires ; un peu de pluie (32 gouttes). Choisi sur maquettes avant le
+code (six essais : trouée d'or ou ciel violet uni, tours plus ou moins hautes, plafond plus ou moins
+épais) : les colonnes annoncées (pointillés d'or) se lisent sur le bleu nuit, la frappe (or pâle et blanc)
+sur tout le fond, le nuage (contour sombre, corps clair) sur la trouée. Les tuiles sont les nuages clairs
+des niveaux d'altitude (aucun sprite nouveau ni modifié). Carte de titre : « L'ŒIL DU CYCLONE » (ligature
+Œ de la police), la phrase d'AGA, le conseil « Quand il s'essouffle, monte dans son vent et saute-lui sur
+la tête. » (celui de l'arène d'essai).
+
+Robots et tests :
+- faisabilité : `niveau_6_faisable` (l'« arrivée » du robot de faisabilité est la tête du nuage, toujours
+  essoufflé, voir `faisabilite` ; 3 gouttes, la lanterne, robot maladroit compris),
+  `reprise_depuis_chaque_lanterne`, et ceux du niveau d'essai
+  (`niveau_d_essai_nuage_chaque_courant_mene_a_la_tete`) valent pour la même géométrie. Trois règles
+  communes ont une exception pour l'arène du boss (niveau sans drapeau), écrite et commentée dans le
+  test : une seule lanterne au lieu de 3 au moins (`verifier_infos`) ; la durée (`durees_plausibles`) est
+  celle du combat le plus court (grondement, trois motifs, deux « touché », la déchirure : 19,3 s), pas le
+  1,2 s que met le robot de faisabilité à atteindre la tête ; pas de décor imposé
+  (`le_decor_ne_change_rien_a_la_collision`). Lint de grille vert ;
+- robot de QA : `le_robot_finit_tous_les_niveaux_sans_mourir` vert sur les huit niveaux, sans rien lui
+  apprendre (il bat déjà le Grand Nuage depuis la carte 5.11). Son parcours du cyclone est identique à
+  celui de l'arène d'essai (1 397 entrées) et tient les entrées décalées de -2 à +2 images (vérifié par un
+  test de diagnostic temporaire, non gardé). Nouvelle empreinte de la partie complète (un niveau de plus,
+  donc attendue) : `31055a8413c4561b`, 17 880 images, 0 mort, 12 gouttes, score 2 100, chrono 15 792 pas ;
+  le cyclone : images 11826 à 13246 du script.
+Aucune mécanique ne s'est mal comportée : rien n'a été corrigé dans le Grand Nuage.
+
+Le joueur simulé de la mesure, lui, ne savait pas se battre (consigne : lui apprendre la mécanique dans la
+même carte). Première mesure : 126,0 / 131,1 / 124,8 morts, 5, 4 et 7 essais finis sur 48, toutes les
+morts sous les éclairs. Raisons : la case du robot ne connaît le nuage qu'à 15 pas près, et le conseil
+d'une case (calculé pour l'heure exacte où l'exploration y est passée) peut mener sous une colonne à une
+autre heure de la même tranche ; après une mort, le joueur reprenait dans des cases que l'exploration
+n'avait jamais vues (le nuage au prélude avec des points perdus) ; et, perdu, il attendait sur place, sous
+la colonne. Corrigé dans `difficulte.rs`, seulement dans un niveau à Grand Nuage (`Itineraires::nuage` ;
+les sept autres niveaux sont identiques ligne à ligne, et la mesure du commit 6b958a5, apprentissage seul,
+est identique À L'OCTET à celle d'avant la carte) : les cases de reprise après une mort sont ajoutées à
+l'exploration (sans arête : mourir n'est pas un chemin conseillé) ; les tranches de temps voisines
+comptent parmi les cases voisines ; un candidat n'est gardé que si la suite des conseils, huit plans plus
+loin, ne fait pas mourir (`chaine_sure`) — le joueur VOIT les colonnes annoncées ; détour plus long
+(`LIMITE_RECHERCHE_NUAGE`) ; et le secours ne reste plus sous une colonne qui va frapper
+(`secours_sous_les_eclairs`). Le joueur sans erreur bat le nuage sans mourir (22 s).
+
+Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais) :
+
+| Niveau                      | Avant (5.13) D / H / E | Après (5.14) D / H / E |
+| --------------------------- | ---------------------- | ---------------------- |
+| 1. Les toits                | 0,4 / 0,1 / 0,0        | 0,4 / 0,1 / 0,0        |
+| 2. Gouttières et cheminées  | 1,5 / 0,5 / 0,2        | 1,5 / 0,5 / 0,2        |
+| 3. Le marché couvert        | 0,8 / 0,5 / 0,2        | 0,8 / 0,5 / 0,2        |
+| 4. Le grand orage           | 3,0 / 0,6 / 0,4        | 3,0 / 0,6 / 0,4        |
+| 5. Le clocher               | 0,6 / 0,3 / 0,0        | 0,6 / 0,3 / 0,0        |
+| 6. L'œil du cyclone         | —                      | 2,9 / 0,6 / 0,3        |
+| 7. Vents d'altitude (ex-6)  | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
+| 8. Au-dessus des nuages     | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
+| Total                       | 8,2 / 2,6 / 0,9        | 11,1 / 3,2 / 1,2       |
+
+Les sept autres niveaux sont identiques LIGNE À LIGNE (rang de graine 8 pour le cyclone,
+`RANGS_DE_GRAINE`). Dans l'arène : 48/48 essais finis pour chaque profil, en 42 s (Débutant), 27 s
+(Habitué), 25 s (Expert) ; toutes les morts sous les éclairs (colonnes 4 à 18), le pire essai à 11 morts
+(Débutant). Exactement (morts cumulées / 48) : 2,88 / 0,58 / 0,29, contre 3,04 / 0,65 / 0,35 pour l'orage.
+Juge de la courbe : bande Habitué du cyclone [0,3 ; 1,2[ ; l'orage reste le sommet (le plus meurtrier pour
+le Débutant et l'Habitué) ; les vents, qui suivent désormais le boss, restent le niveau jugé « après le
+sommet » (nettement sous l'orage) ; places jugées déplacées (vents 7, final 8). À SIGNALER pour la carte
+5.18 : la décision « monte jusqu'au boss (6) » voudrait un boss au moins aussi dur que l'orage ; il se
+mesure juste en dessous (Débutant 2,88 contre 3,04, Habitué 0,58 contre 0,65 : 8 et 3 morts de moins sur
+48 essais ; bruit de la mesure de l'ordre de 0,1 à 0,2). Leviers possibles : des motifs plus serrés (table
+`MOTIFS` de `nuage.rs`, partagée avec l'arène d'essai), ou un quatrième motif ; à décider avec la courbe
+sur onze niveaux.
+
+Captures (`docs/qa/514-*`, 960 x 540, build de QA d'une extraction propre de f6206f5 servi en local sur
+127.0.0.1 (port libre, serveur arrêté à la fin), Chromium sans tête (CDP) du poste, onglet au premier plan
+(`Page.bringToFront`) et canvas focalisé, pilote `docs/capture-visibilite.mjs` (protocole
+`docs/pilote-qa.js`, horloge virtuelle) avec le script du robot régénéré sur la même extraction ; numéros
+d'image de `trace.csv`) :
+- `514-carte` (11815) : « NIVEAU 6/8 », « L'ŒIL DU CYCLONE », la phrase d'AGA, le conseil ;
+- `514-depart` (11850) : Pépin au départ à côté de la lanterne, la goutte du sol, les deux gouttes en
+  l'air dans la trouée d'or, le nuage qui gronde (sourcils froncés, yeux d'or), trois points de vie en
+  haut ;
+- `514-motif-1-a` (11950) : premier motif, les cinq colonnes de gauche annoncées (pointillés, pieds d'or),
+  Pépin saute pour en sortir ;
+- `514-eclair` (11968) : leur frappe, Pépin juste à droite ;
+- `514-essouffle-1` (12180) : le nuage essoufflé (paupières lourdes, goutte de sueur), Pépin monte dans le
+  courant de gauche (traits blancs) vers la goutte ;
+- `514-saut-tete` (12200) : MOMENT FORT, Pépin au sommet du courant, au-dessus de la tête, la goutte
+  prise ;
+- `514-coup-1` (12216) : le coup, nuage touché (yeux plissés), 2 points de vie, étincelles ;
+- `514-motif-2` (12480) : deuxième motif, des bandes frappées et d'autres annoncées, Pépin au sol entre
+  les colonnes frappées ;
+- `514-coup-2` (12598) : deuxième coup (courant de droite), le nuage clignote (image où il est caché), 1
+  point de vie ;
+- `514-motif-3-a` (12800) : troisième motif, le plus serré, sept colonnes frappées et d'autres annoncées,
+  Pépin au sol juste à côté d'une bande frappée ;
+- `514-essouffle-3` (13060) : troisième essoufflement, Pépin saute vers le courant de gauche ;
+- `514-coup-3` (13105) : troisième coup, 0 point de vie, la déchirure commence (fente d'or) ;
+- `514-dechirure` (13170) : le ciel déchiré, la bande d'or pâle au milieu, Pépin plane ;
+- `514-arrivee` (13232) : le nuage vaincu, l'or remplit l'écran, la transition commence ;
+- `514-carte-suivante` (13440) : « NIVEAU 7/8 », « VENTS D'ALTITUDE ».
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur
+les 15. Comme noté à la carte 5.12b, deux sessions de rejeu ne donnent pas toujours la même image à
+l'octet pour une même image du script : sur quatre sessions, certaines captures sont identiques (départ,
+attente au sol entre deux salves), d'autres diffèrent autour de Pépin en mouvement (et de ses
+étincelles) ; aucune session n'a montré de mort, et les deux sessions menées jusqu'au bout sont arrivées à
+la carte des vents. Les 15 captures viennent d'une seule session, et Pépin y est reconnu
+(`docs/reperer-pepin.py`) à quelques pixels de la place que donne `trace.csv`.
+
+Vérification sur une extraction propre de f6206f5 (dernier commit de code ; `git archive`, nouveau dossier
+daté) : `./docker-cargo.sh test --workspace --no-default-features` : 338 + 288 tests, tous verts (1 + 16
+ignorés : écritures de fichiers, scripts, diagnostics) ; `./docker-cargo.sh lint` : `LINT-OK` ; script du
+robot régénéré (empreinte `31055a8413c4561b`, 0 mort) ; `./build.sh` : `dist/` produit (480 350 octets de
+wasm, + 919 octets, +0,2 %, pour le niveau et son thème), 0 occurrence des noms interdits, seule URL
+`http://www.w3.org/2000/svg` ; le Grand Nuage est maintenant dans `dist/` (son niveau est dans le jeu),
+l'arène d'essai toujours pas (« Essai nuage » : 0 fois dans `dist/game.wasm`, 1 fois dans
+`dist-qa/game.wasm`) ; `./build.sh --qa` : `dist-qa/` produit (celui des captures). Planche de sprites :
+aucun sprite nouveau ni modifié, non régénérée.
+
+Limites (non testé ou à relativiser) :
+- Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Pas de son
+  entendu à l'oreille (grondement, tonnerre des éclairs, éclats).
+- Le boss n'est jugé difficile que par la mesure (un joueur simulé qui voit les annonces) et par les
+  captures ; aucun joueur humain. Une seule graine.
+- Le joueur simulé a appris le combat dans `difficulte.rs` : ses chiffres dépendent de cet apprentissage
+  (huit plans d'avance, voisinage d'une tranche de 15 pas). Un joueur moins prévoyant mourrait plus.
+- Le robot de QA prend les trois gouttes avant le dernier coup (règle de la carte 5.11) ; un joueur qui
+  frappe trop tôt finit le niveau sans elles (voulu : le niveau finit au dernier coup).
