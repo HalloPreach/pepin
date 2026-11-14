@@ -523,6 +523,7 @@ pub const AUVENT1: Image = &[
 /// - les teintes du fond (ardoise ombre et ardoise nuit, comme les immeubles
 ///   de l'arrière-plan) : rien de clair au sommet, la seule lumière est la
 ///   vitrine orange (deux carreaux, des étalages en silhouette), sous l'auvent.
+///
 /// Ni or (gouttes, éclairs), ni corail (parapluie, toile de l'auvent), ni cyan
 /// (flaques, pluie).
 pub const FACADE_VITRINE: Image = &[
