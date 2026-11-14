@@ -3648,3 +3648,186 @@ Limites (non testé ou à relativiser) :
 - L'or et l'or pâle de l'arc-en-ciel sont des couleurs que le décor évitait jusqu'ici (réservées aux
   gouttes et aux éclairs) : « toute la palette » l'impose ; les bandes ne font que 3 px et les gouttes
   gardent leur contour sombre, aucune confusion vue sur les captures.
+
+## La descente, l'épilogue (carte 5.17)
+
+« Maintenant, on rentre. » Onzième et dernière place de la table, genre `Epilogue`
+(`core/src/levels/descente.rs`, 32 x 45 tuiles, quatre écrans de haut) : il suit le 9e niveau, ou le
+bonus quand celui-ci a été débloqué ; l'écran de fin vient juste après.
+
+Ce qui a été fait :
+- Le niveau, vertical à l'envers : départ tout en haut, sur un petit nuage au soleil (deux oiseaux
+  posés) ; arrivée tout en bas, sur le toit du premier niveau (mêmes tuiles `#` et `B`, une cheminée,
+  une antenne, un bloc de briques avant le drapeau, comme à la fin des toits). Entre les deux, trois
+  couches de nuages, neuf rangées l'une sous l'autre, chacune percée d'un trou de six tuiles, une fois
+  à droite (colonnes 24 à 29), une fois à gauche (2 à 7) : on court jusqu'au trou, on s'y laisse tomber
+  ou on y plane, et l'on repart dans l'autre sens sur la couche du dessous. Deux pigeons (`p`) perchés
+  au-dessus de la première couche, tournés vers Pépin qui arrive : on passe dessous sans s'arrêter, ils
+  plongent derrière lui. Deux colonnes de grêle (`g`) tombent du dessous d'une couche, le long du bord
+  LOINTAIN du trou suivant (colonnes 2 et 29), jusqu'à la couche ou au toit d'en dessous : on descend à
+  côté d'elles, et les 2e et 3e gouttes flottent dans les trous, près d'elles (planer pour aller les
+  chercher). 3 gouttes, 4 lanternes (une à chaque atterrissage). Aucune lettre de grille nouvelle.
+- Le plus calme des onze : le toit de l'arrivée couvre toute la largeur, donc AUCUNE chute ne tue
+  (tout trou mène à la couche du dessous), aucune pointe, aucun éclair, rien qui bouge ; seuls dangers,
+  les deux pigeons et les deux colonnes de grêle. Tests `aucune_chute_ne_tue_et_seuls_deux_pigeons_et_deux_colonnes_de_grele_menacent`
+  et `se_laisser_tomber_du_bord_d_un_trou_ne_touche_pas_la_grele` (vraie physique, pas à pas : courir et
+  tomber du bord de chaque trou pose Pépin sur la couche du dessous sans toucher la grêle).
+- Nouveauté du niveau : la descente elle-même, sous un ciel qui refait le voyage en sens inverse. Thème
+  `Descente` : au lieu des quatre bandes fixes, dix bandes de 45 px (`decor::VOYAGE`) défilent avec la
+  caméra (parallaxe verticale 0,5, `remontee_voyage`) : or pâle, or, orange, corail clair, corail
+  (« Au-dessus des nuages », la mer de nuages, les vents), violet (le clocher, le cyclone), puis
+  l'ombre, la nuit et l'ardoise : en bas, EXACTEMENT le ciel du premier niveau. Le soleil au haut de la
+  descente (dans la bande d'or), des îlots violets devant le corail (ceux des vents d'altitude), les
+  étoiles et la ville du premier niveau en bas (mêmes immeubles, quelques fenêtres allumées : on rentre
+  à la maison) ; tout défile ensemble, chaque élément reste devant sa bande. Pas de pluie : l'orage est
+  fini. Tuiles et dalles teintées comme aux toits. Tests : `le_voyage_va_de_l_or_a_la_nuit`,
+  `la_remontee_du_voyage_suit_la_hauteur_de_la_camera` (en bas : le ciel des toits pixel pour pixel ;
+  en haut : les quatre premières bandes ; entière, monotone), `chaque_couleur_du_voyage_est_deja_le_ciel_d_un_autre_niveau`
+  (donc tous les tests de contraste des sprites sur « tous les ciels » couvrent la descente),
+  `soleil_ilots_etoiles_et_ville_restent_devant_leur_bande`, `seule_la_descente_refait_le_voyage`, et
+  `le_pigeon_se_detache_du_ciel_de_la_descente` (sprites : pour chaque ligne qu'occupe un pigeon,
+  perché puis jusqu'au fond de sa plongée, et CHAQUE hauteur de caméra où elle est à l'écran, contraste
+  3:1 au moins avec la bande derrière lui).
+- Carte de titre : « ÉPILOGUE », « LA DESCENTE », « Maintenant, on rentre. », conseil « Parapluie
+  ouvert, la grêle ne te touche pas. ».
+- Faisabilité : `niveau_11_faisable` (14,1 s en course rapide, robot maladroit compris),
+  `reprise_depuis_chaque_lanterne`, lint de grille (lanternes posées, aucune poche close), décor
+  (`chaque_niveau_a_son_decor` : oiseaux, cheminées, antenne), pigeons (au moins 4 tuiles des oiseaux,
+  plongée en l'air et loin des lanternes), `aucun_point_de_reprise_sous_la_grele`, `durees_plausibles`
+  (cible 40 s, la plus courte des onze : la mesure le joue en 18 à 19 s).
+
+Écran de fin et compteur (addendum du coordinateur) :
+- Partie finie par l'épilogue : « DE RETOUR ! », « Pépin replie son parapluie. » sous le titre, sur la
+  nuit tranquille de la descente (le ciel et la ville du premier niveau, là où Pépin vient d'arriver).
+  Sans épilogue (un jeu qui n'en aurait pas) : « LE SOLEIL ! » sur l'or, mise en page d'avant
+  inchangée (test `sans_epilogue_l_ecran_de_fin_reste_le_soleil` : lignes en 42, 55, 68, 81, mot en
+  98). La mise en page est une fonction pure (`fin::mise_en_page`) ; `rien_ne_se_chevauche_sur_l_ecran_de_fin`
+  la vérifie pour tous les cas (avec ou sans épilogue, bonus joué ou non, 0 à 30 gouttes).
+- Compteur : avant cette carte, le HUD et l'écran de fin comptaient sur `GOUTTES_TOTAL`, toutes les
+  gouttes du jeu (10 niveaux : 30 ; avec l'épilogue, ce serait devenu 33, bonus compris, alors qu'une
+  partie sans bonus ne peut en ramasser que 30). Désormais le total est celui du PARCOURS : les neuf
+  niveaux normaux et l'épilogue, 30 (`levels::gouttes_du_parcours`) ; le bonus est compté à part : dans
+  le bonus, le compteur montre ses gouttes sur 3 (`hud::compteur`) ; à la fin, une ligne « NIVEAU
+  SECRET x/3 » s'il a été joué (`Application::gouttes_bonus`, remis à zéro par une nouvelle partie).
+  Tests `le_compteur_compte_le_parcours_et_le_bonus_a_part`, `les_gouttes_du_parcours_et_du_bonus_sont_comptees_a_part`,
+  `les_gouttes_du_parcours_et_celles_du_bonus`, `rejouer_oublie_les_gouttes_du_bonus`.
+- Mot de fin : quand le bonus a été manqué, il annonce le niveau secret : « Il reste plein de gouttes
+  d'or à dénicher. Toutes ouvrent un niveau secret. » (ou « Pas mal ! Il reste quelques gouttes d'or.
+  Toutes ouvrent un niveau secret. ») ; bonus joué mais pas tout ramassé : « Bravo, tu as trouvé le
+  niveau secret ! Quelques gouttes d'or manquent encore. » ; tout ramassé : « Collection complète :
+  rien n'est oublié ! ». Chaque phrase tient sur sa ligne (test). L'ancien « Collection complète : pas
+  une goutte oubliée ! » laissait « oubliée ! » seul sur une seconde ligne (vu sur la capture
+  `517-complet-fin` de la première série) : raccourci, et un test le garde sur une ligne.
+
+Les DEUX chemins vers l'épilogue :
+- Règles pures : `la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_finit_par_l_epilogue`
+  (27 gouttes : 1 à 9, le bonus, l'épilogue ; 26 ou 0 : 1 à 9, l'épilogue ; après l'épilogue : la fin).
+- Application : `apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes_puis_l_epilogue`
+  (cartes « NIVEAU BONUS » puis « ÉPILOGUE », ou « ÉPILOGUE » seule ; puis l'écran de fin du retour,
+  30 gouttes du parcours et le bonus à part).
+- Robot de QA : la partie habituelle joue 1 à 9 puis 11 (`le_robot_finit_tous_les_niveaux_sans_mourir`) ;
+  la partie complète joue 1 à 11, 3 gouttes de plus à chaque niveau, 33 en tout
+  (`la_partie_complete_joue_le_bonus`). Aucune mort. Rien à apprendre au robot (pigeons et grêle
+  existaient). Les deux scripts sont identiques à ceux de la carte 5.16 sur toute leur longueur
+  d'alors (20 054 et 24 084 images) : les dix premiers niveaux se jouent exactement pareil.
+  Partie habituelle : 21 339 images (355,6 s), 16 gouttes, score 2500, empreinte 0cfd185bb30e4abf ;
+  partie complète : 25 511 images (425,2 s), 33 gouttes, score 4200, empreinte 2475461594d0de53.
+- Navigateur : les deux scripts rejoués dans le build de QA (captures plus bas).
+
+Mesure de difficulté (même commande, graine 20261113, 48 essais) — morts moyennes, avant (d286fee,
+carte 5.16) et après (133612b) :
+
+| Niveau                      | Débutant avant | Débutant après | Habitué avant | Habitué après | Expert avant | Expert après |
+| --------------------------- | -------------- | -------------- | ------------- | ------------- | ------------ | ------------ |
+| 1. Les toits                | 0,4            | 0,4            | 0,1           | 0,1           | 0,0          | 0,0          |
+| 2. Gouttières et cheminées  | 1,5            | 1,5            | 0,5           | 0,5           | 0,2          | 0,2          |
+| 3. Le marché couvert        | 0,8            | 0,8            | 0,5           | 0,5           | 0,2          | 0,2          |
+| 4. Le grand orage           | 3,0            | 3,0            | 0,6           | 0,6           | 0,4          | 0,4          |
+| 5. Le clocher               | 0,6            | 0,6            | 0,3           | 0,3           | 0,0          | 0,0          |
+| 6. L'œil du cyclone         | 2,9            | 2,9            | 0,6           | 0,6           | 0,3          | 0,3          |
+| 7. Vents d'altitude         | 1,3            | 1,3            | 0,4           | 0,4           | 0,1          | 0,1          |
+| 8. La mer de nuages         | 1,3            | 1,3            | 0,3           | 0,3           | 0,1          | 0,1          |
+| 9. Au-dessus des nuages     | 0,5            | 0,5            | 0,1           | 0,1           | 0,0          | 0,0          |
+| 10. L'arc-en-ciel (bonus)   | 8,8            | 8,8            | 1,2           | 1,2           | 0,3          | 0,3          |
+| 11. La descente (épilogue)  | —              | 0,0            | —             | 0,0           | —            | 0,0          |
+| Total                       | 21,2           | 21,2           | 4,7           | 4,7           | 1,6          | 1,6          |
+
+Détail de l'épilogue : une seule mort en 144 essais (un Débutant, dans la grêle de la colonne 3 :
+0,02 en moyenne) ; 48/48 essais finis pour chaque profil, 19 s (Débutant), 18 s (Habitué et Expert).
+Les dix autres niveaux : identiques ligne à ligne (lieux de mort compris). C'est le plus calme des onze,
+comme décidé : le juge de la courbe l'exige désormais (`ecarts_de_la_courbe` : pour le Débutant et
+l'Habitué, l'épilogue ne meurt jamais plus que dans aucun autre niveau ; bande Habitué [0 ; 0,2[ ;
+`la_forme_de_la_courbe_est_jugee` vérifie qu'un épilogue à 0,45 / 0,15 est refusé). Outil ajouté pour
+régler un niveau sans relancer toute la mesure : `mesure_d_un_niveau` (test ignoré, variable NIVEAU,
+défaut le dernier) donne la ligne d'un niveau, mêmes graines, en une seconde pour la descente.
+
+Lecture honnête : la descente est calme parce que rien n'y tue en tombant ; le joueur simulé y meurt
+moins qu'aux toits. Le parapluie y sert surtout à approcher sans risque les deux gouttes voisines de
+la grêle (en planant, on est à l'abri) ; le reste se descend en se laissant tomber de trou en trou (le
+robot, la mesure et sans doute un joueur pressé le font). C'est une descente « à la promenade », pas un long plané continu. Si AGA
+veut plus de plané, la suite logique serait d'élargir les couches (moins de trous droits) : à décider
+à la carte 5.18 avec la courbe entière.
+
+Captures (`docs/qa/517-*`, 960 x 540, build de QA d'une extraction propre de 097df8b servi sur
+127.0.0.1 (port libre, serveur arrêté à la fin), Chromium sans tête (CDP) du poste, onglet au premier
+plan (`Page.bringToFront`) et canvas focalisé, pilote `docs/capture-visibilite.mjs`, scripts
+`target/qa/script.txt` (partie du robot) et `script-516.txt` (partie complète) ; numéros d'image de
+`trace.csv` et `trace-516.csv`) :
+- partie du robot, bonus SAUTÉ :
+  - `517-fin-du-9` (19745) : la fin du 9e niveau, 15/30 au compteur ;
+  - `517-carte` (19960) : « ÉPILOGUE », « LA DESCENTE », « Maintenant, on rentre. », le conseil sur
+    une ligne, sur le haut du voyage (or et orange) ;
+  - `517-depart` (20030) : Pépin sur le nuage du départ, le soleil, la bande d'or, la première goutte
+    en l'air ;
+  - `517-pigeon` (20227) : le premier pigeon plonge derrière Pépin qui court sur la première couche ;
+    le second, perché plus loin ; le ciel passe de l'or à l'orange puis au corail ;
+  - `517-corail` (20330) : Pépin vient de passer le trou de droite de la première couche et descend
+    devant le corail et les îlots violets ; au-dessus, le second pigeon en plongée ;
+  - `517-grele-1` (20587) : Pépin descend par le trou de gauche de la deuxième couche, la colonne de
+    grêle à côté de lui ; en dessous, la troisième couche et sa lanterne ; au-dessus le violet,
+    derrière lui la nuit qui commence ;
+  - `517-grele-2` (20827) : Pépin a passé le trou de droite de la troisième couche, la seconde colonne
+    de grêle à sa droite ; les immeubles montent du bas (fenêtres allumées) ;
+  - `517-ville` (20900) : Pépin posé sur le toit du premier niveau, cheminée et antenne, la ville, les
+    étoiles, le ciel des toits ;
+  - `517-arrivee` (21067) : Pépin descend en planant vers le drapeau, devant le bloc de briques ;
+  - `517-fin` (21200) : l'écran de fin du retour : « DE RETOUR ! », « Pépin replie son parapluie. »,
+    16/30, pas de ligne de bonus, « Il reste plein de gouttes d'or à dénicher. / Toutes ouvrent un
+    niveau secret. », sur la nuit de la ville ;
+- partie complète, bonus JOUÉ :
+  - `517-complet-bonus` (21900) : dans le bonus, le compteur montre ses gouttes : 2/3 ;
+  - `517-complet-carte` (23990) : la carte « ÉPILOGUE » juste après le bonus ;
+  - `517-complet-descente` (24600) : dans l'épilogue, le compteur du parcours : 28/30 (27 + 1 ; les
+    3 gouttes du bonus sont à part) ;
+  - `517-complet-fin` (25400) : « DE RETOUR ! », 30/30, « NIVEAU SECRET 3/3 », 0 mort, « Collection
+    complète : rien n'est oublié ! » sur une ligne.
+Chaque capture regardée. `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou sur
+les 14. Une première série (build de 357e5fa) a montré le mot de fin « Collection complète : pas une
+goutte oubliée ! » coupé, « oubliée ! » seul sur la seconde ligne : corrigé (097df8b), série refaite.
+Entre les deux séries, les images identiques à l'octet sont celles où rien ne bouge (cartes, départ,
+écran de fin du robot, bonus) ; les autres diffèrent d'un pixel de caméra ou de Pépin (l'interpolation
+de rendu dépend de l'instant réel de l'image, pas de la simulation, identique).
+
+Vérification sur une extraction propre de 097df8b (dernier commit de code ; `git archive`, nouveau
+dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` : 352 + 313 tests, tous
+verts (1 + 18 ignorés : écritures de fichiers, scripts, diagnostics, mesure, et le nouvel outil
+`mesure_d_un_niveau`), en 4 min 30 s et 7 min 30 s ; `./docker-cargo.sh lint` : `LINT-OK` (une
+première extraction, de 133612b, avait montré un avertissement clippy `int_plus_one` dans
+`dessiner_voyage` : corrigé en 357e5fa) ; `./build.sh` : `dist/` produit (491 283 octets de wasm,
++ 3 793 octets, +0,8 %, pour le niveau, le ciel du voyage et l'écran de fin), 0 occurrence des noms
+interdits, seule URL `http://www.w3.org/2000/svg` ; « La descente » est dans `dist/game.wasm`, le
+niveau d'essai vent toujours pas (« Essai vent » : 0 fois). Build de QA (`./build.sh --qa`) et scripts
+du robot (`ecrire_script_navigateur`, `ecrire_script_partie_complete`) : même extraction ; scripts et
+traces identiques à l'octet à ceux de 357e5fa (rejoués pour les captures). Planche de sprites : aucun
+sprite nouveau ni modifié, non régénérée. Le commit suivant (captures, QA.md) ne touche pas au code.
+
+Limites (non testé ou à relativiser) :
+- Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Pas de son.
+- L'épilogue n'a été joué que par le robot et par le joueur simulé de la mesure, pas par un humain.
+  Lecture plus haut : on peut le descendre presque sans planer ; le « long plané entre les pigeons et
+  la grêle » de la demande d'AGA n'est qu'une des façons de le jouer.
+- Le ciel du voyage est jugé sur les captures et par des tests de couleurs (pas de mesure de
+  luminance sur image) ; ses bandes défilent à la moitié de la vitesse de la caméra : la sensation de
+  « refaire le voyage » n'a pas été jugée par un humain.
+- La difficulté n'est jugée que par la mesure (une graine) ; la courbe sur onze niveaux reste à faire
+  (carte 5.18).
