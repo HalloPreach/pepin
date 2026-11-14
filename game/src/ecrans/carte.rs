@@ -199,5 +199,10 @@ mod tests {
             ["Dernière ligne droite : le champignon t'aide."]
         );
         assert!(!contenu::intro(3).texte.to_lowercase().contains("flash"));
+        // Le bonus (carte 5.16) : la phrase d'AGA et le conseil tiennent chacun sur
+        // une ligne (une première version laissait « toi. » seul sur la seconde).
+        for texte in [contenu::intro(9).texte, contenu::intro(9).astuce] {
+            assert_eq!(couper_lignes(texte, LIGNE_MAX), [texte]);
+        }
     }
 }

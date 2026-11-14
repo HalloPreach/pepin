@@ -131,7 +131,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     // Le bonus (carte 5.16) : seulement avec toutes les gouttes.
     Intro {
         texte: "Il ne tient que le temps de le traverser.",
-        astuce: "Ne t'arrête jamais : tout s'effrite derrière toi.",
+        astuce: "Ne t'arrête pas : tout s'effrite derrière toi.",
     },
 ];
 
