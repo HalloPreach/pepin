@@ -80,17 +80,22 @@ const AIGUILLES: &[ReglageAiguille] = &[
 /// - Pied de la tour (à gauche) : sol en ligne 43, départ colonne 1 ; escargot 1
 ///   (colonne 5) entre le bord gauche et le socle (colonnes 8 à 13, dessus en
 ///   ligne 38 : 80 px au-dessus du sol) ; escargot 2 sur le socle ; goutte 1 en
-///   l'air (colonne 10, ligne 31), au sommet du rebond sur l'escargot 2 ;
-///   lanterne sur le socle (12).
-/// - Galerie de droite (dessus en ligne 37, colonnes 19 à 31) : lanterne (20),
+///   l'air (colonne 10, ligne 31), au sommet du rebond sur l'escargot 2. Pas de
+///   lanterne : rien n'y tue, on y reprend au départ (une lanterne sur le socle
+///   n'était pas touchée : le rebond du premier escargot porte par-dessus).
+/// - Galerie de droite (dessus en ligne 37, colonnes 19 à 31) : lanterne (20,
+///   juste après l'arche : on la touche forcément),
 ///   pigeon 1 sur une corniche isolée (colonne 26, 4 rangées au-dessus de la
 ///   galerie), ventilateur (colonne 30) ; son courant monte jusque sous la
 ///   corniche F2 (ligne 26).
 /// - Zigzag : F1 ligne 29 (colonnes 19 à 28 ; goutte 2 en colonne 20, gardée par
 ///   le pigeon 2 perché en (19, 24)), F2 ligne 26 (25 à 31), F3 ligne 23
 ///   (19 à 26), F4 ligne 20 (22 à 31), porte ligne 17 (19 à 23).
-/// - Cage : sol en ligne 17 (colonnes 0 à 13, lanterne en 12) ; grande aiguille
-///   (pivot (8, 11)) ; pilier (dessus en ligne 7 : lanterne 15, goutte 3 en 17) ;
+/// - Cage : sol en ligne 17 (colonnes 0 à 13, lanterne en 13, à la sortie de la
+///   porte : on la touche forcément en marchant vers l'aiguille) ; grande aiguille
+///   (pivot (8, 11)) ; pilier (dessus en ligne 7 : goutte 3 en 17, lanterne en 18,
+///   au bord d'où l'on saute sur la petite aiguille : on s'y tient en attendant
+///   l'aiguille, elle s'allume forcément) ;
 ///   petite aiguille (pivot (24, 6)) ; tour du drapeau (colonnes 29 à 33,
 ///   dessus en ligne 3, drapeau en colonne 30) ; entre les deux, la poutre
 ///   (ligne 14, colonnes 19 à 28) et ses pointes (ligne 13), 3 rangées sous le
@@ -103,7 +108,7 @@ const ASCII: &str = r"
 .............................#####
 .............................BBBBB
 .............................BBBBB
-...............L.o......h....BBBBB
+.................oL.....h....BBBBB
 ..............#####..........BBBBB
 ..............BBBBB..........BBBBB
 ..............BBBBB..........BBBBB
@@ -113,7 +118,7 @@ const ASCII: &str = r"
 ..............BBBBB^^^^^^^^^^BBBBB
 ..............BBBBBBBBBBBBBBBBBBBB
 .............................BBBBB
-.R..........L................BBBBB
+.R...........L...............BBBBB
 ########################........BB
 BBBBBBBBBBBBBBBBBBB.............BB
 BBBBBBBBBBBBBBBBBBB.............BB
@@ -134,7 +139,7 @@ BBBBBBBBBBBBBBBBBBB.o...........BB
 ..............BBBBB.............BB
 ................................BB
 ....................L...R.....w.BB
-..........s.L.##################BB
+..........s...##################BB
 ........######BBBBBBBBBBBBBBBBBBBB
 ........BBBBBBBBBBBBBBBBBBBBBBBBBB
 ........BBBBBBBBBBBBBBBBBBBBBBBBBB

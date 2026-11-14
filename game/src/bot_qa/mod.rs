@@ -294,6 +294,46 @@ mod tests {
         assert_eq!(numeros, attendu);
     }
 
+    /// Le clocher (carte 5.13) : le parcours le plus RAPIDE du robot allume les
+    /// trois lanternes. Elles sont posées là où l'on passe forcément (après l'arche
+    /// du bas, à la sortie de la porte de la cage, au bord du pilier d'où l'on saute
+    /// sur la petite aiguille) : une chute sur les pointes ramène sur le pilier, pas
+    /// tout en bas de la tour. (Première version : lanternes à côté du chemin, le
+    /// robot ne touchait ni celle de la cage ni celle du pilier, et une chute le
+    /// renvoyait à la galerie, vingt rangées plus bas.)
+    #[test]
+    fn au_clocher_le_parcours_allume_les_trois_lanternes() {
+        use crate::monde::Monde;
+        use pepin_core::levels::{clocher, NIVEAUX};
+        let i = NIVEAUX
+            .iter()
+            .position(|n| n.nom == clocher::INFOS.nom)
+            .unwrap();
+        let parcours = trouver_parcours(i, false)
+            .or_else(|| trouver_parcours(i, true))
+            .unwrap();
+        let mut m = Monde::new(i);
+        // Une seule lanterne allumée à la fois (la dernière touchée) : on retient
+        // celles qui l'ont été au moins une fois pendant le parcours.
+        let mut allumees = vec![false; 3];
+        for e in &parcours {
+            m.avancer(e);
+            let maintenant: Vec<bool> = m
+                .entites
+                .iter()
+                .filter_map(|e| match e {
+                    Entite::Lanterne(l) => Some(l.est_active()),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(maintenant.len(), 3, "trois lanternes au clocher");
+            for (a, l) in allumees.iter_mut().zip(maintenant) {
+                *a |= l;
+            }
+        }
+        assert_eq!(allumees, [true; 3]);
+    }
+
     /// Écrit le script des touches pour le navigateur : `target/qa/script.txt`
     /// (un chiffre hexadécimal par image) et `target/qa/trace.csv`.
     /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script
