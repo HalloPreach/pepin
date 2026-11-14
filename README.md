@@ -2,8 +2,8 @@
 
 PÉPIN (« pépin » : parapluie, en argot) est un petit jeu de plateformes en
 pixel art. Pépin est une créature ronde armée d'un grand parapluie corail. Elle
-grimpe de toit en toit, de l'orage jusqu'au soleil, en neuf niveaux : le ciel
-passe peu à peu du bleu nuit à l'or.
+grimpe de toit en toit, de l'orage jusqu'au soleil, en neuf niveaux (et un
+niveau bonus) : le ciel passe peu à peu du bleu nuit à l'or.
 
 Le projet a deux buts : un jeu qui tourne **dans un navigateur** (WebAssembly),
 et un code **lisible par quelqu'un qui apprend Rust**. Presque chaque fichier
@@ -53,7 +53,8 @@ sur QWERTY, la touche point-virgule coupe aussi le son.
 Sur un écran tactile, quatre boutons (gauche, droite, saut, pause) apparaissent
 au premier toucher.
 
-Les neuf niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
+Les neuf niveaux, puis le bonus (noms et mécaniques tirés de
+`core/src/levels/*.rs`) :
 
 1. Les toits : course, saut, planer.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines.
@@ -73,10 +74,16 @@ Les neuf niveaux (noms et mécaniques tirés de `core/src/levels/*.rs`) :
    tuiles où le vent change deux fois de sens), montgolfières, rideaux de grêle ;
    une manche à air à l'entrée de chaque vent.
 9. Au-dessus des nuages : final calme, nuages friables, pigeon.
+10. L'arc-en-ciel (bonus) : joué seulement si TOUTES les gouttes d'or des neuf
+    niveaux ont été ramassées pendant la partie (sinon on passe directement à
+    l'écran de fin). Un pont de nuages friables d'un bout à l'autre, sans ennemi
+    ni lanterne : tout s'effrite derrière Pépin, on ne s'arrête jamais. Un sprint
+    d'une minute, pour le chronomètre.
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
-réapparition). Il n'y a pas de « game over » : on réapparaît à la dernière
-lanterne allumée et on compte seulement les morts (`core/src/state.rs`).
+réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.
+Il n'y a pas de « game over » : on réapparaît à la dernière lanterne allumée
+et on compte seulement les morts (`core/src/state.rs`).
 Pendant 1 s après chaque réapparition, Pépin clignote et aucun danger ne peut
 le tuer, sauf le vide (`PROTECTION_REAPPARITION_PAS`, `core/src/player.rs`).
 

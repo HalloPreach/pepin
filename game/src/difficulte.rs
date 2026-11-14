@@ -35,7 +35,9 @@ use std::fmt::Write as _;
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::CauseMort;
-use pepin_core::levels::{clocher, cyclone, gouttieres, marche, mer, nuages, orage, toits, vents};
+use pepin_core::levels::{
+    arc, clocher, cyclone, gouttieres, marche, mer, nuages, orage, toits, vents, GenreNiveau,
+};
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
@@ -736,6 +738,7 @@ const RANGS_DE_GRAINE: &[&str] = &[
     clocher::INFOS.nom,
     cyclone::INFOS.nom,
     mer::INFOS.nom,
+    arc::INFOS.nom,
 ];
 
 /// Rang de graine du niveau d'indice `n` de la table (voir `RANGS_DE_GRAINE`).
@@ -1001,6 +1004,7 @@ const LIEUX_MAX: usize = 6;
 /// Rangs des profils dans `PROFILS`.
 const DEBUTANT: usize = 0;
 const HABITUE: usize = 1;
+const EXPERT: usize = 2;
 
 /// Bande admise pour les morts moyennes du profil Habitué (le « joueur
 /// moyen »), niveau par niveau : `[min, max[` (le max est exclu). Les niveaux 1
@@ -1016,7 +1020,18 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.3, 0.65), // 7. Vents d'altitude : redescend un peu
     (0.2, 1.0),  // 8. La mer de nuages (carte 5.15) : au niveau des vents (0,33), sous le boss
     (0.0, 0.2),  // 9. Au-dessus des nuages : final calme, sous 0,2
+    (0.0, 2.0),  // 10. L'arc-en-ciel (carte 5.16) : le bonus, jugé au chrono (garde-fou large)
 ];
+
+/// Le bonus (« L'arc-en-ciel », carte 5.16) se juge au CHRONO, pas aux morts
+/// (décision du coordinateur pour l'étape 5) : sans lanterne, une chute y ramène au
+/// départ, et le pont friable ne laisse pas s'arrêter ; il se mesure donc plus
+/// meurtrier que le sommet (1,2 morts pour l'Habitué, contre 0,6 à l'orage), ce qui
+/// est voulu pour un niveau réservé à ceux qui ont ramassé toutes les gouttes. Il
+/// échappe à la règle « sous le sommet » ; sa bande Habitué n'est qu'un garde-fou,
+/// et il doit rester « un sprint d'une minute » : la durée moyenne d'un essai de
+/// l'Expert (chutes comprises) dans `[min, max[` secondes.
+const DUREE_BONUS_EXPERT_S: (f32, f32) = (45.0, 75.0);
 
 /// Places dans la table des trois niveaux dont la courbe juge la forme : le
 /// SOMMET (le grand orage), le niveau qui le SUIT (vents d'altitude, nettement
@@ -1032,8 +1047,9 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
 /// sommet. La mer de nuages (carte 5.15), entre les vents et le final, n'est
 /// jugée elle aussi que par sa bande : elle se mesure au niveau des vents (0,33
 /// contre 0,40 pour l'Habitué), pas encore « un peu au-dessus » comme le voudrait
-/// la courbe finale. La courbe sur onze niveaux (monter jusqu'au boss) se jugera
-/// à la carte 5.18.
+/// la courbe finale. Le bonus (carte 5.16) se juge au chrono (voir
+/// `DUREE_BONUS_EXPERT_S`). La courbe sur onze niveaux (monter jusqu'au boss) se
+/// jugera à la carte 5.18.
 const SOMMET: usize = 3;
 const APRES_SOMMET: usize = 6;
 const FINAL: usize = 8;
@@ -1045,9 +1061,11 @@ const ECART_APRES_SOMMET: f32 = 0.15;
 /// Vérifie la FORME de la courbe sur une mesure complète `cases[niveau][profil]`
 /// et renvoie la liste des écarts (vide si tout va bien) :
 /// - Débutant et Habitué : le SOMMET (le grand orage) est le plus meurtrier de
-///   tous, et le niveau qui le suit l'est plus que le FINAL ;
+///   tous (sauf le bonus, jugé au chrono), et le niveau qui le suit l'est plus
+///   que le FINAL ;
 /// - Habitué : chaque niveau dans sa bande (`BANDES_HABITUE`), et le niveau qui
-///   suit le sommet au moins `ECART_APRES_SOMMET` sous lui.
+///   suit le sommet au moins `ECART_APRES_SOMMET` sous lui ;
+/// - Expert : le bonus dure `DUREE_BONUS_EXPERT_S` (un sprint d'une minute).
 ///
 /// Renvoyer une liste plutôt que s'arrêter au premier écart : en cas d'échec,
 /// on voit tout ce qui ne va pas d'un coup.
@@ -1056,7 +1074,7 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
     let morts = |n: usize, p: usize| cases[n][p].morts_moyennes;
     for p in [DEBUTANT, HABITUE] {
         let nom = PROFILS[p].nom;
-        for n in (0..NB_NIVEAUX).filter(|&n| n != SOMMET) {
+        for n in (0..NB_NIVEAUX).filter(|&n| n != SOMMET && !est_bonus(n)) {
             if morts(n, p) >= morts(SOMMET, p) {
                 ecarts.push(format!(
                     "{nom} : niveau {} ({}) pas sous le niveau {} ({})",
@@ -1089,6 +1107,19 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
             ));
         }
     }
+    for n in (0..NB_NIVEAUX).filter(|&n| est_bonus(n)) {
+        let (min, max) = DUREE_BONUS_EXPERT_S;
+        let d = cases[n][EXPERT].duree_s;
+        if !(min..max).contains(&d) {
+            ecarts.push(format!(
+                "Expert : bonus (niveau {}) en {} s, hors de [{} ; {}[ s",
+                n + 1,
+                decimal(d),
+                decimal(min),
+                decimal(max)
+            ));
+        }
+    }
     if morts(SOMMET, HABITUE) - morts(APRES_SOMMET, HABITUE) < ECART_APRES_SOMMET {
         ecarts.push(format!(
             "Habitué : niveau {} ({}) pas nettement sous le niveau {} ({})",
@@ -1099,6 +1130,11 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
         ));
     }
     ecarts
+}
+
+/// Le niveau d'indice `n` de la table est-il le bonus ?
+fn est_bonus(n: usize) -> bool {
+    NIVEAUX[n].genre == GenreNiveau::Bonus
 }
 
 /// Nombre à deux décimales, virgule à la française : 0.456 -> « 0,46 ».
@@ -1401,6 +1437,7 @@ mod tests {
                     .iter()
                     .map(|&m| Case {
                         morts_moyennes: m,
+                        duree_s: 60.0,
                         ..Case::default()
                     })
                     .collect()
@@ -1439,16 +1476,30 @@ mod tests {
         assert_eq!(NIVEAUX[FINAL].nom, nuages::INFOS.nom);
 
         let bonne = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1],
+            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 1.0],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 0.3],
         );
         assert_eq!(ecarts_de_la_courbe(&bonne), Vec::<String>::new());
+
+        // Le bonus (10e, carte 5.16) se juge au chrono : plus meurtrier que le sommet,
+        // il passe ; un sprint de 80 s pour l'Expert, non.
+        assert!(est_bonus(9) && (0..9).all(|n| !est_bonus(n)));
+        let mut bonus_dur = fausse_mesure(
+            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 8.8],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 1.2],
+        );
+        assert_eq!(ecarts_de_la_courbe(&bonus_dur), Vec::<String>::new());
+        bonus_dur[9][EXPERT].duree_s = 80.0;
+        assert_eq!(
+            ecarts_de_la_courbe(&bonus_dur),
+            ["Expert : bonus (niveau 10) en 80,0 s, hors de [45,0 ; 75,0[ s"]
+        );
 
         // La courbe d'avant la carte 3.3 : le 7 (vents) presque aussi dur que le 4
         // (orage), le 9 (final) à 0,4.
         let avant = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.6, 1.0, 2.0, 2.9, 1.5, 2.5],
-            [0.1, 0.5, 0.6, 1.0, 0.4, 0.6, 0.9, 0.6, 0.4],
+            [0.4, 1.5, 2.0, 3.6, 1.0, 2.0, 2.9, 1.5, 2.5, 1.0],
+            [0.1, 0.5, 0.6, 1.0, 0.4, 0.6, 0.9, 0.6, 0.4, 0.3],
         );
         let e = ecarts_de_la_courbe(&avant);
         assert!(e.iter().any(|x| x.contains("niveau 7 à 0,90")), "{e:?}");
@@ -1458,8 +1509,8 @@ mod tests {
         // Le 7 plus dur que le 4 (Débutant) ; le 9 aussi dur que le 7 (Habitué) ;
         // le marché (3) plus dur que l'orage (Débutant).
         let a_l_envers = fausse_mesure(
-            [0.4, 1.5, 2.2, 2.0, 1.0, 1.5, 2.5, 1.5, 0.5],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.1, 0.6, 0.1],
+            [0.4, 1.5, 2.2, 2.0, 1.0, 1.5, 2.5, 1.5, 0.5, 1.0],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.1, 0.6, 0.1, 0.3],
         );
         let e = ecarts_de_la_courbe(&a_l_envers);
         assert!(

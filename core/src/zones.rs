@@ -41,13 +41,17 @@ pub enum Theme {
     Mer,
     /// Au-dessus des nuages : le soleil doré.
     Soleil,
+    /// L'arc-en-ciel (le niveau bonus) : toute la palette. Un ciel d'ardoise qui
+    /// s'éclaircit vers le bas, un grand arc-en-ciel de huit bandes, et les nuages
+    /// clairs du pont ; pas de pluie.
+    ArcEnCiel,
 }
 
 impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 9] = [
+    pub const TOUS: [Theme; 10] = [
         Theme::Toits,
         Theme::Gouttieres,
         Theme::Marche,
@@ -57,6 +61,7 @@ impl Theme {
         Theme::Altitude,
         Theme::Mer,
         Theme::Soleil,
+        Theme::ArcEnCiel,
     ];
 
     /// Place du thème dans `Theme::TOUS` (son rang de déclaration).
@@ -77,13 +82,16 @@ impl Theme {
             Theme::Altitude => 3,
             Theme::Mer => 3,
             Theme::Soleil => 4,
+            // L'arc-en-ciel : le ciel d'ardoise après l'averse, éclairé par l'arc.
+            Theme::ArcEnCiel => 2,
         }
     }
 
     /// Pleut-il dans ce thème ? Ni au soleil, ni au-dessus de la mer de nuages
-    /// (seule la grêle y tombe, en colonnes).
+    /// (seule la grêle y tombe, en colonnes), ni sous l'arc-en-ciel (la pluie
+    /// vient de s'arrêter).
     pub fn pluie(self) -> bool {
-        !matches!(self, Theme::Soleil | Theme::Mer)
+        !matches!(self, Theme::Soleil | Theme::Mer | Theme::ArcEnCiel)
     }
 }
 
@@ -618,6 +626,7 @@ mod tests {
         niveau_7_faisable => 6,
         niveau_8_faisable => 7,
         niveau_9_faisable => 8,
+        niveau_10_faisable => 9,
     }
 
     #[test]
@@ -779,7 +788,15 @@ mod tests {
             r.lanternes
         );
         assert_eq!(r.lanternes.len(), niv.nb_lanternes());
-        if niv.arrivee.is_some() {
+        if infos.genre == GenreNiveau::Bonus {
+            // Le bonus (« L'arc-en-ciel », carte 5.16) : « sans ennemi ni lanterne »
+            // (demande d'AGA) ; une chute ramène au départ.
+            assert_eq!(
+                niv.nb_lanternes(),
+                0,
+                "niveau {n} : le bonus n'a aucune lanterne"
+            );
+        } else if niv.arrivee.is_some() {
             assert!(
                 niv.nb_lanternes() >= 3,
                 "niveau {n} : au moins 3 checkpoints"
@@ -1151,7 +1168,7 @@ mod tests {
     /// auvent), paratonnerres sous l'orage, manches à air au vent, oiseaux au soleil.
     #[test]
     fn chaque_niveau_a_son_decor() {
-        use crate::levels::{clocher, gouttieres, marche, mer, nuages, orage, toits, vents};
+        use crate::levels::{arc, clocher, gouttieres, marche, mer, nuages, orage, toits, vents};
         use GenreDecor::*;
         // Rangé par niveau (et non par place dans la table) : insérer un niveau ne
         // décale rien ; un niveau absent de cette liste n'a pas de décor imposé.
@@ -1164,6 +1181,8 @@ mod tests {
             (vents::INFOS, &[MancheAAir]),
             (mer::INFOS, &[MancheAAir]),
             (nuages::INFOS, &[Oiseau]),
+            // Le bonus : des oiseaux sur les deux seuls nuages solides (départ, arrivée).
+            (arc::INFOS, &[Oiseau]),
         ];
         for &(infos, genres) in attendus {
             assert!(

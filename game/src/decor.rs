@@ -88,6 +88,9 @@ pub struct Ambiance {
     /// Couleurs des traînées du vent latéral (carte 5.15), choisies pour se voir
     /// sur le ciel du thème.
     pub vent: CouleursVent,
+    /// Un grand arc-en-ciel derrière les silhouettes (carte 5.16, le bonus) :
+    /// `dessiner_arc`.
+    pub arc: bool,
 }
 
 /// Couleurs d'une traînée de vent latéral (`particules::souffle_lateral`) : une
@@ -153,6 +156,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            arc: false,
             vent: VENT_NUIT,
         },
         // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
@@ -182,6 +186,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            arc: false,
             vent: VENT_NUIT,
         },
         // Marché couvert : nuit bleue qui s'éclaircit vers l'horizon (la lueur du
@@ -211,6 +216,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            arc: false,
             vent: VENT_NUIT,
         },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
@@ -243,6 +249,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            arc: false,
             vent: VENT_NUIT,
         },
         // Clocher (niveau vertical) : nuit violette après l'orage, une lueur pâle
@@ -275,6 +282,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 2.5,
+            arc: false,
             vent: VENT_NUIT,
         },
         // L'œil du cyclone (le boss) : violet et or. Tout en haut, la trouée d'or
@@ -309,6 +317,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: true,
             vertige: 1.0,
+            arc: false,
             vent: VENT_NUIT,
         },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
@@ -336,6 +345,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: true,
             vertige: 1.0,
+            arc: false,
             // Le ciel du haut est violet : la queue des traînées est bleu nuit.
             vent: CouleursVent {
                 traine: ARDOISE_NUIT,
@@ -372,6 +382,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: true,
             vertige: 1.0,
+            arc: false,
             vent: VENT_JOUR,
         },
         // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
@@ -398,8 +409,127 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: true,
             vertige: 1.0,
+            arc: false,
             vent: VENT_JOUR,
         },
+        // L'arc-en-ciel (carte 5.16, le bonus) : TOUTE LA PALETTE. L'averse vient
+        // de s'arrêter : un ciel d'ardoise, sombre en haut, qui s'éclaircit vers
+        // l'horizon ; devant lui, un grand arc-en-ciel de huit bandes (`ARC`), du
+        // corail au violet, qui glisse lentement de droite à gauche (on le
+        // traverse) ; en bas, des bancs de nuages pâles au loin et sombres devant.
+        // Les nuages du pont, clairs et cernés de sombre, tranchent sur tout cela.
+        // Pas de pluie, ni étoiles, ni soleil, ni îlots (un îlot clair se lirait
+        // comme une dalle du pont).
+        Theme::ArcEnCiel => Ambiance {
+            ciel: [ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE, ARDOISE_PALE],
+            lointain: BRUME,
+            proche: ARDOISE_CLAIRE,
+            // Sans pluie (`Theme::pluie`) : couleurs jamais dessinées, mais
+            // visibles sur chaque bande si un jour il pleuvait.
+            pluie: (PLUIE, BLANC_CASSE),
+            etoiles: None,
+            gouttes: 0,
+            descente: 0,
+            plafond: None,
+            soleil: false,
+            forme: Forme::Nuages,
+            relief: 0,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 2,
+                briques_orangees: false,
+            },
+            friable_nuage: true,
+            vertige: 1.0,
+            arc: true,
+            vent: VENT_NUIT,
+        },
+    }
+}
+
+/// Les huit bandes de l'arc-en-ciel, de l'extérieur (rouge : le corail) vers
+/// l'intérieur (violet). La palette n'a pas de vert : le cyan de la pluie et son
+/// cyan sombre en tiennent lieu, entre le jaune (or) et le violet.
+pub const ARC: [Couleur; 8] = [
+    CORAIL,
+    CORAIL_CLAIR,
+    ORANGE_SOLEIL,
+    OR,
+    OR_PALE,
+    PLUIE,
+    PLUIE_SOMBRE,
+    VIOLET_ORAGE,
+];
+/// Épaisseur (px) d'une bande de l'arc.
+const BANDE_ARC: i32 = 3;
+/// Rayon EXTÉRIEUR de l'arc (px) et ordonnée de son centre, sous le bas de
+/// l'écran : le sommet est en y = 36, dans la bande de ciel la plus sombre, et
+/// les deux pieds plongent derrière les bancs de nuages du bas.
+const RAYON_ARC: i32 = 150;
+const CENTRE_ARC_Y: i32 = 186;
+/// Parallaxe de l'arc, et abscisse de son centre quand la caméra est à 0 : il
+/// glisse d'un écran vers la gauche sur toute la longueur du bonus (240 tuiles,
+/// 3 520 px de caméra : 352 px). Au départ, son pied gauche se lève devant Pépin ;
+/// au milieu du pont, on voit l'arc entier ; à l'arrivée, son pied droit, derrière.
+const FACTEUR_ARC: f32 = 0.10;
+const CENTRE_ARC_X0: i32 = 336;
+
+/// Abscisse écran du centre de l'arc pour la caméra `cam_x`. Pure.
+pub fn centre_arc(cam_x: i32) -> i32 {
+    CENTRE_ARC_X0 - decalage(cam_x, FACTEUR_ARC)
+}
+
+/// Ordonnées `[haut, bas)` de la bande `k` de l'arc (0 : l'extérieure) dans la
+/// colonne de pixels `x`, pour un arc centré en `cx` ; `None` si la bande ne
+/// passe pas par cette colonne. Fonction PURE (testée sans fenêtre).
+///
+/// Chaque bande est la couronne entre deux cercles ; pour une colonne, on calcule
+/// où le cercle extérieur et le cercle intérieur la coupent (au centre du pixel)
+/// et on ARRONDIT à l'entier : chaque pixel a une seule couleur, sans dégradé ni
+/// lissage, et la bande `k + 1` commence exactement là où finit la bande `k`.
+/// Sous le centre (bas de l'écran), une colonne qui ne coupe pas le cercle
+/// intérieur descend jusqu'au centre de l'arc.
+pub fn bande_arc(x: i32, cx: i32, k: usize) -> Option<(i32, i32)> {
+    let dx = (x as f32 + 0.5 - cx as f32).abs();
+    // Ordonnée où le cercle de rayon `r` coupe la colonne (moitié haute), ou le
+    // centre si la colonne est en dehors du cercle.
+    let coupe = |r: i32| -> i32 {
+        let r = r as f32;
+        if dx < r {
+            (CENTRE_ARC_Y as f32 - (r * r - dx * dx).sqrt()).round() as i32
+        } else {
+            CENTRE_ARC_Y
+        }
+    };
+    let exterieur = RAYON_ARC - BANDE_ARC * k as i32;
+    let (haut, bas) = (coupe(exterieur), coupe(exterieur - BANDE_ARC));
+    (haut < bas).then_some((haut, bas))
+}
+
+/// L'arc-en-ciel : pour chaque bande, des colonnes de 1 px de large, regroupées
+/// quand plusieurs colonnes voisines ont exactement la même hauteur (le sommet
+/// de l'arc) : moins de rectangles, même image.
+fn dessiner_arc(cam_x: i32) {
+    let cx = centre_arc(cam_x);
+    for (k, &couleur) in ARC.iter().enumerate() {
+        let mut x = 0;
+        while x < L {
+            let Some((haut, bas)) = bande_arc(x, cx, k) else {
+                x += 1;
+                continue;
+            };
+            let mut l = 1;
+            while x + l < L && bande_arc(x + l, cx, k) == Some((haut, bas)) {
+                l += 1;
+            }
+            let (haut, bas) = (haut.max(0), bas.min(H));
+            if haut < bas {
+                rect(x, haut, l, bas - haut, couleur);
+            }
+            x += l;
+        }
     }
 }
 
@@ -812,6 +942,9 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     if a.soleil {
         dessiner_soleil(cam_x);
     }
+    if a.arc {
+        dessiner_arc(cam_x);
+    }
     if let Some(p) = &a.plafond {
         dessiner_plafond(cam_x, FACTEUR_PLAFOND_LOIN, GRAINE_PLAFOND_LOIN, p, p.loin);
         dessiner_plafond(
@@ -873,7 +1006,7 @@ mod tests {
             Theme::Toits | Theme::Orage | Theme::Clocher => (0, false, false),
             Theme::Gouttieres | Theme::Marche => (1, false, false),
             Theme::Cyclone => (0, false, true),
-            Theme::Altitude | Theme::Mer => (2, false, true),
+            Theme::Altitude | Theme::Mer | Theme::ArcEnCiel => (2, false, true),
             Theme::Soleil => (3, true, true),
         };
         for t in Theme::TOUS {
@@ -988,6 +1121,69 @@ mod tests {
             }
         }
         assert!(vus > 100, "trop peu d'îlots : {vus}");
+    }
+
+    /// Carte 5.16 : l'arc-en-ciel a huit bandes de 3 px JOINTIVES (la bande `k + 1`
+    /// commence au pixel où finit la bande `k`, sans trou ni recouvrement), des
+    /// couleurs toutes différentes, prises dans la palette, et son sommet est en
+    /// y = 36, dans le ciel, au-dessus du pont (rangée 3 au plus haut : y = 48).
+    #[test]
+    fn l_arc_en_ciel_a_huit_bandes_jointives() {
+        let distinctes: std::collections::HashSet<Couleur> = ARC.into_iter().collect();
+        assert_eq!(distinctes.len(), 8);
+        assert!(ARC.iter().all(|c| TOUTES.contains(c)));
+        let cx = 160;
+        assert_eq!(bande_arc(cx, cx, 0), Some((36, 39)));
+        for x in -200..520 {
+            for k in 0..ARC.len() - 1 {
+                if let (Some((_, bas)), Some((haut, _))) =
+                    (bande_arc(x, cx, k), bande_arc(x, cx, k + 1))
+                {
+                    assert_eq!(bas, haut, "x = {x}, bandes {k} et {}", k + 1);
+                }
+            }
+            // Symétrique autour du centre (la colonne x et sa jumelle de l'autre côté).
+            for k in 0..ARC.len() {
+                assert_eq!(bande_arc(x, cx, k), bande_arc(2 * cx - 1 - x, cx, k));
+            }
+        }
+        // Hors du grand cercle, aucune bande.
+        assert!((0..ARC.len()).all(|k| bande_arc(cx + RAYON_ARC + 1, cx, k).is_none()));
+    }
+
+    /// L'arc glisse d'un écran de droite à gauche sur toute la longueur du bonus
+    /// (caméra de 0 à 3 520 px) : au départ, son centre est à droite de l'écran ;
+    /// à l'arrivée, à gauche.
+    #[test]
+    fn l_arc_glisse_d_un_ecran_sur_le_bonus() {
+        assert_eq!(centre_arc(0), 336);
+        assert_eq!(centre_arc(3520), -16);
+        assert!(ambiance(Theme::ArcEnCiel).arc);
+        assert!(Theme::TOUS
+            .into_iter()
+            .filter(|&t| t != Theme::ArcEnCiel)
+            .all(|t| !ambiance(t).arc));
+    }
+
+    /// « Toute la palette » (demande d'AGA pour l'arc-en-ciel) : le ciel, les bancs
+    /// de nuages, l'arc et les dalles du pont (nuages friables : contour, corps,
+    /// reflets) montrent ensemble les 16 couleurs.
+    #[test]
+    fn l_arc_en_ciel_montre_toute_la_palette() {
+        let a = ambiance(Theme::ArcEnCiel);
+        let mut vues: Vec<Couleur> = a.ciel.to_vec();
+        vues.extend([a.lointain, a.proche]);
+        vues.extend(ARC);
+        for ligne in crate::sprites::objets::FRIABLE0 {
+            for c in ligne.chars() {
+                if let Ok(Some(couleur)) = crate::sprites::pixel(c) {
+                    vues.push(couleur);
+                }
+            }
+        }
+        for c in TOUTES {
+            assert!(vues.contains(&c), "{c:?} absente de l'arc-en-ciel");
+        }
     }
 
     #[test]
@@ -1245,7 +1441,7 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0]);
+        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0, 0]);
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");
