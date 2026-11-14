@@ -31,7 +31,11 @@
 //!    jusqu'au sommet du pilier (la 3e goutte) ; de là, la petite aiguille,
 //!    puis la tour du drapeau, avec un paratonnerre. Entre le pilier et la
 //!    tour, sous la petite aiguille, la poutre aux pointes : une chute y tue,
-//!    on reprend à la lanterne du pilier.
+//!    on reprend à la lanterne du pilier. Au sol de la cage, juste avant la
+//!    lanterne de la porte, une pointe (carte 5.18) : on la saute pour aller à
+//!    la grande aiguille, et le saut manqué du haut de l'aiguille vers le pilier
+//!    peut y finir. C'est ce qui fait « monter » la courbe de difficulté du
+//!    grand orage (4) au boss (6) en passant par le clocher (5).
 //!
 //! La cage reprend la géométrie du niveau d'essai « horloge » (mêmes rayons,
 //! vitesses et heures de départ, mêmes écarts entre pivots et tours) : le
@@ -91,8 +95,9 @@ const AIGUILLES: &[ReglageAiguille] = &[
 /// - Zigzag : F1 ligne 29 (colonnes 19 à 28 ; goutte 2 en colonne 20, gardée par
 ///   le pigeon 2 perché en (19, 24)), F2 ligne 26 (25 à 31), F3 ligne 23
 ///   (19 à 26), F4 ligne 20 (22 à 31), porte ligne 17 (19 à 23).
-/// - Cage : sol en ligne 17 (colonnes 0 à 13, lanterne en 13, à la sortie de la
-///   porte : on la touche forcément en marchant vers l'aiguille) ; grande aiguille
+/// - Cage : sol en ligne 17 (colonnes 0 à 13, lanterne en 14, à la sortie de la
+///   porte : on la touche forcément en marchant vers l'aiguille ; pointe en 13,
+///   carte 5.18) ; grande aiguille
 ///   (pivot (8, 11)) ; pilier (dessus en ligne 7 : goutte 3 en 17, lanterne en 18,
 ///   au bord d'où l'on saute sur la petite aiguille : on s'y tient en attendant
 ///   l'aiguille, elle s'allume forcément) ;
@@ -119,7 +124,7 @@ const ASCII: &str = r"
 ..............BBBBB..........BBBBB
 ..............BBBBB..........BBBBB
 .............................BBBBB
-.R...........L...............BBBBB
+.R...........^L..............BBBBB
 ########################........BB
 BBBBBBBBBBBBBBBBBBB.............BB
 BBBBBBBBBBBBBBBBBBB.............BB
@@ -286,8 +291,8 @@ mod tests {
     }
 
     /// Les pièces du clocher sont là où le commentaire le dit : deux escargots, un
-    /// ventilateur, deux aiguilles (pivots, rayons, heures) et les dix pointes de la
-    /// poutre, sous la petite aiguille.
+    /// ventilateur, deux aiguilles (pivots, rayons, heures), les dix pointes de la
+    /// poutre, sous la petite aiguille, et celle du sol de la cage.
     #[test]
     fn les_pieces_du_clocher_a_leur_place() {
         let n = INFOS.charger().unwrap();
@@ -313,7 +318,10 @@ mod tests {
         }
         assert_eq!(escargots, vec![(10, 37), (5, 42)]);
         assert_eq!(ventilateurs, vec![(30, 36)]);
-        assert_eq!(pointes, (19..=28).map(|c| (c, 10)).collect::<Vec<_>>());
+        // Les dix de la poutre (ligne 10), puis celle du sol de la cage (ligne 16,
+        // carte 5.18), dans l'ordre de lecture.
+        let attendues: Vec<_> = (19..=28).map(|c| (c, 10)).chain([(13, 16)]).collect();
+        assert_eq!(pointes, attendues);
         assert_eq!(
             aiguilles,
             vec![
