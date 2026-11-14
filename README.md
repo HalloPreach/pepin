@@ -86,6 +86,13 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
     tout le voyage en sens inverse, de l'or à la nuit. Le plus calme de tous :
     aucune chute n'y tue. L'écran de fin suit (« DE RETOUR ! »).
 
+La difficulté suit une courbe voulue (mesurée par un joueur simulé, voir `QA.md`,
+« Mesure de difficulté ») : elle monte jusqu'au boss (6), redescend aux vents
+d'altitude (7), remonte un peu à la mer de nuages (8) et se calme au-dessus des
+nuages (9) ; le bonus se juge au chronomètre, et l'épilogue est le plus calme de
+tous. Toutes les nouveautés se jouent avec les mêmes touches : courir, sauter,
+planer (sous la grêle, on garde le parapluie ouvert).
+
 Le compteur de gouttes (en jeu et sur l'écran de fin) compte celles du parcours :
 les neuf niveaux et l'épilogue, 30 en tout. Celles du bonus sont comptées à part
 (dans le bonus, le compteur montre les siennes, sur 3 ; l'écran de fin leur donne
@@ -262,10 +269,13 @@ Tests :
     ./docker-cargo.sh test -p core
     ./docker-cargo.sh test -p game --no-default-features
 
-Mesure à la dernière vérification de ce README : **143 tests réussis** dans
-`core` (plus 1 test ignoré volontairement : il régénère l'image
-`docs/police-test.png`) et **112 tests réussis** dans `game` (plus 1 test
-ignoré : il écrit le script du robot de QA, voir `QA.md`).
+Mesure à la dernière vérification de ce README (carte 5.18, onze niveaux) :
+**353 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
+l'image `docs/police-test.png`) et **315 tests réussis** dans `game` (plus 18 tests
+ignorés : ils écrivent les scripts du robot de QA, la mesure de difficulté ou des
+diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de minutes :
+le robot de QA joue réellement les onze niveaux, et la courbe de difficulté est
+mesurée en entier.
 
 Hygiène du code (format et avertissements) :
 
@@ -457,6 +467,42 @@ Rust n'a pas de `null` ni d'exceptions. Une valeur qui « peut manquer » est un
 chargement des sons doit pouvoir attendre ; `main` (macroquad) est `async` et
 appelle `Audio::charger().await`.
 
+### Notions apparues avec les onze niveaux
+
+Les six niveaux et les mécaniques ajoutés à la fin du projet (vent, grêle, auvents,
+ventilateur, montgolfières, escargots, chats, aiguilles d'horloge, Grand Nuage) ont
+amené quelques notions de plus :
+
+- **Tranche constante dont la longueur sert de taille** : `core/src/levels.rs`
+  déclare `pub const NIVEAUX: &[InfosNiveau] = &[...]` puis
+  `pub const NB_NIVEAUX: usize = NIVEAUX.len();`, calculé à la compilation. Dans
+  `game/src/contenu.rs`, `pub const INTROS: [Intro; NB_NIVEAUX]` : ajouter un niveau
+  sans écrire son texte d'introduction ne compile plus. Même chose pour les bandes de
+  difficulté (`BANDES_HABITUE`, `game/src/difficulte.rs`).
+- **Données constantes imbriquées** : `core/src/entities/nuage.rs`, les motifs
+  d'éclairs du boss, `pub const MOTIFS: [&[Salve]; PV_NUAGE as usize]` (un tableau de
+  tranches de salves, chaque salve portant une tranche de bandes de colonnes). Tout
+  est `'static` : rien à allouer, rien à libérer. Les règles qui les lisent sont des
+  fonctions pures (`etat_colonne`), testées pas à pas.
+- **`enum` privé derrière une structure publique** : `core/src/entities/mobile.rs`,
+  `enum Trajet` (aller-retour ou cercle) n'est pas visible hors du module ; le reste
+  du jeu ne voit qu'une `PlateformeMobile`, et `cercle()` renvoie un `Option` (« une
+  aiguille d'horloge, ou pas »).
+- **Machines à états en entiers** : `core/src/entities/ennemi/chat.rs`, `enum PhaseChat`
+  (chaque variante porte son compteur de pas) et une seule fonction pure,
+  `phase_chat_suivante`, qui contient toutes les transitions. Des pas de 1/60 s
+  entiers plutôt que des secondes en `f32` : la même partie se rejoue exactement.
+- **Fils d'exécution qui empruntent** : `game/src/difficulte.rs` mesure la difficulté
+  avec `std::thread::scope` ; les fils empruntent des données locales (les itinéraires
+  d'un niveau) sans `Arc`, car le compilateur sait qu'ils finissent avant la fin du
+  bloc. Le même fichier a un petit Dijkstra (`BinaryHeap` et `Reverse` : le tas de
+  Rust sort le plus GRAND d'abord) et un générateur pseudo-aléatoire xorshift.
+- **Fonctionnalités Cargo** : `game/Cargo.toml`, section `[features]` :
+  `debug_niveaux` et `qa_plantage` n'existent que dans le build de QA
+  (`./build.sh --qa`) ; le code concerné est entouré de
+  `#[cfg(feature = "debug_niveaux")]` (voir `game/src/entrees.rs`) et n'est même pas
+  compilé dans la version publiée.
+
 ### Tests unitaires
 
 Les tests vivent à côté du code, dans un module `#[cfg(test)] mod tests`
@@ -541,12 +587,13 @@ Mesure du dossier `dist/` produit par `./build.sh` (relevée sur les fichiers,
 `gzip -9` pour la colonne de droite) :
 
     fichier              octets     gzip
-    index.html             7 397    3 140
+    index.html            14 693    5 617
     mq_js_bundle.js       36 148    9 839
-    game.wasm            422 556  172 990
+    game.wasm            491 395  197 595
 
-Le wasm pèse donc environ 0,42 Mo, soit 173 Ko transférés par un serveur qui
-compresse. Sans `wasm-opt`, la compilation seule donne un wasm de 473 956 octets.
+(mesure de la carte 5.18, onze niveaux ; avec cinq niveaux, le wasm faisait
+422 556 octets.) Le wasm pèse donc environ 0,49 Mo, soit 198 Ko transférés par
+un serveur qui compresse.
 Le budget de `build.sh` est : avertissement au-delà de 1,2 Mo, échec au-delà de
 2,5 Mo. Ces chiffres dépendent du code et de la version du compilateur ; ils
 sont à re-mesurer après chaque changement important.

@@ -9,6 +9,11 @@ lancés. Les empreintes SHA-256 de `dist/` de cette extraction et de `dist/` du
 dépôt sont identiques (build reproductible). Le jeu a ensuite été joué dans un
 vrai navigateur (Chromium piloté par le protocole CDP) servi par `python3 -m http.server`.
 
+Cette première passe portait sur les cinq niveaux du 12/11/2026. La synthèse À JOUR, sur les onze
+niveaux de l'étape 5 (courbe de difficulté finale, robot, textes, poids, images par seconde,
+captures de chaque niveau, liste de ce qui n'est pas testé), est la dernière section de ce fichier :
+« QA finale des onze niveaux (carte 5.18) ».
+
 ## Résultat par point
 
 | # | Point | Résultat | Chiffres / preuve |
@@ -517,11 +522,15 @@ colonnes voisines de même cause regroupées, du plus meurtrier au moins meurtri
 agir pour adoucir ou corser un niveau.
 
 Deux autres tests :
-- `courbe_de_difficulte_dans_les_bandes` (lancé avec tous les tests, environ 30 s) : non-régression de la
-  forme de la courbe sur la mesure officielle. Débutant et Habitué : le niveau 3 est le plus meurtrier des
-  cinq, le 4 l'est plus que le 5. Habitué : chaque niveau dans sa bande (`BANDES_HABITUE` : N1 [0 ; 0,3[,
-  N2 [0,3 ; 0,8[, N3 [0,5 ; 1,5[, N4 [0,3 ; 0,65[, N5 [0 ; 0,2[) et le 4 au moins 0,15 sous le 3. En cas
-  d'échec, le message liste tous les écarts et le tableau.
+- `courbe_de_difficulte_dans_les_bandes` (lancé avec tous les tests, quelques minutes) : non-régression de
+  la forme de la courbe sur la mesure officielle (`ecarts_de_la_courbe`, `game/src/difficulte.rs`). Depuis la
+  carte 5.18 (courbe finale sur onze niveaux) : Débutant et Habitué, le boss (6) est le plus meurtrier de
+  tous sauf le bonus, la mer (8) l'est plus que les vents (7), et les vents plus que le final (9) ;
+  Habitué, la courbe ne redescend jamais avant le boss (niveaux 1 à 6), chaque niveau est dans sa bande
+  (`BANDES_HABITUE`) et les vents au moins 0,15 sous le boss ; Expert, le bonus dure de 45 à 75 s ;
+  Débutant et Habitué, l'épilogue n'est jamais plus meurtrier qu'un autre niveau. En cas d'échec, le
+  message liste tous les écarts et le tableau. (Avant la carte 5.18 : le sommet était le grand orage, voir
+  les sections des cartes 3.3 à 5.17.)
 - `bruit_de_la_mesure` (ignoré, environ 2 min 30) : la même mesure avec 4 graines (l'officielle et ses 3
   voisines) et les lieux de mort cumulés sur toutes. Sert à savoir si un écart est réel ou dû au hasard :
   une différence plus petite que l'écart entre graines ne prouve rien. (Une variable `GRAINES=a,b,c`
@@ -3831,3 +3840,290 @@ Limites (non testé ou à relativiser) :
   « refaire le voyage » n'a pas été jugée par un humain.
 - La difficulté n'est jugée que par la mesure (une graine) ; la courbe sur onze niveaux reste à faire
   (carte 5.18).
+
+## QA finale des onze niveaux (carte 5.18)
+
+Synthèse de l'étape 5 : onze niveaux (neuf du parcours, le bonus, l'épilogue), une nouveauté par
+niveau, toutes jouées avec les mêmes touches. Cette carte règle la courbe de difficulté finale,
+vérifie le robot sur les deux chemins (avec et sans bonus), met à jour les textes, mesure le poids et
+les images par seconde, et capture chacun des onze niveaux.
+
+### Courbe de difficulté : retouches et mesure avant/après
+
+Décision du coordinateur : la courbe « monte jusqu'au boss (6), redescend au 7, remonte un peu au 8,
+calme au 9 ; le bonus se juge au chrono ; l'épilogue est le plus calme de tous ». La mesure de départ
+(`docs/mesure-difficulte.txt` de la carte 5.17) ne la suivait pas sur trois points (Habitué : orage
+0,65, clocher 0,29, boss 0,58, vents 0,40, mer 0,33) : l'orage (4) restait le sommet, le clocher (5)
+REDESCENDAIT, et la mer (8) restait sous les vents (7).
+
+Chaque levier a été essayé sur une extraction à part (outil `mesure_d_un_niveau`, mêmes graines que la
+mesure officielle, donc les mêmes chiffres que sa ligne du tableau), puis gardé ou écarté :
+
+| Niveau | Levier essayé | Habitué (Débutant) | Gardé ? |
+| ------ | ------------- | ------------------ | ------- |
+| 5. Le clocher | petite aiguille plus rapide (36 -> 46 px/s) | 0,29 -> 0,23 (0,60 -> 0,56) | non : plus facile |
+| 5. Le clocher | 4 pointes au sol de la cage, sous la grande aiguille | 0,65 (2,44) | non : le robot de faisabilité du cœur ne trouve plus le drapeau (`niveau_5_faisable` rouge ; avec 2 ou 3 pointes non plus) |
+| 5. Le clocher | 1 pointe au sol de la cage, juste avant la lanterne de la porte | 0,69 (2,83) | OUI |
+| 5. Le clocher | la même, plus un trou à pointe au pied de la tour du drapeau | 0,71 (3,19) | non : à peine plus, et la tour change de forme |
+| 6. Le boss | motif 1 élargi d'une colonne par bande | 1,33 (3,12) | non : le Débutant à peine au-dessus de l'orage (3,04), dans le bruit |
+| 6. Le boss | motifs 1 ET 2 élargis (une colonne, parfois deux) | 1,00 (3,60), puis 1,19 (4,06) | OUI |
+| 8. La mer | un rideau de grêle de plus au-dessus du départ | 0,33 (1,27) | non : aucun effet |
+| 8. La mer | quai creusé d'une colonne avant la première grêle | 0,29 (1,29) | non : aucun effet |
+| 8. La mer | premier vide d'une tuile plus large | 0,33 (1,60) | non : Débutant seulement |
+| 8. La mer | rive du moment fort une tuile plus loin (le vent s'arrête avant) | 0,46 (1,46) | OUI |
+| 8. La mer | les deux derniers ensemble | 0,46 (1,73) | non : le Débutant seul en profite |
+
+Pour le boss, les deux chiffres : avant, puis après la correction du robot de QA décrite plus bas (les
+détours que le joueur simulé de la mesure calcule sur place passent par la recherche du robot,
+`chercher`, et donc par son contrôle de décalage ; l'essai « motif 1 seul » a été mesuré avec le robot
+d'avant).
+
+Retouches gardées (le reste du niveau est identique, tests des pièces mis à jour) :
+- Le clocher (`core/src/levels/clocher.rs`) : une pointe au sol de la cage (colonne 13, ligne 16), la
+  lanterne de la porte décalée d'une colonne (14). On la saute en allant à la grande aiguille ; un saut
+  manqué du haut de l'aiguille vers le pilier peut y finir : une chute coûte une vie, plus seulement de
+  la hauteur. Robot de faisabilité et « reprise depuis chaque lanterne » verts.
+- Le boss (`core/src/entities/nuage.rs`, table `MOTIFS`) : bandes des motifs 1 et 2 élargies d'une
+  colonne (parfois deux) ; motif 3 et écarts entre salves (60, 40, 30 pas) inchangés ; le test
+  `chaque_motif_se_traverse` (on peut toujours s'en sortir en courant) reste vert. L'arène du niveau
+  d'essai (F10) partage la table : même combat.
+- La mer (`core/src/levels/mer.rs`) : la rive qui suit le moment fort commence à la colonne 131 au lieu
+  de 130 ; le vent garde ses vingt colonnes (110 à 129) : la dernière tuile se fait sans lui. Test
+  `la_rive_du_moment_fort_commence_une_tuile_apres_le_vent`.
+
+Morts moyennes (graine officielle, 48 essais par profil et par niveau), avant (carte 5.17) et après :
+
+| Niveau | Débutant avant | après | Habitué avant | après | Expert avant | après |
+| ------ | -------------- | ----- | ------------- | ----- | ------------ | ----- |
+| 1. Les toits | 0,4 | 0,4 | 0,1 | 0,1 | 0,0 | 0,0 |
+| 2. Gouttières et cheminées | 1,5 | 1,5 | 0,5 | 0,5 | 0,2 | 0,2 |
+| 3. Le marché couvert | 0,8 | 0,8 | 0,5 | 0,5 | 0,2 | 0,2 |
+| 4. Le grand orage | 3,0 | 3,0 | 0,6 | 0,6 | 0,4 | 0,4 |
+| 5. Le clocher | 0,6 | **2,8** | 0,3 | **0,7** | 0,0 | 0,1 |
+| 6. L'œil du cyclone (boss) | 2,9 | **4,1** | 0,6 | **1,2** | 0,3 | 0,4 |
+| 7. Vents d'altitude | 1,3 | 1,3 | 0,4 | 0,4 | 0,1 | 0,1 |
+| 8. La mer de nuages | 1,3 | **1,5** | 0,3 | **0,5** | 0,1 | 0,1 |
+| 9. Au-dessus des nuages | 0,5 | 0,5 | 0,1 | 0,1 | 0,0 | 0,0 |
+| 10. L'arc-en-ciel (bonus) | 8,8 | 8,8 | 1,2 | 1,2 | 0,3 | 0,3 |
+| 11. La descente (épilogue) | 0,0 | 0,0 | 0,0 | 0,0 | 0,0 | 0,0 |
+| Total | 21,2 | 24,8 | 4,7 | 5,9 | 1,6 | 1,8 |
+
+En centièmes (Habitué) : toits 0,12, gouttières 0,50, marché 0,54, orage 0,65, clocher 0,69, boss
+1,19, vents 0,40, mer 0,46, au-dessus des nuages 0,08 ; bonus 1,23 (au chrono : Expert 58,5 s, dans
+[45 ; 75[ s) ; épilogue 0,00. La courbe Habitué MONTE donc du 1 au 6 (0,12 · 0,50 · 0,54 · 0,65 ·
+0,69 · 1,19 : jamais de descente), redescend au 7 (0,40), remonte un peu au 8 (0,46) et se calme au 9
+(0,08) ; l'épilogue est le plus calme de tous pour les trois profils. Débutant : 0,4 · 1,5 · 0,8 · 3,0
+· 2,8 · 4,1 · 1,3 · 1,5 · 0,5 (le marché, à 0,8, reste sous les gouttières : il se joue « en
+rebondissant », voir la carte 5.12) ; Expert : le boss (0,38) et l'orage (0,35) en tête. Lieux de mort
+nouveaux : clocher, col. 12-14 « pointes » (la pointe de la cage : 29 des 33 morts Habitué) ; boss,
+éclairs seulement ; mer, col. 132 « chute » (le bord de la nouvelle rive).
+
+Non-régression : le juge de la courbe (`ecarts_de_la_courbe`, `game/src/difficulte.rs`) a été réécrit
+pour la courbe finale. Sommet = le boss (avant : l'orage) ; nouvelles règles : la mer au-dessus des
+vents (Débutant et Habitué), et une courbe Habitué qui ne redescend jamais avant le boss (un palier est
+admis) ; bandes Habitué du clocher [0,5 ; 1,2[ et du boss [0,7 ; 1,6[. Le test
+`la_forme_de_la_courbe_est_jugee` vérifie que les places désignent bien le boss, les vents, la mer et
+le final, qu'une bonne courbe passe (avec ou sans palier), et que la mesure d'AVANT cette carte est
+refusée avec ses cinq écarts (orage au-dessus du boss pour les deux profils, mer pas au-dessus des
+vents pour les deux, clocher qui redescend). `courbe_de_difficulte_dans_les_bandes` passe sur la
+mesure officielle.
+
+Robot de QA dans l'arène du boss : avec les motifs élargis, le parcours trouvé tenait plan par plan
+(`tient_au_decalage` : chaque plan rejoué avec le nuage décalé d'une ou deux images) mais pas rejoué en
+entier avec deux images d'avance (test `le_parcours_du_grand_nuage_tient_a_une_image_pres` : 3 à 5
+morts). Diagnostic (trace image par image du rejeu décalé) : le plan s'adapte (« garder la direction en
+descendant » descend plus tard si le courant du nuage souffle plus tard) alors que le navigateur et le
+test rejouent les TOUCHES enregistrées ; soulevé deux images plus tard, Pépin frappait le nuage plus
+tard, rebondissait 2,4 px plus loin, et mourait dans le dernier motif. Dans l'arène,
+`tient_au_decalage` rejoue maintenant les mêmes touches (boucle ouverte, `rejouer`) avec le nuage
+décalé de 1 à 3 images, et exige la même place (1 px) et la même vitesse (5 px/s) à l'arrivée. Le test
+est vert ; ailleurs (aiguilles du clocher et de l'horloge), rien ne change.
+
+### Robot : les onze niveaux, avec et sans bonus
+
+Sur l'extraction propre de ea83e42 :
+- `le_robot_finit_tous_les_niveaux_sans_mourir` et `la_partie_complete_joue_le_bonus` : verts ;
+- `ecrire_script_navigateur` (chemin SANS bonus : il manque des gouttes, on passe de 9 à 11) : 21 399
+  images (356,6 s), 0 mort, 16 gouttes, score 2 500, empreinte 9fcab605c6e802a7 ; niveaux 1 à 9 puis
+  11, écran de fin « DE RETOUR ! » à l'image 21 158 ;
+- `ecrire_script_partie_complete` (chemin AVEC bonus : toutes les gouttes, le bonus après le 9) :
+  26 173 images (436,2 s), 0 mort, 33 gouttes, score 4 200, empreinte e226eb7090319702 ; niveaux 1 à
+  11, écran de fin à l'image 25 932 ;
+- ces deux scripts ont été rejoués dans le navigateur (build de QA) pour les captures ci-dessous : les
+  écrans de fin affichent bien 16/30 sans ligne de bonus, et 30/30 avec « NIVEAU SECRET 3/3 ».
+
+Par rapport à la carte 5.17 (chemin sans bonus) : le clocher dure 3 images de plus (la pointe à
+sauter), le boss 112 de plus (motifs plus larges, attentes plus longues) ; la mer (malgré la rive plus
+loin), les vents, le final et l'épilogue durent exactement autant d'images qu'avant.
+
+### Textes
+
+- Écran titre : sous-titre « De l'orage jusqu'au soleil, et retour » (avant : « Grimpe de l'orage
+  jusqu'au soleil », qui ignorait l'épilogue).
+- Aide (« COMMENT JOUER ») : six astuces au lieu de quatre, dont « Sous la grêle, garde le parapluie
+  ouvert ! » (la seule règle des nouveautés à savoir d'avance) et « Vent, auvent, horloge : aucune
+  touche en plus ! » ; commandes resserrées (12 px au lieu de 13), astuces tous les 10 px : la dernière
+  finit avant la ligne « retour ». Test `les_astuces_tiennent` (48 caractères au plus, une ligne).
+- Écran de fin : inchangé (vérifié sur les captures des deux chemins ; il a été revu par la carte 5.17).
+- README : les onze niveaux et la courbe de difficulté (section 1), « Notions apparues avec les onze
+  niveaux » (section 7 : tranche constante dont la longueur sert de taille de tableau, données
+  constantes imbriquées `MOTIFS`, `enum` privé derrière une structure publique, machines à états en
+  entiers, `std::thread::scope`, fonctionnalités Cargo et `#[cfg(feature)]`), poids du wasm (section 10).
+
+### Fonds : aucune silhouette « où se poser » dans une trouée
+
+Note du coordinateur (captures 515-plane-porte et 515-grele) : dans la mer de nuages, les bancs roses
+du fond avaient un sommet plat à la hauteur des quais, dans les vides mortels. Corrigé dans la table
+d'ambiance (`decor::ambiance`, `Theme::Mer`, relief 10 -> -16), sans toucher à la physique ni à la
+mesure : leurs sommets sont à y = 150 au plus haut, sous le quai le plus bas du niveau (y = 144). Une
+première valeur (0, comme au niveau 9) laissait encore les bancs à la hauteur du quai bas de l'arrivée
+du moment fort (capture de vérification), d'où -16. Test
+`les_bancs_de_nuages_du_fond_restent_sous_la_ligne_du_sol` : pour chaque thème à bancs de nuages, sous
+la ligne du sol ; et pour chaque niveau d'un écran de haut à bancs de nuages (au-dessus des nuages, la
+mer, l'arc-en-ciel), au moins 4 px sous le plus bas des dessus où l'on se pose (tuiles, friables,
+nacelles). Captures avant/après : `518-mer-plane-avant` / `518-niveau08-mer-plane`,
+`518-mer-grele-avant` / `518-niveau08-mer-grele`, `518-mer-rive-avant` / `518-niveau08-mer-rive`.
+
+Les autres thèmes, regardés sur les captures : toits, gouttières, marché et clocher (immeubles sombres,
+toits en gradins et cheminées) ; orage et vents d'altitude (tours hautes, VOULUES par l'audit de
+visibilité : test `la_couche_lointaine_monte_a_40_px_au_moins_dans_chaque_theme`) ; le boss (aucun
+vide) ; l'épilogue (ciel du voyage, ville en bas). Dans l'orage et les vents, des tours sombres montent
+derrière les vides à la hauteur des plateformes : elles sont nettement plus sombres que les nuages et
+les dalles du niveau (blancs, cernés de noir) et défilent en parallaxe ; je ne les ai pas changées (ce
+serait revenir sur la décision de l'audit), mais c'est à juger par un humain (`518-niveau04-orage`,
+`518-niveau07-vents`).
+
+### Poids
+
+`./build.sh` sur l'extraction propre (octets ; gzip -9 entre parenthèses) :
+
+| Fichier | Avant (56b07c4, carte 5.17) | Après (ea83e42) | Écart |
+| ------- | --------------------------- | ----------------- | ----- |
+| game.wasm | 491 283 (197 501) | 491 395 (197 595) | + 112 |
+| index.html | 14 693 (5 617) | 14 693 (5 617) | 0 |
+| mq_js_bundle.js | 36 148 (9 839) | 36 148 (9 839) | 0 |
+| dist/ (total) | 542 124 | 542 236 | + 112 |
+
+Build de QA (`dist-qa/`, raccourcis de niveaux) : wasm 501 226 -> 501 338 octets. Sur toute l'étape 5
+(depuis la fin de l'étape 4, 73f844b, cinq niveaux : wasm 442 789 octets, dist/ 493 630) : + 48 606
+octets de wasm (+ 11 %) pour six niveaux, neuf mécaniques, leurs sprites et leurs thèmes ; dist/ fait
+0,54 Mo, sous l'avertissement de `build.sh` (1,2 Mo).
+
+### Images par seconde
+
+Outil `docs/mesure-images-par-seconde.mjs` (nouveau) : rejoue le script du robot jusqu'à un point du
+parcours, puis joue la suite EN TEMPS RÉEL, une image du jeu par rappel de `requestAnimationFrame`
+(comme la boucle normale), pendant 10 s ; il compte les images par seconde réelle et chronomètre
+chaque image du jeu (simulation + dessin, `wasm_exports.frame()`, avec `performance.now()`).
+Chromium 1208 sans tête, 960 x 540, rendu WebGL logiciel (SwiftShader : pas de carte graphique), build
+de QA de l'extraction propre, servi sur 127.0.0.1.
+
+Chaque point : 10 s de jeu réel (600 images attendues à 60 Hz) ; avant = build de QA de 56b07c4 (fin de
+la carte 5.17), après = ea83e42, aux mêmes endroits du parcours (après le boss, 115 images plus tard).
+
+| Point du parcours | Avant : i/s, coût moyen / pire (ms) | Après : i/s, coût moyen / pire (ms) |
+| ----------------- | ----------------------------------- | ----------------------------------- |
+| 1. Les toits | 60,0 ; 0,57 / 1,2 | 60,0 ; 0,56 / 1,0 |
+| 2. Gouttières | 60,0 ; 0,61 / 1,6 | 60,0 ; 0,60 / 2,1 |
+| 3. Le marché | 60,0 ; 0,59 / 1,0 | 60,0 ; 0,39 / 0,8 |
+| 4. L'orage | 60,1 ; 0,53 / 4,3 | 60,1 ; 0,54 / 1,0 |
+| 5. Le clocher | 60,0 ; 0,60 / 1,1 | 60,1 ; 0,68 / 2,5 |
+| 6. Le boss | 60,0 ; 0,33 / 0,5 | 60,0 ; 0,34 / 0,8 |
+| 7. Vents d'altitude | 60,1 ; 0,35 / 0,7 | 60,0 ; 0,40 / 1,7 |
+| 8. La mer (premier plané, grêle) | 60,1 ; 0,92 / 1,8 | 60,0 ; 0,87 / 2,7 |
+| 9. Au-dessus des nuages | 60,0 ; 0,30 / 0,5 | 60,0 ; 0,31 / 0,5 |
+| 10. L'arc-en-ciel (partie complète) | non mesuré | 60,0 ; 0,55 / 1,0 |
+| 11. La descente | 60,0 ; 0,54 / 0,8 | 60,1 ; 0,55 / 1,9 |
+
+Le niveau le plus chargé est la mer de nuages (traînées de vent, grêle, montgolfières), et dans la mer
+son moment fort (trois couches de vent superposées) : 20 s de jeu réel à cet endroit, 60,0 i/s avant
+comme après (coût moyen 1,26 ms, 95e centile 3,7 à 4,2 ms, pire image 5,0 ms après, 7,5 avant). Aussi
+mesurés 20 s : la cage du clocher (60,0 i/s ; 0,63 / 5,8 ms) et le motif 2 du boss (60,0 ; 0,95 /
+7,5 ms). Le pire coût d'une image, partout, reste sous la moitié des 16,7 ms d'une image à 60 Hz.
+
+Honnêteté sur le bruit : la machine est un serveur partagé (charge de 7 à 25 pendant les mesures). Une
+première série, lancée pendant que les tests tournaient, a donné 56,0 i/s au marché et 58 au clocher, et
+une mesure du moment fort de la mer, la charge montant à 25, 55,0 i/s (coût moyen 2,1 ms, pire 14,9) :
+refaites machine plus calme, elles donnent 60,0. Les images perdues venaient donc de la machine, pas du
+jeu (son coût par image n'a jamais dépassé 15 ms) ; mais je n'ai pas de mesure sur une machine dédiée.
+
+### Captures de chacun des onze niveaux
+
+Build de QA (`./build.sh --qa`) d'une extraction propre de ea83e42, servi sur 127.0.0.1 (port
+libre, serveur arrêté à la fin), Chromium 1208 sans tête piloté par CDP, onglet au premier plan
+(`Page.bringToFront`) et canvas focalisé, pilote `docs/capture-visibilite.mjs`, scripts
+`target/qa/script.txt` (sans bonus) et `script-516.txt` (partie complète) de la même extraction ;
+numéros d'image de `trace.csv` et `trace-516.csv`. 960 x 540 (agrandissement x3). Chaque capture
+regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 pixel semi-transparent,
+0 bloc flou sur les 23.
+
+- `518-titre` : « PÉPIN », « De l'orage jusqu'au soleil, et retour » sur une ligne, le menu ;
+- `518-aide` : les cinq commandes et les six astuces, la dernière au-dessus de « Entrée ou Échap :
+  retour », rien ne se chevauche ;
+- `518-niveau01-toits` (1200), `518-niveau02-gouttieres` (3600), `518-niveau03-marche` (5800),
+  `518-niveau04-orage` (8000) : inchangés par cette carte (contrôle) ;
+- `518-niveau05-clocher-pointe` (10677) : la cage de l'horloge, la pointe au sol juste avant la
+  lanterne de la porte, Pépin qui l'a sautée, la grande aiguille ;
+- `518-niveau06-cyclone-motif` (11990), `518-niveau06-cyclone-coup` (12223 : Pépin retombe sur la
+  tête du nuage, premier coup), `518-niveau06-cyclone-dernier-coup` (13150),
+  `518-niveau06-cyclone-dechirure` (13200 : le ciel se déchire) ;
+- `518-niveau07-vents` (14500) ;
+- `518-niveau08-mer-plane` (16195), `518-niveau08-mer-grele` (16510), `518-niveau08-mer-rive`
+  (17475 : la fin du moment fort, la rive) ; les AVANT, du build de QA de 56b07c4 aux mêmes endroits du
+  parcours (115 images plus tôt : le boss était plus court) : `518-mer-plane-avant` (16080),
+  `518-mer-grele-avant` (16395), `518-mer-rive-avant` (17360) ; avant, les bancs roses du fond
+  montent au-dessus des quais, dans les vides ; après, ils restent sous le quai le plus bas ;
+- `518-niveau09-nuages` (19000), `518-niveau11-descente` (20500) ;
+- `518-fin-sans-bonus` (21300) : « DE RETOUR ! », 16/30, pas de ligne de bonus, le mot de fin qui
+  annonce le niveau secret ;
+- partie complète : `518-niveau10-arc-en-ciel` (22500), `518-fin-complete` (26100) : 30/30,
+  « NIVEAU SECRET 3/3 », « Collection complète : rien n'est oublié ! ».
+
+### Vérification sur extraction propre
+
+Sur une extraction propre de ea83e42 (dernier commit de code ; `git archive`, nouveau dossier daté) :
+- `./docker-cargo.sh test --workspace --no-default-features` : 353 (core) + 315 (game) tests, tous
+  verts (1 + 18 ignorés : écritures de fichiers, scripts, diagnostics, mesure), en 4 min 17 s et
+  10 min 57 s (le robot joue les onze niveaux ; la courbe est mesurée en entier) ;
+- `./docker-cargo.sh lint` : `LINT-OK` ;
+- `./build.sh` : `dist/` produit (491 395 octets de wasm), 0 occurrence des noms interdits, seule URL
+  celle de l'espace de noms SVG de l'icône ; « La mer de
+  nuages » est dans `dist/game.wasm`, les niveaux d'essai non (« Essai vent » : 0 fois ; 2 dans
+  `dist-qa/`) ;
+- `./build.sh --qa` et les deux scripts du robot (`ecrire_script_navigateur`,
+  `ecrire_script_partie_complete`) : même extraction ; scripts identiques à l'octet à ceux de b8fb043 et
+  75173be (les retouches de fond suivantes ne touchent que le rendu) ; rejoués pour les captures et
+  pour les images par seconde.
+- Planche de sprites : aucun sprite nouveau ni modifié, non régénérée.
+- `docs/mesure-difficulte.txt` : régénéré par `mesure_de_difficulte` sur le code de la carte (graine
+  officielle) ; aucun commit de niveau, d'ennemi ou de mécanique après lui (les commits suivants :
+  fonds, captures, outil d'images par seconde, README, QA.md).
+
+Commits de la carte (dans l'ordre) : 1887e6b (mer : rive plus loin), 5fe21b3 (clocher : pointe de la
+cage), a1ad88a (mer : bancs du fond, relief 0), 12a792c (textes : titre, aide), d27f440 (format),
+9975831 (boss : motifs élargis ; robot : décalage en boucle ouverte), b8fb043 (juge de la courbe et
+mesure), 75173be et ea83e42 (mer : bancs du fond, relief -8 puis -16), captures 518-, outil d'images par
+seconde, README et QA.md.
+
+### Ce qui n'est PAS testé (liste honnête)
+
+- Aucun vrai téléphone ni tablette, ni Safari ni Firefox : Chromium 1208 sans tête seulement, à
+  960 x 540, rendu WebGL logiciel. Le tactile n'a pas été rejoué sur les nouveaux niveaux.
+- Les images par seconde sont mesurées dans ce Chromium sans tête, sur cette machine ; pas sur un
+  téléphone d'entrée de gamme ni avec une vraie carte graphique (qui ferait sans doute mieux que le rendu
+  logiciel). L'outil mesure le coût d'une image, pas le temps d'affichage réel à l'écran.
+- Le son n'a été écouté par personne (aucun son nouveau dans cette carte).
+- Aucun humain n'a joué les onze niveaux à la suite. La difficulté n'est jugée que par la mesure (un
+  joueur simulé, une graine ; bruit de l'ordre de 0,1 à 0,2 mort) : l'écart entre la mer (0,46) et les
+  vents (0,40), entre le clocher (0,69) et l'orage (0,65), est du même ordre que ce bruit ; seul le boss
+  (1,19) est nettement au sommet. `bruit_de_la_mesure` (4 graines) n'a pas été relancé.
+- La pointe du clocher et les motifs élargis du boss sont jugés « plus durs » par la mesure ; s'ils sont
+  « justes » ou « injustes » pour un enfant ou un débutant (le Débutant simulé meurt 2,8 fois au clocher,
+  4,1 fois au boss), seul un humain peut le dire.
+- Le bonus reste plus meurtrier que le boss (Habitué 1,23 contre 1,19), voulu : il se juge au chrono
+  (Expert 59 s), et il est réservé à ceux qui ont tout ramassé.
+- Les tours sombres de l'orage et des vents d'altitude (voir « Fonds ») n'ont pas été jugées par un
+  humain.
+- La planche de sprites n'a pas été régénérée : aucun sprite nouveau ni modifié dans cette carte.
+- Le niveau d'essai F10 (arène du Grand Nuage) a changé avec la table `MOTIFS` : son robot et son test de
+  décalage sont verts, mais il n'a pas été recapturé.
