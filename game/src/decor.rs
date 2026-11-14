@@ -371,10 +371,12 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // ventre violet. Pas de pluie : seule la grêle tombe, en colonnes. Les
         // nuages du niveau (clairs, bleutés) ne se confondent avec aucune de ces
         // couleurs, et les gouttes d'or (lignes 1 à 3) se détachent sur le corail.
-        // Carte 5.18 : les bancs roses du fond restent SOUS la ligne du sol (relief
-        // 0, comme au niveau 9) ; avec 10 px de relief, leur sommet plat montait
-        // jusqu'au dessus des plateformes, dans les trouées : on aurait cru pouvoir
-        // s'y poser (captures 515-plane-porte et 518-mer-avant).
+        // Carte 5.18 : les bancs roses du fond restent nettement SOUS les quais
+        // (relief -8 : leurs sommets entre y = 142 et y = 155, au moins 10 px sous
+        // la ligne du sol). Avec 10 px de relief, leur sommet plat montait jusqu'au
+        // dessus des plateformes, dans les trouées : on aurait cru pouvoir s'y
+        // poser (captures 515-plane-porte et 518-mer-plane-avant) ; avec 0 (comme au
+        // niveau 9), le plus haut arrivait encore à la hauteur du bord des quais.
         Theme::Mer => Ambiance {
             ciel: [CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL, OR],
             lointain: CORAIL_CLAIR,
@@ -388,7 +390,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             plafond: None,
             soleil: false,
             forme: Forme::Nuages,
-            relief: 0,
+            relief: -8,
             socle: true,
             fenetres: None,
             ilots: Some((CORAIL, VIOLET_ORAGE)),
@@ -1601,6 +1603,10 @@ mod tests {
                 loin.haut
             );
         }
+        // La mer : ses trouées sont des vides mortels entre des quais de trois
+        // rangées ; ses bancs descendent 10 px de plus (relief négatif).
+        let mer = zones(&ambiance(Theme::Mer))[0];
+        assert!(mer.haut >= LIGNE_SOL + 10, "mer : bancs à y={}", mer.haut);
         assert!(themes.contains(&Theme::Mer) && themes.contains(&Theme::Soleil));
     }
 
