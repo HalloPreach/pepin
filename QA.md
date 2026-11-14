@@ -3473,3 +3473,178 @@ Limites (non testé ou à relativiser) :
   éclaboussures et la poussière de ce niveau ne sont plus dessinées à l'identique d'avant (les
   particules repartent de zéro à chaque niveau : les autres niveaux ne changent pas) ; aucun effet sur
   le jeu ni sur l'empreinte du robot (elle ne lit pas les particules).
+
+## L'arc-en-ciel, niveau bonus (carte 5.16)
+
+« Il ne tient que le temps de le traverser. » Dixième place de la table, genre `Bonus`
+(`core/src/levels/arc.rs`, 240 x 11 tuiles, un écran de haut). Il n'est joué que si les 27 gouttes
+d'or des neuf niveaux normaux ont été ramassées pendant la partie en cours (`levels::apres`, carte
+5.1) ; sinon l'écran de fin suit directement le 9e niveau (l'épilogue viendra à la carte 5.17).
+
+Ce qui a été fait :
+- Le niveau : un pont de 154 dalles friables (`F`) d'un bout à l'autre ; seuls le nuage du départ
+  (colonnes 0 à 5) et celui de l'arrivée (230 à 239) sont solides. Aucun ennemi, aucune lanterne
+  (exigence d'AGA) : une chute ramène au départ. Une dalle touchée tombe une demi-seconde plus tard :
+  on ne s'arrête jamais. Le parcours enjambe trois arcs, comme l'arc-en-ciel : marches de six tuiles
+  qui montent d'une rangée, un sommet coupé de deux vides, un long plané de dix tuiles, des marches de
+  deux rangées, trois pas japonais de deux dalles, cinq marches qui remontent, un second long plané,
+  puis un sprint au ras de la mer de nuages avec des vides d'une tuile. 3 gouttes (au-dessus du
+  premier vide, du sommet du premier arc, à la fin du premier plané), 4 oiseaux posés (décor) sur les
+  deux nuages solides. Test `un_pont_friable_d_un_bout_a_l_autre_sans_ennemi_ni_lanterne` (aucune
+  tuile solide entre les colonnes 6 et 229, rien que des dalles et des gouttes).
+- Nouveauté du niveau : le pont qui ne pardonne pas l'arrêt, aucun appui sûr entre le départ et
+  l'arrivée. Aucune lettre de grille nouvelle (`F`, `K` existaient).
+- Thème `ArcEnCiel`, toute la palette : ciel d'ardoise après l'averse (sombre en haut, pâle vers
+  l'horizon), un grand arc-en-ciel de huit bandes de 3 px (corail, corail clair, orange, or, or pâle,
+  cyan, cyan sombre, violet : la palette n'a pas de vert, les deux cyans en tiennent lieu) dessiné en
+  colonnes de pixels entiers (`decor::bande_arc`, pure : bandes jointives sans trou ni
+  recouvrement, symétriques), qui glisse d'un écran de droite à gauche sur tout le niveau
+  (parallaxe 0,10 : au départ on voit son pied gauche, au milieu du pont l'arc entier, à l'arrivée
+  son pied droit) ; bancs de nuages pâles au loin, sombres devant ; pas de pluie, ni étoiles, ni
+  îlots (un îlot clair se lirait comme une dalle). Tests `l_arc_en_ciel_a_huit_bandes_jointives`,
+  `l_arc_glisse_d_un_ecran_sur_le_bonus`, `l_arc_en_ciel_montre_toute_la_palette` (ciel, bancs,
+  arc et dalles du pont : les 16 couleurs) ; les 16 couleurs ont aussi été comptées sur les pixels
+  des captures `516-depart`, `-plane`, `-arc-entier` et `-arrivee`.
+- Carte de titre : « NIVEAU BONUS », « L'ARC-EN-CIEL », la phrase d'AGA, le conseil « Ne t'arrête
+  pas : tout s'effrite derrière toi. » (une première version, « Ne t'arrête jamais : ... », laissait
+  « toi. » seul sur une seconde ligne : vu sur la capture, corrigé, et un test vérifie que les deux
+  phrases du bonus tiennent chacune sur une ligne).
+- Faisabilité : `niveau_10_faisable` (39,6 s en course rapide, robot maladroit compris) ; le bonus
+  est le seul niveau sans lanterne (`verifier_infos` l'exige) ; `durees_plausibles` (39,6 s, cible
+  60 s : « un sprint d'une minute »). Lint de grille, décor, reprise : verts. Le robot du cœur
+  (`faisabilite`) voit les dalles friables comme des solides fixes ; c'est le robot de QA, dans la
+  vraie simulation, qui prouve qu'on traverse un pont qui s'effondre.
+
+Correctif a minima d'une mécanique (signalé) : les dalles friables se reforment à la mort de Pépin.
+Avant, une dalle tombée ne revenait que 3 s après sa chute (si Pépin n'était pas dessus). Dans le
+bonus, sans lanterne, une chute aux premiers vides ramenait au départ devant un pont encore effondré :
+il fallait attendre, ou l'on retombait aussitôt. Désormais `entities::reprendre_apres_une_mort` (qui
+remettait déjà le Grand Nuage au début de son combat) reforme aussi chaque dalle friable
+(`PlateformeFriable::reformer`), sauf une qui chevaucherait Pépin déjà replacé. Tests
+`se_reforme_aussitot_apres_une_mort_sauf_dans_le_joueur` (core) et
+`dans_le_bonus_une_chute_ramene_au_depart_sur_un_pont_reforme` (game). Effet ailleurs : aucun sur la
+mesure (les neuf autres niveaux identiques ligne à ligne), aucun sur le robot (il ne meurt jamais,
+empreinte inchangée).
+
+Les DEUX chemins, prouvés à trois niveaux :
+- Règles pures (`core/src/levels.rs`) : `la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_le_saute_sinon`
+  (27 gouttes : 1 à 9, le bonus, la fin ; 26 ou 0 : 1 à 9, la fin ; après le bonus : la fin).
+- Application (`game/src/app.rs`) : `apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes`
+  (le 9e fini avec 27 gouttes : carte « NIVEAU BONUS » de l'arc-en-ciel, puis l'écran de fin avec 30
+  gouttes ; avec 26 ou 0 : directement l'écran de fin).
+- Partie entière, robot de QA : la partie habituelle du robot ramasse 15 gouttes et SAUTE le bonus
+  (le test `le_robot_finit_tous_les_niveaux_sans_mourir` le vérifie désormais : niveaux joués 1 à
+  9) ; une partie « complète » nouvelle (`trouver_parcours_complet` : recherche par étapes, la goutte
+  la plus proche, puis la suivante, puis l'arrivée ; `chercher_avec` refuse une arrivée tant qu'une
+  goutte manque) ramasse les trois gouttes de chaque niveau et JOUE le bonus : test
+  `la_partie_complete_joue_le_bonus` (niveaux 1 à 10, 3, 6, ..., 30 gouttes, aucune mort). Le
+  parcours du bonus est aussi rejoué seul (`le_robot_traverse_l_arc_en_ciel_sans_mourir`). Rien à
+  apprendre au robot : il joue dans la vraie simulation, où la dalle tombe sous lui s'il s'attarde
+  (le plan finit en chute et il est écarté) ; posé, il ne reste que 20 pas immobile, la dalle en
+  tient 30.
+- Navigateur : les deux scripts rejoués dans le build de QA (captures plus bas).
+
+Robot de QA (extraction propre de 41f68d8) : partie habituelle 20 054 images, 0 mort, 15 gouttes,
+score 2400, empreinte 5cfdacb1518e039e, IDENTIQUE à celle de la carte 5.15 (les neuf niveaux et leur
+enchaînement n'ont pas bougé ; le bonus est sauté). Partie complète (`ecrire_script_partie_complete`,
+`target/qa/script-516.txt`) : 24 084 images (401,4 s), 0 mort, 30 gouttes, score 3900, chrono
+21 540 pas, empreinte ec81270b03b82c66 ; le bonus y dure 3 006 images (50,1 s, détours pour les
+gouttes compris).
+
+Mesure de difficulté (même commande, graine 20261113, 48 essais) — morts moyennes, avant (2fb73cd,
+carte 5.15) et après (d77cba3) :
+
+| Niveau                      | Débutant avant | Débutant après | Habitué avant | Habitué après | Expert avant | Expert après |
+| --------------------------- | -------------- | -------------- | ------------- | ------------- | ------------ | ------------ |
+| 1. Les toits                | 0,4            | 0,4            | 0,1           | 0,1           | 0,0          | 0,0          |
+| 2. Gouttières et cheminées  | 1,5            | 1,5            | 0,5           | 0,5           | 0,2          | 0,2          |
+| 3. Le marché couvert        | 0,8            | 0,8            | 0,5           | 0,5           | 0,2          | 0,2          |
+| 4. Le grand orage           | 3,0            | 3,0            | 0,6           | 0,6           | 0,4          | 0,4          |
+| 5. Le clocher               | 0,6            | 0,6            | 0,3           | 0,3           | 0,0          | 0,0          |
+| 6. L'œil du cyclone         | 2,9            | 2,9            | 0,6           | 0,6           | 0,3          | 0,3          |
+| 7. Vents d'altitude         | 1,3            | 1,3            | 0,4           | 0,4           | 0,1          | 0,1          |
+| 8. La mer de nuages         | 1,3            | 1,3            | 0,3           | 0,3           | 0,1          | 0,1          |
+| 9. Au-dessus des nuages     | 0,5            | 0,5            | 0,1           | 0,1           | 0,0          | 0,0          |
+| 10. L'arc-en-ciel (bonus)   | —              | 8,8            | —             | 1,2           | —            | 0,3          |
+| Total                       | 12,4           | 21,2           | 3,5           | 4,7           | 1,3          | 1,6          |
+
+Détail du bonus : Débutant 39/48 essais finis (6 minutes au plus par essai), 215 s en moyenne, pire
+essai 22 morts ; Habitué 48/48, 80 s, pire 6 ; Expert 48/48, 59 s, pire 1. Lieux : chutes partout,
+surtout aux pas japonais (col. 127-131), au sommet du premier arc (63-67) et dans le deuxième arc
+(117-121). Les neuf autres niveaux : identiques ligne à ligne (lieux de mort compris).
+
+Lecture : le bonus est, en morts, le niveau le plus dur du jeu (Habitué 1,2 contre 0,6 à l'orage) :
+sans lanterne, chaque chute recommence le sprint, et le joueur simulé, qui se pose et s'arrête 1/3 s
+avant chaque plan, est plus exposé qu'un joueur qui court sans s'arrêter (une dalle tient 1/2 s). Une
+première version (marches de cinq tuiles, pas japonais d'une dalle, plané de douze tuiles), mesurée
+avant le correctif des dalles, donnait presque la même chose (8,8 / 1,0 / 0,3) : élargir les marches
+n'a fait que déplacer les chutes. C'est voulu
+pour un niveau réservé à qui a ramassé les 27 gouttes, et conforme à la décision du coordinateur (« le
+bonus se juge au chrono, pas aux morts ») : `ecarts_de_la_courbe` sort le bonus de la règle « sous
+le sommet », lui donne une bande Habitué de simple garde-fou ([0 ; 2[) et juge son chrono : la durée
+moyenne d'un essai Expert doit rester dans [45 ; 75[ s (mesurée : 59 s, « un sprint d'une minute »).
+Test `la_forme_de_la_courbe_est_jugee` complété (un bonus à 8,8 morts passe, un bonus de 80 s pour
+l'Expert est refusé). À revoir avec la courbe sur onze niveaux (carte 5.18).
+
+Durée des tests : la mesure de difficulté prend maintenant 4 min 50 s (au lieu de 30 à 90 s) : le
+Débutant y rejoue le bonus jusqu'à 6 minutes par essai. `courbe_de_difficulte_dans_les_bandes`
+(lancé avec tous les tests) refait cette mesure : la suite `game` dure environ 7 min, `core` 3 min ;
+`la_partie_complete_joue_le_bonus` dure 2 min 30 s à elle seule (un fil par niveau).
+
+Captures (`docs/qa/516-*`, 960 x 540, build de QA d'une extraction propre de 41f68d8 servi sur
+127.0.0.1 (port libre, serveur arrêté à la fin), Chromium sans tête (CDP) du poste, onglet au premier
+plan (`Page.bringToFront`) et canvas focalisé, pilote `docs/capture-visibilite.mjs` avec
+`SCRIPT=target/qa/script-516.txt` (partie complète) puis `script.txt` (partie du robot), générés sur
+la même extraction ; numéros d'image de `trace-516.csv` et `trace.csv`) :
+- partie complète, le bonus JOUÉ :
+  - `516-fin-du-9` (20545) : la fin du 9e niveau, Pépin court vers le drapeau, 27/30 au compteur ;
+  - `516-carte-bonus` (20760) : « NIVEAU BONUS », « L'ARC-EN-CIEL », « Il ne tient que le temps de
+    le traverser. », le conseil sur une ligne ;
+  - `516-depart` (20850) : Pépin sur le nuage du départ entre ses deux oiseaux, le pont qui part au
+    ras de la mer de nuages, le pied gauche de l'arc-en-ciel qui se lève à droite, la première goutte
+    devant l'arc (son contour sombre la détache des bandes) ;
+  - `516-premier-arc` (21300) : Pépin saute de marche en marche ; derrière lui, la marche qu'il
+    vient de quitter s'effrite (dalle fendue) et celles d'avant ont disparu ;
+  - `516-plane` (21880) : le long plané vers le bas, parapluie ouvert, sous l'arc entier ; devant
+    Pépin, la goutte au-dessus du bout du pont où il va se poser (29/30) ;
+  - `516-arc-entier` (22380) : MOMENT FORT, l'arc-en-ciel entier au-dessus des bancs de nuages, Pépin
+    en haut du deuxième arc, la dalle sous lui déjà fendue, le vide derrière ;
+  - `516-pas-japonais` (22500) : les pas japonais qui redescendent ;
+  - `516-sprint` (23500) : le sprint final, la dalle quittée qui s'effrite, le pied droit de l'arc ;
+  - `516-arrivee` (23814) : Pépin descend en planant vers le drapeau, sur le nuage de l'arrivée
+    entre ses deux oiseaux, le pied droit de l'arc à gauche, 30/30 ;
+  - `516-fin-complete` (23990) : écran de fin, 30 gouttes sur 30, « Collection complète » ;
+- partie du robot, le bonus SAUTÉ :
+  - `516-sans-bonus-fin-du-9` (19745) : la fin du 9e niveau, Pépin court vers le drapeau, 15/30 au
+    compteur ;
+  - `516-sans-bonus-fin` (19960) : l'écran de fin, 15 gouttes sur 30, juste après le 9e (aucune
+    carte de bonus entre les deux : la trace passe de « jeu 9 » à « fin » à l'image 19813).
+Chaque capture regardée. `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou
+sur les 12. Les captures ont été faites deux fois : la première série (build d'une extraction de
+d77cba3) a montré le conseil coupé sur deux lignes (voir plus haut) ; la série versionnée vient de
+41f68d8, après correction ; aucune mort dans aucune. Remarque hors carte : le message de fin à 15
+gouttes (« Pas mal ! Il reste des gouttes d'or ici et là. », inchangé) laisse « là. » seul sur sa
+seconde ligne (`516-sans-bonus-fin`) ; à reprendre avec les textes, pas dans cette carte.
+
+Vérification sur une extraction propre de 41f68d8 (dernier commit de code ; `git archive`, nouveau
+dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` : 348 + 301 tests, tous
+verts (1 + 17 ignorés : écritures de fichiers, scripts, diagnostics, mesure), en 3 min et 7 min ;
+`./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` : `dist/` produit (487 490 octets de wasm,
++ 3 869 octets, +0,8 %, pour le niveau, son thème et l'arc), 0 occurrence des noms interdits, seule
+URL `http://www.w3.org/2000/svg` ; « L'arc-en-ciel » est dans `dist/game.wasm`, le niveau d'essai vent
+toujours pas (« Essai vent » : 0 fois). Build de QA (`./build.sh --qa`) et scripts du robot
+(`ecrire_script_navigateur`, `ecrire_script_partie_complete`) : même extraction. Planche de sprites :
+aucun sprite nouveau ni modifié, non régénérée. Les commits suivants (captures, QA.md) ne touchent pas
+au code.
+
+Limites (non testé ou à relativiser) :
+- Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Pas de son.
+- Le bonus n'a été joué que par le robot (qui sautille de dalle en dalle) et par le joueur simulé de
+  la mesure, pas par un humain : la sensation de « sprint » (courir sans s'arrêter) n'est pas jugée.
+- La partie complète du robot n'est pas la plus courte qui ramasse tout (gouttes prises dans l'ordre
+  où elles sont les plus proches) : son chrono n'est pas un record.
+- La difficulté n'est jugée que par la mesure (une graine) ; le bonus y est plus meurtrier que le
+  sommet, assumé (jugé au chrono) mais à confirmer avec la courbe finale (carte 5.18).
+- L'or et l'or pâle de l'arc-en-ciel sont des couleurs que le décor évitait jusqu'ici (réservées aux
+  gouttes et aux éclairs) : « toute la palette » l'impose ; les bandes ne font que 3 px et les gouttes
+  gardent leur contour sombre, aucune confusion vue sur les captures.
