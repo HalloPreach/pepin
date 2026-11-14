@@ -371,6 +371,10 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // ventre violet. Pas de pluie : seule la grêle tombe, en colonnes. Les
         // nuages du niveau (clairs, bleutés) ne se confondent avec aucune de ces
         // couleurs, et les gouttes d'or (lignes 1 à 3) se détachent sur le corail.
+        // Carte 5.18 : les bancs roses du fond restent SOUS la ligne du sol (relief
+        // 0, comme au niveau 9) ; avec 10 px de relief, leur sommet plat montait
+        // jusqu'au dessus des plateformes, dans les trouées : on aurait cru pouvoir
+        // s'y poser (captures 515-plane-porte et 518-mer-avant).
         Theme::Mer => Ambiance {
             ciel: [CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL, OR],
             lointain: CORAIL_CLAIR,
@@ -384,7 +388,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             plafond: None,
             soleil: false,
             forme: Forme::Nuages,
-            relief: 10,
+            relief: 0,
             socle: true,
             fenetres: None,
             ilots: Some((CORAIL, VIOLET_ORAGE)),
@@ -1570,6 +1574,27 @@ mod tests {
                 proche.haut - 10
             );
         }
+    }
+
+    /// Carte 5.18 (QA des onze niveaux) : dans TOUS les thèmes à bancs de nuages
+    /// (au-dessus des nuages, la mer de nuages, l'arc-en-ciel), la couche lointaine
+    /// reste sous la ligne du sol : un sommet plat à la hauteur des plateformes, dans
+    /// une trouée mortelle, se lirait comme un nuage où se poser. (Les îlots de la
+    /// mer flottent au milieu du ciel, petits et d'une autre couleur que les nuages
+    /// du niveau : ils ne sont pas concernés.)
+    #[test]
+    fn les_bancs_de_nuages_du_fond_restent_sous_la_ligne_du_sol() {
+        let mut themes = Vec::new();
+        for t in Theme::TOUS {
+            let a = ambiance(t);
+            if a.forme != Forme::Nuages {
+                continue;
+            }
+            themes.push(t);
+            let loin = zones(&a).into_iter().find(|z| z.nom == "lointaine").unwrap();
+            assert!(loin.haut >= LIGNE_SOL, "{t:?} : bancs du fond à y={}", loin.haut);
+        }
+        assert!(themes.contains(&Theme::Mer) && themes.contains(&Theme::Soleil));
     }
 
     /// I-03 : au niveau 5, les bancs de nuages du fond restent sous la ligne du sol
