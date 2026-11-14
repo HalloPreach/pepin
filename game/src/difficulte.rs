@@ -1051,8 +1051,9 @@ const DUREE_BONUS_EXPERT_S: (f32, f32) = (45.0, 75.0);
 /// jugée elle aussi que par sa bande : elle se mesure au niveau des vents (0,33
 /// contre 0,40 pour l'Habitué), pas encore « un peu au-dessus » comme le voudrait
 /// la courbe finale. Le bonus (carte 5.16) se juge au chrono (voir
-/// `DUREE_BONUS_EXPERT_S`). La courbe sur onze niveaux (monter jusqu'au boss) se
-/// jugera à la carte 5.18.
+/// `DUREE_BONUS_EXPERT_S`). L'épilogue (carte 5.17) doit être le plus calme de
+/// tous (voir `ecarts_de_la_courbe`). La courbe sur onze niveaux (monter jusqu'au
+/// boss) se jugera à la carte 5.18.
 const SOMMET: usize = 3;
 const APRES_SOMMET: usize = 6;
 const FINAL: usize = 8;
@@ -1068,7 +1069,10 @@ const ECART_APRES_SOMMET: f32 = 0.15;
 ///   que le FINAL ;
 /// - Habitué : chaque niveau dans sa bande (`BANDES_HABITUE`), et le niveau qui
 ///   suit le sommet au moins `ECART_APRES_SOMMET` sous lui ;
-/// - Expert : le bonus dure `DUREE_BONUS_EXPERT_S` (un sprint d'une minute).
+/// - Expert : le bonus dure `DUREE_BONUS_EXPERT_S` (un sprint d'une minute) ;
+/// - Débutant et Habitué : l'épilogue (« La descente », carte 5.17) est le plus
+///   calme de tous, sans mourir plus que dans aucun autre niveau (décision du
+///   coordinateur pour l'étape 5).
 ///
 /// Renvoyer une liste plutôt que s'arrêter au premier écart : en cas d'échec,
 /// on voit tout ce qui ne va pas d'un coup.
@@ -1123,6 +1127,22 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
             ));
         }
     }
+    for p in [DEBUTANT, HABITUE] {
+        for e in (0..NB_NIVEAUX).filter(|&n| est_epilogue(n)) {
+            for n in (0..NB_NIVEAUX).filter(|&n| !est_epilogue(n)) {
+                if morts(e, p) > morts(n, p) {
+                    ecarts.push(format!(
+                        "{} : épilogue (niveau {}, {}) pas le plus calme, niveau {} à {}",
+                        PROFILS[p].nom,
+                        e + 1,
+                        centiemes(morts(e, p)),
+                        n + 1,
+                        centiemes(morts(n, p))
+                    ));
+                }
+            }
+        }
+    }
     if morts(SOMMET, HABITUE) - morts(APRES_SOMMET, HABITUE) < ECART_APRES_SOMMET {
         ecarts.push(format!(
             "Habitué : niveau {} ({}) pas nettement sous le niveau {} ({})",
@@ -1138,6 +1158,11 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
 /// Le niveau d'indice `n` de la table est-il le bonus ?
 fn est_bonus(n: usize) -> bool {
     NIVEAUX[n].genre == GenreNiveau::Bonus
+}
+
+/// Le niveau d'indice `n` de la table est-il l'épilogue ?
+fn est_epilogue(n: usize) -> bool {
+    NIVEAUX[n].genre == GenreNiveau::Epilogue
 }
 
 /// Nombre à deux décimales, virgule à la française : 0.456 -> « 0,46 ».
@@ -1431,6 +1456,60 @@ mod tests {
         assert!(ecarts.is_empty(), "{}\n\n{t}", ecarts.join("\n"));
     }
 
+    /// Mesure d'UN niveau, pour le régler : mêmes graines et mêmes essais que la
+    /// mesure officielle (ses chiffres sont donc ceux de sa ligne du tableau), en une
+    /// fraction du temps. Le niveau : variable d'environnement NIVEAU (son numéro ;
+    /// `docker-cargo.sh` ne la transmet pas au conteneur), par défaut le dernier de la
+    /// table. N'écrit aucun fichier.
+    /// `./docker-cargo.sh test -p game --no-default-features mesure_d_un_niveau -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn mesure_d_un_niveau() {
+        let numero: usize = std::env::var("NIVEAU")
+            .ok()
+            .and_then(|n| n.parse().ok())
+            .unwrap_or(NB_NIVEAUX);
+        let n = numero.clamp(1, NB_NIVEAUX) - 1;
+        let debut = std::time::Instant::now();
+        let itineraires = Itineraires::calculer(n);
+        let itineraires = &itineraires;
+        let cases: Vec<Case> = std::thread::scope(|s| {
+            let fils: Vec<_> = PROFILS
+                .iter()
+                .enumerate()
+                .map(|(p, profil)| {
+                    s.spawn(move || {
+                        let liste: Vec<Essai> = (0..ESSAIS)
+                            .map(|e| {
+                                let graine = graine_essai(GRAINE, p, rang_de_graine(n), e);
+                                jouer_essai(itineraires, profil, graine)
+                            })
+                            .collect();
+                        bilan(&liste)
+                    })
+                })
+                .collect();
+            fils.into_iter()
+                .map(|f| f.join().expect("essais"))
+                .collect()
+        });
+        println!("{}. {} :", n + 1, NIVEAUX[n].nom);
+        for (profil, c) in PROFILS.iter().zip(&cases) {
+            let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
+            println!(
+                "- {} : {} morts, {}/{} finis, {} s, max {} ; {}",
+                profil.nom,
+                centiemes(c.morts_moyennes),
+                c.finis,
+                c.essais,
+                decimal(c.duree_s),
+                c.morts_max,
+                lieux.join(" · ")
+            );
+        }
+        println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
+    }
+
     /// Une mesure inventée : morts moyennes du Débutant et de l'Habitué par
     /// niveau (l'Expert ne compte pas pour la forme de la courbe).
     fn fausse_mesure(debutant: [f32; NB_NIVEAUX], habitue: [f32; NB_NIVEAUX]) -> Vec<Vec<Case>> {
@@ -1496,6 +1575,22 @@ mod tests {
         assert_eq!(
             ecarts_de_la_courbe(&bonus_dur),
             ["Expert : bonus (niveau 10) en 80,0 s, hors de [45,0 ; 75,0[ s"]
+        );
+
+        // L'épilogue (11e, carte 5.17) est le plus calme de tous : plus meurtrier que
+        // le premier niveau (Débutant) ou que le final (Habitué), il est refusé.
+        assert!(est_epilogue(10) && (0..10).all(|n| !est_epilogue(n)));
+        let epilogue_dur = fausse_mesure(
+            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 1.0, 0.45],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 0.3, 0.15],
+        );
+        assert_eq!(
+            ecarts_de_la_courbe(&epilogue_dur),
+            [
+                "Débutant : épilogue (niveau 11, 0,45) pas le plus calme, niveau 1 à 0,40",
+                "Habitué : épilogue (niveau 11, 0,15) pas le plus calme, niveau 1 à 0,10",
+                "Habitué : épilogue (niveau 11, 0,15) pas le plus calme, niveau 9 à 0,10",
+            ]
         );
 
         // La courbe d'avant la carte 3.3 : le 7 (vents) presque aussi dur que le 4
