@@ -1179,14 +1179,14 @@ mod tests {
         let (_, mut e) = mini_arene();
         le_nuage_mut(&mut e).essouffler();
         le_nuage_mut(&mut e).toucher();
-        crate::entities::reprendre_apres_une_mort(&mut e);
+        crate::entities::reprendre_apres_une_mort(&mut e, &joueur(0.0, 0.0).boite);
         let g = le_nuage(&e);
         assert_eq!((g.phase(), g.pv(), g.ecoule()), (PhaseNuage::Prelude, 2, 0));
         le_nuage_mut(&mut e).essouffler();
         le_nuage_mut(&mut e).toucher();
         le_nuage_mut(&mut e).essouffler();
         le_nuage_mut(&mut e).toucher();
-        crate::entities::reprendre_apres_une_mort(&mut e);
+        crate::entities::reprendre_apres_une_mort(&mut e, &joueur(0.0, 0.0).boite);
         assert_eq!(le_nuage(&e).phase(), PhaseNuage::Dechirure);
     }
 }

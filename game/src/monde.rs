@@ -251,8 +251,10 @@ impl Monde {
                 }
                 Contact::Mort(cause) => {
                     // Le Grand Nuage reprend son combat au début (il garde ses
-                    // points perdus) : Pépin réapparaît au début de l'arène.
-                    reprendre_apres_une_mort(&mut self.entites);
+                    // points perdus) : Pépin réapparaît au début de l'arène. Les
+                    // dalles friables se reforment (carte 5.16), sauf sous Pépin
+                    // déjà replacé.
+                    reprendre_apres_une_mort(&mut self.entites, &self.joueur.boite);
                     self.derniere_mort = Some(cause);
                     self.reapparition = REAPPARITION_PAS;
                     // Mort dans le vide : on garde l'animation visible, au bas du niveau.
@@ -400,6 +402,46 @@ mod tests {
         assert_eq!(m.etat.morts, 1);
         assert_eq!(m.joueur.boite.x, m.niveau.depart.0);
         assert!(m.reapparition > 0);
+    }
+
+    /// Le bonus (carte 5.16), sans lanterne : une chute ramène au départ, et le pont
+    /// friable s'y est déjà reformé en entier (sans attendre les 3 s d'absence
+    /// d'une dalle tombée), pour repartir aussitôt.
+    #[test]
+    fn dans_le_bonus_une_chute_ramene_au_depart_sur_un_pont_reforme() {
+        use pepin_core::entities::friable::EtatFriable;
+        use pepin_core::levels::{GenreNiveau, NIVEAUX};
+        let i = NIVEAUX
+            .iter()
+            .position(|n| n.genre == GenreNiveau::Bonus)
+            .unwrap();
+        let mut m = Monde::new(i);
+        // Le début du pont est tombé, une autre dalle s'effrite.
+        let mut friables = 0;
+        for e in m.entites.iter_mut() {
+            if let Entite::Friable(f) = e {
+                friables += 1;
+                f.etat = if friables < 10 {
+                    EtatFriable::Absente(150)
+                } else {
+                    EtatFriable::Effritement(12)
+                };
+            }
+        }
+        assert!(friables > 100, "{friables} dalles");
+        m.joueur
+            .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
+        m.avancer(&Entrees::default());
+        assert_eq!(m.etat.morts, 1);
+        assert_eq!(
+            (m.joueur.boite.x, m.joueur.boite.y),
+            m.niveau.depart,
+            "au départ"
+        );
+        assert!(m.entites.iter().all(|e| match e {
+            Entite::Friable(f) => f.etat == EtatFriable::Stable,
+            _ => true,
+        }));
     }
 
     #[test]

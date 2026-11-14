@@ -183,12 +183,22 @@ pub fn courants_des_entites(entites: &[Entite]) -> Vec<CourantAscendant> {
 }
 
 /// Pépin vient de mourir : chaque Grand Nuage reprend au début de son combat
-/// (prélude), mais GARDE ses points de vie perdus (`GrandNuage::reprendre`). À
-/// appeler par le jeu quand un `Contact::Mort` est traité.
-pub fn reprendre_apres_une_mort(entites: &mut [Entite]) {
+/// (prélude), mais GARDE ses points de vie perdus (`GrandNuage::reprendre`) ; et
+/// chaque plateforme friable se reforme tout de suite (`PlateformeFriable::reformer`,
+/// carte 5.16), sauf une qui chevaucherait `occupant` (la boîte de Pépin, déjà
+/// replacé à son point de reprise). À appeler par le jeu quand un `Contact::Mort`
+/// est traité.
+///
+/// Pourquoi les friables (carte 5.16) : dans le bonus, sans lanterne, une chute
+/// ramène toujours au départ ; sans cette règle, après une chute aux premiers
+/// vides, le pont du départ était encore effondré (une dalle ne revient que 3 s
+/// après sa chute) et l'on retombait aussitôt.
+pub fn reprendre_apres_une_mort(entites: &mut [Entite], occupant: &Aabb) {
     for e in entites {
-        if let Entite::Nuage(n) = e {
-            n.reprendre();
+        match e {
+            Entite::Nuage(n) => n.reprendre(),
+            Entite::Friable(f) => f.reformer(occupant),
+            _ => {}
         }
     }
 }

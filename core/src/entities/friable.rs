@@ -57,6 +57,15 @@ impl PlateformeFriable {
             self.etat = EtatFriable::Stable;
         }
     }
+
+    /// Après une mort de Pépin : redevient intacte TOUT DE SUITE (qu'elle s'effrite
+    /// ou qu'elle soit tombée), sauf si `occupant` la chevauche (même règle que
+    /// `reapparaitre_si_libre`). Voir `entities::reprendre_apres_une_mort`.
+    pub fn reformer(&mut self, occupant: &Aabb) {
+        if !self.boite.chevauche(occupant) {
+            self.etat = EtatFriable::Stable;
+        }
+    }
 }
 
 impl Actualisable for PlateformeFriable {
@@ -130,5 +139,24 @@ mod tests {
         // Il est parti : elle revient.
         p.reapparaitre_si_libre(&Aabb::new(200.0, 0.0, 10.0, 14.0));
         assert_eq!(p.etat, EtatFriable::Stable);
+    }
+
+    /// Après une mort (carte 5.16) : tombée ou en train de s'effriter, elle se
+    /// reforme aussitôt, sans attendre ses 3 s d'absence ; jamais dans le joueur.
+    #[test]
+    fn se_reforme_aussitot_apres_une_mort_sauf_dans_le_joueur() {
+        let loin = Aabb::new(200.0, 0.0, 10.0, 14.0);
+        let mut p = plateforme();
+        p.toucher();
+        pas(&mut p, EFFRITEMENT_PAS + 10);
+        assert!(p.solide().is_none(), "tombée");
+        p.reformer(&Aabb::new(40.0, 60.0, 10.0, 14.0));
+        assert!(p.solide().is_none(), "pas dans le joueur");
+        p.reformer(&loin);
+        assert_eq!(p.etat, EtatFriable::Stable);
+        p.toucher();
+        pas(&mut p, 5);
+        p.reformer(&loin);
+        assert_eq!(p.etat, EtatFriable::Stable, "l'effritement repart de zéro");
     }
 }
