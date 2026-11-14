@@ -36,6 +36,9 @@ pub enum Theme {
     Cyclone,
     /// Le ciel se déchire, vent d'altitude.
     Altitude,
+    /// La mer de nuages : ciel corail au couchant, une mer de nuages tout en bas,
+    /// de petits nuages roses qui flottent ; pas de pluie (la grêle seule tombe).
+    Mer,
     /// Au-dessus des nuages : le soleil doré.
     Soleil,
 }
@@ -44,7 +47,7 @@ impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 8] = [
+    pub const TOUS: [Theme; 9] = [
         Theme::Toits,
         Theme::Gouttieres,
         Theme::Marche,
@@ -52,6 +55,7 @@ impl Theme {
         Theme::Clocher,
         Theme::Cyclone,
         Theme::Altitude,
+        Theme::Mer,
         Theme::Soleil,
     ];
 
@@ -71,13 +75,15 @@ impl Theme {
             Theme::Clocher => 1,
             Theme::Cyclone => 2,
             Theme::Altitude => 3,
+            Theme::Mer => 3,
             Theme::Soleil => 4,
         }
     }
 
-    /// Pleut-il dans ce thème ?
+    /// Pleut-il dans ce thème ? Ni au soleil, ni au-dessus de la mer de nuages
+    /// (seule la grêle y tombe, en colonnes).
     pub fn pluie(self) -> bool {
-        !matches!(self, Theme::Soleil)
+        !matches!(self, Theme::Soleil | Theme::Mer)
     }
 }
 
@@ -611,6 +617,7 @@ mod tests {
         niveau_6_faisable => 5,
         niveau_7_faisable => 6,
         niveau_8_faisable => 7,
+        niveau_9_faisable => 8,
     }
 
     #[test]
@@ -1144,7 +1151,7 @@ mod tests {
     /// auvent), paratonnerres sous l'orage, manches à air au vent, oiseaux au soleil.
     #[test]
     fn chaque_niveau_a_son_decor() {
-        use crate::levels::{clocher, gouttieres, marche, nuages, orage, toits, vents};
+        use crate::levels::{clocher, gouttieres, marche, mer, nuages, orage, toits, vents};
         use GenreDecor::*;
         // Rangé par niveau (et non par place dans la table) : insérer un niveau ne
         // décale rien ; un niveau absent de cette liste n'a pas de décor imposé.
@@ -1155,6 +1162,7 @@ mod tests {
             (orage::INFOS, &[Paratonnerre]),
             (clocher::INFOS, &[Paratonnerre]),
             (vents::INFOS, &[MancheAAir]),
+            (mer::INFOS, &[MancheAAir]),
             (nuages::INFOS, &[Oiseau]),
         ];
         for &(infos, genres) in attendus {
@@ -1178,10 +1186,20 @@ mod tests {
         }
     }
 
-    /// Chaque manche à air signale un courant ascendant : elle se tient à 4 tuiles
-    /// au plus de son bord, à une hauteur que le courant traverse.
+    /// Écart horizontal (px) entre la case d'une manche à air et la zone `z` (0 :
+    /// collée à son bord gauche ou droit ; négatif : elle est au-dessus ou dedans),
+    /// et la manche est-elle à une hauteur que la zone traverse ?
+    fn ecart_manche(d: &ObjetDecor, z: crate::aabb::Aabb) -> Option<f32> {
+        let t = crate::aabb::TAILLE_TUILE;
+        let ecart = (z.x - (d.x + t)).max(d.x - (z.x + z.w));
+        (z.y <= d.y && d.y < z.y + z.h).then_some(ecart)
+    }
+
+    /// Chaque manche à air signale un courant ascendant (à 4 tuiles au plus de son
+    /// bord, à une hauteur que le courant traverse) ou, depuis la carte 5.15, une
+    /// zone de vent latéral (collée à son entrée : une tuile au plus de son bord).
     #[test]
-    fn chaque_manche_a_air_est_au_bord_d_un_courant() {
+    fn chaque_manche_a_air_est_au_bord_d_un_courant_ou_d_un_vent() {
         let t = crate::aabb::TAILLE_TUILE;
         for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
@@ -1190,16 +1208,40 @@ mod tests {
                 .iter()
                 .filter(|d| d.genre == GenreDecor::MancheAAir)
             {
-                let signale = niv.courants.iter().any(|c| {
-                    let z = c.zone;
-                    let ecart = (z.x - (d.x + t)).max(d.x - (z.x + z.w));
-                    (0.0..=4.0 * t).contains(&ecart) && z.y <= d.y && d.y < z.y + z.h
-                });
+                let courant = niv
+                    .courants
+                    .iter()
+                    .any(|c| ecart_manche(d, c.zone).is_some_and(|e| (0.0..=4.0 * t).contains(&e)));
+                let vent = niv
+                    .vents
+                    .iter()
+                    .any(|v| ecart_manche(d, v.zone).is_some_and(|e| (0.0..=t).contains(&e)));
                 assert!(
-                    signale,
-                    "niveau {} : manche à air en {:?} loin de tout courant",
+                    courant || vent,
+                    "niveau {} : manche à air en {:?} loin de tout courant et de tout vent",
                     infos.numero,
                     case_decor(d)
+                );
+            }
+        }
+    }
+
+    /// Carte 5.15 : chaque zone de vent latéral du jeu a sa manche à air à son
+    /// entrée (collée à son bord, à une hauteur où le vent souffle) : on voit où le
+    /// vent souffle, et dans quel sens (`scene::manche_vers_la_droite`), avant d'y
+    /// entrer.
+    #[test]
+    fn chaque_zone_de_vent_lateral_a_sa_manche_a_air() {
+        let t = crate::aabb::TAILLE_TUILE;
+        for infos in NIVEAUX {
+            let niv = infos.charger().unwrap();
+            for v in &niv.vents {
+                assert!(
+                    niv.decors.iter().any(|d| d.genre == GenreDecor::MancheAAir
+                        && ecart_manche(d, v.zone).is_some_and(|e| (0.0..=t).contains(&e))),
+                    "niveau {} : vent {:?} sans manche à air à son entrée",
+                    infos.numero,
+                    v.zone
                 );
             }
         }

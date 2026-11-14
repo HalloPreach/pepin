@@ -342,6 +342,38 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 tete: BLANC_CASSE,
             },
         },
+        // La mer de nuages (carte 5.15) : un couchant corail qui se dore vers
+        // l'horizon ; tout en bas, la mer de nuages, rose (la lumière du couchant)
+        // et sans trouée jusqu'au bas de l'écran, avec ses bancs en dôme ; devant,
+        // des bancs violets dans l'ombre ; au milieu du ciel, des îlots corail au
+        // ventre violet. Pas de pluie : seule la grêle tombe, en colonnes. Les
+        // nuages du niveau (clairs, bleutés) ne se confondent avec aucune de ces
+        // couleurs, et les gouttes d'or (lignes 1 à 3) se détachent sur le corail.
+        Theme::Mer => Ambiance {
+            ciel: [CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL, OR],
+            lointain: CORAIL_CLAIR,
+            proche: VIOLET_ORAGE,
+            // Sans pluie (`Theme::pluie`) : couleurs jamais dessinées, mais
+            // visibles sur chaque bande si un jour il pleuvait.
+            pluie: (PLUIE, BLANC_CASSE),
+            etoiles: None,
+            gouttes: 0,
+            descente: 0,
+            plafond: None,
+            soleil: false,
+            forme: Forme::Nuages,
+            relief: 10,
+            socle: true,
+            fenetres: None,
+            ilots: Some((CORAIL, VIOLET_ORAGE)),
+            tuiles: TeinteTuiles {
+                eclaircissement: 2,
+                briques_orangees: false,
+            },
+            friable_nuage: true,
+            vertige: 1.0,
+            vent: VENT_JOUR,
+        },
         // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
         // sommets restent sous la ligne du sol), d'une couleur absente des
         // plateformes et des bandes de ciel de derrière.
@@ -841,7 +873,7 @@ mod tests {
             Theme::Toits | Theme::Orage | Theme::Clocher => (0, false, false),
             Theme::Gouttieres | Theme::Marche => (1, false, false),
             Theme::Cyclone => (0, false, true),
-            Theme::Altitude => (2, false, true),
+            Theme::Altitude | Theme::Mer => (2, false, true),
             Theme::Soleil => (3, true, true),
         };
         for t in Theme::TOUS {
@@ -966,7 +998,9 @@ mod tests {
         };
         assert!(clarte(Theme::Toits) < clarte(Theme::Gouttieres));
         assert!(clarte(Theme::Gouttieres) < clarte(Theme::Altitude));
-        assert!(clarte(Theme::Altitude) < clarte(Theme::Soleil));
+        // La mer de nuages (niveau 8) entre les vents d'altitude et le soleil.
+        assert!(clarte(Theme::Altitude) < clarte(Theme::Mer));
+        assert!(clarte(Theme::Mer) < clarte(Theme::Soleil));
     }
 
     /// Luminance perçue d'une couleur (0 à 255), pour juger un contraste.
@@ -977,7 +1011,8 @@ mod tests {
     /// Carte 5.15 : le vent latéral se voit. Sur CHAQUE bande du ciel de chaque
     /// thème, la queue ou la tête des traînées tranche nettement (au moins 50 de
     /// luminance d'écart) ; la tête est plus claire que la queue (c'est elle qui
-    /// dit le sens).
+    /// dit le sens). Dans la mer de nuages, où le vent fait le niveau, la QUEUE
+    /// seule tranche déjà sur toutes les bandes et sur la mer de nuages du fond.
     #[test]
     fn le_vent_lateral_se_voit_sur_chaque_bande_de_ciel() {
         const ECART_MIN: f32 = 50.0;
@@ -992,6 +1027,13 @@ mod tests {
                     "{t:?} : vent invisible sur {bande:?}"
                 );
             }
+        }
+        let a = ambiance(Theme::Mer);
+        for fond in a.ciel.into_iter().chain([a.lointain]) {
+            assert!(
+                ecart(a.vent.traine, fond) >= ECART_MIN,
+                "mer de nuages : queue du vent invisible sur {fond:?}"
+            );
         }
     }
 
@@ -1203,7 +1245,7 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0]);
+        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0]);
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");

@@ -1204,8 +1204,10 @@ mod tests {
                     assert!(ombres > 100, "{} : {ombres} ombres", infos.nom)
                 }
                 Theme::Clocher => assert!(ombres > 50, "{} : {ombres} ombres", infos.nom),
-                // L'œil du cyclone : une arène de nuages, sans toit ni brique.
-                Theme::Soleil | Theme::Cyclone => assert_eq!(ombres, 0, "{}", infos.nom),
+                // L'œil du cyclone et la mer de nuages : des nuages, sans toit ni brique.
+                Theme::Soleil | Theme::Cyclone | Theme::Mer => {
+                    assert_eq!(ombres, 0, "{}", infos.nom)
+                }
                 Theme::Altitude => {}
             }
         }
@@ -1396,8 +1398,33 @@ mod tests {
 
     /// Carte 5.15 : à l'entrée d'une zone de vent latéral, la manche à air
     /// s'étire dans le sens du vent (et non plus vers le courant le plus proche).
+    /// Dans la mer de nuages, une manche par zone : toutes vers la droite, sauf
+    /// celle de la couche du milieu du moment fort (`<`).
     #[test]
     fn la_manche_a_air_montre_le_sens_du_vent_lateral() {
+        let niv = pepin_core::levels::mer::INFOS.charger().unwrap();
+        let t = TAILLE_TUILE;
+        let manches: Vec<((i32, i32), bool)> = niv
+            .decors
+            .iter()
+            .filter(|d| d.genre == GenreDecor::MancheAAir)
+            .map(|d| {
+                (
+                    ((d.x / t) as i32, (d.y / t) as i32),
+                    manche_vers_la_droite(d.x, d.y, &niv.courants, &niv.vents),
+                )
+            })
+            .collect();
+        assert_eq!(
+            manches,
+            vec![
+                ((108, 3), true),
+                ((149, 4), true),
+                ((111, 5), false),
+                ((12, 7), true),
+                ((114, 7), true),
+            ]
+        );
         // Le vent l'emporte sur le courant : même un courant à gauche ne la
         // retourne pas à l'entrée d'un vent vers la droite (et inversement).
         let courant_a_gauche = CourantAscendant::new(Aabb::new(0.0, 0.0, 48.0, 64.0));

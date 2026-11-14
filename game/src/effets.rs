@@ -238,6 +238,64 @@ mod tests {
         assert!(en_haut && en_bas, "la colonne se voit de bas en haut");
     }
 
+    /// Carte 5.15 : dans la mer de nuages, chaque zone de vent latéral à l'écran se
+    /// remplit de traînées, aux couleurs de l'ambiance du niveau, qui avancent dans
+    /// le sens de SA zone (au moment fort, trois couches : `>`, `<`, `>`), et
+    /// qu'aucune ne déborde de sa zone.
+    #[test]
+    fn le_vent_lateral_de_la_mer_de_nuages_se_voit_dans_chaque_couche() {
+        let indice = pepin_core::levels::NIVEAUX
+            .iter()
+            .position(|n| n.nom == pepin_core::levels::mer::INFOS.nom)
+            .expect("la mer de nuages est dans la table");
+        let mut monde = Monde::new(indice);
+        let couleurs = ambiance(monde.infos.theme).vent;
+        let mut particules = Particules::new();
+        let mut secousse = Secousse::new(false);
+        let rien = Entrees::default();
+        // La caméra sur le moment fort (la tour, colonne 106 : x = 1696).
+        let cam_x = 1696.0;
+        for _ in 0..90 {
+            monde.avancer(&rien);
+            effets(&monde, &mut particules, &mut secousse, cam_x, 0.0);
+            particules.actualiser();
+        }
+        let trainees = particules.trainees();
+        let vents = &monde.niveau.vents;
+        let mut par_zone = vec![0; vents.len()];
+        for &(x, y, vx, traine, tete) in &trainees {
+            assert_eq!((traine, tete), (couleurs.traine, couleurs.tete));
+            let k = vents
+                .iter()
+                .position(|v| {
+                    let z = v.zone;
+                    x >= z.x - 0.01
+                        && x + f32::from(crate::particules::LONGUEUR_TRAINEE) <= z.x + z.w + 0.01
+                        && y >= z.y
+                        && y <= z.bas()
+                })
+                .unwrap_or_else(|| panic!("traînée hors de toute zone : ({x}, {y})"));
+            assert_eq!(vx.signum(), f32::from(vents[k].sens), "({x}, {y})");
+            par_zone[k] += 1;
+        }
+        // Les trois couches du moment fort (à l'écran) ont chacune leurs traînées.
+        let couches: Vec<usize> = (0..vents.len())
+            .filter(|&k| {
+                let z = vents[k].zone;
+                z.x < cam_x + LARGEUR_LOGIQUE as f32 && z.x + z.w > cam_x
+            })
+            .collect();
+        assert_eq!(couches.len(), 3, "{vents:?}");
+        for k in couches {
+            assert!(
+                par_zone[k] >= 8,
+                "zone {:?} : {} traînée(s)",
+                vents[k].zone,
+                par_zone[k]
+            );
+        }
+    }
+
     /// Carte 5.15 : le vent latéral se voit. Dans le niveau d'essai « vent »
     /// (ciel du soleil, où les anciens tirets blancs de 3 px se perdaient), la zone
     /// se remplit de traînées aux couleurs de l'ambiance (queue violette, tête

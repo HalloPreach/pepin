@@ -38,6 +38,7 @@ pub mod essai_ventilateur;
 pub mod essai_vertical;
 pub mod gouttieres;
 pub mod marche;
+pub mod mer;
 pub mod nuages;
 pub mod orage;
 pub mod toits;
@@ -66,6 +67,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     clocher::INFOS,
     cyclone::INFOS,
     vents::INFOS,
+    mer::INFOS,
     nuages::INFOS,
 ];
 

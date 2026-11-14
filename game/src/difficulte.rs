@@ -35,7 +35,7 @@ use std::fmt::Write as _;
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::CauseMort;
-use pepin_core::levels::{clocher, cyclone, gouttieres, marche, nuages, orage, toits, vents};
+use pepin_core::levels::{clocher, cyclone, gouttieres, marche, mer, nuages, orage, toits, vents};
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
@@ -735,6 +735,7 @@ const RANGS_DE_GRAINE: &[&str] = &[
     marche::INFOS.nom,
     clocher::INFOS.nom,
     cyclone::INFOS.nom,
+    mer::INFOS.nom,
 ];
 
 /// Rang de graine du niveau d'indice `n` de la table (voir `RANGS_DE_GRAINE`).
@@ -1013,7 +1014,8 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.0, 0.5),  // 5. Le clocher (carte 5.13) : tomber n'y tue qu'en haut, sous 0,5
     (0.3, 1.2),  // 6. L'œil du cyclone (carte 5.14) : le boss, presque au sommet
     (0.3, 0.65), // 7. Vents d'altitude : redescend un peu
-    (0.0, 0.2),  // 8. Au-dessus des nuages : final calme, sous 0,2
+    (0.2, 1.0),  // 8. La mer de nuages (carte 5.15) : au niveau des vents (0,33), sous le boss
+    (0.0, 0.2),  // 9. Au-dessus des nuages : final calme, sous 0,2
 ];
 
 /// Places dans la table des trois niveaux dont la courbe juge la forme : le
@@ -1027,11 +1029,14 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
 /// ne coûte en bas que de la hauteur, il se mesure plus facile que l'orage.
 /// L'œil du cyclone (carte 5.14), le boss, aussi : il se mesure juste sous
 /// l'orage, et les vents, qui le suivent désormais, restent nettement sous le
-/// sommet. La courbe sur onze niveaux (monter jusqu'au boss) se jugera à la
-/// carte 5.18.
+/// sommet. La mer de nuages (carte 5.15), entre les vents et le final, n'est
+/// jugée elle aussi que par sa bande : elle se mesure au niveau des vents (0,33
+/// contre 0,40 pour l'Habitué), pas encore « un peu au-dessus » comme le voudrait
+/// la courbe finale. La courbe sur onze niveaux (monter jusqu'au boss) se jugera
+/// à la carte 5.18.
 const SOMMET: usize = 3;
 const APRES_SOMMET: usize = 6;
-const FINAL: usize = 7;
+const FINAL: usize = 8;
 
 /// Écart minimal entre le sommet et le niveau suivant (Habitué) : celui-ci doit
 /// être NETTEMENT plus facile que le sommet, pas à égalité au hasard près.
@@ -1434,27 +1439,27 @@ mod tests {
         assert_eq!(NIVEAUX[FINAL].nom, nuages::INFOS.nom);
 
         let bonne = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 0.5],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.1],
+            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1],
         );
         assert_eq!(ecarts_de_la_courbe(&bonne), Vec::<String>::new());
 
         // La courbe d'avant la carte 3.3 : le 7 (vents) presque aussi dur que le 4
-        // (orage), le 8 à 0,4.
+        // (orage), le 9 (final) à 0,4.
         let avant = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.6, 1.0, 2.0, 2.9, 2.5],
-            [0.1, 0.5, 0.6, 1.0, 0.4, 0.6, 0.9, 0.4],
+            [0.4, 1.5, 2.0, 3.6, 1.0, 2.0, 2.9, 1.5, 2.5],
+            [0.1, 0.5, 0.6, 1.0, 0.4, 0.6, 0.9, 0.6, 0.4],
         );
         let e = ecarts_de_la_courbe(&avant);
         assert!(e.iter().any(|x| x.contains("niveau 7 à 0,90")), "{e:?}");
-        assert!(e.iter().any(|x| x.contains("niveau 8 à 0,40")), "{e:?}");
+        assert!(e.iter().any(|x| x.contains("niveau 9 à 0,40")), "{e:?}");
         assert!(e.iter().any(|x| x.contains("pas nettement")), "{e:?}");
 
-        // Le 7 plus dur que le 4 (Débutant) ; le 8 aussi dur que le 7 (Habitué) ;
+        // Le 7 plus dur que le 4 (Débutant) ; le 9 aussi dur que le 7 (Habitué) ;
         // le marché (3) plus dur que l'orage (Débutant).
         let a_l_envers = fausse_mesure(
-            [0.4, 1.5, 2.2, 2.0, 1.0, 1.5, 2.5, 0.5],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.1, 0.1],
+            [0.4, 1.5, 2.2, 2.0, 1.0, 1.5, 2.5, 1.5, 0.5],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.1, 0.6, 0.1],
         );
         let e = ecarts_de_la_courbe(&a_l_envers);
         assert!(
@@ -1469,7 +1474,7 @@ mod tests {
         );
         assert!(
             e.iter()
-                .any(|x| x == "Habitué : niveau 7 (0,1) pas au-dessus du niveau 8 (0,1)"),
+                .any(|x| x == "Habitué : niveau 7 (0,1) pas au-dessus du niveau 9 (0,1)"),
             "{e:?}"
         );
     }
