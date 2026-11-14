@@ -1,15 +1,27 @@
 //! Effets visuels déclenchés par ce qui s'est passé pendant un pas de simulation :
 //! éclaboussures, poussière, étincelles, vent visible, secousse de mort.
 
+use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::Entite;
 use pepin_core::palette::{BLANC_CASSE, CORAIL_CLAIR, OR, OR_PALE, PLUIE, PLUIE_SOMBRE};
 use pepin_core::LARGEUR_LOGIQUE;
 
+use crate::decor::ambiance;
 use crate::monde::Monde;
 use crate::particules::Particules;
 use crate::scene::borner_mort;
 use crate::secousse::Secousse;
+
+/// Tuiles de zone de vent latéral par traînée qui naît (tous les 3 pas).
+const TUILES_PAR_TRAINEE: f32 = 16.0;
+
+/// Traînées qui naissent dans une zone de vent latéral de `largeur` x `hauteur` px
+/// (tous les 3 pas) : une pour `TUILES_PAR_TRAINEE` tuiles, au moins une. Pure.
+fn trainees_par_zone(largeur: f32, hauteur: f32) -> usize {
+    let tuiles = largeur * hauteur / (TAILLE_TUILE * TAILLE_TUILE);
+    ((tuiles / TUILES_PAR_TRAINEE).round() as usize).max(1)
+}
 
 /// Effets visuels déclenchés par ce qui s'est passé pendant un pas.
 /// `(cam_x, cam_y)` : coin haut-gauche de la zone visible, pour n'animer que le vent qu'on voit
@@ -86,14 +98,28 @@ pub fn effets(
             let vie_max = (restant + 1).min(u8::MAX as u16) as u8;
             particules.souffle_borne(z.x + decal, z.y, z.bas(), BLANC_CASSE, vie_max);
         }
-        // Le vent latéral devient visible aussi (tirets horizontaux qui traversent
-        // la zone, dans son sens).
+        // Le vent latéral devient visible aussi (traînées horizontales qui
+        // traversent la zone, dans son sens, tête claire à l'avant), aux couleurs de
+        // l'ambiance du niveau et en nombre proportionnel à la surface de la zone
+        // (carte 5.15 : une seule traînée tous les 3 pas se perdait dans une grande
+        // zone).
+        let couleurs = ambiance(monde.infos.theme).vent;
         for v in &monde.niveau.vents {
             let z = v.zone;
             if z.x + z.w < cam_x || z.x > cam_x + LARGEUR_LOGIQUE as f32 {
                 continue;
             }
-            particules.souffle_lateral(z.x, z.x + z.w, z.y, z.bas(), v.sens, BLANC_CASSE);
+            for _ in 0..trainees_par_zone(z.w, z.h) {
+                particules.souffle_lateral(
+                    z.x,
+                    z.x + z.w,
+                    z.y,
+                    z.bas(),
+                    v.sens,
+                    couleurs.traine,
+                    couleurs.tete,
+                );
+            }
         }
     }
     for c in &monde.contacts {
@@ -210,5 +236,48 @@ mod tests {
             "brins visibles sur {images_avec_brins} des {images_de_souffle} images de souffle"
         );
         assert!(en_haut && en_bas, "la colonne se voit de bas en haut");
+    }
+
+    /// Carte 5.15 : le vent latéral se voit. Dans le niveau d'essai « vent »
+    /// (ciel du soleil, où les anciens tirets blancs de 3 px se perdaient), la zone
+    /// se remplit de traînées aux couleurs de l'ambiance (queue violette, tête
+    /// blanche), qui avancent dans le sens du vent sans déborder de la zone.
+    #[test]
+    fn le_vent_lateral_se_voit_dans_le_niveau_d_essai() {
+        let mut monde = Monde::new(crate::monde::INDICE_ESSAI_VENT);
+        let couleurs = ambiance(monde.infos.theme).vent;
+        assert_eq!(couleurs.traine, pepin_core::palette::VIOLET_ORAGE);
+        let mut particules = Particules::new();
+        let mut secousse = Secousse::new(false);
+        let rien = Entrees::default();
+        for _ in 0..90 {
+            monde.avancer(&rien);
+            effets(&monde, &mut particules, &mut secousse, 0.0, 0.0);
+            particules.actualiser();
+        }
+        let z = monde.niveau.vents[0].zone;
+        let trainees = particules.trainees();
+        // Une zone de 12 x 3 tuiles : 2 traînées tous les 3 pas, qui vivent au
+        // moins 18 pas (bornées par le bord) : une dizaine à l'écran.
+        assert!(trainees.len() >= 10, "{} traînées", trainees.len());
+        for &(x, y, vx, traine, tete) in &trainees {
+            assert_eq!((traine, tete), (couleurs.traine, couleurs.tete));
+            assert!(vx > 0.0, "vent vers la droite");
+            assert!(
+                x >= z.x - 0.01
+                    && x + f32::from(crate::particules::LONGUEUR_TRAINEE) <= z.x + z.w + 0.01
+                    && (z.y..=z.bas()).contains(&y),
+                "traînée hors de la zone : ({x}, {y})"
+            );
+        }
+    }
+
+    #[test]
+    fn plus_la_zone_de_vent_est_grande_plus_il_y_a_de_trainees() {
+        let t = TAILLE_TUILE;
+        assert_eq!(trainees_par_zone(t, t), 1);
+        assert_eq!(trainees_par_zone(13.0 * t, 4.0 * t), 3);
+        assert_eq!(trainees_par_zone(20.0 * t, 2.0 * t), 3);
+        assert_eq!(trainees_par_zone(17.0 * t, 3.0 * t), 3);
     }
 }

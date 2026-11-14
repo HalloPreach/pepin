@@ -19,7 +19,7 @@ use pepin_core::entities::nuage::{EtatColonne, GrandNuage, PhaseNuage, NB_COLONN
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::level::{GenreDecor, GenrePanneau, Niveau, Tuile};
 use pepin_core::palette::*;
-use pepin_core::physics::{CourantAscendant, HZ};
+use pepin_core::physics::{CourantAscendant, VentLateral, HZ};
 use pepin_core::player::EtatJoueur;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
@@ -240,9 +240,26 @@ fn image_oiseau(pas: u32, rang: usize) -> &'static str {
     objets_decor::OISEAU[usize::from(phase >= CYCLE_OISEAU - TETE_TOURNEE)]
 }
 
-/// La manche à air s'étire vers le courant ascendant le plus proche (l'air y est aspiré) :
-/// vers la droite si son centre est à droite de la manche (ou s'il n'y a aucun courant).
-fn manche_vers_la_droite(x: f32, courants: &[CourantAscendant]) -> bool {
+/// La manche à air de la case `(x, y)` (coin haut-gauche, px) montre où va l'air :
+/// - à l'entrée d'une zone de vent latéral (à une tuile au plus de son bord, à une
+///   hauteur où il souffle ; carte 5.15), elle s'étire dans le SENS DU VENT ;
+/// - sinon, elle s'étire vers le courant ascendant le plus proche (l'air y est
+///   aspiré) : vers la droite si son centre est à droite de la manche (ou s'il n'y a
+///   aucun courant).
+fn manche_vers_la_droite(
+    x: f32,
+    y: f32,
+    courants: &[CourantAscendant],
+    vents: &[VentLateral],
+) -> bool {
+    let entree_de_vent = vents.iter().find(|v| {
+        let z = v.zone;
+        let ecart = (z.x - (x + TAILLE_TUILE)).max(x - (z.x + z.w));
+        (0.0..=TAILLE_TUILE).contains(&ecart) && z.y <= y && y < z.y + z.h
+    });
+    if let Some(v) = entree_de_vent {
+        return v.sens > 0;
+    }
     let centre_manche = x + TAILLE_TUILE / 2.0;
     courants
         .iter()
@@ -273,7 +290,7 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             GenreDecor::Paratonnerre => ("paratonnerre", false),
             GenreDecor::MancheAAir => (
                 "manche_a_air",
-                !manche_vers_la_droite(d.x, &monde.niveau.courants),
+                !manche_vers_la_droite(d.x, d.y, &monde.niveau.courants, &monde.niveau.vents),
             ),
             GenreDecor::Oiseau => {
                 oiseaux += 1;
@@ -1353,18 +1370,66 @@ mod tests {
         assert_eq!(manches.len(), 4);
         assert!(manches
             .iter()
-            .all(|&x| manche_vers_la_droite(x, &niv.courants)));
+            .all(|&x| manche_vers_la_droite(x, 0.0, &niv.courants, &niv.vents)));
         let a_gauche = CourantAscendant::new(Aabb::new(0.0, 0.0, 48.0, 64.0));
         let a_droite = CourantAscendant::new(Aabb::new(300.0, 0.0, 48.0, 64.0));
-        assert!(!manche_vers_la_droite(80.0, &[a_gauche]));
-        assert!(manche_vers_la_droite(80.0, &[a_droite]));
+        assert!(!manche_vers_la_droite(80.0, 0.0, &[a_gauche], &[]));
+        assert!(manche_vers_la_droite(80.0, 0.0, &[a_droite], &[]));
         // Le plus proche l'emporte.
-        assert!(!manche_vers_la_droite(80.0, &[a_droite, a_gauche]));
-        assert!(manche_vers_la_droite(250.0, &[a_gauche, a_droite]));
+        assert!(!manche_vers_la_droite(
+            80.0,
+            0.0,
+            &[a_droite, a_gauche],
+            &[]
+        ));
+        assert!(manche_vers_la_droite(
+            250.0,
+            0.0,
+            &[a_gauche, a_droite],
+            &[]
+        ));
         assert!(
-            manche_vers_la_droite(80.0, &[]),
+            manche_vers_la_droite(80.0, 0.0, &[], &[]),
             "sans courant : vers la droite"
         );
+    }
+
+    /// Carte 5.15 : à l'entrée d'une zone de vent latéral, la manche à air
+    /// s'étire dans le sens du vent (et non plus vers le courant le plus proche).
+    #[test]
+    fn la_manche_a_air_montre_le_sens_du_vent_lateral() {
+        // Le vent l'emporte sur le courant : même un courant à gauche ne la
+        // retourne pas à l'entrée d'un vent vers la droite (et inversement).
+        let courant_a_gauche = CourantAscendant::new(Aabb::new(0.0, 0.0, 48.0, 64.0));
+        let vers_la_droite = VentLateral::new(Aabb::new(96.0, 0.0, 64.0, 64.0), 1);
+        let vers_la_gauche = VentLateral::new(Aabb::new(96.0, 0.0, 64.0, 64.0), -1);
+        assert!(manche_vers_la_droite(
+            80.0,
+            16.0,
+            &[courant_a_gauche],
+            &[vers_la_droite]
+        ));
+        assert!(!manche_vers_la_droite(80.0, 16.0, &[], &[vers_la_gauche]));
+        // Une tuile vide entre la manche et le vent : c'est encore son entrée ; deux
+        // tuiles (trop loin), ou trop bas : le vent ne compte pas.
+        assert!(manche_vers_la_droite(
+            64.0,
+            16.0,
+            &[courant_a_gauche],
+            &[vers_la_droite]
+        ));
+        assert!(!manche_vers_la_droite(
+            48.0,
+            16.0,
+            &[courant_a_gauche],
+            &[vers_la_droite]
+        ));
+        assert!(!manche_vers_la_droite(
+            80.0,
+            64.0,
+            &[courant_a_gauche],
+            &[vers_la_droite]
+        ));
     }
 
     /// Un sprite de décor est centré dans sa case et posé sur la tuile du dessous ; chaque

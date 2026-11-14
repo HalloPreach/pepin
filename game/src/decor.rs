@@ -85,7 +85,33 @@ pub struct Ambiance {
     /// nettement quand on monte. Sans effet sur un niveau d'un écran (la caméra
     /// du fond y reste à 0, hors secousse de mort).
     pub vertige: f32,
+    /// Couleurs des traînées du vent latéral (carte 5.15), choisies pour se voir
+    /// sur le ciel du thème.
+    pub vent: CouleursVent,
 }
+
+/// Couleurs d'une traînée de vent latéral (`particules::souffle_lateral`) : une
+/// queue (`traine`) et une tête plus claire à l'avant (`tete`). Sur chaque bande
+/// du ciel, l'une des deux au moins tranche nettement (test
+/// `le_vent_lateral_se_voit_sur_chaque_bande_de_ciel`) : le vent se lit sur une
+/// image fixe, et la tête claire dit son sens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CouleursVent {
+    pub traine: Couleur,
+    pub tete: Couleur,
+}
+
+/// Vent clair sur les ciels sombres (nuit, orage, clocher, cyclone).
+const VENT_NUIT: CouleursVent = CouleursVent {
+    traine: ARDOISE_PALE,
+    tete: BLANC_CASSE,
+};
+/// Vent sombre sur les ciels clairs (corail, orange, or) : queue violette, tête
+/// blanche.
+const VENT_JOUR: CouleursVent = CouleursVent {
+    traine: VIOLET_ORAGE,
+    tete: BLANC_CASSE,
+};
 
 /// Éclaircissement des tuiles d'un thème : les toits pâlissent d'un niveau à l'autre.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +153,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            vent: VENT_NUIT,
         },
         // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
         // discrets en haut du ciel.
@@ -155,6 +182,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            vent: VENT_NUIT,
         },
         // Marché couvert : nuit bleue qui s'éclaircit vers l'horizon (la lueur du
         // marché), étoiles en haut, immeubles aux fenêtres orange (les lanternes et
@@ -183,6 +211,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            vent: VENT_NUIT,
         },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
         // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit. Un plafond
@@ -214,6 +243,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 1.0,
+            vent: VENT_NUIT,
         },
         // Clocher (niveau vertical) : nuit violette après l'orage, une lueur pâle
         // à l'horizon (la lune derrière les nuages qui s'en vont), étoiles en haut,
@@ -245,6 +275,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: false,
             vertige: 2.5,
+            vent: VENT_NUIT,
         },
         // L'œil du cyclone (le boss) : violet et or. Tout en haut, la trouée d'or
         // (le ciel au-dessus de l'œil), bordée des nuages d'orage qui tournent
@@ -278,6 +309,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: true,
             vertige: 1.0,
+            vent: VENT_NUIT,
         },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
         // plus sombres, petites îles flottantes dans le tiers médian.
@@ -304,6 +336,11 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: true,
             vertige: 1.0,
+            // Le ciel du haut est violet : la queue des traînées est bleu nuit.
+            vent: CouleursVent {
+                traine: ARDOISE_NUIT,
+                tete: BLANC_CASSE,
+            },
         },
         // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
         // sommets restent sous la ligne du sol), d'une couleur absente des
@@ -329,6 +366,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             },
             friable_nuage: true,
             vertige: 1.0,
+            vent: VENT_JOUR,
         },
     }
 }
@@ -823,6 +861,7 @@ mod tests {
             let a = ambiance(t);
             let mut couleurs = a.ciel.to_vec();
             couleurs.extend([a.lointain, a.proche, a.pluie.0, a.pluie.1]);
+            couleurs.extend([a.vent.traine, a.vent.tete]);
             for (c1, c2) in a.fenetres.into_iter().chain(a.ilots) {
                 couleurs.extend([c1, c2]);
             }
@@ -928,6 +967,32 @@ mod tests {
         assert!(clarte(Theme::Toits) < clarte(Theme::Gouttieres));
         assert!(clarte(Theme::Gouttieres) < clarte(Theme::Altitude));
         assert!(clarte(Theme::Altitude) < clarte(Theme::Soleil));
+    }
+
+    /// Luminance perçue d'une couleur (0 à 255), pour juger un contraste.
+    fn luminance(c: Couleur) -> f32 {
+        0.299 * f32::from(c.r) + 0.587 * f32::from(c.g) + 0.114 * f32::from(c.b)
+    }
+
+    /// Carte 5.15 : le vent latéral se voit. Sur CHAQUE bande du ciel de chaque
+    /// thème, la queue ou la tête des traînées tranche nettement (au moins 50 de
+    /// luminance d'écart) ; la tête est plus claire que la queue (c'est elle qui
+    /// dit le sens).
+    #[test]
+    fn le_vent_lateral_se_voit_sur_chaque_bande_de_ciel() {
+        const ECART_MIN: f32 = 50.0;
+        let ecart = |a: Couleur, b: Couleur| (luminance(a) - luminance(b)).abs();
+        for t in Theme::TOUS {
+            let a = ambiance(t);
+            let v = a.vent;
+            assert!(luminance(v.tete) > luminance(v.traine), "{t:?}");
+            for bande in a.ciel {
+                assert!(
+                    ecart(v.traine, bande).max(ecart(v.tete, bande)) >= ECART_MIN,
+                    "{t:?} : vent invisible sur {bande:?}"
+                );
+            }
+        }
     }
 
     #[test]

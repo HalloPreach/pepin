@@ -21,6 +21,13 @@ const GRAVITE: f32 = 0.12;
 const VITESSE_SOUFFLE: f32 = 1.2;
 /// Vitesse horizontale d'un brin de vent latéral, en pixels par pas.
 const VITESSE_LATERALE: f32 = 1.8;
+/// Longueur (px) d'une traînée de vent latéral (carte 5.15 : 3 px avant, trop
+/// courts pour se voir sur un ciel clair).
+pub const LONGUEUR_TRAINEE: u8 = 8;
+/// Longueur (px) de la TÊTE d'une traînée, à l'avant (du côté où souffle le vent),
+/// dans une couleur plus claire que le reste : sur une image fixe, la tête claire
+/// et la queue sombre disent le sens du vent, comme une comète.
+pub const LONGUEUR_TETE: u8 = 2;
 
 #[derive(Debug, Clone, Copy)]
 struct Particule {
@@ -35,8 +42,12 @@ struct Particule {
     couleur: Couleur,
     /// Hauteur du trait dessiné (1 = un point ; 3 = un tiret vertical, pour le vent).
     hauteur: u8,
-    /// Largeur du trait dessiné (1 = un point ; 3 = un tiret horizontal, pour le vent).
+    /// Largeur du trait dessiné (1 = un point ; `LONGUEUR_TRAINEE` = une traînée
+    /// horizontale, pour le vent latéral).
     largeur: u8,
+    /// Couleur de la tête d'une traînée de vent latéral (ses `LONGUEUR_TETE` px de
+    /// devant, du côté où elle avance) ; `None` : un trait d'une seule couleur.
+    tete: Option<Couleur>,
 }
 
 /// L'ensemble des particules vivantes.
@@ -105,6 +116,7 @@ impl Particules {
                 couleur,
                 hauteur: 1,
                 largeur: 1,
+                tete: None,
             });
         }
     }
@@ -129,6 +141,7 @@ impl Particules {
                 couleur,
                 hauteur: 1,
                 largeur: 1,
+                tete: None,
             });
         }
     }
@@ -152,6 +165,7 @@ impl Particules {
                 couleur,
                 hauteur: 1,
                 largeur: 1,
+                tete: None,
             });
         }
     }
@@ -189,14 +203,19 @@ impl Particules {
             couleur,
             hauteur: 3,
             largeur: 1,
+            tete: None,
         });
     }
 
-    /// Un brin de vent latéral (tiret horizontal de 3 px qui traverse une zone de
-    /// vent de `sens` : -1 vers la gauche, 1 vers la droite). Il naît d'un côté de
-    /// la zone (côté d'où souffle le vent), à une hauteur tirée au hasard, et
-    /// disparaît en atteignant l'autre bord : le vent se voit sur toute la zone
-    /// sans déborder.
+    /// Une traînée de vent latéral qui traverse une zone de vent de `sens` (-1 vers
+    /// la gauche, 1 vers la droite) : un trait horizontal de `LONGUEUR_TRAINEE` px,
+    /// sa tête (à l'avant) en `tete`, le reste en `traine`. Elle naît à une place
+    /// et une hauteur tirées au hasard dans la zone, et s'efface avant d'en sortir :
+    /// le vent se voit sur toute la zone sans déborder.
+    ///
+    /// Les couleurs viennent de la table d'ambiance (`decor::ambiance`, champ
+    /// `vent`) : contrastées sur le ciel du niveau (carte 5.15).
+    #[allow(clippy::too_many_arguments)]
     pub fn souffle_lateral(
         &mut self,
         x_min: f32,
@@ -204,26 +223,25 @@ impl Particules {
         haut: f32,
         bas: f32,
         sens: i8,
-        couleur: Couleur,
+        traine: Couleur,
+        tete: Couleur,
     ) {
         if self.liste.len() >= MAX {
             return;
         }
-        let largeur_zone = (x_max - x_min).max(4.0);
-        let x = if sens > 0 {
-            x_min + 1.0 + self.hasard() * (largeur_zone - 4.0).max(0.0)
-        } else {
-            x_max - 4.0 - self.hasard() * (largeur_zone - 4.0).max(0.0)
-        };
+        let longueur = f32::from(LONGUEUR_TRAINEE);
+        // Place du bord gauche du trait : de `x_min` à `x_max - longueur`.
+        let course = (x_max - x_min - longueur).max(0.0);
+        let x = x_min + self.hasard() * course;
         let y = haut + 1.0 + self.hasard() * (bas - haut - 2.0).max(0.0);
-        // Vie bornée par le bord opposé de la zone (le brin s'efface avant de sortir).
+        // Vie bornée par le bord opposé de la zone (la traînée s'efface avant de sortir).
         let reste = if sens > 0 {
-            (x_max - x) / VITESSE_LATERALE
+            (x_max - longueur - x) / VITESSE_LATERALE
         } else {
             (x - x_min) / VITESSE_LATERALE
         };
-        let vie = (12.0 + (self.hasard() * 12.0).floor())
-            .min(reste.max(1.0))
+        let vie = (18.0 + (self.hasard() * 18.0).floor())
+            .min(reste.floor().max(1.0))
             .min(255.0) as u8;
         self.liste.push(Particule {
             x,
@@ -232,9 +250,10 @@ impl Particules {
             vy: 0.0,
             vie,
             gravite: 0.0,
-            couleur,
+            couleur: traine,
             hauteur: 1,
-            largeur: 3,
+            largeur: LONGUEUR_TRAINEE,
+            tete: Some(tete),
         });
     }
 
@@ -260,48 +279,95 @@ impl Particules {
                 p.hauteur as f32,
                 couleur_mq(p.couleur),
             );
+            // Traînée de vent : la tête par-dessus, à l'avant.
+            if let Some(tete) = p.tete {
+                let x_tete = x + decalage_tete(p.vx, p.largeur);
+                draw_rectangle(
+                    x_tete as f32,
+                    y as f32,
+                    f32::from(LONGUEUR_TETE),
+                    p.hauteur as f32,
+                    couleur_mq(tete),
+                );
+            }
         }
+    }
+
+    /// Les traînées de vent latéral vivantes : `(x, y, vx, couleur, tête)`, pour
+    /// les tests des effets.
+    #[cfg(test)]
+    pub fn trainees(&self) -> Vec<(f32, f32, f32, Couleur, Couleur)> {
+        self.liste
+            .iter()
+            .filter_map(|p| p.tete.map(|t| (p.x, p.y, p.vx, p.couleur, t)))
+            .collect()
+    }
+}
+
+/// Décalage (px) de la tête d'une traînée de `largeur` px depuis son bord gauche :
+/// à droite si elle avance vers la droite (`vx > 0`), à gauche sinon. Pure.
+fn decalage_tete(vx: f32, largeur: u8) -> i32 {
+    if vx > 0.0 {
+        i32::from(largeur.saturating_sub(LONGUEUR_TETE))
+    } else {
+        0
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::palette::PLUIE;
+    use pepin_core::palette::{OR_PALE, PLUIE};
 
     #[test]
     fn le_souffle_lateral_traverse_sa_zone() {
-        // Zone de 30 px de large (x 10..40), vent vers la droite : le brin reste
-        // dans la zone pendant toute sa vie, avance, et meurt au bord.
-        let mut p = Particules::new();
-        p.souffle_lateral(10.0, 40.0, 0.0, 48.0, 1, PLUIE);
-        let n = p.len();
-        assert_eq!(n, 1);
-        let (x0, y0) = (p.liste[0].x, p.liste[0].y);
-        for _ in 0..20 {
-            p.actualiser();
-            for q in &p.liste {
-                assert!(
-                    q.x >= 10.0 && q.x + 3.0 <= 43.0,
-                    "le brin déborde : {}",
-                    q.x
-                );
-                assert_eq!(q.y, y0, "le vent latéral ne fait pas monter le brin");
+        // Zone de 60 px de large (x 10..70), dans les deux sens : chaque traînée
+        // (tout son trait, tête comprise) reste dans la zone pendant toute sa vie,
+        // avance dans le sens du vent sans monter ni descendre, et meurt au bord.
+        let longueur = f32::from(LONGUEUR_TRAINEE);
+        for sens in [1i8, -1] {
+            let mut p = Particules::new();
+            for _ in 0..40 {
+                p.souffle_lateral(10.0, 70.0, 0.0, 48.0, sens, PLUIE, OR_PALE);
             }
+            assert_eq!(p.len(), 40);
+            let depart = p.trainees();
+            for (x, y, vx, couleur, tete) in &depart {
+                assert!(*x >= 10.0 && x + longueur <= 70.0, "naît hors zone : {x}");
+                assert!((1.0..=47.0).contains(y));
+                assert_eq!(vx.signum(), f32::from(sens));
+                assert_eq!((*couleur, *tete), (PLUIE, OR_PALE));
+            }
+            for _ in 0..60 {
+                p.actualiser();
+                for &(x, y, _, _, _) in &p.trainees() {
+                    assert!(
+                        x >= 10.0 - 0.01 && x + longueur <= 70.0 + 0.01,
+                        "sens {sens} : la traînée déborde : {x}"
+                    );
+                    assert!(
+                        depart.iter().any(|d| d.1 == y),
+                        "elle ne change pas de hauteur"
+                    );
+                }
+            }
+            // Toutes les traînées meurent avant de sortir de la zone (vie bornée).
+            assert!(p.is_empty(), "sens {sens}");
         }
-        // Tous les brins meurent avant de sortir de la zone (vie bornée par le bord).
-        for _ in 0..60 {
-            p.actualiser();
-        }
-        assert!(p.is_empty());
-        // Vent vers la gauche : même règle, miroir.
-        let mut q = Particules::new();
-        q.souffle_lateral(10.0, 40.0, 0.0, 48.0, -1, PLUIE);
-        for _ in 0..60 {
-            q.actualiser();
-        }
-        assert!(q.is_empty());
-        assert!(x0 > 0.0);
+    }
+
+    /// La tête (couleur claire) est à l'AVANT de la traînée : à droite quand le
+    /// vent souffle vers la droite, à gauche sinon. C'est ce qui donne le sens du
+    /// vent sur une image fixe.
+    #[test]
+    fn la_tete_de_la_trainee_est_a_l_avant() {
+        assert_eq!(
+            decalage_tete(VITESSE_LATERALE, LONGUEUR_TRAINEE),
+            i32::from(LONGUEUR_TRAINEE - LONGUEUR_TETE)
+        );
+        assert_eq!(decalage_tete(-VITESSE_LATERALE, LONGUEUR_TRAINEE), 0);
+        // Une queue au moins deux fois plus longue que la tête : le trait se lit.
+        assert!(LONGUEUR_TRAINEE >= 3 * LONGUEUR_TETE);
     }
 
     #[test]
