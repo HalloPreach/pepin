@@ -3309,3 +3309,167 @@ Limites (non testé ou à relativiser) :
   (huit plans d'avance, voisinage d'une tranche de 15 pas). Un joueur moins prévoyant mourrait plus.
 - Le robot de QA prend les trois gouttes avant le dernier coup (règle de la carte 5.11) ; un joueur qui
   frappe trop tôt finit le niveau sans elles (voulu : le niveau finit au dernier coup).
+
+## La mer de nuages, niveau 8 (carte 5.15)
+
+« Laisse le vent choisir, puis reprends la main. » Quatrième des nouveaux niveaux de l'étape 5, inséré à
+sa place (8) après les vents d'altitude : Au-dessus des nuages devient le niveau 9 (« NIVEAU 8/9 »).
+Grille `core/src/levels/mer.rs` : 176 x 11 tuiles, un écran de haut, des nuages (`N`) seulement. Lettres
+`<` `>` (carte 5.3), `b` (carte 5.7), `g` (carte 5.4) et la manche à air `Q` (étape 4) ; aucune lettre
+nouvelle. Nouveauté du niveau : le vent latéral ; les montgolfières et la grêle sont les deux mécaniques
+que la demande d'AGA lui associe. Aucun ennemi (test `aucun_ennemi`).
+
+Le parcours (détail en tête de `mer.rs`) :
+1. le départ : un vide de 13 tuiles, trop large pour un plané sans aide ; le vent `>` au-dessus le fait
+   traverser (sans vent, le niveau est bloqué dès ce vide : test `sans_vent_la_mer_de_nuages_est_infranchissable`) ;
+2. un rideau de grêle au-dessus d'un vide de 6 tuiles, à traverser en planant ;
+3. une montgolfière monte au premier étage (64 px plus haut : hors de portée d'un saut) ;
+4. un long plané (13 tuiles) sous deux rideaux de grêle, une goutte entre les deux ;
+5. une seconde montgolfière monte au sommet d'une tour de nuages, avec deux marches de trois tuiles ;
+6. MOMENT FORT : depuis la tour, un plané de vingt tuiles (colonnes 110 à 129) au-dessus du vide, à
+   travers trois couches de vent superposées et jointives : `>` en haut, `<` au milieu, `>` en bas. En
+   descendant, le vent change deux fois de sens : il porte, il repousse (garder la flèche vers l'avant,
+   ou fermer le parapluie pour traverser vite la couche contraire), il porte de nouveau (test
+   `le_moment_fort_est_un_plane_de_vingt_tuiles_ou_le_vent_change_deux_fois`). Qui se laisse repousser
+   retombe sur une marche et remonte à la tour : aucun cul-de-sac (test `on_repart_de_chaque_marche`) ;
+7. une troisième montgolfière, puis un dernier plané porté, sous la grêle, jusqu'au drapeau.
+Trois montgolfières de 5 tuiles chacune (arrêtées par un petit nuage au-dessus du ballon : test
+`trois_montgolfieres_de_cinq_tuiles`), quatre rideaux de grêle, cinq zones de vent, trois gouttes (au
+sommet du premier saut, entre les deux rideaux, au sommet du saut depuis la tour), quatre lanternes
+(aucune sous la grêle).
+
+Vent lisible (note du coordinateur, vérification de la carte 5.3 : 3 ou 4 tirets blancs de 1 px,
+clairsemés, illisibles sur le ciel jaune du niveau d'essai) :
+- les traînées : 8 px au lieu de 3, une queue et une TÊTE claire de 2 px à l'avant (côté où souffle le
+  vent) : sur une image fixe, la tête dit le sens, comme une comète ; une traînée naît pour 16 tuiles de
+  zone tous les 3 pas (au lieu d'une par zone), et vit 18 à 36 pas sans sortir de sa zone
+  (`particules::souffle_lateral`, `effets::trainees_par_zone`) ;
+- leurs couleurs viennent de la table d'ambiance (`decor::ambiance`, champ `vent`) : queue ardoise pâle et
+  tête blanc cassé sur les ciels de nuit, queue violette (bleu nuit sous le ciel violet de l'altitude) et
+  tête blanc cassé sur les ciels de jour ; aucune semi-transparence. Test
+  `le_vent_lateral_se_voit_sur_chaque_bande_de_ciel` : sur chaque bande du ciel de chaque thème, la queue
+  ou la tête tranche d'au moins 50 de luminance ; dans la mer de nuages, la queue seule tranche sur les
+  quatre bandes et sur la mer de nuages du fond ;
+- une manche à air (`Q`) à l'entrée de chaque zone de vent du jeu, à une tuile au plus de son bord, à une
+  hauteur où il souffle (tests `chaque_zone_de_vent_lateral_a_sa_manche_a_air` et
+  `chaque_manche_a_air_est_au_bord_d_un_courant_ou_d_un_vent`) ; elle s'étire dans le SENS DU VENT
+  (`scene::manche_vers_la_droite`, test `la_manche_a_air_montre_le_sens_du_vent_lateral`) ; une manche
+  sans vent latéral pointe toujours vers son courant ascendant (vents d'altitude inchangés) ;
+- la physique du vent n'a pas changé (`VENT_LAT`, `VENT_LAT_PLANE`), ni le rendu des niveaux sans vent
+  latéral (aucun des sept autres niveaux du jeu n'en a).
+
+Ambiance, corail : un thème de plus, `Theme::Mer`. Un couchant corail qui se dore vers l'horizon (corail,
+corail clair, orange, or : entre les vents d'altitude et le soleil, test
+`le_ciel_s_eclaircit_de_l_orage_au_soleil`) ; tout en bas, la mer de nuages, rose et sans trouée, avec
+ses bancs en dôme ; devant, des bancs violets dans l'ombre ; au milieu du ciel, des îlots corail au ventre
+violet ; pas de pluie (seule la grêle tombe). Les nuages du niveau (clairs, bleutés) ne se confondent avec
+aucune de ces couleurs ; les gouttes d'or se détachent sur le corail. Aucun sprite nouveau ni modifié.
+Carte de titre : « LA MER DE NUAGES », la phrase d'AGA, le conseil « Parapluie ouvert, le vent te porte ;
+fermé, tu lui résistes. ».
+
+Robots et tests :
+- faisabilité : `niveau_8_faisable` (31,9 s en course rapide, 3 gouttes, 4 lanternes, robot maladroit
+  compris ; cible 50 s), `reprise_depuis_chaque_lanterne`, `durees_plausibles`, lint de grille (lanternes
+  posées, aucune poche close), décor posé sur un solide et jamais devant un danger ; `niveau_9_faisable`
+  pour les nuages renumérotés ;
+- robot de QA : `le_robot_finit_tous_les_niveaux_sans_mourir` vert sur les neuf niveaux, sans rien lui
+  apprendre (vent, grêle et montgolfières sont connus depuis les cartes 5.3, 5.4, 5.7). Nouvelle
+  empreinte de la partie complète (un niveau de plus, donc attendue) : `5cfdacb1518e039e`, 20 054 images,
+  0 mort, 15 gouttes, score 2 400, chrono 17 738 pas ; la mer de nuages : images 15896 à 17865 du script.
+
+À SIGNALER, réglé dans la carte : la première version de la tour avait des marches d'UNE tuile, 48 px
+puis 32 px sous la tour (la manche à air exige trois tuiles de solide sous elle : elles sont passées à
+trois tuiles, aux mêmes hauteurs). La mesure de difficulté a alors montré 11 essais Débutant et 4 Habitué
+NON FINIS (6 minutes de jeu) : le joueur simulé repoussé par la couche du milieu retombait sur une
+marche (presque toujours la marche haute, colonne 112) et y restait jusqu'à la fin de l'essai, ses
+itinéraires ne connaissant aucun chemin depuis ces cases (diagnostic : environ 370 « secours » de suite,
+aucun détour trouvé). Marches remontées de 16 px (dessus à 96 et 128 : 32 px de marche à marche, comme de
+la marche haute à la tour), test `on_repart_de_chaque_marche` (robot de faisabilité, depuis chaque
+marche) ; mesure refaite : 48/48 partout. Aucune mécanique ne s'est mal comportée ; la physique n'a pas
+été touchée.
+
+Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais) :
+
+| Niveau                         | Avant (5.14) D / H / E | Après (5.15) D / H / E |
+| ------------------------------ | ---------------------- | ---------------------- |
+| 1. Les toits                   | 0,4 / 0,1 / 0,0        | 0,4 / 0,1 / 0,0        |
+| 2. Gouttières et cheminées     | 1,5 / 0,5 / 0,2        | 1,5 / 0,5 / 0,2        |
+| 3. Le marché couvert           | 0,8 / 0,5 / 0,2        | 0,8 / 0,5 / 0,2        |
+| 4. Le grand orage              | 3,0 / 0,6 / 0,4        | 3,0 / 0,6 / 0,4        |
+| 5. Le clocher                  | 0,6 / 0,3 / 0,0        | 0,6 / 0,3 / 0,0        |
+| 6. L'œil du cyclone            | 2,9 / 0,6 / 0,3        | 2,9 / 0,6 / 0,3        |
+| 7. Vents d'altitude            | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
+| 8. La mer de nuages            | —                      | 1,3 / 0,3 / 0,1        |
+| 9. Au-dessus des nuages (ex-8) | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
+| Total                          | 11,1 / 3,2 / 1,2       | 12,4 / 3,5 / 1,3       |
+
+Les huit autres niveaux sont identiques LIGNE À LIGNE (rang de graine 9 pour la mer, `RANGS_DE_GRAINE`).
+Dans la mer de nuages : 48/48 essais finis pour chaque profil, en 42 s (Débutant), 35 s (Habitué), 33 s
+(Expert) ; surtout des chutes (le vide sous le premier rideau de grêle, le premier plané, les sauts depuis
+les montgolfières, la tour) et deux morts sous la grêle (Habitué). Exactement (morts cumulées / 48) :
+1,27 / 0,33 / 0,10, contre 1,31 / 0,40 / 0,10 pour les vents. Juge de la courbe : bande Habitué de la mer
+[0,2 ; 1,0[ ; le final (au-dessus des nuages) jugé à la 9e place ; l'orage reste le sommet. À SIGNALER pour
+la carte 5.18 : la décision « remonte un peu au 8 » voudrait la mer un peu AU-DESSUS des vents ; elle se
+mesure au même niveau (un peu en dessous pour l'Habitué : 16 morts contre 19 sur 48 essais, dans le bruit
+de la mesure). Leviers possibles, à décider avec la courbe sur onze niveaux : un plané du moment fort
+plus long ou une couche contraire plus épaisse (la plupart des joueurs simulés le passent en gardant la
+flèche vers l'avant), un rideau de grêle sur la fin du premier plané.
+
+Captures (`docs/qa/515-*`, 960 x 540, build de QA d'une extraction propre de 5b1da36 servi en local sur
+127.0.0.1 (port libre, serveur arrêté à la fin), Chromium sans tête (CDP) du poste, onglet au premier plan
+(`Page.bringToFront`) et canvas focalisé, pilote `docs/capture-visibilite.mjs` (protocole
+`docs/pilote-qa.js`, horloge virtuelle) avec le script du robot régénéré sur la même extraction ; numéros
+d'image de `trace.csv`) :
+- `515-carte` (15885) : « NIVEAU 8/9 », « LA MER DE NUAGES », la phrase d'AGA, le conseil ;
+- `515-depart` (15925) : Pépin au départ, la manche à air au bord du nuage tournée vers la droite, les
+  premières traînées au-dessus du vide, la goutte au sommet du saut, la mer de nuages rose et ses bancs
+  violets, les îlots corail ;
+- `515-plane-porte` (16100) : le premier plané, porté (traînées têtes à droite tout autour), la goutte
+  prise (étincelles) ;
+- `515-grele` (16395) : Pépin plane sous le premier rideau, la grêle éclate sur la toile ;
+- `515-montgolfiere` (16590) : Pépin dans la nacelle qui monte vers l'étage et sa lanterne ;
+- `515-entre-deux-rideaux` (16850) : le long plané entre les deux rideaux, la goutte prise ;
+- `515-tour` (17160) : Pépin au sommet de la tour, à côté de la lanterne, la montgolfière vide qui
+  redescend, la goutte au-dessus du vide ; les trois manches à air, tournées à droite (tour), à GAUCHE
+  (marche du haut), à droite (marche du bas) : les trois couches se lisent avant d'y entrer ;
+- `515-inversion-1` (17270), `515-inversion-2` (17350), `515-inversion-3` (17405) : MOMENT FORT, Pépin
+  plane dans la couche du haut, puis dans celle du milieu (repoussé), puis dans celle du bas, au-dessus
+  de l'arrivée ; sur chaque image, les traînées des trois couches ;
+- `515-inversions-zoom` : découpe de `515-inversion-1` (x 0 à 480, y 90 à 450 de la capture) agrandie
+  deux fois (plus proche voisin, aucun pixel recalculé), 960 x 720 : têtes claires à droite en haut, à
+  gauche au milieu, à droite en bas, et les manches à air des deux marches (gauche, droite) ;
+- `515-arrivee` (17838) : Pépin se pose, parapluie ouvert, au pied du drapeau, le dernier rideau de grêle
+  et les dernières traînées derrière lui (14 gouttes sur 27 depuis le début de la partie) ;
+- `515-carte-suivante` (18059) : « NIVEAU 9/9 », « AU-DESSUS DES NUAGES » ;
+- `515-essai-vent` (image 636 du script 53, touche F1) : le niveau d'essai « vent » de la carte 5.3 avec
+  les nouvelles traînées, lisibles sur le ciel jaune du soleil (à comparer à `53-essai-vent`).
+Chaque capture regardée. Le sens des traînées a aussi été compté sur les pixels des trois captures
+d'inversion (trait violet de 6 px avec tête blanc cassé de 2 px à droite ou à gauche), rangée de tuiles
+par rangée de tuiles : couche du haut (écran y 36 à 68) toutes têtes à droite, couche du milieu (68 à
+116) têtes à gauche, couche du bas (116 à 148) têtes à droite, sauf aux deux rangées de jonction où les
+deux sens se côtoient. `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur les
+13 captures de 960 x 540 (le zoom n'a que les couleurs de sa capture). `515-montgolfiere` et
+`515-arrivee` viennent d'une seconde session de rejeu (même build, même script), les autres d'une seule
+session ; aucune mort dans aucune.
+
+Vérification sur une extraction propre de 14727dd (dernier commit de code ; `git archive`, nouveau
+dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` : 345 + 294 tests, tous verts
+(1 + 16 ignorés : écritures de fichiers, scripts, diagnostics, mesure) ; `./docker-cargo.sh lint` :
+`LINT-OK` ; `./build.sh` : `dist/` produit (483 621 octets de wasm, + 3 271 octets, +0,7 %, pour le niveau,
+son thème et les traînées), 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg` ; la
+mer de nuages est dans `dist/game.wasm`, le niveau d'essai vent toujours pas (« Essai vent » : 0 fois).
+Script du robot et build de QA (`./build.sh --qa`, celui des captures) : extraction propre de 5b1da36
+(même jeu : les commits suivants ne changent qu'un test, un commentaire et les captures). Planche de
+sprites : aucun sprite nouveau ni modifié, non régénérée.
+
+Limites (non testé ou à relativiser) :
+- Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Pas de son.
+- Lisibilité du vent jugée sur captures et par un seuil de luminance, sans joueur humain ; la tête de
+  2 px se voit nettement en x3, moins sur un petit écran de téléphone (x2 ou moins) : la manche à air
+  reste alors le repère principal.
+- La difficulté n'est jugée que par la mesure (une graine, un joueur simulé) ; la mer ne « remonte » pas
+  encore au-dessus des vents (voir plus haut, pour la carte 5.18).
+- Dans un niveau à vent, les traînées tirent plus de nombres au générateur des particules : les
+  éclaboussures et la poussière de ce niveau ne sont plus dessinées à l'identique d'avant (les
+  particules repartent de zéro à chaque niveau : les autres niveaux ne changent pas) ; aucun effet sur
+  le jeu ni sur l'empreinte du robot (elle ne lit pas les particules).
