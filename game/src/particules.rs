@@ -28,6 +28,9 @@ pub const LONGUEUR_TRAINEE: u8 = 8;
 /// dans une couleur plus claire que le reste : sur une image fixe, la tête claire
 /// et la queue sombre disent le sens du vent, comme une comète.
 pub const LONGUEUR_TETE: u8 = 2;
+// Une queue au moins deux fois plus longue que la tête, sinon le trait ne se lit
+// plus : vérifié à la COMPILATION (un `assert!` dans une constante).
+const _: () = assert!(LONGUEUR_TRAINEE >= 3 * LONGUEUR_TETE);
 
 #[derive(Debug, Clone, Copy)]
 struct Particule {
@@ -366,8 +369,6 @@ mod tests {
             i32::from(LONGUEUR_TRAINEE - LONGUEUR_TETE)
         );
         assert_eq!(decalage_tete(-VITESSE_LATERALE, LONGUEUR_TRAINEE), 0);
-        // Une queue au moins deux fois plus longue que la tête : le trait se lit.
-        assert!(LONGUEUR_TRAINEE >= 3 * LONGUEUR_TETE);
     }
 
     #[test]
