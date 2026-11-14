@@ -98,8 +98,9 @@ const AIGUILLES: &[ReglageAiguille] = &[
 ///   l'aiguille, elle s'allume forcément) ;
 ///   petite aiguille (pivot (24, 6)) ; tour du drapeau (colonnes 29 à 33,
 ///   dessus en ligne 3, drapeau en colonne 30) ; entre les deux, la poutre
-///   (ligne 14, colonnes 19 à 28) et ses pointes (ligne 13), 3 rangées sous le
-///   plus bas de la petite aiguille.
+///   (ligne 11, colonnes 19 à 28) et ses pointes (ligne 10), 12 px sous le plus
+///   bas de la petite aiguille : assez haut pour qu'on les voie depuis le pilier
+///   (la caméra, en haut du niveau, montre les rangées 0 à 11).
 /// - Décor : trois paratonnerres (cage, galerie, tour du drapeau).
 const ASCII: &str = r"
 ..................................
@@ -112,11 +113,11 @@ const ASCII: &str = r"
 ..............#####..........BBBBB
 ..............BBBBB..........BBBBB
 ..............BBBBB..........BBBBB
-..............BBBBB..........BBBBB
-........h.....BBBBB..........BBBBB
-..............BBBBB..........BBBBB
 ..............BBBBB^^^^^^^^^^BBBBB
-..............BBBBBBBBBBBBBBBBBBBB
+........h.....BBBBBBBBBBBBBBBBBBBB
+..............BBBBB..........BBBBB
+..............BBBBB..........BBBBB
+..............BBBBB..........BBBBB
 .............................BBBBB
 .R...........L...............BBBBB
 ########################........BB
@@ -312,7 +313,7 @@ mod tests {
         }
         assert_eq!(escargots, vec![(10, 37), (5, 42)]);
         assert_eq!(ventilateurs, vec![(30, 36)]);
-        assert_eq!(pointes, (19..=28).map(|c| (c, 13)).collect::<Vec<_>>());
+        assert_eq!(pointes, (19..=28).map(|c| (c, 10)).collect::<Vec<_>>());
         assert_eq!(
             aiguilles,
             vec![
