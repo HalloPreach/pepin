@@ -1001,7 +1001,7 @@ pub(crate) fn tableau(cases: &[Vec<Case>], graine: u64, essais: u32) -> String {
 /// Endroits affichés au plus par niveau et par profil dans les lieux de mort.
 const LIEUX_MAX: usize = 6;
 
-// --- Forme de la courbe (non-régression, carte 3.3) ----------------------------
+// --- Forme de la courbe (non-régression, cartes 3.3 et 5.18) ------------------
 
 /// Rangs des profils dans `PROFILS`.
 const DEBUTANT: usize = 0;
@@ -1011,16 +1011,18 @@ const EXPERT: usize = 2;
 /// Bande admise pour les morts moyennes du profil Habitué (le « joueur
 /// moyen »), niveau par niveau : `[min, max[` (le max est exclu). Les niveaux 1
 /// et 2 n'ont pas été retouchés par la carte 3.3 : leur bande entoure la
-/// mesure de référence (0,1 et 0,5).
+/// mesure de référence (0,1 et 0,5). Carte 5.18 : bandes du clocher, du boss et
+/// de la mer reprises pour la courbe finale sur onze niveaux (mesures de la carte
+/// entre parenthèses).
 const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.0, 0.3),  // 1. Les toits : quasi inchangé
     (0.3, 0.8),  // 2. Gouttières et cheminées : quasi inchangé
     (0.3, 1.2),  // 3. Le marché couvert (carte 5.12) : entre les gouttières et l'orage
-    (0.5, 1.5),  // 4. Le grand orage : le sommet de la courbe
-    (0.0, 0.5),  // 5. Le clocher (carte 5.13) : tomber n'y tue qu'en haut, sous 0,5
-    (0.3, 1.2),  // 6. L'œil du cyclone (carte 5.14) : le boss, presque au sommet
-    (0.3, 0.65), // 7. Vents d'altitude : redescend un peu
-    (0.2, 1.0),  // 8. La mer de nuages (carte 5.15) : au niveau des vents (0,33), sous le boss
+    (0.5, 1.5),  // 4. Le grand orage : on monte encore
+    (0.5, 1.2),  // 5. Le clocher (5.13, pointes au sol de la cage en 5.18 : 0,65) : on monte
+    (0.7, 1.6),  // 6. L'œil du cyclone (5.14, motifs élargis en 5.18 : 1,19) : le sommet
+    (0.3, 0.65), // 7. Vents d'altitude : redescend
+    (0.2, 1.0),  // 8. La mer de nuages (5.15, rive plus loin en 5.18 : 0,46) : remonte un peu
     (0.0, 0.2),  // 9. Au-dessus des nuages : final calme, sous 0,2
     (0.0, 2.0),  // 10. L'arc-en-ciel (carte 5.16) : le bonus, jugé au chrono (garde-fou large)
     (0.0, 0.2),  // 11. La descente (carte 5.17) : l'épilogue, le plus calme de tous
@@ -1029,33 +1031,27 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
 /// Le bonus (« L'arc-en-ciel », carte 5.16) se juge au CHRONO, pas aux morts
 /// (décision du coordinateur pour l'étape 5) : sans lanterne, une chute y ramène au
 /// départ, et le pont friable ne laisse pas s'arrêter ; il se mesure donc plus
-/// meurtrier que le sommet (1,2 morts pour l'Habitué, contre 0,6 à l'orage), ce qui
+/// meurtrier que le sommet (1,2 morts pour l'Habitué, contre 1,0 au boss), ce qui
 /// est voulu pour un niveau réservé à ceux qui ont ramassé toutes les gouttes. Il
 /// échappe à la règle « sous le sommet » ; sa bande Habitué n'est qu'un garde-fou,
 /// et il doit rester « un sprint d'une minute » : la durée moyenne d'un essai de
 /// l'Expert (chutes comprises) dans `[min, max[` secondes.
 const DUREE_BONUS_EXPERT_S: (f32, f32) = (45.0, 75.0);
 
-/// Places dans la table des trois niveaux dont la courbe juge la forme : le
-/// SOMMET (le grand orage), le niveau qui le SUIT (vents d'altitude, nettement
-/// plus facile) et le FINAL (au-dessus des nuages, le plus calme). Le test
-/// `la_forme_de_la_courbe_est_jugee` vérifie qu'ils désignent bien ces niveaux :
-/// insérer un niveau avant eux oblige à les déplacer.
+/// Places dans la table des niveaux dont la courbe juge la forme (décision du
+/// coordinateur pour l'étape 5, carte 5.18 : « monte jusqu'au boss (6), redescend
+/// au 7, remonte un peu au 8, calme au 9 ; le bonus se juge au chrono ;
+/// l'épilogue est le plus calme de tous ») :
+/// - le SOMMET : l'œil du cyclone, le boss (avant la carte 5.18 : le grand orage) ;
+/// - le niveau qui le SUIT : vents d'altitude, nettement plus facile ;
+/// - la REMONTÉE : la mer de nuages, un peu plus dure que les vents ;
+/// - le FINAL : au-dessus des nuages, calme.
 ///
-/// Le clocher (carte 5.13), inséré entre le sommet et les vents, n'est jugé que
-/// par sa bande (et, comme tous, sous le sommet) : niveau vertical où une chute
-/// ne coûte en bas que de la hauteur, il se mesure plus facile que l'orage.
-/// L'œil du cyclone (carte 5.14), le boss, aussi : il se mesure juste sous
-/// l'orage, et les vents, qui le suivent désormais, restent nettement sous le
-/// sommet. La mer de nuages (carte 5.15), entre les vents et le final, n'est
-/// jugée elle aussi que par sa bande : elle se mesure au niveau des vents (0,33
-/// contre 0,40 pour l'Habitué), pas encore « un peu au-dessus » comme le voudrait
-/// la courbe finale. Le bonus (carte 5.16) se juge au chrono (voir
-/// `DUREE_BONUS_EXPERT_S`). L'épilogue (carte 5.17) doit être le plus calme de
-/// tous (voir `ecarts_de_la_courbe`). La courbe sur onze niveaux (monter jusqu'au
-/// boss) se jugera à la carte 5.18.
-const SOMMET: usize = 3;
+/// Le test `la_forme_de_la_courbe_est_jugee` vérifie qu'elles désignent bien ces
+/// niveaux : insérer un niveau avant eux oblige à les déplacer.
+const SOMMET: usize = 5;
 const APRES_SOMMET: usize = 6;
+const REMONTEE: usize = 7;
 const FINAL: usize = 8;
 
 /// Écart minimal entre le sommet et le niveau suivant (Habitué) : celui-ci doit
@@ -1064,9 +1060,11 @@ const ECART_APRES_SOMMET: f32 = 0.15;
 
 /// Vérifie la FORME de la courbe sur une mesure complète `cases[niveau][profil]`
 /// et renvoie la liste des écarts (vide si tout va bien) :
-/// - Débutant et Habitué : le SOMMET (le grand orage) est le plus meurtrier de
-///   tous (sauf le bonus, jugé au chrono), et le niveau qui le suit l'est plus
-///   que le FINAL ;
+/// - Débutant et Habitué : le SOMMET (le boss) est le plus meurtrier de tous
+///   (sauf le bonus, jugé au chrono) ; la REMONTÉE (la mer) l'est plus que le
+///   niveau qui suit le sommet (les vents), et celui-ci plus que le FINAL ;
+/// - Habitué : la courbe MONTE du premier niveau au sommet (jamais moins de morts
+///   qu'au niveau d'avant ; un palier est admis, pas une descente) ;
 /// - Habitué : chaque niveau dans sa bande (`BANDES_HABITUE`), et le niveau qui
 ///   suit le sommet au moins `ECART_APRES_SOMMET` sous lui ;
 /// - Expert : le bonus dure `DUREE_BONUS_EXPERT_S` (un sprint d'une minute) ;
@@ -1092,13 +1090,26 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
                 ));
             }
         }
-        if morts(APRES_SOMMET, p) <= morts(FINAL, p) {
+        for (haut, bas) in [(REMONTEE, APRES_SOMMET), (APRES_SOMMET, FINAL)] {
+            if morts(haut, p) <= morts(bas, p) {
+                ecarts.push(format!(
+                    "{nom} : niveau {} ({}) pas au-dessus du niveau {} ({})",
+                    haut + 1,
+                    decimal(morts(haut, p)),
+                    bas + 1,
+                    decimal(morts(bas, p))
+                ));
+            }
+        }
+    }
+    for n in 1..=SOMMET {
+        if morts(n, HABITUE) < morts(n - 1, HABITUE) {
             ecarts.push(format!(
-                "{nom} : niveau {} ({}) pas au-dessus du niveau {} ({})",
-                APRES_SOMMET + 1,
-                decimal(morts(APRES_SOMMET, p)),
-                FINAL + 1,
-                decimal(morts(FINAL, p))
+                "Habitué : la courbe redescend avant le sommet, niveau {} ({}) sous le niveau {} ({})",
+                n + 1,
+                centiemes(morts(n, HABITUE)),
+                n,
+                centiemes(morts(n - 1, HABITUE))
             ));
         }
     }
@@ -1552,23 +1563,32 @@ mod tests {
     /// Le juge de la courbe accepte la bonne forme et refuse les mauvaises.
     #[test]
     fn la_forme_de_la_courbe_est_jugee() {
-        // Les places jugées désignent bien le sommet, le niveau suivant et le final.
-        assert_eq!(NIVEAUX[SOMMET].nom, orage::INFOS.nom);
+        // Les places jugées désignent bien le sommet (le boss), le niveau suivant,
+        // la remontée et le final.
+        assert_eq!(NIVEAUX[SOMMET].nom, cyclone::INFOS.nom);
         assert_eq!(NIVEAUX[APRES_SOMMET].nom, vents::INFOS.nom);
+        assert_eq!(NIVEAUX[REMONTEE].nom, mer::INFOS.nom);
         assert_eq!(NIVEAUX[FINAL].nom, nuages::INFOS.nom);
 
+        // Monte jusqu'au boss (6), redescend au 7, remonte un peu au 8, calme au 9.
         let bonne = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 1.0, 0.3],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 0.3, 0.05],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 0.3, 0.05],
         );
         assert_eq!(ecarts_de_la_courbe(&bonne), Vec::<String>::new());
+        // Un palier dans la montée (clocher aussi meurtrier que l'orage) est admis.
+        let palier = fausse_mesure(
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.7, 0.7, 1.0, 0.45, 0.6, 0.1, 0.3, 0.05],
+        );
+        assert_eq!(ecarts_de_la_courbe(&palier), Vec::<String>::new());
 
         // Le bonus (10e, carte 5.16) se juge au chrono : plus meurtrier que le sommet,
         // il passe ; un sprint de 80 s pour l'Expert, non.
         assert!(est_bonus(9) && (0..9).all(|n| !est_bonus(n)));
         let mut bonus_dur = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 8.8, 0.3],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 1.2, 0.05],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 8.8, 0.3],
+            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 1.2, 0.05],
         );
         assert_eq!(ecarts_de_la_courbe(&bonus_dur), Vec::<String>::new());
         bonus_dur[9][EXPERT].duree_s = 80.0;
@@ -1581,8 +1601,8 @@ mod tests {
         // le premier niveau (Débutant) ou que le final (Habitué), il est refusé.
         assert!(est_epilogue(10) && (0..10).all(|n| !est_epilogue(n)));
         let epilogue_dur = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 1.0, 2.0, 1.3, 1.5, 0.5, 1.0, 0.45],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.45, 0.6, 0.1, 0.3, 0.15],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.0, 0.45],
+            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 0.3, 0.15],
         );
         assert_eq!(
             ecarts_de_la_courbe(&epilogue_dur),
@@ -1593,44 +1613,60 @@ mod tests {
             ]
         );
 
-        // La courbe d'avant la carte 3.3 : le 7 (vents) presque aussi dur que le 4
-        // (orage), le 9 (final) à 0,4.
-        let avant = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.6, 1.0, 2.0, 2.9, 1.5, 2.5, 1.0, 0.3],
-            [0.1, 0.5, 0.6, 1.0, 0.4, 0.6, 0.9, 0.6, 0.4, 0.3, 0.05],
+        // Les vents (7) presque aussi durs que le boss (6), le final (9) à 0,4.
+        let sans_descente = fausse_mesure(
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.6, 2.9, 3.0, 2.5, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.9, 0.95, 0.4, 0.3, 0.05],
         );
-        let e = ecarts_de_la_courbe(&avant);
+        let e = ecarts_de_la_courbe(&sans_descente);
         assert!(e.iter().any(|x| x.contains("niveau 7 à 0,90")), "{e:?}");
         assert!(e.iter().any(|x| x.contains("niveau 9 à 0,40")), "{e:?}");
         assert!(e.iter().any(|x| x.contains("pas nettement")), "{e:?}");
 
-        // Le 7 plus dur que le 4 (Débutant) ; le 9 aussi dur que le 7 (Habitué) ;
-        // le marché (3) plus dur que l'orage (Débutant).
+        // Tout à l'envers : l'orage (4) et les vents (7) plus durs que le boss (6)
+        // pour le Débutant, la mer (8) sous les vents, le final (9) aussi dur que les
+        // vents (Habitué), et le clocher (5) qui redescend sous l'orage.
         let a_l_envers = fausse_mesure(
-            [0.4, 1.5, 2.2, 2.0, 1.0, 1.5, 2.5, 1.5, 0.5, 1.0, 0.3],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.6, 0.1, 0.6, 0.1, 0.3, 0.05],
+            [0.4, 1.5, 2.0, 2.2, 1.0, 2.0, 2.5, 1.5, 0.5, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.9, 0.1, 0.6, 0.1, 0.3, 0.05],
         );
         let e = ecarts_de_la_courbe(&a_l_envers);
-        assert!(
-            e.iter()
-                .any(|x| x == "Débutant : niveau 7 (2,5) pas sous le niveau 4 (2,0)"),
-            "{e:?}"
+        for attendu in [
+            "Débutant : niveau 4 (2,2) pas sous le niveau 6 (2,0)",
+            "Débutant : niveau 7 (2,5) pas sous le niveau 6 (2,0)",
+            "Débutant : niveau 8 (1,5) pas au-dessus du niveau 7 (2,5)",
+            "Habitué : niveau 7 (0,1) pas au-dessus du niveau 9 (0,1)",
+            "Habitué : la courbe redescend avant le sommet, niveau 5 (0,40) sous le niveau 4 (0,80)",
+        ] {
+            assert!(e.iter().any(|x| x == attendu), "{attendu}\n{e:?}");
+        }
+
+        // La mesure d'AVANT la carte 5.18 (docs/mesure-difficulte.txt de la carte
+        // 5.17) : l'orage y était le sommet, le clocher redescendait, et la mer
+        // restait sous les vents. Le juge de la courbe finale la refuse.
+        let avant_5_18 = fausse_mesure(
+            [
+                0.4, 1.52, 0.83, 3.04, 0.60, 2.88, 1.31, 1.27, 0.50, 8.8, 0.0,
+            ],
+            [
+                0.08, 0.50, 0.54, 0.65, 0.29, 0.58, 0.40, 0.33, 0.08, 1.2, 0.0,
+            ],
         );
-        assert!(
-            e.iter()
-                .any(|x| x == "Débutant : niveau 3 (2,2) pas sous le niveau 4 (2,0)"),
-            "{e:?}"
-        );
-        assert!(
-            e.iter()
-                .any(|x| x == "Habitué : niveau 7 (0,1) pas au-dessus du niveau 9 (0,1)"),
-            "{e:?}"
-        );
+        let e = ecarts_de_la_courbe(&avant_5_18);
+        for attendu in [
+            "Débutant : niveau 4 (3,0) pas sous le niveau 6 (2,9)",
+            "Habitué : niveau 4 (0,6) pas sous le niveau 6 (0,6)",
+            "Débutant : niveau 8 (1,3) pas au-dessus du niveau 7 (1,3)",
+            "Habitué : niveau 8 (0,3) pas au-dessus du niveau 7 (0,4)",
+            "Habitué : la courbe redescend avant le sommet, niveau 5 (0,29) sous le niveau 4 (0,65)",
+        ] {
+            assert!(e.iter().any(|x| x == attendu), "{attendu}\n{e:?}");
+        }
     }
 
     /// NON-RÉGRESSION DE LA COURBE : la vraie mesure (graine officielle, mêmes
-    /// chiffres que `docs/mesure-difficulte.txt`) garde la forme voulue par la
-    /// carte 3.3. Si une retouche de niveau, d'ennemi ou de mécanique la casse,
+    /// chiffres que `docs/mesure-difficulte.txt`) garde la forme voulue par les
+    /// cartes 3.3 et 5.18. Si une retouche de niveau, d'ennemi ou de mécanique la casse,
     /// ce test le dit (environ 30 s : 15 fils d'exécution en parallèle).
     #[test]
     fn courbe_de_difficulte_dans_les_bandes() {

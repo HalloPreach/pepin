@@ -6,14 +6,14 @@ Morts moyennes par niveau (graine 20261113, 48 essais par profil et par niveau) 
 | 2. Gouttières et cheminées  | 1,5 (1,5)    | 0,5 (0,5)    | 0,2 (0,2)    |
 | 3. Le marché couvert        | 0,8 (0,8)    | 0,5 (0,5)    | 0,2 (0,2)    |
 | 4. Le grand orage           | 3,0 (3,0)    | 0,6 (0,6)    | 0,4 (0,4)    |
-| 5. Le clocher               | 0,6 (0,6)    | 0,3 (0,3)    | 0,0 (0,0)    |
-| 6. L'œil du cyclone         | 2,9 (2,9)    | 0,6 (0,6)    | 0,3 (0,3)    |
+| 5. Le clocher               | 2,8 (2,8)    | 0,7 (0,7)    | 0,1 (0,1)    |
+| 6. L'œil du cyclone         | 4,1 (4,1)    | 1,2 (1,2)    | 0,4 (0,4)    |
 | 7. Vents d'altitude         | 1,3 (1,3)    | 0,4 (0,4)    | 0,1 (0,1)    |
-| 8. La mer de nuages         | 1,3 (1,3)    | 0,3 (0,3)    | 0,1 (0,1)    |
+| 8. La mer de nuages         | 1,5 (1,5)    | 0,5 (0,5)    | 0,1 (0,1)    |
 | 9. Au-dessus des nuages     | 0,5 (0,5)    | 0,1 (0,1)    | 0,0 (0,0)    |
 | 10. L'arc-en-ciel           | 8,8 (8,8)    | 1,2 (1,2)    | 0,3 (0,3)    |
 | 11. La descente             | 0,0 (0,0)    | 0,0 (0,0)    | 0,0 (0,0)    |
-| Total                       | 21,2 (21,2)  | 4,7 (4,7)    | 1,6 (1,6)    |
+| Total                       | 24,8 (24,8)  | 5,9 (5,9)    | 1,8 (1,8)    |
 
 Détail par case : essais finis / essais, durée moyenne en secondes, morts en série en moyenne (moins d'1 s après la précédente), pire essai.
 
@@ -23,10 +23,10 @@ Détail par case : essais finis / essais, durée moyenne en secondes, morts en s
 | 2. Gouttières et cheminées  | 48/48, 55 s, série 0,0, max 5  | 48/48, 46 s, série 0,0, max 3  | 48/48, 42 s, série 0,0, max 2  |
 | 3. Le marché couvert        | 48/48, 33 s, série 0,0, max 4  | 48/48, 32 s, série 0,0, max 4  | 48/48, 28 s, série 0,0, max 2  |
 | 4. Le grand orage           | 48/48, 67 s, série 0,0, max 11 | 48/48, 50 s, série 0,0, max 4  | 48/48, 46 s, série 0,0, max 3  |
-| 5. Le clocher               | 48/48, 66 s, série 0,0, max 5  | 48/48, 51 s, série 0,0, max 2  | 48/48, 39 s, série 0,0, max 1  |
-| 6. L'œil du cyclone         | 48/48, 42 s, série 0,0, max 11 | 48/48, 27 s, série 0,0, max 3  | 48/48, 25 s, série 0,0, max 3  |
+| 5. Le clocher               | 48/48, 78 s, série 0,0, max 11 | 48/48, 54 s, série 0,0, max 4  | 48/48, 44 s, série 0,0, max 1  |
+| 6. L'œil du cyclone         | 48/48, 46 s, série 0,0, max 14 | 48/48, 31 s, série 0,0, max 9  | 48/48, 26 s, série 0,0, max 2  |
 | 7. Vents d'altitude         | 48/48, 48 s, série 0,0, max 6  | 48/48, 41 s, série 0,0, max 2  | 48/48, 38 s, série 0,0, max 1  |
-| 8. La mer de nuages         | 48/48, 42 s, série 0,0, max 4  | 48/48, 35 s, série 0,0, max 2  | 48/48, 33 s, série 0,0, max 1  |
+| 8. La mer de nuages         | 48/48, 44 s, série 0,0, max 4  | 48/48, 36 s, série 0,0, max 2  | 48/48, 34 s, série 0,0, max 1  |
 | 9. Au-dessus des nuages     | 48/48, 32 s, série 0,0, max 5  | 48/48, 29 s, série 0,0, max 2  | 48/48, 29 s, série 0,0, max 0  |
 | 10. L'arc-en-ciel           | 39/48, 215 s, série 0,0, max 22 | 48/48, 80 s, série 0,0, max 6  | 48/48, 59 s, série 0,0, max 1  |
 | 11. La descente             | 48/48, 19 s, série 0,0, max 1  | 48/48, 18 s, série 0,0, max 0  | 48/48, 18 s, série 0,0, max 0  |
@@ -54,14 +54,14 @@ Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur le
 - Expert   : col. 58-59 chute 4 · col. 129 ennemi 3 · col. 164-166 pointes 3 · col. 136-137 chute 2 · col. 34 pointes 1 · col. 80 pointes 1 · ailleurs 3
 
 5. Le clocher
-- Débutant : col. 24-28 pointes 19 · col. 19-21 pointes 9 · col. 23 ennemi 1
-- Habitué  : col. 19-21 pointes 8 · col. 28 pointes 6
-- Expert   : col. 19 pointes 1 · col. 23 pointes 1
+- Débutant : col. 12-14 pointes 107 · col. 19-22 pointes 21 · col. 25-28 pointes 7 · col. 23 ennemi 1
+- Habitué  : col. 12-14 pointes 29 · col. 20-21 pointes 2 · col. 28 pointes 2
+- Expert   : col. 12-14 pointes 3 · col. 21 pointes 1 · col. 28 pointes 1
 
 6. L'œil du cyclone
-- Débutant : col. 5-18 éclair 138
-- Habitué  : col. 4-15 éclair 28
-- Expert   : col. 6-13 éclair 14
+- Débutant : col. 2-15 éclair 195
+- Habitué  : col. 4-13 éclair 57
+- Expert   : col. 5-13 éclair 18
 
 7. Vents d'altitude
 - Débutant : col. 115-118 chute 21 · col. 111 chute 10 · col. 131 chute 6 · col. 180-182 ennemi 4 · col. 33-34 chute 3 · col. 71 chute 3 · ailleurs 16
@@ -69,9 +69,9 @@ Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur le
 - Expert   : col. 83 chute 3 · col. 118 chute 1 · col. 131 chute 1
 
 8. La mer de nuages
-- Débutant : col. 45-49 chute 10 · col. 52 chute 8 · col. 24-28 chute 7 · col. 105-107 chute 7 · col. 144-145 chute 7 · col. 79-82 chute 5 · ailleurs 17
-- Habitué  : col. 52 chute 5 · col. 105 chute 3 · col. 80 grêle 2 · col. 131 chute 2 · col. 26 chute 1 · col. 46 chute 1 · ailleurs 2
-- Expert   : col. 46 chute 2 · col. 163 chute 2 · col. 131 chute 1
+- Débutant : col. 132 chute 13 · col. 143-145 chute 11 · col. 45-49 chute 10 · col. 52 chute 8 · col. 24-28 chute 7 · col. 80 grêle 5 · ailleurs 16
+- Habitué  : col. 52 chute 5 · col. 132 chute 4 · col. 144-145 chute 4 · col. 105 chute 3 · col. 80 grêle 2 · col. 164 chute 2 · ailleurs 2
+- Expert   : col. 46 chute 2 · col. 132 chute 2 · col. 164 chute 2
 
 9. Au-dessus des nuages
 - Débutant : col. 26-27 chute 8 · col. 34-36 chute 5 · col. 59-61 chute 4 · col. 122 chute 4 · col. 85 chute 1 · col. 107 ennemi 1 · ailleurs 1
