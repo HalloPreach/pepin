@@ -2924,3 +2924,157 @@ Limites (non testé ou à relativiser) :
   proche des Gouttières : la courbe complète sur 11 niveaux reste à juger (carte 5.18).
 - La façade se dessine pour TOUS les auvents posés au-dessus du vide : le niveau d'essai
   « auvent » (F3) en a gagné cinq (vérifié par test, pas recapturé).
+
+## Le clocher, niveau 5 (carte 5.13)
+
+« Une seule direction : en haut. » Deuxième des nouveaux niveaux de l'étape 5, inséré à sa place
+(5) après l'Orage : Vents d'altitude devient le niveau 6, Au-dessus des nuages le 7 (« NIVEAU
+5/7 »). Grille `core/src/levels/clocher.rs` (34 x 45 tuiles : le premier niveau VERTICAL du jeu,
+quatre écrans de haut, la caméra suit en hauteur depuis la carte 5.2). Lettres `p`, `w`, `s`, `h`
+des cartes 4.4, 5.6, 5.8 et 5.10, et `^` ; aucune lettre nouvelle. Nouveauté du niveau : la
+verticale (et la cage de l'horloge, son moment fort).
+
+Le parcours, de bas en haut, autour de la tour du clocher (colonnes 14 à 18) :
+- au pied de la tour, un escargot patrouille le sol : son rebond seul porte sur le socle (80 px plus
+  haut, plus qu'un saut) ; sur le socle, un second escargot, dont le rebond porte à la première
+  goutte, suspendue en l'air ;
+- une marche, l'arche du bas à travers la tour, la galerie de droite : un pigeon guette sur une
+  corniche isolée, tourné vers l'arche ; on passe dessous sans s'arrêter, il plonge derrière Pépin ;
+- au bout de la galerie, le ventilateur (2 s de souffle, 2 s d'arrêt annoncées) porte Pépin huit
+  rangées plus haut, jusqu'à la première corniche du zigzag ;
+- le zigzag : quatre corniches à trois rangées l'une de l'autre, alternées contre la tour et contre
+  le mur ; au bout de la première, la deuxième goutte, sous un second pigeon tourné vers Pépin qui
+  arrive (s'arrêter sur sa diagonale pour préparer le saut suivant est le vrai danger) ;
+- la porte de la cage, puis le MOMENT FORT, la cage de l'horloge : on saute sur la grande aiguille
+  quand elle passe au plus bas, elle emporte Pépin jusqu'au sommet du pilier (troisième goutte) ;
+  du bord du pilier, la petite aiguille, puis la tour du drapeau. Entre le pilier et la tour, sous
+  la petite aiguille, une poutre hérissée de pointes anti-pigeons : là, et là seulement, tomber tue.
+La cage reprend la géométrie du niveau d'essai « horloge » (mêmes rayons, vitesses, heures de
+départ, mêmes écarts entre pivots, pilier et tour). Ailleurs, le bas de la carte est plein : une
+chute ne coûte que de la hauteur. 3 lanternes, toutes là où l'on passe forcément (après l'arche du
+bas, à la sortie de la porte de la cage, au bord du pilier où l'on attend la petite aiguille) ;
+décor : trois paratonnerres (cage, galerie, tour du drapeau).
+
+Ambiance : un thème de plus, `Theme::Clocher` (`decor::ambiance`) : nuit violette après l'orage
+(bandes ardoise nuit, violet, violet, et une lueur pâle à l'horizon), étoiles en haut, immeubles
+aux fenêtres orange et corail, petite pluie (16 gouttes), briques violettes. Note du coordinateur
+(sentir la hauteur au sommet) : nouveau champ `Ambiance::vertige`, multiplicateur de la parallaxe
+verticale des silhouettes, à 2,5 pour le clocher et 1,0 pour tous les autres thèmes (rendu des
+niveaux d'un écran inchangé ; test `au_sommet_du_clocher_la_ville_s_est_enfoncee` : au sommet, la
+couche proche s'est enfoncée de 135 px et la lointaine de 68 px, contre 54 et 27 au niveau d'essai
+vertical). Sur les captures : au départ, la ville monte jusqu'au milieu de l'écran ; au zigzag, la
+lueur pâle apparaît derrière ; dans la cage et à l'arrivée, il ne reste qu'une bande d'immeubles
+au bas de l'écran sous un grand ciel violet. Carte de titre : « LE CLOCHER », la phrase d'AGA, le
+conseil « L'escargot est un tremplin. Sur une aiguille, laisse-toi porter. »
+
+Robots et tests :
+- faisabilité : `niveau_5_faisable` (arrivée, 3 gouttes, 3 lanternes, robot maladroit ; course
+  rapide 16,9 s), `reprise_depuis_chaque_lanterne`, et dans `clocher.rs` :
+  `le_clocher_exige_ses_escargots` (sans escargot, Pépin reste au pied de la tour ; sans celui du
+  socle, la goutte en l'air n'est pas prise), `le_clocher_exige_le_ventilateur` (sans courant, la
+  galerie est un cul-de-sac), `le_clocher_exige_ses_deux_aiguilles` (sans aiguille, ni pilier ni
+  drapeau ; sans la petite, le pilier mais pas le drapeau), `aucune_aiguille_ne_ramasse_pepin_debout`
+  (note de la carte 5.10 : sur un tour complet, image par image, aucune plaque ne passe dans les
+  14 px au-dessus d'un dessus de tuile) et `les_pieces_du_clocher_a_leur_place` ; lint de grille
+  vert (aucune lanterne qui flotte, aucune poche de vide close, décor posé sur un solide) ;
+- robot de QA : `le_robot_finit_tous_les_niveaux_sans_mourir` vert sur les sept niveaux (aucune
+  mécanique à lui apprendre : escargot, ventilateur, pigeon et aiguilles le sont déjà) ; nouveau test
+  `au_clocher_le_parcours_allume_les_trois_lanternes`. Nouvelle empreinte de la partie complète (un
+  niveau de plus, donc attendue) : `38e5db5b62bbed02`, 16 255 images, 0 mort, 9 gouttes, score 1200,
+  chrono 14 395 pas ; le clocher : images 9449 à 11621 du script.
+Aucune mécanique ne s'est mal comportée : rien n'a été corrigé dans l'escargot, le ventilateur, le
+pigeon ni les aiguilles.
+
+Renumérotation : faisabilité `niveau_7_faisable`, `niveau_6_exige_les_courants_ascendants`, pigeons
+admis dans le clocher (sur les corniches), paratonnerres pour le clocher dans
+`chaque_niveau_a_son_decor`, étiquette « NIVEAU 2/7 », conseil final `intro(6)`, densité de pluie
+par thème ; la comparaison bit à bit des caméras (`les_niveaux_d_un_ecran_gardent_la_meme_camera`)
+saute le clocher, seul niveau que la caméra suit en hauteur ; ombres sous les toits : plus de 50 au
+clocher (34 colonnes seulement), plus de 100 ailleurs ; légende du décor (`GenreDecor`) par nom de
+niveau ; README : sept niveaux.
+
+Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais) :
+
+| Niveau                      | Avant (5.12) D / H / E | Après (5.13) D / H / E |
+| --------------------------- | ---------------------- | ---------------------- |
+| 1. Les toits                | 0,4 / 0,1 / 0,0        | 0,4 / 0,1 / 0,0        |
+| 2. Gouttières et cheminées  | 1,5 / 0,5 / 0,2        | 1,5 / 0,5 / 0,2        |
+| 3. Le marché couvert        | 0,8 / 0,5 / 0,2        | 0,8 / 0,5 / 0,2        |
+| 4. Le grand orage           | 3,0 / 0,6 / 0,4        | 3,0 / 0,6 / 0,4        |
+| 5. Le clocher               | —                      | 0,6 / 0,3 / 0,0        |
+| 6. Vents d'altitude (ex-5)  | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
+| 7. Au-dessus des nuages     | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
+| Total                       | 7,6 / 2,3 / 0,9        | 8,2 / 2,6 / 0,9        |
+
+Les six autres niveaux sont identiques LIGNE À LIGNE à la mesure d'avant (rang de graine 7 pour le
+clocher, `RANGS_DE_GRAINE`). Lieux de mort du clocher : les pointes de la poutre (colonnes 19 à 28)
+et une fois le pigeon de la première corniche (colonne 23). Durée moyenne : 66 s (Débutant), 51 s
+(Habitué), 39 s (Expert) : la difficulté du bas de la tour est du TEMPS perdu à retomber, que la
+mesure (des morts) ne voit pas. Trois retouches en chemin :
+- première version sans pointes : 0,0 / 0,0 / 0,0 (une seule mort en 144 essais, un pigeon) ; d'où
+  la poutre aux pointes sous la petite aiguille (comme le gouffre du niveau d'essai horloge) :
+  0,8 / 0,1 / 0,0 ;
+- vu sur les captures : une chute sur les pointes renvoyait à la galerie, vingt rangées plus bas
+  (les lanternes de la cage et du pilier étaient à côté du chemin, jamais touchées) ; lanternes
+  déplacées sur le chemin forcé, celle du socle retirée (le rebond du premier escargot porte
+  par-dessus, et rien n'y tue) : 0,7 / 0,1 / 0,0 ;
+- vu sur les captures : depuis le pilier, la caméra ne montrait pas les pointes (trois rangées sous
+  le bas de l'écran) ; poutre remontée de la ligne 14 à la ligne 11, pointes visibles pendant tout le
+  passage : 0,6 / 0,3 / 0,0.
+Juge de la courbe : bande Habitué du clocher [0 ; 0,5[ ; l'orage reste le sommet (le plus meurtrier
+pour le Débutant et l'Habitué), Vents d'altitude reste le niveau jugé « après le sommet » (nettement
+plus facile que lui) ; le clocher n'est jugé que par sa bande. À SIGNALER : la décision « monte
+jusqu'au boss (6) » voudrait un clocher au moins aussi dur que l'orage ; il se mesure entre les
+gouttières et l'orage pour l'Habitué (0,3) et sous le marché pour le Débutant (0,6). Leviers si la
+carte 5.18 veut le durcir : des pointes plus bas dans la tour (une chute coûterait une vie, plus
+seulement de la hauteur), un troisième pigeon au zigzag, une petite aiguille plus rapide.
+
+Captures (`docs/qa/513-*`, 960 x 540, build de QA d'une extraction propre de 7b65766 servi en local
+sur 127.0.0.1, Chromium sans tête (CDP) du poste, onglet au premier plan (`Page.bringToFront`) et
+canvas focalisé, pilote `docs/capture-visibilite.mjs` (protocole `docs/pilote-qa.js`, horloge
+virtuelle) avec le script du robot régénéré sur la même extraction, serveur arrêté à la fin ;
+numéros d'image de `trace.csv`) :
+- `513-carte` (9440) : « NIVEAU 5/7 », « LE CLOCHER », la phrase d'AGA, le conseil ;
+- `513-depart` (9462) : Pépin au départ à côté du premier escargot, le socle et le second escargot,
+  la marche de l'arche, la ville haute derrière ;
+- `513-escargot` (9596) : Pépin au sommet du rebond sur l'escargot du socle, la goutte en l'air
+  vient d'être prise (6/21), la lanterne de la galerie au loin ;
+- `513-galerie` (9790) : Pépin passe sous la corniche, le pigeon plonge DERRIÈRE lui ; la lanterne
+  allumée, un paratonnerre, le ventilateur qui clignote (reprise annoncée) ;
+- `513-ventilateur` (10060) : Pépin porté par le souffle jusqu'à la corniche du zigzag, la goutte de
+  la corniche et le second pigeon en vue ;
+- `513-zigzag` (10300) : les corniches alternées, le second pigeon perché sous l'une d'elles ;
+- `513-porte` (10600) : sortie de la porte de la cage, la lanterne de la cage, la grande aiguille,
+  les pointes de la poutre en haut ;
+- `513-moment-fort-a` (10740) : Pépin porté par la grande aiguille (cadran, tige, plaque) ;
+- `513-moment-fort-b` (11200) : au bord du pilier, à côté de sa lanterne allumée, Pépin attend la
+  petite aiguille ; les pointes au bas de l'écran ;
+- `513-moment-fort-c` (11340) : Pépin plane depuis la petite aiguille vers la tour du drapeau,
+  au-dessus des pointes ;
+- `513-arrivee` (11600) : Pépin au drapeau, paratonnerre, la transition commence ; il ne reste de la
+  ville qu'une bande au bas de l'écran ;
+- `513-chute-a` (11220), `513-chute-b` (11244) : à l'image 11190 le script est lâché et Pépin court
+  tout droit : il tombe du pilier, meurt sur les pointes (étincelles) et réapparaît à la lanterne du
+  pilier (étincelles de réapparition, la caméra y revient).
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou,
+sur les 13.
+
+Vérification sur une extraction propre de 7b65766 (dernier commit de code ; `git archive`, nouveau
+dossier daté) : `./docker-cargo.sh test --workspace --no-default-features` : 336 + 287 tests, tous verts (1 + 16
+ignorés : écritures de fichiers, scripts, diagnostics) ; `./docker-cargo.sh lint` : `LINT-OK` ; script du robot régénéré (empreinte `38e5db5b62bbed02`,
+0 mort) ; `./build.sh` : `dist/` produit (479 412 octets de wasm, + 2 302 octets, +0,5 %, pour le
+niveau et son thème), 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg` ;
+`./build.sh --qa` : `dist-qa/` produit (celui des captures). Planche de sprites : aucun sprite
+nouveau ni modifié, non régénérée.
+
+Limites (non testé ou à relativiser) :
+- Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Pas de
+  son entendu à l'oreille.
+- La mesure ne compte que les morts : le temps perdu à retomber dans le bas de la tour (66 s en
+  moyenne pour le Débutant, la cible est 55 s) n'y apparaît pas. Une seule graine (bruit de l'ordre
+  de 0,1 à 0,2).
+- Le robot de QA ne prend pas la goutte de la première corniche (il ne vise pas toutes les gouttes)
+  et ne passe jamais sur la diagonale du second pigeon : le danger de ce pigeon n'est montré que par
+  la mesure (une mort, Débutant) ; la goutte, par le robot de faisabilité.
+- Le ressenti de la hauteur (parallaxe ×2,5) n'est jugé que sur captures fixes, pas en mouvement ni
+  par un humain.
