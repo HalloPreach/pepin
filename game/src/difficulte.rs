@@ -854,9 +854,9 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.3, 0.8),  // 2. Gouttières et cheminées : quasi inchangé
     (0.3, 1.2),  // 3. Le marché couvert (carte 5.12) : entre les gouttières et l'orage
     (0.5, 1.5),  // 4. Le grand orage : le sommet de la courbe
-    (0.0, 1.5),  // 5. Le clocher (carte 5.13) : PROVISOIRE
-    (0.3, 0.65), // 5. Vents d'altitude : redescend un peu
-    (0.0, 0.2),  // 6. Au-dessus des nuages : final calme, sous 0,2
+    (0.0, 0.5),  // 5. Le clocher (carte 5.13) : tomber n'y tue qu'en haut, sous 0,5
+    (0.3, 0.65), // 6. Vents d'altitude : redescend un peu
+    (0.0, 0.2),  // 7. Au-dessus des nuages : final calme, sous 0,2
 ];
 
 /// Places dans la table des trois niveaux dont la courbe juge la forme : le
@@ -864,6 +864,11 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
 /// plus facile) et le FINAL (au-dessus des nuages, le plus calme). Le test
 /// `la_forme_de_la_courbe_est_jugee` vérifie qu'ils désignent bien ces niveaux :
 /// insérer un niveau avant eux oblige à les déplacer.
+///
+/// Le clocher (carte 5.13), inséré entre le sommet et les vents, n'est jugé que
+/// par sa bande (et, comme tous, sous le sommet) : niveau vertical où une chute
+/// ne coûte en bas que de la hauteur, il se mesure plus facile que l'orage. La
+/// courbe sur onze niveaux (monter jusqu'au boss) se jugera à la carte 5.18.
 const SOMMET: usize = 3;
 const APRES_SOMMET: usize = 5;
 const FINAL: usize = 6;
