@@ -3078,3 +3078,87 @@ Limites (non testé ou à relativiser) :
   la mesure (une mort, Débutant) ; la goutte, par le robot de faisabilité.
 - Le ressenti de la hauteur (parallaxe ×2,5) n'est jugé que sur captures fixes, pas en mouvement ni
   par un humain.
+
+## Façades du marché couvert sans « dessus » (carte 5.12b, rendu seulement)
+
+Constat du coordinateur sur `512-moment-fort-*` : la façade de boutique dessinée derrière chaque auvent
+au-dessus du vide (`scene::facade_d_auvent`) finissait par une corniche CLAIRE et PLATE, 4 px au-dessus
+des toits voisins : une tour d'une tuile qui se lisait comme un pilier où atterrir, alors que sa case
+est du vide (on traverse, on tombe de 23 tuiles). La physique était juste, la lecture mentait.
+
+Ce qui change (dessin seulement : aucune physique, aucune carte ASCII, aucun auvent modifié) :
+- la vitrine (`objets::FACADE_VITRINE`, 16x19 -> 16x15) finit par un toit en APPENTIS adossé au mât :
+  le faîte est au sommet du mât, la pente sombre descend vers la gauche d'un pixel toutes les deux
+  colonnes, comme la toile descend vers la droite. Avec la toile, c'est un seul toit dont le haut est
+  l'auvent, le seul endroit où l'on se pose. Choix : dans ce jeu, tout ce qui porte Pépin est plat avec
+  une arête claire ; une pente sombre n'en a ni l'un ni l'autre ;
+- plus aucun ton clair : ardoise ombre, ardoise nuit, ardoise (les teintes des immeubles du fond) et
+  l'orange de la vitrine (deux carreaux, étalages), gardée pour la lecture « boutique » ; le mur sous
+  la vitrine (`FACADE_MUR`) est inchangé ;
+- le faîte est posé au VRAI sommet du mât : constante `SOMMET_DU_MAT` (1 px sous le haut de la case),
+  partagée par le dessin de l'auvent (image inchangée) et celui de la façade, à la place de
+  `DEBORD_VITRINE` (4 px au-dessus). Le faîte est donc 1 px SOUS le dessus des toits voisins. Vu en
+  chemin sur les captures avant/après : la première version (7261f85) supposait le mât 3 px au-dessus
+  de la case et dressait encore le faîte 4 px au-dessus des toits ; corrigé par 9f938ca ;
+- la distinction auvent / manche à air de la carte 5.12 ne bouge pas (toile, mât et manche inchangés).
+
+Tests : `la_facade_n_a_pas_de_dessus_ou_se_poser` (nouveau) — l'arête d'un dessus de tuile (rangées 1
+et 2 de `toit_haut` et `brique_haut`) n'a que des tons de 3 à 7, et la façade n'en a aucun (seulement
+`0 1 2 A`) ; sa rangée supérieure se réduit aux 2 px sombres du faîte contre le mât ; le haut de chaque
+colonne monte vers le mât sans redescendre, sans marche, sans palier de plus de 2 px (Pépin en fait
+10) et c'est toujours du contour sombre. Vérifié sur l'ancienne vitrine : elle échoue à trois de ces
+contrôles (ardoise claire, 3, sur sa corniche ; rangée supérieure de 16 px ; palier de 16 px).
+`la_facade_de_boutique_a_sa_taille_et_ses_couleurs`
+adapté (16 x (16 - SOMMET_DU_MAT), transparence seulement au-dessus de la pente) ;
+`chaque_auvent_est_accroche_a_une_boutique` inchangé et vert (12 façades).
+
+Aucun changement de jeu, prouvé sur une extraction propre de 9f938ca (dernier commit de code) :
+- mesure de difficulté régénérée : identique À L'OCTET à `docs/mesure-difficulte.txt` sous dépôt (sha256
+  `1cf20d01…`) ; par rapport à celle de 400cad8 (carte 5.12), seules diffèrent les lignes ajoutées par
+  la carte 5.13 (le clocher, renumérotation) ; le marché reste 0,8 / 0,5 / 0,2 ;
+- script du robot de QA régénéré : 16 255 images, 0 mort, empreinte `38e5db5b62bbed02`, la même qu'à la
+  carte 5.13 ; le script est identique à l'octet à celui de 7261f85. (L'empreinte `5594ca471d004d32`
+  citée par la carte est celle de 400cad8, à six niveaux : le clocher l'a changée à la carte 5.13.)
+
+Captures (`docs/qa/512b-*`, 960 x 540 ; build de QA d'une extraction propre de ac6372b pour « avant »
+et de 9f938ca pour « après », servis sur 127.0.0.1 (ports libres, serveurs arrêtés à la fin), Chromium
+sans tête (CDP), onglet au premier plan et canvas focalisé, `docs/capture-visibilite.mjs` avec le MÊME
+script du robot ; numéros d'image de `trace.csv`) :
+- `512b-moment-fort-a-avant` / `-apres` (6068) : le toit D et l'auvent 85 à son bord, puis les façades
+  des auvents 89, 93 et 97 (et le bord de celle de 101) ; Pépin en l'air, la goutte devant lui ;
+- `512b-moment-fort-b-avant` / `-apres` (6112) : les cinq façades des auvents au-dessus du vide (89 à
+  105) ; avec la précédente, les six auvents du moment fort ;
+- `512b-zoom-facade` : découpe 80 x 45 de `-a-apres` agrandie x12 (le bout du toit D, plat à arête
+  claire, l'auvent 85, le vide, la façade de l'auvent 89 et sa toile) ;
+- `512b-zoom-avant-apres` : la même façade, avant | après, découpes 39 x 45 agrandies x12, séparées de
+  24 px d'ardoise ombre.
+Zooms : copies de pixels réels, aucun pixel recalculé. Chaque paire avant/après vient de sessions de
+rejeu au même cadrage : seuls diffèrent les pixels des façades (746 et 1 117 pixels logiques, dans les
+colonnes de 16 px des façades, rangées 128 à 147 de l'écran). `docs/mesure-capture.py <capture> 3` : 0
+pixel hors palette, 0 bloc flou, sur les 6. Chaque capture regardée.
+
+Un joueur peut-il encore croire se poser sur la façade ? D'après les captures, c'est peu probable :
+avant, chaque façade dressait au-dessus des toits un rebord clair et plat d'une tuile de large, la
+même lecture que les toits ; après, il n'y a plus ni plat ni clair, le haut de la façade est plus bas
+que les toits voisins et c'est la toile rayée qui le surmonte. La façade reste une colonne sombre d'une
+tuile qui descend dans le vide (c'est voulu : la boutique porte l'auvent), mais rien en haut ne dit
+« sol ».
+
+Vérification sur l'extraction propre de 9f938ca : `./docker-cargo.sh test --workspace
+--no-default-features` : 336 + 288 tests, tous verts (1 + 16 ignorés) ; `./docker-cargo.sh lint` :
+`LINT-OK` (la première extraction, 7261f85, avait révélé une liste de commentaire sans ligne vide :
+2fe4376) ; `./build.sh` : `dist/` produit (479 431 octets de wasm, + 19 octets), 0 occurrence des noms
+interdits, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` produit (celui des
+captures « après »). Planche de sprites régénérée par les tests : identique à l'octet à celle committée
+(f4e9aa1).
+
+Limites (non testé ou à relativiser) :
+- Aucun joueur humain : la lecture « pas un sol » est jugée sur captures fixes, pas en mouvement.
+- Si un joueur visait malgré tout la pente : d'après la géométrie (boîte de Pépin de 10 px, zone de
+  l'auvent qui commence au mât), si le centre de Pépin arrive sur les 5 px de droite de la façade, sa
+  boîte touche déjà l'auvent et il rebondit ; plus à gauche, il tombe. Raisonnement, pas essai en jeu.
+- Le rejeu par le pilote n'a pas exactement le même cadrage d'une session à l'autre (Pépin et la
+  caméra décalés de 1 à 2 px pour le même build et le même script) : les paires avant/après ont été
+  choisies parmi des sessions au même cadrage, vérifié pixel par pixel.
+- Pas de vrai téléphone, ni Safari ni Firefox : Chromium sans tête seulement, à 960 x 540. Le niveau
+  d'essai « auvent » (F3), qui a aussi cinq façades, n'est pas recapturé (couvert par les tests).
