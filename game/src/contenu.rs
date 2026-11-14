@@ -286,24 +286,57 @@ pub const TITRE_PAUSE: &str = "PAUSE";
 // --- Écran de fin ----------------------------------------------------------
 
 pub const TITRE_FIN: &str = "LE SOLEIL !";
+/// Titre et phrase de l'écran de fin quand la partie se termine par l'épilogue
+/// (carte 5.17) : Pépin est revenu, la nuit, sur le toit du premier niveau.
+pub const TITRE_FIN_RETOUR: &str = "DE RETOUR !";
+pub const PHRASE_RETOUR: &str = "Pépin replie son parapluie.";
 pub const LIBELLE_TEMPS: &str = "TEMPS";
 pub const LIBELLE_GOUTTES: &str = "GOUTTES D'OR";
+/// Gouttes du niveau bonus, comptées à part (ligne affichée s'il a été joué).
+pub const LIBELLE_BONUS: &str = "NIVEAU SECRET";
 pub const LIBELLE_MORTS: &str = "MORTS";
 pub const LIBELLE_SCORE: &str = "SCORE";
 
-/// Petit mot de fin selon le nombre de gouttes d'or ramassées.
-pub fn message_fin(gouttes: u32, total: u32) -> &'static str {
-    if gouttes >= total {
-        "Collection complète : pas une goutte oubliée !"
-    } else if gouttes * 2 >= total {
-        "Pas mal ! Il reste des gouttes d'or ici et là."
-    } else {
-        "Il reste plein de gouttes d'or à dénicher."
+/// Le niveau bonus, vu de l'écran de fin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BonusFin {
+    /// Le jeu n'a pas de bonus.
+    Absent,
+    /// Il y en a un, mais il n'a pas été débloqué (il manquait des gouttes).
+    Manque,
+    /// Il a été joué : gouttes ramassées dans le bonus, et son total.
+    Joue { gouttes: u32, total: u32 },
+}
+
+/// Petit mot de fin selon les gouttes d'or ramassées : `gouttes` sur `total` pour
+/// le parcours (tous les niveaux sauf le bonus), et le bonus à part. Quand le bonus
+/// n'a pas été débloqué, le mot dit comment l'ouvrir : un niveau secret attend
+/// celui qui trouve toutes les gouttes (celles des niveaux normaux).
+pub fn message_fin(gouttes: u32, total: u32, bonus: BonusFin) -> &'static str {
+    match bonus {
+        BonusFin::Joue {
+            gouttes: b,
+            total: tb,
+        } if gouttes >= total && b >= tb => "Collection complète : pas une goutte oubliée !",
+        BonusFin::Joue { .. } => {
+            "Bravo, tu as trouvé le niveau secret ! Quelques gouttes d'or manquent encore."
+        }
+        BonusFin::Absent if gouttes >= total => "Collection complète : pas une goutte oubliée !",
+        BonusFin::Absent if gouttes * 2 >= total => {
+            "Pas mal ! Il reste des gouttes d'or ici et là."
+        }
+        BonusFin::Absent => "Il reste plein de gouttes d'or à dénicher.",
+        BonusFin::Manque if gouttes * 2 >= total => {
+            "Pas mal ! Il reste quelques gouttes d'or. Toutes ouvrent un niveau secret."
+        }
+        BonusFin::Manque => {
+            "Il reste plein de gouttes d'or à dénicher. Toutes ouvrent un niveau secret."
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use pepin_core::font;
 
@@ -328,14 +361,15 @@ mod tests {
             CONTINUER,
             TITRE_PAUSE,
             TITRE_FIN,
+            TITRE_FIN_RETOUR,
+            PHRASE_RETOUR,
             LIBELLE_TEMPS,
             LIBELLE_GOUTTES,
+            LIBELLE_BONUS,
             LIBELLE_MORTS,
             LIBELLE_SCORE,
-            message_fin(15, 15),
-            message_fin(8, 15),
-            message_fin(0, 15),
         ];
+        t.extend(tous_les_mots_de_fin());
         for (touches, effet) in COMMANDES_AIDE {
             t.push(touches);
             t.push(effet);
@@ -393,11 +427,39 @@ mod tests {
         assert_eq!(intro(0).texte, INTROS[0].texte);
     }
 
+    /// Tous les mots de fin possibles (chaque cas de `message_fin`).
+    pub(crate) fn tous_les_mots_de_fin() -> Vec<&'static str> {
+        let joue = |gouttes| BonusFin::Joue { gouttes, total: 3 };
+        vec![
+            message_fin(30, 30, joue(3)),
+            message_fin(30, 30, joue(2)),
+            message_fin(28, 30, joue(3)),
+            message_fin(15, 15, BonusFin::Absent),
+            message_fin(8, 15, BonusFin::Absent),
+            message_fin(0, 15, BonusFin::Absent),
+            message_fin(26, 30, BonusFin::Manque),
+            message_fin(3, 30, BonusFin::Manque),
+        ]
+    }
+
     #[test]
     fn le_message_de_fin_depend_des_gouttes() {
-        assert!(message_fin(15, 15).contains("complète"));
-        assert!(message_fin(9, 15).contains("Pas mal"));
-        assert!(message_fin(2, 15).contains("plein"));
+        // Sans bonus dans le jeu : les trois mots d'avant la carte 5.17.
+        assert!(message_fin(15, 15, BonusFin::Absent).contains("complète"));
+        assert!(message_fin(9, 15, BonusFin::Absent).contains("Pas mal"));
+        assert!(message_fin(2, 15, BonusFin::Absent).contains("plein"));
+        // Bonus manqué : le mot annonce le niveau secret.
+        for gouttes in [0, 14, 15, 26] {
+            let mot = message_fin(gouttes, 30, BonusFin::Manque);
+            assert!(mot.contains("niveau secret"), "{gouttes} : {mot}");
+        }
+        assert!(message_fin(20, 30, BonusFin::Manque).contains("Pas mal"));
+        assert!(message_fin(3, 30, BonusFin::Manque).contains("plein"));
+        // Bonus joué : complète seulement avec TOUT (parcours et bonus).
+        let joue = |gouttes| BonusFin::Joue { gouttes, total: 3 };
+        assert!(message_fin(30, 30, joue(3)).contains("complète"));
+        assert!(message_fin(30, 30, joue(1)).contains("trouvé le niveau secret"));
+        assert!(message_fin(27, 30, joue(3)).contains("trouvé le niveau secret"));
     }
 
     #[test]

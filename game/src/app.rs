@@ -14,7 +14,7 @@
 //! à chaque écran, méthodes qui ne se contredisent pas (un seul endroit change
 //! d'écran).
 
-use pepin_core::levels::{self, Apres, NB_NIVEAUX, NIVEAUX};
+use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
 use pepin_core::player::Entrees;
 use pepin_core::state::EtatJeu;
 
@@ -102,6 +102,10 @@ pub struct Application {
     /// Photo de la partie au début du niveau, pour « recommencer le niveau ».
     debut_niveau: EtatJeu,
     bilan: Bilan,
+    /// Gouttes ramassées dans le niveau bonus, une fois celui-ci fini (`None` : pas
+    /// joué dans cette partie). Le compteur du jeu et l'écran de fin les comptent à
+    /// part (carte 5.17).
+    gouttes_bonus: Option<u32>,
     /// Le focus a été perdu juste avant que le jeu ne (re)démarre (carte de présentation,
     /// volets) : la pause s'ouvrira au premier pas de jeu, sauf si le focus revient avant.
     pause_differee: bool,
@@ -128,6 +132,7 @@ impl Application {
             pas_partie: 0,
             debut_niveau,
             bilan: Bilan::default(),
+            gouttes_bonus: None,
             pause_differee: false,
         };
         app.ouvrir(Ecran::Titre);
@@ -353,6 +358,10 @@ impl Application {
         );
         self.pas_partie += 1;
         if self.monde.termine {
+            // Le bonus fini : ses gouttes sont mises à part (compteur, écran de fin).
+            if self.monde.infos.genre == GenreNiveau::Bonus {
+                self.gouttes_bonus = Some(self.gouttes_du_niveau());
+            }
             // Niveau suivant (le score est gardé), en sautant le bonus s'il manque des
             // gouttes ; après l'épilogue ou le dernier niveau : l'écran de fin.
             self.lancer(
@@ -377,6 +386,7 @@ impl Application {
             Suite::Niveau { indice, etat } => {
                 if etat.is_none() {
                     self.pas_partie = 0;
+                    self.gouttes_bonus = None;
                 }
                 self.recharger(indice, etat);
                 self.anim = 0;
@@ -395,13 +405,21 @@ impl Application {
                 let e = &self.monde.etat;
                 self.bilan = Bilan {
                     pas: self.pas_partie,
-                    gouttes: e.gouttes,
+                    // Les gouttes du parcours : celles du bonus sont à part.
+                    gouttes: e.gouttes.saturating_sub(self.gouttes_bonus.unwrap_or(0)),
                     morts: e.morts,
                     score: e.score,
+                    gouttes_bonus: self.gouttes_bonus,
+                    epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
                 };
                 self.ouvrir(Ecran::Fin);
             }
         }
+    }
+
+    /// Gouttes d'or ramassées dans le niveau en cours.
+    fn gouttes_du_niveau(&self) -> u32 {
+        self.monde.gouttes_niveau.iter().filter(|&&g| g).count() as u32
     }
 
     fn recharger(&mut self, indice: usize, etat: Option<EtatJeu>) {
@@ -451,12 +469,13 @@ impl Application {
                 );
                 // Sous la trame (carte, pause) le HUD serait illisible : on ne le montre qu'en jeu.
                 if self.ecran == Ecran::Jeu {
-                    hud::dessiner(
-                        banque,
+                    let compteur = hud::compteur(
+                        self.monde.infos.genre == GenreNiveau::Bonus,
                         self.monde.etat.gouttes,
-                        self.pas_partie,
-                        self.monde.pv_nuage(),
+                        self.gouttes_bonus,
+                        self.gouttes_du_niveau(),
                     );
+                    hud::dessiner(banque, compteur, self.pas_partie, self.monde.pv_nuage());
                 }
                 match self.ecran {
                     Ecran::Carte(_) => {
@@ -760,13 +779,16 @@ mod tests {
         app.monde.termine = true;
         avancer(&mut app, 1);
         jusqu_a(&mut app, |e| e == Ecran::Fin);
+        // Le dernier niveau est l'épilogue (carte 5.17) : l'écran de fin du retour.
         assert_eq!(
             app.bilan,
             Bilan {
                 pas: 3601,
                 gouttes: 9,
                 morts: 2,
-                score: 900
+                score: 900,
+                gouttes_bonus: None,
+                epilogue: true,
             }
         );
         assert_eq!(app.choix, vec![Choix::Rejouer, Choix::RetourTitre]);
@@ -1038,10 +1060,11 @@ mod tests {
     /// 5.17) : avec les 27 gouttes des niveaux normaux, la carte suivante est celle du
     /// bonus (« NIVEAU BONUS », l'arc-en-ciel), puis celle de l'épilogue ; avec une de
     /// moins, directement l'épilogue (« ÉPILOGUE », la descente). L'épilogue fini,
-    /// c'est l'écran de fin.
+    /// c'est l'écran de fin du retour : les gouttes du parcours sur 30, et celles du
+    /// bonus à part s'il a été joué.
     #[test]
     fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes_puis_l_epilogue() {
-        use pepin_core::levels::{arc, descente, nb_normaux, GenreNiveau};
+        use pepin_core::levels::{arc, descente, nb_normaux};
         for (gouttes, bonus) in [(27, true), (26, false), (0, false)] {
             let mut app = en_jeu();
             let (monde, camera) = charger(8, None);
@@ -1061,11 +1084,13 @@ mod tests {
                     contenu::etiquette_niveau(app.monde.infos, nb_normaux(NIVEAUX)),
                     "NIVEAU BONUS"
                 );
-                // Le bonus fini (29 gouttes avec 2 des siennes) : l'épilogue.
+                // Le bonus fini avec 2 de ses gouttes (29 dans la partie) : l'épilogue.
                 app.reagir(&valider(), &Commandes::default(), None);
+                app.monde.gouttes_niveau = [true, false, true];
                 app.monde.etat.gouttes = 29;
                 app.monde.termine = true;
                 avancer(&mut app, 1);
+                assert_eq!(app.gouttes_bonus, Some(2));
                 jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
                 gouttes_finales = 29;
             }
@@ -1077,14 +1102,35 @@ mod tests {
                 "ÉPILOGUE"
             );
             assert_eq!(app.monde.etat.gouttes, gouttes_finales, "gouttes gardées");
-            // L'épilogue fini avec ses 3 gouttes : l'écran de fin.
+            // L'épilogue fini avec ses 3 gouttes : l'écran de fin du retour.
             app.reagir(&valider(), &Commandes::default(), None);
             app.monde.etat.gouttes += 3;
             app.monde.termine = true;
             avancer(&mut app, 1);
             jusqu_a(&mut app, |e| e == Ecran::Fin);
-            assert_eq!(app.bilan.gouttes, gouttes_finales + 3);
+            assert!(app.bilan.epilogue);
+            if bonus {
+                assert_eq!((app.bilan.gouttes, app.bilan.gouttes_bonus), (30, Some(2)));
+            } else {
+                assert_eq!(
+                    (app.bilan.gouttes, app.bilan.gouttes_bonus),
+                    (gouttes + 3, None)
+                );
+            }
         }
+    }
+
+    /// Une nouvelle partie oublie le bonus de la précédente.
+    #[test]
+    fn rejouer_oublie_les_gouttes_du_bonus() {
+        let mut app = en_jeu();
+        app.gouttes_bonus = Some(3);
+        app.ecran = Ecran::Fin;
+        app.choix = choix_pour(Ecran::Fin, true);
+        app.menu = Menu::new(2);
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.gouttes_bonus, None);
     }
 
     #[test]

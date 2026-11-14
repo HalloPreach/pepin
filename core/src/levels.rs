@@ -100,6 +100,27 @@ pub fn gouttes_pour_le_bonus(niveaux: &[InfosNiveau]) -> u32 {
     (nb_normaux(niveaux) * GOUTTES_PAR_NIVEAU) as u32
 }
 
+/// Gouttes d'or du PARCOURS : celles de tous les niveaux sauf le bonus (les niveaux
+/// normaux et l'épilogue, joués dans toute partie). C'est le total du compteur du
+/// jeu et de l'écran de fin ; le bonus, joué ou non, est compté à part
+/// (`gouttes_du_bonus`).
+pub fn gouttes_du_parcours(niveaux: &[InfosNiveau]) -> u32 {
+    let parcours = niveaux
+        .iter()
+        .filter(|n| n.genre != GenreNiveau::Bonus)
+        .count();
+    (parcours * GOUTTES_PAR_NIVEAU) as u32
+}
+
+/// Gouttes d'or du bonus (0 si la table n'a pas de bonus).
+pub fn gouttes_du_bonus(niveaux: &[InfosNiveau]) -> u32 {
+    let bonus = niveaux
+        .iter()
+        .filter(|n| n.genre == GenreNiveau::Bonus)
+        .count();
+    (bonus * GOUTTES_PAR_NIVEAU) as u32
+}
+
 /// Le bonus est-il débloqué ? `gouttes_normales` : gouttes ramassées pendant la
 /// partie dans les niveaux normaux.
 pub fn bonus_debloque(niveaux: &[InfosNiveau], gouttes_normales: u32) -> bool {
@@ -294,6 +315,25 @@ mod tests {
         assert_eq!(verifier_ordre(&t), Ok(()));
         assert_eq!(parcours(&t, 6), [0, 1, 2], "bonus débloqué");
         assert_eq!(parcours(&t, 5), [0, 1], "bonus manqué : la fin");
+    }
+
+    /// Le compteur du jeu : le parcours (normaux et épilogue), le bonus à part.
+    #[test]
+    fn les_gouttes_du_parcours_et_celles_du_bonus() {
+        let t = table(&[Normal, Normal, Normal, Bonus, Epilogue]);
+        assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (12, 3));
+        let t = table(&[Normal, Normal]);
+        assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (6, 0));
+        // La vraie table : 9 normaux et l'épilogue (30), le bonus (3) ; en tout, les
+        // 33 gouttes du jeu.
+        assert_eq!(
+            (gouttes_du_parcours(NIVEAUX), gouttes_du_bonus(NIVEAUX)),
+            (30, 3)
+        );
+        assert_eq!(
+            (gouttes_du_parcours(NIVEAUX) + gouttes_du_bonus(NIVEAUX)) as usize,
+            crate::zones::GOUTTES_TOTAL
+        );
     }
 
     #[test]

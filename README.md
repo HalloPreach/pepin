@@ -84,7 +84,12 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
     haut). Du soleil jusqu'au toit du premier niveau, à travers trois couches de
     nuages percées, entre deux pigeons et deux colonnes de grêle ; le ciel refait
     tout le voyage en sens inverse, de l'or à la nuit. Le plus calme de tous :
-    aucune chute n'y tue. L'écran de fin suit.
+    aucune chute n'y tue. L'écran de fin suit (« DE RETOUR ! »).
+
+Le compteur de gouttes (en jeu et sur l'écran de fin) compte celles du parcours :
+les neuf niveaux et l'épilogue, 30 en tout. Celles du bonus sont comptées à part
+(dans le bonus, le compteur montre les siennes, sur 3 ; l'écran de fin leur donne
+une ligne « NIVEAU SECRET » s'il a été joué).
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.
