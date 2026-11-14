@@ -84,39 +84,46 @@ impl Salve {
 /// 30 pas : l'annonce de la suivante commence avant la fin de la précédente) et
 /// laissent de moins en moins de place. Le test `chaque_motif_se_traverse`
 /// vérifie qu'on peut toujours s'en sortir en courant.
+///
+/// Carte 5.18 (courbe de difficulté sur onze niveaux, « monte jusqu'au boss ») :
+/// les bandes des motifs 1 et 2 ont gagné une colonne (parfois deux) pour que le
+/// boss soit le niveau le plus meurtrier du parcours, devant le grand orage
+/// (mesure de difficulté : Habitué 0,58 -> 1,19 mort, Débutant 2,88 -> 4,06,
+/// Expert 0,29 -> 0,38). Le motif 3 n'a pas changé ; les écarts entre salves (60,
+/// 40, 30 pas) non plus.
 pub const MOTIFS: [&[Salve]; PV_NUAGE as usize] = [
     // Motif 1 : une salve à la fois (gauche, droite, milieu, les deux côtés).
-    &[
-        Salve {
-            debut: 0,
-            bandes: &[(-8, -4)],
-        },
-        Salve {
-            debut: 60,
-            bandes: &[(4, 8)],
-        },
-        Salve {
-            debut: 120,
-            bandes: &[(-2, 2)],
-        },
-        Salve {
-            debut: 180,
-            bandes: &[(-8, -5), (5, 8)],
-        },
-    ],
-    // Motif 2 : une salve toutes les 40 pas, deux ou trois bandes à la fois.
     &[
         Salve {
             debut: 0,
             bandes: &[(-8, -3)],
         },
         Salve {
-            debut: 40,
+            debut: 60,
             bandes: &[(3, 8)],
         },
         Salve {
+            debut: 120,
+            bandes: &[(-3, 3)],
+        },
+        Salve {
+            debut: 180,
+            bandes: &[(-8, -4), (4, 8)],
+        },
+    ],
+    // Motif 2 : une salve toutes les 40 pas, deux ou trois bandes à la fois.
+    &[
+        Salve {
+            debut: 0,
+            bandes: &[(-8, -2)],
+        },
+        Salve {
+            debut: 40,
+            bandes: &[(2, 8)],
+        },
+        Salve {
             debut: 80,
-            bandes: &[(-2, 2)],
+            bandes: &[(-3, 3)],
         },
         Salve {
             debut: 120,
@@ -124,11 +131,11 @@ pub const MOTIFS: [&[Salve]; PV_NUAGE as usize] = [
         },
         Salve {
             debut: 160,
-            bandes: &[(-4, 0), (5, 8)],
+            bandes: &[(-5, 0), (4, 8)],
         },
         Salve {
             debut: 200,
-            bandes: &[(-8, -6), (-1, 1), (6, 8)],
+            bandes: &[(-8, -5), (-1, 1), (5, 8)],
         },
     ],
     // Motif 3 : une salve toutes les 30 pas, les bandes balaient l'arène.
@@ -500,14 +507,14 @@ mod tests {
 
     #[test]
     fn une_colonne_est_annoncee_48_pas_puis_frappee_12() {
-        // Motif 1, 1re salve (colonnes -8 à -4, au pas 0).
+        // Motif 1, 1re salve (colonnes -8 à -3, au pas 0).
         assert_eq!(etat_colonne(0, 0, -8), EtatColonne::Annonce(0.0));
         assert!(matches!(etat_colonne(0, 47, -4), EtatColonne::Annonce(p) if p > 0.95));
         assert_eq!(etat_colonne(0, 48, -6), EtatColonne::Frappe);
         assert_eq!(etat_colonne(0, 59, -6), EtatColonne::Frappe);
         assert_eq!(etat_colonne(0, 60, -6), EtatColonne::Calme);
-        // La colonne -3 n'est pas dans la salve.
-        assert_eq!(etat_colonne(0, 50, -3), EtatColonne::Calme);
+        // La colonne -2 n'est pas dans la salve.
+        assert_eq!(etat_colonne(0, 50, -2), EtatColonne::Calme);
         // Motif 2 : la frappe de la 1re salve (48-59) chevauche l'annonce de la 2e (40-87).
         assert_eq!(etat_colonne(1, 50, -5), EtatColonne::Frappe);
         assert!(matches!(etat_colonne(1, 50, 5), EtatColonne::Annonce(_)));

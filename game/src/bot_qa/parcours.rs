@@ -354,6 +354,16 @@ const ECART_DECALAGE: f32 = 4.0;
 /// d'un plan à l'autre s'ajoutent tout au long du parcours.
 const DECALAGES_AIGUILLE: [i32; 4] = [-2, -1, 1, 2];
 
+/// Décalages essayés dans l'arène du Grand Nuage (carte 5.18) : une image de marge
+/// de plus que pour les aiguilles (voir `tient_au_decalage`).
+const DECALAGES_NUAGE: [i32; 6] = [-3, -2, -1, 1, 2, 3];
+
+/// Écarts tolérés dans l'arène du Grand Nuage (carte 5.18) : rejouées avec le nuage
+/// décalé, les mêmes touches doivent laisser Pépin presque au même endroit (1 px) et
+/// presque à la même vitesse (5 px/s), pour que le plan suivant parte du même état.
+const ECART_DECALAGE_NUAGE: f32 = 1.0;
+const ECART_VITESSE_NUAGE: f32 = 5.0;
+
 /// Marge (px) que Pépin garde de chaque côté de la plaque quand un plan le pose
 /// sur une aiguille : jamais posé sur le bord, d'où un saut de travers le ferait
 /// tomber au moindre écart.
@@ -361,7 +371,8 @@ const MARGE_PLAQUE: f32 = 3.0;
 
 /// Le plan `plan`, joué depuis `depart` jusqu'à `fin` / `arrivee`, tient-il si les
 /// aiguilles d'horloge (et le Grand Nuage) ont une ou deux images d'avance ou de
-/// retard (`DECALAGES_AIGUILLE`) ? Il faut la même fin (jamais une mort), les mêmes
+/// retard (`DECALAGES_AIGUILLE` ; trois dans l'arène du nuage, `DECALAGES_NUAGE`) ?
+/// Il faut la même fin (jamais une mort), les mêmes
 /// gouttes, et Pépin à moins de `ECART_DECALAGE` px du même endroit ; posé sur une
 /// aiguille, il doit avoir `MARGE_PLAQUE` px de plaque de chaque côté. Toujours
 /// vrai dans un niveau sans aiguille ni Grand Nuage.
@@ -382,7 +393,25 @@ const MARGE_PLAQUE: f32 = 3.0;
 /// ne laisse aucune marge à un vrai joueur. Le rejeu dans le navigateur, qui peut
 /// démarrer le niveau d'essai une image plus tôt ou plus tard (voir QA.md), le
 /// raterait aussi : c'est arrivé au premier parcours de la carte 5.10.
-pub(crate) fn tient_au_decalage(depart: &Monde, plan: Plan, fin: Fin, arrivee: &Monde) -> bool {
+///
+/// Dans l'arène du Grand Nuage (carte 5.18), on rejoue les MÊMES TOUCHES (`entrees`,
+/// en « boucle ouverte », `rejouer`) et non le même plan : le plan s'adapte (il garde
+/// la direction « en descendant », par exemple, et descend plus tard si le courant du
+/// nuage souffle plus tard), alors que le navigateur et le test
+/// `le_parcours_du_grand_nuage_tient_a_une_image_pres` rejouent les touches telles
+/// qu'elles ont été enregistrées. Avec les motifs élargis de la carte 5.18, le
+/// parcours trouvé avec le même plan tenait plan par plan, mais pas une fois rejoué
+/// en entier avec deux images d'avance : Pépin, soulevé deux images plus tard,
+/// frappait le nuage plus tard, rebondissait 2,4 px plus loin et mourait dans le
+/// dernier motif. On y exige aussi une image de marge de plus (`DECALAGES_NUAGE`),
+/// et la même vitesse à l'arrivée (`ECART_VITESSE_NUAGE`).
+pub(crate) fn tient_au_decalage(
+    depart: &Monde,
+    plan: Plan,
+    fin: Fin,
+    arrivee: &Monde,
+    entrees: &[Entrees],
+) -> bool {
     let a_des_aiguilles = depart.entites.iter().any(|e| match e {
         Entite::Mobile(a) => a.cercle().is_some(),
         Entite::Nuage(_) => true,
@@ -391,6 +420,12 @@ pub(crate) fn tient_au_decalage(depart: &Monde, plan: Plan, fin: Fin, arrivee: &
     if !a_des_aiguilles {
         return true;
     }
+    let nuage = depart.entites.iter().any(|e| matches!(e, Entite::Nuage(_)));
+    let (decalages, ecart): (&[i32], f32) = if nuage {
+        (&DECALAGES_NUAGE, ECART_DECALAGE_NUAGE)
+    } else {
+        (&DECALAGES_AIGUILLE, ECART_DECALAGE)
+    };
     let coup = arrivee.pv_nuage() != depart.pv_nuage();
     if let Some(k) = aiguille_sous_pepin(arrivee) {
         let plaque = arrivee
@@ -408,16 +443,48 @@ pub(crate) fn tient_au_decalage(depart: &Monde, plan: Plan, fin: Fin, arrivee: &
             return false;
         }
     }
-    DECALAGES_AIGUILLE.into_iter().all(|pas| {
-        let (fin_d, m_d, _) = simuler(&aiguilles_decalees(depart, pas), plan);
+    decalages.iter().all(|&pas| {
+        let decale = aiguilles_decalees(depart, pas);
+        let (fin_d, m_d) = if nuage {
+            rejouer(&decale, entrees)
+        } else {
+            let (f, m, _) = simuler(&decale, plan);
+            (f, m)
+        };
         let (a, b) = (&m_d.joueur.boite, &arrivee.joueur.boite);
         fin_d == fin
             && m_d.gouttes_niveau == arrivee.gouttes_niveau
             && m_d.pv_nuage() == arrivee.pv_nuage()
             && (!coup || horloge_du_nuage(&m_d) == horloge_du_nuage(arrivee))
-            && (fin == Fin::Arrivee
-                || ((a.x - b.x).abs() <= ECART_DECALAGE && (a.y - b.y).abs() <= ECART_DECALAGE))
+            && (fin == Fin::Arrivee || ((a.x - b.x).abs() <= ecart && (a.y - b.y).abs() <= ecart))
+            && (!nuage
+                || fin == Fin::Arrivee
+                || ((m_d.joueur.vitesse.x - arrivee.joueur.vitesse.x).abs() <= ECART_VITESSE_NUAGE
+                    && (m_d.joueur.vitesse.y - arrivee.joueur.vitesse.y).abs()
+                        <= ECART_VITESSE_NUAGE))
     })
+}
+
+/// Rejoue les touches `entrees` depuis `depart` (copie), sans rien adapter (comme le
+/// navigateur qui rejoue un script) ; s'arrête à une mort ou à l'arrivée. Renvoie la
+/// fin, comme `simuler` : posé ou non à la fin des touches.
+fn rejouer(depart: &Monde, entrees: &[Entrees]) -> (Fin, Monde) {
+    let mut m = depart.clone();
+    for e in entrees {
+        m.avancer(e);
+        if est_mort(&m) || chat_ecrase_de_justesse(&m) {
+            return (Fin::Mort, m);
+        }
+        if m.termine {
+            return (Fin::Arrivee, m);
+        }
+    }
+    let fin = if m.joueur.au_sol {
+        Fin::Pose
+    } else {
+        Fin::Abandon
+    };
+    (fin, m)
 }
 
 /// Une arrivée compte-t-elle ? Toujours, sauf dans l'arène du Grand Nuage : là, le
@@ -747,7 +814,7 @@ pub(crate) fn chercher_avec(
             // Dans un niveau à aiguilles d'horloge : un plan qui ne tient qu'à
             // l'image près est écarté, comme une mort (`tient_au_decalage`).
             if !matches!(fin, Fin::Mort | Fin::Abandon)
-                && !tient_au_decalage(&noeuds[i].monde, plan, fin, &monde)
+                && !tient_au_decalage(&noeuds[i].monde, plan, fin, &monde, &entrees)
             {
                 continue;
             }
