@@ -23,7 +23,10 @@
 //!    milieu, `>` en bas. En descendant, le vent change deux fois de sens : il
 //!    porte, puis repousse (garder la flèche vers l'avant, ou fermer le
 //!    parapluie pour traverser vite la couche contraire), puis porte de nouveau.
-//!    Chaque couche a sa manche à air sur une marche de la tour ;
+//!    Chaque couche a sa manche à air sur une marche de la tour. Le vent s'arrête
+//!    une tuile avant la rive (colonne 130, vide et sans vent : carte 5.18) : il
+//!    faut finir le plané par soi-même, ce qui fait « remonter un peu » la
+//!    difficulté au-dessus de celle des vents d'altitude (niveau 7) ;
 //! 7. une troisième montgolfière, puis un dernier plané porté sous la grêle
 //!    jusqu'au drapeau.
 
@@ -62,7 +65,8 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   cul-de-sac (test `on_repart_de_chaque_marche`).
 /// - Moment fort : `>` colonnes 110-129 lignes 2-3, `<` 113-129 lignes 4-6, `>`
 ///   116-129 lignes 7-8 ; goutte (112, 1) au sommet du saut depuis la tour ;
-///   arrivée du plané : colonnes 130-141 (dessus à y = 144), lanterne (132, 8).
+///   colonne 130 vide et sans vent (carte 5.18) ; arrivée du plané : colonnes
+///   131-141 (dessus à y = 144), lanterne (132, 8).
 /// - Montgolfière (142, 9) jusqu'à la corniche 144-150 (dessus à y = 80), manche à
 ///   air (149, 4) ; vent `>` 151-166 lignes 3-5, grêle colonnes 158-159 ; drapeau
 ///   (172, 7).
@@ -76,8 +80,8 @@ const ASCII: &str = r"
 ..............>>>>>>>>>>>>>...............................................................................NNNNNNN<<<<<<<<<<<<<<<<<..............NNNNNNN.........................
 ..@.........Q.>>>>>>>>>>>>>..L............................................................................NNNNNNN.Q.>>>>>>>>>>>>>>..........................................X...
 NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNNb...........................NNNNNNNNNNNNNb.NNNNNNNNNN>>>>>>>>>>>>>>..L..................................NNNNNNNNN
-NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN..............NNNNNNNNNNNNb........................NNNNNNNNN
-NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN..............NNNNNNNNNNNN.........................NNNNNNNNN
+NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN...............NNNNNNNNNNNb........................NNNNNNNNN
+NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN...............NNNNNNNNNNN.........................NNNNNNNNN
 ";
 
 #[cfg(test)]
@@ -192,6 +196,20 @@ mod tests {
             let r = analyser(&n, pose, Options::default());
             assert!(r.arrivee, "bloqué sur la marche de la colonne {colonne}");
         }
+    }
+
+    /// L'arrivée du moment fort (carte 5.18) : la rive commence à la colonne 131, une
+    /// tuile APRÈS la fin du vent (colonne 129) ; la colonne 130 est vide de haut en
+    /// bas. C'est ce qui place la mer « un peu au-dessus » des vents d'altitude dans
+    /// la mesure de difficulté (voir `ecarts_de_la_courbe`, côté jeu).
+    #[test]
+    fn la_rive_du_moment_fort_commence_une_tuile_apres_le_vent() {
+        let n = INFOS.charger().unwrap();
+        for ty in 0..n.hauteur() as i32 {
+            assert!(!n.tuile_decor(130, ty).est_solide(), "colonne 130, ligne {ty}");
+        }
+        assert!(n.tuile_decor(131, 9).est_solide());
+        assert!(!n.tuile_decor(131, 8).est_solide());
     }
 
     /// Aucun ennemi : le vent, la grêle et le vide suffisent.
