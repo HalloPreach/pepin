@@ -1,4 +1,4 @@
-//! Sprites des ennemis : flaques qui patrouillent (16x10), corbeaux (16x12),
+//! Sprites des ennemis : flaques qui patrouillent (16x10), corbeaux (18x14),
 //! pigeons (16x12), chats endormis (16x14, avec leurs « z » et leur « ! »), et
 //! l'escargot (16x12), qui n'est pas un ennemi mais patrouille comme eux ; le
 //! Grand Nuage, le boss (48x32 : colère, essoufflé, touché), et ses points de vie
@@ -58,34 +58,49 @@ pub const FLAQUE_ECRASEE: Image = &[
     "0000000000000000",
 ];
 
+/// Corbeau en vol (18x14, de profil, tourné vers la droite) : aile HAUTE. Carte 6.1 :
+/// l'ancien corbeau (16x12, deux ailes en V autour d'un corps rond) se lisait comme
+/// une chauve-souris. Celui-ci ne se lit que d'un côté : gros bec gris clair (BRUME,
+/// NUAGE) devant, œil orange juste derrière le bec, tête ronde au crâne éclairé,
+/// queue en éventail derrière, et UNE aile qui bat depuis le dos, ses rémiges
+/// écartées en « doigts » au bout. Plumage bleu nuit (`1`) ; reflets ARDOISE_CLAIRE
+/// (`3`) sur le dos et ARDOISE_PALE (`4`) sur le bord d'attaque de l'aile et le
+/// crâne : ce sont eux qui le détachent du ciel d'ardoise du grand orage (le bleu
+/// nuit seul s'y perdrait). Contour sombre de 1 px tout autour.
 pub const CORBEAU0: Image = &[
-    "................",
-    "................",
-    "......000.......",
-    "..0..03440......",
-    ".0400344440.....",
-    ".0440344440A0...",
-    "..044444440AA0..",
-    "...04444444000..",
-    "....044444440...",
-    ".....0044400....",
-    "......0..0......",
-    "................",
+    "..0.0.0...........",
+    ".0101040..........",
+    ".01011340.........",
+    "..011113400000....",
+    "...011113343440...",
+    "....011113411130..",
+    ".00..0111341A1650.",
+    "011003333111145550",
+    "01111111111111140.",
+    "0111111111111100..",
+    "011001111111110...",
+    ".00..011111110....",
+    "......0000000.....",
+    "..................",
 ];
 
+/// Corbeau en vol : aile BASSE (elle descend sous le ventre, pointe vers l'arrière).
+/// Le corps, la tête et le bec ne bougent pas : seule l'aile bat.
 pub const CORBEAU1: Image = &[
-    "................",
-    "................",
-    "................",
-    "................",
-    "......000.......",
-    ".....03440......",
-    "..00034444400...",
-    ".0444444444A0...",
-    "0444004444CAA0..",
-    ".00000444440....",
-    "......00440.....",
-    ".......0..0.....",
+    "..................",
+    "..................",
+    "..................",
+    "...........000....",
+    "..........03440...",
+    ".........0111130..",
+    ".00..0000011A1650.",
+    "011003444444145550",
+    "01111111333411140.",
+    "0111111133411100..",
+    "011001113411110...",
+    ".0001113411110....",
+    "...0113400000.....",
+    "....0000..........",
 ];
 
 /// Pigeon perché (16x12, tourné vers la droite) : gris-bleu foncé (ardoise), cou

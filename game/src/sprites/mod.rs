@@ -388,7 +388,7 @@ mod tests {
             );
             assert!(
                 c.iter().any(|l| l.contains('A')),
-                "{nom} : le bec orange a disparu"
+                "{nom} : l'orange (l'œil, le bec avant la carte 6.1) a disparu"
             );
             assert!(
                 c.iter().any(|l| l.contains('0')),
@@ -397,6 +397,79 @@ mod tests {
         }
         assert!(contraste(couleur_de('4'), pepin_core::palette::ARDOISE) >= 3.0);
         assert!(contraste(couleur_de('3'), pepin_core::palette::ARDOISE) < 3.0);
+    }
+
+    /// Carte 6.1 : le corbeau se lit DE PROFIL, jamais comme une chauve-souris (corps
+    /// rond entre deux ailes en V, rien qui dise où est l'avant). Ce qui est vérifiable
+    /// simplement, sur les deux images :
+    /// - contour sombre de 1 px : aucun pixel coloré ne touche le vide ;
+    /// - le bec (gris clair `5`/`6`, au moins 5 px) n'existe QUE devant (x >= 13), et
+    ///   c'est lui qui pointe le plus loin : le pixel coloré le plus à droite est du bec ;
+    /// - un seul œil (`A`, orange), dans la tête, devant (x >= 12), au-dessus de la
+    ///   pointe du bec ;
+    /// - plumage sombre : le bleu nuit `1` est la couleur la plus fréquente, avec des
+    ///   reflets `4` (ceux qui se voient sur le ciel d'ardoise, test précédent) ;
+    /// - rien du pigeon (cou irisé `D`/`E`) ni de l'oiseau de décor (blanc `7`) ;
+    /// - la tête et le bec (colonnes 12 et suivantes) sont les mêmes sur les deux
+    ///   images : seule l'aile bat.
+    #[test]
+    fn le_corbeau_est_un_oiseau_de_profil_et_pas_une_chauve_souris() {
+        for nom in ennemis::CORBEAU {
+            assert_eq!(taille(nom), (18, 14), "{nom}");
+            let d = dessin(nom);
+            let mut bec = 0;
+            let mut yeux = Vec::new();
+            // Pixel coloré le plus à droite : (x, caractère, y).
+            let mut avant = (0, '.', 0);
+            let mut compte = std::collections::BTreeMap::new();
+            for y in 0..14 {
+                for x in 0..18 {
+                    let c = car(d, x, y);
+                    if c == '.' || c == '0' {
+                        continue;
+                    }
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        assert_ne!(
+                            car(d, x + dx, y + dy),
+                            '.',
+                            "{nom} : ({x},{y}) « {c} » touche le vide sans contour"
+                        );
+                    }
+                    assert!(!"27DE".contains(c), "{nom} : « {c} » en ({x},{y})");
+                    *compte.entry(c).or_insert(0) += 1;
+                    if c == '5' || c == '6' {
+                        bec += 1;
+                        assert!(x >= 13, "{nom} : du bec en ({x},{y}), derrière la tête");
+                    }
+                    if c == 'A' {
+                        yeux.push((x, y));
+                    }
+                    if x > avant.0 {
+                        avant = (x, c, y);
+                    }
+                }
+            }
+            assert!(bec >= 5, "{nom} : bec de {bec} px seulement");
+            assert_eq!(
+                avant.1, '5',
+                "{nom} : le bec ne pointe pas devant ({avant:?})"
+            );
+            assert_eq!(yeux.len(), 1, "{nom} : yeux {yeux:?}");
+            let (ox, oy) = yeux[0];
+            assert!(ox >= 12 && oy < avant.2, "{nom} : œil en ({ox},{oy})");
+            let plus_frequente = compte.iter().max_by_key(|(_, n)| **n).map(|(c, _)| *c);
+            assert_eq!(plus_frequente, Some('1'), "{nom} : plumage {compte:?}");
+            assert!(compte.contains_key(&'4'), "{nom} : aucun reflet clair");
+        }
+        let (a, b) = (dessin("corbeau0"), dessin("corbeau1"));
+        assert_ne!(a, b);
+        for (y, (la, lb)) in a.iter().zip(b.iter()).enumerate() {
+            assert_eq!(
+                &la[12..],
+                &lb[12..],
+                "rangée {y} : la tête doit rester immobile"
+            );
+        }
     }
 
     // --- Escargot (carte 5.8) ---

@@ -688,11 +688,13 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                         banque.dessiner(nom, sx - 2.0, sy - 2.0, e.vers_la_droite);
                     }
                     TypeEnnemi::Corbeau => {
-                        // Le corbeau du dessin regarde à droite.
+                        // Le corbeau du dessin regarde à droite. Sprite 18x14 centré
+                        // sur la boîte 12x10 (3 px de chaque côté, 2 px en haut et en
+                        // bas) : le miroir garde le corps sur la boîte.
                         banque.dessiner(
                             image(&ennemis::CORBEAU, pas, 10),
-                            sx - 2.0,
-                            sy - 1.0,
+                            sx - 3.0,
+                            sy - 2.0,
                             !e.vers_la_droite,
                         );
                     }
