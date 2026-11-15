@@ -409,6 +409,8 @@ mod tests {
     ///   pointe du bec ;
     /// - plumage sombre : le bleu nuit `1` est la couleur la plus fréquente, avec des
     ///   reflets `4` (ceux qui se voient sur le ciel d'ardoise, test précédent) ;
+    /// - assez de pixels clairs (reflets, bec, œil) pour se détacher du ciel d'ardoise
+    ///   de l'orage, et un plumage qui se détache des bandes claires des vents ;
     /// - rien du pigeon (cou irisé `D`/`E`) ni de l'oiseau de décor (blanc `7`) ;
     /// - la tête et le bec (colonnes 12 et suivantes) sont les mêmes sur les deux
     ///   images : seule l'aile bat.
@@ -460,6 +462,25 @@ mod tests {
             let plus_frequente = compte.iter().max_by_key(|(_, n)| **n).map(|(c, _)| *c);
             assert_eq!(plus_frequente, Some('1'), "{nom} : plumage {compte:?}");
             assert!(compte.contains_key(&'4'), "{nom} : aucun reflet clair");
+            // Sur le ciel d'ardoise du grand orage, le plumage sombre ne se détache pas
+            // (contraste 1,4) : ce sont les reflets, le bec et l'œil qui le font
+            // (contraste 3,7 à 7,4). Il en faut assez pour dessiner la silhouette.
+            let clairs: usize = compte
+                .iter()
+                .filter(|(c, _)| contraste(couleur_de(**c), pepin_core::palette::ARDOISE) >= 3.0)
+                .map(|(_, n)| *n)
+                .sum();
+            assert!(clairs >= 15, "{nom} : {clairs} px clairs seulement");
+        }
+        // Sur les bandes claires des vents d'altitude (corail, corail clair, orange),
+        // c'est le plumage sombre qui se détache (l'ancien corbeau clair s'y perdait :
+        // contraste 1,0 sur le corail).
+        for ciel in [
+            pepin_core::palette::CORAIL,
+            pepin_core::palette::CORAIL_CLAIR,
+            pepin_core::palette::ORANGE_SOLEIL,
+        ] {
+            assert!(contraste(couleur_de('1'), ciel) >= 5.0, "{ciel:?}");
         }
         let (a, b) = (dessin("corbeau0"), dessin("corbeau1"));
         assert_ne!(a, b);
