@@ -19,6 +19,11 @@
 // TOUCHES=target/qa/touches-52.txt (touche 0 du build de QA : niveau d'essai vertical).
 // Variable d'environnement FENETRE : taille de la fenêtre (défaut 960x540, image agrandie x3) ;
 // FENETRE=1280x720 donne une image agrandie x4.
+// Variable d'environnement DPR : densité de l'écran (défaut 1). Avec DPR=3 et FENETRE=844x340, un
+// téléphone en paysage (pixels CSS ; la capture fait 2532x1020 pixels physiques). MOBILE=1 : écran
+// tactile émulé ; la demande « doigt=IMAGE » pose alors un doigt au milieu de l'écran pendant deux
+// images (sans lâcher le script) : le jeu affiche ses boutons tactiles dès le premier toucher
+// (carte 6.2 : le compteur de vies ne doit pas passer dessous).
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,12 +33,14 @@ const ici = path.dirname(fileURLToPath(import.meta.url));
 const [httpPort, sortie, ...demandes] = process.argv.slice(2);
 const CHROME = process.env.CHROME || 'chromium';
 const [largeur, hauteur] = (process.env.FENETRE || '960x540').split('x').map(Number);
+const dpr = Number(process.env.DPR || 1);
+const mobile = process.env.MOBILE === '1';
 const dbg = 9400 + Math.floor(Math.random() * 400);
 const profil = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'prof-'));
 const chrome = spawn(CHROME, [
   `--remote-debugging-port=${dbg}`, `--user-data-dir=${profil}`, '--headless=new', '--no-sandbox',
   '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
-  `--window-size=${largeur},${hauteur}`, '--force-device-scale-factor=1', 'about:blank',
+  `--window-size=${largeur},${hauteur}`, `--force-device-scale-factor=${dpr}`, 'about:blank',
 ], { stdio: 'ignore' });
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 let cible;
@@ -50,7 +57,8 @@ const evalue = async (expr) => (await cdp('Runtime.evaluate', { expression: expr
 
 await cdp('Page.enable');
 await cdp('Page.bringToFront');
-await cdp('Emulation.setDeviceMetricsOverride', { width: largeur, height: hauteur, deviceScaleFactor: 1, mobile: false });
+await cdp('Emulation.setDeviceMetricsOverride', { width: largeur, height: hauteur, deviceScaleFactor: dpr, mobile });
+if (mobile) await cdp('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
 await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
 await dormir(4000);
 await cdp('Page.bringToFront');
@@ -113,6 +121,16 @@ for (const d of demandes) {
       }
       await capturer(`${nom}-${String(i).padStart(2, '0')}`);
     }
+  } else if (d.startsWith('doigt=')) {
+    // doigt=IMAGE : un doigt posé au milieu de l'écran (où il ne commande rien) pendant
+    // deux images, sans lâcher le script : le jeu se sait tactile et montre ses boutons.
+    const image = Number(d.slice(6));
+    await jusqua(image);
+    const point = { x: Math.round(largeur / 2), y: Math.round(hauteur / 2), id: 1 };
+    await cdp('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+    await jusqua(image + 2);
+    await cdp('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    console.log('doigt posé, image', await evalue('window.__P.n'));
   } else if (d.startsWith('touche:')) {
     // touche:nom=IMAGE:CODE:N : à IMAGE, le robot lâche son script ; la touche CODE (code
     // DOM : PageDown, KeyN, Digit5, Enter...) est appuyée pendant une image, puis N images
