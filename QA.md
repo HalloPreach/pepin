@@ -4374,8 +4374,11 @@ pixel hors palette.
 
 Chaque capture regardée. Le compteur se lit sur tous les ciels (la tête blanche cernée de sombre ; le
 chiffre blanc à ombre). Au clocher, une lanterne du décor passe juste au-dessus de l'icône sans gêner la
-lecture. Sur le ciel orange du cyclone, le « 6 » et le « +1 » dorés se lisent grâce à leur ombre, mais
-avec moins de contraste qu'ailleurs (or sur orange).
+lecture. Sur les ciels chauds, le « +1 » et le chiffre DORÉS du gain se détachent surtout par leur ombre
+sombre : or sur corail 2,2:1, sur corail clair 1,5:1, sur orange 1,3:1 (l'ombre, elle, y est à 6,0, 8,9
+et 10,3:1) ; sur la capture de la mer (`62-niveau08-mer-gain-vie`, « 7 +1 » sur le corail), on les lit,
+mais c'est le cas le moins contrasté. À part : au cyclone, le compteur de GOUTTES (inchangé) passe devant
+la colonne de neige blanche à gauche et s'y lit mal ; l'icône des vies, plus à droite, est dégagée.
 
 ### Vérification sur une extraction propre de 8b203ce (dernier commit de code)
 
