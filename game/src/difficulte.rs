@@ -18,6 +18,10 @@
 //!    direction gardée ou lâchée à tort en redescendant.
 //! 4. Une mort le renvoie à la dernière lanterne, comme dans le jeu. On compte
 //!    les morts jusqu'au drapeau (`monde.etat.morts`, le compteur du jeu).
+//! 5. Vies (carte 6.2) : on note aussi, dans l'ordre, ce qui change les vies (morts,
+//!    troisième goutte d'or) pour en tirer le taux de « PLUS DE VIES » de chaque
+//!    case (niveau commencé avec `VIES_DEPART` vies) et une estimation sur une partie
+//!    enchaînée. La mesure ne recommence pas le niveau : les morts n'en changent pas.
 //!
 //! Le hasard vient d'un petit générateur maison (`Hasard`, xorshift) : pas de
 //! dépendance, et la même graine donne exactement les mêmes nombres partout.
@@ -41,6 +45,7 @@ use pepin_core::levels::{
 };
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
+use pepin_core::vies::{Vies, VIES_DEPART};
 use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
 
 use crate::bot_qa::{
@@ -632,6 +637,69 @@ pub(crate) struct Essai {
     /// Décisions prises hors des cases explorées (détours calculés) et attentes.
     pub(crate) detours: u32,
     pub(crate) secours: u32,
+    /// Ce qui a changé les vies, dans l'ordre (carte 6.2).
+    pub(crate) evenements: Vec<EvenementVie>,
+    /// Les vies du jeu (`monde.etat.vies`, niveau commencé avec `VIES_DEPART` vies)
+    /// sont-elles tombées à zéro pendant l'essai ? Sert à vérifier `evenements`.
+    pub(crate) vies_a_zero: bool,
+}
+
+// --- Vies (carte 6.2) -----------------------------------------------------------
+
+/// Ce qui change les vies pendant un essai.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum EvenementVie {
+    /// Une mort : une vie en moins (sauf dans le bonus).
+    Mort,
+    /// La troisième goutte d'or du niveau : une vie en plus (une fois par niveau).
+    TroisGouttes,
+}
+
+/// Rejoue les `evenements` d'un niveau de genre `genre` avec les vies `vies`, selon
+/// les règles du jeu (`pepin_core::vies`), et renvoie le nombre de « PLUS DE VIES ».
+/// Après chacun, le jeu ferait recommencer le niveau avec `VIES_DEPART` vies ; ici,
+/// on repart avec `VIES_DEPART` vies et la SUITE des événements (approximation : le
+/// joueur se trompe autant au second passage). Le premier « PLUS DE VIES », lui,
+/// tombe exactement là où le jeu le montrerait.
+pub(crate) fn rejouer_vies(
+    vies: &mut Vies,
+    genre: GenreNiveau,
+    evenements: &[EvenementVie],
+) -> u32 {
+    vies.nouveau_niveau(genre);
+    let mut game_over = 0;
+    for e in evenements {
+        match e {
+            EvenementVie::Mort => {
+                if vies.perdre() {
+                    game_over += 1;
+                    vies.repartir();
+                }
+            }
+            EvenementVie::TroisGouttes => {
+                vies.trois_gouttes();
+            }
+        }
+    }
+    game_over
+}
+
+/// Note les événements de vie survenus depuis `avant` = (morts, gouttes du niveau) :
+/// d'abord la troisième goutte (un plan s'arrête à la mort : une goutte ramassée
+/// dans le même plan l'a été avant), puis les morts.
+fn noter_vies(monde: &Monde, avant: (u32, u32), evenements: &mut Vec<EvenementVie>) {
+    let (morts, gouttes) = avant;
+    if gouttes < 3 && monde.etat.gouttes_ici() >= 3 {
+        evenements.push(EvenementVie::TroisGouttes);
+    }
+    for _ in morts..monde.etat.morts {
+        evenements.push(EvenementVie::Mort);
+    }
+}
+
+/// `(morts, gouttes du niveau)` du monde, pour `noter_vies`.
+fn compteurs_vies(monde: &Monde) -> (u32, u32) {
+    (monde.etat.morts, monde.etat.gouttes_ici())
 }
 
 /// Une mort à moins d'une seconde de la précédente est « en série ».
@@ -665,6 +733,7 @@ pub(crate) fn jouer_essai_note(
     let (mut detours, mut secours, mut en_serie) = (0, 0, 0);
     let mut derniere_mort: Option<u32> = None;
     let mut lieux = Vec::new();
+    let mut evenements = Vec::new();
     while pas < PAS_MAX_ESSAI && !monde.termine {
         let (voulu, choix) = itineraires.intention(&monde);
         match choix {
@@ -673,8 +742,10 @@ pub(crate) fn jouer_essai_note(
             Choix::Secours => secours += 1,
         }
         let joue = perturber(voulu, profil, &mut hasard);
+        let avant = compteurs_vies(&monde);
         let (fin, apres, entrees) = simuler(&monde, joue);
         monde = apres;
+        noter_vies(&monde, avant, &mut evenements);
         pas += entrees.len() as u32;
         journal.extend(entrees);
         if fin == Fin::Mort {
@@ -685,7 +756,9 @@ pub(crate) fn jouer_essai_note(
             // encore : un ennemi qui passe sur la lanterne, par exemple).
             for _ in 0..PAS_DEPART {
                 let morts = monde.etat.morts;
+                let avant = compteurs_vies(&monde);
                 monde.avancer(&Entrees::default());
+                noter_vies(&monde, avant, &mut evenements);
                 journal.push(Entrees::default());
                 pas += 1;
                 if monde.etat.morts > morts {
@@ -706,6 +779,8 @@ pub(crate) fn jouer_essai_note(
         en_serie,
         detours,
         secours,
+        evenements,
+        vies_a_zero: monde.etat.vies.plus_de_vies(),
     }
 }
 
@@ -768,6 +843,12 @@ pub(crate) struct Case {
     pub(crate) duree_s: f32,
     /// Lieux de toutes les morts de tous les essais.
     pub(crate) lieux: Vec<LieuMort>,
+    /// Essais avec au moins un « PLUS DE VIES », le niveau commencé avec
+    /// `VIES_DEPART` vies (carte 6.2).
+    pub(crate) game_over: u32,
+    /// Événements de vie de chaque essai, dans l'ordre des essais (pour la partie
+    /// enchaînée).
+    pub(crate) evenements: Vec<Vec<EvenementVie>>,
 }
 
 /// Mesure complète : `cases[niveau][profil]`.
@@ -802,7 +883,7 @@ pub(crate) fn mesurer(graine: u64, essais: u32) -> Vec<Vec<Case>> {
                                     )
                                 })
                                 .collect();
-                            bilan(&liste)
+                            bilan(&liste, NIVEAUX[n].genre)
                         })
                     })
                     .collect()
@@ -819,9 +900,15 @@ pub(crate) fn mesurer(graine: u64, essais: u32) -> Vec<Vec<Case>> {
     })
 }
 
-fn bilan(liste: &[Essai]) -> Case {
+/// Bilan des essais `liste` d'un niveau de genre `genre`.
+fn bilan(liste: &[Essai], genre: GenreNiveau) -> Case {
     let n = liste.len().max(1) as f32;
     Case {
+        game_over: liste
+            .iter()
+            .filter(|e| rejouer_vies(&mut Vies::new(), genre, &e.evenements) > 0)
+            .count() as u32,
+        evenements: liste.iter().map(|e| e.evenements.clone()).collect(),
         morts_moyennes: liste.iter().map(|e| e.morts as f32).sum::<f32>() / n,
         en_serie_moyennes: liste.iter().map(|e| e.en_serie as f32).sum::<f32>() / n,
         morts_max: liste.iter().map(|e| e.morts).max().unwrap_or(0),
@@ -995,7 +1082,130 @@ pub(crate) fn tableau(cases: &[Vec<Case>], graine: u64, essais: u32) -> String {
             let _ = writeln!(t, "- {:<8} : {texte}", profils[p]);
         }
     }
+
+    // 4. Vies (carte 6.2) : ajouté À LA FIN, les trois parties d'avant ne changent
+    //    pas d'un octet.
+    tableau_game_over(&mut t, cases, essais, &entete, &noms);
     t
+}
+
+/// Part (en %, arrondie) de `k` sur `n`.
+fn pour_cent(k: u32, n: u32) -> u32 {
+    (k * 100 + n / 2) / n.max(1)
+}
+
+/// Seuil de game over du Débutant au-delà duquel un niveau normal est SIGNALÉ (la
+/// carte 6.2 ne retouche aucun niveau : on décide ensuite).
+pub(crate) const SEUIL_GAME_OVER_POUR_CENT: u32 = 10;
+
+/// Niveaux normaux où le Débutant dépasse `SEUIL_GAME_OVER_POUR_CENT` % de game
+/// over : `(indice, essais avec game over, essais)`.
+pub(crate) fn niveaux_a_signaler(cases: &[Vec<Case>]) -> Vec<(usize, u32, u32)> {
+    cases
+        .iter()
+        .enumerate()
+        .filter(|(n, _)| NIVEAUX[*n].genre == GenreNiveau::Normal)
+        .map(|(n, rang)| (n, rang[DEBUTANT].game_over, rang[DEBUTANT].essais))
+        .filter(|&(_, k, e)| k * 100 > SEUIL_GAME_OVER_POUR_CENT * e)
+        .collect()
+}
+
+/// Partie enchaînée (estimation) pour le profil `p` : pour chaque rang d'essai, les
+/// essais de ce rang de tous les niveaux du parcours (sans le bonus, qu'on n'ouvre
+/// qu'avec toutes les gouttes et qui ne coûte aucune vie), mis bout à bout, vies
+/// reportées d'un niveau au suivant. Renvoie le nombre de « PLUS DE VIES » de
+/// chaque partie.
+pub(crate) fn parties_enchainees(cases: &[Vec<Case>], p: usize) -> Vec<u32> {
+    let essais = cases.first().map_or(0, |rang| rang[p].evenements.len());
+    (0..essais)
+        .map(|e| {
+            let mut vies = Vies::new();
+            cases
+                .iter()
+                .enumerate()
+                .filter(|(n, _)| NIVEAUX[*n].genre != GenreNiveau::Bonus)
+                .map(|(n, rang)| rejouer_vies(&mut vies, NIVEAUX[n].genre, &rang[p].evenements[e]))
+                .sum()
+        })
+        .collect()
+}
+
+/// Quatrième partie du tableau : les « PLUS DE VIES ».
+fn tableau_game_over(
+    t: &mut String,
+    cases: &[Vec<Case>],
+    essais: u32,
+    entete: &[String],
+    noms: &[String],
+) {
+    let _ = writeln!(t);
+    let _ = writeln!(
+        t,
+        "Game over (carte 6.2) : essais où Pépin perd sa dernière vie au moins une fois, le \
+         niveau étant commencé avec {VIES_DEPART} vies (une mort en retire une, la troisième \
+         goutte d'or du niveau en rend une, le bonus n'en coûte aucune). Les morts ci-dessus \
+         n'en changent pas : la mesure ne recommence pas le niveau."
+    );
+    let _ = writeln!(t);
+    let largeurs = [27, 14, 14, 14];
+    ligne(t, entete, &largeurs);
+    let traits: Vec<String> = largeurs.iter().map(|&l| "-".repeat(l)).collect();
+    ligne(t, &traits, &largeurs);
+    for (n, rang) in cases.iter().enumerate() {
+        let mut cellules = vec![noms[n].clone()];
+        for c in rang {
+            cellules.push(format!(
+                "{}/{} ({} %)",
+                c.game_over,
+                c.essais,
+                pour_cent(c.game_over, c.essais)
+            ));
+        }
+        ligne(t, &cellules, &largeurs);
+    }
+    let _ = writeln!(t);
+    let _ = writeln!(
+        t,
+        "Partie enchaînée (estimation) : les essais de même rang des niveaux du parcours \
+         (sans le bonus) mis bout à bout, {VIES_DEPART} vies au départ, vies reportées d'un \
+         niveau au suivant ; après un game over, {VIES_DEPART} vies et la suite de l'essai \
+         (le joueur recommencerait le niveau). Parties avec au moins un game over / {essais}, \
+         game over par partie en moyenne et au plus."
+    );
+    for (p, profil) in PROFILS.iter().enumerate() {
+        let parties = parties_enchainees(cases, p);
+        let n = parties.len().max(1) as f32;
+        let au_moins_un = parties.iter().filter(|&&g| g > 0).count();
+        let moyenne = parties.iter().sum::<u32>() as f32 / n;
+        let max = parties.iter().max().copied().unwrap_or(0);
+        let _ = writeln!(
+            t,
+            "- {:<8} : {au_moins_un}/{}, {} en moyenne, {max} au plus",
+            profil.nom,
+            parties.len(),
+            decimal(moyenne)
+        );
+    }
+    let _ = writeln!(t);
+    let signales = niveaux_a_signaler(cases);
+    if signales.is_empty() {
+        let _ = writeln!(
+            t,
+            "Aucun niveau normal ne dépasse {SEUIL_GAME_OVER_POUR_CENT} % de game over pour le \
+             Débutant."
+        );
+    } else {
+        let liste: Vec<String> = signales
+            .iter()
+            .map(|&(n, k, e)| format!("{} ({k}/{e}, {} %)", noms[n], pour_cent(k, e)))
+            .collect();
+        let _ = writeln!(
+            t,
+            "À SIGNALER : niveaux normaux au-dessus de {SEUIL_GAME_OVER_POUR_CENT} % de game \
+             over pour le Débutant : {}.",
+            liste.join(" ; ")
+        );
+    }
 }
 
 /// Endroits affichés au plus par niveau et par profil dans les lieux de mort.
@@ -1267,6 +1477,73 @@ mod tests {
         assert_eq!(a, b, "même graine : même essai, mort pour mort");
         assert!(a.fini, "le débutant finit quand même le niveau 1 : {a:?}");
         assert_eq!(a.lieux.len() as u32, a.morts, "un lieu noté par mort");
+        // Carte 6.2 : une mort notée par mort, et le rejeu des vies dit la même chose
+        // que les vraies vies du jeu (niveau commencé avec cinq vies).
+        let morts_notees = a.evenements.iter().filter(|&&e| e == EvenementVie::Mort);
+        assert_eq!(morts_notees.count() as u32, a.morts);
+        let rejeu = rejouer_vies(&mut Vies::new(), GenreNiveau::Normal, &a.evenements);
+        assert_eq!(rejeu > 0, a.vies_a_zero, "{a:?}");
+    }
+
+    /// Le rejeu des vies suit les règles du jeu : cinq morts = un game over, la
+    /// troisième goutte en repousse un, le bonus n'en compte aucun, et après un game
+    /// over on repart avec cinq vies.
+    #[test]
+    fn le_rejeu_des_vies_suit_les_regles_du_jeu() {
+        use EvenementVie::{Mort, TroisGouttes};
+        let normal = GenreNiveau::Normal;
+        let rejeu = |ev: &[EvenementVie]| rejouer_vies(&mut Vies::new(), normal, ev);
+        assert_eq!(rejeu(&[Mort; 4]), 0);
+        assert_eq!(rejeu(&[Mort; 5]), 1);
+        assert_eq!(rejeu(&[Mort; 9]), 1, "cinq vies après le game over");
+        assert_eq!(rejeu(&[Mort; 10]), 2);
+        let mut ev = vec![TroisGouttes];
+        ev.extend([Mort; 5]);
+        assert_eq!(rejeu(&ev), 0, "la vie des trois gouttes");
+        // Trois gouttes APRÈS cinq morts : trop tard.
+        let mut ev = vec![Mort; 5];
+        ev.push(TroisGouttes);
+        assert_eq!(rejeu(&ev), 1);
+        assert_eq!(
+            rejouer_vies(&mut Vies::new(), GenreNiveau::Bonus, &[Mort; 30]),
+            0
+        );
+        // Vies reportées d'un niveau à l'autre (partie enchaînée).
+        let mut vies = Vies::new();
+        assert_eq!(rejouer_vies(&mut vies, normal, &[Mort; 3]), 0);
+        assert_eq!(rejouer_vies(&mut vies, normal, &[Mort; 2]), 1, "3 + 2");
+        assert_eq!(vies.restantes(), VIES_DEPART);
+    }
+
+    /// Le seuil de signalement : au-dessus de 10 % pour le Débutant, niveaux normaux
+    /// seulement ; la partie enchaînée met les essais de même rang bout à bout.
+    #[test]
+    fn les_game_over_sont_signales_et_enchaines() {
+        use EvenementVie::Mort;
+        let mut cases = vec![vec![Case::default(); PROFILS.len()]; NB_NIVEAUX];
+        for rang in &mut cases {
+            for c in rang.iter_mut() {
+                c.essais = 48;
+                c.evenements = vec![vec![Mort; 2], Vec::new()];
+            }
+        }
+        cases[1][DEBUTANT].game_over = 5; // 10,4 % : signalé
+        cases[2][DEBUTANT].game_over = 4; // 8,3 % : non
+        let bonus = NIVEAUX.iter().position(|n| n.genre == GenreNiveau::Bonus);
+        if let Some(b) = bonus {
+            cases[b][DEBUTANT].game_over = 40; // le bonus n'est jamais signalé
+        }
+        assert_eq!(niveaux_a_signaler(&cases), [(1, 5, 48)]);
+        // Deux morts par niveau sur l'essai 0 : 2 x 10 niveaux du parcours (sans le
+        // bonus) = 20 morts = 4 game over ; l'essai 1, aucune.
+        let parcours = NIVEAUX
+            .iter()
+            .filter(|n| n.genre != GenreNiveau::Bonus)
+            .count();
+        assert_eq!(parcours, 10);
+        assert_eq!(parties_enchainees(&cases, DEBUTANT), [4, 0]);
+        assert_eq!(pour_cent(5, 48), 10);
+        assert_eq!(pour_cent(0, 48), 0);
     }
 
     /// Les lieux de mort se regroupent par cause et par colonnes voisines.
@@ -1496,7 +1773,7 @@ mod tests {
                                 jouer_essai(itineraires, profil, graine)
                             })
                             .collect();
-                        bilan(&liste)
+                        bilan(&liste, NIVEAUX[n].genre)
                     })
                 })
                 .collect();
@@ -1508,13 +1785,15 @@ mod tests {
         for (profil, c) in PROFILS.iter().zip(&cases) {
             let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
             println!(
-                "- {} : {} morts, {}/{} finis, {} s, max {} ; {}",
+                "- {} : {} morts, {}/{} finis, {} s, max {}, game over {}/{} ; {}",
                 profil.nom,
                 centiemes(c.morts_moyennes),
                 c.finis,
                 c.essais,
                 decimal(c.duree_s),
                 c.morts_max,
+                c.game_over,
+                c.essais,
                 lieux.join(" · ")
             );
         }

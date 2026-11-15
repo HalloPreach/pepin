@@ -87,3 +87,26 @@ Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur le
 - Débutant : col. 3 grêle 1
 - Habitué  : aucune mort
 - Expert   : aucune mort
+
+Game over (carte 6.2) : essais où Pépin perd sa dernière vie au moins une fois, le niveau étant commencé avec 5 vies (une mort en retire une, la troisième goutte d'or du niveau en rend une, le bonus n'en coûte aucune). Les morts ci-dessus n'en changent pas : la mesure ne recommence pas le niveau.
+
+| Niveau                      | Débutant       | Habitué        | Expert         |
+| --------------------------- | -------------- | -------------- | -------------- |
+| 1. Les toits                | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 2. Gouttières et cheminées  | 3/48 (6 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 3. Le marché couvert        | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 4. Le grand orage           | 12/48 (25 %)   | 0/48 (0 %)     | 0/48 (0 %)     |
+| 5. Le clocher               | 13/48 (27 %)   | 0/48 (0 %)     | 0/48 (0 %)     |
+| 6. L'œil du cyclone         | 16/48 (33 %)   | 1/48 (2 %)     | 0/48 (0 %)     |
+| 7. Vents d'altitude         | 2/48 (4 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 8. La mer de nuages         | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 9. Au-dessus des nuages     | 1/48 (2 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 10. L'arc-en-ciel           | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 11. La descente             | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+
+Partie enchaînée (estimation) : les essais de même rang des niveaux du parcours (sans le bonus) mis bout à bout, 5 vies au départ, vies reportées d'un niveau au suivant ; après un game over, 5 vies et la suite de l'essai (le joueur recommencerait le niveau). Parties avec au moins un game over / 48, game over par partie en moyenne et au plus.
+- Débutant : 47/48, 2,5 en moyenne, 5 au plus
+- Habitué  : 13/48, 0,3 en moyenne, 2 au plus
+- Expert   : 1/48, 0,0 en moyenne, 1 au plus
+
+À SIGNALER : niveaux normaux au-dessus de 10 % de game over pour le Débutant : 4. Le grand orage (12/48, 25 %) ; 5. Le clocher (13/48, 27 %) ; 6. L'œil du cyclone (16/48, 33 %).
