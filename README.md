@@ -269,9 +269,9 @@ Tests :
     ./docker-cargo.sh test -p core
     ./docker-cargo.sh test -p game --no-default-features
 
-Mesure à la dernière vérification de ce README (carte 5.18, onze niveaux) :
+Mesure à la dernière vérification de ce README (carte 6.1, onze niveaux) :
 **353 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
-l'image `docs/police-test.png`) et **315 tests réussis** dans `game` (plus 18 tests
+l'image `docs/police-test.png`) et **316 tests réussis** dans `game` (plus 18 tests
 ignorés : ils écrivent les scripts du robot de QA, la mesure de difficulté ou des
 diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de minutes :
 le robot de QA joue réellement les onze niveaux, et la courbe de difficulté est
@@ -589,10 +589,11 @@ Mesure du dossier `dist/` produit par `./build.sh` (relevée sur les fichiers,
     fichier              octets     gzip
     index.html            14 693    5 617
     mq_js_bundle.js       36 148    9 839
-    game.wasm            491 395  197 595
+    game.wasm            491 619  197 632
 
-(mesure de la carte 5.18, onze niveaux ; avec cinq niveaux, le wasm faisait
-422 556 octets.) Le wasm pèse donc environ 0,49 Mo, soit 198 Ko transférés par
+(mesure de la carte 6.1, onze niveaux ; 491 395 octets à la carte 5.18, avant le
+nouveau corbeau ; avec cinq niveaux, le wasm faisait 422 556 octets.) Le wasm pèse
+donc environ 0,49 Mo, soit 198 Ko transférés par
 un serveur qui compresse.
 Le budget de `build.sh` est : avertissement au-delà de 1,2 Mo, échec au-delà de
 2,5 Mo. Ces chiffres dépendent du code et de la version du compilateur ; ils

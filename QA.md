@@ -11,8 +11,9 @@ vrai navigateur (Chromium piloté par le protocole CDP) servi par `python3 -m ht
 
 Cette première passe portait sur les cinq niveaux du 12/11/2026. La synthèse À JOUR, sur les onze
 niveaux de l'étape 5 (courbe de difficulté finale, robot, textes, poids, images par seconde,
-captures de chaque niveau, liste de ce qui n'est pas testé), est la dernière section de ce fichier :
-« QA finale des onze niveaux (carte 5.18) ».
+captures de chaque niveau, liste de ce qui n'est pas testé), est la section
+« QA finale des onze niveaux (carte 5.18) ». Retouches suivantes, à la fin du fichier : « Corbeau
+redessiné (carte 6.1) ».
 
 ## Résultat par point
 
@@ -4127,3 +4128,101 @@ seconde, README et QA.md.
 - La planche de sprites n'a pas été régénérée : aucun sprite nouveau ni modifié dans cette carte.
 - Le niveau d'essai F10 (arène du Grand Nuage) a changé avec la table `MOTIFS` : son robot et son test de
   décalage sont verts, mais il n'a pas été recapturé.
+
+## Corbeau redessiné (carte 6.1)
+
+Demande (mot pour mot) : « j'aime pas le skin de la chauve souris ». C'est le CORBEAU, l'ennemi
+volant des niveaux 4 (« Le grand orage ») et 7 (« Vents d'altitude ») : un corps rond et pâle entre
+deux ailes en V, rien qui dise où est l'avant, se lisait comme une chauve-souris. Rendu seulement :
+aucune boîte de collision, aucune physique, aucun niveau ne change.
+
+Ce qui a été fait (`game/src/sprites/ennemis.rs`, `game/src/scene.rs`, `game/src/sprites/mod.rs`) :
+
+- `CORBEAU0` / `CORBEAU1` redessinés en 18 x 14 (au lieu de 16 x 12), de profil, tournés vers la
+  droite : gros bec gris clair (BRUME, NUAGE) devant, œil orange juste derrière, tête ronde au
+  crâne éclairé, queue en éventail derrière, UNE aile qui bat depuis le dos : levée (image 0),
+  puis rabattue sous le ventre (image 1), rémiges écartées en « doigts » au bout. Plumage bleu
+  nuit (ARDOISE_NUIT), reflets ARDOISE_CLAIRE sur le dos et ARDOISE_PALE sur le bord de l'aile et
+  le crâne ; contour sombre de 1 px. Le corps et la tête ne bougent pas d'une image à l'autre,
+  seule l'aile bat. Rien du pigeon (cou irisé) ni de l'oiseau de décor (blanc).
+- Plus grand de 2 px dans chaque sens : `scene.rs` le décale de (-3, -2) au lieu de (-2, -1), il
+  reste centré sur la même boîte 12 x 10 (le miroir aussi).
+- Contraste (WCAG, calculé) : sur le ciel d'ardoise de l'orage, le plumage seul ne se détache pas
+  (1,4) ; ce sont ses 16 à 21 pixels clairs (reflets 3,7, bec 5,7 et 7,4, œil 6,4) qui le
+  dessinent. Sur les bandes claires des vents (corail, corail clair, orange), c'est l'inverse : le
+  plumage se détache à 5,1, 7,6 et 8,8 (l'ancien corbeau, gris pâle, n'y était qu'à 1,0 à 1,8).
+- Test ajouté `le_corbeau_est_un_oiseau_de_profil_et_pas_une_chauve_souris` : taille 18 x 14 ;
+  aucun pixel coloré ne touche le vide (contour) ; le bec (au moins 5 px) n'existe que devant
+  (x >= 13) et c'est lui qui pointe le plus loin ; un seul œil, devant, au-dessus de la pointe du
+  bec ; le bleu nuit est la couleur la plus fréquente, avec des reflets ARDOISE_PALE ; au moins 15
+  px clairs sur l'ardoise ; plumage à 5:1 au moins sur les trois bandes claires des vents ; aucune
+  couleur du pigeon ni de l'oiseau de décor ; colonnes 12 et suivantes (tête, bec) identiques sur
+  les deux images. Le test existant `le_corbeau_se_detache_du_ciel_d_ardoise` reste vert sans
+  changement de fond (son message parle maintenant de l'œil orange).
+- `docs/planche-sprites.png` régénérée (seul le corbeau change).
+
+Captures `docs/qa/61-*` (13 images, 960 x 540) : builds de QA (`./build.sh --qa`) d'une extraction
+propre de a30f4ac (AVANT) et de 243592e (APRÈS, le dessin), servis sur 127.0.0.1 (ports libres,
+serveurs arrêtés), Chromium 1208 sans tête piloté par CDP, onglet au premier plan
+(`Page.bringToFront`) et canvas focalisé, pilote `docs/capture-visibilite.mjs`, même script du robot
+(`script.txt`, partie sans bonus) pour les deux builds, mêmes images :
+
+- niveau 4, orage (images 8506 et 8516 : le corbeau de la cage, entre les deux tours, à côté de
+  Pépin) : `61-niveau04-orage-avant-aile-a`, `-avant-aile-b`,
+  `61-niveau04-orage-apres-aile-haute`, `-apres-aile-basse` ;
+- niveau 7, vents, premier corbeau (images 14161 et 14171, Pépin dans le courant juste dessous) :
+  `61-niveau07-vents-courant-avant-a`, `-avant-b`, `-apres-a`, `-apres-b` ;
+- niveau 7, vents, second corbeau avant le drapeau, avec le pigeon perché sur son petit nuage
+  (images 15601 et 15611) : `61-niveau07-vents-pigeon-avant-a`, `-avant-b`, `-apres-aile-haute`,
+  `-apres-aile-basse` ;
+- `61-zoom-corbeau-pigeon-oiseau` : morceaux des VRAIES captures (prises en 1920 x 1080, pixels
+  logiques relus un par un), agrandis x3. En haut : corbeau aile haute et aile basse (vents),
+  pigeon (vents), oiseau de décor (la descente, image 20161). En bas, sur le ciel de l'orage :
+  corbeau après (deux images), corbeau avant (deux images).
+
+`docs/mesure-capture.py <capture> 3` sur les 13 : 0 pixel hors palette, 0 pixel semi-transparent, 0
+bloc flou. Entre AVANT et APRÈS (prises en 1920 x 1080, pixels logiques comparés un par un), aux
+images 8516, 15601 et 15611, seule la case du corbeau change (106 à 147 pixels logiques). À l'image
+8506 de l'orage, deux passages du MÊME build diffèrent déjà (décor décalé d'un pixel, pluie) : ces
+écarts-là ne viennent pas de cette carte.
+
+Chaque capture regardée. Peut-on encore le prendre pour une chauve-souris ? Je ne le pense plus : de
+profil, le bec clair désigne l'avant, l'œil est sur la tête, la queue en éventail dépasse derrière,
+et une seule aile bat, au-dessus puis au-dessous du corps. Rien n'est symétrique : ni V, ni ailes
+membraneuses, ni oreilles. À côté, le pigeon reste gris-bleu au cou turquoise, perché ; l'oiseau de
+décor reste petit et blanc. AVANT, sur les mêmes images, c'était une tache gris pâle entre deux
+ailes pointues, qu'on ne savait pas orienter.
+
+Vérification sur une extraction propre de 086f853 (dernier commit de code ; `git archive`, nouveau
+dossier daté) :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : 353 (core) + 316 (game, un de plus)
+  tests, tous verts (1 + 18 ignorés), en 10 min 56 s ;
+- `./docker-cargo.sh lint` : `LINT-OK` ;
+- `mesure_de_difficulte` : `docs/mesure-difficulte.txt` régénéré, IDENTIQUE à l'octet à celui de
+  a30f4ac (SHA-256 d5283ace…0ebe0e) : le dessin ne touche ni au jeu ni au robot ;
+- scripts du robot (`ecrire_script_navigateur`, `ecrire_script_partie_complete`), empreintes
+  inchangées : 9fcab605c6e802a7 (sans bonus, 21 399 images, 0 mort, 16 gouttes) et
+  e226eb7090319702 (partie complète, 26 173 images, 0 mort, 33 gouttes) ;
+- `./build.sh` : `dist/` produit, wasm 491 619 octets (491 395 à la carte 5.18 : +224 octets, deux
+  grilles un peu plus grandes), 0 occurrence des noms interdits, seule URL celle de l'espace de
+  noms SVG.
+
+Commits : 243592e (dessin, décalage, test, planche), 086f853 (test : contrastes), captures 61-,
+cette section.
+
+Ce qui n'est PAS testé :
+
+- Aucun humain n'a regardé le nouveau corbeau ; « on ne le prend plus pour une chauve-souris » est
+  mon jugement sur les captures, à confirmer par celui qui l'a demandé.
+- Sur le ciel d'ardoise de l'orage, le corbeau est maintenant SOMBRE sur sombre : il se lit par
+  ses reflets, son bec et son œil, pas par sa masse (l'ancien, gris pâle, se voyait plus comme une
+  tache, mais pas comme un oiseau). Il reste visible sur les captures ; un humain dira si c'est
+  assez, pendant la pluie et en mouvement. Sur les ciels clairs des vents, il se voit mieux
+  qu'avant.
+- Chromium sans tête seulement, à 960 x 540 (et 1920 x 1080 pour le zoom) : ni vrai téléphone, ni
+  Safari, ni Firefox.
+- La boîte de collision (12 x 10) n'a pas changé ; le dessin la dépasse un peu plus (3 px de
+  chaque côté au lieu de 2, 2 px en haut et en bas au lieu de 1) : le bout de l'aile ou de la
+  queue peut sembler « frôler » Pépin sans le toucher. Rien n'a été mesuré là-dessus (la collision
+  est celle d'avant, la mesure de difficulté est identique).
