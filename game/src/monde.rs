@@ -164,6 +164,9 @@ impl Monde {
         let mut etat = EtatJeu::new(niveau.depart);
         etat.appliquer(Ordre::Demarrer)
             .expect("une partie neuve peut démarrer");
+        // Le genre du niveau dit s'il coûte des vies (pas le bonus, carte 6.2) :
+        // compte aussi pour un niveau chargé seul (tests, mesure, build de QA).
+        etat.nouveau_niveau(niveau.depart, infos.genre);
         let entites = niveau.entites.clone();
         let precedent_entites = entites.iter().map(Self::coin).collect();
         Self {

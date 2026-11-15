@@ -53,7 +53,7 @@ enum Suite {
 pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
     let mut monde = Monde::new(indice);
     if let Some(mut etat) = garder {
-        etat.nouveau_niveau(monde.niveau.depart);
+        etat.nouveau_niveau(monde.niveau.depart, monde.infos.genre);
         monde.etat = etat;
     }
     let camera = Camera::new(

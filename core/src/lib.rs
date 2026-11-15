@@ -14,6 +14,7 @@ pub mod sons;
 pub mod state;
 pub mod synthese;
 pub mod timestep;
+pub mod vies;
 pub mod zones;
 
 /// Largeur logique de l'écran en pixels.

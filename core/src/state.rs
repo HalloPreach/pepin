@@ -8,11 +8,18 @@
 //! - ownership : `EtatJeu` possède ses données ; `traiter` emprunte le joueur en
 //!   `&mut` juste le temps de le replacer au dernier checkpoint.
 //!
-//! Choix de conception : le respawn est INSTANTANÉ et les essais illimités (pas de
-//! « game over ») ; on compte simplement les morts.
+//! Choix de conception : le respawn est INSTANTANÉ. Depuis la carte 6.2, chaque mort
+//! coûte une vie (`vies`, module `crate::vies`) ; à zéro, l'état le dit
+//! (`vies.plus_de_vies()`) mais continue de replacer Pépin comme avant : c'est le jeu
+//! qui ouvre l'écran « PLUS DE VIES » et fait recommencer le niveau
+//! (`apres_plus_de_vies`). La simulation ne change donc pas (même mesure de
+//! difficulté, même robot), et le compteur de morts garde tout l'historique.
 
 use crate::entities::contacts::Contact;
+use crate::level::GOUTTES_PAR_NIVEAU;
+use crate::levels::GenreNiveau;
 use crate::player::Joueur;
+use crate::vies::Vies;
 
 /// Points gagnés pour une goutte d'or.
 pub const POINTS_GOUTTE: u32 = 100;
@@ -58,8 +65,15 @@ pub struct EtatJeu {
     pub score: u32,
     /// Nombre de gouttes d'or ramassées depuis le début de la partie.
     pub gouttes: u32,
-    /// Nombre de morts depuis le début de la partie.
+    /// Nombre de morts depuis le début de la partie (« PLUS DE VIES » compris : le
+    /// compteur garde tout l'historique).
     pub morts: u32,
+    /// Les vies de la partie (carte 6.2). Leurs règles sont gardées par leurs
+    /// méthodes : le champ peut être public sans qu'on puisse les tricher.
+    pub vies: Vies,
+    /// Gouttes d'or ramassées dans le niveau en cours, par index (0 à 2) : la
+    /// troisième donne une vie.
+    gouttes_ici: [bool; GOUTTES_PAR_NIVEAU],
     /// Point de réapparition `(x, y)` (coin haut-gauche du joueur).
     checkpoint: (f32, f32),
     /// Point de départ du niveau courant, pour `Recommencer`.
@@ -74,6 +88,8 @@ impl EtatJeu {
             score: 0,
             gouttes: 0,
             morts: 0,
+            vies: Vies::new(),
+            gouttes_ici: [false; GOUTTES_PAR_NIVEAU],
             checkpoint: depart,
             depart,
         }
@@ -110,10 +126,43 @@ impl EtatJeu {
         Ok(suivante)
     }
 
-    /// Change de niveau : nouveau départ, nouveau checkpoint. Le score est conservé.
-    pub fn nouveau_niveau(&mut self, depart: (f32, f32)) {
+    /// Change de niveau : nouveau départ, nouveau checkpoint. Le score et les vies sont
+    /// conservés ; `genre` dit si le niveau coûte des vies (pas le bonus), et sa vie
+    /// des trois gouttes est à prendre.
+    pub fn nouveau_niveau(&mut self, depart: (f32, f32), genre: GenreNiveau) {
         self.depart = depart;
         self.checkpoint = depart;
+        self.gouttes_ici = [false; GOUTTES_PAR_NIVEAU];
+        self.vies.nouveau_niveau(genre);
+    }
+
+    /// Gouttes d'or ramassées dans le niveau en cours (0 à 3).
+    pub fn gouttes_ici(&self) -> u32 {
+        self.gouttes_ici.iter().filter(|&&g| g).count() as u32
+    }
+
+    /// « RECOMMENCER » (menu de pause) : l'état à remettre en jeu, `debut` étant la
+    /// photo prise au début du niveau. Score et gouttes du niveau repartent de
+    /// `debut` ; les morts et les VIES restent celles d'à présent (recommencer ne rend
+    /// pas les vies perdues dans le niveau, sinon ce serait un « PLUS DE VIES » évité),
+    /// et la vie des trois gouttes, si elle a été donnée, le reste.
+    pub fn recommencer_niveau(&self, debut: &EtatJeu) -> EtatJeu {
+        let mut e = debut.clone();
+        e.morts = self.morts;
+        e.vies = self.vies;
+        e
+    }
+
+    /// « PLUS DE VIES » : l'état pour recommencer le niveau en cours depuis son début
+    /// (`debut`, photo du début du niveau). Comme `recommencer_niveau`, mais avec
+    /// `VIES_DEPART` vies (`Vies::repartir`). Les gouttes ramassées dans ce niveau
+    /// sont perdues (celles des niveaux d'avant sont dans `debut`), le compteur de
+    /// morts garde l'historique, et la vie des trois gouttes déjà donnée ici ne se
+    /// regagne pas.
+    pub fn apres_plus_de_vies(&self, debut: &EtatJeu) -> EtatJeu {
+        let mut e = self.recommencer_niveau(debut);
+        e.vies.repartir();
+        e
     }
 
     /// Digère les contacts d'un pas de simulation. Sans effet hors de la phase `EnJeu`.
@@ -122,15 +171,25 @@ impl EtatJeu {
     /// (vitesse et minuteries remises à zéro par `Joueur::placer`) et protégé des
     /// dangers pendant `PROTECTION_REAPPARITION_PAS` pas (`Joueur::proteger`) : un
     /// ennemi qui passe sur la lanterne ne peut plus le tuer en boucle.
+    ///
+    /// Vies (carte 6.2) : une mort en retire une (`Vies::perdre`), la dernière goutte
+    /// d'or du niveau en donne une (`Vies::trois_gouttes`). À zéro, Pépin est replacé
+    /// quand même : c'est au jeu de lire `vies.plus_de_vies()`.
     pub fn traiter(&mut self, joueur: &mut Joueur, contacts: &[Contact]) {
         if self.phase != Phase::EnJeu {
             return;
         }
         for contact in contacts {
             match *contact {
-                Contact::Goutte(_) => {
+                Contact::Goutte(i) => {
                     self.gouttes += 1;
                     self.score += POINTS_GOUTTE;
+                    if let Some(g) = self.gouttes_ici.get_mut(usize::from(i)) {
+                        *g = true;
+                    }
+                    if self.gouttes_ici.iter().all(|&g| g) {
+                        self.vies.trois_gouttes();
+                    }
                 }
                 Contact::Lanterne(x, y) => self.checkpoint = (x, y),
                 Contact::Ecrase => self.score += POINTS_ECRASEMENT,
@@ -139,6 +198,7 @@ impl EtatJeu {
                 Contact::Auvent => {}
                 Contact::Mort(_) => {
                     self.morts += 1;
+                    self.vies.perdre();
                     joueur.placer(self.checkpoint.0, self.checkpoint.1);
                     joueur.proteger();
                 }
@@ -155,6 +215,7 @@ mod tests {
     use crate::entities::{Actualisable, Ennemi, Entite, Lanterne, TypeEnnemi};
     use crate::physics::Environnement;
     use crate::player::Entrees;
+    use crate::vies::{VIES_DEPART, VIES_MAX};
 
     fn partie() -> (EtatJeu, Joueur) {
         let mut s = EtatJeu::new((16.0, 32.0));
@@ -261,12 +322,151 @@ mod tests {
     fn nouveau_niveau_conserve_le_score() {
         let (mut s, mut j) = partie();
         s.traiter(&mut j, &[Contact::Goutte(0)]);
-        s.nouveau_niveau((48.0, 80.0));
+        s.nouveau_niveau((48.0, 80.0), GenreNiveau::Normal);
         assert_eq!(s.score, POINTS_GOUTTE);
         assert_eq!(s.checkpoint(), (48.0, 80.0));
+        assert_eq!(
+            s.gouttes_ici(),
+            0,
+            "les gouttes du niveau repartent de zéro"
+        );
         j.placer(900.0, 0.0);
         s.traiter(&mut j, &[Contact::Mort(CauseMort::Ennemi)]);
         assert_eq!((j.boite.x, j.boite.y), (48.0, 80.0));
+    }
+
+    // --- Vies (carte 6.2) ----------------------------------------------------------
+
+    /// Une mort pas à pas : `n` morts, chacune dans son propre pas.
+    fn mourir(s: &mut EtatJeu, j: &mut Joueur, n: u32) {
+        for _ in 0..n {
+            j.placer(500.0, 10.0);
+            s.traiter(j, &[Contact::Mort(CauseMort::Ennemi)]);
+        }
+    }
+
+    #[test]
+    fn chaque_mort_coute_une_vie_et_pepin_reapparait_toujours() {
+        let (mut s, mut j) = partie();
+        s.traiter(&mut j, &[Contact::Lanterne(200.0, 64.0)]);
+        for n in 1..=u32::from(VIES_DEPART) {
+            mourir(&mut s, &mut j, 1);
+            assert_eq!(u32::from(s.vies.restantes()), u32::from(VIES_DEPART) - n);
+            assert_eq!(s.morts, n);
+            assert_eq!((j.boite.x, j.boite.y), (200.0, 64.0), "à la lanterne");
+        }
+        assert!(s.vies.plus_de_vies(), "cinq morts : plus de vies");
+        // L'état continue de replacer Pépin et de compter les morts : c'est le jeu
+        // qui recommence le niveau (la mesure de difficulté n'en est pas changée).
+        mourir(&mut s, &mut j, 2);
+        assert_eq!(s.morts, u32::from(VIES_DEPART) + 2);
+        assert_eq!(s.vies.restantes(), 0);
+        assert_eq!((j.boite.x, j.boite.y), (200.0, 64.0));
+    }
+
+    #[test]
+    fn la_troisieme_goutte_du_niveau_donne_une_vie_une_fois() {
+        let (mut s, mut j) = partie();
+        mourir(&mut s, &mut j, 2);
+        s.traiter(&mut j, &[Contact::Goutte(2)]);
+        s.traiter(&mut j, &[Contact::Goutte(0)]);
+        assert_eq!(s.vies.restantes(), VIES_DEPART - 2, "deux gouttes : rien");
+        assert_eq!(s.gouttes_ici(), 2);
+        s.traiter(&mut j, &[Contact::Goutte(1)]);
+        assert_eq!(s.vies.restantes(), VIES_DEPART - 1, "la troisième : +1");
+        assert_eq!((s.gouttes, s.gouttes_ici()), (3, 3));
+        // Une goutte « en trop » (impossible en jeu) ne redonne rien.
+        s.traiter(&mut j, &[Contact::Goutte(1)]);
+        assert_eq!(s.vies.restantes(), VIES_DEPART - 1);
+        // Le niveau suivant : ses trois gouttes redonnent une vie.
+        s.nouveau_niveau((48.0, 80.0), GenreNiveau::Normal);
+        s.traiter(
+            &mut j,
+            &[Contact::Goutte(0), Contact::Goutte(1), Contact::Goutte(2)],
+        );
+        assert_eq!(s.vies.restantes(), VIES_DEPART);
+    }
+
+    #[test]
+    fn les_vies_plafonnent_a_neuf_niveau_apres_niveau() {
+        let (mut s, mut j) = partie();
+        for _ in 0..8 {
+            s.nouveau_niveau((48.0, 80.0), GenreNiveau::Normal);
+            s.traiter(
+                &mut j,
+                &[Contact::Goutte(0), Contact::Goutte(1), Contact::Goutte(2)],
+            );
+        }
+        assert_eq!(s.vies.restantes(), VIES_MAX);
+        assert_eq!(s.gouttes, 24);
+    }
+
+    /// « PLUS DE VIES » au milieu d'un niveau : on repart de la photo du début du
+    /// niveau, avec cinq vies, sans les gouttes de CE niveau (celles d'avant gardées),
+    /// avec toutes les morts ; la vie des trois gouttes déjà donnée ici ne revient pas.
+    #[test]
+    fn plus_de_vies_fait_recommencer_le_niveau_avec_les_bons_compteurs() {
+        let (mut s, mut j) = partie();
+        // Niveau 1 : deux gouttes, une mort.
+        s.traiter(&mut j, &[Contact::Goutte(0), Contact::Goutte(1)]);
+        mourir(&mut s, &mut j, 1);
+        // Niveau 2 : la photo de son début, puis ses trois gouttes (+1 vie) et
+        // assez de morts pour tout perdre.
+        s.nouveau_niveau((48.0, 80.0), GenreNiveau::Normal);
+        let debut = s.clone();
+        s.traiter(&mut j, &[Contact::Lanterne(200.0, 64.0)]);
+        s.traiter(
+            &mut j,
+            &[Contact::Goutte(0), Contact::Goutte(1), Contact::Goutte(2)],
+        );
+        assert_eq!(s.vies.restantes(), VIES_DEPART, "4 + 1");
+        mourir(&mut s, &mut j, u32::from(VIES_DEPART));
+        assert!(s.vies.plus_de_vies());
+        let e = s.apres_plus_de_vies(&debut);
+        assert_eq!(e.vies.restantes(), VIES_DEPART);
+        assert_eq!(
+            e.gouttes, 2,
+            "les gouttes du niveau 1 restent, celles du 2 non"
+        );
+        assert_eq!(e.gouttes_ici(), 0);
+        assert_eq!(e.score, 2 * POINTS_GOUTTE);
+        assert_eq!(e.morts, 1 + u32::from(VIES_DEPART), "toutes les morts");
+        assert_eq!(e.checkpoint(), (48.0, 80.0), "au départ du niveau 2");
+        assert_eq!(e.phase(), Phase::EnJeu);
+        // Les trois gouttes reprises comptent (score, total) mais pas de 2e vie.
+        let mut e = e;
+        e.traiter(
+            &mut j,
+            &[Contact::Goutte(0), Contact::Goutte(1), Contact::Goutte(2)],
+        );
+        assert_eq!((e.gouttes, e.gouttes_ici()), (5, 3));
+        assert_eq!(e.vies.restantes(), VIES_DEPART, "une fois par niveau");
+    }
+
+    /// « RECOMMENCER » (pause) : le niveau repart de sa photo, mais les vies perdues
+    /// restent perdues (sinon ce serait un « PLUS DE VIES » évité).
+    #[test]
+    fn recommencer_le_niveau_garde_les_vies_et_les_morts() {
+        let (mut s, mut j) = partie();
+        let debut = s.clone();
+        s.traiter(&mut j, &[Contact::Goutte(1)]);
+        mourir(&mut s, &mut j, 3);
+        let e = s.recommencer_niveau(&debut);
+        assert_eq!(e.vies.restantes(), VIES_DEPART - 3);
+        assert_eq!((e.gouttes, e.gouttes_ici(), e.score, e.morts), (0, 0, 0, 3));
+    }
+
+    #[test]
+    fn le_niveau_bonus_ne_coute_aucune_vie_et_l_epilogue_si() {
+        let (mut s, mut j) = partie();
+        s.nouveau_niveau((48.0, 80.0), GenreNiveau::Bonus);
+        mourir(&mut s, &mut j, 30);
+        assert_eq!(s.morts, 30, "les morts du bonus comptent");
+        assert_eq!(s.vies.restantes(), VIES_DEPART, "mais aucune vie");
+        assert!(!s.vies.plus_de_vies());
+        s.nouveau_niveau((48.0, 80.0), GenreNiveau::Epilogue);
+        mourir(&mut s, &mut j, 1);
+        assert_eq!(s.vies.restantes(), VIES_DEPART - 1);
     }
 
     /// Seule une réapparition protège : allumer une lanterne, écraser un ennemi,
