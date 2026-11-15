@@ -6,6 +6,7 @@ use pepin_core::levels::{nb_normaux, NIVEAUX};
 use pepin_core::palette::{
     ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL_CLAIR, OR_PALE,
 };
+use pepin_core::vies::coute_des_vies;
 use pepin_core::zones::InfosNiveau;
 use pepin_core::LARGEUR_LOGIQUE;
 
@@ -65,9 +66,19 @@ pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32) {
         texte::dessiner_centre(&ligne, y, ombre(CORAIL_CLAIR));
         y += 10.0;
     }
+    // Le bonus ne coûte aucune vie (carte 6.2) : la carte le dit.
+    if let Some(ligne) = ligne_vies(infos) {
+        texte::dessiner_centre(ligne, y, ombre(OR_PALE));
+    }
     if (anim / 30).is_multiple_of(2) {
         texte::dessiner_centre(contenu::CONTINUER, 134.0, ombre(BRUME));
     }
+}
+
+/// Ligne de plus sur la carte d'un niveau qui ne coûte aucune vie (le bonus), `None`
+/// pour les autres.
+pub fn ligne_vies(infos: &InfosNiveau) -> Option<&'static str> {
+    (!coute_des_vies(infos.genre)).then_some(contenu::SANS_PERTE_DE_VIE)
 }
 
 #[cfg(test)]
@@ -130,8 +141,13 @@ mod tests {
             let b = couper_lignes(intro.astuce, LIGNE_MAX);
             assert!(a.len() <= 3, "{} : intro sur {} lignes", n.nom, a.len());
             assert!(b.len() <= 2, "{} : conseil sur {} lignes", n.nom, b.len());
-            // Le texte commence en y = 88 ; la dernière ligne doit finir avant « continuer » (134).
-            let fin = 88.0 + a.len() as f32 * 10.0 + 4.0 + b.len() as f32 * 10.0;
+            // Le texte commence en y = 88 ; la dernière ligne (celle des vies du
+            // bonus comprise, carte 6.2) doit finir avant « continuer » (134).
+            let c = ligne_vies(n).map_or(0, |l| {
+                assert!(largeur_texte(l, 1) < LARGEUR_CADRE - 8, "{l}");
+                1
+            });
+            let fin = 88.0 + a.len() as f32 * 10.0 + 4.0 + (b.len() + c) as f32 * 10.0;
             assert!(fin <= 134.0, "{} : texte jusqu'à y = {fin}", n.nom);
             for ligne in a.iter().chain(&b) {
                 assert!(largeur_texte(ligne, 1) < LARGEUR_CADRE - 8, "{}", ligne);
@@ -204,5 +220,20 @@ mod tests {
         for texte in [contenu::intro(9).texte, contenu::intro(9).astuce] {
             assert_eq!(couper_lignes(texte, LIGNE_MAX), [texte]);
         }
+    }
+
+    /// Seul le bonus dit qu'on n'y perd aucune vie (carte 6.2).
+    #[test]
+    fn seule_la_carte_du_bonus_parle_des_vies() {
+        use pepin_core::levels::GenreNiveau;
+        for n in NIVEAUX {
+            assert_eq!(
+                ligne_vies(n).is_some(),
+                n.genre == GenreNiveau::Bonus,
+                "{}",
+                n.nom
+            );
+        }
+        assert!(NIVEAUX.iter().any(|n| ligne_vies(n).is_some()));
     }
 }

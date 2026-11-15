@@ -1,4 +1,4 @@
-//! Les écrans du jeu (titre, aide, carte de niveau, pause, fin) et leurs
+//! Les écrans du jeu (titre, aide, carte de niveau, pause, « plus de vies », fin) et leurs
 //! outils de dessin communs.
 //!
 //! Chaque écran vit dans son petit fichier et ne fait que DESSINER ce qu'on lui
@@ -21,6 +21,7 @@ pub mod aide;
 pub mod carte;
 pub mod fin;
 pub mod pause;
+pub mod plus_de_vies;
 pub mod titre;
 
 /// L'écran affiché.
@@ -32,6 +33,9 @@ pub enum Ecran {
     Carte(u16),
     Jeu,
     Pause,
+    /// Pépin a perdu sa dernière vie (carte 6.2) ; le nombre est le nombre de pas
+    /// restants avant que le niveau ne recommence tout seul.
+    PlusDeVies(u16),
     Fin,
 }
 
@@ -78,7 +82,7 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
             y0: 124.0,
             pas: 20.0,
         }),
-        Ecran::Aide | Ecran::Carte(_) | Ecran::Jeu => None,
+        Ecran::Aide | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => None,
     }
 }
 
@@ -211,6 +215,7 @@ mod tests {
         assert!(disposition(Ecran::Jeu).is_none());
         assert!(disposition(Ecran::Aide).is_none());
         assert!(disposition(Ecran::Carte(10)).is_none());
+        assert!(disposition(Ecran::PlusDeVies(10)).is_none());
     }
 
     #[test]

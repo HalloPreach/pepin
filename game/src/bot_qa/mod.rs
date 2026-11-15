@@ -133,6 +133,7 @@ fn nom_ecran(e: Ecran) -> &'static str {
         Ecran::Carte(_) => "carte",
         Ecran::Jeu => "jeu",
         Ecran::Pause => "pause",
+        Ecran::PlusDeVies(_) => "plus_de_vies",
         Ecran::Fin => "fin",
     }
 }

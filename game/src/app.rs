@@ -1,5 +1,6 @@
 //! `Application` : la machine à écrans du jeu (titre, aide, carte de niveau, jeu,
-//! pause, fin) et tout ce qui les relie (transitions, bilan, rejouer).
+//! pause, « plus de vies », fin) et tout ce qui les relie (transitions, bilan,
+//! rejouer, recommencer le niveau quand Pépin n'a plus de vies).
 //!
 //! Deux rythmes cohabitent :
 //! - `reagir` est appelé UNE fois par image affichée : il lit les appuis
@@ -21,7 +22,7 @@ use pepin_core::state::EtatJeu;
 use crate::camera::Camera;
 use crate::contenu;
 use crate::ecrans::fin::{self, Bilan};
-use crate::ecrans::{self, aide, carte, pause, titre, Disposition, Ecran};
+use crate::ecrans::{self, aide, carte, pause, plus_de_vies, titre, Disposition, Ecran};
 use crate::effets::effets;
 use crate::entrees::{self, Commandes, RaccourciNiveau};
 use crate::hud;
@@ -45,6 +46,9 @@ enum Suite {
     },
     /// Recharger le niveau courant tel qu'il était à son début.
     Recommencer,
+    /// Plus de vies (carte 6.2) : recharger le niveau courant depuis son début, avec
+    /// `VIES_DEPART` vies (`EtatJeu::apres_plus_de_vies`).
+    PlusDeVies,
     Titre,
     Fin,
 }
@@ -53,6 +57,7 @@ enum Suite {
 pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
     let mut monde = Monde::new(indice);
     if let Some(mut etat) = garder {
+        // Un NOUVEAU niveau : nouveau départ, et sa vie des trois gouttes à prendre.
         etat.nouveau_niveau(monde.niveau.depart, monde.infos.genre);
         monde.etat = etat;
     }
@@ -71,7 +76,7 @@ pub fn choix_pour(ecran: Ecran, son_disponible: bool) -> Vec<Choix> {
         Ecran::Titre => vec![Choix::Jouer, Choix::Aide],
         Ecran::Pause => vec![Choix::Reprendre, Choix::Recommencer],
         Ecran::Fin => vec![Choix::Rejouer, Choix::RetourTitre],
-        Ecran::Aide | Ecran::Carte(_) | Ecran::Jeu => Vec::new(),
+        Ecran::Aide | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => Vec::new(),
     };
     if son_disponible && matches!(ecran, Ecran::Titre | Ecran::Pause) {
         v.push(Choix::Son);
@@ -109,6 +114,8 @@ pub struct Application {
     /// Le focus a été perdu juste avant que le jeu ne (re)démarre (carte de présentation,
     /// volets) : la pause s'ouvrira au premier pas de jeu, sauf si le focus revient avant.
     pause_differee: bool,
+    /// Pas restants du petit signe d'une vie gagnée dans le HUD (0 : aucun).
+    eclat_vie: u16,
 }
 
 impl Application {
@@ -134,6 +141,7 @@ impl Application {
             bilan: Bilan::default(),
             gouttes_bonus: None,
             pause_differee: false,
+            eclat_vie: 0,
         };
         app.ouvrir(Ecran::Titre);
         app
@@ -172,9 +180,10 @@ impl Application {
     /// - En pleine partie : l'écran de pause s'ouvre (le monde et le chrono s'arrêtent,
     ///   la musique et la pluie aussi) ; seul le joueur en sort.
     /// - Déjà en pause : rien (la pause ne s'ouvre jamais deux fois, le curseur reste).
-    /// - Titre, aide, fin : rien. Carte de présentation ou volets qui mènent au jeu :
-    ///   la pause est DIFFÉRÉE au premier pas de jeu, et annulée si le focus revient avant
-    ///   (sinon, fenêtre visible mais sans focus, la carte finirait et Pépin partirait seul).
+    /// - Titre, aide, fin : rien. Carte de présentation, écran « plus de vies » ou volets
+    ///   qui mènent au jeu : la pause est DIFFÉRÉE au premier pas de jeu, et annulée si le
+    ///   focus revient avant (sinon, fenêtre visible mais sans focus, la carte finirait et
+    ///   Pépin partirait seul).
     pub fn focus(&mut self, present: bool) {
         if present {
             self.pause_differee = false;
@@ -189,12 +198,13 @@ impl Application {
     fn partie_imminente(&self) -> bool {
         match self.suite {
             // Volets qui se ferment : tout dépend de ce qui vient derrière.
-            Some(Suite::Niveau { .. }) | Some(Suite::Recommencer) => true,
+            Some(Suite::Niveau { .. }) | Some(Suite::Recommencer) | Some(Suite::PlusDeVies) => true,
             Some(Suite::Titre) | Some(Suite::Fin) => false,
-            // Rien en attente : carte de présentation, ou volets qui s'ouvrent sur le
-            // niveau recommencé.
+            // Rien en attente : carte de présentation, écran « plus de vies » (il finit
+            // tout seul sur le niveau recommencé), ou volets qui s'ouvrent sur le niveau
+            // recommencé.
             None => {
-                matches!(self.ecran, Ecran::Carte(_))
+                matches!(self.ecran, Ecran::Carte(_) | Ecran::PlusDeVies(_))
                     || (self.ecran == Ecran::Jeu && self.transition.est_active())
             }
         }
@@ -235,6 +245,15 @@ impl Application {
             Ecran::Carte(_) => {
                 if nav.valider || nav.clic.is_some() {
                     self.ecran = Ecran::Jeu;
+                }
+            }
+            Ecran::PlusDeVies(_) => {
+                if commandes.pause {
+                    // Pause demandée : elle s'ouvrira sur le niveau recommencé, avant
+                    // son premier pas (l'écran, lui, est déjà à l'arrêt).
+                    self.pause_differee = true;
+                } else if nav.valider || nav.clic.is_some() {
+                    self.lancer(Suite::PlusDeVies);
                 }
             }
             Ecran::Jeu => {
@@ -326,6 +345,13 @@ impl Application {
                         monde_avance = true;
                     }
                 }
+                Ecran::PlusDeVies(n) => {
+                    if n <= 1 {
+                        self.lancer(Suite::PlusDeVies);
+                    } else {
+                        self.ecran = Ecran::PlusDeVies(n - 1);
+                    }
+                }
                 Ecran::Fin => fin::confettis(&mut self.particules, self.anim),
                 Ecran::Titre | Ecran::Aide | Ecran::Pause => {}
             }
@@ -339,7 +365,12 @@ impl Application {
             self.monde.niveau.largeur_px(),
             self.monde.niveau.hauteur_px(),
         );
+        let vies_avant = self.monde.etat.vies.restantes();
         self.monde.avancer(entrees);
+        self.eclat_vie = self.eclat_vie.saturating_sub(1);
+        if self.monde.etat.vies.restantes() > vies_avant {
+            self.eclat_vie = hud::DUREE_ECLAT_VIE;
+        }
         if self
             .monde
             .contacts
@@ -357,6 +388,12 @@ impl Application {
             self.camera.y,
         );
         self.pas_partie += 1;
+        // La dernière vie perdue : l'écran « plus de vies », puis le niveau recommence
+        // (avant tout, même si ce pas-là finissait aussi le niveau).
+        if self.monde.etat.vies.plus_de_vies() {
+            self.ouvrir(Ecran::PlusDeVies(plus_de_vies::DUREE_PAS));
+            return;
+        }
         if self.monde.termine {
             // Le bonus fini : ses gouttes sont mises à part (compteur, écran de fin).
             if self.monde.infos.genre == GenreNiveau::Bonus {
@@ -393,11 +430,18 @@ impl Application {
                 self.ecran = Ecran::Carte(carte::DUREE_PAS);
             }
             Suite::Recommencer => {
-                let indice = self.monde.indice;
-                // Le niveau repart comme au début, mais les morts restent comptées.
-                let mut etat = self.debut_niveau.clone();
-                etat.morts = self.monde.etat.morts;
-                self.recharger(indice, Some(etat));
+                // Le niveau repart comme au début, mais les morts restent comptées et
+                // les vies perdues restent perdues.
+                let etat = self.monde.etat.recommencer_niveau(&self.debut_niveau);
+                self.relancer(etat);
+                self.ecran = Ecran::Jeu;
+            }
+            Suite::PlusDeVies => {
+                // Pareil, avec `VIES_DEPART` vies : les gouttes de CE niveau sont à
+                // reprendre (celles d'avant restent), le chrono continue, les morts
+                // restent comptées, le Grand Nuage repart avec tous ses points de vie.
+                let etat = self.monde.etat.apres_plus_de_vies(&self.debut_niveau);
+                self.relancer(etat);
                 self.ecran = Ecran::Jeu;
             }
             Suite::Titre => self.ouvrir(Ecran::Titre),
@@ -408,6 +452,7 @@ impl Application {
                     // Les gouttes du parcours : celles du bonus sont à part.
                     gouttes: e.gouttes.saturating_sub(self.gouttes_bonus.unwrap_or(0)),
                     morts: e.morts,
+                    vies: e.vies.restantes(),
                     score: e.score,
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
@@ -427,6 +472,19 @@ impl Application {
         self.debut_niveau = monde.etat.clone();
         self.monde = monde;
         self.camera = camera;
+        self.eclat_vie = 0;
+    }
+
+    /// Recharge le niveau EN COURS tout neuf (entités, Grand Nuage, gouttes) avec
+    /// l'état `etat` déjà prêt (« recommencer », « plus de vies ») : ce n'est pas un
+    /// nouveau niveau, la vie de ses trois gouttes, si elle a été donnée, le reste.
+    /// La photo du début du niveau (`debut_niveau`) ne change pas.
+    fn relancer(&mut self, etat: EtatJeu) {
+        let (mut monde, camera) = charger(self.monde.indice, None);
+        monde.etat = etat;
+        self.monde = monde;
+        self.camera = camera;
+        self.eclat_vie = 0;
     }
 
     // --- Dessin --------------------------------------------------------------------
@@ -453,7 +511,7 @@ impl Application {
                 &self.menu,
                 &dispo,
             ),
-            Ecran::Jeu | Ecran::Carte(_) | Ecran::Pause => {
+            Ecran::Jeu | Ecran::Carte(_) | Ecran::Pause | Ecran::PlusDeVies(_) => {
                 // Pépin et la caméra sont arrondis ensemble (écart arrondi une seule fois) : pas de
                 // tremblement d'un pixel en courant (ni en tombant, dans un niveau haut).
                 let pepin = self.monde.joueur_interpole(alpha);
@@ -475,13 +533,21 @@ impl Application {
                         self.gouttes_bonus,
                         self.gouttes_du_niveau(),
                     );
-                    hud::dessiner(banque, compteur, self.pas_partie, self.monde.pv_nuage());
+                    let vies = hud::vies(self.monde.etat.vies.restantes(), self.eclat_vie);
+                    hud::dessiner(
+                        banque,
+                        compteur,
+                        &vies,
+                        self.pas_partie,
+                        self.monde.pv_nuage(),
+                    );
                 }
                 match self.ecran {
                     Ecran::Carte(_) => {
                         carte::dessiner(self.monde.indice, self.monde.infos, self.anim)
                     }
                     Ecran::Pause => pause::dessiner(self.anim, &libelles, &self.menu, &dispo),
+                    Ecran::PlusDeVies(_) => plus_de_vies::dessiner(banque, self.anim),
                     _ => {}
                 }
             }
@@ -493,7 +559,9 @@ impl Application {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pepin_core::entities::Entite;
     use pepin_core::state::POINTS_GOUTTE;
+    use pepin_core::vies::{VIES_DEPART, VIES_MAX};
 
     fn rien() -> Navigation {
         Navigation::default()
@@ -786,6 +854,7 @@ mod tests {
                 pas: 3601,
                 gouttes: 9,
                 morts: 2,
+                vies: VIES_DEPART,
                 score: 900,
                 gouttes_bonus: None,
                 epilogue: true,
@@ -1339,5 +1408,309 @@ mod tests {
         assert!(app.boucles_sonores(), "le joueur sort de la pause");
         app.reagir(&rien(), &pause(), None);
         assert!(!app.boucles_sonores(), "pause manuelle");
+    }
+    // --- Vies (carte 6.2) ------------------------------------------------------------
+
+    /// Fait tomber Pépin dans le vide : une mort au pas suivant (le vide tue même
+    /// pendant la protection de réapparition).
+    fn tomber(app: &mut Application) {
+        let bas = app.monde.niveau.hauteur_px();
+        let x = app.monde.joueur.boite.x;
+        app.monde.joueur.placer(x, bas + 100.0);
+        avancer(app, 1);
+    }
+
+    /// Pose Pépin sur chacune des gouttes d'or du niveau, une par pas.
+    fn ramasser_les_gouttes(app: &mut Application) {
+        let gouttes: Vec<(f32, f32)> = app
+            .monde
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Goutte(g) => Some((g.boite.x, g.boite.y)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(gouttes.len(), 3);
+        for (x, y) in gouttes {
+            app.monde.joueur.placer(x, y);
+            avancer(app, 1);
+        }
+        assert_eq!(app.monde.etat.gouttes_ici(), 3, "les trois gouttes prises");
+    }
+
+    /// Charge le niveau `indice` de la table dans une partie en cours (comme si on y
+    /// était arrivé), avec la partie `etat`.
+    fn aller_au_niveau(app: &mut Application, indice: usize, etat: EtatJeu) {
+        app.recharger(indice, Some(etat));
+        app.ecran = Ecran::Jeu;
+    }
+
+    fn indice_de(nom: &str) -> usize {
+        NIVEAUX.iter().position(|n| n.nom == nom).unwrap()
+    }
+
+    #[test]
+    fn une_partie_commence_avec_cinq_vies_et_chaque_mort_en_coute_une() {
+        let mut app = en_jeu();
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART);
+        tomber(&mut app);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART - 1);
+        assert_eq!(app.monde.etat.morts, 1);
+        assert_eq!(app.ecran, Ecran::Jeu, "Pépin réapparaît, on continue");
+        // Le HUD les affiche, sans éclat (une vie perdue n'est pas une fête).
+        let v = hud::vies(app.monde.etat.vies.restantes(), app.eclat_vie);
+        assert_eq!((v.chiffre.as_str(), v.plus_un), ("4", None));
+    }
+
+    /// La dernière vie perdue : l'écran « PLUS DE VIES », puis le niveau EN COURS
+    /// recommence depuis son début, avec cinq vies, sans les gouttes de ce niveau
+    /// (celles d'avant gardées), le chrono qui continue et toutes les morts comptées.
+    #[test]
+    fn plus_de_vies_ouvre_l_ecran_puis_recommence_le_niveau_en_cours() {
+        let mut app = en_jeu();
+        // Niveau 1 fini avec deux gouttes : on arrive au niveau 2.
+        app.monde.etat.gouttes = 2;
+        app.monde.termine = true;
+        avancer(&mut app, 1);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(app.monde.infos.numero, 2);
+        avancer(&mut app, 30);
+        ramasser_les_gouttes(&mut app);
+        assert_eq!(app.monde.etat.gouttes, 5);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART + 1, "+1 vie");
+        for _ in 0..VIES_DEPART {
+            tomber(&mut app);
+            assert_eq!(app.ecran, Ecran::Jeu);
+        }
+        tomber(&mut app);
+        assert_eq!(app.ecran, Ecran::PlusDeVies(plus_de_vies::DUREE_PAS));
+        let chrono = app.pas_partie;
+        let morts = app.monde.etat.morts;
+        assert_eq!(morts, u32::from(VIES_DEPART) + 1);
+        // L'écran attend (le monde est figé), puis le niveau recommence tout seul.
+        let pas_monde = app.monde.pas;
+        avancer(&mut app, 60);
+        assert!(matches!(app.ecran, Ecran::PlusDeVies(_)));
+        assert_eq!(app.monde.pas, pas_monde, "le monde ne bouge pas");
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        assert_eq!(app.monde.infos.numero, 2, "le même niveau");
+        assert_eq!(app.monde.pas, 0, "tout neuf");
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART);
+        assert_eq!(app.monde.etat.gouttes, 2, "celles du niveau 1 restent");
+        assert_eq!(app.monde.etat.gouttes_ici(), 0);
+        assert_eq!(
+            app.gouttes_du_niveau(),
+            0,
+            "les gouttes du niveau sont revenues"
+        );
+        assert_eq!(app.monde.etat.morts, morts, "l'historique des morts");
+        assert_eq!(app.pas_partie, chrono, "le chrono reprend où il était");
+        assert_eq!(
+            (app.monde.joueur.boite.x, app.monde.joueur.boite.y),
+            app.monde.niveau.depart,
+            "au départ du niveau"
+        );
+        // Les trois gouttes reprises ne redonnent pas de vie (déjà donnée ici).
+        avancer(&mut app, 30);
+        ramasser_les_gouttes(&mut app);
+        assert_eq!(app.monde.etat.gouttes, 5);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART);
+        // Le jeu continue : chrono et monde avancent.
+        avancer(&mut app, 1);
+        assert_eq!(app.ecran, Ecran::Jeu);
+    }
+
+    #[test]
+    fn on_passe_l_ecran_plus_de_vies_d_un_appui() {
+        let mut app = en_jeu();
+        for _ in 0..VIES_DEPART {
+            tomber(&mut app);
+        }
+        assert!(matches!(app.ecran, Ecran::PlusDeVies(_)));
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert!(
+            app.transition.est_active(),
+            "les volets partent tout de suite"
+        );
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART);
+        assert_eq!(app.monde.pas, 0);
+        // Un toucher (clic) aussi.
+        for _ in 0..VIES_DEPART {
+            tomber(&mut app);
+        }
+        let toucher = Navigation {
+            clic: Some((160.0, 90.0)),
+            ..Navigation::default()
+        };
+        app.reagir(&toucher, &Commandes::default(), None);
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        assert_eq!(app.monde.etat.morts, 2 * u32::from(VIES_DEPART));
+    }
+
+    /// Focus perdu (ou pause demandée) pendant l'écran « PLUS DE VIES » : l'écran
+    /// finit, le niveau recommence, et la pause s'ouvre AVANT son premier pas.
+    #[test]
+    fn focus_perdu_ou_pause_pendant_plus_de_vies_la_pause_attend_le_niveau() {
+        for par_la_pause in [false, true] {
+            let mut app = en_jeu();
+            for _ in 0..VIES_DEPART {
+                tomber(&mut app);
+            }
+            assert!(matches!(app.ecran, Ecran::PlusDeVies(_)));
+            if par_la_pause {
+                app.reagir(&rien(), &pause(), None);
+            } else {
+                app.focus(false);
+            }
+            assert!(
+                matches!(app.ecran, Ecran::PlusDeVies(_)),
+                "pas de pause ici"
+            );
+            let chrono = app.pas_partie;
+            jusqu_a(&mut app, |e| e == Ecran::Pause);
+            assert_eq!(app.monde.pas, 0, "le niveau recommencé attend le joueur");
+            assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART);
+            assert_eq!(app.pas_partie, chrono);
+            assert!(!app.boucles_sonores());
+            // Reprise : le jeu repart normalement.
+            app.reagir(&rien(), &pause(), None);
+            avancer(&mut app, 3);
+            assert_eq!(app.ecran, Ecran::Jeu);
+            assert_eq!(app.monde.pas, 3);
+        }
+        // Focus perdu PUIS revenu pendant l'écran : aucune pause.
+        let mut app = en_jeu();
+        for _ in 0..VIES_DEPART {
+            tomber(&mut app);
+        }
+        app.focus(false);
+        app.focus(true);
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        avancer(&mut app, 3);
+        assert_eq!((app.ecran, app.monde.pas), (Ecran::Jeu, 3));
+    }
+
+    /// Dans l'arène du Grand Nuage, un « PLUS DE VIES » le remet à ses trois points
+    /// de vie (une simple mort, elle, les lui laisse perdus).
+    #[test]
+    fn plus_de_vies_rend_au_grand_nuage_ses_trois_points_de_vie() {
+        let mut app = en_jeu();
+        let etat = app.monde.etat.clone();
+        aller_au_niveau(&mut app, indice_de(levels::cyclone::INFOS.nom), etat);
+        assert_eq!(app.monde.pv_nuage(), Some(3));
+        for e in &mut app.monde.entites {
+            if let Entite::Nuage(g) = e {
+                g.essouffler();
+                g.toucher();
+            }
+        }
+        assert_eq!(app.monde.pv_nuage(), Some(2));
+        tomber(&mut app);
+        assert_eq!(
+            app.monde.pv_nuage(),
+            Some(2),
+            "une mort : il garde ses points perdus"
+        );
+        for _ in 1..VIES_DEPART {
+            tomber(&mut app);
+        }
+        assert!(matches!(app.ecran, Ecran::PlusDeVies(_)));
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        assert_eq!(app.monde.pv_nuage(), Some(3), "le niveau recommence");
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART);
+    }
+
+    /// Le niveau bonus ne coûte aucune vie ; l'épilogue, si.
+    #[test]
+    fn le_niveau_bonus_ne_coute_aucune_vie() {
+        let mut app = en_jeu();
+        let etat = app.monde.etat.clone();
+        let bonus = NIVEAUX
+            .iter()
+            .position(|n| n.genre == GenreNiveau::Bonus)
+            .unwrap();
+        aller_au_niveau(&mut app, bonus, etat);
+        for _ in 0..3 * VIES_DEPART {
+            tomber(&mut app);
+        }
+        assert_eq!(app.ecran, Ecran::Jeu);
+        assert_eq!(app.monde.etat.morts, 3 * u32::from(VIES_DEPART));
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART);
+        // L'épilogue (le niveau d'après) en coûte de nouveau.
+        let etat = app.monde.etat.clone();
+        aller_au_niveau(&mut app, bonus + 1, etat);
+        assert_eq!(app.monde.infos.genre, GenreNiveau::Epilogue);
+        tomber(&mut app);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART - 1);
+    }
+
+    /// La troisième goutte d'un niveau : une vie de plus, et le petit signe du HUD
+    /// (chiffre en or, « +1 ») pendant une seconde. Plafond : 9.
+    #[test]
+    fn la_troisieme_goutte_donne_une_vie_et_le_hud_le_montre() {
+        let mut app = en_jeu();
+        avancer(&mut app, 30);
+        ramasser_les_gouttes(&mut app);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART + 1);
+        assert_eq!(app.eclat_vie, hud::DUREE_ECLAT_VIE);
+        let v = hud::vies(app.monde.etat.vies.restantes(), app.eclat_vie);
+        assert_eq!(v.chiffre, "6");
+        assert!(v.plus_un.is_some());
+        avancer(&mut app, u32::from(hud::DUREE_ECLAT_VIE));
+        assert_eq!(app.eclat_vie, 0);
+        assert!(hud::vies(6, app.eclat_vie).plus_un.is_none());
+        // Recommencer (pause) : les gouttes reviennent, mais pas la vie (déjà donnée),
+        // et la vie gagnée reste.
+        app.reagir(&rien(), &pause(), None);
+        app.valider_choix(Choix::Recommencer);
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART + 1);
+        avancer(&mut app, 30);
+        ramasser_les_gouttes(&mut app);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART + 1);
+        assert_eq!(app.eclat_vie, 0, "pas de signe sans vie gagnée");
+        // Plafond : avec 9 vies, la vie du niveau suivant ne compte pas.
+        let mut etat = app.monde.etat.clone();
+        while etat.vies.restantes() < VIES_MAX {
+            etat.nouveau_niveau((0.0, 0.0), GenreNiveau::Normal);
+            let mut j = app.monde.joueur.clone();
+            let trois = [Contact::Goutte(0), Contact::Goutte(1), Contact::Goutte(2)];
+            etat.traiter(&mut j, &trois);
+        }
+        aller_au_niveau(&mut app, 1, etat);
+        avancer(&mut app, 30);
+        ramasser_les_gouttes(&mut app);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_MAX);
+        assert_eq!(app.eclat_vie, 0);
+    }
+
+    /// « RECOMMENCER » (pause) ne rend pas les vies perdues dans le niveau.
+    #[test]
+    fn recommencer_ne_rend_pas_les_vies_perdues() {
+        let mut app = en_jeu();
+        tomber(&mut app);
+        tomber(&mut app);
+        app.reagir(&rien(), &pause(), None);
+        app.valider_choix(Choix::Recommencer);
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        assert_eq!(app.monde.etat.vies.restantes(), VIES_DEPART - 2);
+        assert_eq!(app.monde.etat.morts, 2);
+    }
+
+    /// L'écran de fin reçoit les vies restantes.
+    #[test]
+    fn le_bilan_garde_les_vies_restantes() {
+        let mut app = en_jeu();
+        let etat = app.monde.etat.clone();
+        aller_au_niveau(&mut app, NB_NIVEAUX - 1, etat);
+        tomber(&mut app);
+        app.monde.termine = true;
+        avancer(&mut app, 1);
+        jusqu_a(&mut app, |e| e == Ecran::Fin);
+        assert_eq!(app.bilan.vies, VIES_DEPART - 1);
+        assert_eq!(app.bilan.morts, 1);
     }
 }

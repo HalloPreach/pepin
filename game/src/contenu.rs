@@ -73,15 +73,17 @@ pub const COMMANDES_AIDE: [(&str, &str); 5] = [
 /// Conseils de jeu, une ligne chacun. Carte 5.18 : les nouveautés des onze
 /// niveaux (vent, grêle, auvents, ventilateurs, montgolfières, escargots, chats,
 /// aiguilles, Grand Nuage) se jouent avec les MÊMES touches : l'aide le dit, et
-/// rappelle la seule règle à savoir d'avance (la grêle, parapluie ouvert).
+/// rappelle la seule règle à savoir d'avance (la grêle, parapluie ouvert). Carte
+/// 6.2 : une septième ligne, la règle des vies.
 /// 48 caractères au plus : une ligne du panneau (test `les_astuces_tiennent`).
-pub const ASTUCES_AIDE: [&str; 6] = [
+pub const ASTUCES_AIDE: [&str; 7] = [
     "Écrase les flaques en leur sautant dessus.",
     "Les courants d'air te portent vers le haut.",
     "Sous la grêle, garde le parapluie ouvert !",
     "Vent, auvent, horloge : aucune touche en plus !",
     "Les lanternes sont des points de reprise.",
     "Trois gouttes d'or par niveau : facultatives !",
+    "Trois gouttes d'un niveau : une vie de plus !",
 ];
 pub const RETOUR_AIDE: &str = "Entrée ou Échap : retour";
 
@@ -89,6 +91,24 @@ pub const RETOUR_AIDE: &str = "Entrée ou Échap : retour";
 
 /// Invitation affichée sous la carte d'un niveau.
 pub const CONTINUER: &str = "Entrée ou toucher : continuer";
+
+/// Ligne ajoutée à la carte d'un niveau qui ne coûte aucune vie (le bonus, carte
+/// 6.2 : `pepin_core::vies::coute_des_vies`).
+pub const SANS_PERTE_DE_VIE: &str = "Ici, tomber ne coûte aucune vie.";
+
+// --- Vies (carte 6.2) ------------------------------------------------------
+
+/// Titre de l'écran affiché quand Pépin perd sa dernière vie.
+pub const TITRE_PLUS_DE_VIES: &str = "PLUS DE VIES";
+
+/// Première phrase de l'écran « PLUS DE VIES » : ce qui va se passer, avec le
+/// nombre de vies du départ (`VIES_DEPART`, réglable).
+pub fn recommencer_avec_vies(vies: u8) -> String {
+    format!("Le niveau recommence, avec {vies} vies.")
+}
+
+/// Seconde phrase : les gouttes ramassées dans ce niveau sont perdues.
+pub const GOUTTES_A_REPRENDRE: &str = "Ses gouttes d'or sont à reprendre.";
 
 /// Texte d'accueil d'un niveau : une phrase d'ambiance et un conseil.
 #[derive(Debug, Clone, Copy)]
@@ -303,6 +323,8 @@ pub const LIBELLE_GOUTTES: &str = "GOUTTES D'OR";
 /// Gouttes du niveau bonus, comptées à part (ligne affichée s'il a été joué).
 pub const LIBELLE_BONUS: &str = "NIVEAU SECRET";
 pub const LIBELLE_MORTS: &str = "MORTS";
+/// Vies restantes (ligne affichée seulement quand elle tient, carte 6.2).
+pub const LIBELLE_VIES: &str = "VIES";
 pub const LIBELLE_SCORE: &str = "SCORE";
 
 /// Mot de fin quand tout a été ramassé. Sur UNE ligne de l'écran de fin (42
@@ -380,8 +402,14 @@ pub(crate) mod tests {
             LIBELLE_GOUTTES,
             LIBELLE_BONUS,
             LIBELLE_MORTS,
+            LIBELLE_VIES,
             LIBELLE_SCORE,
+            SANS_PERTE_DE_VIE,
+            TITRE_PLUS_DE_VIES,
+            GOUTTES_A_REPRENDRE,
         ];
+        let vies = recommencer_avec_vies(pepin_core::vies::VIES_DEPART);
+        t.push(vies.leak());
         t.extend(tous_les_mots_de_fin());
         for (touches, effet) in COMMANDES_AIDE {
             t.push(touches);

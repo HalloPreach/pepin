@@ -337,6 +337,22 @@ pub const PEPIN_PLANE1: Image = &[
     ".......00..00.......",
 ];
 
+/// Icône des vies dans le HUD (10x10, carte 6.2) : la tête de Pépin, corps blanc,
+/// yeux, joues corail et ombre de brume, comme le vrai, cernée de sombre pour se lire
+/// sur tous les ciels.
+pub const VIE: Image = &[
+    "..000000..",
+    ".07777770.",
+    "0777777770",
+    "0777077050",
+    "0777077050",
+    "0779779550",
+    "0777777550",
+    "0555555550",
+    ".05555550.",
+    "..000000..",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("pepin_idle0", PEPIN_IDLE0),
@@ -355,6 +371,7 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pepin_mort2", PEPIN_MORT2),
     ("pepin_plane0", PEPIN_PLANE0),
     ("pepin_plane1", PEPIN_PLANE1),
+    ("vie", VIE),
 ];
 
 /// Images de la course (4 images en boucle).

@@ -1194,6 +1194,44 @@ mod tests {
         assert_eq!(clairs("pv_nuage_perdu"), 0);
     }
 
+    /// L'icône des vies (carte 6.2) : 10 x 10, contour sombre complet, deux yeux, deux
+    /// joues, et lisible sur TOUS les ciels : sur chaque bande de chaque thème, son
+    /// contour ou son corps blanc contraste d'au moins 4,5:1.
+    #[test]
+    fn l_icone_des_vies_est_pepin_et_se_lit_sur_tous_les_ciels() {
+        use crate::decor::ambiance;
+        assert_eq!(taille("vie"), (10, 10));
+        verifier_contour("vie");
+        let d = dessin("vie");
+        let compter = |c: char| d.iter().flat_map(|l| l.chars()).filter(|&x| x == c).count();
+        // Corps blanc (la couleur la plus fréquente), deux joues corail clair.
+        assert!(compter('7') >= 25, "corps : {}", compter('7'));
+        assert_eq!(compter('9'), 2, "deux joues");
+        // Deux yeux : les seuls pixels sombres À L'INTÉRIEUR du contour (rangées 3, 4).
+        let yeux: Vec<(usize, usize)> = (1..9)
+            .flat_map(|y| (1..9).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                let ligne: Vec<char> = d[y].chars().collect();
+                let premier = ligne
+                    .iter()
+                    .position(|&c| c != '.' && c != '0')
+                    .unwrap_or(0);
+                let dernier = ligne
+                    .iter()
+                    .rposition(|&c| c != '.' && c != '0')
+                    .unwrap_or(0);
+                ligne[x] == '0' && x > premier && x < dernier
+            })
+            .collect();
+        assert_eq!(yeux, [(4, 3), (7, 3), (4, 4), (7, 4)], "deux yeux de 2 px");
+        for theme in Theme::TOUS {
+            for ciel in ambiance(theme).ciel {
+                let k = contraste(couleur_de('0'), ciel).max(contraste(couleur_de('7'), ciel));
+                assert!(k >= 4.5, "{theme:?} : icône des vies sur {ciel:?} : {k:.2}");
+            }
+        }
+    }
+
     #[test]
     fn les_friables_d_ardoise_ont_la_taille_des_nuages() {
         for k in 0..2 {

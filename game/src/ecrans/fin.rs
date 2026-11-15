@@ -7,6 +7,9 @@
 //! est celui du PARCOURS (tous les niveaux sauf le bonus) ; le bonus, s'il a été
 //! joué, a sa propre ligne.
 //!
+//! Carte 6.2 : une ligne VIES (vies restantes), seulement quand elle tient sans
+//! serrer le mot de fin contre le menu (`ligne_vies_tient`).
+//!
 //! La mise en page est calculée par une fonction pure (`mise_en_page`), testée sans
 //! fenêtre ; `dessiner` ne fait que la suivre.
 
@@ -41,6 +44,8 @@ pub struct Bilan {
     /// Gouttes d'or du PARCOURS (tous les niveaux sauf le bonus).
     pub gouttes: u32,
     pub morts: u32,
+    /// Vies restantes à la fin de la partie (carte 6.2).
+    pub vies: u8,
     pub score: u32,
     /// Gouttes ramassées dans le bonus, s'il a été joué (`None` : pas joué).
     pub gouttes_bonus: Option<u32>,
@@ -76,10 +81,32 @@ fn bonus_fin(bilan: &Bilan) -> BonusFin {
     }
 }
 
+/// Bas du mot de fin si l'écran a `n` lignes de bilan et un mot de `lignes_mot`
+/// lignes (ombre comprise), pour la mise en page `(y_lignes, pas_lignes, ecart_mot)`.
+fn bas_du_mot((y, pas, ecart): (f32, f32, f32), n: usize, lignes_mot: usize) -> f32 {
+    let ligne = pepin_core::font::HAUTEUR_GLYPHE as f32 + 1.0;
+    y + n as f32 * pas + ecart + lignes_mot.saturating_sub(1) as f32 * 10.0 + ligne
+}
+
+/// La ligne VIES tient-elle ? Oui si, avec elle, le mot de fin finit au moins
+/// `MARGE_MENU` px au-dessus du menu (sinon elle n'est pas affichée : le bilan garde
+/// ses lignes d'avant la carte 6.2). Pure.
+fn ligne_vies_tient(disposition: (f32, f32, f32), n_sans: usize, lignes_mot: usize) -> bool {
+    bas_du_mot(disposition, n_sans + 1, lignes_mot) + MARGE_MENU <= Y_MENU
+}
+
+/// Haut du menu de l'écran de fin (`ecrans::disposition(Ecran::Fin)`), et marge
+/// gardée au-dessus de lui par la ligne VIES.
+const Y_MENU: f32 = 124.0;
+const MARGE_MENU: f32 = 2.0;
+/// Écart minimal entre deux lignes du bilan : 7 px de glyphe, 1 d'ombre, 2 de vide.
+const PAS_LIGNES_MIN: f32 = 10.0;
+
 /// Mise en page de l'écran de fin pour `bilan`. Sans épilogue ni bonus, c'est
 /// exactement celle d'avant la carte 5.17 (lignes en 42, tous les 13 px ; mot en
 /// 98). L'épilogue ajoute une phrase sous le titre, le bonus une ligne : les lignes
-/// se resserrent (tous les 11 px) pour laisser le menu à sa place.
+/// se resserrent (tous les 11 px) pour laisser le menu à sa place. La ligne VIES
+/// (carte 6.2) s'ajoute après MORTS quand elle tient (`ligne_vies_tient`).
 pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
     let total = levels::gouttes_du_parcours(NIVEAUX);
     let mut lignes = vec![
@@ -96,7 +123,7 @@ pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
     lignes.push((contenu::LIBELLE_MORTS, bilan.morts.to_string()));
     lignes.push((contenu::LIBELLE_SCORE, bilan.score.to_string()));
     let serre = bilan.epilogue || bilan.gouttes_bonus.is_some();
-    let (y_lignes, pas_lignes, ecart_mot) = if serre {
+    let (y_lignes, mut pas_lignes, ecart_mot) = if serre {
         (46.0, 11.0, 3.0)
     } else {
         (42.0, 13.0, 4.0)
@@ -105,6 +132,22 @@ pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
         contenu::message_fin(bilan.gouttes, total, bonus_fin(bilan)),
         LIGNE_MAX_MOT,
     );
+    // La ligne VIES : à l'écart habituel si elle tient, sinon avec des lignes
+    // resserrées d'un pixel (jamais moins de 10 px : 2 px entre deux lignes), sinon
+    // pas du tout.
+    let tient = |pas: f32| {
+        pas >= PAS_LIGNES_MIN
+            && ligne_vies_tient((y_lignes, pas, ecart_mot), lignes.len(), mot.len())
+    };
+    let pas_avec_vies = [pas_lignes, pas_lignes - 1.0]
+        .into_iter()
+        .find(|&p| tient(p));
+    if let Some(pas) = pas_avec_vies {
+        pas_lignes = pas;
+        // Juste avant SCORE, la dernière ligne.
+        let i = lignes.len() - 1;
+        lignes.insert(i, (contenu::LIBELLE_VIES, bilan.vies.to_string()));
+    }
     MiseEnPage {
         fond: if bilan.epilogue {
             Theme::Descente
@@ -188,6 +231,7 @@ mod tests {
                         pas: 3600,
                         gouttes,
                         morts: 2,
+                        vies: 9,
                         score: 900,
                         gouttes_bonus,
                         epilogue,
@@ -247,17 +291,20 @@ mod tests {
     }
 
     /// Sans épilogue ni bonus, l'écran de fin est celui d'avant la carte 5.17 : le
-    /// soleil, « LE SOLEIL ! », quatre lignes en 42, 55, 68, 81, le mot en 98.
+    /// soleil, « LE SOLEIL ! », quatre lignes en 42, 55, 68, 81, le mot en 98 (sur
+    /// deux lignes : la ligne VIES ne tient pas, elle n'est pas affichée).
     #[test]
     fn sans_epilogue_l_ecran_de_fin_reste_le_soleil() {
         let m = mise_en_page(&Bilan {
             pas: 3600,
             gouttes: 9,
             morts: 2,
+            vies: 5,
             score: 900,
             gouttes_bonus: None,
             epilogue: false,
         });
+        assert_eq!(m.mot.len(), 2);
         assert_eq!(
             (m.fond, m.titre, m.phrase),
             (Theme::Soleil, "LE SOLEIL !", None)
@@ -306,7 +353,7 @@ mod tests {
             epilogue: true,
             ..Bilan::default()
         });
-        assert_eq!(manque.lignes.len(), 4);
+        assert_eq!(manque.lignes.len(), 5, "VIES comprise");
         assert_eq!(manque.lignes[1].1, "20/30");
         let mot = manque.mot.join(" ");
         assert!(mot.contains("niveau secret"), "{mot}");
@@ -332,6 +379,75 @@ mod tests {
             assert!(m.y_mot >= fin_lignes, "{b:?}");
             let fin_mot = m.y_mot + (m.mot.len() - 1) as f32 * 10.0 + ligne;
             assert!(fin_mot <= haut_du_menu, "{b:?} : mot jusqu'à {fin_mot}");
+        }
+        assert_eq!(
+            Y_MENU, haut_du_menu,
+            "la ligne VIES compte avec le vrai menu"
+        );
+    }
+
+    /// La ligne VIES (carte 6.2) : après MORTS, avant SCORE, dès qu'elle tient avec
+    /// 2 px de marge au-dessus du menu (lignes resserrées d'un pixel s'il le faut).
+    /// Partie normale (épilogue, bonus manqué ou complet) : elle y est ; bonus joué
+    /// mais incomplet (mot sur deux lignes, cinq lignes de bilan) : elle n'y est pas.
+    #[test]
+    fn les_vies_restantes_s_affichent_quand_elles_tiennent() {
+        let noms =
+            |b: &Bilan| -> Vec<&str> { mise_en_page(b).lignes.iter().map(|l| l.0).collect() };
+        let base = Bilan {
+            pas: 3600,
+            gouttes: 20,
+            morts: 7,
+            vies: 3,
+            score: 900,
+            gouttes_bonus: None,
+            epilogue: true,
+        };
+        assert_eq!(
+            noms(&base),
+            ["TEMPS", "GOUTTES D'OR", "MORTS", "VIES", "SCORE"],
+            "bonus manqué"
+        );
+        assert_eq!(mise_en_page(&base).lignes[3].1, "3");
+        let complet = Bilan {
+            gouttes: 30,
+            gouttes_bonus: Some(3),
+            ..base
+        };
+        assert_eq!(
+            noms(&complet),
+            [
+                "TEMPS",
+                "GOUTTES D'OR",
+                "NIVEAU SECRET",
+                "MORTS",
+                "VIES",
+                "SCORE"
+            ],
+            "tout ramassé : le mot tient sur une ligne"
+        );
+        assert_eq!(
+            mise_en_page(&complet).pas_lignes,
+            10.0,
+            "resserrées d'un pixel"
+        );
+        assert_eq!(mise_en_page(&base).pas_lignes, 11.0, "à l'écart habituel");
+        let incomplet = Bilan {
+            gouttes: 30,
+            gouttes_bonus: Some(1),
+            ..base
+        };
+        assert!(
+            !noms(&incomplet).contains(&"VIES"),
+            "ne tient pas : pas de ligne"
+        );
+        // Quand elle est là, le mot finit au moins 2 px au-dessus du menu.
+        for b in bilans() {
+            let m = mise_en_page(&b);
+            if m.lignes.iter().any(|l| l.0 == "VIES") {
+                let fin_mot = m.y_mot + (m.mot.len() - 1) as f32 * 10.0 + 8.0;
+                assert!(fin_mot + MARGE_MENU <= Y_MENU, "{b:?}");
+            }
         }
     }
 }
