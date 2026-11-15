@@ -169,6 +169,12 @@ impl Application {
         self.pas_partie
     }
 
+    /// Pas restants du petit signe d'une vie gagnée (robot de QA : trace des captures).
+    #[cfg(test)]
+    pub fn eclat_vie(&self) -> u16 {
+        self.eclat_vie
+    }
+
     /// Le monde de jeu est-il en train d'avancer (donc à interpoler) ?
     pub fn en_jeu(&self) -> bool {
         self.ecran == Ecran::Jeu && !self.transition.est_active()

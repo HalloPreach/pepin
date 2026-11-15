@@ -224,4 +224,62 @@ mod tests {
         );
         assert_eq!(vies(5, 1).plus_un.unwrap().1, 3.0, "il y reste");
     }
+
+    /// Sur téléphone (paysage et portrait, écrans haute densité : le jeu est agrandi
+    /// en pixels PHYSIQUES, les boutons tactiles sont placés en pixels CSS), aucun
+    /// bouton tactile dessiné ne recouvre le compteur de vies, « +1 » compris, ni
+    /// celui des gouttes, à sa gauche.
+    ///
+    /// Le chrono (en haut à droite) n'est pas vérifié ici : sur un 667 x 375 à DPR 2,
+    /// le jeu agrandi x4 occupe presque tout l'écran et le bouton de pause recouvre
+    /// déjà le chrono (constaté par ce test à la carte 6.2, défaut antérieur, voir
+    /// QA.md) ; sur 844 x 340 et 844 x 390 à DPR 3, rien ne se recouvre.
+    #[test]
+    fn les_vies_ne_passent_pas_sous_les_boutons_tactiles() {
+        use crate::rendu::placement;
+        use crate::tactile::{Disposition, Zone};
+        // Haut du HUD : de y = 3 (« +1 » monté) à y = 14 (icônes de 10 px posées en 4).
+        let fin_vies = X_CHIFFRE_VIE
+            + largeur_texte("9", 1) as f32
+            + 3.0
+            + largeur_texte("+1", 1) as f32
+            + 1.0;
+        let bandes = [(5.0, X_ICONE_VIE - 1.0), (X_ICONE_VIE, fin_vies)];
+        let touche = |a: &Zone, b: &Zone| {
+            a.x < b.x + b.l && b.x < a.x + a.l && a.y < b.y + b.h && b.y < a.y + a.h
+        };
+        for (css_l, css_h, dpr) in [
+            (844.0, 340.0, 3.0),
+            (844.0, 390.0, 3.0),
+            (667.0, 375.0, 2.0),
+            (390.0, 844.0, 3.0),
+            (1024.0, 768.0, 2.0),
+        ] {
+            let (px, py, k) = placement((css_l * dpr) as u32, (css_h * dpr) as u32);
+            // Pixels logiques du jeu -> pixels CSS de l'écran.
+            let ecran = |x: f32, y: f32| {
+                (
+                    (px as f32 + x * k as f32) / dpr,
+                    (py as f32 + y * k as f32) / dpr,
+                )
+            };
+            let boutons = Disposition::calculer(css_l, css_h);
+            for (x0, x1) in bandes {
+                let (ax, ay) = ecran(x0, 3.0);
+                let (bx, by) = ecran(x1, 15.0);
+                let hud = Zone {
+                    x: ax,
+                    y: ay,
+                    l: bx - ax,
+                    h: by - ay,
+                };
+                for b in [boutons.gauche, boutons.droite, boutons.saut, boutons.pause] {
+                    assert!(
+                        !touche(&hud, &b),
+                        "{css_l}x{css_h} dpr {dpr} : HUD {hud:?} sous {b:?}"
+                    );
+                }
+            }
+        }
+    }
 }

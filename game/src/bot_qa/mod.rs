@@ -126,7 +126,7 @@ fn nom_phase(phase: PhasePigeon, ecrase: bool) -> &'static str {
     }
 }
 
-fn nom_ecran(e: Ecran) -> &'static str {
+pub(crate) fn nom_ecran(e: Ecran) -> &'static str {
     match e {
         Ecran::Titre => "titre",
         Ecran::Aide => "aide",

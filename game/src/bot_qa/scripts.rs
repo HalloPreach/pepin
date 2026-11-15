@@ -515,3 +515,144 @@ fn ecrire_script_essai_nuage() {
         partie.gouttes
     );
 }
+
+/// Écrit le script de la partie « vies » (carte 6.2) pour le navigateur, à travers
+/// la vraie `Application` (titre, cartes, transitions) :
+///
+/// 1. niveau 1 : le parcours COMPLET du robot (ses trois gouttes : une vie de plus,
+///    six vies) ;
+/// 2. niveau 2 : un joueur têtu qui court tout droit (et saute quand il bute) jusqu'à
+///    perdre ses six vies : écran « PLUS DE VIES », puis le niveau 2 recommence avec
+///    cinq vies ;
+/// 3. la suite : le parcours du robot (le niveau 2 depuis son début, puis les autres,
+///    bonus sauté, épilogue), jusqu'à l'écran de fin.
+///
+/// Fichiers : `target/qa/script-62.txt` (un chiffre hexadécimal par image, comme
+/// `script.txt`) et `target/qa/trace-62.csv` (écran, niveau, vies, morts, gouttes,
+/// éclat du « +1 », position de Pépin), d'où viennent les numéros d'image des
+/// captures `62-` de QA.md. Lancer avec : cargo test -p game --no-default-features
+/// -- --ignored ecrire_script_vies
+#[test]
+#[ignore]
+fn ecrire_script_vies() {
+    use crate::app::Application;
+    use crate::bot_qa::{nom_ecran, tous_les_parcours, tous_les_parcours_complets, Trame};
+    use crate::ecrans::Ecran;
+    use crate::entrees::Commandes;
+    use crate::navigation::Navigation;
+    use pepin_core::player::{Direction, Entrees};
+    use pepin_core::vies::VIES_DEPART;
+
+    let complets = tous_les_parcours_complets();
+    let normaux = tous_les_parcours();
+    let mut app = Application::new(true);
+    let mut script = String::new();
+    let mut trace = String::from("image,ecran,niveau,vies,morts,gouttes,gouttes_ici,eclat,x,y\n");
+    // Le joueur têtu du niveau 2 : jusqu'au « PLUS DE VIES ».
+    let mut plus_de_vies_vu = false;
+    let (mut immobile, mut saut, mut dernier_x) = (0u32, 0u32, f32::NAN);
+    let mut fin = false;
+    for image in 0..60 * 60 * 20 {
+        let mut trame = Trame {
+            valider: image == 0,
+            ..Trame::default()
+        };
+        if app.ecran == Ecran::Jeu && app.en_jeu() {
+            let n = app.monde.infos.numero as usize;
+            let robot = |p: &Vec<Vec<Entrees>>| {
+                p.get(n - 1)
+                    .and_then(|l| l.get(app.monde.pas as usize))
+                    .copied()
+            };
+            trame.entrees = if n == 1 {
+                robot(&complets).unwrap_or_default()
+            } else if n == 2 && !plus_de_vies_vu {
+                // Court à droite ; s'il ne bouge plus (mur), saute 20 images.
+                let j = &app.monde.joueur;
+                if (j.boite.x - dernier_x).abs() < 0.01 {
+                    immobile += 1;
+                } else {
+                    immobile = 0;
+                }
+                dernier_x = j.boite.x;
+                if immobile > 10 && saut == 0 {
+                    saut = 20;
+                }
+                let sauter = saut > 0;
+                saut = saut.saturating_sub(1);
+                Entrees {
+                    direction: Direction::Droite,
+                    saut: sauter,
+                }
+            } else {
+                robot(&normaux).unwrap_or_default()
+            };
+        }
+        let nav = Navigation {
+            valider: trame.valider,
+            ..Navigation::default()
+        };
+        app.reagir(&nav, &Commandes::default(), None);
+        app.pas(&trame.entrees);
+        if matches!(app.ecran, Ecran::PlusDeVies(_)) {
+            plus_de_vies_vu = true;
+        }
+        script.push(trame.code());
+        let e = &app.monde.etat;
+        trace.push_str(&format!(
+            "{image},{},{},{},{},{},{},{},{:.1},{:.1}\n",
+            nom_ecran(app.ecran),
+            if app.ecran == Ecran::Jeu {
+                app.monde.infos.numero
+            } else {
+                0
+            },
+            e.vies.restantes(),
+            e.morts,
+            e.gouttes,
+            e.gouttes_ici(),
+            app.eclat_vie(),
+            app.monde.joueur.boite.x,
+            app.monde.joueur.boite.y,
+        ));
+        if app.ecran == Ecran::Fin {
+            // Quelques images de l'écran de fin, pour la capture.
+            for k in 1..=240 {
+                app.reagir(&Navigation::default(), &Commandes::default(), None);
+                app.pas(&Entrees::default());
+                script.push('0');
+                let e = &app.monde.etat;
+                trace.push_str(&format!(
+                    "{},fin,0,{},{},{},0,0,0,0\n",
+                    image + k,
+                    e.vies.restantes(),
+                    e.morts,
+                    e.gouttes
+                ));
+            }
+            fin = true;
+            break;
+        }
+        assert!(
+            image < 60 * 60 * 2 || plus_de_vies_vu,
+            "pas de « PLUS DE VIES » au bout de deux minutes"
+        );
+    }
+    assert!(fin, "l'écran de fin n'a pas été atteint");
+    assert!(plus_de_vies_vu);
+    let morts = app.monde.etat.morts;
+    assert_eq!(
+        morts,
+        u32::from(VIES_DEPART) + 1,
+        "six vies perdues au niveau 2, aucune ensuite"
+    );
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-62.txt", &script).unwrap();
+    std::fs::write("../target/qa/trace-62.csv", &trace).unwrap();
+    println!(
+        "images : {} ; morts : {morts} ; vies à la fin : {} ; gouttes : {}",
+        script.len(),
+        app.monde.etat.vies.restantes(),
+        app.monde.etat.gouttes
+    );
+}
