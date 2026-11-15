@@ -100,10 +100,28 @@ une ligne « NIVEAU SECRET » s'il a été joué).
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.
-Il n'y a pas de « game over » : on réapparaît à la dernière lanterne allumée
-et on compte seulement les morts (`core/src/state.rs`).
+On réapparaît à la dernière lanterne allumée.
 Pendant 1 s après chaque réapparition, Pépin clignote et aucun danger ne peut
 le tuer, sauf le vide (`PROTECTION_REAPPARITION_PAS`, `core/src/player.rs`).
+
+Les vies (carte 6.2, `core/src/vies.rs` ; chaque règle est une constante nommée,
+réglable en une ligne) :
+
+- une partie commence avec 5 vies (`VIES_DEPART`) ; chaque mort en retire une, et
+  Pépin réapparaît à la lanterne comme avant ;
+- la troisième goutte d'or d'un même niveau (toutes ses gouttes) donne une vie de
+  plus, une seule fois par niveau, jusqu'à 9 (`VIES_MAX`, un chiffre dans le HUD) ;
+  le chiffre passe en or et un « +1 » monte à côté pendant une seconde ;
+- à 0 : écran « PLUS DE VIES », puis le niveau EN COURS recommence depuis son début,
+  avec 5 vies ; les gouttes ramassées dans ce niveau sont perdues (celles des niveaux
+  d'avant restent), le chrono continue, le compteur de morts garde tout, le Grand
+  Nuage repart avec ses trois points de vie. La vie des trois gouttes déjà donnée
+  dans ce niveau ne se regagne pas. Pas de sauvegarde ;
+- le niveau bonus ne coûte aucune vie (sa carte le dit) ; l'épilogue, si ;
+- « RECOMMENCER » (menu de pause) ne rend pas les vies perdues dans le niveau.
+
+Le HUD montre les vies à côté des gouttes : une petite tête de Pépin et le chiffre.
+L'écran de fin ajoute une ligne « VIES » quand elle tient sans serrer le menu.
 
 ## 2. Architecture : `core` (pur) et `game` (graphique)
 
@@ -269,9 +287,9 @@ Tests :
     ./docker-cargo.sh test -p core
     ./docker-cargo.sh test -p game --no-default-features
 
-Mesure à la dernière vérification de ce README (carte 6.1, onze niveaux) :
-**353 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
-l'image `docs/police-test.png`) et **316 tests réussis** dans `game` (plus 18 tests
+Mesure à la dernière vérification de ce README (carte 6.2, les vies) :
+**365 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
+l'image `docs/police-test.png`) et **335 tests réussis** dans `game` (plus 19 tests
 ignorés : ils écrivent les scripts du robot de QA, la mesure de difficulté ou des
 diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de minutes :
 le robot de QA joue réellement les onze niveaux, et la courbe de difficulté est
@@ -502,6 +520,16 @@ amené quelques notions de plus :
   (`./build.sh --qa`) ; le code concerné est entouré de
   `#[cfg(feature = "debug_niveaux")]` (voir `game/src/entrees.rs`) et n'est même pas
   compilé dans la version publiée.
+- **Champs privés qui gardent les règles** (carte 6.2) : `core/src/vies.rs`, la
+  structure `Vies` n'expose aucun champ ; on ne peut que `perdre()`,
+  `trois_gouttes()`, `nouveau_niveau()` ou `repartir()`. Impossible d'écrire 12 vies
+  ou une vie négative depuis le reste du jeu : ce sont ses méthodes qui appliquent
+  le plafond et la règle « une fois par niveau ». Le type est `Copy` (trois petits
+  champs) : on le copie au lieu de le prêter.
+- **Assertions à la compilation** : `game/src/ecrans/aide.rs`,
+  `const _: () = { assert!(...); };` vérifie la mise en page de l'aide quand le
+  programme COMPILE (un réglage qui fait déborder une ligne ne compile plus) ; les
+  calculs en `f32` sont permis dans un `const`.
 
 ### Tests unitaires
 
@@ -589,11 +617,11 @@ Mesure du dossier `dist/` produit par `./build.sh` (relevée sur les fichiers,
     fichier              octets     gzip
     index.html            14 693    5 617
     mq_js_bundle.js       36 148    9 839
-    game.wasm            491 619  197 632
+    game.wasm            494 519  198 624
 
-(mesure de la carte 6.1, onze niveaux ; 491 395 octets à la carte 5.18, avant le
-nouveau corbeau ; avec cinq niveaux, le wasm faisait 422 556 octets.) Le wasm pèse
-donc environ 0,49 Mo, soit 198 Ko transférés par
+(mesure de la carte 6.2, les vies ; 491 619 octets à la carte 6.1, 491 395 à la
+carte 5.18 ; avec cinq niveaux, le wasm faisait 422 556 octets.) Le wasm pèse
+donc environ 0,49 Mo, soit 199 Ko transférés par
 un serveur qui compresse.
 Le budget de `build.sh` est : avertissement au-delà de 1,2 Mo, échec au-delà de
 2,5 Mo. Ces chiffres dépendent du code et de la version du compilateur ; ils

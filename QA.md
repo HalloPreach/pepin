@@ -13,7 +13,7 @@ Cette première passe portait sur les cinq niveaux du 12/11/2026. La synthèse �
 niveaux de l'étape 5 (courbe de difficulté finale, robot, textes, poids, images par seconde,
 captures de chaque niveau, liste de ce qui n'est pas testé), est la section
 « QA finale des onze niveaux (carte 5.18) ». Retouches suivantes, à la fin du fichier : « Corbeau
-redessiné (carte 6.1) ».
+redessiné (carte 6.1) », « Système de vies (carte 6.2) ».
 
 ## Résultat par point
 
@@ -521,6 +521,11 @@ Depuis la carte 3.3, le fichier a une 3e partie, « Lieux de mort » : pour chaq
 les endroits où l'on meurt (colonne de tuile du centre de Pépin, cause : chute, ennemi, pointes, éclair),
 colonnes voisines de même cause regroupées, du plus meurtrier au moins meurtrier. C'est là qu'il faut
 agir pour adoucir ou corser un niveau.
+
+Depuis la carte 6.2 (vies), une 4e partie, « Game over », ajoutée À LA FIN (les trois premières ne
+changent pas d'un octet) : pour chaque niveau et chaque profil, les essais où Pépin perd sa dernière vie
+au moins une fois, le niveau commencé avec 5 vies ; une estimation sur une partie enchaînée ; et les
+niveaux normaux où le Débutant dépasse 10 % de game over, SIGNALÉS (voir « Système de vies (carte 6.2) »).
 
 Deux autres tests :
 - `courbe_de_difficulte_dans_les_bandes` (lancé avec tous les tests, quelques minutes) : non-régression de
@@ -4226,3 +4231,177 @@ Ce qui n'est PAS testé :
   chaque côté au lieu de 2, 2 px en haut et en bas au lieu de 1) : le bout de l'aile ou de la
   queue peut sembler « frôler » Pépin sans le toucher. Rien n'a été mesuré là-dessus (la collision
   est celle d'avant, la mesure de difficulté est identique).
+
+## Système de vies (carte 6.2)
+
+Demande (mot pour mot) : « j'aimerai aussi que tu rajoutes un système de vies ». Avant, il n'y en avait
+pas : on réapparaissait à la dernière lanterne et on comptait seulement les morts.
+
+### Les règles (choix par défaut du coordinateur, réglables en une ligne)
+
+Toutes dans `core/src/vies.rs`, en constantes nommées et commentées :
+
+- 5 vies au début d'une partie (`VIES_DEPART`) ; une mort en retire une ; la réapparition à la lanterne
+  (et sa seconde de protection) ne change pas ;
+- la troisième goutte d'or d'un même niveau (toutes ses gouttes) donne une vie, UNE fois par niveau,
+  jusqu'à 9 (`VIES_MAX`, un seul chiffre dans le HUD) ;
+- à 0 : écran « PLUS DE VIES », puis le niveau EN COURS recommence depuis son début avec 5 vies ; les
+  gouttes ramassées dans ce niveau sont perdues, celles des niveaux d'avant restent ; le chrono continue ;
+  le compteur de morts garde tout ; le Grand Nuage repart avec ses trois points de vie (le niveau est
+  rechargé tout neuf) ; la vie des trois gouttes déjà donnée dans ce niveau ne se regagne pas en les
+  reprenant. Pas de sauvegarde ;
+- le bonus « L'arc-en-ciel » ne coûte aucune vie (`coute_des_vies`) : sa carte de titre ajoute « Ici,
+  tomber ne coûte aucune vie. » ; ses trois gouttes donnent quand même la vie. L'épilogue en coûte ;
+- choix ajouté (non demandé, à valider) : « RECOMMENCER » du menu de pause ne rend PAS les vies perdues
+  dans le niveau (sinon ce serait un « PLUS DE VIES » évité d'un geste) ; la vie des trois gouttes y
+  reste donnée.
+
+### Ce qui a été fait
+
+- `core/src/vies.rs` (nouveau) : `Vies`, champs privés, méthodes `perdre`, `trois_gouttes`,
+  `nouveau_niveau`, `repartir` ; 6 tests pas à pas (perte, dernière vie, gain une fois par niveau,
+  plafond, après un game over, bonus).
+- `core/src/state.rs` : `EtatJeu` tient les vies et les gouttes du niveau par index (la 3e donne la vie) ;
+  `nouveau_niveau(depart, genre)` ; `recommencer_niveau` et `apres_plus_de_vies` construisent l'état du
+  niveau recommencé. À 0 vie, `traiter` replace Pépin comme avant : c'est le jeu qui ouvre l'écran. La
+  SIMULATION ne change donc pas (mesure de difficulté et robot identiques, voir plus bas). 6 tests.
+- `game/src/app.rs` : nouvel écran `Ecran::PlusDeVies(pas restants)` et `Suite::PlusDeVies`. L'écran
+  s'ouvre au pas où la dernière vie est perdue (avant la fin du niveau si les deux tombent ensemble), se
+  passe d'un appui (Entrée, toucher) ou seul au bout de 4 s, puis les volets rechargent le niveau. Focus
+  perdu ou touche de pause pendant l'écran : la pause est DIFFÉRÉE et s'ouvre sur le niveau recommencé,
+  avant son premier pas (focus revenu entre-temps : pas de pause). 9 tests de la machine à états
+  (cinq vies et une de moins par mort ; PLUS DE VIES puis le niveau 2 recommencé avec les bons compteurs,
+  gouttes du niveau 1 gardées, chrono et morts conservés, 3 gouttes reprises sans 2e vie ; passer
+  l'écran au clavier et au toucher ; focus perdu / pause / focus revenu ; Grand Nuage remis à 3 PV après
+  un game over mais pas après une simple mort ; bonus sans perte et épilogue avec ; « +1 » au HUD et
+  plafond à 9 ; RECOMMENCER ; vies du bilan).
+- `game/src/ecrans/plus_de_vies.rs` (nouveau) : le niveau figé et tramé, un panneau « PLUS DE VIES »
+  (corail, échelle 3), Pépin qui lève les yeux au ciel, « Le niveau recommence, avec 5 vies. » (le
+  chiffre vient de `VIES_DEPART`) et « Ses gouttes d'or sont à reprendre. », puis « Entrée ou toucher :
+  continuer » qui clignote. Mise en page vérifiée à la compilation (`const _`) et largeurs par un test.
+- HUD (`game/src/hud.rs`) : après les gouttes, une icône 10 x 10 (tête de Pépin, `vie` dans
+  `sprites/pepin.rs`, contour sombre) en x = 53 et le chiffre en x = 65, à place fixe (le compteur de
+  gouttes le plus large, « 30/30 », finit en x = 46). Au gain d'une vie : chiffre en or et « +1 » doré
+  qui monte de 3 px pendant une seconde. Tests : rien ne chevauche les gouttes ni les points de vie du
+  Grand Nuage (de 0 à 9 vies, « +1 » compris) ; icône lisible sur TOUS les ciels (contour ou corps
+  blanc à 4,5:1 au moins sur chaque bande de chaque thème) ; sur téléphone (844 x 340 et 844 x 390 à
+  DPR 3, 667 x 375 à DPR 2, portrait, tablette), aucun bouton tactile ne recouvre les vies ni les
+  gouttes.
+- Aide : septième astuce « Trois gouttes d'un niveau : une vie de plus ! » ; commandes tous les 11 px
+  (au lieu de 12), astuces à partir de y = 92 : la dernière finit en y = 160, « retour » en 163
+  (vérifié à la compilation). Écran de fin : ligne « VIES » entre MORTS et SCORE quand elle tient avec
+  2 px au-dessus du menu, lignes resserrées d'un pixel s'il le faut (11 -> 10 px) ; elle tient dans la
+  partie normale (bonus manqué, bonus complet), pas quand le bonus est joué mais incomplet (mot de fin
+  sur deux lignes) : la ligne est alors omise, comme demandé (« seulement si ça tient proprement »).
+- `docs/planche-sprites.png` régénérée (l'icône `vie` s'ajoute).
+
+### Mesure de difficulté : taux de game over
+
+`game/src/difficulte.rs` note, pendant chaque essai, ce qui change les vies (morts, troisième goutte),
+puis rejoue ces événements avec les règles du jeu (`rejouer_vies`). Les colonnes de morts ne changent
+pas : `docs/mesure-difficulte.txt` régénéré commence par les 6 819 octets de celui de a30f4ac, IDENTIQUES
+(SHA-256 d5283ace…0ebe0e pour l'ancien) ; seule une 4e partie s'ajoute à la fin. Essais où Pépin perd sa
+dernière vie au moins une fois, niveau commencé avec 5 vies (48 essais par case) :
+
+| Niveau                     | Débutant     | Habitué    | Expert     |
+|----------------------------|--------------|------------|------------|
+| 1. Les toits               | 0/48 (0 %)   | 0/48       | 0/48       |
+| 2. Gouttières et cheminées | 3/48 (6 %)   | 0/48       | 0/48       |
+| 3. Le marché couvert       | 0/48 (0 %)   | 0/48       | 0/48       |
+| 4. Le grand orage          | 12/48 (25 %) | 0/48       | 0/48       |
+| 5. Le clocher              | 13/48 (27 %) | 0/48       | 0/48       |
+| 6. L'œil du cyclone        | 16/48 (33 %) | 1/48 (2 %) | 0/48       |
+| 7. Vents d'altitude        | 2/48 (4 %)   | 0/48       | 0/48       |
+| 8. La mer de nuages        | 0/48 (0 %)   | 0/48       | 0/48       |
+| 9. Au-dessus des nuages    | 1/48 (2 %)   | 0/48       | 0/48       |
+| 10. L'arc-en-ciel (bonus)  | 0/48 (aucune vie perdue) | 0/48 | 0/48 |
+| 11. La descente            | 0/48 (0 %)   | 0/48       | 0/48       |
+
+Partie enchaînée (estimation : les essais de même rang des dix niveaux du parcours bout à bout, vies
+reportées d'un niveau au suivant ; après un game over, 5 vies et la suite de l'essai) : Débutant 47/48
+parties avec au moins un game over (2,5 en moyenne, 5 au plus) ; Habitué 13/48 (0,3 en moyenne, 2 au
+plus) ; Expert 1/48.
+
+**À SIGNALER (rien n'a été retouché, décision d'AGA)** : trois niveaux normaux dépassent 10 % de game over
+pour le Débutant : 4. Le grand orage (12/48, 25 %), 5. Le clocher (13/48, 27 %), 6. L'œil du cyclone
+(16/48, 33 %). Ce sont les trois niveaux où le Débutant meurt le plus (3,0, 2,8 et 4,1 morts en moyenne,
+pire essai 11, 11 et 14). Pistes possibles, non essayées : 6 vies au départ (une ligne), une vie rendue
+à chaque lanterne, ou adoucir ces trois niveaux. À noter : le joueur simulé va au drapeau au plus court
+et ne cherche pas les gouttes ; un joueur qui les ramasse gagne des vies, ces taux sont donc plutôt
+pessimistes.
+
+### Robot de QA
+
+Les deux parties du robot finissent sans mourir, empreintes INCHANGÉES (comme à la carte 6.1) :
+9fcab605c6e802a7 (sans bonus, 21 399 images, 0 mort, 16 gouttes) et e226eb7090319702 (partie complète,
+26 173 images, 0 mort, 33 gouttes). Nouveau test ignoré `ecrire_script_vies` (`bot_qa/scripts.rs`) : la
+partie « vies » à travers la vraie `Application` (niveau 1 avec ses trois gouttes : 6 vies ; niveau 2,
+un joueur têtu qui court tout droit et saute quand il bute : six chutes, PLUS DE VIES à l'image 3331 ;
+le niveau 2 recommence à l'image 3595 avec 5 vies et 3 gouttes ; puis le robot jusqu'à la fin) :
+22 526 images, 6 morts, 7 vies à la fin (deux autres « +1 », au boss et à la mer), 18 gouttes.
+
+### Captures `docs/qa/62-*` (25 images)
+
+Build de QA (`./build.sh --qa`) d'une extraction propre de 8b203ce, servi sur 127.0.0.1 (port libre,
+serveur arrêté), Chromium 1208 sans tête piloté par CDP, onglet au premier plan (`Page.bringToFront`) et
+canvas focalisé, pilote `docs/capture-visibilite.mjs` (scripts `script-62.txt` et, pour la carte du
+bonus, `script-516.txt`). Le pilote accepte maintenant `DPR`, `MOBILE=1` et une demande `doigt=IMAGE`
+(un doigt posé au milieu de l'écran, où il ne commande rien : le jeu montre ses boutons tactiles).
+
+- HUD sur neuf ciels : toits (`62-niveau01-toits-cinq-vies`), orage, clocher, cyclone (avec les points de
+  vie du Grand Nuage), vents, mer, soleil, descente (`62-niveau04-…` à `62-niveau11-…`), et le zoom
+  `62-zoom-hud-sept-ciels` (bandes du haut de sept captures, pixels d'origine) ;
+- gain d'une vie : `62-niveau01-gain-vie-a` (2 images après la 3e goutte : « 6 » en or et « +1 » encore
+  bas), `-b` (« +1 » monté), `-fin` (fini : « 6 » blanc), et au boss et à la mer ;
+- vies qui baissent : `62-niveau02-deux-vies`, `62-niveau02-derniere-vie` ; le zoom
+  `62-zoom-hud-vies-qui-changent` (5, 6+1, 6+1, 6, 2, 1, puis 5 après le recommencement) ;
+- `62-plus-de-vies` ; `62-niveau02-recommence` (Pépin au départ du niveau 2, 3/30, 5 vies, chrono qui a
+  continué) ;
+- `62-aide`, `62-carte-bonus` (la ligne « Ici, tomber ne coûte aucune vie. »), `62-fin` (TEMPS, GOUTTES
+  D'OR 18/30, MORTS 6, VIES 7, SCORE) ;
+- téléphone en paysage 844 x 340, DPR 3 (captures de 2532 x 1020, facteur 5) avec les boutons tactiles :
+  `62-tel844x340-niveau01-gain-vie`, `-plus-de-vies`, `-niveau02-recommence`, `-niveau06-cyclone`. Les
+  boutons (flèches en bas à gauche, saut en bas à droite, pause en haut à droite, hors du jeu) ne
+  touchent pas le HUD.
+
+`docs/mesure-capture.py <capture> K` (K = 3, 5 pour le téléphone) : 0 pixel hors palette, 0 pixel
+semi-transparent, 0 bloc flou sur les 21 captures de bureau et sur `62-tel844x340-plus-de-vies`. Sur les
+trois autres captures du téléphone, 35 835 pixels hors palette et 205 blocs « flous » : ce sont les
+boutons tactiles translucides qui débordent sur la zone de jeu (même chiffre exact qu'à la carte
+« clavier, écran haute densité ») ; recompté en masquant les quatre boutons (leur rectangle calculé comme
+`tactile::Disposition`, en pixels CSS x 3) : 35 835 sous les boutons, 0 ailleurs. Les deux zooms : 0
+pixel hors palette.
+
+Chaque capture regardée. Le compteur se lit sur tous les ciels (la tête blanche cernée de sombre ; le
+chiffre blanc à ombre). Au clocher, une lanterne du décor passe juste au-dessus de l'icône sans gêner la
+lecture. Sur le ciel orange du cyclone, le « 6 » et le « +1 » dorés se lisent grâce à leur ombre, mais
+avec moins de contraste qu'ailleurs (or sur orange).
+
+### Vérification sur une extraction propre de 8b203ce (dernier commit de code)
+
+`git archive`, nouveau dossier daté sous `$TMPDIR` :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : 365 (core, + 12) et 335 (game, + 19)
+  tests, tous verts (1 + 19 ignorés), en 10 min 50 s ;
+- `./docker-cargo.sh lint` : `FMT-OK`, `LINT-OK` ;
+- `mesure_de_difficulte` : fichier identique à l'octet à celui du dépôt (SHA-256 57e47b14…ccad531), dont
+  les 6 819 premiers octets sont ceux de a30f4ac ;
+- `ecrire_script_navigateur`, `ecrire_script_partie_complete`, `ecrire_script_vies` : empreintes et
+  chiffres ci-dessus ; `script-62.txt` identique à celui des captures ;
+- `./build.sh` : `dist/` produit, wasm 494 519 octets (491 619 à la carte 6.1 : + 2 900), 0 occurrence des
+  noms interdits, seule URL celle de l'espace de noms SVG.
+
+Commits : 3e21f3c (cœur), 39ccdbb (jeu : écran, HUD, aide, carte, fin), 2dd129f (mesure), 8b203ce
+(script du robot, test des boutons tactiles), 2c88764 (captures, pilote), cette section et le README.
+
+### Ce qui n'est PAS testé
+
+- Aucun humain n'a joué avec les vies : le réglage (5 vies, +1 aux trois gouttes) est un choix par
+  défaut, et trois niveaux dépassent 10 % de game over pour le Débutant simulé (ci-dessus).
+- Le taux de game over vient du joueur simulé de la mesure, qui ne recommence pas le niveau : le
+  « game over » est compté au premier passage (exact) ; la partie enchaînée est une estimation.
+- Chromium sans tête seulement (bureau 960 x 540 et téléphone émulé 844 x 340 à DPR 3) : ni vrai
+  téléphone, ni Safari, ni Firefox ; le son n'a pas été écouté (aucun son nouveau n'a été ajouté).
+- Défaut ANTÉRIEUR trouvé par le nouveau test des boutons tactiles, non corrigé (hors de cette carte) :
+  sur un 667 x 375 à DPR 2 (jeu agrandi x4, presque tout l'écran), le bouton de pause recouvre le chrono
+  en haut à droite. Les vies et les gouttes, elles, restent dégagées partout.
