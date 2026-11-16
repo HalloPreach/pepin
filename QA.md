@@ -5830,3 +5830,11 @@ rechargement, tout est gardé. 0 erreur de console. `docs/mesure-capture.py` : 0
 - Un seul onglet aujourd'hui : le changement d'onglet (gauche / droite, clic) n'est exercé qu'à vide ;
   la liste qui défile (plus de 3 objets, flèches ^ / v) n'apparaît pas encore avec le catalogue actuel.
 - Personne n'a joué à la main ; son des menus à l'oreille non vérifié.
+
+## Carte 7.5b : goutte d'or au lieu du mot « GOUTTES »
+
+- Titre : la goutte d'or (sprite `goutte0`) suivie du nombre, taille 1 comme avant ; `LIBELLE_POCHE` supprimé ; « RECORD : score » inchangé. Boutique : prix = goutte + nombre, « GRATUIT » reste, le refus garde « IL TE MANQUE N GOUTTES ».
+- `./docker-cargo.sh test -p game --no-default-features ecrans` : 19 ok ; `... contenu` : 9 ok ; `./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+- `./build.sh` : `dist/` produit, 0 `/home`, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` + `node docs/capture-boutique.mjs` (Chromium 1208 sans tête, CDP), 0 erreur de console.
+- Captures `docs/qa/75b-titre.png` (goutte + 30) et `docs/qa/75b-boutique.png` (GRATUIT x2, goutte + 60) : regardées, `mesure-capture.py` 0 pixel hors palette, 0 flou.
+- Pas testé : vrai téléphone ; personne n'a regardé à la main hors captures.

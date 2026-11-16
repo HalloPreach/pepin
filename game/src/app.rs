@@ -563,7 +563,7 @@ impl Application {
         match self.ecran {
             Ecran::Titre => {
                 titre::dessiner(banque, self.skin, self.anim, &libelles, &self.menu, &dispo);
-                titre::dessiner_poche(&self.sauvegarde);
+                titre::dessiner_poche(banque, &self.sauvegarde);
             }
             Ecran::Aide => aide::dessiner(),
             Ecran::Boutique => {

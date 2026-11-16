@@ -186,12 +186,13 @@ pub fn dessiner(banque: &Banque, anim: u32, s: &Sauvegarde, e: &EtatBoutique) {
             Apercu::Factice => banque.dessiner("goutte0", x + 11.0, y + 9.0, false),
         }
         texte::dessiner(objet.nom, x + 34.0, y + 3.0, ombre(BLANC_CASSE, 2));
-        let prix = if objet.prix == 0 {
-            contenu::GRATUIT.to_string()
+        // Le prix : GRATUIT, ou la goutte d'or suivie du nombre (carte 7.5b).
+        if objet.prix == 0 {
+            texte::dessiner(contenu::GRATUIT, x + 34.0, y + 19.0, ombre(OR, 1));
         } else {
-            contenu::gouttes(objet.prix)
-        };
-        texte::dessiner(&prix, x + 34.0, y + 19.0, ombre(OR, 1));
+            banque.dessiner("goutte0", x + 34.0, y + 17.0, false);
+            texte::dessiner(&objet.prix.to_string(), x + 46.0, y + 19.0, ombre(OR, 1));
+        }
         let (etat, couleur) = match objet.etat(s) {
             Etat::Equipe => (contenu::ETAT_EQUIPE, OR_PALE),
             Etat::Achete => (contenu::ETAT_ACHETE, BLANC_CASSE),
