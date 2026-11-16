@@ -660,7 +660,7 @@ fn ecrire_script_vies() {
 /// Écrit le script des captures de la carte 6.3 (chats plus menaçants), au marché
 /// couvert (niveau 3, touche 3 du build de QA) : « JOUER », la carte du niveau 1,
 /// la touche 3 dès la première image de jeu, puis un joueur scripté face au
-/// PREMIER chat du niveau (colonne 12, sur le toit de départ, centre en x = 200) :
+/// chat de la colonne 12 (le premier du toit de départ, centre en x = 200) :
 /// 1. il attend au départ (x = 19, à 11 tuiles du chat) tout un cycle : le chat
 ///    s'annonce (« ! », couché, un œil ouvert) et se réveille SUR PLACE, Pépin est
 ///    hors de portée ;
@@ -704,6 +704,19 @@ fn ecrire_script_chats() {
     }
 
     let mut app = Application::new(true);
+    // Le chat suivi : celui de la colonne 12 (toit de départ). Depuis la carte
+    // 6.4a, le chat du mur (rangée 4) le précède dans l'ordre de lecture : on ne
+    // prend donc plus « le premier chat du niveau ».
+    let chat_suivi = |entites: &[Entite]| {
+        entites.iter().find_map(|e| match e {
+            Entite::Ennemi(c)
+                if c.type_ennemi == TypeEnnemi::Chat && (c.place().0 / 16.0) as i32 == 12 =>
+            {
+                Some(c.clone())
+            }
+            _ => None,
+        })
+    };
     let mut script = String::new();
     let mut trace = String::from(
         "image,ecran,indice,pas,x,y,chat_x,chat_y,phase,reste,pret,bond,en_vol,morts,etape\n",
@@ -724,10 +737,7 @@ fn ecrire_script_chats() {
             None
         };
         let au_marche = app.en_jeu() && app.monde.indice == 2;
-        let chat = app.monde.entites.iter().find_map(|e| match e {
-            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => Some(c.clone()),
-            _ => None,
-        });
+        let chat = chat_suivi(&app.monde.entites);
         if au_marche {
             let c = chat.as_ref().expect("un chat au marché couvert");
             let x = app.monde.joueur.boite.x;
@@ -769,10 +779,7 @@ fn ecrire_script_chats() {
         app.reagir(&nav, &Commandes::default(), raccourci);
         app.pas(&trame.entrees);
         script.push(trame.code());
-        let chat = app.monde.entites.iter().find_map(|e| match e {
-            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => Some(c.clone()),
-            _ => None,
-        });
+        let chat = chat_suivi(&app.monde.entites);
         let (cx, cy, phase, reste, pret, bond, en_vol) = match &chat {
             Some(c) => {
                 let (phase, reste) = match c.phase_chat() {

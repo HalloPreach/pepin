@@ -16,7 +16,11 @@
 //!    mur dont le pied est creusé d'un passage en cul-de-sac. Le chemin principal
 //!    passe par-dessus (bloc, puis mur) ; la goutte est au fond du passage,
 //!    derrière le chat : il faut se laisser tomber dans la fente pendant qu'il
-//!    dort, l'écraser, puis ressortir par la fente ;
+//!    dort, l'écraser, puis ressortir par la fente. Sur le mur, un chat de plus
+//!    (carte 6.4a) : on le guette depuis le bord droit du bloc, hors de portée
+//!    de son bond (il ne quitte pas le mur, la fente l'arrête), puis on lui
+//!    saute dessus pendant son sommeil ; posé à côté de lui sur le mur, on est
+//!    à portée ;
 //! 5. le moment fort : SIX auvents à la suite au-dessus d'un vide de 23 tuiles,
 //!    sans toucher le sol, tous espacés de 4 tuiles : sans rien toucher, chaque
 //!    rebond retombe pile sur le suivant (le rythme se lit, il suffit de ne pas
@@ -52,8 +56,9 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   85, 89, 93, 97, 101, 105 (le moment fort, au-dessus du vide) ; 135, 139.
 /// - Rue du marché (rangée 10, sous les paires d'auvents) : colonnes 40-47 et
 ///   135-142 ; partout ailleurs, sous les auvents, le vide.
-/// - Chats : 12 et 54 (sur les toits), 64 (au fond de la fente), 114 (au pied
-///   du bloc 116). Flaques : 34 (toit B), 128 (toit G).
+/// - Chats : 68 (sur le mur, carte 6.4a : premier dans l'ordre de lecture, il
+///   prend donc le sommeil non raccourci), 12 et 54 (sur les toits), 114 (au pied
+///   du bloc 116), 64 (au fond de la fente). Flaques : 34 (toit B), 128 (toit G).
 /// - Gouttes : 22 (rangée 5, sur le rebond du premier auvent), 67 (cachée au
 ///   fond du passage, derrière le chat de la fente), 95 (rangée 5, sur le rebond
 ///   du troisième auvent du moment fort).
@@ -63,7 +68,7 @@ const ASCII: &str = r"
 .........................................................................................................................................................
 .........................................................................................................................................................
 .........................................................................................................................................................
-.........................................................................................................................................................
+....................................................................z....................................................................................
 ......................o..........................................######........................o......................T..................................
 ...........................................................#####.BBBBBB.............................................######...............................
 .@.L..H.....z.....................f...............L...z....BBBBB.BBBBBB..L...H...T............................L...z.BBBBBB......f....................X...
