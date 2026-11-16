@@ -1,5 +1,5 @@
 //! Sprites des ennemis : flaques qui patrouillent (16x10), corbeaux (18x14),
-//! pigeons (16x12), chats endormis (16x14, avec leurs « z » et leur « ! »), et
+//! pigeons (18x14), chats endormis (16x14, avec leurs « z » et leur « ! »), et
 //! l'escargot (16x12), qui n'est pas un ennemi mais patrouille comme eux ; le
 //! Grand Nuage, le boss (48x32 : colère, essoufflé, touché), et ses points de vie
 //! dans le HUD (10x6).
@@ -103,105 +103,166 @@ pub const CORBEAU1: Image = &[
     "....0000..........",
 ];
 
-/// Pigeon perché (16x12, tourné vers la droite) : gris-bleu foncé (ardoise), cou
-/// irisé (sarcelle et cyan), œil orange sous un sourcil sombre, deux barres noires
-/// sur l'aile, pattes corail clair. Nettement plus gros et plus sombre que l'oiseau
-/// de décor blanc (12x8, `objets_decor::OISEAU0`), qui est inoffensif.
+/// Pigeon perché (18x14, tourné vers la droite). Carte 6.6 : l'ancien pigeon, une
+/// masse d'ardoise sombre, ne se lisait pas (ni tête, ni queue) ; celui-ci est un
+/// pigeon des villes. Corps rond et dodu gris-bleu MOYEN (`4`, ARDOISE_PALE), aile
+/// repliée plus CLAIRE (`5`, BRUME) barrée de deux traits sombres (`1`), ventre et
+/// dessous de la queue ombrés (`3`), queue courte au bout sombre ; petite tête
+/// ronde ardoise (`3`) au front éclairé, œil orange (`A`), bec court sombre à la
+/// cire claire ; cou irisé : sarcelle (`E`), cyan (`D`) et une touche violette
+/// (`F`) ; pattes corail clair (`9`). Contour sombre de 1 px tout autour. Rien du
+/// corbeau (bleu nuit presque noir, gros bec, queue en éventail) ni de l'oiseau
+/// de décor (petit et blanc, `objets_decor::OISEAU0`), qui est inoffensif.
 pub const PIGEON0: Image = &[
-    "..........000...",
-    ".........02000..",
-    ".........02A2100",
-    ".........0EE200.",
-    "......0000DEE20.",
-    "....0034443EE220",
-    "...0033444322220",
-    "..01300300322220",
-    ".011333333222220",
-    "0110222222222220",
-    "000.00000000000.",
-    ".......0...0....",
+    "...........000....",
+    "..........034300..",
+    ".........0334A510.",
+    ".........0333330..",
+    ".......00EDE3300..",
+    ".....00555DEF4440.",
+    "....045555EF444440",
+    "...045555554444440",
+    ".00341111114444440",
+    "01335555554444440.",
+    "01331111114444440.",
+    ".011003333333330..",
+    "..00..009009000...",
+    "........0..0......",
 ];
 
-/// Pigeon perché, 2e image : il hoche la tête (tête plus basse et en avant).
+/// Pigeon perché, 2e image : il hoche la tête (tête plus basse et en avant) ; le
+/// corps, l'aile et les pattes ne bougent pas.
 pub const PIGEON1: Image = &[
-    "................",
-    "..........000...",
-    ".........02000..",
-    "......00002A2100",
-    "....00344DEE200.",
-    "...003344EDE220.",
-    "...0033444322220",
-    "..01300300322220",
-    ".011333333222220",
-    "0110222222222220",
-    "000.00000000000.",
-    ".......0...0....",
+    "..................",
+    "............000...",
+    "...........034300.",
+    ".........00334A510",
+    ".......00EDE33330.",
+    ".....00555DEF4440.",
+    "....045555EF444440",
+    "...045555554444440",
+    ".00341111114444440",
+    "01335555554444440.",
+    "01331111114444440.",
+    ".011003333333330..",
+    "..00..009009000...",
+    "........0..0......",
 ];
 
-/// Annonce (0,3 s avant la plongée) : ailes dressées, œil rouge corail ; la scène
-/// le fait aussi trembler d'un pixel.
+/// Annonce (0,3 s avant la plongée) : il se ramasse, corps plus bas et tendu vers
+/// l'avant, tête rentrée, ailes entrouvertes (les rémiges se dressent au-dessus du
+/// dos), œil rouge corail (`8`) sous un sourcil sombre ; la scène le fait aussi
+/// trembler d'un pixel.
 pub const PIGEON_ANNONCE: Image = &[
-    ".0...0..........",
-    "040.040..0000...",
-    "0440444002000...",
-    "04444444028210..",
-    ".04443344EE2000.",
-    "..0034443DEE220.",
-    "...0033444322220",
-    "..01300300322220",
-    ".011333333222220",
-    "0110222222222220",
-    "000.00000000000.",
-    ".......0...0....",
+    "..................",
+    "..................",
+    ".0.0.0......000...",
+    "01010100...03330..",
+    "01515155000033110.",
+    ".01555555510333830",
+    "..034555555EDE3350",
+    "..0334555EDEF4440.",
+    "..0334111111444440",
+    "..0335555555444440",
+    "...031111114444440",
+    "....0333333333300.",
+    ".....0009009000...",
+    "........0..0......",
 ];
 
-/// Plongée en diagonale : tête en avant vers le bas, ailes repliées vers l'arrière.
-pub const PIGEON_PLONGEE: Image = &[
-    "00..............",
-    "010..000........",
-    "0130044400......",
-    ".013344440......",
-    "..0133444400....",
-    "..01333344300...",
-    "...0133332220...",
-    "....013322EEE0..",
-    ".....02222DEE0..",
-    "......0022EDE200",
-    "........0022A210",
-    "..........00000.",
+/// Plongée, 1re image : il s'élance, ailes grandes ouvertes en V, le corps déjà
+/// couché sur la diagonale (tête en bas à droite, queue en haut à gauche).
+pub const PIGEON_PLONGEE0: Image = &[
+    "..................",
+    ".0.0.0.........0..",
+    "0101010......0010.",
+    "0151510....001310.",
+    ".0555500..013330..",
+    "011055540043330...",
+    "01331045544330....",
+    ".01334445544330...",
+    "..01344444EDE0....",
+    "...0344444DE330...",
+    "....03444EE33330..",
+    ".....0344E3383300.",
+    "......033333333550",
+    ".......0000000000.",
 ];
 
-/// Remontée vers le perchoir : ailes levées, corps incliné vers le haut. La scène
+/// Plongée, 2e image (le reste du piqué) : il fond sur Pépin le long de sa diagonale
+/// à 45°, tête et bec devant (en bas à droite, œil rouge), ailes relevées et
+/// repliées en flèche vers l'arrière, rémiges sombres en « doigts » au bout,
+/// queue derrière (en haut à gauche).
+pub const PIGEON_PLONGEE1: Image = &[
+    "....0.0.0....0.0..",
+    "...0101010..01010.",
+    "...0151510.013130.",
+    ".00.055550.03330..",
+    "011004555504330...",
+    "01331045554330....",
+    ".01334445544330...",
+    "..01344444EDE0....",
+    "...0344444DE3300..",
+    "....034444EE33330.",
+    ".....03444E338330.",
+    "......0333333330..",
+    ".......0000033550.",
+    "............0000..",
+];
+
+/// Remontée vers le perchoir, 1re image : ailes levées au-dessus du dos. La scène
 /// le retourne pour qu'il regarde son perchoir (il revient en arrière).
-pub const PIGEON_REMONTEE: Image = &[
-    ".....00....00...",
-    "....0440..0440..",
-    "....04440.04440.",
-    ".....04440044440",
-    "......0444034400",
-    "......0033DEE200",
-    ".....0333222EA10",
-    "...0033322222000",
-    "..01133222220...",
-    ".0110222222220..",
-    "0110.00000000...",
-    "000.............",
+pub const PIGEON_REMONTEE0: Image = &[
+    "....0.0.0.........",
+    "...0101010...000..",
+    "...01515150.03430.",
+    "....05555500334A50",
+    "....04555510E3330.",
+    ".....04555EDE300..",
+    "....0044455DEF00..",
+    "...03344444444440.",
+    "..03344444444400..",
+    ".013344444444440..",
+    "011133334444440...",
+    "01100333333330....",
+    ".00..00000000.....",
+    "..................",
 ];
 
-/// Pigeon écrasé : aplati, plumes ébouriffées.
+/// Remontée, 2e image : ailes rabattues sous le ventre (battement d'ailes).
+pub const PIGEON_REMONTEE1: Image = &[
+    "..................",
+    ".............000..",
+    "............03430.",
+    "...........0334A50",
+    "..........00E3330.",
+    ".......000EDE300..",
+    "....0004444DEF00..",
+    "...03344444444440.",
+    "..03344444444400..",
+    ".013344555544440..",
+    "011130555555400...",
+    "0110005555550.....",
+    ".00...0151510.....",
+    ".......00000......",
+];
+
+/// Pigeon écrasé : aplati, plumes ébouriffées qui dépassent du dos.
 pub const PIGEON_ECRASE: Image = &[
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "..0..0.0..000...",
-    ".040040400222000",
-    "011333222DEE2A10",
-    "0000000000000000",
+    "..................",
+    "..................",
+    "..................",
+    "..................",
+    "..................",
+    "..................",
+    "...0..0.0...0.....",
+    "..01005010.010....",
+    ".0151051510151000.",
+    "0134555555140333A0",
+    "0133555555EEDE3350",
+    "0133111111DEF44440",
+    ".0333333333333330.",
+    "..00000000000000..",
 ];
 
 /// Escargot (16x12, tourné vers la gauche) : « un champignon qui marche ». Sa
@@ -632,8 +693,10 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pigeon0", PIGEON0),
     ("pigeon1", PIGEON1),
     ("pigeon_annonce", PIGEON_ANNONCE),
-    ("pigeon_plongee", PIGEON_PLONGEE),
-    ("pigeon_remontee", PIGEON_REMONTEE),
+    ("pigeon_plongee0", PIGEON_PLONGEE0),
+    ("pigeon_plongee1", PIGEON_PLONGEE1),
+    ("pigeon_remontee0", PIGEON_REMONTEE0),
+    ("pigeon_remontee1", PIGEON_REMONTEE1),
     ("pigeon_ecrase", PIGEON_ECRASE),
     ("escargot0", ESCARGOT0),
     ("escargot1", ESCARGOT1),
@@ -662,6 +725,10 @@ pub const FLAQUE: [&str; 3] = ["flaque0", "flaque1", "flaque2"];
 pub const CORBEAU: [&str; 2] = ["corbeau0", "corbeau1"];
 /// Pigeon perché : il hoche la tête (2 images).
 pub const PIGEON: [&str; 2] = ["pigeon0", "pigeon1"];
+/// Pigeon en piqué : il s'élance ailes ouvertes, puis les relève en flèche (2 images).
+pub const PIGEON_PLONGEE: [&str; 2] = ["pigeon_plongee0", "pigeon_plongee1"];
+/// Pigeon qui remonte à son perchoir : il bat des ailes (2 images).
+pub const PIGEON_REMONTEE: [&str; 2] = ["pigeon_remontee0", "pigeon_remontee1"];
 /// Escargot qui marche (2 images).
 pub const ESCARGOT: [&str; 2] = ["escargot0", "escargot1"];
 /// Chat endormi : il respire (2 images).

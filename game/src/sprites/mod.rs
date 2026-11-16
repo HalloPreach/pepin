@@ -700,15 +700,18 @@ mod tests {
         }
     }
 
-    // --- Pigeon (carte 4.4) ---
+    // --- Pigeon (carte 4.4, redessiné carte 6.6) ---
 
-    /// Les six images du pigeon : perché (2), annonce, plongée, remontée, écrasé.
-    const PIGEON_TOUT: [&str; 6] = [
+    /// Les huit images du pigeon : perché (2), annonce, plongée (2 : l'élan, le
+    /// piqué), remontée (2 : ailes levées, ailes basses), écrasé.
+    const PIGEON_TOUT: [&str; 8] = [
         "pigeon0",
         "pigeon1",
         "pigeon_annonce",
-        "pigeon_plongee",
-        "pigeon_remontee",
+        "pigeon_plongee0",
+        "pigeon_plongee1",
+        "pigeon_remontee0",
+        "pigeon_remontee1",
         "pigeon_ecrase",
     ];
 
@@ -735,84 +738,226 @@ mod tests {
             .0
     }
 
-    #[test]
-    fn le_pigeon_a_six_images_de_meme_taille_et_un_contour_sombre() {
-        for nom in PIGEON_TOUT {
-            assert_eq!(taille(nom), (16, 12), "{nom}");
-            let d = dessin(nom);
-            for y in 0..12 {
-                for x in 0..16 {
-                    let c = car(d, x, y);
-                    if c == '.' || c == '0' {
-                        continue;
-                    }
-                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                        assert_ne!(
-                            car(d, x + dx, y + dy),
-                            '.',
-                            "{nom} : ({x},{y}) « {c} » touche le vide sans contour"
-                        );
-                        assert!((0..16).contains(&(x + dx)) && (0..12).contains(&(y + dy)));
-                    }
+    /// Pixels colorés d'un dessin (contour `0` et vide exclus) : `(x, y, caractère)`.
+    fn pixels_colores(d: Image) -> Vec<(i32, i32, char)> {
+        let mut v = Vec::new();
+        for (y, ligne) in d.iter().enumerate() {
+            for (x, c) in ligne.chars().enumerate() {
+                if c != '.' && c != '0' {
+                    v.push((x as i32, y as i32, c));
                 }
             }
         }
-        // Perché, il ne fait que hocher la tête : le dessous du corps ne bouge pas.
-        let (a, b) = (dessin("pigeon0"), dessin("pigeon1"));
-        assert_eq!(&a[6..], &b[6..]);
-        assert_ne!(a, b);
+        v
     }
 
-    /// Exigence du coordinateur (carte 4.4) : on distingue d'un coup d'œil l'oiseau de
-    /// décor, inoffensif, du pigeon qui plonge.
+    /// Carte 6.6 : 18 x 14 (au lieu de 16 x 12), même taille pour les huit images
+    /// (sinon il « sauterait » d'une image à l'autre), contour sombre de 1 px
+    /// (aucun pixel coloré ne touche le vide ni le bord du dessin), cou irisé
+    /// (sarcelle `E` et cyan `D`) sur chaque image.
     #[test]
-    fn le_pigeon_ne_ressemble_pas_a_l_oiseau_de_decor() {
+    fn le_pigeon_a_huit_images_de_meme_taille_et_un_contour_sombre() {
+        for nom in PIGEON_TOUT {
+            assert_eq!(taille(nom), (18, 14), "{nom}");
+            let d = dessin(nom);
+            for (x, y, c) in pixels_colores(d) {
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    assert_ne!(
+                        car(d, x + dx, y + dy),
+                        '.',
+                        "{nom} : ({x},{y}) « {c} » touche le vide sans contour"
+                    );
+                    assert!((0..18).contains(&(x + dx)) && (0..14).contains(&(y + dy)));
+                }
+            }
+            assert!(
+                d.iter().any(|l| l.contains('E')) && d.iter().any(|l| l.contains('D')),
+                "{nom} : pas de cou irisé"
+            );
+        }
+        // Perché, il ne fait que hocher la tête : sous la tête (rangées 5 et
+        // suivantes), le corps, l'aile et les pattes ne bougent pas.
+        let (a, b) = (dessin("pigeon0"), dessin("pigeon1"));
+        assert_eq!(&a[5..], &b[5..]);
+        assert_ne!(a, b);
+        // Remontée : deux images différentes (le battement d'ailes) ; ailes levées
+        // (de l'aile claire `5` dans les 3 rangées du haut), puis rabattues (de l'aile
+        // claire sous le ventre, rangées 10 et suivantes).
+        let aile = |nom: &str, rangees: std::ops::Range<i32>| {
+            pixels_colores(dessin(nom))
+                .iter()
+                .filter(|&&(_, y, c)| c == '5' && rangees.contains(&y))
+                .count()
+        };
+        assert!(aile("pigeon_remontee0", 0..3) >= 3);
+        assert_eq!(aile("pigeon_remontee1", 0..3), 0);
+        assert!(aile("pigeon_remontee1", 10..14) >= 6);
+        assert_eq!(aile("pigeon_remontee0", 10..14), 0);
+        // Écrasé : aplati, rien dans les 6 rangées du haut.
+        assert!(pixels_colores(dessin("pigeon_ecrase"))
+            .iter()
+            .all(|&(_, y, _)| y >= 6));
+    }
+
+    /// Carte 6.6, priorité d'AGA (« surtout quand ils piquent ») : en piqué, le
+    /// pigeon se lit comme un oiseau qui fond sur Pépin le long de sa diagonale
+    /// (vers le bas et vers l'avant, à 45°). Le dessin regarde à droite (la scène le
+    /// retourne) ; sur les deux images de la plongée :
+    /// - la masse des pixels colorés s'allonge vers le bas à droite : son axe
+    ///   principal (covariance des positions) penche entre 15° et 75° sous
+    ///   l'horizontale ;
+    /// - devant, le long de la diagonale (le plus grand `x + y`), c'est le bec
+    ///   (gris clair `5`), à 4 px au plus de l'œil ;
+    /// - un seul œil, rouge corail (`8`, l'œil vif de l'annonce), dans le quart en bas
+    ///   à droite ;
+    /// - derrière (le plus petit `x + y`), ce sont les rémiges sombres (`1`), dans
+    ///   le coin en haut à gauche.
+    #[test]
+    fn le_pigeon_en_pique_fond_sur_pepin_le_long_de_sa_diagonale() {
+        for nom in ["pigeon_plongee0", "pigeon_plongee1"] {
+            let px = pixels_colores(dessin(nom));
+            let n = px.len() as f32;
+            let mx = px.iter().map(|p| p.0 as f32).sum::<f32>() / n;
+            let my = px.iter().map(|p| p.1 as f32).sum::<f32>() / n;
+            let (mut sxx, mut syy, mut sxy) = (0.0, 0.0, 0.0);
+            for &(x, y, _) in &px {
+                let (dx, dy) = (x as f32 - mx, y as f32 - my);
+                sxx += dx * dx;
+                syy += dy * dy;
+                sxy += dx * dy;
+            }
+            // Angle de l'axe principal (y vers le bas : positif = vers le bas à droite).
+            let angle = 0.5 * (2.0 * sxy).atan2(sxx - syy).to_degrees();
+            assert!((15.0..=75.0).contains(&angle), "{nom} : axe à {angle:.1}°");
+
+            let yeux: Vec<_> = px.iter().filter(|p| matches!(p.2, 'A' | '8')).collect();
+            assert_eq!(yeux.len(), 1, "{nom} : yeux {yeux:?}");
+            let &&(ox, oy, oc) = yeux.first().unwrap();
+            assert_eq!(oc, '8', "{nom} : l'œil du piqué est rouge");
+            assert!(ox >= 9 && oy >= 7, "{nom} : œil en ({ox},{oy})");
+
+            let avant = px.iter().max_by_key(|p| (p.0 + p.1, p.0)).unwrap();
+            assert_eq!(avant.2, '5', "{nom} : devant, {avant:?} n'est pas le bec");
+            assert!(
+                (avant.0 - ox).abs() <= 4 && (avant.1 - oy).abs() <= 4,
+                "{nom} : bec {avant:?} loin de l'œil ({ox},{oy})"
+            );
+            let arriere = px.iter().min_by_key(|p| (p.0 + p.1, p.0)).unwrap();
+            assert_eq!(arriere.2, '1', "{nom} : derrière, {arriere:?}");
+            assert!(arriere.0 + arriere.1 <= 6, "{nom} : derrière, {arriere:?}");
+        }
+        // L'élan (ailes ouvertes) est plus étalé que le piqué (ailes en flèche).
+        assert_ne!(dessin("pigeon_plongee0"), dessin("pigeon_plongee1"));
+    }
+
+    /// Exigence du coordinateur (carte 4.4), reprise carte 6.6 : on distingue d'un
+    /// coup d'œil le pigeon de l'oiseau de décor (inoffensif) et du corbeau.
+    /// - Couleur principale : le pigeon perché est gris-bleu MOYEN (`4`), entre le
+    ///   corbeau bleu nuit (`1`) et l'oiseau blanc (`7`), avec un écart de clarté
+    ///   d'au moins 2,5:1 de chaque côté ;
+    /// - taille : plus gros que l'oiseau de décor (18 x 14 contre 12 x 8, au moins
+    ///   2 fois plus de pixels pleins) ;
+    /// - rien du blanc ni du nuage de l'oiseau (`7`, `6`) dans le pigeon ; le cou
+    ///   irisé (`D`, `E`) et les pattes corail (`9`) n'existent que chez lui ;
+    /// - l'œil : orange (`A`) quand il est perché, rouge corail (`8`) sous un sourcil
+    ///   sombre pendant l'annonce (il va piquer).
+    #[test]
+    fn le_pigeon_ne_ressemble_ni_a_l_oiseau_de_decor_ni_au_corbeau() {
         let oiseau = dessin("oiseau0");
         for nom in PIGEON_TOUT {
             let d = dessin(nom);
-            // Pas blanc : aucune des couleurs claires de l'oiseau (brume, nuage, blanc).
             assert!(
-                d.iter().all(|l| !l.contains(['5', '6', '7'])),
+                d.iter().all(|l| !l.contains(['6', '7'])),
                 "{nom} : couleur claire de l'oiseau de décor"
             );
-            // Cou irisé : sarcelle (E) et cyan (D), toujours visibles.
-            assert!(d.iter().any(|l| l.contains('E')) && d.iter().any(|l| l.contains('D')));
         }
-        // Plus gros : 16 x 12 contre 12 x 8, et au moins 1,5 fois plus de pixels pleins.
+        for nom in ennemis::CORBEAU.iter().chain(&objets_decor::OISEAU) {
+            let d = dessin(nom);
+            assert!(
+                d.iter().all(|l| !l.contains(['D', 'E', '9'])),
+                "{nom} : couleur du pigeon"
+            );
+        }
         assert_eq!(taille("oiseau0"), (12, 8));
         let (p, o) = (opaques(dessin("pigeon0")), opaques(oiseau));
-        assert!(2 * p >= 3 * o, "pigeon {p} px, oiseau {o} px");
-        // Corps sombre (ardoise) contre corps blanc : contraste fort entre les deux.
-        assert_eq!(couleur_principale(dessin("pigeon0")), '2');
+        assert!(p >= 2 * o, "pigeon {p} px, oiseau {o} px");
+        for nom in ennemis::PIGEON {
+            assert_eq!(couleur_principale(dessin(nom)), '4', "{nom}");
+            assert!(
+                dessin(nom).iter().any(|l| l.contains('9')),
+                "{nom} : pattes"
+            );
+        }
         assert_eq!(couleur_principale(oiseau), '7');
-        assert!(contraste(couleur_de('2'), couleur_de('7')) >= 7.0);
-        // Regard menaçant : l'œil (orange, ou corail pendant l'annonce) a un pixel sombre
-        // juste au-dessus (le sourcil froncé).
-        for nom in ["pigeon0", "pigeon1", "pigeon_annonce"] {
-            let d = dessin(nom);
-            let oeil = (0..12)
-                .flat_map(|y| (0..16).map(move |x| (x, y)))
-                .find(|&(x, y)| matches!(car(d, x, y), 'A' | '8'))
-                .unwrap_or_else(|| panic!("{nom} : pas d'œil"));
-            assert_eq!(car(d, oeil.0, oeil.1 - 1), '0', "{nom} : pas de sourcil");
+        assert_eq!(couleur_principale(dessin("corbeau0")), '1');
+        assert!(contraste(couleur_de('4'), couleur_de('1')) >= 2.5);
+        assert!(contraste(couleur_de('4'), couleur_de('7')) >= 2.5);
+        for (nom, couleur) in [("pigeon0", 'A'), ("pigeon1", 'A'), ("pigeon_annonce", '8')] {
+            let yeux: Vec<_> = pixels_colores(dessin(nom))
+                .into_iter()
+                .filter(|p| matches!(p.2, 'A' | '8'))
+                .collect();
+            assert_eq!(yeux.len(), 1, "{nom} : yeux {yeux:?}");
+            let (x, y, c) = yeux[0];
+            assert_eq!(c, couleur, "{nom} : couleur de l'œil");
+            if nom == "pigeon_annonce" {
+                assert!(
+                    matches!(car(dessin(nom), x, y - 1), '0' | '1'),
+                    "{nom} : pas de sourcil"
+                );
+            }
         }
     }
 
-    /// Contraste d'au moins 3:1 entre le pigeon et le ciel derrière lui, dans les vrais
+    /// Le pigeon se détache-t-il de ce ciel ? (Carte 6.6.) Deux conditions :
+    /// - son contour sombre (`0`) y contraste d'au moins 3:1 : c'est lui qui dessine
+    ///   la silhouette sur les ciels clairs ;
+    /// - son plumage (`4`, gris-bleu : plus de bleu que de rouge) tranche sur le ciel
+    ///   par la TEINTE : le ciel est chaud (plus de rouge que de bleu) et son rouge
+    ///   dépasse celui du plumage d'au moins 100.
+    ///
+    /// L'ancien pigeon (ardoise `2`, carte 4.4) contrastait par la clarté (3,7:1 sur
+    /// le corail), mais n'était qu'une masse sombre. Le nouveau, gris-bleu moyen, a
+    /// la même clarté que le corail (1,0:1) : c'est la teinte, froide sur un ciel
+    /// chaud, qui l'en sépare, et le contour qui le cerne.
+    fn pigeon_se_detache(ciel: Couleur) -> Result<(), String> {
+        let k = contraste(couleur_de('0'), ciel);
+        if k < 3.0 {
+            return Err(format!("contour à {k:.2}:1"));
+        }
+        let plumage = couleur_de('4');
+        let chaud = ciel.r > ciel.b && i32::from(ciel.r) - i32::from(plumage.r) >= 100;
+        if plumage.b <= plumage.r || !chaud {
+            return Err(format!("plumage {plumage:?} de même teinte que le ciel"));
+        }
+        Ok(())
+    }
+
+    /// Le pigeon se détache du ciel derrière lui (`pigeon_se_detache`), dans les vrais
     /// niveaux 4 et 5 (aujourd'hui les vents d'altitude et Au-dessus des nuages) et, depuis
     /// la carte 6.4b, dans la mer de nuages (son ciel corail, qui se dore vers le bas) :
     /// pour chaque pigeon posé, toutes les bandes de ciel qu'il traverse
-    /// (perché, puis jusqu'au fond de sa plongée) contrastent avec son corps (ardoise) et
-    /// son contour. Le haut du ciel du niveau 4 est violet (ARDOISE et violet : 1,5:1) :
-    /// ce test interdit d'y percher un pigeon.
+    /// (perché, puis jusqu'au fond de sa plongée). Le haut du ciel du niveau 4 est
+    /// violet (contour et violet : 2,4:1, et le violet est froid) : ce test interdit
+    /// d'y percher un pigeon.
     #[test]
     fn le_pigeon_se_detache_du_ciel_des_niveaux_4_et_5() {
         use crate::decor::{ambiance, ciel_a};
         use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
         use pepin_core::entities::{Entite, TypeEnnemi};
         use pepin_core::levels::{mer, nuages, vents};
+        use pepin_core::palette::{
+            ARDOISE_NUIT, CORAIL, CORAIL_CLAIR, OR, ORANGE_SOLEIL, OR_PALE, VIOLET_ORAGE,
+        };
         use pepin_core::HAUTEUR_LOGIQUE;
         let mut vus = 0;
+        // Le critère lui-même : les ciels chauds passent, le violet et la nuit non.
+        for ciel in [CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL, OR, OR_PALE] {
+            assert_eq!(pigeon_se_detache(ciel), Ok(()), "{ciel:?}");
+        }
+        for ciel in [VIOLET_ORAGE, ARDOISE_NUIT] {
+            assert!(pigeon_se_detache(ciel).is_err(), "{ciel:?}");
+        }
         for infos in [vents::INFOS, mer::INFOS, nuages::INFOS] {
             let niveau = infos.charger().unwrap();
             // Niveau pas plus haut que l'écran : la caméra aligne son bas sur celui de
@@ -826,17 +971,15 @@ mod tests {
                     continue;
                 }
                 vus += 1;
-                // Sprite 16x12 posé 2 px au-dessus de la boîte (voir `scene.rs`).
-                let haut = (p.boite.y - 2.0 - cam_y) as i32;
+                // Sprite 18x14 : 4 px dépassent au-dessus de la boîte (voir `scene.rs`).
+                let haut = (p.boite.y - 4.0 - cam_y) as i32;
                 let bas = (p.boite.bas() + PROFONDEUR_PLONGEE - cam_y) as i32;
                 // Les 6 dernières lignes d'une bande sont tramées avec la suivante.
                 for y in haut..bas.min(HAUTEUR_LOGIQUE as i32) {
                     for ciel in [ciel_a(&a, y), ciel_a(&a, y + 6)] {
-                        for c in ['2', '0'] {
-                            let k = contraste(couleur_de(c), ciel);
-                            assert!(
-                                k >= 3.0,
-                                "niveau {} : pigeon en {:?}, « {c} » sur {ciel:?} à y = {y} : {k:.2}",
+                        if let Err(e) = pigeon_se_detache(ciel) {
+                            panic!(
+                                "niveau {} : pigeon en {:?}, sur {ciel:?} à y = {y} : {e}",
                                 infos.numero,
                                 p.perchoir()
                             );
@@ -854,8 +997,8 @@ mod tests {
     /// Même contrôle dans la descente (carte 5.17), dont le ciel défile avec la
     /// caméra (`decor::VOYAGE`) : pour chaque pigeon, chaque ligne qu'il occupe
     /// (perché, puis jusqu'au fond de sa plongée) et CHAQUE position de la caméra où
-    /// cette ligne est à l'écran, la bande de ciel derrière lui (et celle de sa trame)
-    /// contraste d'au moins 3:1 avec son corps et son contour. Les pigeons sont
+    /// cette ligne est à l'écran, il se détache de la bande de ciel derrière lui (et
+    /// de celle de sa trame) : voir `pigeon_se_detache`. Les pigeons sont
     /// perchés assez haut pour n'avoir derrière eux que l'or, l'orange et le corail,
     /// jamais le violet ni la nuit.
     #[test]
@@ -874,7 +1017,8 @@ mod tests {
                 continue;
             }
             vus += 1;
-            let haut = (p.boite.y - 2.0) as i32;
+            // Sprite 18x14 : 4 px dépassent au-dessus de la boîte (voir `scene.rs`).
+            let haut = (p.boite.y - 4.0) as i32;
             let bas = (p.boite.bas() + PROFONDEUR_PLONGEE) as i32;
             for y_niveau in haut..bas {
                 let cameras = (y_niveau - h_ecran + 1).max(0)..=y_niveau.min(h_niveau - h_ecran);
@@ -882,11 +1026,9 @@ mod tests {
                     let r = remontee_voyage(camera_fond(cam_y, h_niveau));
                     let y = y_niveau - cam_y;
                     for ciel in [VOYAGE[bande_voyage(y, r)], VOYAGE[bande_voyage(y + 6, r)]] {
-                        for c in ['2', '0'] {
-                            let k = contraste(couleur_de(c), ciel);
-                            assert!(
-                                k >= 3.0,
-                                "pigeon en {:?}, « {c} » sur {ciel:?} (caméra {cam_y}) : {k:.2}",
+                        if let Err(e) = pigeon_se_detache(ciel) {
+                            panic!(
+                                "pigeon en {:?}, sur {ciel:?} (caméra {cam_y}) : {e}",
                                 p.perchoir()
                             );
                         }
