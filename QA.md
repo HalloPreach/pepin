@@ -5457,8 +5457,9 @@ Les deux autres gouttes, revues avec la même sonde, ne sont pas limites en haut
   difficulté est la distance (100 px au-delà du bord, en planant sous la grêle) : un saut tenu, parapluie
   ouvert, la prend depuis les 35 derniers pixels du bord ; un saut à 79 %, depuis les 11 derniers
   seulement. C'est le défi prévu ; à surveiller si AGA la trouve trop dure.
-- (112, 1), au-dessus du moment fort : 32 px sous le sommet d'un saut depuis la tour ; prise depuis les
-  74 derniers pixels du bord (saut complet) et 83 (saut à 79 %).
+- (112, 1), au-dessus du moment fort : 32 px sous le sommet d'un saut depuis la tour ; un saut à 79 %
+  la prend depuis n'importe où sur la tour, un saut complet aussi, sauf depuis les 7 derniers pixels du
+  bord (il passe au-delà).
 
 ### Preuves
 
