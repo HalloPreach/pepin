@@ -35,6 +35,7 @@ mod navigation;
 mod orientation;
 mod particules;
 mod rendu;
+mod sauvegarde;
 mod scene;
 mod secousse;
 mod sprites;

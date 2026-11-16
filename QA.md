@@ -5577,3 +5577,48 @@ Deux extractions propres, `git archive` de 589d6eb (avant) et de carte-6.9 au co
   en même temps que d'autres tests, charge jusqu'à 13) : son niveau 5 domine. Les scripts 64b et 66
   (même fonction) n'ont pas été relancés.
 - Pas de suite complète (consigne vitesse) ; une seule mesure de chaque côté, sur une machine chargée.
+
+## Sauvegarde : gouttes en poche et records (carte 7.2)
+
+`game/src/sauvegarde.rs` : `Sauvegarde` (porte-monnaie `gouttes_en_poche`, `gouttes_total_gagnees`,
+`meilleur_score`, `meilleur_temps`, `parties_finies`, `skins_debloques` avec « pepin » et « pepinette »
+d'office, `skin_choisi`), texte `cle=valeur` avec `version=1`. Lecture tolérante : texte absent, vide,
+sans `version=1` → défaut ; champ inconnu ignoré ; valeur illisible → défaut du champ ; skin choisi non
+débloqué → « pepin ». Méthodes `ajouter_gouttes`, `depenser(prix) -> bool`, `debloquer`,
+`noter_partie(score, temps) -> nouveau record ?` (la boutique, carte 7.3, se servira de `depenser`).
+
+- Stockage web : `localStorage["pepin.sauvegarde"]` par un petit plugin miniquad écrit dans
+  `web/index.html` (`pepin_sauvegarde_lire` / `pepin_sauvegarde_ecrire`, texte UTF-8 par la mémoire du
+  wasm, tout dans un `try` : stockage refusé → rien lu, rien écrit). Natif/tests : en mémoire.
+- Branchement (`app.rs`) : niveau réussi (drapeau, boss, bonus) → ses gouttes au porte-monnaie +
+  écriture ; niveau recommencé ou perdu → rien (ses gouttes sont remises à zéro). Écran de fin →
+  `noter_partie(score, chrono)` + écriture.
+- Affichage : écran titre, « GOUTTES : N » en haut à gauche et « RECORD : score » en haut à droite (dès
+  une partie finie), échelle 1 au-dessus du titre ; écran de fin, « NOUVEAU RECORD ! » clignote en or au
+  milieu de la ligne SCORE.
+- Un seul test ajouté (`sauvegarde::tests`, aller-retour texte, textes abîmés, dépense refusée).
+
+### Preuves
+
+- Robot de QA inchangé : `ecrire_script_navigateur` redonne 71df3e47c4844537 (21 422 images, 0 mort,
+  14 gouttes, score 2500, chrono 18 878 pas), la même empreinte qu'en 6.9.
+- Vrai navigateur (Chromium sans tête, CDP, build de QA servi sur 127.0.0.1) avec
+  `docs/capture-sauvegarde.mjs` : première visite, rien d'enregistré ; le script complet du robot
+  rejoué, le porte-monnaie monte niveau par niveau (1, 2, 4, 5, 7, 10, 13, 14) et la fin écrit
+  `meilleur_score=2500`, `parties_finies=1`, `meilleur_temps=18877` ; page rechargée → la sauvegarde
+  est toujours là et le titre affiche « GOUTTES : 14 » et « RECORD : 2500 » ; `localStorage` vidé →
+  « GOUTTES : 0 », pas de RECORD ; `localStorage` qui lève une exception → le jeu démarre quand même ;
+  0 erreur ni avertissement dans la console sur tout le parcours. Captures
+  `docs/qa/72-titre-gouttes-record.png` et `docs/qa/72-fin-nouveau-record.png` (regardées : rien ne se
+  chevauche ; `mesure-capture.py` : 0 pixel hors palette, 0 flou).
+- Extraction propre (`git archive` de carte-7.2 au commit 6ff6f2e) : `./docker-cargo.sh test -p game
+  --no-default-features sauvegarde` 1 vert ; `... bot_qa` 19 verts, 19 ignorés ; `./docker-cargo.sh
+  lint` FMT-OK, LINT-OK ; `./build.sh` : `dist/` produit, 0 nom interdit, seule URL celle du SVG.
+
+### Ce qui n'est PAS testé
+
+- Ni vrai téléphone, ni Safari (navigation privée), ni Firefox : le refus de `localStorage` est simulé
+  dans Chromium.
+- Deux onglets ouverts en même temps : le dernier qui écrit gagne (pas de fusion).
+- La boutique (dépenser des gouttes, choisir un skin) : carte 7.3.
+- Pas de suite complète (`test --workspace`) : seulement les commandes de la carte ci-dessus.

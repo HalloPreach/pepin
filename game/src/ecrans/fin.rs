@@ -187,6 +187,7 @@ pub fn dessiner(
     libelles: &[&str],
     menu: &Menu,
     d: &Disposition,
+    nouveau_record: bool,
 ) {
     let m = mise_en_page(bilan);
     // Le fond tel qu'en bas d'un niveau (caméra du fond à 0) : pour l'épilogue, la
@@ -206,6 +207,10 @@ pub fn dessiner(
         let y = m.y_lignes + i as f32 * m.pas_lignes;
         texte::dessiner(nom, 56.0, y, ombre(BRUME));
         texte::dessiner_a_droite(valeur, 264.0, y, ombre(BLANC_CASSE));
+        // Record battu (carte 7.2) : au milieu de la ligne SCORE, qui clignote.
+        if nouveau_record && *nom == contenu::LIBELLE_SCORE && (anim / 30) % 4 != 3 {
+            texte::dessiner_centre(contenu::NOUVEAU_RECORD, y, ombre(OR));
+        }
     }
     for (i, ligne) in m.mot.iter().enumerate() {
         texte::dessiner_centre(ligne, m.y_mot + i as f32 * 10.0, ombre(CORAIL_CLAIR));

@@ -318,9 +318,43 @@
     erreurDuJeu("contexte WebGL perdu", "l'affichage WebGL a été perdu");
   });
 
+  // --- Sauvegarde (carte 7.2) ----------------------------------------------------------
+  // Porte-monnaie de gouttes et records, dans localStorage (clé « pepin.sauvegarde »).
+  // Le jeu (game/src/sauvegarde.rs) appelle ces deux fonctions ; le texte passe en UTF-8
+  // par la mémoire du wasm. localStorage refusé (navigation privée stricte, réglages) :
+  // on ne lit ni n'écrit rien, le jeu tourne sans sauvegarde, sans erreur.
+  var CLE_SAUVEGARDE = "pepin.sauvegarde";
+  function ajouterSauvegarde() {
+    if (typeof miniquad_add_plugin !== "function") { return; }
+    miniquad_add_plugin({
+      name: "pepin_sauvegarde",
+      version: 1,
+      register_plugin: function (importObject) {
+        // Renvoie la longueur en octets (0 : rien) ; copie seulement si elle tient.
+        importObject.env.pepin_sauvegarde_lire = function (ptr, max) {
+          try {
+            var texte = window.localStorage.getItem(CLE_SAUVEGARDE);
+            if (!texte) { return 0; }
+            var octets = new TextEncoder().encode(texte);
+            if (octets.length <= max) {
+              new Uint8Array(wasm_memory.buffer, ptr, octets.length).set(octets);
+            }
+            return octets.length;
+          } catch (e) { return 0; }
+        };
+        importObject.env.pepin_sauvegarde_ecrire = function (ptr, len) {
+          try {
+            var octets = new Uint8Array(wasm_memory.buffer, ptr, len);
+            window.localStorage.setItem(CLE_SAUVEGARDE, new TextDecoder().decode(octets));
+          } catch (e) { /* stockage refusé ou plein : tant pis, rien n'est gardé */ }
+        };
+      }
+    });
+  }
+
   var script = document.createElement("script");
   script.src = "mq_js_bundle.js";
-  script.onload = function () { load("game.wasm"); };
+  script.onload = function () { ajouterSauvegarde(); load("game.wasm"); };
   script.onerror = function () {
     afficherErreur(null, "Le fichier mq_js_bundle.js est introuvable : le jeu est incomplet.");
   };
