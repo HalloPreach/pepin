@@ -9,7 +9,9 @@ use crate::texte::{self, Style};
 
 pub fn dessiner(anim: u32, libelles: &[&str], menu: &Menu, d: &Disposition) {
     trame();
-    panneau(40.0, 18.0, 240.0, 142.0, ARDOISE_NUIT, ARDOISE_CLAIRE);
+    // Trois lignes depuis la carte 7.8b (le son est une icône en bas à gauche) : le
+    // panneau finit 14 px sous la dernière (y = 128), en y = 142.
+    panneau(40.0, 18.0, 240.0, 124.0, ARDOISE_NUIT, ARDOISE_CLAIRE);
     texte::dessiner_centre(
         contenu::TITRE_PAUSE,
         30.0,

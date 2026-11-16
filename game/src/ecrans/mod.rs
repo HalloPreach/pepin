@@ -74,10 +74,10 @@ impl Disposition {
 /// Mise en page du menu de l'écran donné (`None` : cet écran n'a pas de menu).
 pub fn disposition(ecran: Ecran) -> Option<Disposition> {
     match ecran {
-        // Quatre lignes depuis la boutique (carte 7.5) : JOUER, BOUTIQUE, COMMENT JOUER,
-        // SON ; elles finissent en y = 146, au-dessus des toits (Pépin court à gauche).
+        // Trois lignes depuis la carte 7.8b (le son est une icône en bas à gauche) :
+        // JOUER, BOUTIQUE, COMMENT JOUER, de y = 74 à 134, au-dessus des toits (148).
         Ecran::Titre => Some(Disposition {
-            y0: 66.0,
+            y0: 74.0,
             pas: 20.0,
         }),
         Ecran::Pause => Some(Disposition {
@@ -117,6 +117,89 @@ pub fn trame() {
 /// Image `(pas / duree)` d'une animation, en bouclant.
 pub fn image<'a>(anim: &'a [&'a str], pas: u32, duree: u32) -> &'a str {
     anim[(pas / duree) as usize % anim.len()]
+}
+
+/// Icône du haut-parleur, son actif : le haut-parleur et deux ondes (7 pixels de haut,
+/// comme la police).
+const ICONE_SON_ACTIF: [&str; 7] = [
+    "....X....X.",
+    "...XX.X...X",
+    "XXXXX..X..X",
+    "XXXXX..X..X",
+    "XXXXX..X..X",
+    "...XX.X...X",
+    "....X....X.",
+];
+
+/// Icône du haut-parleur, son coupé : une croix à la place des ondes (même largeur,
+/// l'icône ne saute pas quand on bascule).
+const ICONE_SON_COUPE: [&str; 7] = [
+    "....X......",
+    "...XX.X...X",
+    "XXXXX..X.X.",
+    "XXXXX...X..",
+    "XXXXX..X.X.",
+    "...XX.X...X",
+    "....X......",
+];
+
+/// Icône du son en bas à gauche du titre et de la pause (carte 7.8b, à la place de
+/// la ligne de menu de la carte 7.8) : échelle, marge au bord de l'écran.
+const ECHELLE_ICONE_SON: u32 = 2;
+const MARGE_ICONE_SON: f32 = 6.0;
+/// Débord de la zone de clic autour de l'icône, de chaque côté : assez grande pour
+/// un doigt (34 x 26 pixels logiques, ~1 cm sur un téléphone) sans toucher le menu
+/// (qui commence en x = `MENU_X`).
+const DEBORD_CLIC_ICONE: f32 = 6.0;
+
+/// Rectangle `(x, y, largeur, hauteur)` de l'icône du son (pixels logiques).
+fn rect_icone_son() -> (f32, f32, f32, f32) {
+    let e = ECHELLE_ICONE_SON as f32;
+    let l = ICONE_SON_ACTIF[0].len() as f32 * e;
+    let h = ICONE_SON_ACTIF.len() as f32 * e;
+    (
+        MARGE_ICONE_SON,
+        HAUTEUR_LOGIQUE as f32 - MARGE_ICONE_SON - h,
+        l,
+        h,
+    )
+}
+
+/// Le point `(x, y)` (clic, toucher) tombe-t-il sur l'icône du son ? La zone déborde
+/// de l'icône de `DEBORD_CLIC_ICONE` de chaque côté (bornée par l'écran).
+pub fn sur_icone_son(x: f32, y: f32) -> bool {
+    let (ix, iy, l, h) = rect_icone_son();
+    let d = DEBORD_CLIC_ICONE;
+    x >= ix - d && x < ix + l + d && y >= iy - d && y < iy + h + d
+}
+
+/// Dessine l'icône du son en bas à gauche : haut-parleur et ondes si `actif`, barré
+/// d'une croix sinon. Couleurs du texte des menus (ombre portée), pixels entiers.
+pub fn dessiner_icone_son(actif: bool) {
+    let motif: &[&str] = if actif {
+        &ICONE_SON_ACTIF
+    } else {
+        &ICONE_SON_COUPE
+    };
+    let (x, y, _, _) = rect_icone_son();
+    let e = ECHELLE_ICONE_SON as f32;
+    let passe = |dx: f32, couleur: Couleur| {
+        for (ly, ligne) in motif.iter().enumerate() {
+            for (lx, c) in ligne.chars().enumerate() {
+                if c == 'X' {
+                    rect(
+                        x + dx + lx as f32 * e,
+                        y + dx + ly as f32 * e,
+                        e,
+                        e,
+                        couleur,
+                    );
+                }
+            }
+        }
+    };
+    passe(e, ARDOISE_OMBRE);
+    passe(0.0, BRUME);
 }
 
 /// Dessine un menu : la ligne choisie est encadrée d'or, avec des chevrons qui
@@ -160,7 +243,6 @@ mod tests {
             Choix::Jouer,
             Choix::Boutique,
             Choix::Aide,
-            Choix::Son,
             Choix::Reprendre,
             Choix::Recommencer,
             Choix::QuitterAuTitre,
@@ -168,14 +250,12 @@ mod tests {
             Choix::RetourTitre,
         ];
         for c in tous {
-            for son in [true, false] {
-                let t = contenu::libelle(c, son);
-                // Marge pour les chevrons de chaque côté (8 + 12 px).
-                assert!(
-                    (largeur_texte(t, ECHELLE_MENU) as f32) <= MENU_L - 2.0 * 24.0,
-                    "« {t} » déborde de la ligne de menu"
-                );
-            }
+            let t = contenu::libelle(c);
+            // Marge pour les chevrons de chaque côté (8 + 12 px).
+            assert!(
+                (largeur_texte(t, ECHELLE_MENU) as f32) <= MENU_L - 2.0 * 24.0,
+                "« {t} » déborde de la ligne de menu"
+            );
         }
     }
 
@@ -191,30 +271,30 @@ mod tests {
     #[test]
     fn hors_des_lignes_rien_n_est_designe() {
         let d = disposition(Ecran::Pause).unwrap();
-        assert_eq!(d.ligne_sous(4, 5.0, d.y0 + 5.0), None, "à gauche du menu");
-        assert_eq!(d.ligne_sous(4, 160.0, d.y0 - 1.0), None, "au-dessus");
+        assert_eq!(d.ligne_sous(3, 5.0, d.y0 + 5.0), None, "à gauche du menu");
+        assert_eq!(d.ligne_sous(3, 160.0, d.y0 - 1.0), None, "au-dessus");
         // Une ligne qui n'existe pas (menu de 2 lignes) ne répond pas.
         assert_eq!(d.ligne_sous(2, 160.0, d.y0 + 2.5 * d.pas), None);
     }
 
     #[test]
     fn les_menus_tiennent_dans_l_ecran_et_les_lignes_sont_assez_grandes() {
-        // 4 lignes au plus (pause avec son).
+        // 3 lignes au plus (titre, pause : le son est une icône depuis la carte 7.8b).
         for e in [Ecran::Titre, Ecran::Pause, Ecran::Fin] {
             let d = disposition(e).unwrap();
             assert!(d.pas >= 18.0, "lignes assez hautes pour un doigt");
-            let (_, y, _, h) = d.rect_ligne(3);
-            assert!(y + h <= HAUTEUR_LOGIQUE as f32 + 40.0);
+            let (_, y, _, h) = d.rect_ligne(2);
+            assert!(y + h <= HAUTEUR_LOGIQUE as f32 + 20.0);
         }
         let d = disposition(Ecran::Pause).unwrap();
-        let (_, y, _, h) = d.rect_ligne(3);
-        assert!(y + h <= HAUTEUR_LOGIQUE as f32 - 20.0, "pause : 4 lignes");
+        let (_, y, _, h) = d.rect_ligne(2);
+        assert!(y + h <= HAUTEUR_LOGIQUE as f32 - 40.0, "pause : 3 lignes");
         let d = disposition(Ecran::Fin).unwrap();
         let (_, y, _, h) = d.rect_ligne(1);
         assert!(y + h <= HAUTEUR_LOGIQUE as f32, "fin : 2 lignes");
         let d = disposition(Ecran::Titre).unwrap();
-        let (_, y, _, h) = d.rect_ligne(3);
-        assert!(y + h <= 148.0, "titre : 4 lignes au-dessus du sol");
+        let (_, y, _, h) = d.rect_ligne(2);
+        assert!(y + h <= 148.0, "titre : 3 lignes au-dessus du sol");
     }
 
     #[test]

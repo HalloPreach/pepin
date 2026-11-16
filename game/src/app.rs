@@ -76,24 +76,17 @@ pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
     (monde, camera)
 }
 
-/// Les lignes du menu d'un écran, dans l'ordre. `son_disponible` : le jeu sait-il
-/// faire du son ? (sinon la ligne SON n'est pas proposée)
-pub fn choix_pour(ecran: Ecran, son_disponible: bool) -> Vec<Choix> {
-    let mut v = match ecran {
+/// Les lignes du menu d'un écran, dans l'ordre. Le son n'a plus de ligne depuis la
+/// carte 7.8b : c'est une icône en bas à gauche du titre et de la pause (clic ou M).
+pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
+    match ecran {
         Ecran::Titre => vec![Choix::Jouer, Choix::Boutique, Choix::Aide],
-        Ecran::Pause => vec![Choix::Reprendre, Choix::Recommencer],
+        Ecran::Pause => vec![Choix::Reprendre, Choix::Recommencer, Choix::QuitterAuTitre],
         Ecran::Fin => vec![Choix::Rejouer, Choix::RetourTitre],
         Ecran::Aide | Ecran::Boutique | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => {
             Vec::new()
         }
-    };
-    if son_disponible && matches!(ecran, Ecran::Titre | Ecran::Pause) {
-        v.push(Choix::Son);
     }
-    if ecran == Ecran::Pause {
-        v.push(Choix::QuitterAuTitre);
-    }
-    v
 }
 
 pub struct Application {
@@ -151,7 +144,7 @@ pub struct Application {
 }
 
 impl Application {
-    /// `son_disponible` : afficher l'option SON et réagir à la touche M.
+    /// `son_disponible` : afficher l'icône du son (titre, pause) et réagir à M et au clic.
     pub fn new(son_disponible: bool) -> Self {
         let (monde, camera) = charger(0, None);
         let debut_niveau = monde.etat.clone();
@@ -193,7 +186,7 @@ impl Application {
     fn ouvrir(&mut self, ecran: Ecran) {
         self.ecran = ecran;
         self.anim = 0;
-        self.choix = choix_pour(ecran, self.son_disponible);
+        self.choix = choix_pour(ecran);
         self.menu = Menu::new(self.choix.len());
         // Pause, titre, aide ou fin : une pause différée n'a plus lieu d'être.
         self.pause_differee = false;
@@ -342,6 +335,17 @@ impl Application {
             self.valider_choix(Choix::Reprendre);
             return;
         }
+        // Clic ou toucher sur l'icône du son (titre, pause ; carte 7.8b) : même bascule
+        // que la touche M, et rien d'autre (aucune ligne de menu n'est là).
+        if let Some((x, y)) = nav.clic {
+            if self.son_disponible
+                && matches!(self.ecran, Ecran::Titre | Ecran::Pause)
+                && ecrans::sur_icone_son(x, y)
+            {
+                self.son = !self.son;
+                return;
+            }
+        }
         if nav.haut {
             self.menu.monter();
         }
@@ -381,7 +385,6 @@ impl Application {
                 self.ouvrir(Ecran::Boutique);
             }
             Choix::Aide => self.ouvrir(Ecran::Aide),
-            Choix::Son => self.son = !self.son,
             Choix::Reprendre => self.ecran = Ecran::Jeu,
             Choix::Recommencer => self.lancer(Suite::Recommencer),
             Choix::QuitterAuTitre | Choix::RetourTitre => self.lancer(Suite::Titre),
@@ -603,16 +606,15 @@ impl Application {
         // Monde figé (pause, transition, carte) : on montre le dernier pas tel quel,
         // sinon l'interpolation ferait trembler les sprites sur place.
         let alpha = if self.en_jeu() { alpha } else { 1.0 };
-        let libelles: Vec<&str> = self
-            .choix
-            .iter()
-            .map(|&c| contenu::libelle(c, self.son))
-            .collect();
+        let libelles: Vec<&str> = self.choix.iter().map(|&c| contenu::libelle(c)).collect();
         let dispo = ecrans::disposition(self.ecran).unwrap_or(Disposition { y0: 0.0, pas: 20.0 });
         match self.ecran {
             Ecran::Titre => {
                 titre::dessiner(banque, self.skin, self.anim, &libelles, &self.menu, &dispo);
                 titre::dessiner_poche(banque, &self.sauvegarde);
+                if self.son_disponible {
+                    ecrans::dessiner_icone_son(self.son);
+                }
             }
             Ecran::Aide => aide::dessiner(),
             Ecran::Boutique => {
@@ -664,7 +666,13 @@ impl Application {
                     Ecran::Carte(_) => {
                         carte::dessiner(self.monde.indice, self.monde.infos, self.anim)
                     }
-                    Ecran::Pause => pause::dessiner(self.anim, &libelles, &self.menu, &dispo),
+                    Ecran::Pause => {
+                        pause::dessiner(self.anim, &libelles, &self.menu, &dispo);
+                        // En jeu, pas d'icône : le coin est aux commandes tactiles et au HUD.
+                        if self.son_disponible {
+                            ecrans::dessiner_icone_son(self.son);
+                        }
+                    }
                     Ecran::PlusDeVies(_) => plus_de_vies::dessiner(banque, self.anim),
                     _ => {}
                 }
@@ -738,31 +746,18 @@ mod tests {
     #[test]
     fn les_menus_ont_les_bonnes_lignes() {
         assert_eq!(
-            choix_pour(Ecran::Titre, true),
-            vec![Choix::Jouer, Choix::Boutique, Choix::Aide, Choix::Son]
-        );
-        assert_eq!(
-            choix_pour(Ecran::Titre, false),
+            choix_pour(Ecran::Titre),
             vec![Choix::Jouer, Choix::Boutique, Choix::Aide]
         );
         assert_eq!(
-            choix_pour(Ecran::Pause, true),
-            vec![
-                Choix::Reprendre,
-                Choix::Recommencer,
-                Choix::Son,
-                Choix::QuitterAuTitre
-            ]
-        );
-        assert_eq!(
-            choix_pour(Ecran::Pause, false),
+            choix_pour(Ecran::Pause),
             vec![Choix::Reprendre, Choix::Recommencer, Choix::QuitterAuTitre]
         );
         assert_eq!(
-            choix_pour(Ecran::Fin, true),
+            choix_pour(Ecran::Fin),
             vec![Choix::Rejouer, Choix::RetourTitre]
         );
-        assert!(choix_pour(Ecran::Jeu, true).is_empty());
+        assert!(choix_pour(Ecran::Jeu).is_empty());
     }
 
     #[test]
@@ -844,7 +839,7 @@ mod tests {
             bas: true,
             ..Navigation::default()
         };
-        // Reprendre, Recommencer, Son, Quitter : on descend en bas en bouclant par le haut.
+        // Reprendre, Recommencer, Quitter : on descend en bas en bouclant par le haut.
         let haut = Navigation {
             haut: true,
             ..Navigation::default()
@@ -875,19 +870,20 @@ mod tests {
     }
 
     #[test]
-    fn la_ligne_son_du_menu_bascule_sans_quitter_le_menu() {
+    fn l_icone_du_son_bascule_sans_quitter_le_menu() {
+        // Carte 7.8b : plus de ligne SON ; un clic (ou toucher) sur l'icône en bas à
+        // gauche, même un peu à côté, bascule le son et ne valide aucune ligne.
         let mut app = Application::new(true);
-        let bas = Navigation {
-            bas: true,
+        let clic = Navigation {
+            clic: Some((3.0, 177.0)),
             ..Navigation::default()
         };
-        for _ in 0..3 {
-            app.reagir(&bas, &Commandes::default(), None);
-        }
-        app.reagir(&valider(), &Commandes::default(), None);
+        app.reagir(&clic, &Commandes::default(), None);
         assert!(app.son);
         assert_eq!(app.ecran, Ecran::Titre);
         assert!(!app.transition.est_active());
+        app.reagir(&clic, &Commandes::default(), None);
+        assert!(!app.son);
     }
 
     #[test]
@@ -997,7 +993,7 @@ mod tests {
         app.pas_partie = 1234;
         app.monde.termine = false;
         app.ecran = Ecran::Fin;
-        app.choix = choix_pour(Ecran::Fin, true);
+        app.choix = choix_pour(Ecran::Fin);
         app.menu = Menu::new(2);
         app.reagir(&valider(), &Commandes::default(), None);
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
@@ -1322,7 +1318,7 @@ mod tests {
         let mut app = en_jeu();
         app.gouttes_bonus = Some(3);
         app.ecran = Ecran::Fin;
-        app.choix = choix_pour(Ecran::Fin, true);
+        app.choix = choix_pour(Ecran::Fin);
         app.menu = Menu::new(2);
         app.reagir(&valider(), &Commandes::default(), None);
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
