@@ -656,3 +656,164 @@ fn ecrire_script_vies() {
         app.monde.etat.gouttes
     );
 }
+
+/// Écrit le script des captures de la carte 6.3 (chats plus menaçants), au marché
+/// couvert (niveau 3, touche 3 du build de QA) : « JOUER », la carte du niveau 1,
+/// la touche 3 dès la première image de jeu, puis un joueur scripté face au
+/// PREMIER chat du niveau (colonne 12, sur le toit de départ, centre en x = 200) :
+/// 1. il attend au départ (x = 19, à 11 tuiles du chat) tout un cycle : le chat
+///    s'annonce (« ! », couché, un œil ouvert) et se réveille SUR PLACE, Pépin est
+///    hors de portée ;
+/// 2. le chat rendormi, Pépin s'approche à moins de 5 tuiles (x ≥ 118) et
+///    s'arrête : à l'annonce suivante, le chat se ramasse, prêt à bondir ;
+/// 3. le bond part vers l'endroit où se tient Pépin : Pépin s'enfuit vers la
+///    gauche (40 images) ; le chat se pose là où il était, puis revient à sa
+///    place d'un second bond et se rendort ;
+/// 4. une seconde d'attente, et le script s'arrête (pas de suite à jouer).
+///
+/// Fichiers : `target/qa/script-63.txt` (un chiffre hexadécimal par image),
+/// `target/qa/touches-63.txt` (l'image du PILOTE où appuyer sur la touche 3, une
+/// image après la trace) et `target/qa/trace-63.csv` (pas du monde, Pépin, le
+/// chat : position, phase, pas restants, prêt, bond, en l'air), d'où viennent les
+/// numéros d'image des captures `63-` de QA.md.
+/// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_chats
+#[test]
+#[ignore]
+fn ecrire_script_chats() {
+    use crate::app::Application;
+    use crate::bot_qa::{nom_ecran, Trame};
+    use crate::entrees::{Commandes, RaccourciNiveau};
+    use crate::navigation::Navigation;
+    use pepin_core::entities::{Entite, TypeEnnemi};
+    use pepin_core::player::{Direction, Entrees};
+
+    /// Ce que fait le joueur scripté.
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    enum Etape {
+        /// Au départ, loin du chat, tout un cycle (jusqu'à son 2e sommeil).
+        AttendreLoin,
+        /// Vers la droite, jusqu'à x = 118 (à portée).
+        Approcher,
+        /// Immobile à portée, jusqu'au départ du bond.
+        AttendreLeBond,
+        /// Fuite vers la gauche pendant `n` images.
+        Fuir(u32),
+        /// Immobile, jusqu'au retour du chat (rendormi) puis `n` images.
+        Regarder(u32),
+        Fin,
+    }
+
+    let mut app = Application::new(true);
+    let mut script = String::new();
+    let mut trace = String::from(
+        "image,ecran,indice,pas,x,y,chat_x,chat_y,phase,reste,pret,bond,en_vol,morts,etape\n",
+    );
+    let mut touche: Option<usize> = None;
+    let mut etape = Etape::AttendreLoin;
+    let mut eveils = 0;
+    let mut etait_eveille = false;
+    for image in 0..60 * 60 {
+        let mut trame = Trame {
+            valider: image == 0,
+            ..Trame::default()
+        };
+        let raccourci = if touche.is_none() && app.en_jeu() && app.monde.indice == 0 {
+            touche = Some(image);
+            Some(RaccourciNiveau::Aller(2))
+        } else {
+            None
+        };
+        let au_marche = app.en_jeu() && app.monde.indice == 2;
+        let chat = app.monde.entites.iter().find_map(|e| match e {
+            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => Some(c.clone()),
+            _ => None,
+        });
+        if au_marche {
+            let c = chat.as_ref().expect("un chat au marché couvert");
+            let x = app.monde.joueur.boite.x;
+            let eveille = c.est_eveille();
+            if etait_eveille && !eveille {
+                eveils += 1;
+            }
+            etait_eveille = eveille;
+            let mut direction = Direction::Immobile;
+            etape = match etape {
+                Etape::AttendreLoin if eveils >= 1 => Etape::Approcher,
+                Etape::Approcher if x >= 118.0 => Etape::AttendreLeBond,
+                Etape::AttendreLeBond if c.bond().is_some() => Etape::Fuir(40),
+                Etape::Fuir(0) => Etape::Regarder(60),
+                Etape::Regarder(0) => Etape::Fin,
+                autre => autre,
+            };
+            match etape {
+                Etape::Approcher => direction = Direction::Droite,
+                Etape::Fuir(n) => {
+                    direction = Direction::Gauche;
+                    etape = Etape::Fuir(n - 1);
+                }
+                Etape::Regarder(n) if !eveille => etape = Etape::Regarder(n - 1),
+                _ => {}
+            }
+            trame.entrees = Entrees {
+                direction,
+                saut: false,
+            };
+        }
+        if etape == Etape::Fin {
+            break;
+        }
+        let nav = Navigation {
+            valider: trame.valider,
+            ..Navigation::default()
+        };
+        app.reagir(&nav, &Commandes::default(), raccourci);
+        app.pas(&trame.entrees);
+        script.push(trame.code());
+        let chat = app.monde.entites.iter().find_map(|e| match e {
+            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => Some(c.clone()),
+            _ => None,
+        });
+        let (cx, cy, phase, reste, pret, bond, en_vol) = match &chat {
+            Some(c) => {
+                let (phase, reste) = match c.phase_chat() {
+                    PhaseChat::Dort(n) => ("dort", n),
+                    PhaseChat::Reveil(n) => ("reveil", n),
+                    PhaseChat::Eveille(n) => ("eveille", n),
+                };
+                (
+                    c.boite.x,
+                    c.boite.y,
+                    phase,
+                    reste,
+                    c.est_pret_a_bondir(),
+                    c.bond().unwrap_or(0.0),
+                    c.en_plein_bond(),
+                )
+            }
+            None => (0.0, 0.0, "-", 0, false, 0.0, false),
+        };
+        trace.push_str(&format!(
+            "{image},{},{},{},{:.1},{:.1},{cx:.1},{cy:.1},{phase},{reste},{},{bond:.0},{},{},{etape:?}\n",
+            nom_ecran(app.ecran),
+            app.monde.indice,
+            app.monde.pas,
+            app.monde.joueur.boite.x,
+            app.monde.joueur.boite.y,
+            u8::from(pret),
+            u8::from(en_vol),
+            app.monde.etat.morts,
+        ));
+    }
+    assert_eq!(etape, Etape::Fin, "le scénario n'est pas allé au bout");
+    assert_eq!(app.monde.etat.morts, 0, "Pépin doit échapper au bond");
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-63.txt", &script).unwrap();
+    let pilote = touche.expect("touche 3 appuyée") + 1;
+    std::fs::write("../target/qa/touches-63.txt", format!("{pilote}:Digit3\n")).unwrap();
+    std::fs::write("../target/qa/trace-63.csv", &trace).unwrap();
+    println!(
+        "images : {} ; touche 3 à l'image {} (pilote : {pilote})",
+        script.len(),
+        pilote - 1
+    );
+}
