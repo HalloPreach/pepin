@@ -12,8 +12,9 @@
 //! voyage en sens inverse (thème `Descente` : des bandes de couleur selon la
 //! hauteur, de l'or du soleil à la nuit des toits, voir `decor::VOYAGE`). Rien de
 //! nouveau à apprendre : on tombe ou on plane, entre deux pigeons (`p`) puis deux
-//! colonnes de grêle (`g`). Le plus calme des onze niveaux : aucune chute ne tue
-//! (chaque trou mène à l'étage du dessous), aucune pointe, aucun éclair.
+//! colonnes de grêle (`g`) ; depuis la carte 6.4b, un corbeau (`c`) patrouille
+//! au-dessus de la première couche. Le plus calme des onze niveaux : aucune chute
+//! ne tue (chaque trou mène à l'étage du dessous), aucune pointe, aucun éclair.
 //!
 //! La forme : trois couches de nuages, neuf rangées l'une sous l'autre, chacune
 //! percée d'un trou de six tuiles, une fois à droite (colonnes 24 à 29), une fois à
@@ -27,7 +28,11 @@
 //!
 //! Le parcours, de haut en bas :
 //! 1. le départ au soleil ; on tombe sur la première couche (une goutte en l'air,
-//!    à attraper d'un saut ou en planant) ;
+//!    à attraper d'un saut ou en planant) ; un corbeau (carte 6.4b, colonne 10,
+//!    rangée 12 : il patrouille des colonnes 5 à 15) vole sous la goutte, 21 px
+//!    au-dessus de la tête de Pépin posé sur la couche : on passe
+//!    dessous en marchant, on lui tombe dessus en descendant du départ (il
+//!    s'écrase), mais un saut vers la goutte au mauvais moment s'y cogne ;
 //! 2. la première couche, vers la droite, sous deux pigeons perchés, tournés vers
 //!    Pépin qui arrive : on passe dessous sans s'arrêter, ils plongent derrière
 //!    lui ;
@@ -47,7 +52,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     genre: GenreNiveau::Epilogue,
     intro: "Maintenant, on rentre.",
     mecanique: "Épilogue : le niveau vertical à l'envers ; on descend du soleil jusqu'aux \
-                toits, en tombant ou en planant, entre les pigeons et la grêle.",
+                toits, en tombant ou en planant, entre les pigeons, un corbeau et la grêle.",
     // Le plus court des onze : une descente tranquille (la mesure de difficulté la
     // joue en 18 à 19 s ; le robot de faisabilité, en course rapide, en 14 s).
     duree_cible_s: 40,
@@ -61,6 +66,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   colonnes 2 à 7).
 /// - Pigeons : (15, 10) et (21, 10), chacun sur deux nuages (ligne 11), tournés
 ///   vers la gauche (vers Pépin qui arrive de la gauche).
+/// - Corbeau (carte 6.4b) : (10, 12), sous la goutte (9, 10).
 /// - Grêle : colonne 2 de la ligne 16 au nuage de la ligne 33 ; colonne 29 de la
 ///   ligne 25 au toit (ligne 42).
 /// - Gouttes : (9, 10), (4, 21), (27, 30) ; lanternes là où Pépin se pose : (8,
@@ -79,7 +85,7 @@ NNNNNN..........................
 ................................
 .........o.....p.....p..........
 ...............NN....NN.........
-................................
+..........c.....................
 ................................
 ........L.......................
 NNNNNNNNNNNNNNNNNNNNNNNN......NN
@@ -125,10 +131,11 @@ mod tests {
 
     /// Le plus calme des onze niveaux : le toit de l'arrivée couvre toute la largeur
     /// (aucune chute ne tue : tout ce qui tombe finit sur une couche ou sur le toit),
-    /// aucune pointe, aucun éclair ni rien qui bouge ; pour seuls dangers, deux
-    /// pigeons et deux colonnes de grêle.
+    /// aucune pointe, aucun éclair, aucune plateforme qui bouge ; pour seuls dangers,
+    /// deux pigeons, deux colonnes de grêle et, depuis la carte 6.4b (« plus
+    /// d'ennemis » : un au plus pour l'épilogue), un corbeau.
     #[test]
-    fn aucune_chute_ne_tue_et_seuls_deux_pigeons_et_deux_colonnes_de_grele_menacent() {
+    fn aucune_chute_ne_tue_et_seuls_deux_pigeons_un_corbeau_et_deux_colonnes_de_grele_menacent() {
         let n = INFOS.charger().unwrap();
         assert_eq!((n.largeur(), n.hauteur()), (32, 45));
         for tx in 0..n.largeur() as i32 {
@@ -137,18 +144,22 @@ mod tests {
                 "toit percé en colonne {tx}"
             );
         }
-        let (mut pigeons, mut greles) = (0, 0);
+        let (mut pigeons, mut corbeaux, mut greles) = (0, 0, 0);
         for e in &n.entites {
             match e {
                 Entite::Ennemi(p) if p.type_ennemi == TypeEnnemi::Pigeon => pigeons += 1,
+                Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Corbeau => corbeaux += 1,
                 Entite::Grele(_) => greles += 1,
                 Entite::Goutte(_) | Entite::Lanterne(_) => {}
                 autre => {
-                    panic!("l'épilogue n'a que pigeons, grêle, gouttes et lanternes : {autre:?}")
+                    panic!(
+                        "l'épilogue n'a que pigeons, corbeau, grêle, gouttes et lanternes : \
+                         {autre:?}"
+                    )
                 }
             }
         }
-        assert_eq!((pigeons, greles), (2, 2));
+        assert_eq!((pigeons, corbeaux, greles), (2, 1, 2));
         assert!(n.courants.is_empty() && n.vents.is_empty());
     }
 
