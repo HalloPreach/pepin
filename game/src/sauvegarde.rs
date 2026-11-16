@@ -632,7 +632,6 @@ mod tests {
     #[test]
     fn la_migration_v2_range_chaque_niveau_sous_sa_cle() {
         use crate::plan::{etat_etape, progres, EtatEtape};
-        use pepin_core::zones::InfosNiveau;
         let v2 = "version=2\ngouttes_en_poche=57\ngouttes_total_gagnees=140\n\
                   meilleur_score=8100\nparties_finies=2\nmeilleur_temps=40000\n\
                   niveau_max_atteint=10\ninventaire=skin:pepin,skin:pepinette,musique:orage\n\
@@ -662,21 +661,15 @@ mod tests {
         assert!(v3.starts_with("version=3\n") && !v3.contains("niveau_max_atteint"));
         assert!(v3.contains("niveau.arc=atteint:1 gouttes:111 defis:011 medaille:2 temps:3300"));
         assert_eq!(Sauvegarde::depuis_texte(&v3), lu);
-        // Un niveau inséré AVANT le bonus (la carte 8.2 : `poursuite`) : il est vide
-        // et ouvert, l'arc-en-ciel et la descente gardent leur progression.
-        let mut table: Vec<InfosNiveau> = NIVEAUX.to_vec();
-        let i = indice_de_cle(&table, "arc").unwrap();
-        table.insert(
-            i,
-            InfosNiveau {
-                cle: "poursuite",
-                ..NIVEAUX[i - 1]
-            },
-        );
-        assert_eq!(progres(&table, &lu, i), ProgresNiveau::default());
-        assert_eq!(etat_etape(&table, &lu, i), EtatEtape::Ouverte);
-        assert_eq!(progres(&table, &lu, i + 1), arc);
-        assert_eq!(progres(&table, &lu, i + 2), descente);
-        assert_eq!(etat_etape(&table, &lu, i + 2), EtatEtape::Finie);
+        // Le niveau inséré AVANT le bonus par la carte 8.2 (`poursuite`, dans la vraie
+        // table depuis la fusion) : il est vide et ouvert, l'arc-en-ciel et la descente
+        // gardent leur progression.
+        let i = indice_de_cle(NIVEAUX, "poursuite").unwrap();
+        assert_eq!(indice_de_cle(NIVEAUX, "arc"), Some(i + 1));
+        assert_eq!(progres(NIVEAUX, &lu, i), ProgresNiveau::default());
+        assert_eq!(etat_etape(NIVEAUX, &lu, i), EtatEtape::Ouverte);
+        assert_eq!(progres(NIVEAUX, &lu, i + 1), arc);
+        assert_eq!(progres(NIVEAUX, &lu, i + 2), descente);
+        assert_eq!(etat_etape(NIVEAUX, &lu, i + 2), EtatEtape::Finie);
     }
 }

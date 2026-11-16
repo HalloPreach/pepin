@@ -330,7 +330,7 @@ mod tests {
         });
         assert_eq!(m.fond, Theme::Descente);
         assert_eq!(m.titre, "DE RETOUR !");
-        assert_eq!(m.phrase, Some("Pépin replie son parapluie."));
+        assert_eq!(m.phrase, Some(contenu::PHRASE_RETOUR));
         assert_eq!(m.lignes[1], ("GOUTTES D'OR", "33/33".to_string()));
         assert!(!Theme::Descente.pluie());
     }

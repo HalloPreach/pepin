@@ -19,8 +19,8 @@ use crate::menu::Choix;
 
 /// Le nom du jeu (« pépin » = parapluie, en argot).
 pub const TITRE: &str = "PÉPIN";
-/// Le voyage des onze niveaux (carte 5.18) : on monte de l'orage au soleil, puis
-/// l'épilogue redescend jusqu'aux toits du départ.
+/// Le voyage (carte 5.18) : on monte de l'orage au soleil, puis l'épilogue
+/// redescend jusqu'aux toits du départ.
 pub const SOUS_TITRE: &str = "De l'orage jusqu'au soleil, et retour";
 /// Rappel des touches sous les menus.
 pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
@@ -68,7 +68,7 @@ pub const COMMANDES_AIDE: [(&str, &str); 5] = [
     ("ÉCHAP, P", "Pause"),
     ("M", "Son, ou l'icône en bas à gauche"),
 ];
-/// Conseils de jeu, une ligne chacun. Carte 5.18 : les nouveautés des onze
+/// Conseils de jeu, une ligne chacun. Carte 5.18 : les nouveautés des
 /// niveaux (vent, grêle, auvents, ventilateurs, montgolfières, escargots, chats,
 /// aiguilles, Grand Nuage) se jouent avec les MÊMES touches : l'aide le dit, et
 /// rappelle la seule règle à savoir d'avance (la grêle, parapluie ouvert). Carte
@@ -113,21 +113,22 @@ pub const GOUTTES_A_REPRENDRE: &str = "Ses gouttes d'or sont à reprendre.";
 /// Les deux lignes de chacune des trois images de l'histoire, dans l'ordre :
 /// avant le premier niveau, après le Grand Nuage, avant la descente. La ville est
 /// sous une pluie sans fin, les gouttes d'or sont des éclats de soleil tombés, et
-/// Pépin monte réveiller le soleil. Chaque ligne tient dans le bandeau du bas, 8 px
-/// de marge de chaque côté (test `l_histoire_tient_dans_son_bandeau` de
-/// `ecrans::histoire`).
+/// Pépin monte réveiller le soleil. Le Grand Nuage n'est pas vaincu au niveau 6 : il
+/// s'enfuit, et revient au sommet (« Le retour du Grand Nuage », carte 8.11). Chaque
+/// ligne tient dans le bandeau du bas, 8 px de marge de chaque côté (test
+/// `l_histoire_tient_dans_son_bandeau` de `ecrans::histoire`).
 pub const RECIT: [[&str; 2]; 3] = [
     [
         "La pluie ne s'arrête plus : le soleil dort.",
         "Pépin prend son parapluie et monte le réveiller.",
     ],
     [
-        "Le cyclone s'est tu. Plus haut, une lueur d'or.",
-        "Les gouttes d'or sont des éclats de soleil !",
+        "Le Grand Nuage s'enfuit sous la mer de nuages.",
+        "Plus haut, une lueur d'or : des éclats de soleil !",
     ],
     [
-        "Le soleil ouvre un œil.",
-        "Il est temps de redescendre lui montrer la ville.",
+        "Le Grand Nuage s'est vidé de sa pluie.",
+        "Le soleil ouvre un œil : montrons-lui la ville !",
     ],
 ];
 
@@ -145,7 +146,7 @@ pub struct Intro {
 /// échouer la compilation si on ajoute un niveau sans écrire son texte.
 pub const INTROS: [Intro; NB_NIVEAUX] = [
     Intro {
-        texte: "La pluie tambourine sur les toits. Pépin ouvre son parapluie et part vers le haut.",
+        texte: "La pluie tambourine sur les toits. Pépin ouvre son parapluie : en route vers le soleil !",
         astuce: "Maintiens SAUT en l'air pour planer.",
     },
     Intro {
@@ -166,7 +167,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "L'escargot est un tremplin. Sur une aiguille, laisse-toi porter.",
     },
     Intro {
-        texte: "Le Grand Nuage ne veut pas te laisser passer.",
+        texte: "C'est lui qui cache le soleil : le Grand Nuage ne veut pas te laisser passer.",
         astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
     },
     Intro {
@@ -178,7 +179,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "Parapluie ouvert, le vent te porte ; fermé, tu lui résistes.",
     },
     Intro {
-        texte: "Là-haut, le soleil. Prends ton temps : l'orage est resté en bas.",
+        texte: "Là-haut, le soleil. Prends ton temps : l'orage gronde encore en bas.",
         astuce: "Le champignon t'aide à monter.",
     },
     // Le sommet (cartes 8.2 et 8.2b) : le Grand Nuage, enfui au niveau 6, revient.
@@ -193,7 +194,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
     // L'épilogue (carte 5.17) : la descente, du soleil jusqu'aux toits.
     Intro {
-        texte: "Maintenant, on rentre.",
+        texte: "Le soleil est réveillé : on redescend lui montrer la ville.",
         astuce: "Parapluie ouvert, la grêle ne te touche pas.",
     },
 ];
@@ -345,9 +346,10 @@ pub const TITRE_PAUSE: &str = "PAUSE";
 
 pub const TITRE_FIN: &str = "LE SOLEIL !";
 /// Titre et phrase de l'écran de fin quand la partie se termine par l'épilogue
-/// (carte 5.17) : Pépin est revenu, la nuit, sur le toit du premier niveau.
+/// (carte 5.17) : Pépin est revenu, la nuit, sur le toit du premier niveau. La phrase
+/// conclut l'histoire (carte 8.11) : la pluie s'est arrêtée, le soleil est réveillé.
 pub const TITRE_FIN_RETOUR: &str = "DE RETOUR !";
-pub const PHRASE_RETOUR: &str = "Pépin replie son parapluie.";
+pub const PHRASE_RETOUR: &str = "Plus de pluie : Pépin replie son parapluie.";
 pub const LIBELLE_TEMPS: &str = "TEMPS";
 pub const LIBELLE_GOUTTES: &str = "GOUTTES D'OR";
 /// Gouttes du niveau bonus, comptées à part (ligne affichée s'il a été joué).

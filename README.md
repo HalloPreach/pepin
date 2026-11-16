@@ -1,10 +1,11 @@
 # PÉPIN — un jeu de plateformes en Rust, pour apprendre Rust
 
 PÉPIN (« pépin » : parapluie, en argot) est un petit jeu de plateformes en
-pixel art. Pépin est une créature ronde armée d'un grand parapluie corail. Elle
-grimpe de toit en toit, de l'orage jusqu'au soleil, en neuf niveaux (et un
-niveau bonus) : le ciel passe peu à peu du bleu nuit à l'or. Puis elle rentre
-chez elle : un épilogue la ramène du soleil jusqu'au toit du départ, la nuit.
+pixel art. Pépin est une créature ronde armée d'un grand parapluie corail. La
+pluie ne s'arrête plus sur sa ville : le soleil dort. Pépin grimpe de toit en toit,
+de l'orage jusqu'au soleil, en dix niveaux (et un niveau bonus), pour le
+réveiller : le ciel passe peu à peu du bleu nuit à l'or. Puis elle rentre chez
+elle : un épilogue la ramène du soleil jusqu'au toit du départ, la nuit.
 
 Le projet a deux buts : un jeu qui tourne **dans un navigateur** (WebAssembly),
 et un code **lisible par quelqu'un qui apprend Rust**. Presque chaque fichier
@@ -40,7 +41,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Sauter               | Espace, flèche haut, W ou Z (AZERTY et QWERTY)       |
 | Planer               | maintenir la touche de saut en l'air (parapluie ouvert) |
 | Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
-| Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou la ligne « SON » des menus |
+| Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou l'icône du haut-parleur en bas à gauche du titre et de la pause |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
 | Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral, de la grêle, des auvents, du ventilateur, des montgolfières, des escargots, du chat endormi et des aiguilles d'horloge : F1, F2, F3, F4, F5, F6, F7 et F8, arène du Grand Nuage : F10 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
@@ -54,7 +55,16 @@ sur QWERTY, la touche point-virgule coupe aussi le son.
 Sur un écran tactile, quatre boutons (gauche, droite, saut, pause) apparaissent
 au premier toucher.
 
-Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
+L'histoire (trois images, `game/src/ecrans/histoire.rs`, textes dans
+`game/src/contenu.rs`) : la ville est sous une pluie sans fin et le soleil dort ;
+Pépin prend son parapluie et monte le réveiller. Les gouttes d'or sont des éclats
+de soleil. Au niveau 6, le Grand Nuage, qui cache le soleil, s'enfuit sous la mer
+de nuages ; il revient au sommet (niveau 10) et poursuit Pépin. Vidé de sa pluie,
+il laisse le soleil ouvrir un œil, et Pépin redescend lui montrer la ville. Une
+image avant le premier niveau, une après le Grand Nuage, une avant la descente ;
+une fois une partie finie, la ligne HISTOIRE du titre permet de les revoir.
+
+Les dix niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
 `core/src/levels/*.rs`) :
 
 1. Les toits : course, saut, planer ; les deux premières flaques à écraser.
@@ -80,14 +90,19 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
    une manche à air à l'entrée de chaque vent. Trois corbeaux sur les planés et
    un pigeon au-dessus du premier quai ; le plané de vingt tuiles reste sans
    ennemi.
-9. Au-dessus des nuages : final calme, nuages friables, un pigeon, deux corbeaux
-   et une flaque.
-10. L'arc-en-ciel (bonus) : joué seulement si TOUTES les gouttes d'or des neuf
+9. Au-dessus des nuages : calme avant le sommet, nuages friables, un pigeon,
+   deux corbeaux et une flaque.
+10. Le retour du Grand Nuage : le sommet du jeu, une poursuite. Le front d'orage
+    du Grand Nuage avance depuis la gauche et fait défiler l'écran (il tue au
+    contact) ; Pépin court vers le soleil en enchaînant vent arrière, courant
+    ascendant, colonnes de grêle, ponts friables et un corbeau. Près de l'arrivée,
+    le soleil perce et le Grand Nuage recule.
+11. L'arc-en-ciel (bonus) : joué seulement si TOUTES les gouttes d'or des dix
     niveaux ont été ramassées pendant la partie (sinon on passe directement à
     l'épilogue). Un pont de nuages friables d'un bout à l'autre, sans ennemi
     ni lanterne : tout s'effrite derrière Pépin, on ne s'arrête jamais. Un sprint
     d'une minute, pour le chronomètre.
-11. La descente (épilogue) : le niveau vertical à l'envers (quatre écrans de
+12. La descente (épilogue) : le niveau vertical à l'envers (quatre écrans de
     haut). Du soleil jusqu'au toit du premier niveau, à travers trois couches de
     nuages percées, entre deux pigeons, un corbeau et deux colonnes de grêle ; le
     ciel refait tout le voyage en sens inverse, de l'or à la nuit. Le plus calme
@@ -96,14 +111,27 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
 La difficulté suit une courbe voulue (un joueur simulé peut la mesurer à la demande, voir
 `QA.md`, « Mesure de difficulté ») : elle monte jusqu'au boss (6), redescend aux vents
 d'altitude (7), remonte un peu à la mer de nuages (8) et se calme au-dessus des
-nuages (9) ; le bonus se juge au chronomètre, et l'épilogue est le plus calme de
+nuages (9) avant la poursuite du sommet (10) ; le bonus se juge au chronomètre, et l'épilogue est le plus calme de
 tous. Toutes les nouveautés se jouent avec les mêmes touches : courir, sauter,
 planer (sous la grêle, on garde le parapluie ouvert).
 
 Le compteur de gouttes (en jeu et sur l'écran de fin) compte celles du parcours :
-les neuf niveaux et l'épilogue, 30 en tout. Celles du bonus sont comptées à part
+les dix niveaux et l'épilogue, 33 en tout (calculé à partir de la table des
+niveaux, comme le « NIVEAU n/10 » des cartes). Celles du bonus sont comptées à part
 (dans le bonus, le compteur montre les siennes, sur 3 ; l'écran de fin leur donne
 une ligne « NIVEAU SECRET » s'il a été joué).
+
+Des secrets (carte 8.5) se cachent dans six niveaux, derrière des faux murs : une
+brique décalée trahit le passage. Quatre petites salles, deux raccourcis et une
+sortie cachée au clocher.
+
+La progression est sauvegardée dans le navigateur. La CARTE des niveaux (au titre)
+montre le chemin des toits jusqu'au soleil et permet de rejouer chaque niveau déjà
+atteint. Chaque niveau a trois défis (« SANS MOURIR », « SANS PLANER » ou « LES 3
+GOUTTES », et un « CHRONO ») ; la médaille compte ceux réussis dans une même
+tentative (bronze, argent, or). Gouttes d'or, défis et médailles rapportent des
+gouttes, chacune une seule fois, à dépenser dans la BOUTIQUE (les apparences de
+Pépin ; Pépinette y est offerte dès le départ).
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.
@@ -316,7 +344,7 @@ facultative) : **374 tests réussis** dans `core` (plus 1 test ignoré volontair
 l'image `docs/police-test.png`) et **335 tests réussis** dans `game` (plus 23 tests
 ignorés : ils écrivent les scripts du robot de QA, lancent la mesure de difficulté ou son juge
 de la courbe, ou des diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de
-minutes : le robot de QA joue réellement les onze niveaux. La mesure de difficulté et le juge
+minutes : le robot de QA joue réellement tous les niveaux. La mesure de difficulté et le juge
 de la courbe ne se lancent plus qu'à la main, à la demande (voir `QA.md`, « Mesure de
 difficulté »).
 
@@ -510,7 +538,7 @@ Rust n'a pas de `null` ni d'exceptions. Une valeur qui « peut manquer » est un
 chargement des sons doit pouvoir attendre ; `main` (macroquad) est `async` et
 appelle `Audio::charger().await`.
 
-### Notions apparues avec les onze niveaux
+### Notions apparues avec les derniers niveaux
 
 Les six niveaux et les mécaniques ajoutés à la fin du projet (vent, grêle, auvents,
 ventilateur, montgolfières, escargots, chats, aiguilles d'horloge, Grand Nuage) ont

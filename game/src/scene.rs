@@ -1349,7 +1349,7 @@ mod tests {
                 Theme::Soleil | Theme::Cyclone | Theme::Mer | Theme::ArcEnCiel => {
                     assert_eq!(ombres, 0, "{}", infos.nom)
                 }
-                Theme::Altitude => {}
+                Theme::Altitude | Theme::Poursuite => {}
             }
         }
         let part = variantes as f32 / pleines as f32;

@@ -3,8 +3,8 @@
 //!
 //! - `Depart`, avant le premier niveau : les toits sous l'averse, fenêtres éteintes,
 //!   Pépin sur une cheminée qui regarde en haut ;
-//! - `Lueur`, après le Grand Nuage : le cyclone s'en va, une lueur d'or perce, une
-//!   goutte d'or (un éclat de soleil) y descend ;
+//! - `Lueur`, après le Grand Nuage : il s'enfuit (il reviendra au sommet), une lueur
+//!   d'or perce, une goutte d'or (un éclat de soleil) y descend ;
 //! - `Soleil`, avant la descente : le soleil ouvre un œil au-dessus de la mer de
 //!   nuages, Pépin à côté, parapluie fermé.
 //!
@@ -65,9 +65,8 @@ impl Chapitre {
 /// sur de fausses tables) :
 /// - le premier niveau : `Depart` ;
 /// - le niveau qui suit celui du Grand Nuage (thème `Cyclone`) : `Lueur` ;
-/// - l'épilogue (la descente) : `Soleil`. Il vient après le sommet et après le bonus
-///   s'il est joué ; un futur niveau de poursuite inséré au sommet (carte 8.2) passera
-///   donc lui aussi avant cette image, sans rien changer ici.
+/// - l'épilogue (la descente) : `Soleil`. Il vient après le sommet (le retour du Grand
+///   Nuage, carte 8.2) et après le bonus s'il est joué.
 pub fn chapitre_avant(niveaux: &[InfosNiveau], indice: usize) -> Option<Chapitre> {
     let niveau = niveaux.get(indice)?;
     if indice == 0 {
@@ -144,12 +143,9 @@ fn dessiner_bandeau(chapitre: Chapitre, anim: u32) {
         texte::dessiner_centre(contenu::APPUIE_POUR_CONTINUER, Y_CONTINUER, ombre(BRUME));
     }
     let numero = format!("{}/{}", chapitre.indice() + 1, Chapitre::TOUS.len());
-    texte::dessiner_a_droite(
-        &numero,
-        l - 4.0,
-        4.0,
-        Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE),
-    );
+    // Dans le bandeau, en bas à droite, aux couleurs de l'invitation (carte 8.11) : en
+    // haut à droite, il se lisait mal sur le ciel saumon de l'image 3.
+    texte::dessiner_a_droite(&numero, l - 4.0, Y_CONTINUER, ombre(BRUME));
 }
 
 /// Pépin (ou le skin choisi) qui regarde en l'air, et cligne des yeux de temps en temps.
@@ -248,9 +244,10 @@ fn dessiner_depart(banque: &Banque, skin: Skin, anim: u32) {
     decor::dessiner_avant(Theme::Toits, anim);
 }
 
-/// Image 2 : le ciel du cyclone, sans pluie. Le Grand Nuage, essoufflé, s'en va vers
-/// la droite ; un rai de lumière d'or perce par la trouée et une goutte d'or (un
-/// éclat de soleil) y descend vers Pépin.
+/// Image 2 : le ciel du cyclone, sans pluie. Le Grand Nuage, essoufflé, s'enfuit vers
+/// la droite en descendant (sous la mer de nuages : il reviendra au sommet) ; un rai
+/// de lumière d'or perce par la trouée et une goutte d'or (un éclat de soleil) y
+/// descend vers Pépin.
 fn dessiner_lueur(banque: &Banque, skin: Skin, anim: u32) {
     decor::dessiner_fond(Theme::Cyclone, 0, 0, anim);
     let centre = LARGEUR_LOGIQUE as i32 / 2;
@@ -265,9 +262,10 @@ fn dessiner_lueur(banque: &Banque, skin: Skin, anim: u32) {
         }
         rect((centre - 1) as f32, y as f32, 2.0, 1.0, OR);
     }
-    // Le Grand Nuage s'éloigne doucement (il quitte l'écran en une dizaine de secondes).
+    // Le Grand Nuage s'enfuit en descendant (il quitte l'écran en une dizaine de
+    // secondes).
     let x_nuage = 196.0 + (anim / 5).min(160) as f32;
-    let y_nuage = 18.0 - (anim / 40).min(12) as f32;
+    let y_nuage = 18.0 + (anim / 20).min(24) as f32;
     banque.dessiner(
         image(&["nuage_essouffle0", "nuage_essouffle1"], anim, 20),
         x_nuage,

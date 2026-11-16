@@ -364,6 +364,12 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 tete: BLANC_CASSE,
             },
         },
+        // Le retour du Grand Nuage (carte 8.11) : le même décor d'altitude, clair,
+        // sans pluie de thème (`Theme::pluie`) : il ne pleut que dans le front d'orage.
+        Theme::Poursuite => Ambiance {
+            gouttes: 0,
+            ..ambiance(Theme::Altitude)
+        },
         // La mer de nuages (carte 5.15) : un couchant corail qui se dore vers
         // l'horizon ; tout en bas, la mer de nuages, rose (la lumière du couchant)
         // et sans trouée jusqu'au bas de l'écran, avec ses bancs en dôme ; devant,
@@ -1198,7 +1204,7 @@ mod tests {
             Theme::Toits | Theme::Orage | Theme::Clocher | Theme::Descente => (0, false, false),
             Theme::Gouttieres | Theme::Marche => (1, false, false),
             Theme::Cyclone => (0, false, true),
-            Theme::Altitude | Theme::Mer | Theme::ArcEnCiel => (2, false, true),
+            Theme::Altitude | Theme::Mer | Theme::ArcEnCiel | Theme::Poursuite => (2, false, true),
             Theme::Soleil => (3, true, true),
         };
         for t in Theme::TOUS {
@@ -1689,7 +1695,7 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0]);
+        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0, 0]);
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");
