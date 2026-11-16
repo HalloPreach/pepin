@@ -6307,10 +6307,14 @@ jeu, pour débloquer une fin différente. »
   bilans de l'écran de fin avec 0, 2 et 5 lettres manquantes dans `rien_ne_se_chevauche…` ; parties du
   robot) et constantes vérifiées à la compilation (le mot PÉPIN tient dans le ciel, entre le bord, les
   rayons du soleil et les toits).
-- `./docker-cargo.sh test -p core` : 378 ok, 2 ignorés. `test -p game --no-default-features` (suite
-  complète, robot compris, avant le regroupement des tests) : 358 ok, 28 ignorés ; ciblés après :
-  `ecrans` 24, `contenu` 9, `histoire` 7, `sauvegarde` 2, `sprites` 54, `app::tests` 54, tous verts.
-  `./docker-cargo.sh lint` : LINT-OK. `faisabilite` : dans la suite core (niveaux touchés compris).
+- Extraction propre (`git archive` de 8a9d18b, le dernier commit de code) : `test -p core` 378 ok
+  (2 ignorés) ; `test -p game --no-default-features` 354 ok (29 ignorés : 28 + le test d'écriture des
+  scripts), robot compris (partie normale, partie complète avec les cinq lettres et la fin secrète,
+  0 mort) ; `./build.sh` : game.wasm 596 007 octets (gzip 240 436), `dist/` sans `/home` ni nom
+  propre, seule URL `http://www.w3.org/2000/svg`. Avant le regroupement des tests (381f265) : suite
+  game 358 ok. Ciblés sur 8a9d18b : `ecrans` 24, `contenu` 9, `histoire` 7, `sauvegarde` 2,
+  `sprites` 54, `app::tests` 54. `./docker-cargo.sh lint` : LINT-OK. `faisabilite` : dans la suite
+  core (niveaux touchés compris).
 - Vrai navigateur, build de QA (`./build.sh --qa`, servi sur 127.0.0.1, Chromium 1208 sans tête par
   CDP, pilote `docs/capture-lettres.mjs PORT docs/qa target/qa`, horloge virtuelle de
   `docs/pilote-qa.js`) :
