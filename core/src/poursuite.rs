@@ -6,7 +6,7 @@
 //! de la case `P` (voir la légende de `crate::level`).
 //!
 //! Les règles, toutes ici (le jeu ne fait que les appeler à chaque pas) :
-//! - le front avance de `VITESSE_MUR` px/s (moins de 80 % de la course de Pépin) ;
+//! - le front avance de `VITESSE_MUR` px/s (au plus 80 % de la course de Pépin) ;
 //! - il ne reste jamais plus de `RETARD_MAX` px derrière Pépin : si Pépin le distance,
 //!   le mur est tiré derrière lui (rattrapage). Ainsi il est toujours à l'écran, la
 //!   caméra défile avec lui (`game/src/camera.rs`) et la pression ne retombe jamais ;
@@ -26,18 +26,22 @@ use crate::aabb::Aabb;
 use crate::level::Niveau;
 use crate::physics::{DT, VITESSE_COURSE};
 
-/// Vitesse du front (px/s) : 2/3 de la course de Pépin (96 px/s), soit 4 tuiles par
-/// seconde. Pépin le distance en courant, pas en s'arrêtant.
-pub const VITESSE_MUR: f32 = 64.0;
+/// Vitesse du front (px/s) : 80 % de la course de Pépin (96 px/s), soit 4,8 tuiles
+/// par seconde (carte 8.16 : 64 avant, « accélère la poursuite »). Pépin le distance
+/// en courant, pas en s'arrêtant.
+pub const VITESSE_MUR: f32 = 76.8;
 /// La vitesse du mur ne dépasse pas 80 % de celle de la course (vérifié à la
 /// compilation : changer `VITESSE_MUR` au-delà fait échouer le build).
 const _: () = assert!(VITESSE_MUR <= 0.8 * VITESSE_COURSE);
-/// Distance maximale (px) entre le front et Pépin (son bord gauche) : 8 tuiles, 2 s
-/// d'avance au plus. Pépin courant au centre de l'écran, le front reste visible au
-/// bord gauche (la caméra regarde 28 px devant lui).
-pub const RETARD_MAX: f32 = 128.0;
-/// Distance (px) du front derrière Pépin quand il réapparaît : 7 tuiles (1,75 s).
-pub const RECUL_REAPPARITION: f32 = 112.0;
+/// Distance maximale (px) entre le front et Pépin (son bord gauche) : 6 tuiles,
+/// 1,25 s d'avance au plus (carte 8.16 : 128 px avant, la pression se sent). Pépin
+/// courant au centre de l'écran, le front reste visible au bord gauche (la caméra
+/// regarde 28 px devant lui).
+pub const RETARD_MAX: f32 = 96.0;
+/// Distance (px) du front derrière Pépin quand il réapparaît : 6 tuiles (1,25 s).
+/// Pas plus que `RETARD_MAX` : au pas suivant, le mur serait tiré à `RETARD_MAX`.
+pub const RECUL_REAPPARITION: f32 = 96.0;
+const _: () = assert!(RECUL_REAPPARITION <= RETARD_MAX);
 /// Le soleil perce quand le bord gauche de Pépin arrive à cette distance (px) du
 /// drapeau : 24 tuiles, environ 4 s de course au soleil avant l'arrivée.
 pub const PERCEE_AVANT_ARRIVEE: f32 = 384.0;
@@ -132,24 +136,31 @@ mod tests {
         let sans = lignes.join("\n").replace('P', ".");
         assert!(MurDePluie::du_niveau(&Niveau::depuis_ascii(&sans).unwrap()).is_none());
 
-        // 1 s : 64 px, Pépin immobile plus loin n'est pas touché.
-        let mut pepin = Aabb::new(140.0, 146.0, 10.0, 14.0);
+        // 1 s : `VITESSE_MUR` px, Pépin immobile plus loin (à moins de `RETARD_MAX`
+        // du départ : le mur n'est pas tiré) n'est pas touché.
+        let mut pepin = Aabb::new(110.0, 146.0, 10.0, 14.0);
         for _ in 0..60 {
             mur.avancer(&pepin);
         }
-        assert!((mur.front() - 80.0).abs() < 0.01, "{}", mur.front());
+        assert!(
+            (mur.front() - (16.0 + VITESSE_MUR)).abs() < 0.01,
+            "{}",
+            mur.front()
+        );
         assert!(!mur.touche(&pepin));
         // Pépin file loin devant : le mur est tiré à RETARD_MAX derrière lui.
         pepin.x = 400.0;
         mur.avancer(&pepin);
         assert_eq!(mur.front(), 400.0 - RETARD_MAX);
-        // Pépin s'arrête : le mur le touche en 2 s, pas avant.
+        // Pépin s'arrête : le mur le touche en `RETARD_MAX / VITESSE_MUR` s (1,25 s),
+        // pas avant.
         let mut pas = 0;
         while !mur.touche(&pepin) {
             mur.avancer(&pepin);
             pas += 1;
         }
-        assert!((120..=121).contains(&pas), "{pas} pas");
+        let attendu = (RETARD_MAX / (VITESSE_MUR * DT)).round() as u32;
+        assert!((attendu..=attendu + 1).contains(&pas), "{pas} pas");
         // Mort : Pépin réapparaît à sa lanterne, le mur recule derrière lui.
         pepin.x = 300.0;
         mur.replacer(&pepin);

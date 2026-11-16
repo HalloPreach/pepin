@@ -6582,3 +6582,9 @@ jeu, pour débloquer une fin différente. »
 - Preuves : tests `boutique`, `cosmetiques`, `sauvegarde`, `sprites` verts, `lint` vert, robot `le_robot_finit_tous_les_niveaux_sans_mourir` vert ; `./build.sh` : game.wasm 630 543 octets contre 634 540 sur main 5b06ad8 (-3 997).
 - Chromium sans tête, build de PRODUCTION, CDP : sauvegarde v3 à 10 gouttes avec `palette:sepia` équipée, 30 gouttes au chargement et plus aucune entrée `palette` ; rechargée : toujours 30 ; 0 erreur console, 0 pixel hors palette. Captures regardées `docs/qa/76b-boutique-quatre-onglets.png`, `76b-jeu-couleurs-normales.png`.
 - Pas testé : vrai téléphone, Safari ; le pilote de la preuve (sauvegarde avec palette) est resté hors dépôt.
+
+## Carte 8.16 : poursuite accélérée (mur de pluie du 10e niveau)
+
+- Vitesse du mur : `VITESSE_MUR` 64 px/s (2/3 de la course) avant, 76,8 px/s après (80 %, la limite vérifiée à la compilation) ; NG+ inchangé (même constante, aucune variante touchée).
+- `RETARD_MAX` 128 px (2 s) avant, 96 px (1,25 s) après ; `RECUL_REAPPARITION` 112 px ramené à 96 px (au-delà, le mur était de toute façon tiré à `RETARD_MAX` au pas suivant). Grille inchangée.
+- Temps du robot sur le niveau : 1 902 pas (31,7 s) avant, 1 902 pas après (même parcours, 0 mort ; traces `ecrire_script_navigateur`). Mur rejoué sur la trace : marge mini 41,7 px (2,6 tuiles) au départ, 75 px ou plus ensuite (88 px aux grêles), contre 83 px avant ; toujours plus d'une demi-tuile. Preuves : `test -p core poursuite` (test du mur adapté aux constantes), `faisabilite` (25), `zones` (55), robot `le_robot_finit_tous_les_niveaux_sans_mourir` et `le_robot_finit_la_nouvelle_partie_plus_sans_mourir` verts, lint, `./build.sh`. Non testé : un humain au clavier ou au toucher (1,25 s d'hésitation suffit à se faire prendre), vrai téléphone. Remarque : le niveau 4 a pris 13 pas de plus au robot entre les deux traces sans lien avec cette carte (aucun mur au niveau 4).
