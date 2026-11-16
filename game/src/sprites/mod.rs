@@ -206,6 +206,9 @@ pub struct Banque {
     /// Le motif en service : `dessiner` prend alors ces images-là pour Pépin, sur
     /// tous les écrans (jeu, titre, carte des niveaux, histoire).
     motif: Cell<Option<Motif>>,
+    /// Les images du Grand Nuage tramées en damier : le nuage « pâle » du mode facile
+    /// (carte 8.14), sans aucune demi-teinte hors palette.
+    nuages_trames: HashMap<&'static str, Texture2D>,
 }
 
 impl Banque {
@@ -237,12 +240,18 @@ impl Banque {
                 }
             }
         }
+        let nuages_trames = ennemis::SPRITES
+            .iter()
+            .filter(|(nom, _)| nom.starts_with("nuage_"))
+            .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
+            .collect();
         Self {
             sprites,
             tuiles: jeu(false),
             tuiles_tramees: jeu(true),
             motifs,
             motif: Cell::new(None),
+            nuages_trames,
         }
     }
 
@@ -265,6 +274,14 @@ impl Banque {
         let avec_motif = self.motif.get().and_then(|m| self.motifs.get(&(m, nom)));
         if let Some(t) = avec_motif.or_else(|| self.sprites.get(nom)) {
             Self::poser(t, x, y, miroir);
+        }
+    }
+
+    /// Dessine l'image `nom` du Grand Nuage tramée en damier (un pixel sur deux) :
+    /// le nuage du mode facile, plus pâle sur le ciel (carte 8.14).
+    pub fn dessiner_pale(&self, nom: &str, x: f32, y: f32) {
+        if let Some(t) = self.nuages_trames.get(nom) {
+            Self::poser(t, x, y, false);
         }
     }
 

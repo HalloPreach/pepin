@@ -133,6 +133,9 @@ pub struct ResultatNiveau {
     /// Gouttes d'or ramassées cette fois mais déjà comptées avant (affichées « déjà
     /// comptées », sans rien rapporter).
     pub deja_comptees: u32,
+    /// Boss vaincu en MODE FACILE (carte 8.14, `facile::noter_victoire_facile`) :
+    /// ni défi ni médaille, mention « FACILE » au bilan.
+    pub facile: bool,
 }
 
 /// Un niveau RÉUSSI : note la tentative dans la sauvegarde, par la CLÉ du niveau
@@ -166,6 +169,8 @@ pub fn noter_niveau(s: &mut Sauvegarde, infos: &InfosNiveau, t: &Tentative) -> R
         gain += valeur_medaille(medaille).saturating_sub(valeur_medaille(p.medaille));
         p.medaille = p.medaille.max(medaille);
         p.meilleur_temps = Some(p.meilleur_temps.map_or(t.pas, |m| m.min(t.pas)));
+        // Carte 8.14 : le boss vaincu, ses défaites d'affilée repartent de zéro.
+        p.defaites = 0;
     }
     s.ajouter_gouttes(gain);
     ResultatNiveau {
@@ -175,6 +180,7 @@ pub fn noter_niveau(s: &mut Sauvegarde, infos: &InfosNiveau, t: &Tentative) -> R
         medaille,
         gain,
         deja_comptees,
+        facile: false,
     }
 }
 

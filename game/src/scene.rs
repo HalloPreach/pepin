@@ -473,7 +473,12 @@ fn dessiner_nuage(g: &GrandNuage, banque: &Banque, pas: u32, sx: f32, sy: f32, c
     }
     if let Some(nom) = image_nuage(g.phase(), g.ecoule(), pas) {
         let dx = tremblement_nuage(g.phase(), pas) as f32;
-        banque.dessiner(nom, sx + dx, sy, false);
+        // Mode facile (carte 8.14) : le nuage est plus pâle (à demi transparent).
+        if g.est_facile() {
+            banque.dessiner_pale(nom, sx + dx, sy);
+        } else {
+            banque.dessiner(nom, sx + dx, sy, false);
+        }
     }
 }
 

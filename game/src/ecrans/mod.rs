@@ -21,6 +21,7 @@ pub mod aide;
 pub mod bilan_niveau;
 pub mod boutique;
 pub mod carte;
+pub mod facile;
 pub mod fin;
 pub mod histoire;
 pub mod pause;

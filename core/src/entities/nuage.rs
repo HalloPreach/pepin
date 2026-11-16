@@ -29,6 +29,13 @@
 //! Si Pépin meurt, le nuage reprend au prélude (`reprendre`) mais GARDE ses
 //! points perdus : on ne recommence pas le combat depuis le début.
 //!
+//! MODE FACILE (carte 8.14) : proposé au joueur après `DEFAITES_AVANT_FACILE`
+//! défaites d'affilée (côté jeu), il se règle À LA CONSTRUCTION du combat, sans
+//! état global : `passer_en_facile` donne au nuage `PV_NUAGE_FACILE` points de vie
+//! (2 au lieu de 3), et il ne joue que ses deux PREMIERS motifs, les plus doux
+//! (`motif` compte les points perdus depuis le maximum du nuage, pas depuis 3). Le
+//! mode normal ne change pas d'un octet.
+//!
 //! Notions Rust : un `enum` pour les phases, des tableaux CONSTANTS de données
 //! (`MOTIFS`, des tranches `&'static [...]` imbriquées), des fonctions pures
 //! testées pas à pas, `Option` pour le courant (« un courant, ou rien »).
@@ -42,6 +49,8 @@ use crate::player::Joueur;
 
 /// Points de vie du Grand Nuage : trois sauts sur la tête.
 pub const PV_NUAGE: u8 = 3;
+/// Points de vie du Grand Nuage en MODE FACILE (carte 8.14) : deux sauts suffisent.
+pub const PV_NUAGE_FACILE: u8 = 2;
 /// Prélude : 1,5 s de grondement avant le premier motif (et après une mort).
 pub const PRELUDE_PAS: u16 = 90;
 /// Essoufflement : 5 s de courant ascendant, le temps de traverser l'arène et
@@ -239,6 +248,9 @@ pub struct GrandNuage {
     /// Pas écoulés depuis le début de la phase.
     ecoule: u16,
     pv: u8,
+    /// Points de vie au début du combat : `PV_NUAGE`, ou `PV_NUAGE_FACILE` en mode
+    /// facile (`passer_en_facile`).
+    pv_max: u8,
 }
 
 impl GrandNuage {
@@ -251,7 +263,26 @@ impl GrandNuage {
             phase: PhaseNuage::Prelude,
             ecoule: 0,
             pv: PV_NUAGE,
+            pv_max: PV_NUAGE,
         }
+    }
+
+    /// Mode facile (carte 8.14) : `PV_NUAGE_FACILE` points de vie, donc seulement
+    /// les deux premiers motifs. À appeler sur un nuage neuf, au chargement du niveau.
+    pub fn passer_en_facile(&mut self) {
+        self.pv_max = PV_NUAGE_FACILE;
+        self.pv = self.pv.min(PV_NUAGE_FACILE);
+    }
+
+    /// Points de vie au début du combat (3, ou 2 en mode facile) : le HUD en montre
+    /// autant de cases.
+    pub fn pv_max(&self) -> u8 {
+        self.pv_max
+    }
+
+    /// Le combat est-il en mode facile ? (Le dessin pâlit le nuage.)
+    pub fn est_facile(&self) -> bool {
+        self.pv_max < PV_NUAGE
     }
 
     pub fn phase(&self) -> PhaseNuage {
@@ -268,9 +299,11 @@ impl GrandNuage {
         self.ecoule
     }
 
-    /// Le motif joué en colère : 0 à 3 points de vie, 1 à 2, 2 à 1.
+    /// Le motif joué en colère : le nombre de points déjà perdus. En normal, 0 à 3
+    /// points de vie, 1 à 2, 2 à 1 ; en facile (2 points au départ), 0 à 2, 1 à 1 :
+    /// les deux premiers motifs seulement, jamais hors du tableau `MOTIFS`.
     pub fn motif(&self) -> usize {
-        usize::from(PV_NUAGE - self.pv.clamp(1, PV_NUAGE))
+        usize::from(self.pv_max - self.pv.clamp(1, self.pv_max))
     }
 
     /// Durée de la phase en cours (`None` : vaincu, pour toujours).
@@ -583,6 +616,27 @@ mod tests {
         assert_eq!(n.progression_dechirure(), 1.0);
         pas(&mut n, 1000);
         assert!(n.est_vaincu(), "vaincu pour toujours");
+    }
+
+    /// Mode facile (carte 8.14) : 2 points, les motifs 1 puis 2, et deux coups
+    /// suffisent ; le nuage normal, lui, ne change pas.
+    #[test]
+    fn en_facile_deux_points_et_les_deux_premiers_motifs() {
+        let mut n = nuage();
+        assert!(!n.est_facile());
+        n.passer_en_facile();
+        assert!(n.est_facile());
+        assert_eq!((n.pv(), n.pv_max(), n.motif()), (2, PV_NUAGE_FACILE, 0));
+        n.essouffler();
+        n.toucher();
+        pas(&mut n, TOUCHE_PAS as u32);
+        assert_eq!((n.phase(), n.pv(), n.motif()), (PhaseNuage::Colere, 1, 1));
+        assert_eq!(n.cote_du_courant(), Cote::Droite, "comme après le motif 2");
+        n.essouffler();
+        n.toucher();
+        assert_eq!((n.phase(), n.pv()), (PhaseNuage::Dechirure, 0));
+        pas(&mut n, DECHIRURE_PAS as u32);
+        assert!(n.est_vaincu());
     }
 
     #[test]

@@ -376,6 +376,14 @@ pub const OUI: &str = "OUI";
 pub const NON: &str = "NON";
 pub const OK: &str = "OK";
 pub const IL_TE_MANQUE: &str = "IL TE MANQUE";
+
+// --- Mode facile du Grand Nuage (carte 8.14) ------------------------------------
+
+pub const TROP_DUR: &str = "TROP DUR ?";
+pub const MODE_FACILE_PROPOSE: &str = "MODE FACILE : LE NUAGE N'A QUE 2 VIES";
+pub const FACILE_SANS_MEDAILLE: &str = "Pas de médaille ni de record en facile.";
+/// Mention du bilan et de la carte des niveaux : boss vaincu en facile.
+pub const FACILE: &str = "FACILE";
 /// Rappel des touches en bas de la boutique.
 pub const AIDE_BOUTIQUE: &str = "Entrée : choisir   Échap : retour";
 
@@ -526,6 +534,10 @@ pub(crate) mod tests {
             NON,
             OK,
             IL_TE_MANQUE,
+            TROP_DUR,
+            MODE_FACILE_PROPOSE,
+            FACILE_SANS_MEDAILLE,
+            FACILE,
             AIDE_BOUTIQUE,
             SANS_PERTE_DE_VIE,
             TITRE_PLUS_DE_VIES,

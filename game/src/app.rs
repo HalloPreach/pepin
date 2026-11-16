@@ -42,6 +42,7 @@ use crate::ecrans::{
 };
 use crate::effets::effets;
 use crate::entrees::{self, Commandes, RaccourciNiveau};
+use crate::facile::{self as mode_facile, EtatFacile, Origine, Proposition, Reponse};
 use crate::hud;
 use crate::menu::{Choix, Menu};
 use crate::monde::Monde;
@@ -206,6 +207,8 @@ pub struct Application {
     demo: Option<Demo>,
     /// Rang, dans `demo::PARCOURS`, de la prochaine démo (elles tournent).
     rang_demo: usize,
+    /// Mode facile du Grand Nuage (carte 8.14) : niveau en facile, bannière ouverte.
+    facile: EtatFacile,
 }
 
 impl Application {
@@ -251,6 +254,7 @@ impl Application {
             inactif: 0,
             demo: None,
             rang_demo: 0,
+            facile: EtatFacile::default(),
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -345,7 +349,9 @@ impl Application {
 
     /// Le monde de jeu est-il en train d'avancer (donc à interpoler) ?
     pub fn en_jeu(&self) -> bool {
-        self.ecran == Ecran::Jeu && !self.transition.est_active()
+        self.ecran == Ecran::Jeu
+            && !self.transition.est_active()
+            && self.facile.proposition.is_none()
     }
 
     /// La fenêtre perd (`present = false`) ou retrouve (`true`) le focus : onglet masqué,
@@ -425,6 +431,13 @@ impl Application {
         if self.transition.est_active() {
             return;
         }
+        // Bannière du mode facile ouverte (carte 8.14) : elle seule répond.
+        if let Some(mut p) = self.facile.proposition {
+            let reponse = p.reagir(nav, ecrans::facile::bouton_sous);
+            self.facile.proposition = Some(p);
+            self.repondre_facile(p.origine, reponse);
+            return;
+        }
         match self.ecran {
             Ecran::Titre | Ecran::Pause | Ecran::Fin => self.reagir_menu(nav, commandes),
             // Traitée plus haut.
@@ -441,6 +454,16 @@ impl Application {
                 match self.plan.reagir(nav, NIVEAUX, &self.sauvegarde, &zones) {
                     ActionPlan::Rien => {}
                     ActionPlan::Quitter => self.retour_titre_sur(Choix::Carte),
+                    // Boss à proposer en facile (carte 8.14) : la bannière d'abord.
+                    ActionPlan::Jouer(indice)
+                        if mode_facile::proposer(&plan::progres(
+                            NIVEAUX,
+                            &self.sauvegarde,
+                            indice,
+                        )) =>
+                    {
+                        self.facile.proposition = Some(Proposition::new(Origine::Plan(indice)));
+                    }
                     ActionPlan::Jouer(indice) => self.lancer(Suite::NiveauSeul(indice)),
                 }
             }
@@ -608,6 +631,12 @@ impl Application {
                         Ecran::Carte(n - 1)
                     };
                 }
+                // Bannière du mode facile (carte 8.14) : le monde attend la réponse.
+                Ecran::Jeu if self.facile.proposition.is_some() => {
+                    if let Some(p) = self.facile.proposition.as_mut() {
+                        p.attendre();
+                    }
+                }
                 Ecran::Jeu => {
                     if std::mem::take(&mut self.pause_differee) {
                         // Focus perdu pendant la carte : on s'arrête avant le premier pas.
@@ -682,6 +711,7 @@ impl Application {
         self.tentative.pas += 1;
         self.tentative.a_plane |= self.monde.joueur.plane;
         self.tentative.morts = self.monde.etat.morts - self.morts_debut_tentative;
+        self.compter_defaite_au_boss();
         // La dernière vie perdue : l'écran « plus de vies », puis le niveau recommence
         // (avant tout, même si ce pas-là finissait aussi le niveau).
         if self.monde.etat.vies.plus_de_vies() {
@@ -697,11 +727,19 @@ impl Application {
             // notés au passage, et leurs premières réussites créditées.
             self.tentative.gouttes = self.monde.gouttes_niveau;
             let ancien = self.sauvegarde.progres(self.monde.infos.cle).meilleur_temps;
-            self.resultat_niveau = Some(defis::noter_niveau(
-                &mut self.sauvegarde,
-                self.monde.infos,
-                &self.tentative,
-            ));
+            // Boss vaincu en mode facile (carte 8.14) : fini, gouttes créditées, mais
+            // ni défi ni médaille ni meilleur temps.
+            let r = if self.facile.actif && self.monde.pv_nuage().is_some() {
+                self.facile.dans_la_partie = true;
+                mode_facile::noter_victoire_facile(
+                    &mut self.sauvegarde,
+                    self.monde.infos,
+                    &self.tentative,
+                )
+            } else {
+                defis::noter_niveau(&mut self.sauvegarde, self.monde.infos, &self.tentative)
+            };
+            self.resultat_niveau = Some(r);
             self.sauvegarde.enregistrer();
             // Un niveau joué seul (carte 7.4) : son bilan, par-dessus le niveau figé.
             if self.niveau_seul {
@@ -814,6 +852,7 @@ impl Application {
                     self.gouttes_bonus = None;
                     self.game_over_partie = false;
                     self.resultat_niveau = None;
+                    self.facile.dans_la_partie = false;
                 }
                 self.recharger(indice, etat);
                 // Une image de l'histoire avant certains niveaux d'une partie lancée par
@@ -858,6 +897,7 @@ impl Application {
                 self.gouttes_bonus = None;
                 self.game_over_partie = false;
                 self.resultat_niveau = None;
+                self.facile.dans_la_partie = false;
                 self.recharger(indice, None);
                 self.niveau_seul = true;
                 self.anim = 0;
@@ -880,7 +920,13 @@ impl Application {
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
                 };
-                self.nouveau_record = self.sauvegarde.noter_partie(e.score, self.pas_partie);
+                // Un boss vaincu en facile (carte 8.14) : partie finie, mais pas de record.
+                self.nouveau_record = mode_facile::noter_partie(
+                    &mut self.sauvegarde,
+                    e.score,
+                    self.pas_partie,
+                    self.facile.dans_la_partie,
+                );
                 // Bonus de fin de partie (carte 7.3) : chaque ligne n'est créditée que
                 // la première fois qu'elle est gagnée (carte 7.9).
                 let toutes = self.bilan.gouttes >= levels::gouttes_du_parcours(NIVEAUX);
@@ -903,6 +949,13 @@ impl Application {
         self.monde = monde;
         self.camera = camera;
         self.eclat_vie = 0;
+        // Un niveau chargé : en facile seulement si on vient de le choisir (carte 8.14).
+        self.facile.actif = std::mem::take(&mut self.facile.au_prochain);
+        self.facile.refusee = false;
+        self.facile.proposition = None;
+        if self.facile.actif {
+            self.monde.passer_nuage_en_facile();
+        }
         self.nouvelle_tentative();
     }
 
@@ -919,10 +972,61 @@ impl Application {
     fn relancer(&mut self, etat: EtatJeu) {
         let (mut monde, camera) = charger(self.monde.indice, None);
         monde.etat = etat;
+        // « Recommencer » et « plus de vies » gardent le mode facile (carte 8.14).
+        if self.facile.actif {
+            monde.passer_nuage_en_facile();
+        }
         self.monde = monde;
         self.camera = camera;
         self.eclat_vie = 0;
         self.nouvelle_tentative();
+    }
+
+    // --- Mode facile du Grand Nuage (carte 8.14) ------------------------------------
+
+    /// Une mort au boss en mode normal : une défaite de plus (enregistrée) ; à partir
+    /// de `DEFAITES_AVANT_FACILE`, la bannière « TROP DUR ? » s'ouvre (pas pendant
+    /// « plus de vies », ni si NON a déjà été répondu dans ce niveau). La démo du
+    /// titre ne passe pas par ici (`pas_demo`).
+    fn compter_defaite_au_boss(&mut self) {
+        let mort = self
+            .monde
+            .contacts
+            .iter()
+            .any(|c| matches!(c, Contact::Mort(_)));
+        if !mort || self.facile.actif || self.monde.pv_nuage().is_none() {
+            return;
+        }
+        let n = mode_facile::noter_defaite(&mut self.sauvegarde, self.monde.infos.cle);
+        self.sauvegarde.enregistrer();
+        if n >= mode_facile::DEFAITES_AVANT_FACILE
+            && !self.facile.refusee
+            && !self.monde.etat.vies.plus_de_vies()
+        {
+            self.facile.proposition = Some(Proposition::new(Origine::Mort));
+        }
+    }
+
+    /// La réponse à la bannière. Après une mort : OUI recommence le niveau en facile,
+    /// NON reprend le combat tel quel. Sur la carte des niveaux : OUI ou NON lance le
+    /// niveau (en facile ou non), Échap revient à la carte.
+    fn repondre_facile(&mut self, origine: Origine, reponse: Reponse) {
+        if reponse == Reponse::Rien {
+            return;
+        }
+        self.facile.proposition = None;
+        match (origine, reponse) {
+            (Origine::Mort, Reponse::Oui) => {
+                self.facile.actif = true;
+                self.lancer(Suite::Recommencer);
+            }
+            (Origine::Mort, _) => self.facile.refusee = true,
+            (Origine::Plan(indice), Reponse::Oui | Reponse::Non) => {
+                self.facile.au_prochain = reponse == Reponse::Oui;
+                self.lancer(Suite::NiveauSeul(indice));
+            }
+            (Origine::Plan(_), _) => {}
+        }
     }
 
     // --- Dessin --------------------------------------------------------------------
@@ -1007,7 +1111,7 @@ impl Application {
                         &vies,
                         pas,
                         cible,
-                        self.monde.pv_nuage(),
+                        self.monde.points_nuage(),
                     );
                 }
                 match self.ecran {
@@ -1046,6 +1150,10 @@ impl Application {
                 resultats::dessiner_bande_fin(r.as_ref(), &self.bonus_fin, self.anim)
             }
             _ => {}
+        }
+        // Bannière du mode facile (carte 8.14), par-dessus le jeu ou la carte des niveaux.
+        if let Some(p) = &self.facile.proposition {
+            ecrans::facile::dessiner(p);
         }
         self.transition.dessiner();
     }

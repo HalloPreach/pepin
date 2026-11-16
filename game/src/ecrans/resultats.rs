@@ -135,9 +135,15 @@ pub fn ligne_defis(r: &ResultatNiveau, y: f32, avec_gain: bool) {
 
 /// Texte d'en-tête de la bande de niveau : « NIVEAU RÉUSSI : ARGENT, +9 GOUTTES ».
 pub fn entete(r: &ResultatNiveau) -> String {
+    // Boss vaincu en mode facile (carte 8.14) : « FACILE » à la place de la médaille.
+    let mention = if r.facile {
+        crate::contenu::FACILE
+    } else {
+        medaille(r.medaille).1
+    };
     format!(
         "NIVEAU RÉUSSI : {}, +{} GOUTTE{}",
-        medaille(r.medaille).1,
+        mention,
         r.gain,
         if r.gain > 1 { "S" } else { "" }
     )

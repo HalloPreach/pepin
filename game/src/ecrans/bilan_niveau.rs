@@ -80,8 +80,13 @@ pub fn dessiner(
         chrono::temps_precis(temps.pas)
     );
     texte::dessiner_centre(&t, 62.0, ombre(BLANC_CASSE, 2));
-    // L'écart clignote doucement quand c'est un nouveau meilleur temps.
-    let (ecart, mieux) = temps.ligne_ecart();
+    // L'écart clignote doucement quand c'est un nouveau meilleur temps. En mode
+    // facile (carte 8.14), aucun temps n'est retenu : on le rappelle à la place.
+    let (ecart, mieux) = if r.facile {
+        (contenu::FACILE_SANS_MEDAILLE.to_string(), false)
+    } else {
+        temps.ligne_ecart()
+    };
     let couleur = match (mieux, (anim / 20).is_multiple_of(2)) {
         (true, true) => OR,
         (true, false) => OR_PALE,
