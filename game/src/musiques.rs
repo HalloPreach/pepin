@@ -543,8 +543,14 @@ mod tests {
             assert!((0.2..1.0).contains(&pic), "{m:?} : pic {pic}");
             // Boucle propre : la dernière note s'éteint avant la fin et la première
             // part de zéro (attaque de 2 ms) : la jonction ne fait pas de clic.
-            let fin = s[s.len() - 10..].iter().fold(0.0_f32, |a, v| a.max(v.abs()));
-            assert!(s[0].abs() < 0.02 && fin < 0.02, "{m:?} : début {}, fin {fin}", s[0]);
+            let fin = s[s.len() - 10..]
+                .iter()
+                .fold(0.0_f32, |a, v| a.max(v.abs()));
+            assert!(
+                s[0].abs() < 0.02 && fin < 0.02,
+                "{m:?} : début {}, fin {fin}",
+                s[0]
+            );
         }
     }
 
