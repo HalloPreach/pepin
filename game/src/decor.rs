@@ -942,12 +942,24 @@ pub(crate) fn zones(a: &Ambiance) -> Vec<Zone> {
 /// de vitesse `vitesse` (px par pas vers le bas). Chute en diagonale (1 px de
 /// dérive vers la gauche pour 2 de chute) et boucle sur l'écran.
 pub fn goutte_de_pluie(i: i32, pas: u32, vitesse: i32, graine: u32) -> (i32, i32) {
+    goutte_penchee(i, pas, vitesse, graine, 2)
+}
+
+/// Comme `goutte_de_pluie`, avec `pente` px de chute pour 1 px de dérive vers la
+/// gauche (2 : la pluie de tous les jours ; 1 : la pluie forte, à 45°).
+fn goutte_penchee(i: i32, pas: u32, vitesse: i32, graine: u32, pente: i32) -> (i32, i32) {
     let h = hache(i, graine);
     let x0 = (h % L as u32) as i32;
     let y0 = ((h >> 9) % H as u32) as i32;
     let t = pas as i32 * vitesse;
-    ((x0 - t / 2).rem_euclid(L), (y0 + t).rem_euclid(H))
+    ((x0 - t / pente).rem_euclid(L), (y0 + t).rem_euclid(H))
 }
+
+/// Pluie FORTE de la nouvelle partie + (carte 8.8) : 1,5 fois plus de gouttes par
+/// couche (`PLUIE_FORTE_NUM / PLUIE_FORTE_DEN`), et plus penchée (45°, contre une
+/// pente de 2 d'habitude). Dessin seulement : elle ne touche personne.
+pub const PLUIE_FORTE_NUM: i32 = 3;
+pub const PLUIE_FORTE_DEN: i32 = 2;
 
 /// Nombre maximal de gouttes par couche (garde-fou des tests).
 #[cfg(test)]
@@ -1110,16 +1122,22 @@ fn dessiner_ilots(corps: Couleur, dessous: Couleur, cam_x: i32, vert: i32) {
     }
 }
 
-fn dessiner_pluie(a: &Ambiance, pas: u32) {
+fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
+    let (gouttes, pente) = if forte {
+        (a.gouttes * PLUIE_FORTE_NUM / PLUIE_FORTE_DEN, 1)
+    } else {
+        (a.gouttes, 2)
+    };
     for (couche, (vitesse, couleur, longueur)) in [(2, a.pluie.0, 1), (3, a.pluie.1, 2)]
         .into_iter()
         .enumerate()
     {
-        for i in 0..a.gouttes {
-            let (x, y) = goutte_de_pluie(i, pas, vitesse, 100 + couche as u32);
-            // Un trait diagonal de 1 à 2 pixels, calé sur la grille.
+        for i in 0..gouttes {
+            let (x, y) = goutte_penchee(i, pas, vitesse, 100 + couche as u32, pente);
+            // Un trait diagonal de 1 à 2 pixels, calé sur la grille (sa pente suit
+            // celle de la chute).
             for k in 0..longueur + 1 {
-                rect(x + k, y - k * 2, 1, 1, couleur);
+                rect(x + k, y - k * pente, 1, 1, couleur);
             }
         }
     }
@@ -1185,10 +1203,11 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     );
 }
 
-/// Dessine la pluie PAR-DESSUS le niveau (devant tout).
-pub fn dessiner_avant(theme: Theme, pas: u32) {
+/// Dessine la pluie PAR-DESSUS le niveau (devant tout). `forte` : la pluie de la
+/// nouvelle partie + (carte 8.8), plus dense et plus penchée.
+pub fn dessiner_avant(theme: Theme, pas: u32, forte: bool) {
     if theme.pluie() {
-        dessiner_pluie(&ambiance(theme), pas);
+        dessiner_pluie(&ambiance(theme), pas, forte);
     }
 }
 

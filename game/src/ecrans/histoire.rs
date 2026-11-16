@@ -241,7 +241,7 @@ fn dessiner_depart(banque: &Banque, skin: Skin, anim: u32) {
         false,
     );
     // La pluie tombe devant tout (elle ne s'arrête plus).
-    decor::dessiner_avant(Theme::Toits, anim);
+    decor::dessiner_avant(Theme::Toits, anim, false);
 }
 
 /// Image 2 : le ciel du cyclone, sans pluie. Le Grand Nuage, essoufflé, s'enfuit vers

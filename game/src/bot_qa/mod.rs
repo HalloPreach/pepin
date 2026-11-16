@@ -179,7 +179,18 @@ pub fn empreinte(trames: &[Trame]) -> u64 {
 /// Joue la partie entière à travers l'`Application`, image par image, comme le
 /// ferait la boucle principale (un `reagir` puis un `pas` par image).
 pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
+    jouer_tout_mode(parcours, false)
+}
+
+/// Comme `jouer_tout` ; `ng_plus` (carte 8.8) : une première partie est déjà finie
+/// (la ligne NOUVELLE PARTIE+ est au titre, juste sous JOUER) et le robot la choisit :
+/// image 0, une ligne plus bas ; image 1, Entrée.
+pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
     let mut app = Application::new(true);
+    if ng_plus {
+        app.debloquer_ng_plus_qa();
+    }
+    let image_jouer = u32::from(ng_plus);
     let mut trames: Vec<Trame> = Vec::new();
     let mut fin_atteinte = false;
     for image in 0..60 * 60 * 15 {
@@ -187,7 +198,7 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
         // images de l'histoire (carte 8.4), elles, attendent un appui : le robot appuie
         // sur Entrée dès qu'elles l'acceptent.
         let mut trame = Trame {
-            valider: image == 0 || app.histoire_en_attente(),
+            valider: image == image_jouer || app.histoire_en_attente(),
             ..Trame::default()
         };
         if app.ecran == Ecran::Jeu && app.en_jeu() {
@@ -201,6 +212,7 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
         }
         let nav = Navigation {
             valider: trame.valider,
+            bas: ng_plus && image == 0,
             ..Navigation::default()
         };
         app.reagir(&nav, &Commandes::default(), None);
@@ -284,6 +296,25 @@ pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
     })
 }
 
+/// Parcours de chaque niveau dans sa variante de la nouvelle partie + (carte 8.8),
+/// comme `tous_les_parcours` (un fil par niveau).
+pub fn tous_les_parcours_ng_plus() -> Vec<Vec<Entrees>> {
+    std::thread::scope(|portee| {
+        let fils: Vec<_> = (0..NB_NIVEAUX)
+            .map(|i| {
+                portee.spawn(move || {
+                    trouver_parcours_mode(i, false, true)
+                        .or_else(|| trouver_parcours_mode(i, true, true))
+                        .unwrap_or_else(|| panic!("aucun parcours NG+ au niveau {}", i + 1))
+                })
+            })
+            .collect();
+        fils.into_iter()
+            .map(|f| f.join().expect("fil du parcours NG+"))
+            .collect()
+    })
+}
+
 /// Parcours « complet » de chaque niveau de la table : les trois gouttes d'or
 /// ramassées avant l'arrivée (`trouver_parcours_complet`, carte 5.16). Joués à la
 /// suite, ils font la partie qui débloque le bonus. Un fil d'exécution par niveau
@@ -341,6 +372,32 @@ mod tests {
         assert!(gouttes_au_10e < pepin_core::levels::gouttes_pour_le_bonus(NIVEAUX));
         let sans_bonus: Vec<u8> = (1..=10).chain([12]).collect();
         assert_eq!(numeros, sans_bonus, "bonus sauté, épilogue joué");
+    }
+
+    /// La troisième partie du robot (carte 8.8) : la NOUVELLE PARTIE +, choisie au
+    /// titre après une partie finie. Chaque niveau y est sa variante (ennemis
+    /// déplacés, éclairs plus fréquents, Grand Nuage serré, vent de face sur les
+    /// toits) ; le robot la finit sans mourir, bonus sauté, épilogue joué.
+    #[test]
+    fn le_robot_finit_la_nouvelle_partie_plus_sans_mourir() {
+        let partie = jouer_tout_mode(&tous_les_parcours_ng_plus(), true);
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        let mut numeros: Vec<u8> = partie
+            .trames
+            .iter()
+            .filter(|t| t.niveau > 0)
+            .map(|t| t.niveau)
+            .collect();
+        numeros.dedup();
+        let sans_bonus: Vec<u8> = (1..=10).chain([12]).collect();
+        assert_eq!(numeros, sans_bonus, "bonus sauté, épilogue joué");
+        println!(
+            "nouvelle partie + : {} images, chrono {} pas, empreinte {:016x}",
+            partie.trames.len(),
+            partie.chrono,
+            empreinte(&partie.trames)
+        );
     }
 
     /// L'autre chemin (carte 5.16) : la partie « complète » ramasse les trois

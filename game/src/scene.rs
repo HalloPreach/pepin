@@ -1139,7 +1139,7 @@ pub fn dessiner(
     // Pépin, le ciel d'altitude reste clair.
     mur_pluie::dessiner_mur(monde, banque, cx);
     if monde.mur.is_none() {
-        decor::dessiner_avant(monde.infos.theme, monde.pas);
+        decor::dessiner_avant(monde.infos.theme, monde.pas, monde.ng_plus);
     }
     dessiner_repere_pepin(monde, alpha, cx, cy);
 }
