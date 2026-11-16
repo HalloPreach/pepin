@@ -934,7 +934,88 @@ fn ecrire_script_pigeons_66() {
     );
 }
 
-/// Le travail commun des trois tests précédents : pour chaque `(indice, ajouts)`,
+/// Carte 6.6 : le robot ne tombe jamais sur un pigeon, il n'y en a donc aucun
+/// d'écrasé dans ses parties. Pour capturer l'image « écrasé » en jeu, ce test
+/// cherche, dans la descente (niveau 11), une suite de touches simple qui fait
+/// tomber Pépin sur le premier pigeon : courir à droite `a` pas, sauter et planer
+/// (saut maintenu) `b` pas, puis lâcher tout et tomber. Il écrit le parcours trouvé
+/// (un chiffre hexadécimal par pas, comme `script.txt` : 4 = droite, 8 = saut)
+/// dans `target/qa/parcours-66-ecrase.txt` ; la pose du départ (`depart_pose`) en
+/// fait partie, comme pour le parcours du robot. Rendu seulement : rien n'est
+/// vérifié sur le jeu, le test échoue s'il ne trouve rien.
+/// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_parcours_pigeon_ecrase_66
+#[test]
+#[ignore]
+fn ecrire_parcours_pigeon_ecrase_66() {
+    use crate::bot_qa::parcours::depart_pose;
+    use pepin_core::entities::ennemi::EtatEnnemi;
+    use pepin_core::entities::{Entite, TypeEnnemi};
+    use pepin_core::player::{Direction, Entrees};
+
+    const DESCENTE: usize = 10;
+    let droite = Entrees {
+        direction: Direction::Droite,
+        saut: false,
+    };
+    let planer = Entrees {
+        direction: Direction::Droite,
+        saut: true,
+    };
+    let lacher = Entrees::default();
+    let ecrase = |m: &crate::monde::Monde| {
+        m.entites.iter().any(|e| {
+            matches!(e, Entite::Ennemi(p) if p.type_ennemi == TypeEnnemi::Pigeon
+                && matches!(p.etat, EtatEnnemi::Ecrase(_)))
+        })
+    };
+    let (depart, prefixe) = depart_pose(DESCENTE);
+    for a in 0..80 {
+        for b in 1..90 {
+            let mut m = depart.clone();
+            let mut suite: Vec<Entrees> = Vec::new();
+            suite.extend(std::iter::repeat_n(droite, a));
+            suite.extend(std::iter::repeat_n(planer, b));
+            suite.extend(std::iter::repeat_n(lacher, 150));
+            for (k, e) in suite.iter().enumerate() {
+                m.avancer(e);
+                if m.etat.morts > 0 {
+                    break;
+                }
+                if ecrase(&m) {
+                    // Encore 40 pas sans rien toucher : on voit le pigeon écrasé.
+                    let mut tout = prefixe.clone();
+                    tout.extend_from_slice(&suite[..=k]);
+                    tout.extend(std::iter::repeat_n(lacher, 40));
+                    let codes: String = tout
+                        .iter()
+                        .map(|e| {
+                            let mut v = 0;
+                            if e.direction == Direction::Droite {
+                                v |= 4;
+                            }
+                            if e.saut {
+                                v |= 8;
+                            }
+                            char::from_digit(v, 16).unwrap()
+                        })
+                        .collect();
+                    std::fs::create_dir_all("../target/qa").unwrap();
+                    std::fs::write("../target/qa/parcours-66-ecrase.txt", &codes).unwrap();
+                    println!(
+                        "a = {a}, b = {b} : pigeon écrasé au pas {} du niveau ({} pas en tout)",
+                        prefixe.len() + k,
+                        codes.len()
+                    );
+                    return;
+                }
+            }
+        }
+    }
+    panic!("aucune suite simple n'écrase un pigeon");
+}
+
+/// Le travail commun des tests `ecrire_script_ennemis`, `ecrire_script_ennemis_64b` et
+/// `ecrire_script_pigeons_66` : pour chaque `(indice, ajouts)`,
 /// le script du parcours du robot dans le niveau d'indice `indice`, ses touches de
 /// raccourci et sa trace, dans `target/qa/` avec le préfixe `prefixe`.
 fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
