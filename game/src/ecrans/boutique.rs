@@ -11,11 +11,13 @@ use pepin_core::font::{largeur_texte, HAUTEUR_GLYPHE};
 use pepin_core::palette::{
     ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR, OR_PALE,
 };
+use pepin_core::zones::Theme;
 use pepin_core::LARGEUR_LOGIQUE;
 
 use super::{image, panneau, trame};
 use crate::boutique::{Apercu, Dialogue, Etat, EtatBoutique, Zones};
 use crate::contenu;
+use crate::decor;
 use crate::sauvegarde::Sauvegarde;
 use crate::sprites::Banque;
 use crate::texte::{self, Style};
@@ -126,6 +128,9 @@ fn bouton(r: (f32, f32, f32, f32), libelle: &str, choisi: bool) {
 }
 
 pub fn dessiner(banque: &Banque, anim: u32, s: &Sauvegarde, e: &EtatBoutique) {
+    // Le ciel du titre qui défile derrière le panneau (rien de l'image précédente ne reste
+    // visible sur les bords).
+    decor::dessiner_fond(Theme::Toits, (anim * 2) as i32, 0, anim);
     panneau(
         4.0,
         4.0,
