@@ -11,6 +11,8 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Choix {
     Jouer,
+    /// La boutique (carte 7.5).
+    Boutique,
     Aide,
     Son,
     Reprendre,

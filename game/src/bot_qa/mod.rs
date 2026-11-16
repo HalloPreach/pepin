@@ -130,6 +130,7 @@ pub(crate) fn nom_ecran(e: Ecran) -> &'static str {
     match e {
         Ecran::Titre => "titre",
         Ecran::Aide => "aide",
+        Ecran::Boutique => "boutique",
         Ecran::Carte(_) => "carte",
         Ecran::Jeu => "jeu",
         Ecran::Pause => "pause",

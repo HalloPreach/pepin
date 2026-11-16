@@ -17,6 +17,7 @@ mod app;
 mod audio;
 #[cfg(test)]
 mod bot_qa;
+mod boutique;
 mod camera;
 mod chrono;
 mod contenu;

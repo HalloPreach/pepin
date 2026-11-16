@@ -18,6 +18,7 @@ use crate::rendu::couleur_mq;
 use crate::texte::{self, Style};
 
 pub mod aide;
+pub mod boutique;
 pub mod carte;
 pub mod fin;
 pub mod pause;
@@ -29,6 +30,8 @@ pub mod titre;
 pub enum Ecran {
     Titre,
     Aide,
+    /// La boutique (carte 7.5) : sa mise en page est dans `boutique.rs`.
+    Boutique,
     /// Carte de présentation d'un niveau ; le nombre est le nombre de pas restants.
     Carte(u16),
     Jeu,
@@ -70,8 +73,10 @@ impl Disposition {
 /// Mise en page du menu de l'écran donné (`None` : cet écran n'a pas de menu).
 pub fn disposition(ecran: Ecran) -> Option<Disposition> {
     match ecran {
+        // Quatre lignes depuis la boutique (carte 7.5) : JOUER, BOUTIQUE, COMMENT JOUER,
+        // SON ; elles finissent en y = 146, au-dessus des toits (Pépin court à gauche).
         Ecran::Titre => Some(Disposition {
-            y0: 74.0,
+            y0: 66.0,
             pas: 20.0,
         }),
         Ecran::Pause => Some(Disposition {
@@ -82,7 +87,7 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
             y0: 124.0,
             pas: 20.0,
         }),
-        Ecran::Aide | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => None,
+        Ecran::Aide | Ecran::Boutique | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => None,
     }
 }
 
@@ -152,6 +157,7 @@ mod tests {
     fn tous_les_libelles_tiennent_dans_la_ligne_de_menu() {
         let tous = [
             Choix::Jouer,
+            Choix::Boutique,
             Choix::Aide,
             Choix::Son,
             Choix::Reprendre,
@@ -206,8 +212,8 @@ mod tests {
         let (_, y, _, h) = d.rect_ligne(1);
         assert!(y + h <= HAUTEUR_LOGIQUE as f32, "fin : 2 lignes");
         let d = disposition(Ecran::Titre).unwrap();
-        let (_, y, _, h) = d.rect_ligne(2);
-        assert!(y + h <= 140.0, "titre : 3 lignes au-dessus du sol");
+        let (_, y, _, h) = d.rect_ligne(3);
+        assert!(y + h <= 148.0, "titre : 4 lignes au-dessus du sol");
     }
 
     #[test]

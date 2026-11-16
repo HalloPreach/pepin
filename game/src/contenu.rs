@@ -28,6 +28,7 @@ pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
 // --- Libellés de menus -----------------------------------------------------
 
 pub const JOUER: &str = "JOUER";
+pub const BOUTIQUE: &str = "BOUTIQUE";
 pub const COMMENT_JOUER: &str = "COMMENT JOUER";
 pub const REPRENDRE: &str = "REPRENDRE";
 pub const RECOMMENCER: &str = "RECOMMENCER";
@@ -49,6 +50,7 @@ pub fn libelle_son(actif: bool) -> &'static str {
 pub fn libelle(choix: Choix, son: bool) -> &'static str {
     match choix {
         Choix::Jouer => JOUER,
+        Choix::Boutique => BOUTIQUE,
         Choix::Aide => COMMENT_JOUER,
         Choix::Son => libelle_son(son),
         Choix::Reprendre => REPRENDRE,
@@ -333,6 +335,35 @@ pub const NOUVEAU_RECORD: &str = "NOUVEAU RECORD !";
 pub const LIBELLE_POCHE: &str = "GOUTTES";
 pub const LIBELLE_RECORD: &str = "RECORD";
 
+// --- Boutique (carte 7.5) ----------------------------------------------------
+
+/// Dernière ligne de la boutique.
+pub const RETOUR: &str = "RETOUR";
+pub const GRATUIT: &str = "GRATUIT";
+pub const ETAT_EQUIPE: &str = "ÉQUIPÉ";
+pub const ETAT_ACHETE: &str = "ACHETÉ";
+pub const ETAT_A_ACHETER: &str = "À ACHETER";
+pub const OUI: &str = "OUI";
+pub const NON: &str = "NON";
+pub const OK: &str = "OK";
+pub const IL_TE_MANQUE: &str = "IL TE MANQUE";
+/// Rappel des touches en bas de la boutique.
+pub const AIDE_BOUTIQUE: &str = "Entrée : choisir   Échap : retour";
+
+/// « 1 GOUTTE », « 60 GOUTTES ».
+pub fn gouttes(n: u32) -> String {
+    if n == 1 {
+        "1 GOUTTE".to_string()
+    } else {
+        format!("{n} GOUTTES")
+    }
+}
+
+/// Question de la confirmation d'achat.
+pub fn acheter_pour(prix: u32) -> String {
+    format!("ACHETER POUR {prix} ?")
+}
+
 /// Mot de fin quand tout a été ramassé. Sur UNE ligne de l'écran de fin (42
 /// caractères au plus) : « Collection complète : pas une goutte oubliée ! » laissait
 /// « oubliée ! » seul sur une seconde ligne (vu sur la capture 517-complet-fin).
@@ -413,6 +444,17 @@ pub(crate) mod tests {
             NOUVEAU_RECORD,
             LIBELLE_POCHE,
             LIBELLE_RECORD,
+            BOUTIQUE,
+            RETOUR,
+            GRATUIT,
+            ETAT_EQUIPE,
+            ETAT_ACHETE,
+            ETAT_A_ACHETER,
+            OUI,
+            NON,
+            OK,
+            IL_TE_MANQUE,
+            AIDE_BOUTIQUE,
             SANS_PERTE_DE_VIE,
             TITRE_PLUS_DE_VIES,
             GOUTTES_A_REPRENDRE,

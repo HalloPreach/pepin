@@ -17,7 +17,10 @@ use macroquad::prelude::{
 };
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
-use crate::entrees::{TOUCHES_BAS, TOUCHES_HAUT, TOUCHES_RETOUR, TOUCHES_SON, TOUCHES_VALIDER};
+use crate::entrees::{
+    TOUCHES_BAS, TOUCHES_DROITE, TOUCHES_GAUCHE, TOUCHES_HAUT, TOUCHES_RETOUR, TOUCHES_SON,
+    TOUCHES_VALIDER,
+};
 use crate::rendu::placement;
 
 /// Ce que le joueur a demandé dans un menu pendant cette image.
@@ -25,6 +28,9 @@ use crate::rendu::placement;
 pub struct Navigation {
     pub haut: bool,
     pub bas: bool,
+    /// Gauche / droite : onglets et boutons OUI / NON de la boutique (carte 7.5).
+    pub gauche: bool,
+    pub droite: bool,
     pub valider: bool,
     pub retour: bool,
     /// Touche M (ou la touche de même lettre sur AZERTY) : couper ou remettre le son.
@@ -78,6 +84,8 @@ impl LecteurNavigation {
         Navigation {
             haut: une_pressee(&TOUCHES_HAUT),
             bas: une_pressee(&TOUCHES_BAS),
+            gauche: une_pressee(&TOUCHES_GAUCHE),
+            droite: une_pressee(&TOUCHES_DROITE),
             valider: une_pressee(&TOUCHES_VALIDER),
             retour: une_pressee(&TOUCHES_RETOUR),
             son: une_pressee(&TOUCHES_SON),
