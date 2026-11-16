@@ -22,6 +22,23 @@
 //!   tourné vers l'arrivée de Pépin, qui s'y pose en descendant de l'îlot du
 //!   premier courant, il plonge derrière lui (sa plongée finit au ras de l'îlot,
 //!   colonne 34, loin de la lanterne).
+//!
+//! Carte 6.8 (retour d'AGA en jouant : « un courant ascendant qui finit un peu
+//! trop tôt et rend le saut compliqué ») : chaque courant lâche maintenant Pépin
+//! au moins 32 px (deux tuiles) au-dessus du dessus de son îlot d'arrivée, comme
+//! les deux premiers : au-dessus du haut d'un courant, plus rien ne porte Pépin,
+//! il plane en descendant.
+//! - 3e courant (colonnes 97 à 99) : il commençait à la rangée 3, AU NIVEAU de
+//!   l'îlot des colonnes 103 à 108 (0 px de marge, trois tuiles de vide à
+//!   planer) ; prolongé vers le haut, il commence à la rangée 1.
+//! - 4e courant (colonnes 127 à 129) : il commence déjà à la rangée 1 et la
+//!   rangée 0 est le haut de l'écran (en le prolongeant, Pépin planerait hors du
+//!   cadre). C'est donc son îlot d'arrivée (colonnes 132 à 141) qui descend d'une
+//!   rangée (2 → 3), avec sa lanterne (colonne 136, rangée 1 → 2) : 16 → 32 px.
+//!   Il est maintenant à la hauteur du corbeau (147, 3), dont la patrouille
+//!   commence 2 px après son bord droit : il ne vient pas sur l'îlot, et sa
+//!   boîte commence 3 px sous le dessus de l'îlot (Pépin posé au bord ne le
+//!   touche pas).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -40,11 +57,13 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 
 /// Dessin du niveau (190 x 11 tuiles). Légende : voir `crate::level`.
 /// - Corbeaux (carte 6.4b) : (76, 3) et (147, 3) ; pigeon (38, 3) sur le nuage (38, 4).
+/// - Courants (carte 6.8) : colonnes 16-18 (dès la rangée 2), 50-52, 97-99 et
+///   127-129 (dès la rangée 1) ; îlot de la lanterne 136 à la rangée 3.
 const ASCII: &str = r"
 ..............................................................................................................................................................................................
-............................o.....................vvv....................................................o.....................vvv......L.....................o...............................
-................vvv...............................vvv.......c..................................................................vvv..NNNNNNNNNN................................................
-................vvv....L..............p...........vvv...NNNNNNNN............c....................vvv...NNNNNN..................vvv.................c...................p......................
+............................o.....................vvv............................................vvv.....o.....................vvv............................o...............................
+................vvv...............................vvv.......c....................................vvv...........................vvv......L.....................................................
+................vvv....L..............p...........vvv...NNNNNNNN............c....................vvv...NNNNNN..................vvv..NNNNNNNNNN.....c...................p......................
 ................vvv..NNNNNNNNNNN......N...........vvv.............NNNN...........................vvv...................L....Q..vvv.............NNNNNNNNN...............N......................
 ................vvv...............................vvv...................FFFF.....................vvv.............NNNNNNNNNNNNN.vvv............................M...............................
 ................vvv...............................vvv.........................NNNN...............vvv...........................vvv.......................NNNNNNNNN............................
