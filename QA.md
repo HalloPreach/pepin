@@ -5577,3 +5577,41 @@ Deux extractions propres, `git archive` de 589d6eb (avant) et de carte-6.9 au co
   en même temps que d'autres tests, charge jusqu'à 13) : son niveau 5 domine. Les scripts 64b et 66
   (même fonction) n'ont pas été relancés.
 - Pas de suite complète (consigne vitesse) ; une seule mesure de chaque côté, sur une machine chargée.
+
+## Musiques à débloquer (carte 7.7)
+
+Nouveau module `game/src/musiques.rs` : catalogue `Musique` (identifiant stable, nom en capitales,
+prix en gouttes d'or, partition). `orage` (la boucle d'origine, toujours dans `core/src/sons.rs`,
+inchangée) : 0 goutte ; trois nouvelles à 25 gouttes, écrites en notes MIDI et jouées par le même
+synthétiseur 8 bits (aucun fichier, aucune dépendance) :
+
+- `toits_de_nuit` « TOITS DE NUIT » : nocturne en ré mineur, arpèges lents (11,52 s) ;
+- `soleil` « SOLEIL » : entraînante en do majeur, basse oum-pa et charleston de bruit (11,52 s) ;
+- `valse_des_nuages` « VALSE DES NUAGES » : valse à trois temps en sol majeur (10,56 s).
+
+`Audio` charge les quatre boucles au démarrage et joue `musique_active` (défaut : Orage) ;
+`choisir_musique` change de musique (si elle tourne : arrêt de l'ancienne, départ de la nouvelle).
+Même volume, même réglage M / menu, même arrêt en pause. La boutique branchera le choix du joueur
+et la sauvegarde. Build de QA seulement (`debug_niveaux`) : F11 = musique suivante (F1 à F10 sont
+prises ; dans un vrai navigateur F11 bascule aussi le plein écran, sans gêne).
+
+### Preuves (extraction propre `git archive carte-7.7`)
+
+- `test -p game --no-default-features audio` : 4 verts ; `... musique` : 2 verts (dont le seul
+  nouveau test : chaque musique a une partition non vide dont les voix bouclent ensemble, durée
+  8-14 s, pic 0,2-1, début et fin silencieux : pas de clic à la jonction) ;
+- volume efficace d'une boucle : orage 0,185, toits_de_nuit 0,184, soleil 0,180, valse 0,180 ;
+- extraits de 10 s à écouter : `docs/qa/77-musique-*.wav` (régénérés par le test ignoré
+  `ecrire_les_extraits_wav_de_qa`) ;
+- suite complète `test --workspace --no-default-features` : core 374 verts, game 337 verts ;
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK ; `./build.sh` : `dist/` sans nom interdit,
+  game.wasm 501 861 octets (gzip 201 842), build de QA 511 997 ;
+- Chromium sans écran (CDP), build de QA servi en local : son activé au titre, puis F11 x4, 4 s
+  chacune. Boucles en cours observées (durée du tampon) : 9,6 (orage) + 2 (pluie) → 11,52 + 2 →
+  11,52 + 2 → 10,56 + 2 → 9,6 + 2 : toujours une seule musique ; M coupe tout. Console : aucune
+  erreur. Même scénario sur `dist/` (production) : F11 ne change rien (orage reste seule).
+
+### Ce qui n'est PAS testé
+
+- Le son à l'oreille (Chromium sans écran : rien n'est entendu ; écouter les WAV ci-dessus) ;
+- aucun écran de choix ni sauvegarde (cartes boutique) ; téléphone et Safari non essayés.
