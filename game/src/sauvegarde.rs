@@ -1,7 +1,7 @@
 //! Sauvegarde (carte 7.2) : ce qui reste d'une partie à l'autre.
 //!
 //! - le porte-monnaie : les gouttes d'or gagnées (niveaux RÉUSSIS seulement), la
-//!   monnaie des skins (la boutique vient avec la carte 7.3) ;
+//!   monnaie de la boutique (carte 7.5) ;
 //! - les records : meilleur score et meilleur temps d'une partie finie (affichés,
 //!   jamais dépensés) ;
 //! - les skins débloqués (« pepin » et « pepinette » d'office) et le skin choisi.
@@ -56,8 +56,6 @@ impl Default for Sauvegarde {
     }
 }
 
-// La boutique (carte 7.3) utilisera `depenser`, `debloquer` et `skin_choisi`.
-#[cfg_attr(not(test), allow(dead_code))]
 impl Sauvegarde {
     /// Gouttes d'un niveau réussi : dans le porte-monnaie.
     pub fn ajouter_gouttes(&mut self, n: u32) {

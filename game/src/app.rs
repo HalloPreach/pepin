@@ -19,10 +19,13 @@ use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
 use pepin_core::player::Entrees;
 use pepin_core::state::EtatJeu;
 
+use crate::boutique::{self, EtatBoutique};
 use crate::camera::Camera;
 use crate::contenu;
 use crate::ecrans::fin::{self, Bilan};
-use crate::ecrans::{self, aide, carte, pause, plus_de_vies, titre, Disposition, Ecran};
+use crate::ecrans::{
+    self, aide, boutique as ecran_boutique, carte, pause, plus_de_vies, titre, Disposition, Ecran,
+};
 use crate::effets::effets;
 use crate::entrees::{self, Commandes, RaccourciNiveau};
 use crate::hud;
@@ -75,10 +78,12 @@ pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
 /// faire du son ? (sinon la ligne SON n'est pas proposée)
 pub fn choix_pour(ecran: Ecran, son_disponible: bool) -> Vec<Choix> {
     let mut v = match ecran {
-        Ecran::Titre => vec![Choix::Jouer, Choix::Aide],
+        Ecran::Titre => vec![Choix::Jouer, Choix::Boutique, Choix::Aide],
         Ecran::Pause => vec![Choix::Reprendre, Choix::Recommencer],
         Ecran::Fin => vec![Choix::Rejouer, Choix::RetourTitre],
-        Ecran::Aide | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => Vec::new(),
+        Ecran::Aide | Ecran::Boutique | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => {
+            Vec::new()
+        }
     };
     if son_disponible && matches!(ecran, Ecran::Titre | Ecran::Pause) {
         v.push(Choix::Son);
@@ -122,9 +127,12 @@ pub struct Application {
     pub sauvegarde: Sauvegarde,
     /// La partie qui vient de finir a battu le record de score (écran de fin).
     nouveau_record: bool,
-    /// Tenue de Pépin (carte 7.1) : Pépin par défaut. Seule la touche de mise au point
-    /// du build de QA la change pour l'instant (`changer_skin`).
+    /// Tenue de Pépin (carte 7.1) : celle choisie dans la boutique et gardée par la
+    /// sauvegarde (carte 7.5), Pépin par défaut. La touche K du build de QA la change
+    /// aussi, sans l'enregistrer.
     pub skin: Skin,
+    /// L'écran boutique : onglet, ligne choisie, dialogue (carte 7.5).
+    boutique: EtatBoutique,
 }
 
 impl Application {
@@ -154,7 +162,9 @@ impl Application {
             sauvegarde: Sauvegarde::charger(),
             nouveau_record: false,
             skin: Skin::default(),
+            boutique: EtatBoutique::new(),
         };
+        app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
         app
     }
@@ -167,6 +177,19 @@ impl Application {
         self.menu = Menu::new(self.choix.len());
         // Pause, titre, aide ou fin : une pause différée n'a plus lieu d'être.
         self.pause_differee = false;
+    }
+
+    /// Le skin choisi dans la sauvegarde devient celui du rendu (inconnu : Pépin).
+    fn appliquer_skin(&mut self) {
+        self.skin = Skin::depuis_id(&self.sauvegarde.skin_choisi).unwrap_or_default();
+    }
+
+    /// Revient au titre, curseur sur la ligne `choix` (retour de l'aide, de la boutique).
+    fn retour_titre_sur(&mut self, choix: Choix) {
+        self.ouvrir(Ecran::Titre);
+        if let Some(i) = self.choix.iter().position(|&c| c == choix) {
+            self.menu.choisir(i);
+        }
     }
 
     /// Prépare un changement d'écran derrière la transition en volets.
@@ -254,9 +277,17 @@ impl Application {
             Ecran::Titre | Ecran::Pause | Ecran::Fin => self.reagir_menu(nav, commandes),
             Ecran::Aide => {
                 if nav.retour || nav.valider || nav.clic.is_some() {
-                    self.ouvrir(Ecran::Titre);
-                    if let Some(i) = self.choix.iter().position(|&c| c == Choix::Aide) {
-                        self.menu.choisir(i);
+                    self.retour_titre_sur(Choix::Aide);
+                }
+            }
+            Ecran::Boutique => {
+                let zones = ecran_boutique::MiseEnPage;
+                match self.boutique.reagir(nav, &mut self.sauvegarde, &zones) {
+                    boutique::Action::Rien => {}
+                    boutique::Action::Quitter => self.retour_titre_sur(Choix::Boutique),
+                    boutique::Action::Enregistrer => {
+                        self.sauvegarde.enregistrer();
+                        self.appliquer_skin();
                     }
                 }
             }
@@ -325,6 +356,10 @@ impl Application {
                 indice: 0,
                 etat: None,
             }),
+            Choix::Boutique => {
+                self.boutique = EtatBoutique::new();
+                self.ouvrir(Ecran::Boutique);
+            }
             Choix::Aide => self.ouvrir(Ecran::Aide),
             Choix::Son => self.son = !self.son,
             Choix::Reprendre => self.ecran = Ecran::Jeu,
@@ -371,7 +406,7 @@ impl Application {
                     }
                 }
                 Ecran::Fin => fin::confettis(&mut self.particules, self.anim),
-                Ecran::Titre | Ecran::Aide | Ecran::Pause => {}
+                Ecran::Titre | Ecran::Aide | Ecran::Boutique | Ecran::Pause => {}
             }
         }
         self.particules.actualiser();
@@ -527,10 +562,13 @@ impl Application {
         let dispo = ecrans::disposition(self.ecran).unwrap_or(Disposition { y0: 0.0, pas: 20.0 });
         match self.ecran {
             Ecran::Titre => {
-                titre::dessiner(banque, self.anim, &libelles, &self.menu, &dispo);
+                titre::dessiner(banque, self.skin, self.anim, &libelles, &self.menu, &dispo);
                 titre::dessiner_poche(&self.sauvegarde);
             }
             Ecran::Aide => aide::dessiner(),
+            Ecran::Boutique => {
+                ecran_boutique::dessiner(banque, self.anim, &self.sauvegarde, &self.boutique)
+            }
             Ecran::Fin => fin::dessiner(
                 &self.bilan,
                 self.anim,
@@ -644,11 +682,11 @@ mod tests {
     fn les_menus_ont_les_bonnes_lignes() {
         assert_eq!(
             choix_pour(Ecran::Titre, true),
-            vec![Choix::Jouer, Choix::Aide, Choix::Son]
+            vec![Choix::Jouer, Choix::Boutique, Choix::Aide, Choix::Son]
         );
         assert_eq!(
             choix_pour(Ecran::Titre, false),
-            vec![Choix::Jouer, Choix::Aide]
+            vec![Choix::Jouer, Choix::Boutique, Choix::Aide]
         );
         assert_eq!(
             choix_pour(Ecran::Pause, true),
@@ -786,8 +824,9 @@ mod tests {
             bas: true,
             ..Navigation::default()
         };
-        app.reagir(&bas, &Commandes::default(), None);
-        app.reagir(&bas, &Commandes::default(), None);
+        for _ in 0..3 {
+            app.reagir(&bas, &Commandes::default(), None);
+        }
         app.reagir(&valider(), &Commandes::default(), None);
         assert!(app.son);
         assert_eq!(app.ecran, Ecran::Titre);
@@ -798,7 +837,7 @@ mod tests {
     fn un_clic_sur_une_ligne_la_valide() {
         let mut app = Application::new(true);
         let d = ecrans::disposition(Ecran::Titre).unwrap();
-        let (x, y, _, h) = d.rect_ligne(1);
+        let (x, y, _, h) = d.rect_ligne(2);
         let clic = Navigation {
             clic: Some((x + 10.0, y + h / 2.0)),
             ..Navigation::default()

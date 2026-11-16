@@ -10,8 +10,8 @@
 //! plutôt que d'une liste de chaînes.
 //!
 //! Le skin actif est un simple paramètre du rendu (`scene::dessiner`, `hud::dessiner`).
-//! Par défaut c'est Pépin : le jeu reste identique tant que personne n'en choisit un
-//! autre (le choix du joueur et sa sauvegarde viendront d'autres cartes).
+//! Par défaut c'est Pépin. Le joueur le choisit dans la boutique (carte 7.5) ; la
+//! sauvegarde (carte 7.2) le garde sous son identifiant (`id`).
 
 use crate::sprites::{pepin, pepinette, Image, JeuImages};
 
@@ -29,9 +29,20 @@ impl Skin {
     /// Tout le catalogue, dans l'ordre d'affichage.
     pub const TOUS: [Skin; 2] = [Skin::Pepin, Skin::Pepinette];
 
+    /// Identifiant enregistré dans la sauvegarde (`skins_debloques`, `skin_choisi`).
+    pub fn id(self) -> &'static str {
+        match self {
+            Skin::Pepin => "pepin",
+            Skin::Pepinette => "pepinette",
+        }
+    }
+
+    /// Le skin d'un identifiant de la sauvegarde (`None` : inconnu de cette version).
+    pub fn depuis_id(id: &str) -> Option<Skin> {
+        Skin::TOUS.into_iter().find(|s| s.id() == id)
+    }
+
     /// Nom affiché (police du jeu : majuscules accentuées).
-    // Utilisé par l'écran de choix (carte 7.3) ; en attendant, seulement par les tests.
-    #[allow(dead_code)]
     pub fn nom(self) -> &'static str {
         match self {
             Skin::Pepin => "PÉPIN",
@@ -41,7 +52,6 @@ impl Skin {
 
     /// Prix en gouttes. Les deux premiers sont gratuits : Pépinette est débloquée dès
     /// le départ.
-    #[allow(dead_code)]
     pub fn prix(self) -> u32 {
         match self {
             Skin::Pepin => 0,

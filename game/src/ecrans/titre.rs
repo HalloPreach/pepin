@@ -9,14 +9,22 @@ use crate::contenu;
 use crate::decor;
 use crate::menu::Menu;
 use crate::sauvegarde::Sauvegarde;
-use crate::sprites::{pepin, Banque};
+use crate::skins::Skin;
+use crate::sprites::Banque;
 use crate::texte::{self, Style};
 
 /// Hauteur du dessus des toits.
 const SOL: f32 = 148.0;
 
 /// Dessine l'écran titre. `anim` : pas écoulés depuis son ouverture.
-pub fn dessiner(banque: &Banque, anim: u32, libelles: &[&str], menu: &Menu, d: &Disposition) {
+pub fn dessiner(
+    banque: &Banque,
+    skin: Skin,
+    anim: u32,
+    libelles: &[&str],
+    menu: &Menu,
+    d: &Disposition,
+) {
     // Le décor défile : on a l'impression que Pépin court vers la droite.
     decor::dessiner_fond(Theme::Toits, (anim * 2) as i32, 0, anim);
     let decalage = ((anim * 2) % 16) as f32;
@@ -25,7 +33,13 @@ pub fn dessiner(banque: &Banque, anim: u32, libelles: &[&str], menu: &Menu, d: &
         banque.dessiner_tuile(Theme::Toits, "toit_haut", x, SOL);
         banque.dessiner_tuile(Theme::Toits, "toit_plein", x, SOL + 16.0);
     }
-    banque.dessiner(image(&pepin::COURSE, anim, 5), 152.0, SOL - 16.0, false);
+    // À gauche du menu (4 lignes depuis la boutique, carte 7.5), sous le skin choisi.
+    banque.dessiner(
+        image(&skin.images().course, anim, 5),
+        14.0,
+        SOL - 16.0,
+        false,
+    );
     decor::dessiner_avant(Theme::Toits, anim);
 
     texte::dessiner_centre(

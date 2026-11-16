@@ -5759,3 +5759,74 @@ le parapluie pointe vers le haut ; pareil pour Pépinette (toile cyan).
 - Pas de capture en jeu (navigateur) ni de lint (`./docker-cargo.sh lint`) refaits ; l'empreinte
   d'images du robot n'a pas été recalculée (elle change, c'est attendu : seules les images changent).
 - Pas de suite complète (consigne vitesse).
+
+## Boutique : dépenser les gouttes d'or, choisir son skin (carte 7.5)
+
+Écran titre : nouvelle ligne BOUTIQUE (JOUER, BOUTIQUE, COMMENT JOUER, SON ; le menu remonte à y = 66, Pépin
+court à gauche du menu, avec le skin choisi). La boutique (`game/src/boutique.rs`, logique pure ;
+`game/src/ecrans/boutique.rs`, dessin et zones cliquables) montre le porte-monnaie (goutte + nombre, en
+haut à gauche), une rangée d'ONGLETS, une ligne par objet (aperçu animé du skin qui court, nom, prix ou
+GRATUIT, état ÉQUIPÉ / ACHETÉ / À ACHETER), RETOUR et le rappel des touches, sur le ciel du titre.
+
+- Organisation par catégories : `enum Categorie` (un onglet = une variante, sa liste d'`Objet`s :
+  identifiant, nom, prix, aperçu ; débloqué / équipé se lisent dans la sauvegarde). Aujourd'hui un seul
+  onglet, SKINS (catalogue de la carte 7.1). Ajouter traînées, motifs de parapluie, palettes ou musiques =
+  une variante + sa ligne dans `TOUTES` et dans chaque `match` ; l'écran n'a rien à changer. Un onglet
+  sans objet n'est pas affiché. Rien de tout cela ne touche au jeu : objets cosmétiques seulement.
+- Commandes : haut / bas (ligne), gauche / droite (onglet ; OUI / NON dans la confirmation), Entrée
+  (choisir), Échap (retour au titre, curseur sur BOUTIQUE) ; clic ou toucher sur une ligne, un onglet ou
+  un bouton (`Navigation` gagne `gauche` et `droite`, lues sur les touches de course).
+- Objet débloqué : Entrée l'équipe (`skin_choisi`), la sauvegarde est écrite tout de suite et le rendu
+  prend le skin (`Application::skin`, appliqué aussi au démarrage depuis la sauvegarde ; id inconnu :
+  Pépin). Objet à acheter : « ACHETER POUR N ? » avec OUI / NON (NON choisi d'abord) ; OUI débite les
+  gouttes (`Sauvegarde::depenser`), débloque (`debloquer`) et enregistre. Pas assez : « IL TE MANQUE
+  N GOUTTES » + OK, rien ne change.
+- `Skin::id` / `Skin::depuis_id` : l'identifiant gardé dans la sauvegarde (« pepin », « pepinette »).
+- Build de QA seulement (`debug_niveaux`, et tests) : un objet factice payant « FACTICE QA » (60 gouttes,
+  ne s'équipe pas) pour essayer l'achat sans ajouter de vrai skin payant, et la touche G
+  (`entrees::gouttes_qa_demandees`) qui met 100 gouttes en poche (enregistrées). Absents de `dist/`
+  (vérifié : 0 occurrence de « factice_qa » / « FACTICE QA » ; G inerte sans `debug_niveaux`).
+
+Un seul test ajouté (nouvelle mécanique) : `boutique::tests::equiper_puis_acheter_avec_confirmation`
+(Pépinette équipée d'un appui ; factice refusé sans gouttes, « il te manque 60 » ; avec 100 : NON par
+défaut, puis OUI, 40 restantes, ACHETÉ, skin inchangé ; RETOUR quitte). Tests existants adaptés au menu à
+4 lignes (`les_menus_ont_les_bonnes_lignes`, `la_ligne_son_du_menu_...`, `un_clic_sur_une_ligne_la_valide`,
+mise en page du titre dans `ecrans`).
+
+### Preuves
+
+Extraction propre (`git archive`, commit 23cef84 ; la touche G, ajoutée ensuite, a été revérifiée sur
+une nouvelle extraction : lint, tests `boutique`, `sauvegarde`, `skins`, `entrees`, build) :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : core 374 verts (1 ignoré), game 339 verts
+  (25 ignorés), 0 échec ;
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK ;
+- `./build.sh` : `dist/` produit, 0 nom interdit, seule URL `http://www.w3.org/2000/svg`, aucun `/home`.
+
+Captures : build de QA (`./build.sh --qa`) servi sur 127.0.0.1 (port libre, serveur arrêté à la fin),
+Chromium 1208 sans tête par CDP, onglet au premier plan, canvas focalisé, horloge virtuelle de
+`docs/pilote-qa.js` ; pilote `node docs/capture-boutique.mjs PORT DOSSIER` (sauvegarde préparée dans
+localStorage, puis appuis de touches). 960 x 540 (x3) sauf la dernière :
+
+- `75-titre-ligne-boutique.png` : titre, BOUTIQUE choisie, 30 gouttes en poche ;
+- `75-boutique.png` : la boutique (onglet SKINS, Pépin ÉQUIPÉ, Pépinette GRATUIT, factice 60 gouttes) ;
+- `75-achat-refuse.png` : factice avec 30 gouttes, « IL TE MANQUE 30 GOUTTES » ;
+- `75-achat-confirmation-oui.png` : touche G (30 + 100 = 130 gouttes), « ACHETER POUR 60 ? », OUI choisi ;
+- `75-achat-fait.png` : 70 gouttes, factice ACHETÉ, Pépinette ÉQUIPÉ ;
+- `75-titre-pepinette-recharge.png` : page rechargée, Pépinette court sur le titre ;
+- `75-jeu-pepinette.png` : JOUER, Pépinette en jeu (et dans l'icône des vies) ;
+- `75-boutique-640x360.png` : la boutique en 640 x 360 (x2, téléphone en paysage), lisible.
+
+localStorage relevé par le pilote : après l'équipement `skin_choisi=pepinette` ; après le refus, rien ne
+change (30) ; après la touche G `gouttes_en_poche=130` ; après l'achat `gouttes_en_poche=70`,
+`skins_debloques=pepin,pepinette,factice_qa` ; après
+rechargement, tout est gardé. 0 erreur de console. `docs/mesure-capture.py` : 0 pixel hors palette,
+0 semi-transparent, 0 bloc flou sur les huit captures. Regardées.
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone (toucher réel sur onglets et boutons, Safari) : seul le clic est couvert, par la logique
+  des zones ; la capture 640 x 360 est une fenêtre de bureau.
+- Un seul onglet aujourd'hui : le changement d'onglet (gauche / droite, clic) n'est exercé qu'à vide ;
+  la liste qui défile (plus de 3 objets, flèches ^ / v) n'apparaît pas encore avec le catalogue actuel.
+- Personne n'a joué à la main ; son des menus à l'oreille non vérifié.
