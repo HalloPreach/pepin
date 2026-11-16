@@ -10,7 +10,7 @@
 //! attend qu'il soit passé. Pas de flaque de plus : chaque toit libre du niveau
 //! porte une lanterne (une flaque y passerait sur Pépin réapparu), un objet de
 //! décor (aucune patrouille devant le décor), des pointes, ou finit sur
-//! l'ascenseur (en bas, il est au ras du toit : une flaque marcherait dessus). Et
+//! l'ascenseur (il passe au ras du toit : une flaque marcherait dessus). Et
 //! le juge de la courbe garde l'orage sous le clocher (voir QA.md, carte 6.4a).
 //!
 //! Secret (carte 8.5), un RACCOURCI : le grand bloc de l'ascenseur (colonnes 113
@@ -19,6 +19,13 @@
 //! de monter avec l'ascenseur puis de redescendre, on traverse le bloc et on
 //! saute le trou de la sortie. Au milieu du tunnel, la goutte qui flottait
 //! au-dessus des nuages friables.
+//!
+//! Carte 8.15 (AGA : « impossible d'avoir la goutte sans mourir ») : l'ascenseur
+//! descend une rangée PLUS BAS que le toit (rangée 9) ; il passe au niveau du
+//! tunnel en descendant et continue sous Pépin, qui entre sans être repoussé.
+//! L'entrée (colonne 113) et la sortie (colonne 135) du tunnel sont plus hautes
+//! (faux murs au-dessus, invisibles de dehors) : en remontant, l'ascenseur laisse
+//! le temps d'entrer, et on saute le trou de la sortie sans se cogner au plafond.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -46,10 +53,10 @@ const ASCII: &str = r"
 ...............................................................................................................................B.....B..................................................................
 .......................................................o............................................................L.......^^.B..c..B..................................................................
 ...............................................................................................................3.#######################................................................................
-....................................c............................................................................BBBBBBBBBBBBBBBBBBBBBBB................................................................
-.........o.......................................................................................................BBBBBBBBBBBBBBBBBBBBBBB................................................................
+....................................c............................................................................BBBBBBBBBBBBBBBBBBBBBBm................................................................
+.........o.......................................................................................................mBBBBBBBBBBBBBBBBBBBBBm................................................................
 ..@..R..............L........R...^^...........................L.......R.......^^^................................mmmmmmmmmmmommmmmmmmmmm.........L........f..........^^.........M.............X.........
-#######################...##################1....1.#2.....2.#########################.FF.FF.FF.FF.F..##########3.BBBBBBBBBBBBBBBBBBBBBBB...#############################################################
-BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBB.......B........BBBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+#######################...##################1....1.#2.....2.#########################.FF.FF.FF.FF.F..##########..BBBBBBBBBBBBBBBBBBBBBBB...#############################################################
+BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBB.......B........BBBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBB3.BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBB.......B........BBBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ";
