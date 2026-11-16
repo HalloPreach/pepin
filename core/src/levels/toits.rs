@@ -1,6 +1,14 @@
 //! Niveau 1 : « Les toits ».
 //!
 //! Tutoriel en plein air : déplacer, sauter, puis planer pour franchir un grand vide.
+//! Après le dernier panneau (planer), les deux premières flaques du jeu (carte
+//! 6.4a) : on apprend ici à les écraser en leur sautant dessus. Chacune garde un
+//! bout de toit fermé, sans lanterne ni décor sur sa patrouille :
+//! - au fond du creux entre les deux cheminées de briques (colonnes 74 à 79) ;
+//!   on lui tombe dessus, ou on saute d'une cheminée à l'autre en planant ;
+//! - sur le petit toit du pied de l'immeuble (colonnes 116 à 120), juste avant
+//!   le trou de deux tuiles : on lui tombe dessus depuis le grand toit, ou on
+//!   plane par-dessus jusqu'à l'autre rive.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -11,13 +19,17 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     theme: Theme::Toits,
     genre: GenreNiveau::Normal,
     intro: "La pluie tambourine sur les toits. Pépin ouvre son parapluie et part vers le haut.",
-    mecanique: "Course, saut, planer (maintenir SAUT en l'air).",
+    mecanique: "Course, saut, planer (maintenir SAUT en l'air), premières flaques à écraser.",
     duree_cible_s: 50,
     ascii: ASCII,
     aiguilles: &[],
 };
 
 /// Dessin du niveau (176 x 11 tuiles). Légende : voir `crate::level`.
+/// - Flaques : colonne 76 (creux 74-79, entre les cheminées 72-73 et 80) et
+///   colonne 118 (toit 116-120). L'antenne qui était au fond du creux (colonne
+///   77) est passée sur le toit d'arrivée du grand plané (colonne 68) : aucune
+///   patrouille ne passe devant un objet de décor.
 const ASCII: &str = r"
 ................................................................................................................................................................................
 ........................................................................................................o.......................................................................
@@ -26,7 +38,7 @@ const ASCII: &str = r"
 ................................................................................................L...H.........T.................................................................
 ...............................................................o............................########################............................................................
 .............o..........................................................BB......B.......####BBBBBBBBBBBBBBBBBBBBBBBB........................BB..................................
-..@..D....S.....######.....S........T...L......H.......G................BB...T..B...####BBBBBBBBBBBBBBBBBBBBBBBBBBBB.........H....L.........BB........T.........H.......X.......
+..@..D....S.....######.....S........T...L......H.......G............T...BB..f...B...####BBBBBBBBBBBBBBBBBBBBBBBBBBBB..f......H....L.........BB........T.........H.......X.......
 ################BBBBBB########...##########################.......##################BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB#####..#####################################################
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBB.......BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBB.......BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
