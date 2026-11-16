@@ -825,6 +825,11 @@ fn ecrire_script_chats() {
     );
 }
 
+/// Ennemis ajoutés à un niveau par une carte : type, colonne et rangée de la
+/// lettre dans la grille (c'est ainsi qu'on les retrouve dans le monde : la case
+/// de leur point de départ, `Ennemi::perchoir`).
+type Ajouts = &'static [(pepin_core::entities::TypeEnnemi, i32, i32)];
+
 /// Écrit les scripts des captures de la carte 6.4a (plus d'ennemis aux niveaux 1
 /// à 5) : pour chaque niveau N de 1 à 5, « JOUER », la carte du niveau 1, la
 /// touche N dès la première image de jeu (build de QA ; aucune au niveau 1), puis
@@ -843,6 +848,76 @@ fn ecrire_script_chats() {
 #[test]
 #[ignore]
 fn ecrire_script_ennemis() {
+    use pepin_core::entities::TypeEnnemi;
+    ecrire_scripts_des_ajouts(
+        "64",
+        &[
+            (
+                0,
+                &[(TypeEnnemi::Flaque, 76, 7), (TypeEnnemi::Flaque, 118, 7)],
+            ),
+            (
+                1,
+                &[(TypeEnnemi::Corbeau, 50, 5), (TypeEnnemi::Corbeau, 106, 5)],
+            ),
+            (2, &[(TypeEnnemi::Chat, 68, 4)]),
+            (3, &[(TypeEnnemi::Corbeau, 36, 5)]),
+            (
+                4,
+                &[(TypeEnnemi::Corbeau, 26, 18), (TypeEnnemi::Chat, 28, 36)],
+            ),
+        ],
+    );
+}
+
+/// Même chose pour la carte 6.4b (plus d'ennemis aux niveaux 7, 8, 9 et 11) :
+/// fichiers `script-64b-N.txt`, `touches-64b-N.txt` et `trace-64b-N.csv`. Les
+/// touches 1 à 9 du build de QA ne mènent qu'aux neuf premiers niveaux : pour la
+/// descente (le 11e), touche 9 puis deux fois N (niveau suivant, bonus compris).
+/// La trace donne aussi la phase de vol des pigeons (plongée, remontée…).
+/// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_ennemis_64b
+#[test]
+#[ignore]
+fn ecrire_script_ennemis_64b() {
+    use pepin_core::entities::TypeEnnemi;
+    ecrire_scripts_des_ajouts(
+        "64b",
+        &[
+            (
+                6,
+                &[
+                    (TypeEnnemi::Pigeon, 38, 3),
+                    (TypeEnnemi::Corbeau, 76, 3),
+                    (TypeEnnemi::Corbeau, 147, 3),
+                ],
+            ),
+            (
+                7,
+                &[
+                    (TypeEnnemi::Pigeon, 65, 3),
+                    (TypeEnnemi::Corbeau, 85, 4),
+                    (TypeEnnemi::Corbeau, 97, 7),
+                    (TypeEnnemi::Corbeau, 162, 6),
+                ],
+            ),
+            (
+                8,
+                &[
+                    (TypeEnnemi::Flaque, 37, 5),
+                    (TypeEnnemi::Corbeau, 63, 3),
+                    (TypeEnnemi::Corbeau, 120, 2),
+                    (TypeEnnemi::Flaque, 124, 3),
+                ],
+            ),
+            (10, &[(TypeEnnemi::Corbeau, 10, 12)]),
+        ],
+    );
+}
+
+/// Le travail commun des deux tests précédents : pour chaque `(indice, ajouts)`,
+/// le script du parcours du robot dans le niveau d'indice `indice`, ses touches de
+/// raccourci et sa trace, dans `target/qa/` avec le préfixe `prefixe`.
+fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
     use crate::app::Application;
     use crate::bot_qa::{nom_ecran, trouver_parcours, Trame};
     use crate::entrees::{Commandes, RaccourciNiveau};
@@ -850,18 +925,11 @@ fn ecrire_script_ennemis() {
     use pepin_core::aabb::TAILLE_TUILE;
     use pepin_core::entities::{Entite, TypeEnnemi};
 
-    /// Ennemis ajoutés par la carte, niveau par niveau : type, colonne et rangée
-    /// de la lettre dans la grille.
-    const AJOUTS: [&[(TypeEnnemi, i32, i32)]; 5] = [
-        &[(TypeEnnemi::Flaque, 76, 7), (TypeEnnemi::Flaque, 118, 7)],
-        &[(TypeEnnemi::Corbeau, 50, 5), (TypeEnnemi::Corbeau, 106, 5)],
-        &[(TypeEnnemi::Chat, 68, 4)],
-        &[(TypeEnnemi::Corbeau, 36, 5)],
-        &[(TypeEnnemi::Corbeau, 26, 18), (TypeEnnemi::Chat, 28, 36)],
-    ];
+    /// Plus haut indice qu'une touche chiffre atteint (touche 9 : indice 8).
+    const DERNIER_CHIFFRE: usize = 8;
 
     std::fs::create_dir_all("../target/qa").unwrap();
-    for (cible, ajouts) in AJOUTS.iter().enumerate() {
+    for &(cible, ajouts) in niveaux {
         let parcours = trouver_parcours(cible, false)
             .or_else(|| trouver_parcours(cible, true))
             .expect("parcours du robot");
@@ -874,16 +942,26 @@ fn ecrire_script_ennemis() {
             ));
         }
         trace.push('\n');
-        let mut touche: Option<usize> = None;
+        // Touches de raccourci appuyées : (image de la trace, code de la touche).
+        let mut touches: Vec<(usize, String)> = Vec::new();
         let mut commence = false;
         for image in 0..60 * 60 {
             let mut trame = Trame {
                 valider: image == 0,
                 ..Trame::default()
             };
-            let raccourci = if cible > 0 && touche.is_none() && app.en_jeu() {
-                touche = Some(image);
-                Some(RaccourciNiveau::Aller(cible))
+            // En jeu, mais pas encore dans le niveau voulu : une touche. Chiffre
+            // d'abord (le niveau voulu, ou le 9e s'il est plus loin), puis « niveau
+            // suivant » (N) autant qu'il faut, une fois chaque niveau commencé.
+            let raccourci = if !commence && app.en_jeu() && app.monde.indice != cible {
+                if touches.is_empty() {
+                    let i = cible.min(DERNIER_CHIFFRE);
+                    touches.push((image, format!("Digit{}", i + 1)));
+                    Some(RaccourciNiveau::Aller(i))
+                } else {
+                    touches.push((image, "KeyN".to_string()));
+                    Some(RaccourciNiveau::Suivant)
+                }
             } else {
                 None
             };
@@ -935,10 +1013,10 @@ fn ecrire_script_ennemis() {
                             && b.x < cam.0 as f32 + 320.0
                             && b.bas() > cam.1 as f32
                             && b.y < cam.1 as f32 + 180.0;
-                        let phase = if t == TypeEnnemi::Chat {
-                            format!("{:?}", en.phase_chat())
-                        } else {
-                            "-".to_string()
+                        let phase = match t {
+                            TypeEnnemi::Chat => format!("{:?}", en.phase_chat()),
+                            TypeEnnemi::Pigeon => format!("{:?}", en.phase()),
+                            _ => "-".to_string(),
                         };
                         trace.push_str(&format!(
                             ",{:.1},{:.1},{:?},{phase},{}",
@@ -956,14 +1034,17 @@ fn ecrire_script_ennemis() {
         assert!(commence, "niveau {} jamais atteint", cible + 1);
         assert_eq!(app.monde.etat.morts, 0, "le robot ne meurt pas");
         let n = cible + 1;
-        std::fs::write(format!("../target/qa/script-64-{n}.txt"), &script).unwrap();
-        let touches = touche.map_or(String::new(), |t| format!("{}:Digit{n}\n", t + 1));
-        std::fs::write(format!("../target/qa/touches-64-{n}.txt"), &touches).unwrap();
-        std::fs::write(format!("../target/qa/trace-64-{n}.csv"), &trace).unwrap();
+        std::fs::write(format!("../target/qa/script-{prefixe}-{n}.txt"), &script).unwrap();
+        let touches: String = touches
+            .iter()
+            .map(|(t, code)| format!("{}:{code}\n", t + 1))
+            .collect();
+        std::fs::write(format!("../target/qa/touches-{prefixe}-{n}.txt"), &touches).unwrap();
+        std::fs::write(format!("../target/qa/trace-{prefixe}-{n}.csv"), &trace).unwrap();
         println!(
-            "niveau {n} : {} images ; touche : {}",
+            "niveau {n} : {} images ; touches : {}",
             script.len(),
-            touches.trim()
+            touches.trim().replace('\n', ", ")
         );
     }
 }
