@@ -43,16 +43,14 @@ impl EtatEtape {
 
 /// Le niveau `i` a-t-il été fini au moins une fois ?
 fn fini(s: &Sauvegarde, i: usize) -> bool {
-    s.niveaux.get(i).is_some_and(|p| p.meilleur_temps.is_some())
+    s.progres(i).meilleur_temps.is_some()
 }
 
 /// Gouttes TROUVÉES (au cumul de la sauvegarde) dans les niveaux normaux.
 pub fn gouttes_trouvees_normales(niveaux: &[InfosNiveau], s: &Sauvegarde) -> u32 {
-    niveaux
-        .iter()
-        .zip(&s.niveaux)
-        .filter(|(n, _)| n.genre == GenreNiveau::Normal)
-        .map(|(_, p)| p.gouttes.iter().filter(|&&g| g).count() as u32)
+    (0..niveaux.len())
+        .filter(|&i| niveaux[i].genre == GenreNiveau::Normal)
+        .map(|i| s.progres(i).gouttes.iter().filter(|&&g| g).count() as u32)
         .sum()
 }
 
@@ -96,9 +94,12 @@ pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtap
 /// caché) ; appui suivant, tous les niveaux finis avec toutes leurs gouttes (bonus
 /// révélé). Seulement la progression : le porte-monnaie et les records ne bougent pas.
 pub fn progression_qa(niveaux: &[InfosNiveau], s: &mut Sauvegarde) {
-    let tout = s.niveaux.iter().take(7).all(|p| p.meilleur_temps.is_some());
+    let tout = (0..7).all(|i| fini(s, i));
     // On ne fait qu'AJOUTER à la progression déjà là (rien de vrai n'est effacé).
-    for (i, p) in s.niveaux.iter_mut().enumerate().take(niveaux.len()) {
+    for i in 0..niveaux.len() {
+        let Some(p) = s.progres_mut(i) else {
+            continue;
+        };
         let (gouttes, temps, medaille) = if tout {
             ([true; 3], 45 * 60 + i as u32 * 97, 1 + (i % 3) as u8)
         } else if i < 7 {

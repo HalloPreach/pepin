@@ -23,6 +23,7 @@
 //! d'écran).
 
 use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
+use pepin_core::physics::HZ;
 use pepin_core::player::Entrees;
 use pepin_core::state::EtatJeu;
 
@@ -561,11 +562,7 @@ impl Application {
             // remises à zéro quand le niveau recommence. Les défis (carte 7.3) sont
             // notés au passage, et leurs premières réussites créditées.
             self.tentative.gouttes = self.monde.gouttes_niveau;
-            let ancien = self
-                .sauvegarde
-                .niveaux
-                .get(self.monde.indice)
-                .and_then(|p| p.meilleur_temps);
+            let ancien = self.sauvegarde.progres(self.monde.indice).meilleur_temps;
             self.resultat_niveau = Some(defis::noter_niveau(
                 &mut self.sauvegarde,
                 self.monde.indice,
@@ -768,19 +765,29 @@ impl Application {
                 );
                 // Sous la trame (carte, pause) le HUD serait illisible : on ne le montre qu'en jeu.
                 if self.ecran == Ecran::Jeu {
+                    // Niveau joué seul (carte 7.4) : les gouttes de CE niveau, sur 3.
                     let compteur = hud::compteur(
-                        self.monde.infos.genre == GenreNiveau::Bonus,
+                        self.niveau_seul || self.monde.infos.genre == GenreNiveau::Bonus,
                         self.monde.etat.gouttes,
                         self.gouttes_bonus,
                         self.gouttes_du_niveau(),
                     );
                     let vies = hud::vies(self.monde.etat.vies.restantes(), self.eclat_vie);
+                    // Niveau joué seul (carte 7.4) : le chrono de la tentative et le temps
+                    // cible du défi CHRONO.
+                    let (pas, cible) = if self.niveau_seul {
+                        let c = u32::from(self.monde.infos.duree_cible_s) * HZ;
+                        (self.tentative.pas, Some(c))
+                    } else {
+                        (self.pas_partie, None)
+                    };
                     hud::dessiner(
                         banque,
                         self.skin,
                         compteur,
                         &vies,
-                        self.pas_partie,
+                        pas,
+                        cible,
                         self.monde.pv_nuage(),
                     );
                 }

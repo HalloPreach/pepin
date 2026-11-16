@@ -168,6 +168,9 @@ await toucher(124, 90, 20); // l'étape du niveau 7 (choisie)
 await capture('74-telephone-etape-touchee');
 await toucher(248, 150, 60); // JOUER
 await capture('74-telephone-jouer');
+// Pendant le niveau joué seul : le chrono et le temps cible du défi CHRONO (en or : dans les temps).
+await toucher(160, 90, 300);
+await capture('74-telephone-chrono-cible');
 
 console.log('erreurs console :', erreurs.length, JSON.stringify(erreurs));
 ws.close(); chrome.kill('SIGKILL');

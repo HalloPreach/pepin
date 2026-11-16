@@ -289,7 +289,7 @@ fn marque(i: usize, etat: EtatEtape) -> String {
 /// cadenas ou marque, et ses 3 gouttes en petit dessous.
 fn dessiner_etape(i: usize, x: f32, y: f32, s: &Sauvegarde, choisie: bool, anim: u32) {
     let etat = etat_etape(NIVEAUX, s, i);
-    let progres = s.niveaux[i];
+    let progres = s.progres(i);
     if choisie && (anim / 20).is_multiple_of(2) {
         panneau(x - DEMI - 2.0, y - DEMI - 2.0, 19.0, 19.0, OR, OR);
     }
@@ -352,7 +352,7 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
         return;
     };
     let etat = etat_etape(NIVEAUX, s, i);
-    let progres = s.niveaux[i];
+    let progres = s.progres(i);
     let x = px + 6.0;
     let mut y = py + 4.0;
     if etat == EtatEtape::Cachee {

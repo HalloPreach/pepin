@@ -5907,12 +5907,20 @@ Données et règles seulement (l'écran de carte et la boutique liront la sauveg
 - Niveau joué depuis la carte = partie d'UN niveau (5 vies, « plus de vies » = on recommence ce
   niveau, défis/médailles/gouttes comptés comme en 7.3). Au drapeau : bilan (temps, « -1,8 s !
   NOUVEAU MEILLEUR TEMPS » ou « +3,2 s », défis, médaille, gain), REJOUER ou CARTE. Pause : la
-  dernière ligne devient CARTE. Les records de partie (score, temps) ne bougent pas.
+  dernière ligne devient CARTE. Les records de partie (score, temps) ne bougent pas. Pendant ce
+  niveau, le HUD compte les gouttes du niveau (x/3) et le chrono montre la tentative et le temps
+  cible du défi CHRONO (« 0:05/0:55 »), en or tant qu'on est dans les temps.
+- La progression n'est lue par les écrans que via `Sauvegarde::progres` / `progres_mut` (un seul
+  endroit à changer pour la sauvegarde par clé de niveau, carte 7.9). Aucun crédit ajouté sur
+  REJOUER : les gains restent ceux de `defis::noter_niveau` (7.3).
 - Build de QA : touche U = progression avancée (1er appui : 7 niveaux finis, bonus caché ; 2e
   appui : tout fini, bonus révélé), enregistrée ; elle n'ajoute qu'à la progression existante.
 
 ### Preuves
 
+- Retouche après coup (chrono cible, gouttes x/3, accès `progres`) : tests `app::`, `hud`,
+  `sauvegarde`, lint, `./build.sh` et le robot (`--exact le_robot_finit_tous_les_niveaux_sans_mourir`)
+  relancés sur l'extraction propre du dernier commit : voir le résultat de la carte.
 - Extraction propre (`git archive`) : suite complète verte sur 709838a (core 374 ok, game 341 ok,
   partie complète du robot : 25 656 images, empreinte `0d1d8f8435a11586`) ; `lint` → LINT-OK et
   `./build.sh` OK sur dac5197 (seul écart : une conversion inutile retirée pour clippy) ; `dist/` :
@@ -5925,12 +5933,16 @@ Données et règles seulement (l'écran de carte et la boutique liront la sauveg
   carte et fini (niveau 1 du robot rejoué) → bilan « PREMIER TEMPS SUR CE NIVEAU ! », 0:33,9,
   ARGENT, +7 gouttes, `parties_finies=0` (pas de record de partie) ; CARTE → niveau 2 ouvert ; page
   rechargée → conservé ; U puis U → bonus caché puis révélé ; 640 x 360 au toucher : étape touchée
-  puis JOUER → carte de présentation du niveau 7. 0 erreur console.
-- Captures `docs/qa/74-*.png` (14), regardées : carte en bas (toits), milieu, haut (soleil +
+  puis JOUER → carte de présentation du niveau 7, puis le niveau : chrono « 0:05/0:55 » en or,
+  gouttes « 0/3 ». 0 erreur console.
+- Captures `docs/qa/74-*.png` (15), regardées : carte en bas (toits), milieu, haut (soleil +
   bonus caché, puis débloqué), descente, bilan, titre, téléphone ; rien ne se chevauche ;
-  `mesure-capture.py` : 0 pixel hors palette, 0 flou.
+  `mesure-capture.py` : 0 pixel hors palette, 0 flou (sauf `74-telephone-chrono-cible` : les
+  boutons tactiles translucides, dessinés par-dessus l'image logique, comme avant).
 
 ### Ce qui n'est PAS testé
 
 - Vrai téléphone (glisser du doigt seulement émulé par CDP pour le toucher simple, pas le glisser) ;
   Safari, Firefox ; molette d'un vrai pavé tactile (défilement par crans).
+- Sur téléphone, le bouton de pause cache la fin du chrono (défaut antérieur, déjà noté à la carte
+  6.2) : avec le temps cible, c'est « /0:55 » qui passe dessous (640 x 360).
