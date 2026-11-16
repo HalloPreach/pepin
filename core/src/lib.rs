@@ -7,6 +7,7 @@ pub mod faisabilite;
 pub mod font;
 pub mod level;
 pub mod levels;
+pub mod lettres;
 pub mod palette;
 pub mod physics;
 pub mod player;

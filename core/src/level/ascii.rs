@@ -17,7 +17,7 @@ use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::nuage::{NB_COLONNES, PORTEE_COLONNES, TAILLE_NUAGE};
 use crate::entities::{
     Actualisable, Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, GrandNuage,
-    Grele, Lanterne, Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi,
+    Grele, Lanterne, Lettre, Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi,
     Ventilateur,
 };
 use crate::physics::{CourantAscendant, Environnement, VentLateral, JOUEUR_H};
@@ -97,6 +97,7 @@ pub(super) fn analyser(
     // d'éclairs jusqu'au sol, ses courants).
     let mut nuages: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
+    let mut lettres = 0usize;
     // Secrets (carte 8.5) : faux murs `m` et sortie secrète `x`.
     let mut faux_murs: Vec<Case> = Vec::new();
     let mut sorties_secretes: Vec<Case> = Vec::new();
@@ -125,6 +126,11 @@ pub(super) fn analyser(
                         y + 4.0,
                     )));
                     gouttes += 1;
+                }
+                // Lettre cachée (carte 8.6) : 8 x 8 au milieu de la case, comme la goutte.
+                '*' => {
+                    lettres += 1;
+                    entites.push(Entite::Lettre(Lettre::new(x + 4.0, y + 4.0)));
                 }
                 '^' => entites.push(Entite::Pointe(Pointe::new(x, y + 8.0))),
                 'M' => entites.push(Entite::Champignon(Champignon::new(x, y + 8.0))),
@@ -206,6 +212,9 @@ pub(super) fn analyser(
             })
         }
     };
+    if lettres > 1 {
+        return Err(ErreurNiveau::LettreMultiple { nombre: lettres });
+    }
     if sorties_secretes.len() > 1 {
         return Err(ErreurNiveau::SortieSecreteMultiple {
             nombre: sorties_secretes.len(),

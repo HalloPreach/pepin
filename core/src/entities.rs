@@ -10,7 +10,7 @@
 //! - `nuage` : le Grand Nuage, boss de l'œil du cyclone (motifs d'éclairs,
 //!   essoufflement et courant ascendant, trois points de vie) ;
 //! - `marche` : la marche au sol partagée par la flaque et l'escargot ;
-//! - `collectibles` : les gouttes d'or et les lanternes (checkpoints) ;
+//! - `collectibles` : les gouttes d'or, les lettres cachées et les lanternes (checkpoints) ;
 //! - `contacts` : ce qui se passe quand le joueur touche une entité.
 //!
 //! Ordre conseillé pour UN pas de simulation (60 Hz), à respecter par le jeu :
@@ -51,7 +51,7 @@ use crate::physics::{CourantAscendant, Environnement};
 
 pub use auvent::Auvent;
 pub use champignon::Champignon;
-pub use collectibles::{GoutteDor, Lanterne};
+pub use collectibles::{GoutteDor, Lanterne, Lettre};
 pub use eclair::Eclair;
 pub use ennemi::{Ennemi, TypeEnnemi};
 pub use escargot::Escargot;
@@ -99,6 +99,8 @@ pub enum Entite {
     Nuage(Box<GrandNuage>),
     Goutte(GoutteDor),
     Lanterne(Lanterne),
+    /// Lettre cachée (carte 8.6).
+    Lettre(Lettre),
 }
 
 /// `Entite` implémente le trait en DÉLÉGUANT à la variante réelle.
@@ -121,6 +123,7 @@ impl Actualisable for Entite {
             Entite::Nuage(e) => e.actualiser(env),
             Entite::Goutte(e) => e.actualiser(env),
             Entite::Lanterne(e) => e.actualiser(env),
+            Entite::Lettre(e) => e.actualiser(env),
         }
     }
 }
@@ -143,6 +146,7 @@ impl Entite {
             Entite::Nuage(e) => e.boite,
             Entite::Goutte(e) => e.boite,
             Entite::Lanterne(e) => e.boite,
+            Entite::Lettre(e) => e.boite,
         }
     }
 

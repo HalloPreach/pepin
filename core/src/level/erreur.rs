@@ -77,6 +77,8 @@ pub enum ErreurNiveau {
     SortieSecreteMultiple { nombre: usize },
     /// Un seul mur de pluie (`P`) par niveau.
     MurMultiple { nombre: usize },
+    /// Une lettre cachée `*` au plus par niveau (carte 8.6).
+    LettreMultiple { nombre: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -170,6 +172,9 @@ impl fmt::Display for ErreurNiveau {
             }
             ErreurNiveau::MurMultiple { nombre } => {
                 write!(f, "{nombre} murs de pluie « P » (un seul au plus)")
+            }
+            ErreurNiveau::LettreMultiple { nombre } => {
+                write!(f, "{nombre} lettres cachées « * » (une au plus)")
             }
         }
     }
