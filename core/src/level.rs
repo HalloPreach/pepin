@@ -62,6 +62,10 @@
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
 //!              antenne, paratonnerre, manche à air, oiseau posé
+//!   m  faux mur (carte 8.5) : case LIBRE dessinée comme le solide qu'elle
+//!      prolonge (voir `ZoneCachee`) ; Pépin y entre et la zone se révèle
+//!   x  sortie secrète : un second drapeau, qui finit le niveau comme `X`
+//!      (une au plus, en plus du drapeau `X`)
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
@@ -76,6 +80,7 @@
 
 mod ascii;
 mod erreur;
+mod secrets;
 #[cfg(test)]
 mod tests;
 
@@ -224,6 +229,34 @@ pub struct Niveau {
     pub panneaux: Vec<Panneau>,
     /// Objets de décor (dessin seulement).
     pub decors: Vec<ObjetDecor>,
+    /// Zones cachées derrière des faux murs `m` (carte 8.5).
+    pub caches: Vec<ZoneCachee>,
+    /// Sortie secrète `x` (carte 8.5) : la toucher finit le niveau comme le drapeau.
+    pub sortie_secrete: Option<Aabb>,
+}
+
+/// Zone cachée (carte 8.5) : des faux murs `m` d'un seul tenant, et les cases
+/// libres qu'ils enferment (la goutte d'une salle secrète). Aucune collision :
+/// seul le dessin la cache, jusqu'à ce que Pépin la touche.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ZoneCachee {
+    /// Cases `(colonne, rangée)` et la tuile que chacune imite : le solide qui
+    /// prolonge sa rangée de cases cachées (à droite, sinon à gauche), sinon
+    /// celui du dessous, sinon la brique.
+    pub cases: Vec<(i32, i32, Tuile)>,
+    /// Case de l'indice (une brique décalée) : une case d'entrée, voisine d'une
+    /// case libre du chemin ; `None` si aucune case ne s'y prête.
+    pub indice: Option<(i32, i32)>,
+}
+
+impl ZoneCachee {
+    /// La boîte `boite` touche-t-elle une case de la zone ?
+    pub fn touche(&self, boite: &Aabb) -> bool {
+        self.cases.iter().any(|&(x, y, _)| {
+            let t = TAILLE_TUILE;
+            boite.chevauche(&Aabb::new(x as f32 * t, y as f32 * t, t, t))
+        })
+    }
 }
 
 impl Niveau {
@@ -272,6 +305,17 @@ impl Niveau {
             return Tuile::Vide;
         }
         self.tuiles[ty as usize * self.largeur + tx as usize]
+    }
+
+    /// Zone cachée qui contient la case `(tx, ty)` (son indice dans `caches`) et la
+    /// tuile que cette case imite.
+    pub fn cache_en(&self, tx: i32, ty: i32) -> Option<(usize, Tuile)> {
+        self.caches.iter().enumerate().find_map(|(k, z)| {
+            z.cases
+                .iter()
+                .find(|&&(x, y, _)| (x, y) == (tx, ty))
+                .map(|&(_, _, t)| (k, t))
+        })
     }
 
     /// Nombre de lanternes (checkpoints).

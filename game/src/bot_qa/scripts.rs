@@ -1019,8 +1019,23 @@ fn ecrire_parcours_pigeon_ecrase_66() {
 /// le script du parcours du robot dans le niveau d'indice `indice`, ses touches de
 /// raccourci et sa trace, dans `target/qa/` avec le préfixe `prefixe`.
 fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
+    let normal = |i| {
+        crate::bot_qa::trouver_parcours(i, false)
+            .or_else(|| crate::bot_qa::trouver_parcours(i, true))
+    };
+    ecrire_scripts_des_parcours(prefixe, niveaux, &normal);
+}
+
+/// Comme `ecrire_scripts_des_ajouts`, avec le parcours que donne `trouver` (carte
+/// 8.5 : parcours complet ou secret). La trace finit par la colonne `secrets` : le
+/// nombre de zones cachées déjà révélées.
+fn ecrire_scripts_des_parcours(
+    prefixe: &str,
+    niveaux: &[(usize, Ajouts)],
+    trouver: &(dyn Fn(usize) -> Option<Vec<pepin_core::player::Entrees>> + Sync),
+) {
     use crate::app::Application;
-    use crate::bot_qa::{nom_ecran, trouver_parcours, Trame};
+    use crate::bot_qa::{nom_ecran, Trame};
     use crate::entrees::{Commandes, RaccourciNiveau};
     use crate::navigation::Navigation;
     use pepin_core::aabb::TAILLE_TUILE;
@@ -1035,13 +1050,7 @@ fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
     let parcours_des_niveaux: Vec<_> = std::thread::scope(|portee| {
         let fils: Vec<_> = niveaux
             .iter()
-            .map(|&(cible, _)| {
-                portee.spawn(move || {
-                    trouver_parcours(cible, false)
-                        .or_else(|| trouver_parcours(cible, true))
-                        .expect("parcours du robot")
-                })
-            })
+            .map(|&(cible, _)| portee.spawn(move || trouver(cible).expect("parcours du robot")))
             .collect();
         fils.into_iter()
             .map(|f| f.join().expect("fil du parcours"))
@@ -1056,7 +1065,7 @@ fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
                 ",e{k}_{t:?}_{c}_{r}_x,e{k}_y,e{k}_etat,e{k}_phase,e{k}_ecran"
             ));
         }
-        trace.push('\n');
+        trace.push_str(",secrets\n");
         // Touches de raccourci appuyées : (image de la trace, code de la touche).
         let mut touches: Vec<(usize, String)> = Vec::new();
         let mut commence = false;
@@ -1144,7 +1153,8 @@ fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
                     None => trace.push_str(",-,-,-,-,0"),
                 }
             }
-            trace.push('\n');
+            let secrets = app.monde.caches_reveles.iter().filter(|&&r| r).count();
+            trace.push_str(&format!(",{secrets}\n"));
         }
         assert!(commence, "niveau {} jamais atteint", cible + 1);
         assert_eq!(app.monde.etat.morts, 0, "le robot ne meurt pas");
@@ -1162,4 +1172,31 @@ fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
             touches.trim().replace('\n', ", ")
         );
     }
+}
+
+/// Carte 8.5 (secrets) : scripts des captures `85-`, dans `target/qa/` (`script-85-N`,
+/// `touches-85-N`, `trace-85-N` ; colonne `secrets` de la trace : zones révélées).
+/// Toits, gouttières, marché : la partie COMPLÈTE du robot (elle entre dans la salle
+/// de la goutte). Orage et mer (raccourcis), clocher (sortie cachée) : le parcours
+/// SECRET (`trouver_parcours_secret`) : `85s-N`.
+/// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_scripts_secrets_85
+#[test]
+#[ignore]
+fn ecrire_scripts_secrets_85() {
+    use crate::bot_qa::{trouver_parcours_complet, trouver_parcours_secret};
+    use pepin_core::levels::{clocher, gouttieres, marche, mer, orage, toits, NIVEAUX};
+    let indice = |nom: &str| NIVEAUX.iter().position(|n| n.nom == nom).unwrap();
+    let complet =
+        |i| trouver_parcours_complet(i, false).or_else(|| trouver_parcours_complet(i, true));
+    let secret = |i| trouver_parcours_secret(i, false).or_else(|| trouver_parcours_secret(i, true));
+    let salles: Vec<(usize, Ajouts)> = [toits::INFOS.nom, gouttieres::INFOS.nom, marche::INFOS.nom]
+        .iter()
+        .map(|n| (indice(n), &[][..]))
+        .collect();
+    ecrire_scripts_des_parcours("85", &salles, &complet);
+    let secrets: Vec<(usize, Ajouts)> = [orage::INFOS.nom, clocher::INFOS.nom, mer::INFOS.nom]
+        .iter()
+        .map(|n| (indice(n), &[][..]))
+        .collect();
+    ecrire_scripts_des_parcours("85s", &secrets, &secret);
 }

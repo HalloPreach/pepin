@@ -96,15 +96,56 @@ fn ombre_sous_toit(t: Tuile, dessus: Tuile) -> bool {
     t == Tuile::Brique && dessus == Tuile::Toit
 }
 
+/// Tuile VUE en `(tx, ty)` : celle de la grille, ou, pour un faux mur (carte 8.5), le solide
+/// qu'il imite (révélé ou non : la forme du mur ne change pas, seul son tramage).
+fn tuile_vue(monde: &Monde, tx: i32, ty: i32) -> Tuile {
+    match monde.niveau.tuile_decor(tx, ty) {
+        Tuile::Vide => monde
+            .niveau
+            .cache_en(tx, ty)
+            .map_or(Tuile::Vide, |(_, t)| t),
+        t => t,
+    }
+}
+
+/// La case `(tx, ty)` est-elle dans une zone cachée PAS ENCORE révélée (carte 8.5) ?
+fn case_cachee(monde: &Monde, tx: i32, ty: i32) -> bool {
+    monde
+        .niveau
+        .cache_en(tx, ty)
+        .is_some_and(|(k, _)| !monde.caches_reveles[k])
+}
+
+/// Le centre de la boîte `b` est-il dans une zone cachée pas encore révélée ? (La goutte
+/// d'une salle secrète reste cachée derrière le faux mur.)
+fn boite_cachee(monde: &Monde, b: &Aabb) -> bool {
+    let (x, y) = (b.x + b.w / 2.0, b.y + b.h / 2.0);
+    case_cachee(
+        monde,
+        (x / TAILLE_TUILE).floor() as i32,
+        (y / TAILLE_TUILE).floor() as i32,
+    )
+}
+
+/// La case `(tx, ty)` est-elle l'indice d'une zone cachée (carte 8.5) ?
+fn case_d_indice(monde: &Monde, tx: i32, ty: i32) -> bool {
+    monde
+        .niveau
+        .caches
+        .iter()
+        .any(|z| z.indice == Some((tx, ty)))
+}
+
 /// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus ; un nuage dont la
 /// case voisine est vide (à gauche et/ou à droite) prend un bord arrondi. Dessin seulement :
-/// la collision reste celle de la case.
+/// la collision reste celle de la case. Les faux murs comptent comme le solide qu'ils imitent
+/// (`tuile_vue`) ; la case d'indice d'une zone cachée est une brique décalée.
 fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
-    let haut = monde.niveau.tuile_decor(tx, ty - 1) == Tuile::Vide;
+    let haut = tuile_vue(monde, tx, ty - 1) == Tuile::Vide;
     if t == Tuile::Nuage && haut {
         let (gauche, droite) = (
-            monde.niveau.tuile_decor(tx - 1, ty) == Tuile::Vide,
-            monde.niveau.tuile_decor(tx + 1, ty) == Tuile::Vide,
+            tuile_vue(monde, tx - 1, ty) == Tuile::Vide,
+            tuile_vue(monde, tx + 1, ty) == Tuile::Vide,
         );
         match (gauche, droite) {
             (true, true) => return "nuage_ilot",
@@ -117,6 +158,8 @@ fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
         (Tuile::Toit, true) => "toit_haut",
         (Tuile::Toit, false) => "toit_plein",
         (Tuile::Brique, true) => "brique_haut",
+        (Tuile::Brique, false) if case_d_indice(monde, tx, ty) => "brique_decalee",
+        (Tuile::Nuage, false) if case_d_indice(monde, tx, ty) => "nuage_creux",
         (Tuile::Brique, false) => variante_brique(tx, ty).unwrap_or("brique_plein"),
         (Tuile::Nuage, true) => "nuage_haut",
         (Tuile::Nuage, false) => "nuage_plein",
@@ -140,14 +183,33 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             if tx < 0 || tx >= monde.niveau.largeur() as i32 {
                 continue;
             }
-            let t = monde.niveau.tuile_decor(tx, ty);
+            let t = tuile_vue(monde, tx, ty);
             if t != Tuile::Vide {
                 let nom = nom_tuile(monde, tx, ty, t);
                 let (x, y) = ((tx * taille - cx) as f32, (ty * taille - cy) as f32);
-                banque.dessiner_tuile(monde.infos.theme, nom, x, y);
+                // Faux mur révélé (carte 8.5) : tramé en damier, on voit la salle derrière.
+                let revele =
+                    monde.niveau.tuile_decor(tx, ty) == Tuile::Vide && !case_cachee(monde, tx, ty);
+                let poser = |nom: &str| {
+                    if revele {
+                        banque.dessiner_tuile_tramee(monde.infos.theme, nom, x, y);
+                    } else {
+                        banque.dessiner_tuile(monde.infos.theme, nom, x, y);
+                    }
+                };
+                poser(nom);
+                // L'indice de brique d'une zone cachée (carte 8.5) dépasse sur la case libre.
+                if nom == "brique_decalee" && !revele {
+                    let (saillie, dx) = if tuile_vue(monde, tx - 1, ty) == Tuile::Vide {
+                        ("brique_saillie_g", -taille)
+                    } else {
+                        ("brique_saillie_d", taille)
+                    };
+                    banque.dessiner_tuile(monde.infos.theme, saillie, x + dx as f32, y);
+                }
                 // Bande d'ombre du rebord, par-dessus le haut de la brique.
-                if ombre_sous_toit(t, monde.niveau.tuile_decor(tx, ty - 1)) {
-                    banque.dessiner_tuile(monde.infos.theme, "ombre_toit", x, y);
+                if ombre_sous_toit(t, tuile_vue(monde, tx, ty - 1)) {
+                    poser("ombre_toit");
                 }
             }
         }
@@ -521,6 +583,10 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
     });
     for (i, entite) in monde.entites.iter().enumerate() {
         let b = monde.boite_interpolee(i, alpha);
+        // Derrière un faux mur pas encore révélé (carte 8.5) : rien ne se voit.
+        if boite_cachee(monde, &b) {
+            continue;
+        }
         let (x, y) = entier(&b);
         let (sx, sy) = ((x - cx) as f32, (y - cy) as f32);
         match entite {
@@ -871,10 +937,19 @@ pub(crate) fn image_pigeon(
 }
 
 fn dessiner_arrivee(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
-    // L'arène du Grand Nuage n'a pas de drapeau : le vaincre finit le niveau.
-    let Some(a) = monde.niveau.arrivee else {
-        return;
-    };
+    // La sortie secrète (carte 8.5) : le même drapeau, caché tant que sa salle l'est.
+    let secrete = monde
+        .niveau
+        .sortie_secrete
+        .filter(|a| !boite_cachee(monde, a));
+    for a in monde.niveau.arrivee.iter().chain(secrete.iter()) {
+        dessiner_drapeau(a, monde, banque, cx, cy);
+    }
+}
+
+/// Le drapeau de la boîte d'arrivée `a`. (L'arène du Grand Nuage n'a pas de drapeau : le
+/// vaincre finit le niveau.)
+fn dessiner_drapeau(a: &Aabb, monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     let x = (a.x + a.w / 2.0 - 8.0).round() as i32 - cx;
     let y = a.bas().round() as i32 - 32 - cy;
     banque.dessiner(

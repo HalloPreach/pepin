@@ -167,9 +167,18 @@ fn remplacer(c: char, theme: Theme) -> char {
 
 /// Convertit une grille en texture « nearest ». `theme` : substitution de couleurs.
 fn texture(image: Image, theme: Option<Theme>) -> Texture2D {
+    texture_tramee(image, theme, false)
+}
+
+/// Comme `texture` ; `trame` : un pixel sur deux en damier reste transparent (le faux mur
+/// révélé de la carte 8.5 : « translucide » sans aucune demi-teinte).
+fn texture_tramee(image: Image, theme: Option<Theme>, trame: bool) -> Texture2D {
     let mut img = ImageMq::gen_image_color(largeur(image) as u16, hauteur(image) as u16, BLANK);
     for (y, ligne) in image.iter().enumerate() {
         for (x, c) in ligne.chars().enumerate() {
+            if trame && (x + y) % 2 == 1 {
+                continue;
+            }
             let c = theme.map_or(c, |t| remplacer(c, t));
             if let Ok(Some(couleur)) = pixel(c) {
                 img.set_pixel(x as u32, y as u32, couleur_mq(couleur));
@@ -187,6 +196,8 @@ pub struct Banque {
     sprites: HashMap<&'static str, Texture2D>,
     /// Tuiles : un jeu complet par thème (couleurs éclaircies progressivement).
     tuiles: Vec<HashMap<&'static str, Texture2D>>,
+    /// Les mêmes tuiles tramées en damier (faux murs révélés, carte 8.5).
+    tuiles_tramees: Vec<HashMap<&'static str, Texture2D>>,
 }
 
 impl Banque {
@@ -197,16 +208,22 @@ impl Banque {
             .chain([ennemis::SPRITES, objets::SPRITES, objets_decor::SPRITES].concat())
             .map(|(nom, dessin)| (nom, texture(dessin, None)))
             .collect();
-        let tuiles = Theme::TOUS
-            .iter()
-            .map(|&t| {
-                tuiles::SPRITES
-                    .iter()
-                    .map(|&(nom, dessin)| (nom, texture(dessin, Some(t))))
-                    .collect()
-            })
-            .collect();
-        Self { sprites, tuiles }
+        let jeu = |trame: bool| -> Vec<HashMap<&'static str, Texture2D>> {
+            Theme::TOUS
+                .iter()
+                .map(|&t| {
+                    tuiles::SPRITES
+                        .iter()
+                        .map(|&(nom, dessin)| (nom, texture_tramee(dessin, Some(t), trame)))
+                        .collect()
+                })
+                .collect()
+        };
+        Self {
+            sprites,
+            tuiles: jeu(false),
+            tuiles_tramees: jeu(true),
+        }
     }
 
     /// Dessine le sprite `nom` avec son coin haut-gauche en `(x, y)` (arrondi au pixel).
@@ -220,6 +237,13 @@ impl Banque {
     /// Dessine la tuile `nom` du thème donné.
     pub fn dessiner_tuile(&self, theme: Theme, nom: &str, x: f32, y: f32) {
         if let Some(t) = self.tuiles[theme.indice()].get(nom) {
+            Self::poser(t, x, y, false);
+        }
+    }
+
+    /// Dessine la tuile `nom` tramée en damier (faux mur révélé, carte 8.5).
+    pub fn dessiner_tuile_tramee(&self, theme: Theme, nom: &str, x: f32, y: f32) {
+        if let Some(t) = self.tuiles_tramees[theme.indice()].get(nom) {
             Self::poser(t, x, y, false);
         }
     }

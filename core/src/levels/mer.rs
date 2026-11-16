@@ -56,6 +56,11 @@
 //! Le moment fort reste sans ennemi : aucune patrouille ne croise les colonnes 110
 //! à 130 (la demande en admettait un corbeau au plus ; test
 //! `trois_corbeaux_un_pigeon_et_aucun_dans_le_moment_fort`).
+//!
+//! Secret (carte 8.5), un RACCOURCI : le pied de la tour de nuages (rangée 7,
+//! colonnes 106 à 112) est un faux mur `m`, marqué d'un petit creux d'ombre côté
+//! montgolfière. Depuis la nacelle au sol, on traverse la tour et l'on sort sur
+//! la marche de la couche de vent du bas, sans monter au sommet.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -109,7 +114,7 @@ const ASCII: &str = r"
 ................o................................................NNNNNNNNNNNNN.......c....................NNNN...<<<<<<<<<<<<<<<<<...................Q.>>>>>>>>>>>>>>>>.........
 ..............>>>>>>>>>>>>>......................................NNNNNNNNNNNNN............................NNNN.Q.<<<<<<<<<<<<<<<<<..............NNNNNNN>>>>>>>>>>>>>>>>.........
 ..............>>>>>>>>>>>>>...............................................................................NNNNNNN<<<<<<<<<<<<<<<<<..............NNNNNNN...........c.............
-..@.........Q.>>>>>>>>>>>>>..L...................................................................c........NNNNNNN.Q.>>>>>>>>>>>>>>..........................................X...
+..@.........Q.>>>>>>>>>>>>>..L...................................................................c........mmmmmmm.Q.>>>>>>>>>>>>>>..........................................X...
 NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNNb...........................NNNNNNNNNNNNNb.NNNNNNNNNN>>>>>>>>>>>>>>..L..................................NNNNNNNNN
 NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN...............NNNNNNNNNNNb........................NNNNNNNNN
 NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN...............NNNNNNNNNNN.........................NNNNNNNNN

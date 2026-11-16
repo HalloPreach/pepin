@@ -221,6 +221,9 @@ impl Audio {
     /// `cam_x` : bord gauche de la zone visible (pour n'entendre que les éclairs vus).
     pub fn apres_pas(&mut self, monde: &Monde, cam_x: f32) {
         let mut a_jouer = effets_du_pas(&monde.evenements, &monde.contacts);
+        if monde.secret_revele {
+            a_jouer.push(Effet::Secret);
+        }
         let vue = eclair_en_vue(monde, cam_x);
         a_jouer.extend(self.detecteur.comparer(vue, monde.termine));
         for e in a_jouer {

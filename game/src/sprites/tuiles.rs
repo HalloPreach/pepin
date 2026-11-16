@@ -247,6 +247,92 @@ pub const BRIQUE_COULURE: Image = &[
     "2222222222222222",
 ];
 
+/// Indice d'un faux mur (carte 8.5) : la brique du milieu a glissé d'un pixel vers la droite ; le
+/// jour qu'elle laisse à gauche montre l'ombre derrière le mur (0 en haut, 1 dessous). Le reste est
+/// la brique pleine : seul un œil attentif voit le joint décalé.
+pub const BRIQUE_DECALEE: Image = &[
+    "2333333323333333",
+    "2FFFFFFF2FFFFFFF",
+    "2FFFFFFF2FFFFFFF",
+    "2222222222222222",
+    "3333203333333233",
+    "FFFF21FFFFFFF2FF",
+    "FFFF21FFFFFFF2FF",
+    "2222222222222222",
+    "2333333323333333",
+    "2FFFFFFF2FFFFFFF",
+    "2FFFFFFF2FFFFFFF",
+    "2222222222222222",
+    "3333233333332333",
+    "FFFF2FFFFFFF2FFF",
+    "FFFF2FFFFFFF2FFF",
+    "2222222222222222",
+];
+
+/// Indice d'un faux mur de brique, en plus de `BRIQUE_DECALEE` : le bout d'une brique qui dépasse
+/// de 3 px de la façade, posé sur la case libre VOISINE (à gauche de la façade : `_G` ; à droite :
+/// `_D`). Les variantes de brique tirées au hasard restent dans leur case : seul l'indice sort du
+/// mur.
+pub const BRIQUE_SAILLIE_G: Image = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    ".............333",
+    ".............FFF",
+    ".............FFF",
+    ".............222",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+];
+
+/// Même chose, la façade à droite de la case libre : le bout de brique sort vers la gauche.
+pub const BRIQUE_SAILLIE_D: Image = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    "333.............",
+    "FFF.............",
+    "FFF.............",
+    "222.............",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+];
+
+/// Indice d'un faux mur de nuage (carte 8.5) : un petit creux d'ombre (5) dans le nuage plein,
+/// comme si le nuage était moins épais à cet endroit.
+pub const NUAGE_CREUX: Image = &[
+    "7666666666666666",
+    "6666667666666666",
+    "6666666666667666",
+    "6666666666666666",
+    "6766666666666666",
+    "6666655566666666",
+    "6666555556666766",
+    "6666555556666666",
+    "6676655566666666",
+    "6666666676666666",
+    "6666666666666676",
+    "6666666666666666",
+    "5567556655665566",
+    "5665566557655665",
+    "5555555555555555",
+    "5555555555555555",
+];
+
 /// Ombre sous le rebord d'un toit : bande de 2 px posée PAR-DESSUS le haut de la brique qui est
 /// juste sous une tuile de toit. 0 (ombre la plus profonde) contre le rebord, puis 1 (ombre de
 /// nuit) : deux niveaux d'ombre, sans dégradé. Elle donne l'épaisseur de l'avancée du toit.
@@ -269,5 +355,9 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("brique_fissure", BRIQUE_FISSURE),
     ("brique_manquante", BRIQUE_MANQUANTE),
     ("brique_coulure", BRIQUE_COULURE),
+    ("brique_decalee", BRIQUE_DECALEE),
+    ("nuage_creux", NUAGE_CREUX),
+    ("brique_saillie_g", BRIQUE_SAILLIE_G),
+    ("brique_saillie_d", BRIQUE_SAILLIE_D),
     ("ombre_toit", OMBRE_TOIT),
 ];
