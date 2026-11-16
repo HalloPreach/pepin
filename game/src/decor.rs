@@ -940,7 +940,9 @@ pub(crate) fn zones(a: &Ambiance) -> Vec<Zone> {
 
 /// Position `(x, y)` écran de la goutte de pluie `i` au pas `pas`, pour une couche
 /// de vitesse `vitesse` (px par pas vers le bas). Chute en diagonale (1 px de
-/// dérive vers la gauche pour 2 de chute) et boucle sur l'écran.
+/// dérive vers la gauche pour 2 de chute) et boucle sur l'écran. Tests seulement :
+/// le dessin passe par `goutte_penchee` (carte 8.8, pluie normale ou forte).
+#[cfg(test)]
 pub fn goutte_de_pluie(i: i32, pas: u32, vitesse: i32, graine: u32) -> (i32, i32) {
     goutte_penchee(i, pas, vitesse, graine, 2)
 }

@@ -169,7 +169,9 @@ fn niveau_essai(_indice: usize) -> Option<&'static InfosNiveau> {
 impl Monde {
     /// Charge le niveau `indice` de la table `NIVEAUX` (ou le niveau d'essai, voir
     /// `infos_niveau`). Les niveaux sont validés par les tests du cœur : un échec ici est
-    /// une erreur de programmation, d'où le `expect`.
+    /// une erreur de programmation, d'où le `expect`. Tests seulement : le jeu passe
+    /// par `charger` (carte 8.8, partie normale ou nouvelle partie +).
+    #[cfg(test)]
     pub fn new(indice: usize) -> Self {
         Self::charger(indice, false)
     }
