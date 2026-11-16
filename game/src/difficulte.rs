@@ -1856,51 +1856,60 @@ mod tests {
 
         // Monte jusqu'au boss (6), redescend au 7, remonte un peu au 8, calme au 9.
         let bonne = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.0, 0.3],
-            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 0.3, 0.05],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.8, 1.0, 0.3],
+            [
+                0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 0.5, 0.3, 0.05,
+            ],
         );
         assert_eq!(ecarts_de_la_courbe(&bonne), Vec::<String>::new());
         // Un palier dans la montée (clocher aussi meurtrier que l'orage) est admis.
         let palier = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.0, 0.3],
-            [0.1, 0.5, 0.6, 0.7, 0.7, 1.0, 0.45, 0.6, 0.1, 0.3, 0.05],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.8, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.7, 0.7, 1.0, 0.45, 0.6, 0.1, 0.5, 0.3, 0.05],
         );
         assert_eq!(ecarts_de_la_courbe(&palier), Vec::<String>::new());
 
-        // Le bonus (10e, carte 5.16) se juge au chrono : plus meurtrier que le sommet,
-        // il passe ; un sprint de 80 s pour l'Expert, non.
-        assert!(est_bonus(9) && (0..9).all(|n| !est_bonus(n)));
+        // Le bonus (11e depuis la carte 8.2) se juge au chrono : plus meurtrier que
+        // le sommet, il passe ; un sprint de 80 s pour l'Expert, non. Le 10e, la
+        // poursuite (carte 8.2), est sous le sommet dans toutes ces mesures.
+        assert!(est_bonus(10) && (0..10).all(|n| !est_bonus(n)));
         let mut bonus_dur = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 8.8, 0.3],
-            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 1.2, 0.05],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.8, 8.8, 0.3],
+            [
+                0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 0.5, 1.2, 0.05,
+            ],
         );
         assert_eq!(ecarts_de_la_courbe(&bonus_dur), Vec::<String>::new());
-        bonus_dur[9][EXPERT].duree_s = 80.0;
+        bonus_dur[10][EXPERT].duree_s = 80.0;
         assert_eq!(
             ecarts_de_la_courbe(&bonus_dur),
-            ["Expert : bonus (niveau 10) en 80,0 s, hors de [45,0 ; 75,0[ s"]
+            ["Expert : bonus (niveau 11) en 80,0 s, hors de [45,0 ; 75,0[ s"]
         );
 
-        // L'épilogue (11e, carte 5.17) est le plus calme de tous : plus meurtrier que
+        // L'épilogue (12e depuis la carte 8.2) est le plus calme de tous : plus meurtrier que
         // le premier niveau (Débutant) ou que le final (Habitué), il est refusé.
-        assert!(est_epilogue(10) && (0..10).all(|n| !est_epilogue(n)));
+        assert!(est_epilogue(11) && (0..11).all(|n| !est_epilogue(n)));
         let epilogue_dur = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.0, 0.45],
-            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 0.3, 0.15],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.5, 1.3, 1.5, 0.5, 1.8, 1.0, 0.45],
+            [
+                0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.45, 0.6, 0.1, 0.5, 0.3, 0.15,
+            ],
         );
         assert_eq!(
             ecarts_de_la_courbe(&epilogue_dur),
             [
-                "Débutant : épilogue (niveau 11, 0,45) pas le plus calme, niveau 1 à 0,40",
-                "Habitué : épilogue (niveau 11, 0,15) pas le plus calme, niveau 1 à 0,10",
-                "Habitué : épilogue (niveau 11, 0,15) pas le plus calme, niveau 9 à 0,10",
+                "Débutant : épilogue (niveau 12, 0,45) pas le plus calme, niveau 1 à 0,40",
+                "Habitué : épilogue (niveau 12, 0,15) pas le plus calme, niveau 1 à 0,10",
+                "Habitué : épilogue (niveau 12, 0,15) pas le plus calme, niveau 9 à 0,10",
             ]
         );
 
         // Les vents (7) presque aussi durs que le boss (6), le final (9) à 0,4.
         let sans_descente = fausse_mesure(
-            [0.4, 1.5, 2.0, 3.0, 2.5, 3.6, 2.9, 3.0, 2.5, 1.0, 0.3],
-            [0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.9, 0.95, 0.4, 0.3, 0.05],
+            [0.4, 1.5, 2.0, 3.0, 2.5, 3.6, 2.9, 3.0, 2.5, 1.8, 1.0, 0.3],
+            [
+                0.1, 0.5, 0.6, 0.7, 0.75, 1.0, 0.9, 0.95, 0.4, 0.5, 0.3, 0.05,
+            ],
         );
         let e = ecarts_de_la_courbe(&sans_descente);
         assert!(e.iter().any(|x| x.contains("niveau 7 à 0,90")), "{e:?}");
@@ -1911,8 +1920,8 @@ mod tests {
         // pour le Débutant, la mer (8) sous les vents, le final (9) aussi dur que les
         // vents (Habitué), et le clocher (5) qui redescend sous l'orage.
         let a_l_envers = fausse_mesure(
-            [0.4, 1.5, 2.0, 2.2, 1.0, 2.0, 2.5, 1.5, 0.5, 1.0, 0.3],
-            [0.1, 0.5, 0.6, 0.8, 0.4, 0.9, 0.1, 0.6, 0.1, 0.3, 0.05],
+            [0.4, 1.5, 2.0, 2.2, 1.0, 2.0, 2.5, 1.5, 0.5, 1.8, 1.0, 0.3],
+            [0.1, 0.5, 0.6, 0.8, 0.4, 0.9, 0.1, 0.6, 0.1, 0.5, 0.3, 0.05],
         );
         let e = ecarts_de_la_courbe(&a_l_envers);
         for attendu in [
@@ -1930,10 +1939,10 @@ mod tests {
         // restait sous les vents. Le juge de la courbe finale la refuse.
         let avant_5_18 = fausse_mesure(
             [
-                0.4, 1.52, 0.83, 3.04, 0.60, 2.88, 1.31, 1.27, 0.50, 8.8, 0.0,
+                0.4, 1.52, 0.83, 3.04, 0.60, 2.88, 1.31, 1.27, 0.50, 1.8, 8.8, 0.0,
             ],
             [
-                0.08, 0.50, 0.54, 0.65, 0.29, 0.58, 0.40, 0.33, 0.08, 1.2, 0.0,
+                0.08, 0.50, 0.54, 0.65, 0.29, 0.58, 0.40, 0.33, 0.08, 0.5, 1.2, 0.0,
             ],
         );
         let e = ecarts_de_la_courbe(&avant_5_18);

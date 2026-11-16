@@ -147,20 +147,20 @@ pub fn dessiner(
 mod tests {
     use super::*;
 
-    /// Le compteur : le parcours (30 : neuf niveaux normaux et l'épilogue), sans les
-    /// gouttes du bonus ; dans le bonus, celles du bonus sur trois.
+    /// Le compteur : le parcours (33 : dix niveaux normaux et l'épilogue, carte 8.2),
+    /// sans les gouttes du bonus ; dans le bonus, celles du bonus sur trois.
     #[test]
     fn le_compteur_compte_le_parcours_et_le_bonus_a_part() {
-        // Au 9e niveau, toutes les gouttes : 27/30 (le bonus s'ouvre).
-        assert_eq!(compteur(false, 27, None, 3), (27, 30));
-        // Dans le bonus : ses gouttes, sur 3 (la partie en compte 27 + 2).
-        assert_eq!(compteur(true, 29, None, 2), (2, 3));
-        // Dans l'épilogue, après un bonus à 2 gouttes : 27 + 1 du parcours.
-        assert_eq!(compteur(false, 30, Some(2), 1), (28, 30));
-        // Tout : 30/30 (et le bonus, compté à part).
-        assert_eq!(compteur(false, 33, Some(3), 3), (30, 30));
+        // Au 10e niveau, toutes les gouttes : 30/33 (le bonus s'ouvre).
+        assert_eq!(compteur(false, 30, None, 3), (30, 33));
+        // Dans le bonus : ses gouttes, sur 3 (la partie en compte 30 + 2).
+        assert_eq!(compteur(true, 32, None, 2), (2, 3));
+        // Dans l'épilogue, après un bonus à 2 gouttes : 30 + 1 du parcours.
+        assert_eq!(compteur(false, 33, Some(2), 1), (31, 33));
+        // Tout : 33/33 (et le bonus, compté à part).
+        assert_eq!(compteur(false, 36, Some(3), 3), (33, 33));
         // Bonus sauté : rien à retrancher.
-        assert_eq!(compteur(false, 22, None, 0), (22, 30));
+        assert_eq!(compteur(false, 22, None, 0), (22, 33));
     }
 
     /// Trois points, centrés sur l'écran (320 px : de 142 à 178), pleins puis perdus.

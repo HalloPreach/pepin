@@ -1159,45 +1159,45 @@ mod tests {
         }
     }
 
-    /// Les DEUX chemins au sortir du 9e niveau (le dernier normal, cartes 5.16 et
-    /// 5.17) : avec les 27 gouttes des niveaux normaux, la carte suivante est celle du
+    /// Les DEUX chemins au sortir du 10e niveau (le dernier normal, cartes 5.16, 5.17
+    /// et 8.2) : avec les 30 gouttes des niveaux normaux, la carte suivante est celle du
     /// bonus (« NIVEAU BONUS », l'arc-en-ciel), puis celle de l'épilogue ; avec une de
     /// moins, directement l'épilogue (« ÉPILOGUE », la descente). L'épilogue fini,
-    /// c'est l'écran de fin du retour : les gouttes du parcours sur 30, et celles du
+    /// c'est l'écran de fin du retour : les gouttes du parcours sur 33, et celles du
     /// bonus à part s'il a été joué.
     #[test]
     fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes_puis_l_epilogue() {
         use pepin_core::levels::{arc, descente, nb_normaux};
-        for (gouttes, bonus) in [(27, true), (26, false), (0, false)] {
+        for (gouttes, bonus) in [(30, true), (29, false), (0, false)] {
             let mut app = en_jeu();
-            let (monde, camera) = charger(8, None);
+            let (monde, camera) = charger(9, None);
             app.monde = monde;
             app.camera = camera;
-            assert_eq!(app.monde.infos.numero, 9);
+            assert_eq!(app.monde.infos.numero, 10);
             app.monde.etat.gouttes = gouttes;
             app.monde.termine = true;
             avancer(&mut app, 1);
             jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
             let mut gouttes_finales = gouttes;
             if bonus {
-                assert_eq!(app.monde.indice, 9);
+                assert_eq!(app.monde.indice, 10);
                 assert_eq!(app.monde.infos.nom, arc::INFOS.nom);
                 assert_eq!(app.monde.infos.genre, GenreNiveau::Bonus);
                 assert_eq!(
                     contenu::etiquette_niveau(app.monde.infos, nb_normaux(NIVEAUX)),
                     "NIVEAU BONUS"
                 );
-                // Le bonus fini avec 2 de ses gouttes (29 dans la partie) : l'épilogue.
+                // Le bonus fini avec 2 de ses gouttes (32 dans la partie) : l'épilogue.
                 app.reagir(&valider(), &Commandes::default(), None);
                 app.monde.gouttes_niveau = [true, false, true];
-                app.monde.etat.gouttes = 29;
+                app.monde.etat.gouttes = 32;
                 app.monde.termine = true;
                 avancer(&mut app, 1);
                 assert_eq!(app.gouttes_bonus, Some(2));
                 jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
-                gouttes_finales = 29;
+                gouttes_finales = 32;
             }
-            assert_eq!(app.monde.indice, 10);
+            assert_eq!(app.monde.indice, 11);
             assert_eq!(app.monde.infos.nom, descente::INFOS.nom);
             assert_eq!(app.monde.infos.genre, GenreNiveau::Epilogue);
             assert_eq!(
@@ -1213,7 +1213,7 @@ mod tests {
             jusqu_a(&mut app, |e| e == Ecran::Fin);
             assert!(app.bilan.epilogue);
             if bonus {
-                assert_eq!((app.bilan.gouttes, app.bilan.gouttes_bonus), (30, Some(2)));
+                assert_eq!((app.bilan.gouttes, app.bilan.gouttes_bonus), (33, Some(2)));
             } else {
                 assert_eq!(
                     (app.bilan.gouttes, app.bilan.gouttes_bonus),
