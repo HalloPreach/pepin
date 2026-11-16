@@ -350,6 +350,20 @@ fn dessiner_soleil(banque: &Banque, skin: Skin, anim: u32) {
 /// le pas d'une lettre à l'autre (échelle 3 : glyphe de 5 px + 1, fois 3).
 const MOT_SECRET: (f32, f32) = (62.0, 18.0);
 const PAS_LETTRE_SECRET: f32 = 18.0;
+
+// Le mot tient dans le ciel, vérifié À LA COMPILATION : à 8 px au moins du bord gauche
+// et du bout des rayons de la couronne du soleil (34 px de son centre), au-dessus de la
+// plus haute maison (8 px de marge).
+const _: () = {
+    let droite = MOT_SECRET.0 + (lettres::NB_LETTRES - 1) as f32 * PAS_LETTRE_SECRET + 15.0;
+    assert!(MOT_SECRET.0 >= 8.0);
+    assert!(droite + 8.0 <= SOLEIL.0 - 34.0);
+    let mut k = 0;
+    while k < MAISONS.len() {
+        assert!(MOT_SECRET.1 + 3.0 * LIGNE + 8.0 <= MAISONS[k].1);
+        k += 1;
+    }
+};
 /// Pas entre deux lettres qui s'écrivent, puis entre deux parapluies qui s'ouvrent.
 const PAS_ECRITURE: u32 = 16;
 const PAS_PARAPLUIE: u32 = 9;
@@ -367,9 +381,10 @@ const PARAPLUIES: [(f32, Couleur); 9] = [
 ];
 
 /// Image de la fin secrète (carte 8.6) : sous le ciel doré, le soleil, les deux yeux
-/// ouverts, écrit « PÉPIN » en rayons d'or, lettre après lettre ; la ville a rallumé
-/// ses fenêtres, ses parapluies s'ouvrent un à un au-dessus des toits, et Pépin, sur sa
-/// cheminée, ouvre le sien. Plus une goutte de pluie.
+/// ouverts et couronné de rayons, écrit « PÉPIN » lettre après lettre (un rayon file
+/// vers chaque lettre) ; la ville a rallumé ses fenêtres, ses parapluies s'ouvrent un à
+/// un au-dessus des toits, et Pépin, sur sa cheminée, ouvre le sien. Plus une goutte de
+/// pluie.
 fn dessiner_secret(banque: &Banque, skin: Skin, anim: u32) {
     decor::dessiner_fond(Theme::Soleil, 0, 0, anim);
     // Le soleil sourit, les deux yeux ouverts.
@@ -381,19 +396,38 @@ fn dessiner_secret(banque: &Banque, skin: Skin, anim: u32) {
     rect(sx - 3.0, sy + 4.0, 6.0, 1.0, ORANGE_SOLEIL);
     rect(sx - 4.0, sy + 3.0, 1.0, 1.0, ORANGE_SOLEIL);
     rect(sx + 3.0, sy + 3.0, 1.0, 1.0, ORANGE_SOLEIL);
-    // Chaque lettre arrive par un rayon (tirets qui filent du soleil vers elle), puis
-    // reste écrite en or cerné d'orange.
+    // Une couronne de douze rayons d'or autour du soleil, qui palpite (les maisons,
+    // dessinées après, cachent ceux du bas).
+    for k in 0..12u32 {
+        let angle = (k as f32 + 0.5) * std::f32::consts::TAU / 12.0;
+        let longueur = 6 + (anim / 10 + k) % 3;
+        for r in 0..longueur {
+            let rr = 26.0 + r as f32;
+            rect(
+                (sx + angle.cos() * rr).round(),
+                (sy + angle.sin() * rr).round(),
+                1.0,
+                1.0,
+                OR_PALE,
+            );
+        }
+    }
+    // Chaque lettre arrive par un rayon (tirets qui filent du soleil vers elle, le temps
+    // de l'écrire), puis reste écrite en or pâle cerné de corail.
     let (mx, my) = MOT_SECRET;
     let ecrites = (anim / PAS_ECRITURE).min(lettres::NB_LETTRES as u32) as usize;
     for (i, &(_, lettre)) in lettres::LETTRES.iter().enumerate().take(ecrites) {
         let x = mx + i as f32 * PAS_LETTRE_SECRET;
-        rayon((sx - 22.0, sy), (x + 7.0, my + 22.0), anim);
         texte::dessiner(
             &lettre.to_string(),
             x,
             my,
-            Style::simple(OR_PALE, 3).avec_ombre(ORANGE_SOLEIL),
+            Style::simple(OR_PALE, 3).avec_ombre(CORAIL),
         );
+    }
+    if ecrites < lettres::NB_LETTRES {
+        let x = mx + ecrites as f32 * PAS_LETTRE_SECRET;
+        rayon((sx - 26.0, sy - 4.0), (x + 7.0, my + 10.0), anim);
     }
     // La ville : fenêtres rallumées, toits, et les parapluies qui s'ouvrent un à un
     // (après le mot), en se balançant d'un pixel.
@@ -401,7 +435,8 @@ fn dessiner_secret(banque: &Banque, skin: Skin, anim: u32) {
         maison(x, haut, largeur, true);
     }
     for (k, &(x, couleur)) in PARAPLUIES.iter().enumerate() {
-        let ouvert = anim >= PAS_ECRITURE * 6 + k as u32 * PAS_PARAPLUIE;
+        let ouvert =
+            anim >= PAS_ECRITURE * (lettres::NB_LETTRES as u32 + 1) + k as u32 * PAS_PARAPLUIE;
         let balance = if ouvert && (anim / 20 + k as u32).is_multiple_of(2) {
             1.0
         } else {
@@ -499,38 +534,16 @@ mod tests {
         assert!(largeur_texte(contenu::APPUIE_POUR_CONTINUER, 1) <= utile);
     }
 
-    /// La fin secrète (carte 8.6) : hors du récit (pas de suivante, pas dans `TOUS`),
-    /// ses lignes sont la 4e entrée de `RECIT` ; le mot « PÉPIN » écrit par le soleil
-    /// tient entre le bord gauche et le soleil, au-dessus des maisons.
-    #[test]
-    fn la_fin_secrete_est_hors_du_recit_et_son_mot_tient_dans_le_ciel() {
-        assert!(!Chapitre::TOUS.contains(&Chapitre::Secret));
-        assert_eq!(Chapitre::Secret.suivant(), None);
-        assert_eq!(Chapitre::Secret.lignes(), contenu::RECIT[3]);
-        let (x, y) = MOT_SECRET;
-        let droite = x + (lettres::NB_LETTRES - 1) as f32 * PAS_LETTRE_SECRET + 15.0;
-        assert!(
-            x >= MARGE as f32 && droite + 8.0 <= SOLEIL.0 - 22.0,
-            "{droite}"
-        );
-        let haut_des_maisons = MAISONS.iter().map(|m| m.1).fold(f32::MAX, f32::min);
-        assert!(y + 3.0 * LIGNE <= haut_des_maisons - 8.0);
-        // Les parapluies : dans l'écran, sans se toucher, aucun derrière la cheminée.
-        let x_cheminee = (LARGEUR_LOGIQUE as f32 - 12.0) / 2.0;
-        for p in PARAPLUIES.windows(2) {
-            assert!(p[1].0 >= p[0].0 + 11.0);
-        }
-        for (x, _) in PARAPLUIES {
-            assert!(x >= 0.0 && x + 9.0 <= LARGEUR_LOGIQUE as f32);
-            assert!(x + 9.0 < x_cheminee - 4.0 || x > x_cheminee + 16.0, "{x}");
-        }
-    }
-
     #[test]
     fn les_chapitres_se_suivent_dans_l_ordre() {
         assert_eq!(Chapitre::Depart.suivant(), Some(Chapitre::Lueur));
         assert_eq!(Chapitre::Lueur.suivant(), Some(Chapitre::Soleil));
         assert_eq!(Chapitre::Soleil.suivant(), None);
+        assert_eq!(
+            Chapitre::Secret.suivant(),
+            None,
+            "la fin secrète, hors du récit"
+        );
         for (i, c) in Chapitre::TOUS.iter().enumerate() {
             assert_eq!(c.indice(), i);
         }

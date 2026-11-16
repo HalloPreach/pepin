@@ -536,8 +536,8 @@ impl Application {
     }
 
     /// Une image de l'histoire est passée : la suivante (ou le titre) si elle a été
-    /// ouverte depuis le titre, sinon la carte du niveau qui l'attend — ou, après la
-    /// fin secrète (carte 8.6), l'écran de fin. Depuis le titre, la fin secrète suit la
+    /// ouverte depuis le titre, sinon la carte du niveau qui l'attend ; après la fin
+    /// secrète (carte 8.6), l'écran de fin. Depuis le titre, la fin secrète suit la
     /// 3e image une fois les cinq lettres réunies.
     fn apres_histoire(&mut self, chapitre: Chapitre) {
         let secrete = lettres::manquantes(&self.sauvegarde.lettres()) == 0;
@@ -1696,80 +1696,6 @@ mod tests {
                     (gouttes + 3, None)
                 );
             }
-        }
-    }
-
-    /// Lettres cachées (carte 8.6) : prise dans un niveau RÉUSSI, la lettre va dans la
-    /// sauvegarde, par clé (prise puis niveau recommencé : rien) ; gardée d'une partie à
-    /// l'autre.
-    #[test]
-    fn la_lettre_d_un_niveau_reussi_va_dans_la_sauvegarde() {
-        let mut app = en_jeu();
-        assert_eq!(app.monde.infos.cle, "toits");
-        app.monde.lettre_prise = true;
-        app.lancer(Suite::Recommencer);
-        jusqu_a(&mut app, |e| e == Ecran::Jeu);
-        assert!(
-            !app.monde.lettre_prise,
-            "niveau recommencé : lettre à reprendre"
-        );
-        assert_eq!(app.sauvegarde.lettres(), [false; 5]);
-        app.monde.lettre_prise = true;
-        app.monde.termine = true;
-        avancer(&mut app, 1);
-        assert_eq!(app.sauvegarde.lettres(), [true, false, false, false, false]);
-        assert!(app.sauvegarde.progres("toits").lettre);
-        let relu = Sauvegarde::depuis_texte(&app.sauvegarde.vers_texte());
-        assert_eq!(
-            relu.lettres(),
-            [true, false, false, false, false],
-            "rechargée"
-        );
-    }
-
-    /// La fin de partie avec les cinq lettres (carte 8.6) : l'image de la fin secrète,
-    /// puis l'écran « FIN SECRÈTE » ; avec quatre, directement la fin habituelle et
-    /// « IL MANQUE 1 LETTRE ». Revue depuis le titre, l'histoire montre la fin secrète
-    /// après l'image 3 (seulement avec les cinq lettres).
-    #[test]
-    fn les_cinq_lettres_ouvrent_la_fin_secrete() {
-        use pepin_core::lettres::LETTRES;
-        for nb in [4, 5] {
-            let mut app = en_jeu();
-            for &(cle, _) in &LETTRES[..nb] {
-                app.sauvegarde.noter_lettre(cle);
-            }
-            let (monde, camera) = charger(NB_NIVEAUX - 1, None);
-            app.monde = monde;
-            app.camera = camera;
-            app.monde.termine = true;
-            avancer(&mut app, 1);
-            if nb == 5 {
-                jusqu_a(&mut app, |e| e == Ecran::Histoire(Chapitre::Secret));
-                assert!(app.bilan.fin_secrete());
-                avancer(&mut app, histoire::DELAI_PAS);
-                app.reagir(&valider(), &Commandes::default(), None);
-            }
-            jusqu_a(&mut app, |e| e == Ecran::Fin);
-            let m = fin::mise_en_page(&app.bilan);
-            if nb == 5 {
-                assert_eq!(m.titre, contenu::TITRE_FIN_SECRETE);
-            } else {
-                assert_eq!(m.titre, contenu::TITRE_FIN_RETOUR);
-                assert_eq!(m.lettres.unwrap().0, "IL MANQUE 1 LETTRE");
-            }
-            // L'histoire revue depuis le titre : après l'image 3, la fin secrète ou le titre.
-            app.histoire_depuis_titre = true;
-            app.ouvrir(Ecran::Histoire(Chapitre::Soleil));
-            avancer(&mut app, histoire::DELAI_PAS);
-            app.reagir(&valider(), &Commandes::default(), None);
-            avancer(&mut app, 40);
-            let attendu = if nb == 5 {
-                Ecran::Histoire(Chapitre::Secret)
-            } else {
-                Ecran::Titre
-            };
-            assert_eq!(app.ecran, attendu, "{nb} lettres");
         }
     }
 

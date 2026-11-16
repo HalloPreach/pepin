@@ -53,8 +53,13 @@ mod tests {
     use crate::entities::Entite;
     use crate::levels::{indice_de_cle, GenreNiveau, NIVEAUX};
 
+    /// Le seul test de la mécanique (carte 8.6) : les lettres écrivent « PÉPIN » dans
+    /// l'ordre du parcours, chacune dans un niveau NORMAL différent, du début (deux
+    /// premiers niveaux) à la fin (8e niveau ou plus) ; une case `*` dans chacun de ces
+    /// niveaux et dans eux seuls, toujours derrière un faux mur (dans une zone cachée) :
+    /// jamais sur le chemin. Et le compte de celles qui manquent.
     #[test]
-    fn les_lettres_ecrivent_pepin_dans_l_ordre_du_parcours() {
+    fn chaque_lettre_de_pepin_est_cachee_dans_son_niveau() {
         let mot: String = LETTRES.iter().map(|&(_, l)| l).collect();
         assert_eq!(mot, "PÉPIN");
         let indices: Vec<usize> = LETTRES
@@ -62,20 +67,7 @@ mod tests {
             .map(|&(cle, _)| indice_de_cle(NIVEAUX, cle).expect("clé de la table"))
             .collect();
         assert!(indices.windows(2).all(|p| p[0] < p[1]), "{indices:?}");
-        // Cinq niveaux NORMAUX différents, du début (deux premiers tiers du jeu
-        // compris) à la fin du parcours.
-        for &i in &indices {
-            assert_eq!(NIVEAUX[i].genre, GenreNiveau::Normal);
-        }
         assert!(indices[0] <= 1 && indices[4] >= 7, "{indices:?}");
-        assert_eq!(rang_du_niveau("orage"), Some(2));
-        assert_eq!(rang_du_niveau("cyclone"), None);
-    }
-
-    /// Une case `*` dans chaque niveau de la table, et seulement eux ; chaque lettre
-    /// est derrière un faux mur (dans une zone cachée) : pas sur le chemin.
-    #[test]
-    fn chaque_lettre_est_cachee_dans_son_niveau() {
         for infos in NIVEAUX {
             let n = infos.charger().unwrap();
             let lettres: Vec<_> = n
@@ -88,6 +80,9 @@ mod tests {
                 .collect();
             let attendu = usize::from(rang_du_niveau(infos.cle).is_some());
             assert_eq!(lettres.len(), attendu, "{}", infos.cle);
+            if attendu == 1 {
+                assert_eq!(infos.genre, GenreNiveau::Normal, "{}", infos.cle);
+            }
             for b in lettres {
                 assert!(
                     n.caches.iter().any(|z| z.touche(&b)),
@@ -96,13 +91,10 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn trouvees_et_manquantes() {
         let t = trouvees(|cle| cle == "toits" || cle == "mer");
         assert_eq!(t, [true, false, false, false, true]);
         assert_eq!(manquantes(&t), 3);
-        assert_eq!(manquantes(&[true; NB_LETTRES]), 0);
+        assert_eq!(lettre_du_niveau("orage"), Some('P'));
+        assert_eq!(lettre_du_niveau("cyclone"), None);
     }
 }

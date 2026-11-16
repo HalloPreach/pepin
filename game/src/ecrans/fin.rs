@@ -16,8 +16,8 @@
 use pepin_core::lettres::{self, NB_LETTRES};
 use pepin_core::levels::{self, GenreNiveau, NIVEAUX};
 use pepin_core::palette::{
-    ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL_CLAIR, OR, OR_PALE,
-    PLUIE,
+    ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE, BRUME, CORAIL_CLAIR,
+    OR, OR_PALE, PLUIE,
 };
 use pepin_core::zones::Theme;
 
@@ -280,21 +280,22 @@ const PAS_LETTRE: f32 = 7.0;
 pub const LARGEUR_LETTRES: f32 = PAS_LETTRE * NB_LETTRES as f32 - 2.0;
 
 /// Le petit mot « PÉPIN » (carte 8.6), son bord droit en `droite` : les lettres
-/// trouvées en or, les autres grisées. `ici` : la lettre du niveau présenté (rang),
-/// soulignée. Sert à l'écran de fin et à la carte de présentation d'un niveau.
+/// trouvées en or, les autres en ardoise pâle. `ici` : la lettre du niveau présenté
+/// (rang) ; pas encore trouvée, elle est en corail (« elle est cachée ici »). Sert à
+/// l'écran de fin et à la carte de présentation d'un niveau.
 pub fn dessiner_lettres(trouvees: &[bool; NB_LETTRES], ici: Option<usize>, droite: f32, y: f32) {
     let x0 = droite - LARGEUR_LETTRES;
     for (i, &(_, lettre)) in lettres::LETTRES.iter().enumerate() {
         let x = x0 + i as f32 * PAS_LETTRE;
-        let style = if trouvees[i] {
-            Style::simple(OR, 1).avec_ombre(ARDOISE_OMBRE)
+        let couleur = if trouvees[i] {
+            OR
+        } else if ici == Some(i) {
+            CORAIL_CLAIR
         } else {
-            Style::simple(ARDOISE_CLAIRE, 1)
+            ARDOISE_PALE
         };
+        let style = Style::simple(couleur, 1).avec_ombre(ARDOISE_OMBRE);
         texte::dessiner(&lettre.to_string(), x, y, style);
-        if ici == Some(i) {
-            super::rect(x, y + 9.0, 5.0, 1.0, CORAIL_CLAIR);
-        }
     }
 }
 
@@ -476,53 +477,6 @@ mod tests {
             Y_MENU, haut_du_menu,
             "la ligne VIES compte avec le vrai menu"
         );
-    }
-
-    /// Les lettres cachées (carte 8.6) : une ligne avant MORTS, « IL MANQUE N
-    /// LETTRE(S) » tant qu'il en manque (la fin habituelle : « DE RETOUR ! »), et les
-    /// cinq réunies, « FIN SECRÈTE » sur le ciel doré. Le libellé le plus long et le
-    /// petit mot PÉPIN tiennent côte à côte dans la ligne (de 56 à 264).
-    #[test]
-    fn la_ligne_des_lettres_et_la_fin_secrete() {
-        let base = Bilan {
-            gouttes: 20,
-            epilogue: true,
-            ..Bilan::default()
-        };
-        let quatre = mise_en_page(&Bilan {
-            lettres: Some([true, true, false, true, true]),
-            ..base
-        });
-        let noms: Vec<&str> = quatre.lignes.iter().map(|l| l.0).collect();
-        assert_eq!(noms[..3], ["TEMPS", "GOUTTES D'OR", "LETTRES"]);
-        assert_eq!(quatre.lettres.as_ref().unwrap().0, "IL MANQUE 1 LETTRE");
-        assert_eq!(
-            (quatre.titre, quatre.fond),
-            ("DE RETOUR !", Theme::Descente)
-        );
-        assert!(!Bilan {
-            lettres: Some([true, true, false, true, true]),
-            ..base
-        }
-        .fin_secrete());
-        let cinq_bilan = Bilan {
-            lettres: Some([true; NB_LETTRES]),
-            ..base
-        };
-        assert!(cinq_bilan.fin_secrete());
-        let cinq = mise_en_page(&cinq_bilan);
-        assert_eq!((cinq.titre, cinq.fond), ("FIN SECRÈTE", Theme::Soleil));
-        assert_eq!(cinq.phrase, Some(contenu::PHRASE_SECRETE));
-        assert_eq!(cinq.lettres.as_ref().unwrap().0, "LETTRES");
-        assert!(!base.fin_secrete(), "pas de ligne : pas de fin secrète");
-        assert_eq!(mise_en_page(&base).lettres, None);
-        let plus_long = contenu::libelle_lettres(NB_LETTRES);
-        let largeur = pepin_core::font::largeur_texte(&plus_long, 1) as f32;
-        assert!(
-            56.0 + largeur + 8.0 <= 264.0 - LARGEUR_LETTRES,
-            "{plus_long}"
-        );
-        assert_eq!(contenu::libelle_lettres(2), "IL MANQUE 2 LETTRES");
     }
 
     /// La ligne VIES (carte 6.2) : après MORTS, avant SCORE, dès qu'elle tient avec

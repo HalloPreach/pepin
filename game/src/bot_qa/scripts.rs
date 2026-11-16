@@ -1208,15 +1208,18 @@ fn ecrire_scripts_secrets_85() {
 
 /// Carte 8.6 (lettres cachées) : scripts des captures `86l-`, dans `target/qa/`. La
 /// partie COMPLÈTE du robot dans chacun des cinq niveaux à lettre (elle prend la
-/// lettre ; colonne `lettre` de la trace) : `86l-N` ; la descente par le chemin
-/// normal, pour finir une partie dans le navigateur (fin habituelle ou secrète selon
-/// la sauvegarde) : `86lf-N`.
+/// lettre ; colonne `lettre` de la trace) : `86l-N` ; au clocher, aussi le parcours
+/// SECRET (`86ls-N`) : la lettre est dans la salle de la sortie secrète, il la prend en
+/// passant et finit tout de suite (la partie complète, elle, ressort de la salle et
+/// monte jusqu'en haut de la tour : dans le navigateur, son rejeu glisse d'une image
+/// avant le drapeau) ; la descente par le chemin normal, pour finir une partie dans le
+/// navigateur (fin habituelle ou secrète selon la sauvegarde) : `86lf-N`.
 /// Lancer avec : cargo test -p game --no-default-features -- --ignored --exact
 /// bot_qa::scripts::ecrire_scripts_lettres_86l
 #[test]
 #[ignore]
 fn ecrire_scripts_lettres_86l() {
-    use crate::bot_qa::trouver_parcours_complet;
+    use crate::bot_qa::{trouver_parcours_complet, trouver_parcours_secret};
     use pepin_core::lettres::LETTRES;
     use pepin_core::levels::{descente, indice_de_cle, NIVEAUX};
     let complet =
@@ -1226,6 +1229,9 @@ fn ecrire_scripts_lettres_86l() {
         .map(|&(cle, _)| (indice_de_cle(NIVEAUX, cle).unwrap(), &[][..]))
         .collect();
     ecrire_scripts_des_parcours("86l", &lettres, &complet);
+    let secret = |i| trouver_parcours_secret(i, false).or_else(|| trouver_parcours_secret(i, true));
+    let clocher = indice_de_cle(NIVEAUX, "clocher").unwrap();
+    ecrire_scripts_des_parcours("86ls", &[(clocher, &[][..])], &secret);
     let fin = NIVEAUX
         .iter()
         .position(|n| n.nom == descente::INFOS.nom)

@@ -592,7 +592,7 @@ mod tests {
             meilleur_temps: Some(2345),
             defis: [true, true, false],
             medaille: 2,
-            lettre: false,
+            lettre: true,
         };
         assert!(s.crediter_bonus("sans_game_over"));
         assert!(!s.crediter_bonus("sans_game_over"), "une seule fois");
@@ -601,6 +601,8 @@ mod tests {
         assert!(!s.equiper("motif:pois"), "pas acheté");
         s.normaliser();
         assert_eq!(Sauvegarde::depuis_texte(&s.vers_texte()), s);
+        // La lettre cachée du marché (carte 8.6), la 2e du mot, relue avec le reste.
+        assert_eq!(s.lettres(), [false, true, false, false, false]);
         assert!(s.progres("clocher").atteint);
         assert_eq!(s.niveaux.len(), 2, "hors de la table : rien de noté");
         assert_eq!(s.equipe("skin"), Some("pepinette"));

@@ -41,7 +41,7 @@ fn echelle_nom(nom: &str) -> u32 {
 
 /// `indice` : place du niveau dans la table ; `infos` : le niveau ; `anim` : pas écoulés
 /// (clignotement) ; `lettres` : les lettres cachées déjà trouvées (carte 8.6), en
-/// petit en haut à droite, celle de ce niveau soulignée.
+/// petit en haut à droite, celle de ce niveau en corail tant qu'elle n'est pas trouvée.
 pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32, lettres: &[bool; NB_LETTRES]) {
     let nom = titre_niveau(infos.nom);
     let nom = nom.as_str();
