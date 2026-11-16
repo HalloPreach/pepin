@@ -78,6 +78,29 @@ pub const NIVEAUX: &[InfosNiveau] = &[
 /// Nombre de niveaux du jeu (bonus et épilogue compris).
 pub const NB_NIVEAUX: usize = NIVEAUX.len();
 
+/// Défi « SANS PLANER » (carte 7.3) : le niveau de même rang dans `NIVEAUX` se
+/// finit-il sans JAMAIS ouvrir le parapluie ? Ailleurs, le défi devient « LES 3
+/// GOUTTES ».
+///
+/// Résultat du robot de faisabilité (`faisabilite::analyser`, parapluie interdit,
+/// courants et vents gardés), lancé UNE fois et recopié ici à la main. Le test
+/// ignoré `sans_planer_possible_d_apres_le_robot` le relance (à refaire si une
+/// grille change) :
+/// `./docker-cargo.sh test -p core --release -- --ignored sans_planer_possible`.
+pub const SANS_PLANER_POSSIBLE: [bool; NB_NIVEAUX] = [
+    false, // 1 toits
+    true,  // 2 gouttières
+    true,  // 3 marché
+    true,  // 4 orage
+    false, // 5 clocher
+    true,  // 6 cyclone
+    true,  // 7 vents
+    false, // 8 mer
+    true,  // 9 nuages (boss)
+    false, // 10 arc (bonus)
+    true,  // 11 descente (épilogue)
+];
+
 /// Ce qui vient après un niveau terminé.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Apres {
@@ -218,6 +241,28 @@ mod tests {
             ascii: "",
             aiguilles: &[],
         }
+    }
+
+    /// Relance le robot de faisabilité, parapluie interdit, sur chaque niveau et
+    /// compare à `SANS_PLANER_POSSIBLE` (lent : ignoré, voir la doc de la table).
+    #[test]
+    #[ignore]
+    fn sans_planer_possible_d_apres_le_robot() {
+        use crate::faisabilite::{analyser, Options};
+        let sans_planer = Options {
+            planer: false,
+            ..Options::default()
+        };
+        let mesure: Vec<bool> = NIVEAUX
+            .iter()
+            .map(|n| {
+                let niveau = n.charger().expect("niveau valide");
+                let r = analyser(&niveau, niveau.depart, sans_planer);
+                println!("{} {} : sans planer {}", n.numero, n.nom, r.arrivee);
+                r.arrivee
+            })
+            .collect();
+        assert_eq!(mesure, SANS_PLANER_POSSIBLE);
     }
 
     /// Une fausse table rangée dans l'ordre donné.

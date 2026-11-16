@@ -23,6 +23,7 @@ pub mod carte;
 pub mod fin;
 pub mod pause;
 pub mod plus_de_vies;
+pub mod resultats;
 pub mod titre;
 
 /// L'écran affiché.

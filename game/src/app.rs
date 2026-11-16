@@ -22,9 +22,11 @@ use pepin_core::state::EtatJeu;
 use crate::boutique::{self, EtatBoutique};
 use crate::camera::Camera;
 use crate::contenu;
+use crate::defis::{self, LigneBonus, ResultatNiveau, Tentative};
 use crate::ecrans::fin::{self, Bilan};
 use crate::ecrans::{
-    self, aide, boutique as ecran_boutique, carte, pause, plus_de_vies, titre, Disposition, Ecran,
+    self, aide, boutique as ecran_boutique, carte, pause, plus_de_vies, resultats, titre,
+    Disposition, Ecran,
 };
 use crate::effets::effets;
 use crate::entrees::{self, Commandes, RaccourciNiveau};
@@ -133,6 +135,19 @@ pub struct Application {
     pub skin: Skin,
     /// L'écran boutique : onglet, ligne choisie, dialogue (carte 7.5).
     boutique: EtatBoutique,
+    /// Tentative en cours du niveau (carte 7.3) : ce que les défis regardent. Remise à
+    /// zéro à chaque (re)chargement du niveau.
+    tentative: Tentative,
+    /// Morts de la partie au début de la tentative (les morts d'une tentative sont
+    /// la différence).
+    morts_debut_tentative: u32,
+    /// Défis du dernier niveau réussi : montrés sous la carte du niveau suivant, puis
+    /// sur l'écran de fin (carte 7.3).
+    resultat_niveau: Option<ResultatNiveau>,
+    /// Un « plus de vies » a eu lieu dans la partie (bonus de fin « sans game over »).
+    game_over_partie: bool,
+    /// Bonus de la partie qui vient de finir (écran de fin).
+    bonus_fin: [LigneBonus; 3],
 }
 
 impl Application {
@@ -163,6 +178,11 @@ impl Application {
             nouveau_record: false,
             skin: Skin::default(),
             boutique: EtatBoutique::new(),
+            tentative: Tentative::default(),
+            morts_debut_tentative: 0,
+            resultat_niveau: None,
+            game_over_partie: false,
+            bonus_fin: defis::bonus_fin(false, false),
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -384,6 +404,8 @@ impl Application {
             match self.ecran {
                 Ecran::Carte(n) => {
                     self.ecran = if n <= 1 {
+                        // Les défis du niveau précédent ont été vus.
+                        self.resultat_niveau = None;
                         Ecran::Jeu
                     } else {
                         Ecran::Carte(n - 1)
@@ -441,17 +463,29 @@ impl Application {
             self.camera.y,
         );
         self.pas_partie += 1;
+        // Défis (carte 7.3) : on regarde seulement, rien ne change dans le jeu.
+        self.tentative.pas += 1;
+        self.tentative.a_plane |= self.monde.joueur.plane;
+        self.tentative.morts = self.monde.etat.morts - self.morts_debut_tentative;
         // La dernière vie perdue : l'écran « plus de vies », puis le niveau recommence
         // (avant tout, même si ce pas-là finissait aussi le niveau).
         if self.monde.etat.vies.plus_de_vies() {
+            self.game_over_partie = true;
             self.ouvrir(Ecran::PlusDeVies(plus_de_vies::DUREE_PAS));
             return;
         }
         if self.monde.termine {
             // Niveau réussi (bonus compris) : ses gouttes vont au porte-monnaie, tout de
             // suite enregistré. Celles d'un niveau raté ne comptent pas : elles sont
-            // remises à zéro quand le niveau recommence.
-            self.sauvegarde.ajouter_gouttes(self.gouttes_du_niveau());
+            // remises à zéro quand le niveau recommence. Les défis (carte 7.3) sont
+            // notés au passage, et leurs premières réussites créditées.
+            self.tentative.gouttes = self.monde.gouttes_niveau;
+            self.resultat_niveau = Some(defis::noter_niveau(
+                &mut self.sauvegarde,
+                self.monde.indice,
+                self.monde.infos,
+                &self.tentative,
+            ));
             self.sauvegarde.enregistrer();
             // Le bonus fini : ses gouttes sont mises à part (compteur, écran de fin).
             if self.monde.infos.genre == GenreNiveau::Bonus {
@@ -482,6 +516,8 @@ impl Application {
                 if etat.is_none() {
                     self.pas_partie = 0;
                     self.gouttes_bonus = None;
+                    self.game_over_partie = false;
+                    self.resultat_niveau = None;
                 }
                 self.recharger(indice, etat);
                 self.anim = 0;
@@ -516,6 +552,11 @@ impl Application {
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
                 };
                 self.nouveau_record = self.sauvegarde.noter_partie(e.score, self.pas_partie);
+                // Bonus de fin de partie (carte 7.3), à chaque partie finie.
+                let toutes = self.bilan.gouttes >= levels::gouttes_du_parcours(NIVEAUX);
+                self.bonus_fin = defis::bonus_fin(!self.game_over_partie, toutes);
+                self.sauvegarde
+                    .ajouter_gouttes(defis::total_bonus(&self.bonus_fin));
                 self.sauvegarde.enregistrer();
                 self.ouvrir(Ecran::Fin);
             }
@@ -533,6 +574,13 @@ impl Application {
         self.monde = monde;
         self.camera = camera;
         self.eclat_vie = 0;
+        self.nouvelle_tentative();
+    }
+
+    /// Le niveau (re)commence : une nouvelle tentative pour les défis.
+    fn nouvelle_tentative(&mut self) {
+        self.tentative = Tentative::default();
+        self.morts_debut_tentative = self.monde.etat.morts;
     }
 
     /// Recharge le niveau EN COURS tout neuf (entités, Grand Nuage, gouttes) avec
@@ -545,6 +593,7 @@ impl Application {
         self.monde = monde;
         self.camera = camera;
         self.eclat_vie = 0;
+        self.nouvelle_tentative();
     }
 
     // --- Dessin --------------------------------------------------------------------
@@ -620,6 +669,14 @@ impl Application {
                     _ => {}
                 }
             }
+        }
+        // Défis et bonus (carte 7.3), sous la carte du niveau suivant ou l'écran de fin.
+        match (self.ecran, &self.resultat_niveau) {
+            (Ecran::Carte(_), Some(r)) => resultats::dessiner_bande_niveau(r),
+            (Ecran::Fin, r) => {
+                resultats::dessiner_bande_fin(r.as_ref(), &self.bonus_fin, self.anim)
+            }
+            _ => {}
         }
         self.transition.dessiner();
     }
