@@ -1,7 +1,8 @@
 //! Mesure de difficulté : combien de fois un joueur « imparfait » meurt-il dans
-//! chaque niveau ? Une mesure REPRODUCTIBLE (graine fixe), à relancer avant et
-//! après chaque changement de niveau, d'ennemi ou de mécanique (voir QA.md,
-//! section « Mesure de difficulté »).
+//! chaque niveau ? Une mesure REPRODUCTIBLE (graine fixe). Depuis la carte 6.5,
+//! elle est FACULTATIVE : AGA juge la difficulté en jouant, et on ne la lance
+//! (ainsi que le juge de la courbe, `courbe_de_difficulte_dans_les_bandes`, ignoré)
+//! qu'à sa demande (voir QA.md, section « Mesure de difficulté »).
 //!
 //! Principe : « intention parfaite, exécution imparfaite ».
 //! 1. Pour chaque niveau, on explore toutes les cases où Pépin peut se poser
@@ -1713,7 +1714,8 @@ mod tests {
     /// LA MESURE : `./docker-cargo.sh test -p game --no-default-features
     /// mesure_de_difficulte -- --ignored --nocapture`. Affiche le tableau et
     /// l'écrit dans `docs/mesure-difficulte.txt` (versionné : `git diff` montre
-    /// l'effet d'une carte sur la difficulté).
+    /// l'effet d'une carte sur la difficulté). Depuis la carte 6.5 : seulement à la
+    /// demande d'AGA, les cartes ne la relancent plus.
     #[test]
     #[ignore]
     fn mesure_de_difficulte() {
@@ -1943,11 +1945,19 @@ mod tests {
         }
     }
 
-    /// NON-RÉGRESSION DE LA COURBE : la vraie mesure (graine officielle, mêmes
-    /// chiffres que `docs/mesure-difficulte.txt`) garde la forme voulue par les
-    /// cartes 3.3 et 5.18. Si une retouche de niveau, d'ennemi ou de mécanique la casse,
-    /// ce test le dit (environ 30 s : 15 fils d'exécution en parallèle).
+    /// JUGE DE LA COURBE : la vraie mesure (graine officielle, mêmes chiffres que
+    /// `docs/mesure-difficulte.txt`) garde-t-elle la forme voulue par les cartes 3.3
+    /// et 5.18 ?
+    ///
+    /// IGNORÉ depuis la carte 6.5, par décision d'AGA (2026-11-16) : AGA juge
+    /// lui-même la difficulté en jouant. Ce test relançait toute la mesure dans la
+    /// suite normale et la faisait échouer dès qu'une retouche de niveau déplaçait
+    /// la courbe : les retouches ne doivent plus être ralenties ni bloquées par
+    /// lui. L'outil reste là, à lancer À LA MAIN quand AGA le demande (voir
+    /// « Mesure de difficulté : facultative » dans `QA.md`) :
+    /// `./docker-cargo.sh test -p game --no-default-features courbe_de_difficulte_dans_les_bandes -- --ignored`
     #[test]
+    #[ignore = "mesure de difficulté facultative (décision d'AGA, carte 6.5) : se lance à la main"]
     fn courbe_de_difficulte_dans_les_bandes() {
         let cases = mesurer(GRAINE, ESSAIS);
         let ecarts = ecarts_de_la_courbe(&cases);
