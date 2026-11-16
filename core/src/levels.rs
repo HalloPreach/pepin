@@ -78,6 +78,51 @@ pub const NIVEAUX: &[InfosNiveau] = &[
 /// Nombre de niveaux du jeu (bonus et épilogue compris).
 pub const NB_NIVEAUX: usize = NIVEAUX.len();
 
+// Les CLÉS de la table (carte 7.9) sont vérifiées À LA COMPILATION : chacune est un
+// identifiant (minuscules, chiffres, `_`) et aucune n'est en double. Une clé fautive
+// ou répétée empêche le jeu de compiler, avant même les tests.
+const _: () = assert!(cles_valides(NIVEAUX), "clé de niveau invalide ou en double");
+
+/// Indice dans `niveaux` du niveau de clé `cle` (`None` : inconnue).
+pub fn indice_de_cle(niveaux: &[InfosNiveau], cle: &str) -> Option<usize> {
+    niveaux.iter().position(|n| n.cle == cle)
+}
+
+/// Les clés sont-elles des identifiants, toutes différentes ? Fonction `const`
+/// (boucles `while` et octets, `==` sur `&str` n'étant pas permis en `const`).
+const fn cles_valides(niveaux: &[InfosNiveau]) -> bool {
+    let mut i = 0;
+    while i < niveaux.len() {
+        let a = niveaux[i].cle.as_bytes();
+        if a.is_empty() || a.len() > 32 {
+            return false;
+        }
+        let mut k = 0;
+        while k < a.len() {
+            if !(a[k].is_ascii_lowercase() || a[k].is_ascii_digit() || a[k] == b'_') {
+                return false;
+            }
+            k += 1;
+        }
+        let mut j = i + 1;
+        while j < niveaux.len() {
+            let b = niveaux[j].cle.as_bytes();
+            if a.len() == b.len() {
+                let mut k = 0;
+                while k < a.len() && a[k] == b[k] {
+                    k += 1;
+                }
+                if k == a.len() {
+                    return false;
+                }
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    true
+}
+
 /// Défi « SANS PLANER » (carte 7.3) : le niveau de même rang dans `NIVEAUX` se
 /// finit-il sans JAMAIS ouvrir le parapluie ? Ailleurs, le défi devient « LES 3
 /// GOUTTES ».
@@ -232,6 +277,7 @@ mod tests {
     const fn faux(numero: u8, genre: GenreNiveau) -> InfosNiveau {
         InfosNiveau {
             numero,
+            cle: "faux",
             nom: "faux",
             theme: Theme::Toits,
             genre,

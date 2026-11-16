@@ -33,6 +33,7 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 10,
+    cle: "arc",
     nom: "L'arc-en-ciel",
     theme: Theme::ArcEnCiel,
     genre: GenreNiveau::Bonus,

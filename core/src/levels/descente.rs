@@ -47,6 +47,7 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 11,
+    cle: "descente",
     nom: "La descente",
     theme: Theme::Descente,
     genre: GenreNiveau::Epilogue,

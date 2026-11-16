@@ -2,10 +2,12 @@
 //! la bande sous l'écran de fin de partie.
 //!
 //! - `dessiner_bande_niveau` : sur la carte du niveau suivant, « NIVEAU RÉUSSI :
-//!   ARGENT, +9 GOUTTES » puis la ligne des 3 défis (cases cochées ou non) ;
+//!   ARGENT, +9 GOUTTES » (le gain RÉEL, +0 possible, carte 7.9) puis la ligne des 3
+//!   défis (cases cochées ou non), qui alterne avec « 2 GOUTTES DÉJÀ COMPTÉES » quand
+//!   des gouttes ramassées avaient déjà été créditées ;
 //! - `dessiner_bande_fin` : sous l'écran de fin, une seule ligne (la place manque) qui
 //!   alterne toutes les 3 s entre les défis du dernier niveau et le détail du bonus
-//!   de fin de partie (gagné en or, raté en gris).
+//!   de fin de partie (gagné en or, déjà crédité en brume avec « +0 », raté en gris).
 //!
 //! Les petites icônes (case, médaille) sont des grilles de caractères, 1 caractère
 //! = 1 pixel, comme les sprites ; elles sont posées pixel par pixel (`rect`).
@@ -18,6 +20,7 @@ use pepin_core::palette::{
 use pepin_core::LARGEUR_LOGIQUE;
 
 use super::{panneau, rect};
+use crate::contenu;
 use crate::defis::{total_bonus, LigneBonus, ResultatNiveau};
 use crate::texte::{self, Style};
 
@@ -36,6 +39,9 @@ pub const ECART_ICONE: f32 = 2.0;
 const ECART_DEFI: f32 = 5.0;
 /// Pas de la bande de fin entre ses deux pages (3 s).
 const PAGE_FIN: u32 = 180;
+/// Pas de la bande de niveau entre ses deux pages (2 s), s'il y a des gouttes déjà
+/// comptées.
+const PAGE_NIVEAU: u32 = 120;
 
 fn ombre(c: Couleur) -> Style {
     Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE)
@@ -137,25 +143,38 @@ pub fn entete(r: &ResultatNiveau) -> String {
     )
 }
 
+/// « 2 GOUTTES DÉJÀ COMPTÉES » si des gouttes ramassées avaient déjà été créditées.
+pub fn ligne_deja(r: &ResultatNiveau) -> Option<String> {
+    (r.deja_comptees > 0).then(|| contenu::deja_comptees(r.deja_comptees))
+}
+
 /// Bande sous la carte du niveau suivant (y 148 à 178 : sous le panneau de la carte).
-pub fn dessiner_bande_niveau(r: &ResultatNiveau) {
+/// La seconde ligne alterne (toutes les 2 s) entre les défis et les gouttes déjà
+/// comptées, s'il y en a.
+pub fn dessiner_bande_niveau(r: &ResultatNiveau, anim: u32) {
     let l = LARGEUR_LOGIQUE as f32;
     panneau(12.0, 148.0, l - 24.0, 30.0, ARDOISE_NUIT, ARDOISE_CLAIRE);
     let titre = entete(r);
     let x = ((l - largeur_texte(&titre, 1) as f32 - L_ICONE - ECART_ICONE) / 2.0).round();
     icone_medaille(x, 152.0, r.medaille);
     texte::dessiner(&titre, x + L_ICONE + ECART_ICONE, 152.0, ombre(OR_PALE));
-    ligne_defis(r, 165.0, false);
+    match ligne_deja(r) {
+        Some(deja) if (anim / PAGE_NIVEAU) % 2 == 1 => {
+            texte::dessiner_centre(&deja, 165.0, ombre(BRUME))
+        }
+        _ => ligne_defis(r, 165.0, false),
+    }
 }
 
-/// Texte du bonus de fin : `(morceau, gagné ?)`, à poser côte à côte.
-pub fn morceaux_bonus(bonus: &[LigneBonus]) -> Vec<(String, bool)> {
-    let mut v = vec![(format!("BONUS +{}", total_bonus(bonus)), true)];
-    v.extend(
-        bonus
-            .iter()
-            .map(|l| (format!("{} +{}", l.nom, l.gouttes), l.gagne)),
-    );
+/// Texte du bonus de fin : `(morceau, couleur)`, à poser côte à côte. Une ligne
+/// gagnée mais déjà créditée (carte 7.9) rapporte « +0 », en brume.
+pub fn morceaux_bonus(bonus: &[LigneBonus]) -> Vec<(String, Couleur)> {
+    let mut v = vec![(format!("BONUS +{}", total_bonus(bonus)), OR_PALE)];
+    v.extend(bonus.iter().map(|l| match (l.gagne, l.deja) {
+        (true, true) => (format!("{} +0", l.nom), BRUME),
+        (true, false) => (format!("{} +{}", l.nom, l.gouttes), OR_PALE),
+        (false, _) => (format!("{} +{}", l.nom, l.gouttes), ARDOISE_PALE),
+    }));
     v
 }
 
@@ -174,9 +193,8 @@ pub fn dessiner_bande_fin(dernier: Option<&ResultatNiveau>, bonus: &[LigneBonus]
                 .sum::<f32>()
                 + ECART_DEFI * (morceaux.len() - 1) as f32;
             let mut x = ((LARGEUR_LOGIQUE as f32 - largeur) / 2.0).round();
-            for (t, gagne) in &morceaux {
-                let couleur = if *gagne { OR_PALE } else { ARDOISE_PALE };
-                texte::dessiner(t, x, 171.0, ombre(couleur));
+            for (t, couleur) in &morceaux {
+                texte::dessiner(t, x, 171.0, ombre(*couleur));
                 x += largeur_texte(t, 1) as f32 + ECART_DEFI;
             }
         }

@@ -15,16 +15,23 @@
 //! nombre de défis réussis dans une même tentative (1 bronze, 2 argent, 3 or), la
 //! meilleure de toutes les tentatives.
 //!
-//! Revenus (constantes réglables en une ligne, `GAIN_*`) : chaque défi réussi pour
-//! la PREMIÈRE fois, puis la PREMIÈRE médaille d'or du niveau (pas de farm : rejouer
-//! un défi déjà réussi ne rapporte plus rien) ; à chaque partie finie, le bonus de
-//! fin (`bonus_fin`). Les gouttes ramassées, elles, créditent toujours le
-//! porte-monnaie à chaque niveau réussi, comme à la carte 7.2.
+//! Revenus (constantes réglables en une ligne, `GAIN_*`). RÈGLE de la carte 7.9 :
+//! CHAQUE RÉCOMPENSE N'EST CRÉDITÉE QU'UNE FOIS (pas de farm avec REJOUER) :
+//! - une goutte d'or (clé du niveau + numéro de la goutte) : la première fois qu'elle
+//!   est ramassée dans un niveau RÉUSSI ;
+//! - un défi : la première fois qu'il est réussi ;
+//! - une médaille : seulement la DIFFÉRENCE de valeur quand on l'améliore
+//!   (`valeur_medaille` : aujourd'hui, seul l'or vaut `GAIN_OR`) ;
+//! - un bonus de fin de partie (`bonus_fin`) : la première fois pour chacun.
+//!
+//! Le registre de ce qui a déjà été crédité EST la progression de la sauvegarde
+//! (gouttes trouvées, défis réussis, meilleure médaille, `bonus_credites`). REJOUER
+//! reste utile pour le meilleur temps, la médaille et les défis manquants.
 //!
 //! Notions Rust illustrées ici : `enum` avec donnée (`Chrono(u32)`), tableaux
 //! `[T; 3]` et `map` sur un tableau, fonctions pures testables sans fenêtre.
 
-use pepin_core::levels::{NIVEAUX, SANS_PLANER_POSSIBLE};
+use pepin_core::levels::{indice_de_cle, NIVEAUX, SANS_PLANER_POSSIBLE};
 use pepin_core::physics::HZ;
 use pepin_core::zones::InfosNiveau;
 
@@ -34,6 +41,16 @@ use crate::sauvegarde::Sauvegarde;
 pub const GAIN_DEFI: u32 = 3;
 /// Gouttes pour la première médaille d'or d'un niveau (en plus des défis).
 pub const GAIN_OR: u32 = 5;
+
+/// Valeur d'une médaille (0 à 3 défis réussis) : améliorer sa médaille rapporte la
+/// différence de valeur, une seule fois. Seul l'or vaut quelque chose aujourd'hui.
+pub fn valeur_medaille(medaille: u8) -> u32 {
+    if medaille >= 3 {
+        GAIN_OR
+    } else {
+        0
+    }
+}
 /// Bonus de fin de partie : partie finie.
 pub const GAIN_PARTIE_FINIE: u32 = 5;
 /// Bonus de fin de partie : aucun « plus de vies » de toute la partie.
@@ -63,12 +80,13 @@ impl Defi {
     }
 }
 
-/// Les 3 défis du niveau d'indice `indice` dans `NIVEAUX` (hors table, niveaux
-/// d'essai compris : « LES 3 GOUTTES » au milieu).
-pub fn defis_du_niveau(indice: usize, infos: &InfosNiveau) -> [Defi; 3] {
-    let milieu = if SANS_PLANER_POSSIBLE.get(indice) == Some(&true)
-        && NIVEAUX.get(indice).map(|n| n.nom) == Some(infos.nom)
-    {
+/// Les 3 défis du niveau `infos`, retrouvé dans `NIVEAUX` par sa clé (hors table,
+/// niveaux d'essai compris : « LES 3 GOUTTES » au milieu).
+pub fn defis_du_niveau(infos: &InfosNiveau) -> [Defi; 3] {
+    let sans_planer = indice_de_cle(NIVEAUX, infos.cle)
+        .and_then(|i| SANS_PLANER_POSSIBLE.get(i))
+        .copied();
+    let milieu = if sans_planer == Some(true) {
         Defi::SansPlaner
     } else {
         Defi::TroisGouttes
@@ -113,37 +131,43 @@ pub struct ResultatNiveau {
     pub reussis: [bool; 3],
     /// Médaille de cette tentative (0 à 3).
     pub medaille: u8,
-    /// Toutes les gouttes créditées au porte-monnaie à cette fin de niveau
-    /// (ramassées + défis nouveaux + or).
+    /// Gouttes VRAIMENT créditées au porte-monnaie à cette fin de niveau (gouttes
+    /// nouvelles + défis nouveaux + amélioration de médaille) : +0 est possible.
     pub gain: u32,
+    /// Gouttes d'or ramassées cette fois mais déjà comptées avant (affichées « déjà
+    /// comptées », sans rien rapporter).
+    pub deja_comptees: u32,
 }
 
-/// Un niveau RÉUSSI : note la tentative dans la sauvegarde (gouttes trouvées,
-/// meilleur temps, défis, médaille), crédite le porte-monnaie (gouttes ramassées
-/// et premières réussites) et renvoie ce qu'il faut afficher. N'enregistre pas.
-pub fn noter_niveau(
-    s: &mut Sauvegarde,
-    indice: usize,
-    infos: &InfosNiveau,
-    t: &Tentative,
-) -> ResultatNiveau {
-    let defis = defis_du_niveau(indice, infos);
+/// Un niveau RÉUSSI : note la tentative dans la sauvegarde, par la CLÉ du niveau
+/// (gouttes trouvées, meilleur temps, défis, médaille), crédite le porte-monnaie de
+/// ce qui ne l'avait jamais été et renvoie ce qu'il faut afficher. N'enregistre pas.
+/// Niveau hors de la table (essai du build de QA) : rien n'est noté ni crédité.
+pub fn noter_niveau(s: &mut Sauvegarde, infos: &InfosNiveau, t: &Tentative) -> ResultatNiveau {
+    let defis = defis_du_niveau(infos);
     let reussis = defis.map(|d| t.reussit(d));
     let medaille = reussis.iter().filter(|&&r| r).count() as u8;
-    let ramassees = t.gouttes.iter().filter(|&&g| g).count() as u32;
-    let mut gain = ramassees;
-    s.noter_niveau_atteint(indice);
-    if let Some(p) = s.niveaux.get_mut(indice) {
+    let (mut gain, mut deja_comptees) = (0, 0);
+    if let Some(p) = s.progres_mut(infos.cle) {
+        p.atteint = true;
         for (i, &reussi) in reussis.iter().enumerate() {
-            p.gouttes[i] |= t.gouttes[i];
+            // Une goutte : créditée la première fois qu'elle est trouvée.
+            if t.gouttes[i] {
+                if p.gouttes[i] {
+                    deja_comptees += 1;
+                } else {
+                    p.gouttes[i] = true;
+                    gain += 1;
+                }
+            }
+            // Un défi : crédité la première fois qu'il est réussi.
             if reussi && !p.defis[i] {
                 p.defis[i] = true;
                 gain += GAIN_DEFI;
             }
         }
-        if medaille == 3 && p.medaille < 3 {
-            gain += GAIN_OR;
-        }
+        // Une médaille : la différence de valeur, seulement si elle s'améliore.
+        gain += valeur_medaille(medaille).saturating_sub(valeur_medaille(p.medaille));
         p.medaille = p.medaille.max(medaille);
         p.meilleur_temps = Some(p.meilleur_temps.map_or(t.pas, |m| m.min(t.pas)));
     }
@@ -154,36 +178,77 @@ pub fn noter_niveau(
         reussis,
         medaille,
         gain,
+        deja_comptees,
     }
 }
+
+/// Identifiants des bonus de fin dans la sauvegarde (`bonus_credites`). Ne jamais
+/// les changer : un bonus renommé serait crédité une seconde fois.
+pub const BONUS_FIN: &str = "fin";
+pub const BONUS_SANS_GAME_OVER: &str = "sans_game_over";
+pub const BONUS_TOUTES_LES_GOUTTES: &str = "toutes_les_gouttes";
 
 /// Une ligne du bonus de fin de partie.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LigneBonus {
+    /// Identifiant dans la sauvegarde (`BONUS_*`).
+    pub id: &'static str,
     pub nom: &'static str,
-    /// Ce que rapporte la ligne quand elle est gagnée.
+    /// Ce que rapporte la ligne la première fois qu'elle est gagnée.
     pub gouttes: u32,
     pub gagne: bool,
+    /// Gagnée, mais déjà créditée lors d'une partie précédente : ne rapporte rien.
+    pub deja: bool,
 }
 
 /// Le bonus de fin de partie, ligne par ligne (une ligne ratée reste affichée, en
-/// gris : le joueur voit ce qu'il aurait pu gagner).
+/// gris : le joueur voit ce qu'il aurait pu gagner). Rien n'est encore crédité :
+/// voir `crediter_bonus_fin`.
 pub fn bonus_fin(sans_game_over: bool, toutes_les_gouttes: bool) -> [LigneBonus; 3] {
-    let ligne = |nom, gouttes, gagne| LigneBonus {
+    let ligne = |id, nom, gouttes, gagne| LigneBonus {
+        id,
         nom,
         gouttes,
         gagne,
+        deja: false,
     };
     [
-        ligne("FIN", GAIN_PARTIE_FINIE, true),
-        ligne("SANS GAME OVER", GAIN_SANS_GAME_OVER, sans_game_over),
-        ligne("100% GOUTTES", GAIN_TOUTES_LES_GOUTTES, toutes_les_gouttes),
+        ligne(BONUS_FIN, "FIN", GAIN_PARTIE_FINIE, true),
+        ligne(
+            BONUS_SANS_GAME_OVER,
+            "SANS GAME OVER",
+            GAIN_SANS_GAME_OVER,
+            sans_game_over,
+        ),
+        ligne(
+            BONUS_TOUTES_LES_GOUTTES,
+            "100% GOUTTES",
+            GAIN_TOUTES_LES_GOUTTES,
+            toutes_les_gouttes,
+        ),
     ]
 }
 
-/// Gouttes gagnées par un bonus de fin.
+/// Crédite le bonus de fin : chaque ligne gagnée pour la PREMIÈRE fois rapporte (et
+/// est notée dans la sauvegarde) ; une ligne déjà créditée est marquée `deja`.
+/// Renvoie le gain crédité. N'enregistre pas.
+pub fn crediter_bonus_fin(s: &mut Sauvegarde, bonus: &mut [LigneBonus]) -> u32 {
+    for l in bonus.iter_mut().filter(|l| l.gagne) {
+        l.deja = !s.crediter_bonus(l.id);
+    }
+    let gain = total_bonus(bonus);
+    s.ajouter_gouttes(gain);
+    gain
+}
+
+/// Gouttes VRAIMENT rapportées par un bonus de fin (lignes gagnées, pas déjà
+/// créditées).
 pub fn total_bonus(bonus: &[LigneBonus]) -> u32 {
-    bonus.iter().filter(|l| l.gagne).map(|l| l.gouttes).sum()
+    bonus
+        .iter()
+        .filter(|l| l.gagne && !l.deja)
+        .map(|l| l.gouttes)
+        .sum()
 }
 
 #[cfg(test)]
@@ -195,7 +260,7 @@ mod tests {
     #[test]
     fn les_defis_rapportent_une_seule_fois_et_gardent_le_meilleur() {
         for (i, n) in NIVEAUX.iter().enumerate() {
-            let d = defis_du_niveau(i, n);
+            let d = defis_du_niveau(n);
             assert_eq!(d[0], Defi::SansMourir);
             assert_eq!(d[2], Defi::Chrono(u32::from(n.duree_cible_s)));
             let attendu = if SANS_PLANER_POSSIBLE[i] {
@@ -206,7 +271,7 @@ mod tests {
             assert_eq!(d[1], attendu, "{}", n.nom);
         }
         // Niveau 2 (sans planer possible) : 55 s.
-        let (i, n) = (1, &NIVEAUX[1]);
+        let n = &NIVEAUX[1];
         let mut s = Sauvegarde::default();
         let lente = Tentative {
             morts: 1,
@@ -214,39 +279,45 @@ mod tests {
             pas: 70 * HZ,
             gouttes: [true, false, false],
         };
-        let r = noter_niveau(&mut s, i, n, &lente);
+        let r = noter_niveau(&mut s, n, &lente);
         assert_eq!((r.reussis, r.medaille), ([false, true, false], 1));
-        assert_eq!(r.gain, 1 + GAIN_DEFI);
-        // La même chose encore : seule la goutte ramassée rapporte.
-        assert_eq!(noter_niveau(&mut s, i, n, &lente).gain, 1);
+        assert_eq!((r.gain, r.deja_comptees), (1 + GAIN_DEFI, 0));
+        // La même chose encore (carte 7.9) : rien, la goutte est déjà comptée.
+        let r = noter_niveau(&mut s, n, &lente);
+        assert_eq!((r.gain, r.deja_comptees), (0, 1));
         let parfaite = Tentative {
             morts: 0,
             a_plane: false,
             pas: 55 * HZ,
             gouttes: [false, false, true],
         };
-        let r = noter_niveau(&mut s, i, n, &parfaite);
+        let r = noter_niveau(&mut s, n, &parfaite);
         assert_eq!((r.reussis, r.medaille), ([true; 3], 3));
-        assert_eq!(r.gain, 1 + 2 * GAIN_DEFI + GAIN_OR);
-        assert_eq!(noter_niveau(&mut s, i, n, &parfaite).gain, 1, "or déjà eu");
-        let p = s.niveaux[i];
+        // Une goutte nouvelle, deux défis nouveaux, bronze → or : la différence.
+        assert_eq!(r.gain, 1 + 2 * GAIN_DEFI + GAIN_OR - valeur_medaille(1));
+        assert_eq!(noter_niveau(&mut s, n, &parfaite).gain, 0, "or déjà eu");
+        let p = s.progres(n.cle);
         assert_eq!(p.gouttes, [true, false, true]);
-        assert_eq!((p.defis, p.medaille), ([true; 3], 3));
+        assert_eq!((p.defis, p.medaille, p.atteint), ([true; 3], 3, true));
         assert_eq!(p.meilleur_temps, Some(55 * HZ));
-        assert_eq!(s.niveau_max_atteint, 1);
         assert_eq!(
             s.gouttes_en_poche,
-            1 + GAIN_DEFI + 1 + 1 + 2 * GAIN_DEFI + GAIN_OR + 1
+            1 + GAIN_DEFI + 1 + 2 * GAIN_DEFI + GAIN_OR
         );
         // Une médaille moindre ensuite ne fait pas descendre la meilleure.
-        noter_niveau(&mut s, i, n, &lente);
-        assert_eq!(s.niveaux[i].medaille, 3);
-        // Bonus de fin : 5 + 5 + 10 au mieux, 5 au moins.
+        noter_niveau(&mut s, n, &lente);
+        assert_eq!(s.progres(n.cle).medaille, 3);
+        // Bonus de fin : 5 + 5 + 10 au mieux, 5 au moins ; chacun une seule fois.
+        let mut b = bonus_fin(false, false);
+        assert_eq!(crediter_bonus_fin(&mut s, &mut b), GAIN_PARTIE_FINIE);
+        let mut b = bonus_fin(true, true);
+        assert_eq!(crediter_bonus_fin(&mut s, &mut b), 15, "FIN déjà crédité");
+        assert!(b[0].deja && !b[1].deja && !b[2].deja);
+        assert_eq!(crediter_bonus_fin(&mut s, &mut bonus_fin(true, true)), 0);
         assert_eq!(total_bonus(&bonus_fin(true, true)), 20);
-        assert_eq!(total_bonus(&bonus_fin(false, false)), GAIN_PARTIE_FINIE);
         // Les bandes d'affichage tiennent dans l'écran, pour chaque niveau.
-        for (i, n) in NIVEAUX.iter().enumerate() {
-            let r = noter_niveau(&mut Sauvegarde::default(), i, n, &lente);
+        for n in NIVEAUX {
+            let r = noter_niveau(&mut Sauvegarde::default(), n, &lente);
             let (defis, bonus) =
                 crate::ecrans::resultats::largeurs_pire_cas(&r, &bonus_fin(true, true));
             let max = crate::ecrans::resultats::LARGEUR_BANDE_FIN;

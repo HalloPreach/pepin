@@ -111,6 +111,11 @@ impl Theme {
 pub struct InfosNiveau {
     /// Place dans la table `NIVEAUX`, à partir de 1 (vérifié par `verifier_ordre`).
     pub numero: u8,
+    /// CLÉ STABLE du niveau (carte 7.9) : un identifiant court (`toits`, `arc`…), le
+    /// nom de son module. La sauvegarde range la progression par cette clé, jamais par
+    /// la place dans la table : insérer un niveau ne fait glisser aucune médaille.
+    /// Ne JAMAIS la changer une fois publiée (unique : vérifié par les tests).
+    pub cle: &'static str,
     /// Titre affiché.
     pub nom: &'static str,
     pub theme: Theme,

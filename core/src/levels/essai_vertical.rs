@@ -18,6 +18,7 @@ use crate::zones::{InfosNiveau, Theme};
 pub const INFOS: InfosNiveau = InfosNiveau {
     // Hors de la table : 0 (la carte de présentation affiche « NIVEAU D'ESSAI »).
     numero: 0,
+    cle: "essai_vertical",
     nom: "Essai vertical",
     // Ciel corail, tours violettes et îlots : trois couches de parallaxe bien
     // contrastées, pour voir dans les captures qu'elles descendent quand on monte.

@@ -368,6 +368,16 @@ pub fn gouttes(n: u32) -> String {
     }
 }
 
+/// Gouttes d'or ramassées mais déjà comptées (carte 7.9) : « 1 GOUTTE DÉJÀ COMPTÉE »,
+/// « 3 GOUTTES DÉJÀ COMPTÉES ».
+pub fn deja_comptees(n: u32) -> String {
+    if n == 1 {
+        "1 GOUTTE DÉJÀ COMPTÉE".to_string()
+    } else {
+        format!("{n} GOUTTES DÉJÀ COMPTÉES")
+    }
+}
+
 /// Question de la confirmation d'achat.
 pub fn acheter_pour(prix: u32) -> String {
     format!("ACHETER POUR {prix} ?")

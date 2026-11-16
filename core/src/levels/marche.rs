@@ -44,6 +44,7 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 3,
+    cle: "marche",
     nom: "Le marché couvert",
     theme: Theme::Marche,
     genre: GenreNiveau::Normal,

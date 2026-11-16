@@ -1,22 +1,31 @@
-//! Sauvegarde (cartes 7.2 et 7.3) : ce qui reste d'une partie à l'autre.
+//! Sauvegarde (cartes 7.2, 7.3 et 7.9) : ce qui reste d'une partie à l'autre.
 //!
 //! - le porte-monnaie : les gouttes d'or gagnées (niveaux RÉUSSIS, défis, médailles
 //!   et bonus de fin, voir `defis`), la monnaie de la boutique ;
 //! - les records : meilleur score et meilleur temps d'une partie finie (affichés,
 //!   jamais dépensés) ;
-//! - la PROGRESSION (carte 7.3) : le niveau le plus loin atteint et, pour chaque
-//!   niveau, les gouttes trouvées (lesquelles des 3), le meilleur temps, les défis
-//!   déjà réussis et la meilleure médaille (`ProgresNiveau`) ;
+//! - la PROGRESSION, rangée par CLÉ de niveau (carte 7.9 : `InfosNiveau::cle`,
+//!   `toits`, `arc`…, jamais par la place dans la table) : pour chaque niveau, atteint
+//!   ou non, les gouttes trouvées (lesquelles des 3), le meilleur temps, les défis
+//!   déjà réussis et la meilleure médaille (`ProgresNiveau`). C'est aussi le registre
+//!   de ce qui a DÉJÀ ÉTÉ CRÉDITÉ (chaque récompense ne l'est qu'une fois, voir
+//!   `defis`) ; les bonus de fin déjà crédités sont dans `bonus_credites` ;
 //! - l'INVENTAIRE des cosmétiques (carte 7.3) : des identifiants « categorie:id »
 //!   (`skin:pepinette`, `musique:orage`, `trainee:etoiles`…) et l'objet ÉQUIPÉ par
 //!   catégorie. Les champs de la v1 (`skins_debloques`, `skin_choisi`) restent : ce
 //!   sont des façades de la catégorie `skin`, tenues à jour dans les deux sens
 //!   (`normaliser`).
 //!
-//! Format texte, une ligne `cle=valeur` par champ, avec `version=2` en tête (une v1
-//! est relue sans perte, puis réécrite en v2). La lecture est TOLÉRANTE : texte
-//! absent, vide ou de version inconnue → valeurs par défaut ; champ inconnu → ignoré ;
-//! valeur illisible → valeur par défaut de ce champ. Jamais de plantage.
+//! Format texte, une ligne `cle=valeur` par champ, avec `version=3` en tête ; une
+//! ligne par niveau touché : `niveau.toits=atteint:1 gouttes:101 defis:110 medaille:2
+//! temps:2345`. Une v1 ou une v2 est relue sans perte, puis réécrite en v3 :
+//! MIGRATION v2 → v3, la v2 rangeait les niveaux par NUMÉRO (`niveau.10=…`,
+//! `niveau_max_atteint=9`) ; ces numéros se lisent dans `ORDRE_V2`, la table FIGÉE de
+//! l'ordre publié en v2 (surtout pas la table vivante `NIVEAUX`, qui peut gagner un
+//! niveau au milieu). La lecture est TOLÉRANTE : texte absent, vide ou de version
+//! inconnue → valeurs par défaut ; champ inconnu → ignoré ; valeur illisible → valeur
+//! par défaut de ce champ ; niveau de clé inconnue (version future) → gardé tel quel
+//! et réécrit. Jamais de plantage.
 //!
 //! Stockage : dans le navigateur, `localStorage` (clé `pepin.sauvegarde`), par le
 //! petit plugin JavaScript de `web/index.html` (fonctions `pepin_sauvegarde_lire` et
@@ -25,16 +34,32 @@
 //! (tests), rien n'est écrit sur le disque : la sauvegarde vit en mémoire.
 //!
 //! Notions Rust illustrées ici : `str::split_once`, `parse::<u32>().ok()`,
-//! `saturating_add`, `BTreeMap` (ordre stable à l'écriture), tableau de taille
-//! constante `[T; NB_NIVEAUX]`, `#[cfg(target_arch = "wasm32")]` pour un code propre
-//! au web, et `extern "C"` pour appeler une fonction JavaScript depuis le WebAssembly.
+//! `saturating_add`, `BTreeMap` / `BTreeSet` (ordre stable à l'écriture), API
+//! `entry`, `#[cfg(target_arch = "wasm32")]` pour un code propre au web, et
+//! `extern "C"` pour appeler une fonction JavaScript depuis le WebAssembly.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use pepin_core::levels::NB_NIVEAUX;
+use pepin_core::levels::{indice_de_cle, NIVEAUX};
 
-/// Version du format texte écrit (les versions 1 et 2 sont lues).
-const VERSION: u32 = 2;
+/// Version du format texte écrit (les versions 1, 2 et 3 sont lues).
+const VERSION: u32 = 3;
+/// Migration v2 → v3 : les clés des niveaux dans l'ordre PUBLIÉ en v2 (`niveau.1` =
+/// `toits`… `niveau.11` = `descente`). Table FIGÉE : ne jamais la modifier, même
+/// quand un niveau est ajouté ou déplacé dans `NIVEAUX`.
+pub const ORDRE_V2: [&str; 11] = [
+    "toits",
+    "gouttieres",
+    "marche",
+    "orage",
+    "clocher",
+    "cyclone",
+    "vents",
+    "mer",
+    "nuages",
+    "arc",
+    "descente",
+];
 /// Skins disponibles dès le départ.
 pub const SKINS_DE_DEPART: [&str; 2] = ["pepin", "pepinette"];
 /// Inventaire de départ (carte 7.3) : les deux skins et la musique d'origine.
@@ -42,16 +67,23 @@ pub const INVENTAIRE_DE_DEPART: [&str; 3] = ["skin:pepin", "skin:pepinette", "mu
 /// Objets équipés au départ, par catégorie.
 pub const EQUIPES_DE_DEPART: [(&str, &str); 2] = [("skin", "pepin"), ("musique", "orage")];
 
-/// Progression d'un niveau (carte 7.3).
+/// Progression d'un niveau (cartes 7.3 et 7.9). Ce qui est noté ici a AUSSI été
+/// crédité au porte-monnaie, une fois pour toutes (voir `defis::noter_niveau`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ProgresNiveau {
-    /// Gouttes d'or trouvées dans un niveau RÉUSSI : `gouttes[i]` pour la goutte i.
+    /// Pépin est arrivé à ce niveau (en partie ou depuis la carte des niveaux) : il
+    /// est ouvert sur la carte des niveaux. Remplace le `niveau_max_atteint` de la v2.
+    pub atteint: bool,
+    /// Gouttes d'or trouvées (et créditées) dans un niveau RÉUSSI : `gouttes[i]`
+    /// pour la goutte i.
     pub gouttes: [bool; 3],
     /// Meilleur temps d'une tentative réussie, en pas de 1/60 s (`None` : jamais fini).
     pub meilleur_temps: Option<u32>,
-    /// Défis réussis au moins une fois (dans l'ordre de `defis::defis_du_niveau`).
+    /// Défis réussis (et crédités) au moins une fois (dans l'ordre de
+    /// `defis::defis_du_niveau`).
     pub defis: [bool; 3],
-    /// Meilleure médaille : défis réussis dans UNE même tentative (0 à 3 ; 3 = or).
+    /// Meilleure médaille (créditée) : défis réussis dans UNE même tentative (0 à 3 ;
+    /// 3 = or).
     pub medaille: u8,
 }
 
@@ -71,10 +103,11 @@ pub struct Sauvegarde {
     pub skins_debloques: Vec<String>,
     /// Façade v1 du skin équipé.
     pub skin_choisi: String,
-    /// Indice (0 : le premier) du niveau le plus loin atteint.
-    pub niveau_max_atteint: usize,
-    /// Progression niveau par niveau, dans l'ordre de `NIVEAUX`.
-    pub niveaux: [ProgresNiveau; NB_NIVEAUX],
+    /// Progression niveau par niveau, par CLÉ de niveau (`InfosNiveau::cle`). Les
+    /// clés inconnues de cette version (relues d'une version future) sont gardées.
+    pub niveaux: BTreeMap<String, ProgresNiveau>,
+    /// Bonus de fin de partie déjà crédités (identifiants de `defis::bonus_fin`).
+    pub bonus_credites: BTreeSet<String>,
     /// Cosmétiques possédés, « categorie:id » (contient `INVENTAIRE_DE_DEPART`).
     pub inventaire: Vec<String>,
     /// Objet équipé par catégorie (catégorie → id).
@@ -91,8 +124,8 @@ impl Default for Sauvegarde {
             parties_finies: 0,
             skins_debloques: SKINS_DE_DEPART.iter().map(|s| s.to_string()).collect(),
             skin_choisi: SKINS_DE_DEPART[0].to_string(),
-            niveau_max_atteint: 0,
-            niveaux: [ProgresNiveau::default(); NB_NIVEAUX],
+            niveaux: BTreeMap::new(),
+            bonus_credites: BTreeSet::new(),
             inventaire: INVENTAIRE_DE_DEPART.iter().map(|s| s.to_string()).collect(),
             equipes: EQUIPES_DE_DEPART
                 .iter()
@@ -178,24 +211,32 @@ impl Sauvegarde {
         self.equipes.get(categorie).map(String::as_str)
     }
 
-    /// Progression du niveau `indice` (vide hors de la table). Carte 7.4 : les écrans
-    /// (carte des niveaux, bilan) ne lisent la progression que par ici et par
-    /// `progres_mut`, pour qu'un changement de clé (indice -> nom de niveau) n'ait qu'un
-    /// endroit à toucher.
-    pub fn progres(&self, indice: usize) -> ProgresNiveau {
-        self.niveaux.get(indice).copied().unwrap_or_default()
+    /// Progression du niveau de clé `cle` (vide s'il n'a jamais été touché). Carte
+    /// 7.9 : toute la game lit la progression par ici, PAR CLÉ (carte des niveaux,
+    /// défis, bilan).
+    pub fn progres(&self, cle: &str) -> ProgresNiveau {
+        self.niveaux.get(cle).copied().unwrap_or_default()
     }
 
-    /// Progression modifiable du niveau `indice` (`None` hors de la table).
-    pub fn progres_mut(&mut self, indice: usize) -> Option<&mut ProgresNiveau> {
-        self.niveaux.get_mut(indice)
+    /// Progression modifiable du niveau de clé `cle`, créée vide au besoin. `None`
+    /// si la clé n'est pas dans la table `NIVEAUX` (niveaux d'essai du build de QA) :
+    /// rien n'est noté pour eux.
+    pub fn progres_mut(&mut self, cle: &str) -> Option<&mut ProgresNiveau> {
+        indice_de_cle(NIVEAUX, cle)?;
+        Some(self.niveaux.entry(cle.to_string()).or_default())
     }
 
-    /// Pépin est arrivé au niveau `indice` (hors de la table : ignoré).
-    pub fn noter_niveau_atteint(&mut self, indice: usize) {
-        if indice < NB_NIVEAUX {
-            self.niveau_max_atteint = self.niveau_max_atteint.max(indice);
+    /// Pépin est arrivé au niveau de clé `cle` (hors de la table : ignoré).
+    pub fn noter_niveau_atteint(&mut self, cle: &str) {
+        if let Some(p) = self.progres_mut(cle) {
+            p.atteint = true;
         }
+    }
+
+    /// Le bonus de fin `id` est crédité : `true` la PREMIÈRE fois seulement (il est
+    /// alors noté), `false` s'il l'avait déjà été.
+    pub fn crediter_bonus(&mut self, id: &str) -> bool {
+        self.bonus_credites.insert(id.to_string())
     }
 
     /// Une partie finie : met à jour les records. Renvoie `true` si le score est un
@@ -243,39 +284,43 @@ impl Sauvegarde {
             .insert("skin".to_string(), self.skin_choisi.clone());
     }
 
-    /// Le texte enregistré (format v2).
+    /// Le texte enregistré (format v3).
     pub fn vers_texte(&self) -> String {
         // Les façades ont pu être changées directement : on écrit leur accord.
         let mut s = self.clone();
         s.normaliser();
         let mut t = format!(
             "version={VERSION}\ngouttes_en_poche={}\ngouttes_total_gagnees={}\n\
-             meilleur_score={}\nparties_finies={}\nniveau_max_atteint={}\n\
-             inventaire={}\nequipe={}\n",
+             meilleur_score={}\nparties_finies={}\n\
+             inventaire={}\nequipe={}\nbonus_credites={}\n",
             s.gouttes_en_poche,
             s.gouttes_total_gagnees,
             s.meilleur_score,
             s.parties_finies,
-            s.niveau_max_atteint,
             s.inventaire.join(","),
             s.equipes
                 .iter()
                 .map(|(c, i)| format!("{c}:{i}"))
                 .collect::<Vec<_>>()
                 .join(","),
+            s.bonus_credites
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .join(","),
         );
         if let Some(temps) = s.meilleur_temps {
             t.push_str(&format!("meilleur_temps={temps}\n"));
         }
-        // Une ligne par niveau déjà touché : `niveau.N=gouttes:101 defis:110 medaille:2
-        // temps:2345` (N à partir de 1, chaînes de bits dans l'ordre 0, 1, 2).
-        for (i, p) in s.niveaux.iter().enumerate() {
+        // Une ligne par niveau déjà touché, par CLÉ : `niveau.toits=atteint:1
+        // gouttes:101 defis:110 medaille:2 temps:2345` (bits dans l'ordre 0, 1, 2).
+        for (cle, p) in &s.niveaux {
             if *p == ProgresNiveau::default() {
                 continue;
             }
             t.push_str(&format!(
-                "niveau.{}=gouttes:{} defis:{} medaille:{}",
-                i + 1,
+                "niveau.{cle}=atteint:{} gouttes:{} defis:{} medaille:{}",
+                u8::from(p.atteint),
                 bits(p.gouttes),
                 bits(p.defis),
                 p.medaille
@@ -288,20 +333,24 @@ impl Sauvegarde {
         t
     }
 
-    /// Relit un texte de `vers_texte` (v2) ou de la v1, avec tolérance (voir
-    /// l'en-tête du module).
+    /// Relit un texte de `vers_texte` (v3), de la v2 ou de la v1, avec tolérance
+    /// (voir l'en-tête du module).
     pub fn depuis_texte(texte: &str) -> Self {
         let mut s = Self::default();
         let paires = texte
             .lines()
             .filter_map(|l| l.split_once('='))
             .map(|(c, v)| (c.trim(), v.trim()));
-        if !paires
+        let Some(version) = paires
             .clone()
-            .any(|p| p == ("version", "1") || p == ("version", "2"))
-        {
+            .filter(|&(c, _)| c == "version")
+            .find_map(|(_, v)| v.parse::<u32>().ok().filter(|v| (1..=VERSION).contains(v)))
+        else {
             return s;
-        }
+        };
+        // v1/v2 : niveaux rangés par NUMÉRO, lus dans la table figée `ORDRE_V2`.
+        let ancienne = version < 3;
+        let mut max_atteint_v2: Option<usize> = None;
         let nombre = |v: &str, defaut: u32| v.parse::<u32>().unwrap_or(defaut);
         for (cle, valeur) in paires {
             match cle {
@@ -319,10 +368,17 @@ impl Sauvegarde {
                     }
                 }
                 "skin_choisi" => s.skin_choisi = valeur.to_string(),
-                // v2.
-                "niveau_max_atteint" => {
-                    s.niveau_max_atteint =
-                        valeur.parse::<usize>().map_or(0, |n| n.min(NB_NIVEAUX - 1))
+                // v2 seulement (indice dans `ORDRE_V2`) : appliqué après la boucle.
+                "niveau_max_atteint" if ancienne => {
+                    max_atteint_v2 = valeur.parse::<usize>().ok();
+                }
+                // v3.
+                "bonus_credites" => {
+                    for id in valeur.split(',').map(str::trim) {
+                        if est_identifiant(id) {
+                            s.bonus_credites.insert(id.to_string());
+                        }
+                    }
                 }
                 "inventaire" => {
                     for objet in valeur.split(',').map(str::trim) {
@@ -340,19 +396,45 @@ impl Sauvegarde {
                     }
                 }
                 _ => {
-                    if let Some(i) = cle
-                        .strip_prefix("niveau.")
-                        .and_then(|n| n.parse::<usize>().ok())
-                        .filter(|n| (1..=NB_NIVEAUX).contains(n))
-                    {
-                        s.niveaux[i - 1] = lire_niveau(valeur);
+                    let cle_niveau = cle.strip_prefix("niveau.").and_then(|n| {
+                        if ancienne {
+                            // v2 : `niveau.10` → 10e clé de l'ordre publié en v2.
+                            let numero = n.parse::<usize>().ok()?;
+                            ORDRE_V2.get(numero.checked_sub(1)?).copied()
+                        } else {
+                            Some(n).filter(|n| est_identifiant(n))
+                        }
+                    });
+                    if let Some(c) = cle_niveau {
+                        s.niveaux.insert(c.to_string(), lire_niveau(valeur));
                     }
                     // Sinon, champ inconnu (version future) : ignoré.
                 }
             }
         }
+        if ancienne {
+            s.migrer_v2(max_atteint_v2);
+        }
         s.normaliser();
         s
+    }
+
+    /// Fin de la migration v1/v2 → v3. Le « niveau le plus loin » (un indice de
+    /// `ORDRE_V2`) devient l'état `atteint` de chaque niveau jusqu'à lui. Les gouttes,
+    /// défis et médailles déjà notés restent tels quels : ils comptent comme DÉJÀ
+    /// CRÉDITÉS (c'était le cas, le porte-monnaie est gardé). Le bonus « FIN » a été
+    /// crédité à chaque partie finie de la v2 : il l'est déjà si une partie a été
+    /// finie. Les deux autres bonus (non mémorisés en v2) restent à gagner une fois.
+    fn migrer_v2(&mut self, max_atteint: Option<usize>) {
+        if let Some(max) = max_atteint {
+            for cle in ORDRE_V2.iter().take(max.saturating_add(1)) {
+                self.niveaux.entry(cle.to_string()).or_default().atteint = true;
+            }
+        }
+        if self.parties_finies > 0 {
+            self.bonus_credites
+                .insert(crate::defis::BONUS_FIN.to_string());
+        }
     }
 
     /// Lit la sauvegarde du stockage (défaut s'il n'y a rien ou si elle est abîmée).
@@ -380,11 +462,13 @@ fn lire_bits(t: &str) -> Option<[bool; 3]> {
     Some([c[0] == '1', c[1] == '1', c[2] == '1'])
 }
 
-/// Relit `gouttes:101 defis:110 medaille:2 temps:2345` (morceau illisible : défaut).
+/// Relit `atteint:1 gouttes:101 defis:110 medaille:2 temps:2345` (morceau illisible :
+/// défaut).
 fn lire_niveau(valeur: &str) -> ProgresNiveau {
     let mut p = ProgresNiveau::default();
     for (cle, v) in valeur.split_whitespace().filter_map(|m| m.split_once(':')) {
         match cle {
+            "atteint" => p.atteint = v == "1",
             "gouttes" => p.gouttes = lire_bits(v).unwrap_or_default(),
             "defis" => p.defis = lire_bits(v).unwrap_or_default(),
             "medaille" => p.medaille = v.parse::<u8>().map_or(0, |m| m.min(3)),
@@ -480,21 +564,25 @@ mod tests {
         assert!(s.noter_partie(900, 5000), "première partie finie");
         assert!(!s.noter_partie(800, 4000));
         assert_eq!((s.meilleur_score, s.meilleur_temps), (900, Some(4000)));
-        // v2 : progression, inventaire générique, objet équipé.
-        s.noter_niveau_atteint(4);
-        s.noter_niveau_atteint(99);
-        s.niveaux[2] = ProgresNiveau {
+        // v3 : progression par clé, bonus crédités, inventaire générique, objet équipé.
+        s.noter_niveau_atteint("clocher");
+        s.noter_niveau_atteint("essai_vent");
+        *s.progres_mut("marche").unwrap() = ProgresNiveau {
+            atteint: false,
             gouttes: [true, false, true],
             meilleur_temps: Some(2345),
             defis: [true, true, false],
             medaille: 2,
         };
+        assert!(s.crediter_bonus("sans_game_over"));
+        assert!(!s.crediter_bonus("sans_game_over"), "une seule fois");
         s.acquerir("trainee:etoiles");
         assert!(s.equiper("trainee:etoiles"));
         assert!(!s.equiper("motif:pois"), "pas acheté");
         s.normaliser();
         assert_eq!(Sauvegarde::depuis_texte(&s.vers_texte()), s);
-        assert_eq!(s.niveau_max_atteint, 4);
+        assert!(s.progres("clocher").atteint);
+        assert_eq!(s.niveaux.len(), 2, "hors de la table : rien de noté");
         assert_eq!(s.equipe("skin"), Some("pepinette"));
         assert_eq!(s.equipe("musique"), Some("orage"));
         assert!(s.possede("skin:pepin_dore") && s.possede("musique:orage"));
@@ -526,14 +614,69 @@ mod tests {
         assert_eq!((lu.meilleur_score, lu.meilleur_temps), (2500, Some(18877)));
         assert!(lu.possede("skin:pepin_dore"));
         assert_eq!(lu.equipe("skin"), Some("pepin_dore"));
-        assert!(lu.vers_texte().starts_with("version=2\n"));
+        assert!(lu.vers_texte().starts_with("version=3\n"));
         assert_eq!(Sauvegarde::depuis_texte(&lu.vers_texte()), lu);
         // Ligne de niveau abîmée : défaut pour le morceau illisible seulement.
         let lu = Sauvegarde::depuis_texte("version=2\nniveau.1=gouttes:1x1 defis:111 medaille:9");
-        assert_eq!(lu.niveaux[0].gouttes, [false; 3]);
+        assert_eq!(lu.progres("toits").gouttes, [false; 3]);
         assert_eq!(
-            (lu.niveaux[0].defis, lu.niveaux[0].medaille),
+            (lu.progres("toits").defis, lu.progres("toits").medaille),
             ([true; 3], 3)
         );
+    }
+
+    /// Migration v2 → v3 (carte 7.9) : une sauvegarde v2 réaliste (niveaux rangés
+    /// par numéro) retrouve chaque niveau sous sa CLÉ (`niveau.10` → `arc`,
+    /// `niveau.11` → `descente`, lus dans la table figée `ORDRE_V2`), garde son
+    /// porte-monnaie, et reste juste quand un niveau s'insère AVANT eux dans la table.
+    #[test]
+    fn la_migration_v2_range_chaque_niveau_sous_sa_cle() {
+        use crate::plan::{etat_etape, progres, EtatEtape};
+        use pepin_core::zones::InfosNiveau;
+        let v2 = "version=2\ngouttes_en_poche=57\ngouttes_total_gagnees=140\n\
+                  meilleur_score=8100\nparties_finies=2\nmeilleur_temps=40000\n\
+                  niveau_max_atteint=10\ninventaire=skin:pepin,skin:pepinette,musique:orage\n\
+                  equipe=skin:pepinette,musique:orage\n\
+                  niveau.1=gouttes:111 defis:111 medaille:3 temps:2400\n\
+                  niveau.9=gouttes:101 defis:100 medaille:1 temps:5000\n\
+                  niveau.10=gouttes:111 defis:011 medaille:2 temps:3300\n\
+                  niveau.11=gouttes:110 defis:101 medaille:2 temps:1100\n";
+        let lu = Sauvegarde::depuis_texte(v2);
+        assert_eq!((lu.gouttes_en_poche, lu.gouttes_total_gagnees), (57, 140));
+        let (arc, descente) = (lu.progres("arc"), lu.progres("descente"));
+        assert_eq!((arc.meilleur_temps, arc.medaille), (Some(3300), 2));
+        assert_eq!((arc.gouttes, arc.defis), ([true; 3], [false, true, true]));
+        assert_eq!(
+            (descente.meilleur_temps, descente.medaille),
+            (Some(1100), 2)
+        );
+        assert_eq!(descente.gouttes, [true, true, false]);
+        assert_eq!(lu.progres("nuages").meilleur_temps, Some(5000));
+        assert_eq!(lu.progres("toits").medaille, 3);
+        // `niveau_max_atteint=10` : les 11 niveaux de la v2 atteints ; « FIN » déjà
+        // crédité (une partie finie en v2).
+        assert!(ORDRE_V2.iter().all(|c| lu.progres(c).atteint));
+        assert!(lu.bonus_credites.contains(crate::defis::BONUS_FIN));
+        // Réécrite en v3, par clés, relue à l'identique.
+        let v3 = lu.vers_texte();
+        assert!(v3.starts_with("version=3\n") && !v3.contains("niveau_max_atteint"));
+        assert!(v3.contains("niveau.arc=atteint:1 gouttes:111 defis:011 medaille:2 temps:3300"));
+        assert_eq!(Sauvegarde::depuis_texte(&v3), lu);
+        // Un niveau inséré AVANT le bonus (la carte 8.2 : `poursuite`) : il est vide
+        // et ouvert, l'arc-en-ciel et la descente gardent leur progression.
+        let mut table: Vec<InfosNiveau> = NIVEAUX.to_vec();
+        let i = indice_de_cle(&table, "arc").unwrap();
+        table.insert(
+            i,
+            InfosNiveau {
+                cle: "poursuite",
+                ..NIVEAUX[i - 1]
+            },
+        );
+        assert_eq!(progres(&table, &lu, i), ProgresNiveau::default());
+        assert_eq!(etat_etape(&table, &lu, i), EtatEtape::Ouverte);
+        assert_eq!(progres(&table, &lu, i + 1), arc);
+        assert_eq!(progres(&table, &lu, i + 2), descente);
+        assert_eq!(etat_etape(&table, &lu, i + 2), EtatEtape::Finie);
     }
 }
