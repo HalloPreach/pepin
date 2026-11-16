@@ -268,9 +268,14 @@ impl Itineraires {
     /// grossiers du robot, puis avec ses plans précis si le drapeau reste hors
     /// d'atteinte (même repli que `bot_qa::tous_les_parcours`).
     pub(crate) fn calculer(indice: usize) -> Self {
-        Self::explorer(indice, plans(false))
-            .or_else(|| Self::explorer(indice, plans(true)))
+        Self::tenter(indice)
             .unwrap_or_else(|| panic!("niveau {} : drapeau inatteignable", indice + 1))
+    }
+
+    /// Comme `calculer`, sans paniquer : `None` si le drapeau reste hors d'atteinte
+    /// (course contre le robot, carte 8.7 : ce niveau n'aura pas de fantôme).
+    pub(crate) fn tenter(indice: usize) -> Option<Self> {
+        Self::explorer(indice, plans(false)).or_else(|| Self::explorer(indice, plans(true)))
     }
 
     /// Les deux passes avec les plans `tous`. `None` si le drapeau est
@@ -828,6 +833,24 @@ fn rang_de_graine(n: usize) -> usize {
         .iter()
         .position(|&r| r == nom)
         .unwrap_or_else(|| panic!("« {nom} » n'a pas de rang de graine (RANGS_DE_GRAINE)"))
+}
+
+/// Course contre le robot (carte 8.7) : la partie que joue le fantôme de force `p`
+/// (rang dans `PROFILS`) sur le niveau d'`itineraires`, avec la graine OFFICIELLE de
+/// la mesure. C'est le premier essai (0, 1, 2…) qui atteint le drapeau : le fantôme
+/// se trompe et meurt comme le joueur simulé, mais finit toujours. Renvoie le numéro
+/// de l'essai, son bilan et les entrées de chaque pas depuis le début du niveau.
+pub(crate) fn partie_du_fantome(
+    itineraires: &Itineraires,
+    p: usize,
+) -> Option<(u32, Essai, Vec<Entrees>)> {
+    let rang = rang_de_graine(itineraires.indice);
+    (0..ESSAIS).find_map(|e| {
+        let mut journal = Vec::new();
+        let graine = graine_essai(GRAINE, p, rang, e);
+        let essai = jouer_essai_note(itineraires, &PROFILS[p], graine, &mut journal);
+        essai.fini.then_some((e, essai, journal))
+    })
 }
 
 // --- La mesure complète -------------------------------------------------------

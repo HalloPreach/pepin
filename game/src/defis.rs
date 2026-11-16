@@ -57,6 +57,27 @@ pub const GAIN_PARTIE_FINIE: u32 = 5;
 pub const GAIN_SANS_GAME_OVER: u32 = 5;
 /// Bonus de fin de partie : toutes les gouttes du parcours (bonus non compris).
 pub const GAIN_TOUTES_LES_GOUTTES: u32 = 10;
+/// Course contre le robot (carte 8.7) : première victoire contre la force EXPERT sur
+/// un niveau (une fois par niveau, voir `crediter_course_expert`).
+pub const GAIN_COURSE_EXPERT: u32 = 5;
+
+/// Identifiant (dans `bonus_credites`) de la prime « EXPERT battu » du niveau de clé
+/// `cle`. Ne jamais le changer : la prime serait créditée une seconde fois.
+pub fn bonus_course_expert(cle: &str) -> String {
+    format!("course_expert_{cle}")
+}
+
+/// L'EXPERT vient d'être battu sur le niveau de clé `cle` : la prime la PREMIÈRE fois
+/// seulement (créditée au porte-monnaie). Renvoie le gain (0 si déjà touchée).
+/// N'enregistre pas.
+pub fn crediter_course_expert(s: &mut Sauvegarde, cle: &str) -> u32 {
+    if s.crediter_bonus(&bonus_course_expert(cle)) {
+        s.ajouter_gouttes(GAIN_COURSE_EXPERT);
+        GAIN_COURSE_EXPERT
+    } else {
+        0
+    }
+}
 
 /// Un défi de niveau.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

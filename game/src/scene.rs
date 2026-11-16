@@ -23,6 +23,7 @@ use pepin_core::physics::{CourantAscendant, VentLateral, HZ};
 use pepin_core::player::EtatJoueur;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
+use crate::course::{self, Bord};
 use crate::decor;
 use crate::grele;
 use crate::monde::{Monde, REAPPARITION_PAS};
@@ -31,6 +32,7 @@ use crate::particules::Particules;
 use crate::rendu::couleur_mq;
 use crate::skins::Skin;
 use crate::sprites::{ennemis, hauteur, largeur, objets, objets_decor, Banque, JeuImages};
+use crate::texte::{self, Style};
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
@@ -1054,7 +1056,22 @@ pub(crate) fn image_attente(images: &JeuImages, immobile: u32) -> Option<&'stati
 /// Dessine Pépin avec les images du skin actif : même logique d'animation pour tous les
 /// skins, seuls les noms des images changent (`JeuImages`).
 fn dessiner_pepin(monde: &Monde, banque: &Banque, skin: Skin, alpha: f32, cx: i32, cy: i32) {
-    let images = skin.images();
+    let poser = |nom: &str, x: f32, y: f32, miroir: bool| banque.dessiner(nom, x, y, miroir);
+    poser_pepin(monde, skin.images(), alpha, (cx, cy), true, &poser);
+}
+
+/// Le dessin de Pépin, quelles que soient ses images (`images`) et la façon de les
+/// poser (`poser` : pleines, ou tramées pour le fantôme de la course, carte 8.7).
+/// `borner` : garder l'animation de mort dans le cadre (Pépin ; pas le fantôme, qui
+/// peut mourir hors champ).
+fn poser_pepin(
+    monde: &Monde,
+    images: &JeuImages,
+    alpha: f32,
+    (cx, cy): (i32, i32),
+    borner: bool,
+    poser: &dyn Fn(&str, f32, f32, bool),
+) {
     let pas = monde.pas;
     let j = &monde.joueur;
     let miroir = !j.regarde_droite;
@@ -1064,12 +1081,16 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, skin: Skin, alpha: f32, cx: i3
         let ecoule = REAPPARITION_PAS - monde.reapparition;
         let k = (ecoule as usize * 3 / REAPPARITION_PAS as usize).min(2);
         // Chute dans le vide ou réapparition lointaine : l'animation reste dans le cadre.
-        let (mort_x, mort_y) = borner_mort(monde.pos_mort, (cx as f32, cy as f32));
+        let (mort_x, mort_y) = if borner {
+            borner_mort(monde.pos_mort, (cx as f32, cy as f32))
+        } else {
+            monde.pos_mort
+        };
         let (mx, my) = (
             mort_x.round() as i32 - cx - 3,
             mort_y.round() as i32 - cy - 2,
         );
-        banque.dessiner(images.reapparition[k], mx as f32, my as f32, false);
+        poser(images.reapparition[k], mx as f32, my as f32, false);
     }
     // Tout juste réapparu, Pépin est protégé des dangers (1 s) : il clignote.
     if pepin_cache(j.protection_restante(), pas) {
@@ -1083,7 +1104,7 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, skin: Skin, alpha: f32, cx: i3
     match j.etat() {
         EtatJoueur::Plane => {
             let nom = image(&images.planer, pas, 8);
-            banque.dessiner(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
+            poser(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
         }
         etat => {
             let nom = match etat {
@@ -1093,7 +1114,56 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, skin: Skin, alpha: f32, cx: i3
                 _ => image_attente(images, monde.immobile)
                     .unwrap_or_else(|| image(&images.repos, pas, 30)),
             };
-            banque.dessiner(nom, (milieu - 8) as f32, (bas - 16) as f32, miroir);
+            poser(nom, (milieu - 8) as f32, (bas - 16) as f32, miroir);
+        }
+    }
+}
+
+/// Course contre le robot (carte 8.7) : le fantôme, Pépin de son monde à lui (`monde`)
+/// tramé en damier avec les images de base, et l'étiquette de sa force au-dessus ;
+/// hors champ, une flèche au bord de l'écran, de son côté. `(cx, cy)` : la caméra du
+/// joueur.
+pub fn dessiner_fantome(
+    monde: &Monde,
+    banque: &Banque,
+    alpha: f32,
+    (cx, cy): (i32, i32),
+    etiquette: &str,
+) {
+    let poser = |nom: &str, x: f32, y: f32, miroir: bool| banque.dessiner_trame(nom, x, y, miroir);
+    poser_pepin(monde, Skin::Pepin.images(), alpha, (cx, cy), false, &poser);
+    let j = &monde.joueur;
+    let (px, py) = monde.joueur_interpole(alpha);
+    let (bx, by) = (
+        (px.round() as i32 - cx) as f32,
+        (py.round() as i32 - cy) as f32,
+    );
+    match course::fleche_hors_champ(bx, by, j.boite.w, j.boite.h) {
+        None => {
+            // Au-dessus de la tête (le sprite dépasse de la boîte par le haut).
+            let y = by + j.boite.h - 16.0 - ETIQUETTE_FANTOME;
+            let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
+            texte::dessiner_centre_sur(etiquette, bx + j.boite.w / 2.0, y, style);
+        }
+        Some((x, y, bord)) => dessiner_fleche_fantome(x.round() as i32, y.round() as i32, bord),
+    }
+}
+
+/// Écart (px) entre le haut du sprite du fantôme et le haut de son étiquette.
+const ETIQUETTE_FANTOME: f32 = 9.0;
+
+/// La flèche d'un fantôme hors champ : un triangle de 4 rangées, pointe `(x, y)` vers
+/// le `bord`, blanc cassé sur une ombre d'ardoise (lisible sur tous les fonds).
+fn dessiner_fleche_fantome(x: i32, y: i32, bord: Bord) {
+    for (dx, dy, c) in [(1, 1, ARDOISE_OMBRE), (0, 0, BLANC_CASSE)] {
+        for k in 0..4 {
+            let l = 2 * k + 1;
+            match bord {
+                Bord::Gauche => rect(x + k + dx, y - k + dy, 1, l, c),
+                Bord::Droite => rect(x - 1 - k + dx, y - k + dy, 1, l, c),
+                Bord::Haut => rect(x - k + dx, y + k + dy, l, 1, c),
+                Bord::Bas => rect(x - k + dx, y - 1 - k + dy, l, 1, c),
+            }
         }
     }
 }

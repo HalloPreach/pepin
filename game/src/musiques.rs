@@ -161,14 +161,17 @@ pub fn musique_du_niveau(niveau: &InfosNiveau) -> Musique {
 pub fn musique_de_l_ecran(ecran: Ecran, niveau: &InfosNiveau) -> Musique {
     match ecran {
         // La carte des niveaux (`Plan`, carte 7.4) se range avec les menus.
-        Ecran::Titre | Ecran::Aide | Ecran::Boutique | Ecran::Plan => Musique::Orage,
-        // Le bilan d'un niveau joué seul garde la musique du niveau ; la démo du titre
-        // (carte 8.1) a celle du niveau que joue le robot.
+        Ecran::Titre | Ecran::Aide | Ecran::Boutique | Ecran::Plan | Ecran::ChoixForce => {
+            Musique::Orage
+        }
+        // Le bilan d'un niveau joué seul (ou d'une course) garde la musique du niveau ;
+        // la démo du titre (carte 8.1) a celle du niveau que joue le robot.
         Ecran::Carte(_)
         | Ecran::Jeu
         | Ecran::Pause
         | Ecran::PlusDeVies(_)
         | Ecran::BilanNiveau
+        | Ecran::BilanCourse
         | Ecran::Demo => musique_du_niveau(niveau),
         // L'histoire (carte 8.4) : le soleil réveillé a sa musique, le reste garde
         // celle du titre.

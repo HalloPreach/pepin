@@ -22,6 +22,7 @@ mod boutique;
 mod camera;
 mod chrono;
 mod contenu;
+mod course;
 mod decor;
 mod defis;
 mod demo;

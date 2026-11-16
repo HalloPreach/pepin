@@ -205,6 +205,8 @@ pub trait Zones {
     fn etape_sous(&self, g: &Geometrie, defil: f32, x: f32, y: f32) -> Option<usize>;
     /// Le bouton JOUER contient-il le point ?
     fn sur_jouer(&self, x: f32, y: f32) -> bool;
+    /// Le bouton COURSE (carte 8.7) contient-il le point ?
+    fn sur_course(&self, x: f32, y: f32) -> bool;
     /// Le bouton RETOUR contient-il le point ?
     fn sur_retour(&self, x: f32, y: f32) -> bool;
 }
@@ -217,12 +219,22 @@ pub enum ActionPlan {
     Quitter,
     /// Jouer le niveau d'indice donné (partie d'un seul niveau).
     Jouer(usize),
+    /// Courir le niveau d'indice donné contre le robot (carte 8.7) : choisir la force.
+    Course(usize),
+}
+
+/// L'étape `i` se court-elle contre le robot ? Jouable, et au moins une partie de
+/// fantôme embarquée pour elle (carte 8.7).
+pub fn course_possible(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
+    etat_etape(niveaux, s, i).jouable() && crate::course::disponible(i)
 }
 
 /// L'écran de la carte : étape choisie et défilement.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EtatPlan {
     pub geometrie: Geometrie,
+    /// Le bouton choisi au clavier sous le panneau : COURSE (`true`) ou JOUER.
+    pub course: bool,
     /// Indice (dans la table) de l'étape choisie.
     pub selection: usize,
     /// Ordonnée de la carte en haut de la vue.
@@ -234,6 +246,7 @@ impl EtatPlan {
     pub fn new(niveaux: &[InfosNiveau], selection: usize) -> Self {
         let mut e = Self {
             geometrie: Geometrie::new(niveaux),
+            course: false,
             selection: selection.min(niveaux.len().saturating_sub(1)),
             defil: 0.0,
         };
@@ -268,10 +281,10 @@ impl EtatPlan {
         self.borner();
     }
 
-    /// Un appui (une image) : haut / bas (ou droite / gauche) parcourent les étapes
-    /// dans l'ordre du chemin ; Entrée ou JOUER lance l'étape choisie si elle est
-    /// jouable ; toucher une étape la choisit ; molette et glisser font défiler ;
-    /// Échap ou RETOUR revient au titre.
+    /// Un appui (une image) : haut / bas parcourent les étapes dans l'ordre du chemin ;
+    /// gauche / droite choisissent le bouton JOUER ou COURSE (carte 8.7) ; Entrée, JOUER
+    /// ou COURSE lance l'étape choisie si elle est jouable ; toucher une étape la
+    /// choisit ; molette et glisser font défiler ; Échap ou RETOUR revient au titre.
     pub fn reagir(
         &mut self,
         nav: &Navigation,
@@ -293,13 +306,26 @@ impl EtatPlan {
                 ActionPlan::Rien
             }
         };
-        if (nav.haut || nav.droite) && self.selection + 1 < nb {
+        let courir = |sel: usize| {
+            if course_possible(niveaux, s, sel) {
+                ActionPlan::Course(sel)
+            } else {
+                ActionPlan::Rien
+            }
+        };
+        if nav.haut && self.selection + 1 < nb {
             self.selection += 1;
             self.centrer();
         }
-        if (nav.bas || nav.gauche) && self.selection > 0 {
+        if nav.bas && self.selection > 0 {
             self.selection -= 1;
             self.centrer();
+        }
+        if nav.droite {
+            self.course = true;
+        }
+        if nav.gauche {
+            self.course = false;
         }
         if nav.molette != 0.0 {
             self.defil -= nav.molette * PAS_MOLETTE;
@@ -314,7 +340,12 @@ impl EtatPlan {
                 return ActionPlan::Quitter;
             }
             if z.sur_jouer(x, y) {
+                self.course = false;
                 return jouer(self.selection);
+            }
+            if z.sur_course(x, y) {
+                self.course = true;
+                return courir(self.selection);
             }
             if let Some(i) = z.etape_sous(&self.geometrie, self.defil, x, y) {
                 // Toucher choisit seulement (un glisser commence aussi par un appui) :
@@ -323,7 +354,11 @@ impl EtatPlan {
             }
         }
         if nav.valider {
-            return jouer(self.selection);
+            return if self.course {
+                courir(self.selection)
+            } else {
+                jouer(self.selection)
+            };
         }
         ActionPlan::Rien
     }

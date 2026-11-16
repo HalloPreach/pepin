@@ -198,6 +198,8 @@ pub struct Banque {
     tuiles: Vec<HashMap<&'static str, Texture2D>>,
     /// Les mêmes tuiles tramées en damier (faux murs révélés, carte 8.5).
     tuiles_tramees: Vec<HashMap<&'static str, Texture2D>>,
+    /// Les personnages tramés en damier : le fantôme de la course (carte 8.7).
+    personnages_trames: HashMap<&'static str, Texture2D>,
 }
 
 impl Banque {
@@ -219,10 +221,15 @@ impl Banque {
                 })
                 .collect()
         };
+        let personnages_trames = personnages()
+            .into_iter()
+            .map(|(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
+            .collect();
         Self {
             sprites,
             tuiles: jeu(false),
             tuiles_tramees: jeu(true),
+            personnages_trames,
         }
     }
 
@@ -245,6 +252,14 @@ impl Banque {
     pub fn dessiner_tuile_tramee(&self, theme: Theme, nom: &str, x: f32, y: f32) {
         if let Some(t) = self.tuiles_tramees[theme.indice()].get(nom) {
             Self::poser(t, x, y, false);
+        }
+    }
+
+    /// Dessine le personnage `nom` tramé en damier : le fantôme de la course contre le
+    /// robot (carte 8.7), « translucide » sans demi-teinte.
+    pub fn dessiner_trame(&self, nom: &str, x: f32, y: f32, miroir: bool) {
+        if let Some(t) = self.personnages_trames.get(nom) {
+            Self::poser(t, x, y, miroir);
         }
     }
 

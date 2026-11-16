@@ -18,9 +18,11 @@ use crate::rendu::couleur_mq;
 use crate::texte::{self, Style};
 
 pub mod aide;
+pub mod bilan_course;
 pub mod bilan_niveau;
 pub mod boutique;
 pub mod carte;
+pub mod course_force;
 pub mod fin;
 pub mod histoire;
 pub mod pause;
@@ -54,6 +56,12 @@ pub enum Ecran {
     BilanNiveau,
     /// La démo du titre (carte 8.1) : le robot joue seul, voir `crate::demo`.
     Demo,
+    /// Course contre le robot (carte 8.7) : le choix de la force du fantôme pour
+    /// l'étape choisie sur la carte des niveaux (`course_force.rs`).
+    ChoixForce,
+    /// Bilan d'une course (carte 8.7) : GAGNÉ / PERDU et l'écart, puis REJOUER ou
+    /// CARTE.
+    BilanCourse,
 }
 
 /// Position horizontale et largeur des lignes de menu (pixels logiques).
@@ -103,9 +111,15 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
             y0: 124.0,
             pas: 20.0,
         }),
-        // REJOUER et CARTE, dans le panneau du bilan (`bilan_niveau.rs`).
-        Ecran::BilanNiveau => Some(Disposition {
+        // REJOUER et CARTE, dans le panneau du bilan (`bilan_niveau.rs`) ; même place
+        // dans celui d'une course (carte 8.7).
+        Ecran::BilanNiveau | Ecran::BilanCourse => Some(Disposition {
             y0: 124.0,
+            pas: 20.0,
+        }),
+        // Les trois forces et CARTE (carte 8.7), sous le titre et le nom du niveau.
+        Ecran::ChoixForce => Some(Disposition {
+            y0: 50.0,
             pas: 20.0,
         }),
         Ecran::Aide
@@ -276,6 +290,7 @@ pub fn dessiner_menu(libelles: &[&str], menu: &Menu, d: &Disposition, anim: u32)
 mod tests {
     use super::*;
     use crate::contenu;
+    use crate::course::Force;
     use crate::menu::Choix;
     use pepin_core::font::largeur_texte;
 
@@ -293,6 +308,10 @@ mod tests {
             Choix::RetourTitre,
             Choix::Carte,
             Choix::RejouerNiveau,
+            Choix::RejouerCourse,
+            Choix::Force(Force::Debutant),
+            Choix::Force(Force::Habitue),
+            Choix::Force(Force::Expert),
         ];
         for c in tous {
             let t = contenu::libelle(c);

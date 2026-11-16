@@ -112,6 +112,10 @@ pub struct Sauvegarde {
     pub inventaire: Vec<String>,
     /// Objet équipé par catégorie (catégorie → id).
     pub equipes: BTreeMap<String, String>,
+    /// Course contre le robot (carte 8.7) : par CLÉ de niveau, le meilleur résultat
+    /// contre chaque force (rang de `course::Force`), en écart SIGNÉ de pas : négatif =
+    /// gagné de tant, positif = perdu de tant (`None` : jamais couru et fini).
+    pub courses: BTreeMap<String, [Option<i32>; 3]>,
 }
 
 impl Default for Sauvegarde {
@@ -131,6 +135,7 @@ impl Default for Sauvegarde {
                 .iter()
                 .map(|&(c, i)| (c.to_string(), i.to_string()))
                 .collect(),
+            courses: BTreeMap::new(),
         }
     }
 }
@@ -239,6 +244,28 @@ impl Sauvegarde {
         self.bonus_credites.insert(id.to_string())
     }
 
+    /// Meilleur résultat de course (écart signé, voir `courses`) sur le niveau de clé
+    /// `cle` contre la force de rang `force`.
+    pub fn meilleure_course(&self, cle: &str, force: usize) -> Option<i32> {
+        self.courses
+            .get(cle)
+            .and_then(|r| r.get(force).copied().flatten())
+    }
+
+    /// Une course finie (carte 8.7) : garde le meilleur écart (le plus petit). Renvoie
+    /// `true` si c'est un nouveau meilleur résultat. Hors de la table : ignoré.
+    pub fn noter_course(&mut self, cle: &str, force: usize, ecart: i32) -> bool {
+        if indice_de_cle(NIVEAUX, cle).is_none() || force >= 3 {
+            return false;
+        }
+        let r = self.courses.entry(cle.to_string()).or_default();
+        let mieux = r[force].is_none_or(|e| ecart < e);
+        if mieux {
+            r[force] = Some(ecart);
+        }
+        mieux
+    }
+
     /// Une partie finie : met à jour les records. Renvoie `true` si le score est un
     /// NOUVEAU RECORD (la première partie finie en est toujours un).
     pub fn noter_partie(&mut self, score: u32, temps: u32) -> bool {
@@ -330,6 +357,17 @@ impl Sauvegarde {
             }
             t.push('\n');
         }
+        // Courses (carte 8.7) : `course.toits=0:-120 2:35` (rang de la force : écart).
+        for (cle, r) in &s.courses {
+            let morceaux: Vec<String> = r
+                .iter()
+                .enumerate()
+                .filter_map(|(f, e)| e.map(|e| format!("{f}:{e}")))
+                .collect();
+            if !morceaux.is_empty() {
+                t.push_str(&format!("course.{cle}={}\n", morceaux.join(" ")));
+            }
+        }
         t
     }
 
@@ -396,6 +434,15 @@ impl Sauvegarde {
                     }
                 }
                 _ => {
+                    // Courses (carte 8.7) : un champ de plus en v3, ignoré par les
+                    // versions d'avant (pas de changement de version).
+                    if let Some(c) = cle.strip_prefix("course.").filter(|c| est_identifiant(c)) {
+                        let r = lire_course(valeur);
+                        if r.iter().any(Option::is_some) {
+                            s.courses.insert(c.to_string(), r);
+                        }
+                        continue;
+                    }
                     let cle_niveau = cle.strip_prefix("niveau.").and_then(|n| {
                         if ancienne {
                             // v2 : `niveau.10` → 10e clé de l'ordre publié en v2.
@@ -477,6 +524,19 @@ fn lire_niveau(valeur: &str) -> ProgresNiveau {
         }
     }
     p
+}
+
+/// Relit `0:-120 2:35` (morceau illisible : ignoré).
+fn lire_course(valeur: &str) -> [Option<i32>; 3] {
+    let mut r = [None; 3];
+    for (f, e) in valeur.split_whitespace().filter_map(|m| m.split_once(':')) {
+        if let (Ok(f), Ok(e)) = (f.parse::<usize>(), e.parse::<i32>()) {
+            if let Some(case) = r.get_mut(f) {
+                *case = Some(e);
+            }
+        }
+    }
+    r
 }
 
 /// Un identifiant (de skin, de catégorie…) : lettres minuscules, chiffres, `_` ou `-`.

@@ -26,6 +26,10 @@ pub enum Choix {
     RetourTitre,
     /// Bilan d'un niveau joué depuis la carte (carte 7.4) : le relancer tout de suite.
     RejouerNiveau,
+    /// Bilan d'une course (carte 8.7) : la recourir contre la même force.
+    RejouerCourse,
+    /// Choix de la force du fantôme (carte 8.7) : lancer la course.
+    Force(crate::course::Force),
 }
 
 /// Le curseur d'un menu vertical.
