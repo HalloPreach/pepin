@@ -5716,3 +5716,46 @@ prises ; dans un vrai navigateur F11 bascule aussi le plein écran, sans gêne).
 
 - Le son à l'oreille (Chromium sans écran : rien n'est entendu ; écouter les WAV ci-dessus) ;
 - aucun écran de choix ni sauvegarde (cartes boutique) ; téléphone et Safari non essayés.
+
+## Parapluie fermé tenu par la poignée : Pépin et Pépinette (carte 7.1b)
+
+Demande d'Aga (deux fois) : le parapluie fermé était tenu à l'envers (crosse orange en l'air au-dessus
+de la tête, embout de métal au sol : on croyait Pépin le tenir par la pointe). Retourné dans les 11
+images où il est fermé (repos x2, course x4, saut, chute, cligne, ciel, tapote), pour Pépin
+(`sprites/pepin.rs`) ET Pépinette (`sprites/pepinette.rs`) : embout de métal en haut (rangée 1), toile
+roulée au-dessus (corail chez Pépin, cyan chez Pépinette, plis, sangle blanche), fine sous l'embout et
+plus large vers le bas, crosse orange en bas (rangées 8 à 12), à hauteur du flanc, le bec recourbé vers
+le corps. Même dessin à la même place dans les 11 images (pas de tremblement en course) ; TAPOTE : le
+parapluie descend d'un pixel, la crosse vient frapper le sol. Plané (déjà dans le bon sens), mort et
+réapparition (pas de parapluie fermé) : inchangés. Corps, pieds, tailles, boîtes, physique : inchangés
+(colonnes 0 à 9 identiques ; seul le contour du corps à la colonne 10-11 suit le nouveau parapluie).
+
+Aucun nouveau test. Un test existant décrivait l'ancien sens et a été mis à jour (même nom, mêmes
+contrôles, rangées inversées) : `le_parapluie_ferme_a_une_crosse_une_toile_repliee_et_un_embout`
+(`game/src/sprites/mod.rs`) : orange seulement dans les rangées 8 à 12, crochet, toile et sangle dans les
+rangées 2 à 7, plus large en bas qu'en haut, embout dans les rangées 0 à 1.
+
+### Preuves
+
+Extraction propre (`git archive` du commit 661bc58) :
+
+- `./docker-cargo.sh test -p game --no-default-features sprites` : 54 verts ; `... skins` : 1 vert ;
+  `... scene` : 32 verts (attente, tapote) ;
+- `./docker-cargo.sh test -p game --no-default-features -- --exact
+  bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir` : vert en 491,7 s (machine chargée,
+  charge 20 à 32), fin atteinte, 0 mort ;
+- `./build.sh` : `dist/` produit (game.wasm 509 466 octets), aucun `/home`, seule URL
+  `http://www.w3.org/2000/svg`.
+
+Images : `docs/qa/71-planche-pepin-pepinette.png` régénérée (`python3 docs/planche-skins.py`, x8 ; 0 pixel
+hors palette), `docs/planche-sprites.png` réécrite par son test ; `docs/qa/71b-parapluie-avant-apres.png`
+(x12) : de haut en bas Pépin avant, Pépin après, Pépinette avant, Pépinette après ; repos, course (2
+images), saut ; `docs/mesure-capture.py` : 0 pixel hors palette, 0 bloc flou. Regardée : oui, on lit
+« il tient son parapluie par la poignée » : la crosse orange est contre le flanc, à hauteur de la main,
+le parapluie pointe vers le haut ; pareil pour Pépinette (toile cyan).
+
+### Ce qui n'est PAS testé
+
+- Pas de capture en jeu (navigateur) ni de lint (`./docker-cargo.sh lint`) refaits ; l'empreinte
+  d'images du robot n'a pas été recalculée (elle change, c'est attendu : seules les images changent).
+- Pas de suite complète (consigne vitesse).

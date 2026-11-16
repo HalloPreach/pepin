@@ -1665,9 +1665,9 @@ mod tests {
         }
     }
 
-    /// Le parapluie fermé se lit : crosse orange en haut (crochet ouvert vers Pépin), toile
-    /// corail repliée (plis en corail clair, sangle blanche), plus large en haut qu'en bas,
-    /// embout de métal en bas.
+    /// Le parapluie fermé se lit, tenu par la poignée (carte 7.1b) : embout de métal en
+    /// haut, toile corail repliée (plis en corail clair, sangle blanche) plus large en bas
+    /// qu'en haut, crosse orange en bas, à hauteur du flanc (crochet ouvert vers Pépin).
     #[test]
     fn le_parapluie_ferme_a_une_crosse_une_toile_repliee_et_un_embout() {
         let d = dessin("pepin_idle0");
@@ -1678,25 +1678,26 @@ mod tests {
                 .filter(|&(x, y)| car(d, x, y) == c)
                 .count()
         };
-        // Crosse : l'orange n'est que dans les 5 rangées du haut.
-        assert!(compter('A', 0..5) >= 6, "crosse trop petite");
-        assert_eq!(compter('A', 5..16), 0, "de l'orange hors de la crosse");
+        // Crosse : l'orange n'est que dans les rangées 8 à 12 (le flanc), pas en l'air.
+        assert!(compter('A', 8..13) >= 6, "crosse trop petite");
+        assert_eq!(compter('A', 0..8), 0, "de l'orange au-dessus de la crosse");
+        assert_eq!(compter('A', 13..16), 0, "de l'orange sous la crosse");
         // C'est un crochet : une rangée a deux bouts d'orange séparés (le bec et la tige).
-        let crochet = (0..5).any(|y| {
+        let crochet = (8..13).any(|y| {
             let oranges: Vec<i32> = (11..16).filter(|&x| car(d, x, y) == 'A').collect();
             oranges.windows(2).any(|p| p[1] - p[0] > 1)
         });
         assert!(crochet, "la crosse n'est pas recourbée");
         // Toile repliée : corail, plis en corail clair, sangle blanche.
-        assert!(compter('8', 5..13) >= 8, "toile trop petite");
-        assert!(compter('9', 5..13) >= 3, "pas de plis");
-        let sangle = (5..13).any(|y| (12..15).all(|x| car(d, x, y) == '7'));
+        assert!(compter('8', 2..8) >= 8, "toile trop petite");
+        assert!(compter('9', 2..8) >= 3, "pas de plis");
+        let sangle = (2..8).any(|y| (12..15).all(|x| car(d, x, y) == '7'));
         assert!(sangle, "pas de sangle");
-        // Plus large en haut (rangée 5) qu'en bas (rangée 12).
+        // Plus large en bas (rangée 7, vers la poignée) qu'en haut (rangée 2, sous l'embout).
         let pleins = |y: i32| (12..16).filter(|&x| !".0".contains(car(d, x, y))).count();
-        assert!(pleins(5) > pleins(12), "la toile ne s'affine pas");
-        // Embout de métal (gris `5`) sous la toile.
-        assert_eq!(compter('5', 12..16), 1, "embout");
+        assert!(pleins(7) > pleins(2), "la toile ne s'affine pas");
+        // Embout de métal (gris `5`) au-dessus de la toile.
+        assert_eq!(compter('5', 0..2), 1, "embout");
     }
 
     /// Contour sombre de 1 px autour du parapluie dans toutes les images : tout pixel coloré
