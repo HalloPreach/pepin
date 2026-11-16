@@ -6296,6 +6296,11 @@ Après la fusion de 7.9, 8.2/8.2b, 8.4, 8.12 et 7.4 : finir l'intégration de l'
   ok en 1134 s (machine chargée) : choisie au titre (une ligne sous JOUER), les niveaux 1 à 10 puis
   l'épilogue (bonus sauté), 0 mort ; 24 461 images, chrono 21 688 pas, empreinte `ba4a1ce378de679f`.
   Parcours cherchés dans les variantes (`trouver_parcours_mode`, un fil par niveau).
+- Passe finale, une seule, sur l'extraction propre (`git archive` de e702995) : `./docker-cargo.sh test
+  --workspace --no-default-features` : core 378 ok (2 ignorés), game 355 ok (28 ignorés), 0 échec (les
+  deux parties du robot et la nouvelle partie + comprises) ; `./docker-cargo.sh lint` : LINT-OK ;
+  `./build.sh` : game.wasm 602 300 octets (gzip 242 461) ; dans `dist/`, 0 nom interdit, aucun `/home`,
+  seule URL `http://www.w3.org/2000/svg`.
 - Captures `docs/qa/88-*.png` (build de QA sur 127.0.0.1, Chromium 1208 sans tête par CDP,
   `node docs/capture-ng-plus.mjs PORT docs/qa`), regardées ;
   `mesure-capture.py` : 0 pixel hors palette, 0 flou ; 0 erreur de console :
