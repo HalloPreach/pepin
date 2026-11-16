@@ -560,15 +560,15 @@ impl Application {
             return;
         }
         if self.monde.termine {
-            // Niveau réussi (bonus compris) : ses gouttes vont au porte-monnaie, tout de
-            // suite enregistré. Celles d'un niveau raté ne comptent pas : elles sont
-            // remises à zéro quand le niveau recommence. Les défis (carte 7.3) sont
+            // Niveau réussi (bonus compris) : ses gouttes NOUVELLES vont au
+            // porte-monnaie, tout de suite enregistré (une goutte déjà comptée ne
+            // rapporte plus, carte 7.9). Celles d'un niveau raté ne comptent pas : elles
+            // sont remises à zéro quand le niveau recommence. Les défis (carte 7.3) sont
             // notés au passage, et leurs premières réussites créditées.
             self.tentative.gouttes = self.monde.gouttes_niveau;
-            let ancien = self.sauvegarde.progres(self.monde.indice).meilleur_temps;
+            let ancien = self.sauvegarde.progres(self.monde.infos.cle).meilleur_temps;
             self.resultat_niveau = Some(defis::noter_niveau(
                 &mut self.sauvegarde,
-                self.monde.indice,
                 self.monde.infos,
                 &self.tentative,
             ));
@@ -609,9 +609,9 @@ impl Application {
         match suite {
             Suite::Niveau { indice, etat } => {
                 self.niveau_seul = false;
-                if etat.is_some() {
+                if let (Some(n), true) = (NIVEAUX.get(indice), etat.is_some()) {
                     // Atteint pendant une partie : ouvert sur la carte des niveaux.
-                    self.sauvegarde.noter_niveau_atteint(indice);
+                    self.sauvegarde.noter_niveau_atteint(n.cle);
                     self.sauvegarde.enregistrer();
                 }
                 if etat.is_none() {
@@ -669,11 +669,11 @@ impl Application {
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
                 };
                 self.nouveau_record = self.sauvegarde.noter_partie(e.score, self.pas_partie);
-                // Bonus de fin de partie (carte 7.3), à chaque partie finie.
+                // Bonus de fin de partie (carte 7.3) : chaque ligne n'est créditée que
+                // la première fois qu'elle est gagnée (carte 7.9).
                 let toutes = self.bilan.gouttes >= levels::gouttes_du_parcours(NIVEAUX);
                 self.bonus_fin = defis::bonus_fin(!self.game_over_partie, toutes);
-                self.sauvegarde
-                    .ajouter_gouttes(defis::total_bonus(&self.bonus_fin));
+                defis::crediter_bonus_fin(&mut self.sauvegarde, &mut self.bonus_fin);
                 self.sauvegarde.enregistrer();
                 self.ouvrir(Ecran::Fin);
             }
@@ -823,7 +823,7 @@ impl Application {
         }
         // Défis et bonus (carte 7.3), sous la carte du niveau suivant ou l'écran de fin.
         match (self.ecran, &self.resultat_niveau) {
-            (Ecran::Carte(_), Some(r)) => resultats::dessiner_bande_niveau(r),
+            (Ecran::Carte(_), Some(r)) => resultats::dessiner_bande_niveau(r, self.anim),
             (Ecran::Fin, r) => {
                 resultats::dessiner_bande_fin(r.as_ref(), &self.bonus_fin, self.anim)
             }
@@ -1718,6 +1718,32 @@ mod tests {
 
     fn indice_de(nom: &str) -> usize {
         NIVEAUX.iter().position(|n| n.nom == nom).unwrap()
+    }
+
+    /// Carte 7.9 : REJOUER un niveau ne recrédite rien. La descente finie avec ses
+    /// 3 gouttes rapporte la première fois ; rejouée de même, +0 (« 3 GOUTTES DÉJÀ
+    /// COMPTÉES ») et le porte-monnaie ne bouge plus. Le meilleur temps reste noté.
+    #[test]
+    fn rejouer_un_niveau_ne_recredite_pas() {
+        let mut app = Application::new(true);
+        app.lancer(Suite::NiveauSeul(indice_de("La descente")));
+        let mut poche = Vec::new();
+        for _ in 0..2 {
+            jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+            app.reagir(&valider(), &Commandes::default(), None);
+            assert_eq!(app.ecran, Ecran::Jeu);
+            ramasser_les_gouttes(&mut app);
+            app.monde.termine = true;
+            avancer(&mut app, 1);
+            assert_eq!(app.ecran, Ecran::BilanNiveau);
+            let r = app.resultat_niveau.clone().unwrap();
+            poche.push((r.gain, r.deja_comptees, app.sauvegarde.gouttes_en_poche));
+            app.valider_choix(Choix::RejouerNiveau);
+        }
+        let (gain, deja, en_poche) = poche[0];
+        assert!(gain >= 3 && deja == 0 && en_poche == gain, "{poche:?}");
+        assert_eq!(poche[1], (0, 3, en_poche), "rejouée : +0");
+        assert!(app.sauvegarde.progres("descente").meilleur_temps.is_some());
     }
 
     #[test]

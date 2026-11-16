@@ -1,16 +1,18 @@
 //! Bilan d'un niveau joué seul depuis la carte des niveaux (carte 7.4) : par-dessus le
 //! niveau figé, le temps réalisé comparé au meilleur temps d'avant (« -1,8 s !
-//! NOUVEAU MEILLEUR TEMPS » ou « +3,2 s »), les défis réussis, la médaille et le gain,
-//! puis le choix REJOUER (le même niveau, tout de suite) ou CARTE.
+//! NOUVEAU MEILLEUR TEMPS » ou « +3,2 s »), les défis réussis, la médaille et le gain
+//! RÉEL (+0 possible : chaque récompense n'est créditée qu'une fois, carte 7.9, et
+//! les gouttes déjà comptées sont dites), puis le choix REJOUER (le même niveau, tout
+//! de suite) ou CARTE.
 
 use pepin_core::font::largeur_texte;
 use pepin_core::palette::{
-    ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, CORAIL_CLAIR, OR, OR_PALE,
+    ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL_CLAIR, OR, OR_PALE,
 };
 use pepin_core::LARGEUR_LOGIQUE;
 
 use super::carte::titre_niveau;
-use super::resultats::{entete, icone_medaille, ligne_defis, ECART_ICONE, L_ICONE};
+use super::resultats::{entete, icone_medaille, ligne_defis, ligne_deja, ECART_ICONE, L_ICONE};
 use super::{dessiner_menu, panneau, trame, Disposition};
 use crate::chrono;
 use crate::contenu;
@@ -87,5 +89,8 @@ pub fn dessiner(
     };
     texte::dessiner_centre(&ecart, 82.0, ombre(couleur, 1));
     ligne_defis(r, 100.0, false);
+    if let Some(deja) = ligne_deja(r) {
+        texte::dessiner_centre(&deja, 111.0, ombre(BRUME, 1));
+    }
     dessiner_menu(libelles, menu, d, anim);
 }

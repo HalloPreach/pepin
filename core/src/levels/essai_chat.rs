@@ -17,6 +17,7 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 0,
+    cle: "essai_chat",
     nom: "Essai chat",
     theme: Theme::Toits,
     genre: GenreNiveau::Normal,

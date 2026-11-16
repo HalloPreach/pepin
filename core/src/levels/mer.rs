@@ -67,6 +67,7 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 8,
+    cle: "mer",
     nom: "La mer de nuages",
     theme: Theme::Mer,
     genre: GenreNiveau::Normal,

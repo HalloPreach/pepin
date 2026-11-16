@@ -5,7 +5,8 @@
 //! l'épilogue redescend de l'autre côté (à droite).
 //!
 //! Ce module est PUR (aucun dessin) : il dit où est chaque étape (`Geometrie`),
-//! si elle est jouable (`etat_etape`, d'après la sauvegarde v2 de la carte 7.3) et
+//! si elle est jouable (`etat_etape`, d'après la progression de la sauvegarde,
+//! rangée par CLÉ de niveau depuis la carte 7.9) et
 //! ce que fait un appui (`EtatPlan::reagir`). L'écran est dans `ecrans/plan.rs`.
 //!
 //! Tout se déduit de la table `NIVEAUX` (genre de chaque niveau) : aucun numéro ni
@@ -20,7 +21,7 @@ use pepin_core::levels::{gouttes_pour_le_bonus, GenreNiveau};
 use pepin_core::zones::InfosNiveau;
 
 use crate::navigation::Navigation;
-use crate::sauvegarde::Sauvegarde;
+use crate::sauvegarde::{ProgresNiveau, Sauvegarde};
 
 /// Ce qu'une étape montre et permet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,23 +42,30 @@ impl EtatEtape {
     }
 }
 
+/// Progression de l'étape `i` de `niveaux`, lue par la CLÉ du niveau (vide hors de
+/// la table).
+pub fn progres(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> ProgresNiveau {
+    niveaux.get(i).map(|n| s.progres(n.cle)).unwrap_or_default()
+}
+
 /// Le niveau `i` a-t-il été fini au moins une fois ?
-fn fini(s: &Sauvegarde, i: usize) -> bool {
-    s.progres(i).meilleur_temps.is_some()
+fn fini(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
+    progres(niveaux, s, i).meilleur_temps.is_some()
 }
 
 /// Gouttes TROUVÉES (au cumul de la sauvegarde) dans les niveaux normaux.
 pub fn gouttes_trouvees_normales(niveaux: &[InfosNiveau], s: &Sauvegarde) -> u32 {
-    (0..niveaux.len())
-        .filter(|&i| niveaux[i].genre == GenreNiveau::Normal)
-        .map(|i| s.progres(i).gouttes.iter().filter(|&&g| g).count() as u32)
+    niveaux
+        .iter()
+        .filter(|n| n.genre == GenreNiveau::Normal)
+        .map(|n| s.progres(n.cle).gouttes.iter().filter(|&&g| g).count() as u32)
         .sum()
 }
 
 /// État de l'étape `i` de `niveaux` d'après la sauvegarde :
 /// - le premier niveau est toujours ouvert ;
 /// - un niveau normal ou l'épilogue est ouvert s'il a été atteint
-///   (`niveau_max_atteint`) ou si le niveau qui le précède sur le chemin (bonus
+///   (`ProgresNiveau::atteint`) ou si le niveau qui le précède sur le chemin (bonus
 ///   sauté) a été fini : l'épilogue s'ouvre donc une fois le dernier niveau normal
 ///   fini ;
 /// - le bonus se révèle avec toutes les gouttes des niveaux normaux TROUVÉES (au
@@ -70,7 +78,7 @@ pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtap
     let ouverte = match n.genre {
         GenreNiveau::Bonus => {
             let toutes = gouttes_trouvees_normales(niveaux, s) >= gouttes_pour_le_bonus(niveaux);
-            if !(toutes || fini(s, i)) {
+            if !(toutes || fini(niveaux, s, i)) {
                 return EtatEtape::Cachee;
             }
             true
@@ -79,10 +87,10 @@ pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtap
             let precedent = (0..i)
                 .rev()
                 .find(|&j| niveaux[j].genre != GenreNiveau::Bonus);
-            i == 0 || i <= s.niveau_max_atteint || precedent.is_some_and(|j| fini(s, j))
+            i == 0 || s.progres(n.cle).atteint || precedent.is_some_and(|j| fini(niveaux, s, j))
         }
     };
-    match (ouverte, fini(s, i)) {
+    match (ouverte, fini(niveaux, s, i)) {
         (_, true) => EtatEtape::Finie,
         (true, false) => EtatEtape::Ouverte,
         (false, false) => EtatEtape::Verrouillee,
@@ -92,14 +100,17 @@ pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtap
 /// Progression de mise au point (touche U du build de QA, carte 7.4) : premier appui,
 /// les sept premiers niveaux finis (médailles et gouttes variées, bonus encore
 /// caché) ; appui suivant, tous les niveaux finis avec toutes leurs gouttes (bonus
-/// révélé). Seulement la progression : le porte-monnaie et les records ne bougent pas.
+/// révélé). Seulement la progression : le porte-monnaie et les records ne bougent pas
+/// (et ce qui est ainsi « trouvé » compte comme déjà crédité, carte 7.9).
 pub fn progression_qa(niveaux: &[InfosNiveau], s: &mut Sauvegarde) {
-    let tout = (0..7).all(|i| fini(s, i));
+    let tout = (0..7).all(|i| fini(niveaux, s, i));
+    let atteint = if tout { niveaux.len() - 1 } else { 7 };
     // On ne fait qu'AJOUTER à la progression déjà là (rien de vrai n'est effacé).
-    for i in 0..niveaux.len() {
-        let Some(p) = s.progres_mut(i) else {
+    for (i, n) in niveaux.iter().enumerate() {
+        let Some(p) = s.progres_mut(n.cle) else {
             continue;
         };
+        p.atteint |= i <= atteint;
         let (gouttes, temps, medaille) = if tout {
             ([true; 3], 45 * 60 + i as u32 * 97, 1 + (i % 3) as u8)
         } else if i < 7 {
@@ -118,8 +129,6 @@ pub fn progression_qa(niveaux: &[InfosNiveau], s: &mut Sauvegarde) {
         p.meilleur_temps = Some(p.meilleur_temps.map_or(temps, |t| t.min(temps)));
         p.medaille = p.medaille.max(medaille);
     }
-    let atteint = if tout { niveaux.len() - 1 } else { 7 };
-    s.niveau_max_atteint = s.niveau_max_atteint.max(atteint);
 }
 
 // --- Géométrie de la carte (pixels du « monde » de la carte) ---------------------

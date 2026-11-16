@@ -25,8 +25,8 @@ use crate::chrono;
 use crate::contenu;
 use crate::defis::defis_du_niveau;
 use crate::plan::{
-    etat_etape, gouttes_trouvees_normales, EtatEtape, EtatPlan, Geometrie, Zones, H_TOITS, H_VUE,
-    Y_SOLEIL,
+    self, etat_etape, gouttes_trouvees_normales, EtatEtape, EtatPlan, Geometrie, Zones, H_TOITS,
+    H_VUE, Y_SOLEIL,
 };
 use crate::sauvegarde::Sauvegarde;
 use crate::skins::Skin;
@@ -289,7 +289,7 @@ fn marque(i: usize, etat: EtatEtape) -> String {
 /// cadenas ou marque, et ses 3 gouttes en petit dessous.
 fn dessiner_etape(i: usize, x: f32, y: f32, s: &Sauvegarde, choisie: bool, anim: u32) {
     let etat = etat_etape(NIVEAUX, s, i);
-    let progres = s.progres(i);
+    let progres = plan::progres(NIVEAUX, s, i);
     if choisie && (anim / 20).is_multiple_of(2) {
         panneau(x - DEMI - 2.0, y - DEMI - 2.0, 19.0, 19.0, OR, OR);
     }
@@ -352,7 +352,7 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
         return;
     };
     let etat = etat_etape(NIVEAUX, s, i);
-    let progres = s.progres(i);
+    let progres = plan::progres(NIVEAUX, s, i);
     let x = px + 6.0;
     let mut y = py + 4.0;
     if etat == EtatEtape::Cachee {
@@ -427,7 +427,7 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
     texte::dessiner(nom, x + L_ICONE + ECART_ICONE, y, ombre(couleur));
     y += 13.0;
     // Les 3 défis, cochés s'ils ont déjà été réussis (le CHRONO montre le temps cible).
-    for (defi, &ok) in defis_du_niveau(i, infos).iter().zip(&progres.defis) {
+    for (defi, &ok) in defis_du_niveau(infos).iter().zip(&progres.defis) {
         case(x, y, ok);
         let c = if ok { BLANC_CASSE } else { ARDOISE_PALE };
         texte::dessiner(&defi.libelle(), x + L_ICONE + ECART_ICONE, y, ombre(c));
