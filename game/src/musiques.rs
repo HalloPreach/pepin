@@ -94,7 +94,7 @@ impl Musique {
     pub fn prix(self) -> u32 {
         match self {
             Musique::Orage => 0,
-            _ => 25,
+            _ => crate::cosmetiques::PRIX_MUSIQUE,
         }
     }
 
@@ -175,6 +175,20 @@ pub fn musique_de_l_ecran(ecran: Ecran, niveau: &InfosNiveau) -> Musique {
         Ecran::Histoire(crate::ecrans::histoire::Chapitre::Soleil) => Musique::Soleil,
         Ecran::Histoire(_) => Musique::Orage,
         Ecran::Fin => Musique::Soleil,
+    }
+}
+
+/// La musique jouée (carte 7.6) : celle de l'écran (`musique_de_l_ecran`), sauf en
+/// jeu si le joueur a équipé une musique dans la boutique (`choisie`) : elle remplace
+/// alors la musique de la zone, dans tous les niveaux. Les menus, la démo du titre,
+/// l'histoire et la fin gardent la leur. Fonction pure.
+pub fn musique_jouee(ecran: Ecran, niveau: &InfosNiveau, choisie: Option<Musique>) -> Musique {
+    match (choisie, ecran) {
+        (
+            Some(m),
+            Ecran::Carte(_) | Ecran::Jeu | Ecran::Pause | Ecran::PlusDeVies(_) | Ecran::BilanNiveau,
+        ) => m,
+        _ => musique_de_l_ecran(ecran, niveau),
     }
 }
 

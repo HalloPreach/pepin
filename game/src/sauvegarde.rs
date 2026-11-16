@@ -62,10 +62,26 @@ pub const ORDRE_V2: [&str; 11] = [
 ];
 /// Skins disponibles dès le départ.
 pub const SKINS_DE_DEPART: [&str; 2] = ["pepin", "pepinette"];
-/// Inventaire de départ (carte 7.3) : les deux skins et la musique d'origine.
-pub const INVENTAIRE_DE_DEPART: [&str; 3] = ["skin:pepin", "skin:pepinette", "musique:orage"];
-/// Objets équipés au départ, par catégorie.
-pub const EQUIPES_DE_DEPART: [(&str, &str); 2] = [("skin", "pepin"), ("musique", "orage")];
+/// Inventaire de départ (cartes 7.3 et 7.6) : les deux skins, la musique d'origine et
+/// les choix « rien » de chaque catégorie (musique de la zone, pas de traînée,
+/// parapluie uni, palette d'origine : voir `cosmetiques`).
+pub const INVENTAIRE_DE_DEPART: [&str; 7] = [
+    "skin:pepin",
+    "skin:pepinette",
+    "musique:orage",
+    "musique:zone",
+    "trainee:aucune",
+    "motif:uni",
+    "palette:origine",
+];
+/// Objets équipés au départ, par catégorie : le jeu tel qu'il était.
+pub const EQUIPES_DE_DEPART: [(&str, &str); 5] = [
+    ("skin", "pepin"),
+    ("musique", "zone"),
+    ("trainee", "aucune"),
+    ("motif", "uni"),
+    ("palette", "origine"),
+];
 
 /// Progression d'un niveau (cartes 7.3 et 7.9). Ce qui est noté ici a AUSSI été
 /// crédité au porte-monnaie, une fois pour toutes (voir `defis::noter_niveau`).
@@ -351,6 +367,10 @@ impl Sauvegarde {
         // v1/v2 : niveaux rangés par NUMÉRO, lus dans la table figée `ORDRE_V2`.
         let ancienne = version < 3;
         let mut max_atteint_v2: Option<usize> = None;
+        // Avant la carte 7.6, aucune musique ne se choisissait : la musique équipée
+        // (ORAGE, celle du départ d'alors) n'était pas un choix du joueur. Une
+        // sauvegarde de cette époque (sans « musique:zone ») revient à PAR ZONE.
+        let mut choix_de_musique = false;
         let nombre = |v: &str, defaut: u32| v.parse::<u32>().unwrap_or(defaut);
         for (cle, valeur) in paires {
             match cle {
@@ -382,6 +402,7 @@ impl Sauvegarde {
                 }
                 "inventaire" => {
                     for objet in valeur.split(',').map(str::trim) {
+                        choix_de_musique |= objet == "musique:zone";
                         s.acquerir(objet);
                     }
                 }
@@ -414,6 +435,9 @@ impl Sauvegarde {
         }
         if ancienne {
             s.migrer_v2(max_atteint_v2);
+        }
+        if !choix_de_musique {
+            s.equipes.remove("musique");
         }
         s.normaliser();
         s
@@ -584,7 +608,7 @@ mod tests {
         assert!(s.progres("clocher").atteint);
         assert_eq!(s.niveaux.len(), 2, "hors de la table : rien de noté");
         assert_eq!(s.equipe("skin"), Some("pepinette"));
-        assert_eq!(s.equipe("musique"), Some("orage"));
+        assert_eq!(s.equipe("musique"), Some("zone"));
         assert!(s.possede("skin:pepin_dore") && s.possede("musique:orage"));
 
         for abime in [

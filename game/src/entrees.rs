@@ -295,6 +295,13 @@ pub fn skin_suivant_demande() -> bool {
     RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_SKIN)
 }
 
+/// Touches de mise au point des cosmétiques (carte 7.6) : T (traînée suivante), Y
+/// (motif de parapluie suivant), O (palette suivante) ; mêmes positions en QWERTY et
+/// en AZERTY. Build de QA seulement, inertes en production. Rien n'est enregistré.
+pub fn cosmetiques_suivants_demandes() -> [bool; 3] {
+    [KeyCode::T, KeyCode::Y, KeyCode::O].map(|k| RACCOURCIS_NIVEAUX && is_key_pressed(k))
+}
+
 /// Touche de mise au point « 100 gouttes en poche » (carte 7.5) : G, même position en
 /// QWERTY et en AZERTY. Sert à essayer l'achat de la boutique. Build de QA seulement.
 const TOUCHE_GOUTTES: KeyCode = KeyCode::G;
