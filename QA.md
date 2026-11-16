@@ -5895,3 +5895,11 @@ Données et règles seulement (l'écran de carte et la boutique liront la sauveg
 - Tests `ecrans` (19) et `contenu` (9) verts sans retouche, `lint` LINT-OK, `./build.sh` (dist/) et `./build.sh --qa` faits.
 - Chromium 1208 sans tête, CDP (`docs/capture-son.mjs`), 0 erreur de console : `docs/qa/78-titre-son-coupe.png`, `78-titre-son-actif.png` (après Entrée), `78-pause-son-actif.png` (ligne au repos) ; regardées, `mesure-capture.py` : 0 pixel hors palette, 0 flou.
 - Pas testé : vrai téléphone (clic/toucher sur l'icône : même rectangle de ligne qu'avant), Safari, Firefox.
+
+## Carte 7.8b : icône du son en bas à gauche (clic, toucher ou M) au lieu d'une ligne de menu
+
+- Plus de ligne SON (`Choix::Son`, `libelle_son` retirés) : titre JOUER / BOUTIQUE / COMMENT JOUER (y0 74), pause REPRENDRE / RECOMMENCER / QUITTER AU TITRE (panneau raccourci à 124 px). Haut-parleur 11 x 7 à l'échelle 2 en (6, 160), ombre, titre + pause seulement (en jeu, le coin est aux flèches tactiles).
+- Bascule : clic/toucher dans une zone 34 x 26 (icône + 6 px de chaque côté, `sur_icone_son`) ou M (aide : « Son, ou l'icône en bas à gauche ») ; son coupé au départ, sans ligne validée.
+- Tests existants adaptés (lignes comptées, `l_icone_du_son_bascule_sans_quitter_le_menu`) : `ecrans` 19, `contenu` 9, `app` 53 verts ; `lint` LINT-OK ; `./build.sh` et `--qa` faits.
+- CDP (`docs/capture-son.mjs`, Chromium 1208), 0 erreur de console : `docs/qa/78b-titre-son-actif.png` (M), `78b-titre-son-coupe-apres-clic.png`, `78b-pause-son-actif.png` (clic en pause) ; regardées, 0 pixel hors palette, 0 flou.
+- Pas testé : vrai téléphone (taille de la zone au doigt), Safari, Firefox.
