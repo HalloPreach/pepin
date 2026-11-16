@@ -179,8 +179,7 @@ fn dessiner_ciel(g: &Geometrie, ecran: &impl Fn(f32) -> f32) {
 /// du sommet est déjà OR_PALE), un disque d'or, un cœur blanc.
 fn dessiner_soleil(cy: f32) {
     let cx = 120.0;
-    for (r, c) in [(19, ORANGE_SOLEIL), (16, OR), (10, BLANC_CASSE)] {
-        let r = r as i32;
+    for (r, c) in [(19i32, ORANGE_SOLEIL), (16, OR), (10, BLANC_CASSE)] {
         for dy in -r..=r {
             let w = ((r * r - dy * dy) as f32).sqrt() as i32;
             rect(cx - w as f32, cy + dy as f32, (2 * w + 1) as f32, 1.0, c);
