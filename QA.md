@@ -5423,3 +5423,63 @@ fusion.
 - L'annonce reste l'image la moins nette (ailes dressées, corps aplati) ; elle n'a pas été comparée à
   l'ancienne en mouvement.
 - Chromium sans tête seulement, à 960 x 540 : ni vrai téléphone, ni Safari, ni Firefox.
+
+## Vents d'altitude : courant ascendant qui finit trop tôt (carte 6.8)
+
+Retour d'AGA en jouant (mot pour mot) : « dans le niveau précédent la mer de nuage il y a un courant
+ascendant qui finit un peu trop tôt et rend le saut compliqué » (niveau 7, `core/src/levels/vents.rs`).
+Au-dessus du haut d'un courant, plus rien ne porte Pépin : il plane en descendant. Marge entre le haut de
+chaque courant et le dessus de son îlot d'arrivée (premier solide à droite) :
+
+| Courant (colonnes) | Îlot d'arrivée      | Avant          | Après          | Retouche                                  |
+| ------------------ | ------------------- | -------------- | -------------- | ----------------------------------------- |
+| 16 à 18            | 21 à 31, rangée 4   | 32 px          | 32 px          | aucune                                    |
+| 50 à 52            | 56 à 63, rangée 3   | 32 px          | 32 px          | aucune                                    |
+| 97 à 99            | 103 à 108, rangée 3 | 0 px           | 32 px          | courant prolongé : rangée 3 → rangée 1    |
+| 127 à 129          | 132 à 141           | 16 px (rang 2) | 32 px (rang 3) | îlot et lanterne 136 descendus d'un rang  |
+
+- Le 3e courant était celui du saut « compliqué » : il lâchait Pépin à la hauteur de son îlot, trois tuiles
+  de vide plus loin.
+- Le 4e commence déjà à la rangée 1 ; la rangée 0 est le haut de l'écran (le prolonger ferait planer Pépin
+  hors du cadre). C'est donc son îlot (colonnes 132 à 141) qui descend d'une rangée, avec sa lanterne
+  (colonne 136, rangée 1 → 2, toujours posée dessus). Il est maintenant à la hauteur du corbeau (147, 3),
+  dont la patrouille commence 2 px après le bord droit de l'îlot.
+- Rien d'autre ne bouge : corbeaux (76, 3) et (147, 3), pigeons, nuage friable, gouttes à leur place ;
+  aucune entité dans un courant. Aucun test ajouté (consigne d'AGA) ; aucun test existant n'a cassé.
+
+### Preuves (retouche d'un niveau : tests ciblés, pas de suite complète ni de lint)
+
+Extraction propre de 6085bd5 (`git archive`, nouveau dossier daté sous `$TMPDIR`) :
+
+- `./docker-cargo.sh test -p core -- levels::vents zones faisabilite` : 78 tests verts (dont la
+  faisabilité des onze niveaux, `niveau_7_exige_les_courants_ascendants`, chargement et lint des grilles) ;
+- `./build.sh` : `dist/` produit, wasm 498 972 octets, 0 occurrence des noms interdits, seule URL
+  `http://www.w3.org/2000/svg` ; `./build.sh --qa` : `dist-qa/` pour la capture ;
+- `ecrire_script_ennemis_64b` (test ignoré existant, lancé à la main pour la capture) : niveau 7 rejoué par
+  le robot sans mort (`assert_eq!(morts, 0)`), 2 667 images.
+
+Dans le worktree, même grille (seuls les deux tests retirés ensuite diffèrent) : les deux parties du robot,
+`le_robot_finit_tous_les_niveaux_sans_mourir` et `la_partie_complete_joue_le_bonus` (toutes les gouttes,
+bonus joué), vertes à 0 mort ; `la_manche_a_air_s_etire_vers_son_courant` et les tests du pigeon verts. Le
+parcours du robot est calculé à chaque partie : aucun fichier de parcours à régénérer.
+
+Capture `docs/qa/68-vents-courant-prolonge.png` : build de QA servi sur 127.0.0.1 (port libre, serveur
+arrêté à la fin), Chromium 1208 sans tête piloté par CDP (`docs/capture-visibilite.mjs`, onglet au premier
+plan et canvas focalisé), 960 x 540, script `script-64b-7.txt` (touche 7 puis le parcours du robot), image
+1671. Pépin sort du haut du courant prolongé (x = 1 600, y = 28 dans la trace), pieds 6 px au-dessus du
+dessus de l'îlot 103-108 visible en dessous à droite ; il monte encore jusqu'à y = 16,7 (pieds 17 px
+au-dessus de l'îlot) avant de planer. `docs/mesure-capture.py` : 0 pixel hors palette, 0 bloc flou.
+Regardée.
+
+Commits : 7db8c8c (grille, doc du niveau, deux tests), 6085bd5 (les deux tests retirés), cette section et
+la capture.
+
+### Ce qui n'est PAS testé
+
+- Aucun humain n'a rejoué le saut : « assez tôt maintenant » est à confirmer par AGA en jouant.
+- La capture `64b-vents-corbeau-ilot.png` (carte 6.4b) montre l'îlot 132-141 à son ancienne hauteur : non
+  refaite (une seule capture demandée).
+- Le corbeau (147, 3) est maintenant à la hauteur de l'îlot de la lanterne 136 : la façon de l'écraser en
+  partant de cet îlot (se laisser tomber dessus, carte 6.4b) n'a été vérifiée que par le robot qui passe
+  sans mourir, pas geste par geste.
+- Chromium sans tête seulement, 960 x 540 : ni vrai téléphone, ni Safari, ni Firefox.
