@@ -699,13 +699,15 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                         );
                     }
                     TypeEnnemi::Pigeon => {
-                        // Le pigeon du dessin regarde à droite. Sprite 16x12 centré sur la
-                        // boîte 12x10, sa dernière rangée (les pattes) sur le bas de la boîte.
+                        // Le pigeon du dessin regarde à droite. Sprite 18x14 (carte 6.6)
+                        // centré sur la boîte 12x10 (3 px de chaque côté : le miroir le
+                        // garde centré), sa dernière rangée (le contour sous les pattes)
+                        // sur la dernière rangée de la boîte : 4 px dépassent en haut.
                         let (nom, tremble, retourne) = image_pigeon(e.phase(), ecrase, pas);
                         banque.dessiner(
                             nom,
-                            sx - 2.0 + tremble,
-                            sy - 2.0,
+                            sx - 3.0 + tremble,
+                            sy - 4.0,
                             e.vers_la_droite == retourne,
                         );
                     }
@@ -823,11 +825,22 @@ fn sprite_chat(nom: &str) -> crate::sprites::Image {
     }
 }
 
+/// Pas d'élan au début de la plongée (carte 6.6) : pendant les 8 premiers pas
+/// (0,13 s, le quart de la plongée), le pigeon s'élance ailes ouvertes ; ensuite
+/// il les relève en flèche pour le reste du piqué.
+const ELAN_PIGEON_PAS: u16 = 8;
+
+/// Durée (pas) d'une image du battement d'ailes de la remontée : 8 pas, soit
+/// quatre battements complets pendant les 64 pas de la remontée.
+const BATTEMENT_PIGEON_PAS: u16 = 8;
+
 /// Image du pigeon selon sa phase : `(nom du sprite, tremblement en px, retourné)`.
 /// Perché ou au repos, il hoche la tête ; pendant l'annonce il tremble d'un pixel
-/// (comme une plateforme friable qui va céder) ; pendant la remontée il est
-/// « retourné » : il revient vers son perchoir, donc il regarde derrière lui.
-/// Fonction pure.
+/// (comme une plateforme friable qui va céder) ; en plongée, il s'élance ailes
+/// ouvertes puis pique ailes en flèche ; pendant la remontée il bat des ailes et
+/// il est « retourné » : il revient vers son perchoir, donc il regarde derrière
+/// lui. L'image de la plongée et de la remontée suit le compteur de la phase (et
+/// non l'horloge `pas`) : chaque piqué commence par l'élan. Fonction pure.
 pub(crate) fn image_pigeon(
     phase: PhasePigeon,
     ecrase: bool,
@@ -845,8 +858,14 @@ pub(crate) fn image_pigeon(
             [0.0, 1.0, 0.0, -1.0][(pas / 2) as usize % 4],
             false,
         ),
-        PhasePigeon::Plongee(_) => ("pigeon_plongee", 0.0, false),
-        PhasePigeon::Remontee(_) => ("pigeon_remontee", 0.0, true),
+        PhasePigeon::Plongee(n) => {
+            let i = usize::from(n > ELAN_PIGEON_PAS);
+            (ennemis::PIGEON_PLONGEE[i], 0.0, false)
+        }
+        PhasePigeon::Remontee(n) => {
+            let i = usize::from(n.saturating_sub(1) / BATTEMENT_PIGEON_PAS % 2);
+            (ennemis::PIGEON_REMONTEE[i], 0.0, true)
+        }
     }
 }
 
@@ -1718,11 +1737,13 @@ mod tests {
         assert!(bulles_chat(PhaseChat::Eveille(EVEILLE_PAS), 0).is_empty());
     }
 
-    // --- Pigeon (carte 4.4) ---
+    // --- Pigeon (carte 4.4, redessiné carte 6.6) ---
 
     #[test]
     fn le_pigeon_a_une_image_par_phase() {
-        use pepin_core::entities::ennemi::{ANNONCE_PIGEON_PAS, REPOS_PIGEON_PAS};
+        use pepin_core::entities::ennemi::{
+            ANNONCE_PIGEON_PAS, PLONGEE_PAS, REMONTEE_PAS, REPOS_PIGEON_PAS,
+        };
         // Perché ou au repos : il hoche la tête (2 images), sans trembler.
         let perche: Vec<_> = (0..48)
             .map(|p| image_pigeon(PhasePigeon::Perche, false, p))
@@ -1743,15 +1764,36 @@ mod tests {
             })
             .collect();
         assert!(tremble.contains(&1.0) && tremble.contains(&-1.0) && tremble.contains(&0.0));
-        // Plongée, puis remontée : retourné, il regarde son perchoir.
-        assert_eq!(
-            image_pigeon(PhasePigeon::Plongee(3), false, 5),
-            ("pigeon_plongee", 0.0, false)
-        );
-        assert_eq!(
-            image_pigeon(PhasePigeon::Remontee(3), false, 5),
-            ("pigeon_remontee", 0.0, true)
-        );
+        // Plongée (carte 6.6) : l'élan ailes ouvertes pendant les 8 premiers pas,
+        // puis le piqué ailes en flèche jusqu'au bout ; l'horloge `pas` n'y change rien.
+        for n in 1..=PLONGEE_PAS {
+            let attendu = if n <= ELAN_PIGEON_PAS {
+                "pigeon_plongee0"
+            } else {
+                "pigeon_plongee1"
+            };
+            for p in [0, 5, 13] {
+                assert_eq!(
+                    image_pigeon(PhasePigeon::Plongee(n), false, p),
+                    (attendu, 0.0, false),
+                    "plongée, pas {n}"
+                );
+            }
+        }
+        // Remontée : retourné, il regarde son perchoir, et il bat des ailes (les deux
+        // images alternent tous les 8 pas, en commençant ailes levées).
+        let remontee: Vec<&str> = (1..=REMONTEE_PAS)
+            .map(|n| {
+                let (nom, t, r) = image_pigeon(PhasePigeon::Remontee(n), false, 5);
+                assert_eq!((t, r), (0.0, true));
+                nom
+            })
+            .collect();
+        assert_eq!(remontee[0], "pigeon_remontee0");
+        assert_eq!(remontee[8], "pigeon_remontee1");
+        assert_eq!(remontee[16], "pigeon_remontee0");
+        let changements = remontee.windows(2).filter(|w| w[0] != w[1]).count();
+        assert_eq!(changements, 7, "quatre battements pendant la remontée");
         // Écrasé : quelle que soit la phase où on l'a eu.
         for phase in [
             PhasePigeon::Perche,
