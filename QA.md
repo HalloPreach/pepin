@@ -5145,3 +5145,176 @@ poids du wasm, ennemis des niveaux 7, 8, 9 et 11).
   vents deux fois par le bas de la leur (voir « Bruit de la mesure »).
 - Pas de son propre aux nouveaux ennemis ; captures dans Chromium seulement, à 960 x 540 ; pas de vrai
   téléphone, ni Safari, ni Firefox.
+
+## Pigeon redessiné (carte 6.6)
+
+Demande (mot pour mot) : « les pigeons sont pas beaux, tu pourras les refaire, surtout quand ils
+piquent ». Constat : perché, l'ancien pigeon (16 x 12, ardoise `2`) était une masse sombre où l'on ne
+lisait ni tête ni queue ; en plongée, un fuseau sombre en diagonale (un poisson, une feuille). Rendu
+seulement : aucune boîte de collision, aucune physique, aucun comportement ne change (`core/` intact).
+
+### Ce qui a été fait
+
+`game/src/sprites/ennemis.rs` : huit images de 18 x 14 au lieu de six de 16 x 12, toutes tournées vers
+la droite (la scène les retourne), contour sombre de 1 px :
+
+- un pigeon des villes : corps rond et dodu gris-bleu MOYEN (`4`, ARDOISE_PALE, la couleur principale),
+  aile repliée plus claire (`5`, BRUME) barrée de deux traits sombres, ventre et dessous de la queue
+  ombrés (`3`), queue courte au bout sombre ; petite tête ronde ardoise au front éclairé, œil orange,
+  bec court ; cou irisé sarcelle et cyan avec une touche violette ; pattes corail clair ;
+- perché (`pigeon0`, `pigeon1`) : il hoche la tête, le corps ne bouge pas ;
+- annonce (`pigeon_annonce`) : il se ramasse, corps bas et tendu vers l'avant, tête rentrée, ailes
+  entrouvertes (rémiges dressées au-dessus du dos), œil rouge corail sous un sourcil sombre ; la scène
+  le fait toujours trembler d'un pixel ;
+- plongée, deux images : l'élan (`pigeon_plongee0`, ailes grandes ouvertes, corps déjà couché sur la
+  diagonale) pendant les 8 premiers pas (0,13 s), puis le piqué (`pigeon_plongee1`) pour les 24 autres :
+  tête et bec devant, en bas vers Pépin, œil rouge, ailes relevées et repliées en flèche vers l'arrière,
+  rémiges sombres en « doigts », queue derrière, en haut ;
+- remontée, deux images (`pigeon_remontee0`, ailes levées ; `pigeon_remontee1`, ailes rabattues sous le
+  ventre) : quatre battements pendant les 64 pas de la remontée ; il regarde toujours son perchoir ;
+- écrasé (`pigeon_ecrase`) : aplati, plumes ébouriffées qui dépassent du dos.
+
+`game/src/scene.rs` : sprite décalé de (-3, -4) au lieu de (-2, -2) : centré sur la même boîte 12 x 10
+(le miroir aussi), le contour sous les pattes sur la dernière rangée de la boîte, 4 px dépassent en
+haut. `image_pigeon` choisit l'image de la plongée et de la remontée d'après le compteur de la phase
+(pas l'horloge) : chaque piqué commence par l'élan.
+
+Distinction avec les deux autres oiseaux : le corbeau (carte 6.1) est bleu nuit presque noir (`1`),
+gros bec gris, queue en éventail, il vole ; l'oiseau de décor `K` est petit (12 x 8) et blanc (`7`). Le
+pigeon est entre les deux : gris-bleu moyen (`4`), à 5,0:1 du bleu nuit et 2,8:1 du blanc.
+
+### Tests
+
+- `le_pigeon_a_huit_images_de_meme_taille_et_un_contour_sombre` (remplace la version à six images) :
+  18 x 14 pour les huit, aucun pixel coloré ne touche le vide ni le bord, cou irisé sur chaque image ;
+  perché, seule la tête bouge (rangées 5 et suivantes identiques) ; remontée : de l'aile claire en haut
+  sur l'une, sous le ventre sur l'autre ; écrasé : rien dans les 6 rangées du haut.
+- `le_pigeon_en_pique_fond_sur_pepin_le_long_de_sa_diagonale` (nouveau, la priorité de la demande) : sur
+  les deux images de la plongée, l'axe principal des pixels colorés penche entre 15° et 75° vers le bas
+  et l'avant (mesuré : 23,5° pour l'élan, 27,2° pour le piqué) ; devant, le long de la diagonale (le plus
+  grand x + y), c'est le bec clair, à 4 px au plus de l'œil ; un seul œil, rouge, en bas à droite ;
+  derrière (le plus petit x + y), des rémiges sombres, dans le coin en haut à gauche.
+- `le_pigeon_ne_ressemble_ni_a_l_oiseau_de_decor_ni_au_corbeau` (remplace
+  `le_pigeon_ne_ressemble_pas_a_l_oiseau_de_decor`) : couleur principale `4` pour le pigeon perché, `1`
+  pour le corbeau, `7` pour l'oiseau ; écarts de clarté d'au moins 2,5:1 ; aucun blanc ni nuage
+  (`6`, `7`) dans le pigeon, ni cou irisé ni pattes corail (`D`, `E`, `9`) chez le corbeau et l'oiseau ;
+  au moins deux fois plus de pixels pleins que l'oiseau ; œil orange perché, rouge sous un sourcil
+  pendant l'annonce.
+- `le_pigeon_se_detache_du_ciel_des_niveaux_4_et_5` et `le_pigeon_se_detache_du_ciel_de_la_descente` :
+  mêmes pigeons, mêmes bandes de ciel (du perchoir au fond de la plongée, trame comprise, et dans la
+  descente pour chaque position de la caméra), boîte du sprite passée à 4 px au-dessus de la boîte. LE
+  CRITÈRE CHANGE, et c'est à signaler : l'ancien vérifiait que les couleurs `2` (le corps de l'ancien
+  pigeon) et `0` contrastent d'au moins 3:1 avec le ciel. Gardé tel quel, il serait resté vert sans rien
+  dire du nouveau pigeon, qui n'a plus de `2`. Or un plumage gris-bleu « clair à moyen » ne peut pas
+  contraster par la clarté avec le corail : dans la palette, le gris-bleu `4` y est à 1,0:1, le `5` à
+  1,5:1, et seul l'ardoise `2` (la masse sombre refusée) dépasse 3:1. Le nouveau critère
+  (`pigeon_se_detache`) : le contour `0` à 3:1 au moins (inchangé ; mesuré de 6,0:1 sur le corail à
+  16,1:1 sur l'or pâle), ET un plumage froid (plus de bleu que de rouge) sur un ciel chaud dont le rouge
+  dépasse celui du plumage d'au moins 100. Le test vérifie aussi que le critère refuse le violet et la
+  nuit.
+- `scene::le_pigeon_a_une_image_par_phase` : l'élan pendant les pas 1 à 8 de la plongée et le piqué de
+  9 à 32, quelle que soit l'horloge ; remontée retournée, qui commence ailes levées et change d'image
+  7 fois (quatre battements).
+- Planche de sprites `docs/planche-sprites.png` régénérée (seuls les pigeons changent).
+
+Contrastes (WCAG, calculés) du nouveau pigeon et, entre parenthèses, de l'ancien corps `2` :
+
+    ciel            contour 0   corps 4   aile 5   tête 3   (ancien 2)
+    corail            5,98       1,01      1,53     2,32      (3,70)
+    corail clair      8,89       1,51      1,03     3,46      (5,50)
+    orange           10,33       1,75      1,13     4,01      (6,39)
+    or               13,29       2,25      1,45     5,17      (8,22)
+    violet            2,44       2,42      3,75     1,05      (1,51)
+    nuit              1,18       5,02      7,78     2,19      (1,37)
+
+Sur les ciels chauds, le pigeon se lit par son contour et par sa teinte froide, plus par sa masse ; sur
+le violet et la nuit du clocher (que les tests de contraste ne couvrent pas, ni avant ni maintenant), il
+se voit mieux qu'avant : le corps clair et l'aile y tranchent, là où l'ancienne ardoise s'y perdait.
+
+### Captures `docs/qa/66-*` (8 images)
+
+Build de QA (`./build.sh --qa`) d'une extraction propre de bfbd8d8 (dessin et scripts des captures ;
+les commits suivants n'ajoutent qu'un test ignoré et les images), servi sur 127.0.0.1 (port libre,
+serveur arrêté à la fin), Chromium 1208 sans tête piloté par CDP (`docs/capture-visibilite.mjs`, onglet
+au premier plan et canvas focalisé, `GRILLE=1` : grille logique 320 x 180 de chaque capture), 960 x 540
+(x3). Scripts écrits par le test ignoré `ecrire_script_pigeons_66` (`script-66-N`, `touches-66-N`,
+`trace-66-N` : niveaux 5, 7, 8, 9 et 11, tous les pigeons du jeu suivis, avec leur phase) ; numéros
+d'image de ces traces.
+
+- `66-clocher-annonce` (image 795) : le pigeon de la corniche du clocher dans son annonce, sur le ciel de
+  nuit, Pépin dessous sur la galerie ;
+- `66-clocher-pique` (822) : le même en piqué sur le violet, juste derrière Pépin qu'il manque ;
+- `66-vents-pique` (915) : le pigeon du nuage (38, 3) des vents d'altitude en piqué sur le corail ;
+- `66-mer-pique` (1172) : le pigeon de la mer de nuages en piqué sur le corail clair, Pépin hissé par la
+  montgolfière ;
+- `66-descente-pique` (1125) : dans la descente, le premier pigeon en piqué, le second perché sur son
+  nuage, le corbeau à gauche : les deux ennemis volants côte à côte, en vrai ;
+- `66-descente-ecrase` (1114, script `script-66-ecrase`, voir plus bas) : le premier pigeon écrasé sur
+  son nuage, Pépin juste au-dessus (il vient de rebondir), le second perché sur le nuage voisin, le
+  corbeau en bas à gauche ;
+- `66-planche-etats` : planche zoomée (x3 de plus, soit x9) des HUIT images, découpées dans les grilles
+  logiques de vraies captures : perché (images 760 et 775), annonce (795), élan (809), piqué (822),
+  remontée ailes levées (841) et basses (849), au clocher ; écrasé (1114) dans la descente ;
+- `66-zoom-pigeon-corbeau-oiseau` : même procédé, x4 de plus (x12) ; en haut, Au-dessus des nuages :
+  pigeon perché (1700), corbeau (1200), oiseau de décor (1700, même image que le pigeon) ; en bas, la
+  descente (1125) : pigeon en piqué, corbeau, pigeon perché.
+
+Chaque morceau des planches a été retrouvé pixel à pixel dans sa grille (le sprite attendu, avec ou
+sans miroir, 100 % de ses pixels à leur place). Le robot ne tombe jamais sur un pigeon : pour l'image
+« écrasé », le test ignoré `ecrire_parcours_pigeon_ecrase_66` cherche dans la descente une suite simple
+qui l'écrase (courir 46 pas, planer 89 pas, tomber : pigeon écrasé au pas 197 du niveau), et le script
+`script-66-ecrase` est celui du robot jusqu'au début de la descente, suivi de ce parcours.
+
+`docs/mesure-capture.py <capture> 3` sur les 8 : 0 pixel hors palette, 0 pixel semi-transparent, 0 bloc
+flou. Compteur de vies : 5 sur les six captures entières.
+
+Chaque capture regardée. Le piqué se lit-il comme un oiseau ? Oui, à mon avis : sur les quatre ciels
+(violet du clocher, corail des vents, corail clair de la mer, corail et orange de la descente), on voit
+un oiseau ailes relevées en V, rémiges sombres écartées, le corps sur la diagonale, la tête devant et en
+bas ; on ne le prend plus pour un poisson ni pour une feuille. L'œil rouge et le bec clair ne font que 1
+et 2 pixels : à l'échelle du jeu, c'est la silhouette qui dit où il va, pas le bec. Perché, c'est un
+pigeon (corps rond, petite tête, cou turquoise, pattes corail). L'annonce est l'image la moins parlante :
+on voit les ailes se dresser et le corps s'aplatir, à 0,3 s du piqué. Côte à côte, impossible de
+confondre le pigeon gris-bleu au cou turquoise avec le corbeau presque noir ni avec le petit oiseau
+blanc.
+
+### Vérification sur une extraction propre de c1e9fd9 (dernier commit de code et des captures)
+
+`git archive`, nouveau dossier daté sous `$TMPDIR` :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : 374 (core) et 337 (game : un test de plus,
+  `le_pigeon_en_pique_fond_sur_pepin_le_long_de_sa_diagonale`) tests, tous verts (1 + 24 ignorés :
+  `ecrire_script_pigeons_66` et `ecrire_parcours_pigeon_ecrase_66` s'ajoutent), dont les tests de
+  faisabilité des onze niveaux, les tests des pigeons, `courbe_de_difficulte_dans_les_bandes` (encore
+  actif sur cette branche) et les deux parties du robot ;
+- `./docker-cargo.sh lint` : `FMT-OK`, `LINT-OK` ;
+- `./build.sh` : `dist/` produit, wasm 498 972 octets (497 743 à la carte 6.4b : + 1 229, deux images de
+  plus et des grilles plus grandes), 0 occurrence des noms interdits, seule URL
+  `http://www.w3.org/2000/svg`, « Essai chat » absent de `dist/` ;
+- parties du robot : `ecrire_script_navigateur` : 21 414 images, 0 mort, 15 gouttes, empreinte
+  `1f3190119f6bd9b3`, IDENTIQUE à celle de la carte 6.4b (le dessin ne touche pas au jeu) ;
+  `ecrire_script_partie_complete` : 25 636 images, 0 mort, 33 gouttes, empreinte `2add196d123e37e1`
+  (aucune valeur de référence relevée depuis la carte 6.4a, pas de comparaison) ;
+- `ecrire_script_pigeons_66` : ses quinze fichiers `script-66-N`, `touches-66-N`, `trace-66-N` identiques
+  à l'octet à ceux qui ont servi aux captures. `script-66-ecrase` n'est pas écrit par un test : ce sont
+  les 912 premières images de `script-66-11.txt` (jusqu'au premier pas de la descente) suivies de
+  `parcours-66-ecrase.txt`.
+- Pas de mesure de difficulté (consigne allégée du 2026-11-16) : rendu seulement, rien à mesurer.
+
+Commits : 8ca5e33 (dessin, scène, tests, planche), bfbd8d8 (scripts des captures), b518829 (parcours qui
+écrase un pigeon), c1e9fd9 (captures), cette section. Le README n'est pas retouché (nombre de tests, poids
+du wasm) : la carte 6.5 travaille en parallèle sur `main`, le coordinateur reportera les chiffres à la
+fusion.
+
+### Ce qui n'est PAS testé
+
+- Aucun humain n'a regardé le nouveau pigeon : « le piqué se lit comme un oiseau » est mon jugement sur
+  des captures fixes, à confirmer par celle qui l'a demandé, en jouant (le piqué dure 0,53 s, dont
+  0,13 s d'élan : l'élan se voit-il seulement en mouvement ?).
+- Le changement de critère du test de contraste (teinte froide sur ciel chaud plutôt que clarté) est un
+  choix : sur le corail, le corps du pigeon a la même clarté que le ciel (1,0:1), seuls le contour,
+  la tête et la teinte l'en séparent. Sur les captures, il se voit ; un écran délavé (téléphone en plein
+  soleil) pourrait réduire la différence de teinte.
+- L'annonce reste l'image la moins nette (ailes dressées, corps aplati) ; elle n'a pas été comparée à
+  l'ancienne en mouvement.
+- Chromium sans tête seulement, à 960 x 540 : ni vrai téléphone, ni Safari, ni Firefox.
