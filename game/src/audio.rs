@@ -134,8 +134,8 @@ pub struct Audio {
     effets: HashMap<Effet, Sound>,
     /// Une boucle par musique du catalogue (`musiques.rs`).
     musiques: HashMap<Musique, Sound>,
-    /// La musique jouée (défaut : Orage). Simple paramètre : le choix du joueur
-    /// et sa sauvegarde seront branchés par la boutique.
+    /// La musique jouée (défaut : Orage, celle du titre). La boucle principale y met
+    /// à chaque image celle de la zone (`musiques::musique_de_l_ecran`) ou un forçage.
     musique_active: Musique,
     pluie: Sound,
     etat: EtatSon,

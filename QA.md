@@ -6038,3 +6038,11 @@ faux mur sur une patrouille de flaque, ni sur le passage obligé.
   Safari, Firefox ; molette d'un vrai pavé tactile (défilement par crans).
 - Sur téléphone, le bouton de pause cache la fin du chrono (défaut antérieur, déjà noté à la carte
   6.2) : avec le temps cible, c'est « /0:55 » qui passe dessous (640 x 360).
+
+## Carte 8.7 (8.12) : une musique par zone, et deux musiques nouvelles (Cyclone, Poursuite)
+
+- `musiques::musique_du_niveau` choisit la boucle d'après le THÈME (repli : Orage), jamais le numéro. Ville (toits, gouttières, marché) → Toits de nuit ; orage et clocher → Orage ; cyclone (boss) → Cyclone ; vents, mer, au-dessus des nuages → Valse des nuages ; arc-en-ciel et descente → Soleil. Écrans (`musique_de_l_ecran`) : titre, aide et boutique → Orage, fin → Soleil ; la carte de présentation, la pause et « plus de vies » jouent celle du niveau (sinon une coupure entre deux niveaux d'une même zone).
+- Nouvelles partitions : Cyclone (mi mineur, motif haché, 9,6 s) et Poursuite (le motif du Cyclone sans silences puis à l'octave, galop, 11,5 s), au volume des autres (efficace 0,183 / 0,182 contre 0,180 à 0,185). Le niveau final de la carte 8.2 n'existe pas encore ici : la ligne `match` à ajouter est en commentaire (s'il garde le thème Cyclone, il faudra un autre critère que le thème). Catalogue et prix inchangés ; F11 (build de QA seulement) FORCE une musique par-dessus la zone.
+- Tests : `test -p game --no-default-features musique` : 3 verts (dont le nouveau `chaque_niveau_a_la_musique_de_sa_zone`) ; `lint` LINT-OK ; `./build.sh` et `--qa` faits. Extraits `docs/qa/87-musique-cyclone.wav`, `87-musique-poursuite.wav` (les `77-*` régénérés sont identiques à l'octet).
+- Chromium 1208 sans écran, CDP (`docs/capture-musique.mjs`, build de QA) : un crochet note les boucles audio lancées/arrêtées. Titre Orage ; niveaux 1 → 2 → 3 : même boucle, jamais relancée ; 3 → 4 : Toits de nuit → Orage ; 5 → 6 : Orage → Cyclone ; pause : coupée, reprise : Cyclone. 0 erreur console (`docs/qa/87-musique-journal.json`, captures `87-niveau4-orage.png`, `87-niveau6-cyclone.png` : 0 flou).
+- Pas testé : écoute humaine des deux musiques (Chromium sans écran), téléphone, Safari, Firefox.

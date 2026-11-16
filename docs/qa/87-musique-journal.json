@@ -1,0 +1,162 @@
+{
+ "etapes": [
+  {
+   "quoi": "titre, son actif (M)",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/975.4"
+   ],
+   "journal": [
+    "+9.60s/975.4",
+    "+2.00s/398.1"
+   ]
+  },
+  {
+   "quoi": "niveau 1 en jeu",
+   "actives": [
+    "11.52s/1063.2",
+    "2.00s/398.1"
+   ],
+   "journal": [
+    "-9.60s/975.4",
+    "+11.52s/1063.2"
+   ]
+  },
+  {
+   "quoi": "carte du niveau 2",
+   "actives": [
+    "11.52s/1063.2",
+    "2.00s/398.1"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "niveau 2 en jeu",
+   "actives": [
+    "11.52s/1063.2",
+    "2.00s/398.1"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "carte du niveau 3",
+   "actives": [
+    "11.52s/1063.2",
+    "2.00s/398.1"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "niveau 3 en jeu",
+   "actives": [
+    "11.52s/1063.2",
+    "2.00s/398.1"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "carte du niveau 4",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/975.4"
+   ],
+   "journal": [
+    "-11.52s/1063.2",
+    "+9.60s/975.4"
+   ]
+  },
+  {
+   "quoi": "niveau 4 en jeu",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/975.4"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "carte du niveau 5",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/975.4"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "niveau 5 en jeu",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/975.4"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "carte du niveau 6",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/756.7"
+   ],
+   "journal": [
+    "-9.60s/975.4",
+    "+9.60s/756.7"
+   ]
+  },
+  {
+   "quoi": "niveau 6 en jeu",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/756.7"
+   ],
+   "journal": []
+  },
+  {
+   "quoi": "pause au niveau 6",
+   "actives": [],
+   "journal": [
+    "-9.60s/756.7",
+    "-2.00s/398.1"
+   ]
+  },
+  {
+   "quoi": "reprise au niveau 6",
+   "actives": [
+    "2.00s/398.1",
+    "9.60s/756.7"
+   ],
+   "journal": [
+    "+9.60s/756.7",
+    "+2.00s/398.1"
+   ]
+  }
+ ],
+ "verifs": [
+  [
+   "titre : Orage (une seule musique)",
+   true
+  ],
+  [
+   "niveau 1 : Toits de nuit (11,52 s)",
+   true
+  ],
+  [
+   "niveaux 2 et 3 : même boucle, pas relancée",
+   true
+  ],
+  [
+   "niveaux 4 et 5 : Orage",
+   true
+  ],
+  [
+   "niveau 6 : Cyclone (9,60 s, autre que Orage)",
+   true
+  ],
+  [
+   "pause : musique coupée",
+   true
+  ],
+  [
+   "reprise : Cyclone relancé",
+   true
+  ]
+ ],
+ "erreurs": []
+}
