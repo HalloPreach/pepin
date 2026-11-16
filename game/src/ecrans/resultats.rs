@@ -30,9 +30,9 @@ const MEDAILLE: [&str; 8] = [
     "r.....r", ".r...r.", ".#####.", "#oo+oo#", "#o+ooo#", "#ooooo#", "#ooooo#", ".#####.",
 ];
 /// Largeur des icônes, en pixels.
-const L_ICONE: f32 = 7.0;
+pub const L_ICONE: f32 = 7.0;
 /// Écart après une icône, et entre deux défis.
-const ECART_ICONE: f32 = 2.0;
+pub const ECART_ICONE: f32 = 2.0;
 const ECART_DEFI: f32 = 5.0;
 /// Pas de la bande de fin entre ses deux pages (3 s).
 const PAGE_FIN: u32 = 180;
@@ -43,7 +43,7 @@ fn ombre(c: Couleur) -> Style {
 
 /// Pose une grille d'icône en `(x, y)` ; `couleur` dit la couleur de chaque
 /// caractère (`None` : transparent).
-fn grille(lignes: &[&str], x: f32, y: f32, couleur: impl Fn(char) -> Option<Couleur>) {
+pub fn grille(lignes: &[&str], x: f32, y: f32, couleur: impl Fn(char) -> Option<Couleur>) {
     for (j, ligne) in lignes.iter().enumerate() {
         for (i, c) in ligne.chars().enumerate() {
             if let Some(coul) = couleur(c) {
@@ -53,7 +53,7 @@ fn grille(lignes: &[&str], x: f32, y: f32, couleur: impl Fn(char) -> Option<Coul
     }
 }
 
-fn case(x: f32, y: f32, cochee: bool) {
+pub fn case(x: f32, y: f32, cochee: bool) {
     grille(&CASE, x, y, |c| match c {
         '#' => Some(BRUME),
         '.' => Some(ARDOISE_OMBRE),
@@ -73,7 +73,7 @@ pub fn medaille(n: u8) -> (Couleur, &'static str) {
     }
 }
 
-fn icone_medaille(x: f32, y: f32, n: u8) {
+pub fn icone_medaille(x: f32, y: f32, n: u8) {
     let (disque, _) = medaille(n);
     grille(&MEDAILLE, x, y - 1.0, |c| match c {
         'r' => Some(CORAIL),
@@ -106,7 +106,7 @@ fn gain(n: u32) -> String {
 }
 
 /// La ligne des 3 défis, centrée sur l'écran, en `y`.
-fn ligne_defis(r: &ResultatNiveau, y: f32, avec_gain: bool) {
+pub fn ligne_defis(r: &ResultatNiveau, y: f32, avec_gain: bool) {
     let mut x = ((LARGEUR_LOGIQUE as f32 - largeur_ligne(r, avec_gain)) / 2.0).round();
     for (defi, &ok) in r.defis.iter().zip(&r.reussis) {
         case(x, y, ok);

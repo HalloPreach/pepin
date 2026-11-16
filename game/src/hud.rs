@@ -106,6 +106,9 @@ pub fn compteur(
 
 /// Dessine le HUD. `(gouttes, total)` : le compteur de gouttes d'or (`compteur`) ;
 /// `vies` : le compteur de vies (`vies`) ; `pas` : durée de la partie en pas ;
+/// `cible` : temps cible du défi CHRONO en pas, pour un niveau joué seul depuis la
+/// carte des niveaux (carte 7.4) : le chrono affiche alors « 0:12/0:50 », en or tant
+/// qu'on est dans les temps ;
 /// `pv_nuage` : points de vie du Grand Nuage s'il y en a un dans le niveau ; `skin` : la
 /// tenue de Pépin, dont l'icône des vies montre le visage.
 pub fn dessiner(
@@ -114,6 +117,7 @@ pub fn dessiner(
     (gouttes, total): (u32, u32),
     vies: &AffichageVies,
     pas: u32,
+    cible: Option<u32>,
     pv_nuage: Option<u8>,
 ) {
     let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
@@ -130,12 +134,18 @@ pub fn dessiner(
     if let Some((x, y)) = vies.plus_un {
         texte::dessiner("+1", x, y, Style::simple(OR, 1).avec_ombre(ARDOISE_OMBRE));
     }
-    texte::dessiner_a_droite(
-        &chrono::temps_court(pas),
-        LARGEUR_LOGIQUE as f32 - 6.0,
-        6.0,
-        style,
-    );
+    let (temps, style_chrono) = match cible {
+        Some(c) => (
+            format!("{}/{}", chrono::temps_court(pas), chrono::temps_court(c)),
+            if pas <= c {
+                Style::simple(OR, 1).avec_ombre(ARDOISE_OMBRE)
+            } else {
+                style
+            },
+        ),
+        None => (chrono::temps_court(pas), style),
+    };
+    texte::dessiner_a_droite(&temps, LARGEUR_LOGIQUE as f32 - 6.0, 6.0, style_chrono);
     if let Some(pv) = pv_nuage {
         for (nom, x) in points_de_vie(pv) {
             banque.dessiner(nom, x as f32, 6.0, false);

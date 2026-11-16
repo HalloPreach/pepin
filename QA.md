@@ -5979,3 +5979,62 @@ faux mur sur une patrouille de flaque, ni sur le passage obligé.
 - Tests existants adaptés (lignes comptées, `l_icone_du_son_bascule_sans_quitter_le_menu`) : `ecrans` 19, `contenu` 9, `app` 53 verts ; `lint` LINT-OK ; `./build.sh` et `--qa` faits.
 - CDP (`docs/capture-son.mjs`, Chromium 1208), 0 erreur de console : `docs/qa/78b-titre-son-actif.png` (M), `78b-titre-son-coupe-apres-clic.png`, `78b-pause-son-actif.png` (clic en pause) ; regardées, 0 pixel hors palette, 0 flou.
 - Pas testé : vrai téléphone (taille de la zone au doigt), Safari, Firefox.
+
+## Carte des niveaux : des toits jusqu'au soleil (carte 7.4)
+
+- Titre : nouvelle ligne CARTE (sous JOUER ; cinq lignes, titre et sous-titre remontés). La carte
+  est VERTICALE : les 9 niveaux normaux montent des toits (en bas, sous la pluie) jusqu'au soleil
+  (en haut), le bonus est une branche secrète à gauche du sommet, l'épilogue (« É ») redescend de
+  l'autre côté jusqu'aux toits. Tout se déduit de `NIVEAUX` (genres) : aucun numéro en dur.
+- Étape : case avec son numéro, cadenas si verrouillée, « ? » pour le bonus caché, bordure à la
+  couleur de la médaille, 3 petites gouttes dessous ; Pépin (skin actif) debout sur l'étape choisie.
+  Panneau de droite : nom, meilleur temps, gouttes trouvées, médaille, les 3 défis cochés, JOUER.
+- Déblocage (`plan::etat_etape`, d'après la sauvegarde v2) : le 1er toujours ; un niveau atteint
+  (`niveau_max_atteint`, noté désormais dès qu'une partie « JOUER » arrive à un niveau) ou dont le
+  précédent est fini ; épilogue une fois le 9e fini ; bonus révélé avec toutes les gouttes des
+  niveaux normaux TROUVÉES au cumul (27), sinon caché (« ? » et le compte 16/27).
+- Commandes : Haut/Bas (ou Droite/Gauche) parcourent les étapes, Entrée ou JOUER lance une étape
+  jouable, toucher une étape la choisit, molette et glisser du doigt font défiler, Échap ou RETOUR.
+- Niveau joué depuis la carte = partie d'UN niveau (5 vies, « plus de vies » = on recommence ce
+  niveau, défis/médailles/gouttes comptés comme en 7.3). Au drapeau : bilan (temps, « -1,8 s !
+  NOUVEAU MEILLEUR TEMPS » ou « +3,2 s », défis, médaille, gain), REJOUER ou CARTE. Pause : la
+  dernière ligne devient CARTE. Les records de partie (score, temps) ne bougent pas. Pendant ce
+  niveau, le HUD compte les gouttes du niveau (x/3) et le chrono montre la tentative et le temps
+  cible du défi CHRONO (« 0:05/0:55 »), en or tant qu'on est dans les temps.
+- La progression n'est lue par les écrans que via `Sauvegarde::progres` / `progres_mut` (un seul
+  endroit à changer pour la sauvegarde par clé de niveau, carte 7.9). Aucun crédit ajouté sur
+  REJOUER : les gains restent ceux de `defis::noter_niveau` (7.3).
+- Build de QA : touche U = progression avancée (1er appui : 7 niveaux finis, bonus caché ; 2e
+  appui : tout fini, bonus révélé), enregistrée ; elle n'ajoute qu'à la progression existante.
+
+### Preuves
+
+- Retouche après coup (chrono cible, gouttes x/3, accès `progres`) : tests `app::`, `hud`,
+  `sauvegarde`, lint, `./build.sh` et le robot (`--exact le_robot_finit_tous_les_niveaux_sans_mourir`)
+  relancés sur l'extraction propre de 8789c40 : 100 tests ciblés verts, robot vert (0 mort),
+  LINT-OK, `./build.sh` OK, `dist/` : 0 mention personnelle, seule URL `http://www.w3.org/2000/svg`.
+- Extraction propre (`git archive`) : suite complète verte sur 709838a (core 374 ok, game 341 ok,
+  partie complète du robot : 25 656 images, empreinte `0d1d8f8435a11586`) ; `lint` → LINT-OK et
+  `./build.sh` OK sur dac5197 (seul écart : une conversion inutile retirée pour clippy) ; `dist/` :
+  0 mention personnelle, seule URL `http://www.w3.org/2000/svg`.
+- Tests ciblés : `app::` (50, dont les menus du titre/bilan adaptés), `plan`, `ecrans`, `contenu`.
+  Aucun test ajouté (consigne AGA : pas de nouvelle mécanique de core). Robot de QA : identique (la
+  ligne JOUER reste la première), `ecrire_script_navigateur` → `target/qa/script.txt` 21 422 images.
+- Vrai navigateur (Chromium sans tête, CDP, build de QA sur 127.0.0.1, `docs/capture-plan.mjs`) :
+  sauvegarde vide → seul le niveau 1 ouvert, Entrée sur le 2 sans effet ; niveau 1 lancé depuis la
+  carte et fini (niveau 1 du robot rejoué) → bilan « PREMIER TEMPS SUR CE NIVEAU ! », 0:33,9,
+  ARGENT, +7 gouttes, `parties_finies=0` (pas de record de partie) ; CARTE → niveau 2 ouvert ; page
+  rechargée → conservé ; U puis U → bonus caché puis révélé ; 640 x 360 au toucher : étape touchée
+  puis JOUER → carte de présentation du niveau 7, puis le niveau : chrono « 0:05/0:55 » en or,
+  gouttes « 0/3 ». 0 erreur console.
+- Captures `docs/qa/74-*.png` (15), regardées : carte en bas (toits), milieu, haut (soleil +
+  bonus caché, puis débloqué), descente, bilan, titre, téléphone ; rien ne se chevauche ;
+  `mesure-capture.py` : 0 pixel hors palette, 0 flou (sauf `74-telephone-chrono-cible` : les
+  boutons tactiles translucides, dessinés par-dessus l'image logique, comme avant).
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone (glisser du doigt seulement émulé par CDP pour le toucher simple, pas le glisser) ;
+  Safari, Firefox ; molette d'un vrai pavé tactile (défilement par crans).
+- Sur téléphone, le bouton de pause cache la fin du chrono (défaut antérieur, déjà noté à la carte
+  6.2) : avec le temps cible, c'est « /0:55 » qui passe dessous (640 x 360).

@@ -20,6 +20,19 @@ pub fn temps_precis(pas: u32) -> String {
     format!("{}:{:02},{}", secondes / 60, secondes % 60, dixiemes % 10)
 }
 
+/// Écart entre un temps et le meilleur temps d'avant (carte 7.4), en secondes et
+/// dixièmes, signe toujours écrit : « -1,8 s » (plus rapide), « +3,2 s ». Les
+/// dixièmes sont tronqués comme dans `temps_precis`.
+pub fn ecart(pas: u32, meilleur: u32) -> String {
+    let (signe, d) = if pas < meilleur {
+        ('-', meilleur - pas)
+    } else {
+        ('+', pas - meilleur)
+    };
+    let dixiemes = d * 10 / PAS_PAR_SECONDE;
+    format!("{signe}{},{} s", dixiemes / 10, dixiemes % 10)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

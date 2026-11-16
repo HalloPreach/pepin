@@ -12,8 +12,8 @@
 //! clic », fonction pure (`vers_logique`) testée sans fenêtre, `Default`.
 
 use macroquad::prelude::{
-    is_key_pressed, is_mouse_button_pressed, mouse_position, screen_dpi_scale, screen_height,
-    screen_width, KeyCode, MouseButton,
+    is_key_pressed, is_mouse_button_down, is_mouse_button_pressed, mouse_position, mouse_wheel,
+    screen_dpi_scale, screen_height, screen_width, KeyCode, MouseButton,
 };
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
@@ -39,6 +39,11 @@ pub struct Navigation {
     pub clic: Option<(f32, f32)>,
     /// Le pointeur a bougé et se trouve ici (pixels logiques) : surbrillance.
     pub survol: Option<(f32, f32)>,
+    /// Molette (carte des niveaux, carte 7.4) : +1 vers le haut, -1 vers le bas, 0 sinon.
+    pub molette: f32,
+    /// Glisser vertical du doigt ou de la souris bouton enfoncé depuis l'image
+    /// précédente, en pixels logiques (positif vers le bas) : défilement de la carte.
+    pub glisse: f32,
 }
 
 /// Convertit une position de pointeur (pixels physiques de la fenêtre) en pixels
@@ -80,7 +85,17 @@ impl LecteurNavigation {
         let (mx, my) = mouse_position();
         let position = vers_logique(mx * dpi, my * dpi, l, h);
         let bouge = self.dernier != Some((mx, my));
+        // Glisser : écart vertical depuis l'image précédente, bouton (ou doigt) enfoncé.
+        let enfonce = is_mouse_button_down(MouseButton::Left);
+        let glisse = match (enfonce, self.dernier, position) {
+            (true, Some((_, ancien_y)), Some(_)) if !is_mouse_button_pressed(MouseButton::Left) => {
+                let (_, _, k) = placement(l, h);
+                (my - ancien_y) * dpi / k as f32
+            }
+            _ => 0.0,
+        };
         self.dernier = Some((mx, my));
+        let (_, roue) = mouse_wheel();
         Navigation {
             haut: une_pressee(&TOUCHES_HAUT),
             bas: une_pressee(&TOUCHES_BAS),
@@ -95,6 +110,8 @@ impl LecteurNavigation {
                 None
             },
             survol: if bouge { position } else { None },
+            molette: if roue == 0.0 { 0.0 } else { roue.signum() },
+            glisse,
         }
     }
 }

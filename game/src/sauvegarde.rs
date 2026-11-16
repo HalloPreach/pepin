@@ -178,6 +178,19 @@ impl Sauvegarde {
         self.equipes.get(categorie).map(String::as_str)
     }
 
+    /// Progression du niveau `indice` (vide hors de la table). Carte 7.4 : les écrans
+    /// (carte des niveaux, bilan) ne lisent la progression que par ici et par
+    /// `progres_mut`, pour qu'un changement de clé (indice -> nom de niveau) n'ait qu'un
+    /// endroit à toucher.
+    pub fn progres(&self, indice: usize) -> ProgresNiveau {
+        self.niveaux.get(indice).copied().unwrap_or_default()
+    }
+
+    /// Progression modifiable du niveau `indice` (`None` hors de la table).
+    pub fn progres_mut(&mut self, indice: usize) -> Option<&mut ProgresNiveau> {
+        self.niveaux.get_mut(indice)
+    }
+
     /// Pépin est arrivé au niveau `indice` (hors de la table : ignoré).
     pub fn noter_niveau_atteint(&mut self, indice: usize) {
         if indice < NB_NIVEAUX {

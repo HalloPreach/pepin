@@ -1,6 +1,13 @@
 //! `Application` : la machine à écrans du jeu (titre, aide, carte de niveau, jeu,
-//! pause, « plus de vies », fin) et tout ce qui les relie (transitions, bilan,
-//! rejouer, recommencer le niveau quand Pépin n'a plus de vies).
+//! pause, « plus de vies », fin, carte des niveaux et bilan d'un niveau joué seul) et
+//! tout ce qui les relie (transitions, bilan, rejouer, recommencer le niveau quand
+//! Pépin n'a plus de vies).
+//!
+//! Deux sortes de parties (carte 7.4) : « JOUER » enchaîne tous les niveaux (records
+//! de partie, bonus de fin) ; un niveau choisi sur la carte des niveaux se joue SEUL
+//! (`niveau_seul`) : mêmes vies, défis, médailles et gouttes, mais au drapeau on voit
+//! son bilan (`Ecran::BilanNiveau`) puis on revient à la carte, sans toucher aux
+//! records de partie.
 //!
 //! Deux rythmes cohabitent :
 //! - `reagir` est appelé UNE fois par image affichée : il lit les appuis
@@ -16,6 +23,7 @@
 //! d'écran).
 
 use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
+use pepin_core::physics::HZ;
 use pepin_core::player::Entrees;
 use pepin_core::state::EtatJeu;
 
@@ -23,10 +31,11 @@ use crate::boutique::{self, EtatBoutique};
 use crate::camera::Camera;
 use crate::contenu;
 use crate::defis::{self, LigneBonus, ResultatNiveau, Tentative};
+use crate::ecrans::bilan_niveau::{self, Temps};
 use crate::ecrans::fin::{self, Bilan};
 use crate::ecrans::{
-    self, aide, boutique as ecran_boutique, carte, pause, plus_de_vies, resultats, titre,
-    Disposition, Ecran,
+    self, aide, boutique as ecran_boutique, carte, pause, plan as ecran_plan, plus_de_vies,
+    resultats, titre, Disposition, Ecran,
 };
 use crate::effets::effets;
 use crate::entrees::{self, Commandes, RaccourciNiveau};
@@ -35,6 +44,7 @@ use crate::menu::{Choix, Menu};
 use crate::monde::Monde;
 use crate::navigation::Navigation;
 use crate::particules::Particules;
+use crate::plan::{self, ActionPlan, EtatPlan};
 use crate::sauvegarde::Sauvegarde;
 use crate::scene;
 use crate::secousse::Secousse;
@@ -58,6 +68,10 @@ enum Suite {
     PlusDeVies,
     Titre,
     Fin,
+    /// Jouer SEUL le niveau `indice`, choisi sur la carte des niveaux (carte 7.4).
+    NiveauSeul(usize),
+    /// Revenir à la carte des niveaux (fin ou abandon d'un niveau joué seul).
+    Plan,
 }
 
 /// Charge le niveau `indice` en conservant (ou non) le score de la partie.
@@ -80,12 +94,16 @@ pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
 /// carte 7.8b : c'est une icône en bas à gauche du titre et de la pause (clic ou M).
 pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
     match ecran {
-        Ecran::Titre => vec![Choix::Jouer, Choix::Boutique, Choix::Aide],
+        Ecran::Titre => vec![Choix::Jouer, Choix::Carte, Choix::Boutique, Choix::Aide],
         Ecran::Pause => vec![Choix::Reprendre, Choix::Recommencer, Choix::QuitterAuTitre],
         Ecran::Fin => vec![Choix::Rejouer, Choix::RetourTitre],
-        Ecran::Aide | Ecran::Boutique | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => {
-            Vec::new()
-        }
+        Ecran::BilanNiveau => vec![Choix::RejouerNiveau, Choix::Carte],
+        Ecran::Aide
+        | Ecran::Boutique
+        | Ecran::Carte(_)
+        | Ecran::Jeu
+        | Ecran::PlusDeVies(_)
+        | Ecran::Plan => Vec::new(),
     }
 }
 
@@ -141,6 +159,12 @@ pub struct Application {
     game_over_partie: bool,
     /// Bonus de la partie qui vient de finir (écran de fin).
     bonus_fin: [LigneBonus; 3],
+    /// La carte des niveaux : étape choisie et défilement (carte 7.4).
+    plan: EtatPlan,
+    /// La partie en cours est un niveau joué SEUL depuis la carte (carte 7.4).
+    niveau_seul: bool,
+    /// Bilan d'un niveau joué seul : son temps et le meilleur temps d'avant.
+    temps_niveau: Temps,
 }
 
 impl Application {
@@ -176,6 +200,9 @@ impl Application {
             resultat_niveau: None,
             game_over_partie: false,
             bonus_fin: defis::bonus_fin(false, false),
+            plan: EtatPlan::new(NIVEAUX, 0),
+            niveau_seul: false,
+            temps_niveau: Temps::default(),
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -187,9 +214,34 @@ impl Application {
         self.ecran = ecran;
         self.anim = 0;
         self.choix = choix_pour(ecran);
+        // Pause d'un niveau joué seul : on quitte vers la carte des niveaux.
+        if self.niveau_seul {
+            for c in self
+                .choix
+                .iter_mut()
+                .filter(|c| **c == Choix::QuitterAuTitre)
+            {
+                *c = Choix::Carte;
+            }
+        }
         self.menu = Menu::new(self.choix.len());
         // Pause, titre, aide ou fin : une pause différée n'a plus lieu d'être.
         self.pause_differee = false;
+    }
+
+    /// Ouvre la carte des niveaux, l'étape `selection` choisie.
+    fn ouvrir_plan(&mut self, selection: usize) {
+        self.niveau_seul = false;
+        self.resultat_niveau = None;
+        self.plan = EtatPlan::new(NIVEAUX, selection);
+        self.ouvrir(Ecran::Plan);
+    }
+
+    /// Touche U du build de QA (carte 7.4) : progression avancée, enregistrée ; la
+    /// carte des niveaux ouverte se met à jour.
+    pub fn progression_qa(&mut self) {
+        plan::progression_qa(NIVEAUX, &mut self.sauvegarde);
+        self.sauvegarde.enregistrer();
     }
 
     /// Le skin choisi dans la sauvegarde devient celui du rendu (inconnu : Pépin).
@@ -252,8 +304,11 @@ impl Application {
     fn partie_imminente(&self) -> bool {
         match self.suite {
             // Volets qui se ferment : tout dépend de ce qui vient derrière.
-            Some(Suite::Niveau { .. }) | Some(Suite::Recommencer) | Some(Suite::PlusDeVies) => true,
-            Some(Suite::Titre) | Some(Suite::Fin) => false,
+            Some(Suite::Niveau { .. })
+            | Some(Suite::NiveauSeul(_))
+            | Some(Suite::Recommencer)
+            | Some(Suite::PlusDeVies) => true,
+            Some(Suite::Titre) | Some(Suite::Fin) | Some(Suite::Plan) => false,
             // Rien en attente : carte de présentation, écran « plus de vies » (il finit
             // tout seul sur le niveau recommencé), ou volets qui s'ouvrent sur le niveau
             // recommencé.
@@ -288,6 +343,21 @@ impl Application {
         }
         match self.ecran {
             Ecran::Titre | Ecran::Pause | Ecran::Fin => self.reagir_menu(nav, commandes),
+            Ecran::BilanNiveau => {
+                if nav.retour {
+                    self.valider_choix(Choix::Carte);
+                } else {
+                    self.reagir_menu(nav, commandes);
+                }
+            }
+            Ecran::Plan => {
+                let zones = ecran_plan::MiseEnPage;
+                match self.plan.reagir(nav, NIVEAUX, &self.sauvegarde, &zones) {
+                    ActionPlan::Rien => {}
+                    ActionPlan::Quitter => self.retour_titre_sur(Choix::Carte),
+                    ActionPlan::Jouer(indice) => self.lancer(Suite::NiveauSeul(indice)),
+                }
+            }
             Ecran::Aide => {
                 if nav.retour || nav.valider || nav.clic.is_some() {
                     self.retour_titre_sur(Choix::Aide);
@@ -385,6 +455,13 @@ impl Application {
                 self.ouvrir(Ecran::Boutique);
             }
             Choix::Aide => self.ouvrir(Ecran::Aide),
+            // Depuis le titre : la carte, sur le niveau où l'on en est. Depuis la pause
+            // ou le bilan d'un niveau joué seul : retour à la carte, derrière les volets.
+            Choix::Carte if self.ecran == Ecran::Titre => {
+                self.ouvrir_plan(EtatPlan::ou_on_en_est(NIVEAUX, &self.sauvegarde))
+            }
+            Choix::Carte => self.lancer(Suite::Plan),
+            Choix::RejouerNiveau => self.lancer(Suite::NiveauSeul(self.monde.indice)),
             Choix::Reprendre => self.ecran = Ecran::Jeu,
             Choix::Recommencer => self.lancer(Suite::Recommencer),
             Choix::QuitterAuTitre | Choix::RetourTitre => self.lancer(Suite::Titre),
@@ -431,7 +508,12 @@ impl Application {
                     }
                 }
                 Ecran::Fin => fin::confettis(&mut self.particules, self.anim),
-                Ecran::Titre | Ecran::Aide | Ecran::Boutique | Ecran::Pause => {}
+                Ecran::Titre
+                | Ecran::Aide
+                | Ecran::Boutique
+                | Ecran::Pause
+                | Ecran::Plan
+                | Ecran::BilanNiveau => {}
             }
         }
         self.particules.actualiser();
@@ -483,6 +565,7 @@ impl Application {
             // remises à zéro quand le niveau recommence. Les défis (carte 7.3) sont
             // notés au passage, et leurs premières réussites créditées.
             self.tentative.gouttes = self.monde.gouttes_niveau;
+            let ancien = self.sauvegarde.progres(self.monde.indice).meilleur_temps;
             self.resultat_niveau = Some(defis::noter_niveau(
                 &mut self.sauvegarde,
                 self.monde.indice,
@@ -490,6 +573,15 @@ impl Application {
                 &self.tentative,
             ));
             self.sauvegarde.enregistrer();
+            // Un niveau joué seul (carte 7.4) : son bilan, par-dessus le niveau figé.
+            if self.niveau_seul {
+                self.temps_niveau = Temps {
+                    pas: self.tentative.pas,
+                    ancien,
+                };
+                self.ouvrir(Ecran::BilanNiveau);
+                return;
+            }
             // Le bonus fini : ses gouttes sont mises à part (compteur, écran de fin).
             if self.monde.infos.genre == GenreNiveau::Bonus {
                 self.gouttes_bonus = Some(self.gouttes_du_niveau());
@@ -516,6 +608,12 @@ impl Application {
         self.particules = Particules::new();
         match suite {
             Suite::Niveau { indice, etat } => {
+                self.niveau_seul = false;
+                if etat.is_some() {
+                    // Atteint pendant une partie : ouvert sur la carte des niveaux.
+                    self.sauvegarde.noter_niveau_atteint(indice);
+                    self.sauvegarde.enregistrer();
+                }
                 if etat.is_none() {
                     self.pas_partie = 0;
                     self.gouttes_bonus = None;
@@ -541,7 +639,23 @@ impl Application {
                 self.relancer(etat);
                 self.ecran = Ecran::Jeu;
             }
-            Suite::Titre => self.ouvrir(Ecran::Titre),
+            Suite::NiveauSeul(indice) => {
+                // Une partie d'un seul niveau, comme une nouvelle partie (5 vies, chrono
+                // à zéro) ; à son drapeau, le bilan puis la carte des niveaux.
+                self.pas_partie = 0;
+                self.gouttes_bonus = None;
+                self.game_over_partie = false;
+                self.resultat_niveau = None;
+                self.recharger(indice, None);
+                self.niveau_seul = true;
+                self.anim = 0;
+                self.ecran = Ecran::Carte(carte::DUREE_PAS);
+            }
+            Suite::Plan => self.ouvrir_plan(self.monde.indice),
+            Suite::Titre => {
+                self.niveau_seul = false;
+                self.ouvrir(Ecran::Titre)
+            }
             Suite::Fin => {
                 let e = &self.monde.etat;
                 self.bilan = Bilan {
@@ -629,7 +743,14 @@ impl Application {
                 &dispo,
                 self.nouveau_record,
             ),
-            Ecran::Jeu | Ecran::Carte(_) | Ecran::Pause | Ecran::PlusDeVies(_) => {
+            Ecran::Plan => {
+                ecran_plan::dessiner(banque, self.skin, self.anim, &self.sauvegarde, &self.plan)
+            }
+            Ecran::Jeu
+            | Ecran::Carte(_)
+            | Ecran::Pause
+            | Ecran::PlusDeVies(_)
+            | Ecran::BilanNiveau => {
                 // Pépin et la caméra sont arrondis ensemble (écart arrondi une seule fois) : pas de
                 // tremblement d'un pixel en courant (ni en tombant, dans un niveau haut).
                 let pepin = self.monde.joueur_interpole(alpha);
@@ -646,19 +767,29 @@ impl Application {
                 );
                 // Sous la trame (carte, pause) le HUD serait illisible : on ne le montre qu'en jeu.
                 if self.ecran == Ecran::Jeu {
+                    // Niveau joué seul (carte 7.4) : les gouttes de CE niveau, sur 3.
                     let compteur = hud::compteur(
-                        self.monde.infos.genre == GenreNiveau::Bonus,
+                        self.niveau_seul || self.monde.infos.genre == GenreNiveau::Bonus,
                         self.monde.etat.gouttes,
                         self.gouttes_bonus,
                         self.gouttes_du_niveau(),
                     );
                     let vies = hud::vies(self.monde.etat.vies.restantes(), self.eclat_vie);
+                    // Niveau joué seul (carte 7.4) : le chrono de la tentative et le temps
+                    // cible du défi CHRONO.
+                    let (pas, cible) = if self.niveau_seul {
+                        let c = u32::from(self.monde.infos.duree_cible_s) * HZ;
+                        (self.tentative.pas, Some(c))
+                    } else {
+                        (self.pas_partie, None)
+                    };
                     hud::dessiner(
                         banque,
                         self.skin,
                         compteur,
                         &vies,
-                        self.pas_partie,
+                        pas,
+                        cible,
                         self.monde.pv_nuage(),
                     );
                 }
@@ -674,6 +805,18 @@ impl Application {
                         }
                     }
                     Ecran::PlusDeVies(_) => plus_de_vies::dessiner(banque, self.anim),
+                    Ecran::BilanNiveau => {
+                        if let Some(r) = &self.resultat_niveau {
+                            bilan_niveau::dessiner(
+                                &self.temps_niveau,
+                                r,
+                                self.anim,
+                                &libelles,
+                                &self.menu,
+                                &dispo,
+                            );
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -747,7 +890,11 @@ mod tests {
     fn les_menus_ont_les_bonnes_lignes() {
         assert_eq!(
             choix_pour(Ecran::Titre),
-            vec![Choix::Jouer, Choix::Boutique, Choix::Aide]
+            vec![Choix::Jouer, Choix::Carte, Choix::Boutique, Choix::Aide]
+        );
+        assert_eq!(
+            choix_pour(Ecran::BilanNiveau),
+            vec![Choix::RejouerNiveau, Choix::Carte]
         );
         assert_eq!(
             choix_pour(Ecran::Pause),
@@ -890,7 +1037,7 @@ mod tests {
     fn un_clic_sur_une_ligne_la_valide() {
         let mut app = Application::new(true);
         let d = ecrans::disposition(Ecran::Titre).unwrap();
-        let (x, y, _, h) = d.rect_ligne(2);
+        let (x, y, _, h) = d.rect_ligne(3);
         let clic = Navigation {
             clic: Some((x + 10.0, y + h / 2.0)),
             ..Navigation::default()
