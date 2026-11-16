@@ -824,3 +824,146 @@ fn ecrire_script_chats() {
         pilote - 1
     );
 }
+
+/// Écrit les scripts des captures de la carte 6.4a (plus d'ennemis aux niveaux 1
+/// à 5) : pour chaque niveau N de 1 à 5, « JOUER », la carte du niveau 1, la
+/// touche N dès la première image de jeu (build de QA ; aucune au niveau 1), puis
+/// le parcours du robot dans le niveau N (`trouver_parcours`, le même que celui de
+/// `script.txt`), joué jusqu'au drapeau.
+///
+/// Un script par niveau plutôt que la partie entière : sur une longue partie, le
+/// rejeu du navigateur peut glisser d'un pas et rater un écrasement réglé à
+/// l'image près (voir QA.md, carte 6.4a). Fichiers, dans `target/qa/` :
+/// `script-64-N.txt`, `touches-64-N.txt` (image du PILOTE où appuyer sur la
+/// touche N, une image après la trace) et `trace-64-N.csv` : Pépin, la caméra
+/// rendue, et pour chaque ennemi AJOUTÉ par la carte (repéré par sa case de
+/// départ) sa position, son état, la phase du chat et s'il est à l'écran ; les
+/// numéros d'image des captures `64-` de QA.md en viennent.
+/// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_ennemis
+#[test]
+#[ignore]
+fn ecrire_script_ennemis() {
+    use crate::app::Application;
+    use crate::bot_qa::{nom_ecran, trouver_parcours, Trame};
+    use crate::entrees::{Commandes, RaccourciNiveau};
+    use crate::navigation::Navigation;
+    use pepin_core::aabb::TAILLE_TUILE;
+    use pepin_core::entities::{Entite, TypeEnnemi};
+
+    /// Ennemis ajoutés par la carte, niveau par niveau : type, colonne et rangée
+    /// de la lettre dans la grille.
+    const AJOUTS: [&[(TypeEnnemi, i32, i32)]; 5] = [
+        &[(TypeEnnemi::Flaque, 76, 7), (TypeEnnemi::Flaque, 118, 7)],
+        &[(TypeEnnemi::Corbeau, 50, 5), (TypeEnnemi::Corbeau, 106, 5)],
+        &[(TypeEnnemi::Chat, 68, 4)],
+        &[(TypeEnnemi::Corbeau, 36, 5)],
+        &[(TypeEnnemi::Corbeau, 26, 18), (TypeEnnemi::Chat, 28, 36)],
+    ];
+
+    std::fs::create_dir_all("../target/qa").unwrap();
+    for (cible, ajouts) in AJOUTS.iter().enumerate() {
+        let parcours = trouver_parcours(cible, false)
+            .or_else(|| trouver_parcours(cible, true))
+            .expect("parcours du robot");
+        let mut app = Application::new(true);
+        let mut script = String::new();
+        let mut trace = String::from("image,ecran,indice,pas,x,y,cam_x,cam_y,morts");
+        for (k, (t, c, r)) in ajouts.iter().enumerate() {
+            trace.push_str(&format!(
+                ",e{k}_{t:?}_{c}_{r}_x,e{k}_y,e{k}_etat,e{k}_phase,e{k}_ecran"
+            ));
+        }
+        trace.push('\n');
+        let mut touche: Option<usize> = None;
+        let mut commence = false;
+        for image in 0..60 * 60 {
+            let mut trame = Trame {
+                valider: image == 0,
+                ..Trame::default()
+            };
+            let raccourci = if cible > 0 && touche.is_none() && app.en_jeu() {
+                touche = Some(image);
+                Some(RaccourciNiveau::Aller(cible))
+            } else {
+                None
+            };
+            let dans_la_cible = app.en_jeu() && app.monde.indice == cible && raccourci.is_none();
+            if dans_la_cible {
+                commence = true;
+                if let Some(e) = parcours.get(app.monde.pas as usize) {
+                    trame.entrees = *e;
+                }
+            } else if commence {
+                break; // le drapeau est atteint : la transition commence
+            }
+            let nav = Navigation {
+                valider: trame.valider,
+                ..Navigation::default()
+            };
+            app.reagir(&nav, &Commandes::default(), raccourci);
+            app.pas(&trame.entrees);
+            script.push(trame.code());
+            let j = app.monde.joueur.boite;
+            let cam = app.camera.position_rendue(1.0, (j.x, j.y));
+            trace.push_str(&format!(
+                "{image},{},{},{},{:.1},{:.1},{},{},{}",
+                nom_ecran(app.ecran),
+                app.monde.indice,
+                app.monde.pas,
+                j.x,
+                j.y,
+                cam.0,
+                cam.1,
+                app.monde.etat.morts
+            ));
+            for &(t, c, r) in ajouts.iter() {
+                let ennemi = app.monde.entites.iter().find_map(|e| match e {
+                    Entite::Ennemi(en)
+                        if app.monde.indice == cible
+                            && en.type_ennemi == t
+                            && (en.perchoir().0 / TAILLE_TUILE) as i32 == c
+                            && (en.perchoir().1 / TAILLE_TUILE) as i32 == r =>
+                    {
+                        Some(en)
+                    }
+                    _ => None,
+                });
+                match ennemi {
+                    Some(en) => {
+                        let b = en.boite;
+                        let a_l_ecran = b.droite() > cam.0 as f32
+                            && b.x < cam.0 as f32 + 320.0
+                            && b.bas() > cam.1 as f32
+                            && b.y < cam.1 as f32 + 180.0;
+                        let phase = if t == TypeEnnemi::Chat {
+                            format!("{:?}", en.phase_chat())
+                        } else {
+                            "-".to_string()
+                        };
+                        trace.push_str(&format!(
+                            ",{:.1},{:.1},{:?},{phase},{}",
+                            b.x,
+                            b.y,
+                            en.etat,
+                            u8::from(a_l_ecran)
+                        ));
+                    }
+                    None => trace.push_str(",-,-,-,-,0"),
+                }
+            }
+            trace.push('\n');
+        }
+        assert!(commence, "niveau {} jamais atteint", cible + 1);
+        assert_eq!(app.monde.etat.morts, 0, "le robot ne meurt pas");
+        let n = cible + 1;
+        std::fs::write(format!("../target/qa/script-64-{n}.txt"), &script).unwrap();
+        let touches = touche.map_or(String::new(), |t| format!("{}:Digit{n}\n", t + 1));
+        std::fs::write(format!("../target/qa/touches-64-{n}.txt"), &touches).unwrap();
+        std::fs::write(format!("../target/qa/trace-64-{n}.csv"), &trace).unwrap();
+        println!(
+            "niveau {n} : {} images ; touche : {}",
+            script.len(),
+            touches.trim()
+        );
+    }
+}
