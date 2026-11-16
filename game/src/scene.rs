@@ -100,7 +100,10 @@ fn ombre_sous_toit(t: Tuile, dessus: Tuile) -> bool {
 /// qu'il imite (révélé ou non : la forme du mur ne change pas, seul son tramage).
 fn tuile_vue(monde: &Monde, tx: i32, ty: i32) -> Tuile {
     match monde.niveau.tuile_decor(tx, ty) {
-        Tuile::Vide => monde.niveau.cache_en(tx, ty).map_or(Tuile::Vide, |(_, t)| t),
+        Tuile::Vide => monde
+            .niveau
+            .cache_en(tx, ty)
+            .map_or(Tuile::Vide, |(_, t)| t),
         t => t,
     }
 }
@@ -126,7 +129,11 @@ fn boite_cachee(monde: &Monde, b: &Aabb) -> bool {
 
 /// La case `(tx, ty)` est-elle l'indice d'une zone cachée (carte 8.5) ?
 fn case_d_indice(monde: &Monde, tx: i32, ty: i32) -> bool {
-    monde.niveau.caches.iter().any(|z| z.indice == Some((tx, ty)))
+    monde
+        .niveau
+        .caches
+        .iter()
+        .any(|z| z.indice == Some((tx, ty)))
 }
 
 /// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus ; un nuage dont la

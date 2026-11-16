@@ -1019,7 +1019,10 @@ fn ecrire_parcours_pigeon_ecrase_66() {
 /// le script du parcours du robot dans le niveau d'indice `indice`, ses touches de
 /// raccourci et sa trace, dans `target/qa/` avec le préfixe `prefixe`.
 fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
-    let normal = |i| crate::bot_qa::trouver_parcours(i, false).or_else(|| crate::bot_qa::trouver_parcours(i, true));
+    let normal = |i| {
+        crate::bot_qa::trouver_parcours(i, false)
+            .or_else(|| crate::bot_qa::trouver_parcours(i, true))
+    };
     ecrire_scripts_des_parcours(prefixe, niveaux, &normal);
 }
 
@@ -1047,9 +1050,7 @@ fn ecrire_scripts_des_parcours(
     let parcours_des_niveaux: Vec<_> = std::thread::scope(|portee| {
         let fils: Vec<_> = niveaux
             .iter()
-            .map(|&(cible, _)| {
-                portee.spawn(move || trouver(cible).expect("parcours du robot"))
-            })
+            .map(|&(cible, _)| portee.spawn(move || trouver(cible).expect("parcours du robot")))
             .collect();
         fils.into_iter()
             .map(|f| f.join().expect("fil du parcours"))
@@ -1185,7 +1186,8 @@ fn ecrire_scripts_secrets_85() {
     use crate::bot_qa::{trouver_parcours_complet, trouver_parcours_secret};
     use pepin_core::levels::{clocher, gouttieres, marche, mer, orage, toits, NIVEAUX};
     let indice = |nom: &str| NIVEAUX.iter().position(|n| n.nom == nom).unwrap();
-    let complet = |i| trouver_parcours_complet(i, false).or_else(|| trouver_parcours_complet(i, true));
+    let complet =
+        |i| trouver_parcours_complet(i, false).or_else(|| trouver_parcours_complet(i, true));
     let secret = |i| trouver_parcours_secret(i, false).or_else(|| trouver_parcours_secret(i, true));
     let salles: Vec<(usize, Ajouts)> = [toits::INFOS.nom, gouttieres::INFOS.nom, marche::INFOS.nom]
         .iter()

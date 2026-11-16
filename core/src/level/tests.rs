@@ -922,7 +922,10 @@ fn faux_murs_zone_cachee_et_sortie_secrete() {
 ##############
 ";
     let n = Niveau::depuis_ascii(SECRET).expect("niveau valide");
-    assert!(!n.est_solide(7, 1) && !n.est_solide(8, 1), "un faux mur se traverse");
+    assert!(
+        !n.est_solide(7, 1) && !n.est_solide(8, 1),
+        "un faux mur se traverse"
+    );
     assert_eq!(n.caches.len(), 1);
     let z = &n.caches[0];
     let b = Tuile::Brique;

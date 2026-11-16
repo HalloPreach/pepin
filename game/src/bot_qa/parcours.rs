@@ -894,7 +894,13 @@ pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     let (depart, mut entrees) = depart_pose(indice);
     let sans_secret =
         |m: &Monde| gouttes_avant_la_victoire(m) && !m.caches_reveles.iter().any(|&r| r);
-    let etapes = chercher_avec(&depart, &plans(precis), &|_| false, &sans_secret, usize::MAX)?;
+    let etapes = chercher_avec(
+        &depart,
+        &plans(precis),
+        &|_| false,
+        &sans_secret,
+        usize::MAX,
+    )?;
     for e in etapes {
         entrees.extend(e.entrees);
     }
@@ -918,8 +924,7 @@ fn gouttes_prises(m: &Monde) -> usize {
 pub fn trouver_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     let (mut monde, mut entrees) = depart_pose(indice);
     let tous = plans(precis);
-    let toutes =
-        |m: &Monde| gouttes_prises(m) == m.gouttes_niveau.len() && !m.sortie_secrete;
+    let toutes = |m: &Monde| gouttes_prises(m) == m.gouttes_niveau.len() && !m.sortie_secrete;
     while !monde.termine {
         let prises = gouttes_prises(&monde);
         let etapes = if toutes(&monde) {
@@ -948,7 +953,13 @@ pub fn trouver_parcours_secret(indice: usize, precis: bool) -> Option<Vec<Entree
         m.caches_reveles.iter().any(|&r| r)
             && (m.niveau.sortie_secrete.is_none() || m.sortie_secrete)
     };
-    let etapes = chercher_avec(&depart, &plans(precis), &|_| false, &par_le_secret, usize::MAX)?;
+    let etapes = chercher_avec(
+        &depart,
+        &plans(precis),
+        &|_| false,
+        &par_le_secret,
+        usize::MAX,
+    )?;
     for e in etapes {
         entrees.extend(e.entrees);
     }
