@@ -31,6 +31,7 @@ use crate::boutique::{self, EtatBoutique};
 use crate::camera::Camera;
 use crate::contenu;
 use crate::defis::{self, LigneBonus, ResultatNiveau, Tentative};
+use crate::demo::{self, Demo, Rejeu};
 use crate::ecrans::bilan_niveau::{self, Temps};
 use crate::ecrans::fin::{self, Bilan};
 use crate::ecrans::{
@@ -103,8 +104,14 @@ pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
         | Ecran::Carte(_)
         | Ecran::Jeu
         | Ecran::PlusDeVies(_)
-        | Ecran::Plan => Vec::new(),
+        | Ecran::Plan
+        | Ecran::Demo => Vec::new(),
     }
+}
+
+/// Une commande de jeu est-elle tenue (clavier ou boutons tactiles) ? Démo du titre.
+fn commandes_actives(c: &Commandes) -> bool {
+    c.gauche || c.droite || c.saut || c.pause
 }
 
 pub struct Application {
@@ -165,6 +172,13 @@ pub struct Application {
     niveau_seul: bool,
     /// Bilan d'un niveau joué seul : son temps et le meilleur temps d'avant.
     temps_niveau: Temps,
+    /// Pas passés sur le titre sans aucune entrée : à `demo::ATTENTE_PAS`, la démo
+    /// démarre (carte 8.1).
+    inactif: u32,
+    /// La démo en cours (écran `Demo`) : le rejeu du parcours embarqué.
+    demo: Option<Demo>,
+    /// Rang, dans `demo::PARCOURS`, de la prochaine démo (elles tournent).
+    rang_demo: usize,
 }
 
 impl Application {
@@ -203,6 +217,9 @@ impl Application {
             plan: EtatPlan::new(NIVEAUX, 0),
             niveau_seul: false,
             temps_niveau: Temps::default(),
+            inactif: 0,
+            demo: None,
+            rang_demo: 0,
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -225,6 +242,10 @@ impl Application {
             }
         }
         self.menu = Menu::new(self.choix.len());
+        self.inactif = 0;
+        if ecran != Ecran::Demo {
+            self.demo = None;
+        }
         // Pause, titre, aide ou fin : une pause différée n'a plus lieu d'être.
         self.pause_differee = false;
     }
@@ -335,6 +356,18 @@ impl Application {
         commandes: &Commandes,
         raccourci: Option<RaccourciNiveau>,
     ) {
+        let entree = nav.une_entree() || commandes_actives(commandes);
+        // Démo du titre (carte 8.1) : toute entrée ramène au titre, sans rien d'autre
+        // (ni bascule du son, ni ligne de menu validée).
+        if self.ecran == Ecran::Demo {
+            if entree && !self.transition.est_active() {
+                self.quitter_demo();
+            }
+            return;
+        }
+        if entree {
+            self.inactif = 0;
+        }
         if nav.son && self.son_disponible {
             self.son = !self.son;
         }
@@ -343,6 +376,8 @@ impl Application {
         }
         match self.ecran {
             Ecran::Titre | Ecran::Pause | Ecran::Fin => self.reagir_menu(nav, commandes),
+            // Traitée plus haut.
+            Ecran::Demo => {}
             Ecran::BilanNiveau => {
                 if nav.retour {
                     self.valider_choix(Choix::Carte);
@@ -508,12 +543,16 @@ impl Application {
                     }
                 }
                 Ecran::Fin => fin::confettis(&mut self.particules, self.anim),
-                Ecran::Titre
-                | Ecran::Aide
-                | Ecran::Boutique
-                | Ecran::Pause
-                | Ecran::Plan
-                | Ecran::BilanNiveau => {}
+                Ecran::Titre => {
+                    self.inactif += 1;
+                    if self.inactif >= demo::ATTENTE_PAS {
+                        self.demarrer_demo();
+                    }
+                }
+                // Pas de « monde avancé » : la démo ne fait aucun bruitage.
+                Ecran::Demo => self.pas_demo(),
+                Ecran::Aide | Ecran::Boutique | Ecran::Pause | Ecran::Plan | Ecran::BilanNiveau => {
+                }
             }
         }
         self.particules.actualiser();
@@ -598,6 +637,67 @@ impl Application {
                 },
             );
         }
+    }
+
+    // --- Démo du titre (carte 8.1) -------------------------------------------------
+
+    /// Dix secondes sans entrée sur le titre : le robot joue le niveau suivant de la
+    /// rotation (`demo::PARCOURS`). Rien à jouer (aucun niveau retrouvé) : on reste au
+    /// titre, le compteur repart.
+    fn demarrer_demo(&mut self) {
+        self.inactif = 0;
+        let Some((rang, indice)) = demo::prochaine(self.rang_demo) else {
+            return;
+        };
+        self.rang_demo = rang + 1;
+        // Un monde tout neuf, à part de la sauvegarde : ni défis ni gouttes notés.
+        self.recharger(indice, None);
+        self.particules = Particules::new();
+        self.ouvrir(Ecran::Demo);
+        self.demo = Some(Demo {
+            rejeu: Rejeu::new(demo::PARCOURS[rang].plages),
+            pas: 0,
+        });
+    }
+
+    /// Un pas de démo : les entrées enregistrées du robot. Drapeau atteint, mort (un
+    /// niveau changé depuis l'enregistrement), entrées épuisées ou `DUREE_MAX_PAS`
+    /// écoulés : retour au titre derrière les volets.
+    fn pas_demo(&mut self) {
+        let entrees = self.demo.as_mut().and_then(|d| {
+            d.pas += 1;
+            if d.pas > demo::DUREE_MAX_PAS {
+                None
+            } else {
+                d.rejeu.next()
+            }
+        });
+        let Some(entrees) = entrees else {
+            self.lancer(Suite::Titre);
+            return;
+        };
+        let (largeur, hauteur) = (
+            self.monde.niveau.largeur_px(),
+            self.monde.niveau.hauteur_px(),
+        );
+        self.monde.avancer(&entrees);
+        self.camera.suivre(&self.monde.joueur, largeur, hauteur);
+        effets(
+            &self.monde,
+            &mut self.particules,
+            &mut self.secousse,
+            self.camera.x,
+            self.camera.y,
+        );
+        if self.monde.termine || self.monde.etat.morts > 0 {
+            self.lancer(Suite::Titre);
+        }
+    }
+
+    /// Une entrée pendant la démo : retour immédiat au titre, curseur en haut.
+    fn quitter_demo(&mut self) {
+        self.particules = Particules::new();
+        self.ouvrir(Ecran::Titre);
     }
 
     /// L'écran est couvert : on change de décor sans que le joueur le voie.
@@ -719,7 +819,8 @@ impl Application {
     pub fn dessiner(&self, banque: &Banque, alpha: f32) {
         // Monde figé (pause, transition, carte) : on montre le dernier pas tel quel,
         // sinon l'interpolation ferait trembler les sprites sur place.
-        let alpha = if self.en_jeu() { alpha } else { 1.0 };
+        let anime = matches!(self.ecran, Ecran::Jeu | Ecran::Demo) && !self.transition.est_active();
+        let alpha = if anime { alpha } else { 1.0 };
         let libelles: Vec<&str> = self.choix.iter().map(|&c| contenu::libelle(c)).collect();
         let dispo = ecrans::disposition(self.ecran).unwrap_or(Disposition { y0: 0.0, pas: 20.0 });
         match self.ecran {
@@ -750,7 +851,8 @@ impl Application {
             | Ecran::Carte(_)
             | Ecran::Pause
             | Ecran::PlusDeVies(_)
-            | Ecran::BilanNiveau => {
+            | Ecran::BilanNiveau
+            | Ecran::Demo => {
                 // Pépin et la caméra sont arrondis ensemble (écart arrondi une seule fois) : pas de
                 // tremblement d'un pixel en courant (ni en tombant, dans un niveau haut).
                 let pepin = self.monde.joueur_interpole(alpha);
@@ -805,6 +907,7 @@ impl Application {
                         }
                     }
                     Ecran::PlusDeVies(_) => plus_de_vies::dessiner(banque, self.anim),
+                    Ecran::Demo => demo::dessiner_bandeau(self.anim),
                     Ecran::BilanNiveau => {
                         if let Some(r) = &self.resultat_niveau {
                             bilan_niveau::dessiner(

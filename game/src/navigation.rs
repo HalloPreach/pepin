@@ -12,8 +12,9 @@
 //! clic », fonction pure (`vers_logique`) testée sans fenêtre, `Default`.
 
 use macroquad::prelude::{
-    is_key_pressed, is_mouse_button_down, is_mouse_button_pressed, mouse_position, mouse_wheel,
-    screen_dpi_scale, screen_height, screen_width, KeyCode, MouseButton,
+    get_last_key_pressed, is_key_pressed, is_mouse_button_down, is_mouse_button_pressed,
+    mouse_position, mouse_wheel, screen_dpi_scale, screen_height, screen_width, KeyCode,
+    MouseButton,
 };
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
@@ -44,6 +45,28 @@ pub struct Navigation {
     /// Glisser vertical du doigt ou de la souris bouton enfoncé depuis l'image
     /// précédente, en pixels logiques (positif vers le bas) : défilement de la carte.
     pub glisse: f32,
+    /// Une touche quelconque du clavier vient d'être appuyée (démo du titre, carte 8.1 :
+    /// TOUTE entrée la quitte, même une touche qui ne sert à rien dans les menus).
+    pub touche: bool,
+}
+
+impl Navigation {
+    /// Le joueur a-t-il fait quoi que ce soit pendant cette image (touche, clic,
+    /// toucher, souris qui bouge, molette, glisser) ? Démo du titre (carte 8.1).
+    pub fn une_entree(&self) -> bool {
+        self.haut
+            || self.bas
+            || self.gauche
+            || self.droite
+            || self.valider
+            || self.retour
+            || self.son
+            || self.touche
+            || self.clic.is_some()
+            || self.survol.is_some()
+            || self.molette != 0.0
+            || self.glisse != 0.0
+    }
 }
 
 /// Convertit une position de pointeur (pixels physiques de la fenêtre) en pixels
@@ -112,6 +135,7 @@ impl LecteurNavigation {
             survol: if bouge { position } else { None },
             molette: if roue == 0.0 { 0.0 } else { roue.signum() },
             glisse,
+            touche: get_last_key_pressed().is_some(),
         }
     }
 }

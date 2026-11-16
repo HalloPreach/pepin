@@ -138,6 +138,7 @@ pub(crate) fn nom_ecran(e: Ecran) -> &'static str {
         Ecran::Fin => "fin",
         Ecran::Plan => "plan",
         Ecran::BilanNiveau => "bilan_niveau",
+        Ecran::Demo => "demo",
     }
 }
 

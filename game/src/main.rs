@@ -24,6 +24,7 @@ mod chrono;
 mod contenu;
 mod decor;
 mod defis;
+mod demo;
 #[cfg(test)]
 mod difficulte;
 mod ecrans;
