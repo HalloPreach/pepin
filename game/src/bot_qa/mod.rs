@@ -131,6 +131,7 @@ pub(crate) fn nom_ecran(e: Ecran) -> &'static str {
         Ecran::Titre => "titre",
         Ecran::Aide => "aide",
         Ecran::Boutique => "boutique",
+        Ecran::Histoire(_) => "histoire",
         Ecran::Carte(_) => "carte",
         Ecran::Jeu => "jeu",
         Ecran::Pause => "pause",
@@ -179,9 +180,11 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
     let mut trames: Vec<Trame> = Vec::new();
     let mut fin_atteinte = false;
     for image in 0..60 * 60 * 15 {
-        // Image 0 : « JOUER » au titre. Ensuite les cartes passent toutes seules.
+        // Image 0 : « JOUER » au titre. Ensuite les cartes passent toutes seules ; les
+        // images de l'histoire (carte 8.4), elles, attendent un appui : le robot appuie
+        // sur Entrée dès qu'elles l'acceptent.
         let mut trame = Trame {
-            valider: image == 0,
+            valider: image == 0 || app.histoire_en_attente(),
             ..Trame::default()
         };
         if app.ecran == Ecran::Jeu && app.en_jeu() {

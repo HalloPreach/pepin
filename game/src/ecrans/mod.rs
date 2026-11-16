@@ -1,5 +1,5 @@
-//! Les écrans du jeu (titre, aide, carte de niveau, pause, « plus de vies », fin) et leurs
-//! outils de dessin communs.
+//! Les écrans du jeu (titre, aide, histoire, carte de niveau, pause, « plus de vies »,
+//! fin) et leurs outils de dessin communs.
 //!
 //! Chaque écran vit dans son petit fichier et ne fait que DESSINER ce qu'on lui
 //! donne : l'état (quelle ligne est choisie, combien de gouttes...) appartient à
@@ -21,6 +21,7 @@ pub mod aide;
 pub mod boutique;
 pub mod carte;
 pub mod fin;
+pub mod histoire;
 pub mod pause;
 pub mod plus_de_vies;
 pub mod titre;
@@ -32,6 +33,9 @@ pub enum Ecran {
     Aide,
     /// La boutique (carte 7.5) : sa mise en page est dans `boutique.rs`.
     Boutique,
+    /// Une image de l'histoire (carte 8.4) : avant certains niveaux, ou revue depuis
+    /// le titre.
+    Histoire(histoire::Chapitre),
     /// Carte de présentation d'un niveau ; le nombre est le nombre de pas restants.
     Carte(u16),
     Jeu,
@@ -73,11 +77,12 @@ impl Disposition {
 /// Mise en page du menu de l'écran donné (`None` : cet écran n'a pas de menu).
 pub fn disposition(ecran: Ecran) -> Option<Disposition> {
     match ecran {
-        // Quatre lignes depuis la boutique (carte 7.5) : JOUER, BOUTIQUE, COMMENT JOUER,
-        // SON ; elles finissent en y = 146, au-dessus des toits (Pépin court à gauche).
+        // Cinq lignes depuis l'histoire (carte 8.4) : JOUER, BOUTIQUE, HISTOIRE,
+        // COMMENT JOUER, SON ; resserrées (18 px, le minimum pour un doigt), elles
+        // finissent en y = 154, sur le dessus des toits (Pépin court à gauche).
         Ecran::Titre => Some(Disposition {
-            y0: 66.0,
-            pas: 20.0,
+            y0: 64.0,
+            pas: 18.0,
         }),
         Ecran::Pause => Some(Disposition {
             y0: 68.0,
@@ -87,7 +92,12 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
             y0: 124.0,
             pas: 20.0,
         }),
-        Ecran::Aide | Ecran::Boutique | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => None,
+        Ecran::Aide
+        | Ecran::Boutique
+        | Ecran::Histoire(_)
+        | Ecran::Carte(_)
+        | Ecran::Jeu
+        | Ecran::PlusDeVies(_) => None,
     }
 }
 
@@ -158,6 +168,7 @@ mod tests {
         let tous = [
             Choix::Jouer,
             Choix::Boutique,
+            Choix::Histoire,
             Choix::Aide,
             Choix::Son,
             Choix::Reprendre,
@@ -212,8 +223,9 @@ mod tests {
         let (_, y, _, h) = d.rect_ligne(1);
         assert!(y + h <= HAUTEUR_LOGIQUE as f32, "fin : 2 lignes");
         let d = disposition(Ecran::Titre).unwrap();
-        let (_, y, _, h) = d.rect_ligne(3);
-        assert!(y + h <= 148.0, "titre : 4 lignes au-dessus du sol");
+        let (_, y, _, h) = d.rect_ligne(4);
+        assert!(y + h <= titre::SOL, "titre : 5 lignes au-dessus du sol");
+        assert!(d.y0 >= titre::FIN_SOUS_TITRE, "sous le sous-titre");
     }
 
     #[test]
@@ -222,6 +234,7 @@ mod tests {
         assert!(disposition(Ecran::Aide).is_none());
         assert!(disposition(Ecran::Carte(10)).is_none());
         assert!(disposition(Ecran::PlusDeVies(10)).is_none());
+        assert!(disposition(Ecran::Histoire(histoire::Chapitre::Depart)).is_none());
     }
 
     #[test]

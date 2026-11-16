@@ -1,5 +1,6 @@
 //! Écran titre : le ciel d'orage défile derrière Pépin qui court sur les toits.
 
+use pepin_core::font::HAUTEUR_GLYPHE;
 use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR_PALE};
 use pepin_core::zones::Theme;
 use pepin_core::LARGEUR_LOGIQUE;
@@ -13,8 +14,19 @@ use crate::skins::Skin;
 use crate::sprites::Banque;
 use crate::texte::{self, Style};
 
-/// Hauteur du dessus des toits.
-const SOL: f32 = 148.0;
+/// Hauteur du dessus des toits. 154 depuis la ligne HISTOIRE (carte 8.4, 148 avant) :
+/// le menu de cinq lignes finit juste au-dessus (test de `ecrans`).
+pub const SOL: f32 = 154.0;
+/// Ordonnées du titre (échelle 5) et du sous-titre (échelle 1). Remontés de 2 px
+/// (carte 8.4) pour faire place à la cinquième ligne du menu.
+const Y_TITRE: f32 = 12.0;
+const Y_SOUS_TITRE: f32 = 54.0;
+/// Bas du sous-titre, ombre comprise : le menu commence en dessous (test de `ecrans`).
+#[cfg(test)]
+pub const FIN_SOUS_TITRE: f32 = Y_SOUS_TITRE + HAUTEUR_GLYPHE as f32 + 1.0;
+
+// Le titre (7 rangées à l'échelle 5, ombre décalée de 5 px) finit avant le sous-titre.
+const _: () = assert!(Y_TITRE + (HAUTEUR_GLYPHE * 5 + 5) as f32 <= Y_SOUS_TITRE);
 
 /// Dessine l'écran titre. `anim` : pas écoulés depuis son ouverture.
 pub fn dessiner(
@@ -33,7 +45,7 @@ pub fn dessiner(
         banque.dessiner_tuile(Theme::Toits, "toit_haut", x, SOL);
         banque.dessiner_tuile(Theme::Toits, "toit_plein", x, SOL + 16.0);
     }
-    // À gauche du menu (4 lignes depuis la boutique, carte 7.5), sous le skin choisi.
+    // À gauche du menu (5 lignes depuis l'histoire, carte 8.4), sous le skin choisi.
     banque.dessiner(
         image(&skin.images().course, anim, 5),
         14.0,
@@ -44,12 +56,12 @@ pub fn dessiner(
 
     texte::dessiner_centre(
         contenu::TITRE,
-        14.0,
+        Y_TITRE,
         Style::simple(OR_PALE, 5).avec_ombre(ARDOISE_OMBRE),
     );
     texte::dessiner_centre(
         contenu::SOUS_TITRE,
-        56.0,
+        Y_SOUS_TITRE,
         Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE),
     );
     dessiner_menu(libelles, menu, d, anim);

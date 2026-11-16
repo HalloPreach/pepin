@@ -29,6 +29,8 @@ pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
 
 pub const JOUER: &str = "JOUER";
 pub const BOUTIQUE: &str = "BOUTIQUE";
+/// Revoir les trois images de l'histoire (carte 8.4).
+pub const HISTOIRE: &str = "HISTOIRE";
 pub const COMMENT_JOUER: &str = "COMMENT JOUER";
 pub const REPRENDRE: &str = "REPRENDRE";
 pub const RECOMMENCER: &str = "RECOMMENCER";
@@ -51,6 +53,7 @@ pub fn libelle(choix: Choix, son: bool) -> &'static str {
     match choix {
         Choix::Jouer => JOUER,
         Choix::Boutique => BOUTIQUE,
+        Choix::Histoire => HISTOIRE,
         Choix::Aide => COMMENT_JOUER,
         Choix::Son => libelle_son(son),
         Choix::Reprendre => REPRENDRE,
@@ -111,6 +114,32 @@ pub fn recommencer_avec_vies(vies: u8) -> String {
 
 /// Seconde phrase : les gouttes ramassées dans ce niveau sont perdues.
 pub const GOUTTES_A_REPRENDRE: &str = "Ses gouttes d'or sont à reprendre.";
+
+// --- Histoire (carte 8.4) --------------------------------------------------
+
+/// Les deux lignes de chacune des trois images de l'histoire, dans l'ordre :
+/// avant le premier niveau, après le Grand Nuage, avant la descente. La ville est
+/// sous une pluie sans fin, les gouttes d'or sont des éclats de soleil tombés, et
+/// Pépin monte réveiller le soleil. Chaque ligne tient dans le bandeau du bas, 8 px
+/// de marge de chaque côté (test `l_histoire_tient_dans_son_bandeau` de
+/// `ecrans::histoire`).
+pub const RECIT: [[&str; 2]; 3] = [
+    [
+        "La pluie ne s'arrête plus : le soleil dort.",
+        "Pépin prend son parapluie et monte le réveiller.",
+    ],
+    [
+        "Le cyclone s'est tu. Plus haut, une lueur d'or.",
+        "Les gouttes d'or sont des éclats de soleil !",
+    ],
+    [
+        "Le soleil ouvre un œil.",
+        "Il est temps de redescendre lui montrer la ville.",
+    ],
+];
+
+/// Invitation sous une image de l'histoire.
+pub const APPUIE_POUR_CONTINUER: &str = "APPUIE POUR CONTINUER";
 
 /// Texte d'accueil d'un niveau : une phrase d'ambiance et un conseil.
 #[derive(Debug, Clone, Copy)]
@@ -457,7 +486,10 @@ pub(crate) mod tests {
             SANS_PERTE_DE_VIE,
             TITRE_PLUS_DE_VIES,
             GOUTTES_A_REPRENDRE,
+            HISTOIRE,
+            APPUIE_POUR_CONTINUER,
         ];
+        t.extend(RECIT.iter().flatten());
         let vies = recommencer_avec_vies(pepin_core::vies::VIES_DEPART);
         t.push(vies.leak());
         t.extend(tous_les_mots_de_fin());
