@@ -1,7 +1,7 @@
-// Pilote CDP de la carte 7.8 (icône du son) : titre avec la ligne du son choisie (le son
-// part coupé, règle des navigateurs), Entrée (son actif), puis jeu et pause (son actif,
-// ligne non choisie : l'icône avec son ombre). Horloge virtuelle de
-// docs/pilote-qa.js ; compte les erreurs de la console.
+// Pilote CDP des cartes 7.8 / 7.8b (icône du son, en bas à gauche depuis la 7.8b) : au
+// titre (le son part coupé, règle des navigateurs), touche M (son actif), puis clic sur
+// l'icône (son coupé) ; puis jeu, pause et clic sur l'icône (son actif). Horloge
+// virtuelle de docs/pilote-qa.js ; compte les erreurs de la console.
 // Usage : node capture-son.mjs PORT_HTTP DOSSIER_SORTIE
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -65,18 +65,31 @@ await evalue(fs.readFileSync(path.join(ici, 'pilote-qa.js'), 'utf8'));
 await evalue('window.__P.file.push({ n: 60, m: 0 }); 1');
 await dormir(1500);
 
-// 1. Titre : la 4e ligne (son) choisie, son coupé (état de départ).
-for (let i = 0; i < 3; i++) await touche('ArrowDown', 30);
-await capture('78-titre-son-coupe');
-// 2. Entrée : le son est actif, la ligne reste choisie.
-await touche('Enter', 30);
-await capture('78-titre-son-actif');
-// 3. Jouer, puis pause : QUITTER AU TITRE choisi, la ligne du son (actif) au repos.
-for (let i = 0; i < 3; i++) await touche('ArrowUp', 10);
+// Clic (ou toucher) au point logique (x, y) : la fenêtre fait 960 x 540, 3 pixels par
+// pixel logique. Puis `n` images sans rien.
+const cliquer = async (x, y, n = 20) => {
+  const p = { x: x * 3, y: y * 3, button: 'left', clickCount: 1 };
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', ...p, button: 'none' });
+  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...p });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p });
+  await evalue(`window.__P.file.push({ n: ${n}, m: 0 }); 1`);
+  for (let i = 0; i < 200 && await evalue('window.__P.file.length') > 0; i++) await dormir(50);
+  await dormir(200);
+};
+// Centre de l'icône du son (22 x 14 pixels logiques, coin haut à gauche en (6, 160)).
+const ICONE = [17, 167];
+
+// 1. Titre : touche M, le son est actif (ondes).
+await touche('KeyM', 30);
+await capture('78b-titre-son-actif');
+// 2. Clic sur l'icône : le son est coupé (croix), on reste au titre.
+await cliquer(...ICONE, 30);
+await capture('78b-titre-son-coupe-apres-clic');
+// 3. Jouer, pause (3 lignes, le curseur sur REPRENDRE), clic sur l'icône : son actif.
 await touche('Enter', 300);
 await touche('Escape', 30);
-for (let i = 0; i < 3; i++) await touche('ArrowDown', 30);
-await capture('78-pause-son-actif');
+await cliquer(...ICONE, 30);
+await capture('78b-pause-son-actif');
 
 console.log('erreurs console :', erreurs.length, JSON.stringify(erreurs));
 ws.close(); chrome.kill('SIGKILL');

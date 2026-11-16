@@ -36,24 +36,13 @@ pub const QUITTER_AU_TITRE: &str = "QUITTER AU TITRE";
 pub const REJOUER: &str = "REJOUER";
 pub const RETOUR_TITRE: &str = "TITRE";
 
-/// Libellé de l'option son selon son état. Depuis la carte 7.8, il n'est plus affiché :
-/// le menu montre à sa place une icône de haut-parleur (barré ou non, `ecrans/mod.rs`) ;
-/// il reste le nom interne de la ligne (tests, contrôles d'ensemble).
-pub fn libelle_son(actif: bool) -> &'static str {
-    if actif {
-        "SON : OUI"
-    } else {
-        "SON : NON"
-    }
-}
-
-/// Texte affiché pour une ligne de menu ; `son` : état actuel du son.
-pub fn libelle(choix: Choix, son: bool) -> &'static str {
+/// Texte affiché pour une ligne de menu. Le son n'a plus de ligne (carte 7.8b) : une
+/// icône de haut-parleur en bas à gauche du titre et de la pause (`ecrans/mod.rs`).
+pub fn libelle(choix: Choix) -> &'static str {
     match choix {
         Choix::Jouer => JOUER,
         Choix::Boutique => BOUTIQUE,
         Choix::Aide => COMMENT_JOUER,
-        Choix::Son => libelle_son(son),
         Choix::Reprendre => REPRENDRE,
         Choix::Recommencer => RECOMMENCER,
         Choix::QuitterAuTitre => QUITTER_AU_TITRE,
@@ -71,7 +60,7 @@ pub const COMMANDES_AIDE: [(&str, &str); 5] = [
     ("ESPACE, HAUT, W", "Sauter, plus haut si maintenu"),
     ("SAUT EN L'AIR", "Maintenu : le parapluie plane !"),
     ("ÉCHAP, P", "Pause"),
-    ("M", "Son : oui ou non"),
+    ("M", "Son, ou l'icône en bas à gauche"),
 ];
 /// Conseils de jeu, une ligne chacun. Carte 5.18 : les nouveautés des onze
 /// niveaux (vent, grêle, auvents, ventilateurs, montgolfières, escargots, chats,
@@ -426,9 +415,6 @@ pub(crate) mod tests {
             QUITTER_AU_TITRE,
             REJOUER,
             RETOUR_TITRE,
-            libelle_son(true),
-            libelle_son(false),
-            libelle(Choix::Son, true),
             TITRE_AIDE,
             RETOUR_AIDE,
             CONTINUER,

@@ -14,7 +14,6 @@ pub enum Choix {
     /// La boutique (carte 7.5).
     Boutique,
     Aide,
-    Son,
     Reprendre,
     Recommencer,
     QuitterAuTitre,
