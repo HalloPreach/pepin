@@ -5611,8 +5611,9 @@ débloqué → « pepin ». Méthodes `ajouter_gouttes`, `depenser(prix) -> bool
   0 erreur ni avertissement dans la console sur tout le parcours. Captures
   `docs/qa/72-titre-gouttes-record.png` et `docs/qa/72-fin-nouveau-record.png` (regardées : rien ne se
   chevauche ; `mesure-capture.py` : 0 pixel hors palette, 0 flou).
-- Extraction propre de carte-7.2 : `./docker-cargo.sh test -p game --no-default-features sauvegarde`,
-  `... bot_qa`, `./docker-cargo.sh lint`, `./build.sh` (résultats dans le compte rendu de la carte).
+- Extraction propre (`git archive` de carte-7.2 au commit 6ff6f2e) : `./docker-cargo.sh test -p game
+  --no-default-features sauvegarde` 1 vert ; `... bot_qa` 19 verts, 19 ignorés ; `./docker-cargo.sh
+  lint` FMT-OK, LINT-OK ; `./build.sh` : `dist/` produit, 0 nom interdit, seule URL celle du SVG.
 
 ### Ce qui n'est PAS testé
 
@@ -5620,3 +5621,4 @@ débloqué → « pepin ». Méthodes `ajouter_gouttes`, `depenser(prix) -> bool
   dans Chromium.
 - Deux onglets ouverts en même temps : le dernier qui écrit gagne (pas de fusion).
 - La boutique (dépenser des gouttes, choisir un skin) : carte 7.3.
+- Pas de suite complète (`test --workspace`) : seulement les commandes de la carte ci-dessus.
