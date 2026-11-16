@@ -11,11 +11,17 @@
 //! Simplifications volontaires (documentées pour rester honnêtes) :
 //! - ennemis, corbeaux et éclairs sont ignorés : ils sont évitables en
 //!   attendant ou en écrasant, et leur timing ne change pas l'atteignabilité ;
-//! - SAUF le chat endormi : il ne bouge pas et garde un passage, on ne peut
-//!   donc pas l'éviter. Le robot le garde, TOUJOURS endormi (comme le
-//!   ventilateur toujours actif : un joueur patient attend son sommeil). Le
-//!   heurter de côté tue ; il faut lui sauter dessus. Un chat écrasé le reste :
-//!   chaque état du robot retient les chats déjà écrasés (`Noeud::chats`) ;
+//! - SAUF le chat endormi : il garde un passage, on ne peut donc pas
+//!   l'éviter. Le robot le garde, TOUJOURS endormi (comme le ventilateur
+//!   toujours actif : un joueur patient attend son sommeil). Le heurter de côté
+//!   tue ; il faut lui sauter dessus. Un chat écrasé le reste : chaque état du
+//!   robot retient les chats déjà écrasés (`Noeud::chats`). Depuis la carte
+//!   6.3, il BONDIT sur Pépin à la fin de son annonce : sa zone dangereuse
+//!   s'étend, pendant l'éveil, à tout son bond. Le joueur patient attend donc
+//!   son sommeil HORS de portée, et le robot ne s'arrête jamais (aucun état
+//!   posé) là où un chat vivant bondirait sur lui (`Ennemi::bond_atteint`) : il
+//!   y passe, ou l'écrase, d'un seul plan. C'est prudent : un vrai joueur peut
+//!   s'y poser un instant pendant le sommeil du chat ;
 //! - la grêle, elle, est GARDÉE : sa colonne est fixe et tombe sans arrêt, donc
 //!   attendre ne sert à rien. Un plan qui la touche parapluie fermé finit par une
 //!   mort (`resoudre_contacts`) et il est écarté ; le robot la traverse avec ses
@@ -233,6 +239,20 @@ impl Noeud {
 
 /// Au plus 32 chats par niveau (un bit chacun dans `Noeud::chats`).
 const CHATS_MAX: usize = 32;
+
+/// Un chat vivant de `ents` bondirait-il sur Pépin posé en `(x, y)` (coin
+/// haut-gauche) s'il se réveillait maintenant ? (`Ennemi::bond_atteint` : il le
+/// voit, un bond est possible, et ce bond le touche.) Toujours faux dans un
+/// niveau sans chat.
+fn chat_bondirait(niveau: &Niveau, solides: &[Aabb], ents: &[Entite], (x, y): (f32, f32)) -> bool {
+    let joueur = Aabb::new(x, y, JOUEUR_L, JOUEUR_H);
+    ents.iter().any(|e| match e {
+        Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat && c.est_dangereux() => {
+            c.bond_atteint(&joueur, niveau, solides)
+        }
+        _ => false,
+    })
+}
 
 /// Trajet d'une plateforme mobile : (extrémité a, extrémité b, largeur).
 type Trajet = ((f32, f32), (f32, f32), f32);
@@ -492,6 +512,12 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             }
             let cout_plan = cout + u32::from(duree);
             let mut ajouter = |arrive: Noeud, cout: u32| {
+                // Posé là où un chat vivant bondirait sur lui : pas un lieu
+                // d'attente (voir l'en-tête). Lancé par un auvent, il est en l'air.
+                if !arrive.lance && chat_bondirait(niveau, env.solides, &ents, (arrive.x, arrive.y))
+                {
+                    return;
+                }
                 let k = arrive.cle();
                 if meilleur.get(&k).is_none_or(|&c| cout < c) {
                     meilleur.insert(k, cout);
@@ -1387,6 +1413,37 @@ mod tests {
         let n = niveau_chat(true, true);
         let r = analyser(&n, n.depart, Options::default());
         assert!(r.arrivee && r.gouttes == [true; 3], "{r:?}");
+    }
+
+    /// Le bond du chat (carte 6.3) : le robot ne retient aucun état posé là où un
+    /// chat vivant bondirait sur lui (`chat_bondirait`). Mini-niveau : un toit
+    /// (colonnes 0 à 13), un trou, un second toit ; le chat dort en colonne 11.
+    #[test]
+    fn le_robot_ne_s_arrete_pas_la_ou_le_chat_bondirait() {
+        let n = Niveau::depuis_ascii(
+            "
+o.o.o.................
+......................
+.@.........z........X.
+##############..######
+",
+        )
+        .expect("niveau de test");
+        let mut ents = n.entites.clone();
+        let menace = |ents: &[Entite], x: f32| chat_bondirait(&n, &[], ents, (x, 34.0));
+        // Sur son toit, à moins de 5 tuiles : il bondirait sur Pépin.
+        assert!(menace(&ents, 210.0) && menace(&ents, 110.0));
+        // Trop loin, ou de l'autre côté du trou (vu, mais hors d'atteinte : le
+        // chat s'arrête au bord de son toit) : on peut y attendre.
+        assert!(!menace(&ents, 60.0), "trop loin");
+        assert!(!menace(&ents, 257.0), "de l'autre côté du trou");
+        // Écrasé, il ne menace plus personne.
+        for e in &mut ents {
+            if let Entite::Ennemi(c) = e {
+                c.ecraser();
+            }
+        }
+        assert!(!menace(&ents, 210.0));
     }
 
     // --- Aiguilles d'horloge (carte 5.10) ---

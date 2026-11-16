@@ -1000,6 +1000,10 @@ mod tests {
     /// Les entités du niveau avancent seules (sans joueur) pendant `pas` pas ; on
     /// note chaque lanterne dont la boîte de Pépin réapparu est touchée par un
     /// ennemi actif (flaque, corbeau), une pointe ou un éclair qui frappe.
+    ///
+    /// Le chat ne bouge pas sans Pépin : son bond (carte 6.3) se calcule à part,
+    /// lanterne par lanterne (`Ennemi::bond_atteint` : Pépin réapparu immobile à la
+    /// lanterne, le chat bondirait-il sur lui à son réveil ?), noté « bond de chat ».
     fn dangers_sur_les_lanternes(pas: u32) -> Vec<(u8, i32, &'static str)> {
         use crate::aabb::Aabb;
         use crate::entities::{solides_des_entites, Actualisable, Entite, TypeEnnemi};
@@ -1019,6 +1023,18 @@ mod tests {
                     _ => None,
                 })
                 .collect();
+            let solides = solides_des_entites(&niv.entites);
+            for e in &niv.entites {
+                if let Entite::Ennemi(c) = e {
+                    for &(colonne, pepin) in &pepins {
+                        if c.type_ennemi == TypeEnnemi::Chat
+                            && c.bond_atteint(&pepin, &niv, &solides)
+                        {
+                            trouves.push((infos.numero, colonne, "bond de chat"));
+                        }
+                    }
+                }
+            }
             let mut entites = niv.entites.clone();
             for _ in 0..pas {
                 let solides = solides_des_entites(&entites);
@@ -1062,11 +1078,15 @@ mod tests {
     /// son toit d'un mur (ou d'un bord) à l'autre : niveau 2, colonnes 66 (flaque
     /// de la colonne 70) et 104 (flaque de la colonne 108, celle de la mesure 3.1) ;
     /// niveau 4 (le grand orage, niveau 3 avant l'arrivée du marché couvert),
-    /// colonne 145 (flaque de la colonne 154). Le marché couvert n'en ajoute aucune
-    /// (ses flaques gardent des toits sans lanterne, ses chats dorment loin des
-    /// lanternes). Si ce test échoue après une
-    /// retouche de niveau : vérifier la nouvelle liste, la recopier ici et dans
-    /// `QA.md` (section « Protection après réapparition »).
+    /// colonne 145 (flaque de la colonne 154). Depuis la carte 6.3, le marché
+    /// couvert en ajoute deux, à portée du BOND d'un chat (ses flaques gardent des
+    /// toits sans lanterne) : colonne 50 (chat de la colonne 54) et colonne 110
+    /// (chat de la colonne 114). Pas un piège non plus : à la réapparition, la
+    /// protection (1 s) couvre tout un bond en cours ; le bond suivant vient au
+    /// plus tôt 4 s plus tard, annoncé 0,8 s par le « ! » ; au plus une mort par
+    /// réveil, pour un joueur qui reste planté à la lanterne. Si ce test échoue
+    /// après une retouche de niveau : vérifier la nouvelle liste, la recopier ici
+    /// et dans `QA.md` (section « Protection après réapparition »).
     #[test]
     fn lanternes_sur_le_trajet_d_un_danger() {
         // 2 min : plus qu'un aller-retour complet de chaque ennemi (la plus longue
@@ -1075,7 +1095,13 @@ mod tests {
         println!("lanternes sur le trajet d'un danger : {trouves:?}");
         assert_eq!(
             trouves,
-            vec![(2, 66, "flaque"), (2, 104, "flaque"), (4, 145, "flaque")]
+            vec![
+                (2, 66, "flaque"),
+                (2, 104, "flaque"),
+                (3, 50, "bond de chat"),
+                (3, 110, "bond de chat"),
+                (4, 145, "flaque")
+            ]
         );
     }
 

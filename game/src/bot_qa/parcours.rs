@@ -645,45 +645,56 @@ pub(crate) fn aiguille_sous_pepin(m: &Monde) -> Option<usize> {
 const PORTEE_CHAT: (f32, f32) = PORTEE_ESCARGOT;
 
 /// Tranche du cycle du chat (pas) retenue dans la case : 30 pas (0,5 s), donc
-/// 12 tranches pour un cycle de 6 s.
+/// 8 tranches pour un cycle de 4 s (12 pour 6 s avant la carte 6.3).
 const TRANCHE_CHAT_PAS: u16 = 30;
 
-/// Les chats du niveau, résumés en un entier : `16 × écrasés + tranche`.
+/// Les chats du niveau, résumés en un entier : `32 × écrasés + 2 × tranche + bond`.
 /// - `écrasés` : un bit par chat du niveau (dans l'ordre des entités), à 1 s'il
 ///   est écrasé ;
-/// - `tranche` : où en est le chat vivant le plus proche (dans `PORTEE_CHAT`)
-///   dans son cycle, `1 + pas_du_cycle / TRANCHE_CHAT_PAS` (de 1 à 12) ; 0 si
-///   aucun chat vivant n'est proche.
+/// - `tranche` : où en est le chat vivant le plus proche (dans `PORTEE_CHAT`,
+///   mesurée depuis sa PLACE : un chat en plein bond reste le même chat) dans son
+///   cycle, `1 + pas_du_cycle / TRANCHE_CHAT_PAS` (de 1 à 8) ; 0 si aucun chat
+///   vivant n'est proche ;
+/// - `bond` (carte 6.3) : 1 si ce chat est en train de bondir (son éveil avec
+///   bond : il n'est plus à sa place, sa zone dangereuse s'étend à tout son bond),
+///   0 sinon.
 ///
 /// Pourquoi : le chat garde un passage, il faut ATTENDRE qu'il dorme. Sans le
 /// moment de son cycle dans la case, attendre sur place ramène à une case déjà
 /// connue et le plan « attendre » est jeté : le robot ne pourrait jamais laisser
 /// le chat se rendormir. Et sans les chats écrasés, un état « chat écrasé »
-/// fusionnerait avec le même endroit « chat vivant ». Toujours 0 dans un niveau
-/// sans chat : la case est alors exactement celle d'avant la carte 5.9.
+/// fusionnerait avec le même endroit « chat vivant ». Le bond, lui, se joue
+/// dans la VRAIE simulation (le chat voit Pépin dans `resoudre_contacts`) : un
+/// plan qui finit sous le bond est une mort, et il est écarté ; le bit `bond`
+/// garde seulement distincts « même moment, chat à sa place » et « même moment,
+/// chat en l'air ». Toujours 0 dans un niveau sans chat : la case est alors
+/// exactement celle d'avant la carte 5.9.
 pub(crate) fn chats_de_la_case(m: &Monde) -> i32 {
     let j = &m.joueur.boite;
     let centre = j.x + j.w / 2.0;
     let mut ecrases = 0i32;
-    let mut proche: Option<(f32, u16)> = None;
+    let mut proche: Option<(f32, u16, bool)> = None;
     let chats = m.entites.iter().filter_map(|e| match e {
         Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Chat => Some(c),
         _ => None,
     });
     for (k, c) in chats.enumerate() {
-        assert!(k < 26, "trop de chats pour la case du robot");
+        assert!(k < 25, "trop de chats pour la case du robot");
         if !c.est_dangereux() {
             ecrases |= 1 << k;
             continue;
         }
-        let dx = (c.boite.x + c.boite.w / 2.0 - centre).abs();
-        let dy = (c.boite.bas() - j.bas()).abs();
-        if dx <= PORTEE_CHAT.0 && dy <= PORTEE_CHAT.1 && proche.is_none_or(|(d, _)| dx < d) {
-            proche = Some((dx, pas_du_cycle(c.phase_chat())));
+        let (px, py) = c.place();
+        let dx = (px + c.boite.w / 2.0 - centre).abs();
+        let dy = (py + c.boite.h - j.bas()).abs();
+        if dx <= PORTEE_CHAT.0 && dy <= PORTEE_CHAT.1 && proche.is_none_or(|(d, ..)| dx < d) {
+            proche = Some((dx, pas_du_cycle(c.phase_chat()), c.bond().is_some()));
         }
     }
-    let tranche = proche.map_or(0, |(_, p)| 1 + i32::from(p / TRANCHE_CHAT_PAS));
-    16 * ecrases + tranche
+    let (tranche, bond) = proche.map_or((0, 0), |(_, p, b)| {
+        (1 + i32::from(p / TRANCHE_CHAT_PAS), i32::from(b))
+    });
+    32 * ecrases + 2 * tranche + bond
 }
 
 /// Portée (px) à laquelle un escargot compte dans la case de Pépin : 6 tuiles en x
