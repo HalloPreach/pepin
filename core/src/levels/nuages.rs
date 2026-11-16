@@ -6,6 +6,20 @@
 //! nuages de la fin, un pigeon guette depuis un petit nuage (colonne 108,
 //! 4 rangées plus haut), à 13 tuiles de l'oiseau de décor (colonne 95) : on
 //! les voit ensemble, on ne les confond pas.
+//!
+//! Carte 6.4b (« plus d'ennemis », sans quitter le calme : le niveau reste sous
+//! les vents d'altitude dans la mesure de difficulté) : deux corbeaux et deux
+//! flaques.
+//! - Une flaque sur le petit nuage des colonnes 35 à 40 (rangée 6), entre deux
+//!   sauts de l'escalier du début : on lui saute dessus, ou par-dessus.
+//! - Un corbeau au-dessus de la traversée friable (colonne 63, rangée 3 : il
+//!   patrouille des colonnes 58 à 68), juste au-dessus de la tête de Pépin posé
+//!   sur les friables : on passe dessous en marchant ; un saut au mauvais moment
+//!   s'y cogne.
+//! - Une flaque sur le nuage des colonnes 121 à 127 (rangée 4), avant le dernier
+//!   toit, et au-dessus d'elle un corbeau (colonne 120, rangée 2 : colonnes 115 à
+//!   125), juste au-dessus de la tête de Pépin posé sur ce nuage : pour écraser la
+//!   flaque d'un saut, on attend que le corbeau s'éloigne.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -16,20 +30,22 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     theme: Theme::Soleil,
     genre: GenreNiveau::Normal,
     intro: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
-    mecanique: "Final calme : nuages, trampoline, petite traversée de nuages friables, pigeon.",
+    mecanique: "Final calme : nuages, trampoline, petite traversée de nuages friables, pigeon, \
+                corbeaux, flaques.",
     duree_cible_s: 45,
     ascii: ASCII,
     aiguilles: &[],
 };
 
 /// Dessin du niveau (150 x 11 tuiles). Légende : voir `crate::level`.
+/// - Ennemis (carte 6.4b) : flaques (37, 5) et (124, 3) ; corbeaux (63, 3) et (120, 2).
 const ASCII: &str = r"
 ......................................................................................................................................................
 ............................................................................o.........................................................................
-...................................................................................................................................K....L.......X.....
-......................................o.....................................................................p...................NNNNNNNNNNNNNNNNNNNNNN
+........................................................................................................................c..........K....L.......X.....
+......................................o........................c............................................p...............f...NNNNNNNNNNNNNNNNNNNNNN
 ..................................................L...K.....................................................N............NNNNNNN......................
-...........................................NNNNNNNNNNNNNNN..FFFFFFF................................................K..................................
+.....................................f.....NNNNNNNNNNNNNNN..FFFFFFF................................................K..................................
 .........o....................K....NNNNNN...................................M....................................NNNNNN...............................
 ..@...K..............L.....NNNNNN...................................NNNNNNNNNNNNNNN............K......L........NN.....................................
 NNNNNNNNNNNNNNN..NNNNNNNN...............................................................NNNNNNNNNNNNNNNNNNNNNNN.......................................
