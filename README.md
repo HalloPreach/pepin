@@ -60,7 +60,8 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
 1. Les toits : course, saut, planer.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines.
 3. Le marché couvert : auvents qui relancent en diagonale (six à la suite au-dessus
-   du vide), chats endormis à écraser pendant leur sommeil.
+   du vide), chats endormis à écraser pendant leur sommeil ; réveillés, ils
+   bondissent sur Pépin s'il est trop près.
 4. Le grand orage : éclairs annoncés, plateformes mobiles et friables.
 5. Le clocher : niveau vertical (quatre écrans de haut) ; escargots-tremplins,
    ventilateur, pigeons sur les corniches, et la cage de l'horloge dont les
@@ -103,6 +104,22 @@ réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.
 On réapparaît à la dernière lanterne allumée.
 Pendant 1 s après chaque réapparition, Pépin clignote et aucun danger ne peut
 le tuer, sauf le vide (`PROTECTION_REAPPARITION_PAS`, `core/src/player.rs`).
+
+Le chat endormi (carte 6.3, `core/src/entities/ennemi/chat.rs` ; chaque durée et
+chaque portée est une constante nommée) :
+
+- il dort 1,7 s (`DORT_PAS`), s'annonce 0,8 s (le « ! » doré qui clignote de plus en
+  plus vite, `REVEIL_PAS`), reste éveillé 1,2 s (`EVEILLE_PAS`), se rendort ;
+- endormi ou pendant l'annonce, on l'écrase en lui tombant dessus ; le heurter de
+  côté tue. Éveillé, il ne s'écrase pas : le toucher tue, même par le dessus ;
+- s'il voit Pépin pendant l'annonce (5 tuiles au plus entre eux en largeur, 2 en
+  hauteur, aucun mur entre eux : `PORTEE_BOND_X`, `PORTEE_BOND_Y`), il se ramasse,
+  tête basse et croupion levé : il va bondir. À la fin de l'annonce, il bondit vers
+  l'endroit où se tient Pépin (un saut en arc de 0,5 s, `BOND_PAS`), s'y pose un
+  instant, puis revient à sa place d'un second bond et se rendort. Il ne quitte
+  jamais son toit (il s'arrête au bord du vide) et ne traverse aucun mur. Pendant
+  tout le bond il est éveillé : le toucher tue ;
+- hors de portée, il se réveille sur place, comme avant.
 
 Les vies (carte 6.2, `core/src/vies.rs` ; chaque règle est une constante nommée,
 réglable en une ligne) :
@@ -150,7 +167,8 @@ Contenu de `core/src` :
   time, tampon de saut, planer, courants ascendants, vent latéral, élan d'auvent).
 - `entities/` : un fichier par famille d'entités (flaques et corbeaux dans
   `ennemi.rs`, pigeons dans `ennemi/pigeon.rs`, le chat endormi (il dort, se
-  réveille après une annonce, se rendort) dans `ennemi/chat.rs`, `pointe.rs`, `eclair.rs`,
+  réveille après une annonce, bondit sur Pépin s'il le voit à portée, se rendort)
+  dans `ennemi/chat.rs`, `pointe.rs`, `eclair.rs`,
   plateformes `friable.rs` et `mobile.rs` (allers-retours, ou aiguilles d'horloge qui
   tournent autour d'un pivot, le dessus toujours horizontal), `champignon.rs`, l'auvent qui relance
   en diagonale dans `auvent.rs`, le ventilateur qui souffle un courant vers le
@@ -287,9 +305,9 @@ Tests :
     ./docker-cargo.sh test -p core
     ./docker-cargo.sh test -p game --no-default-features
 
-Mesure à la dernière vérification de ce README (carte 6.2, les vies) :
-**365 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
-l'image `docs/police-test.png`) et **335 tests réussis** dans `game` (plus 19 tests
+Mesure à la dernière vérification de ce README (carte 6.3, les chats qui bondissent) :
+**374 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
+l'image `docs/police-test.png`) et **336 tests réussis** dans `game` (plus 20 tests
 ignorés : ils écrivent les scripts du robot de QA, la mesure de difficulté ou des
 diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de minutes :
 le robot de QA joue réellement les onze niveaux, et la courbe de difficulté est
@@ -510,6 +528,14 @@ amené quelques notions de plus :
   (chaque variante porte son compteur de pas) et une seule fonction pure,
   `phase_chat_suivante`, qui contient toutes les transitions. Des pas de 1/60 s
   entiers plutôt que des secondes en `f32` : la même partie se rejoue exactement.
+- **Trajectoire en fonction pure, `let ... else`** (carte 6.3) : le bond du chat
+  est une fonction du temps, `decalage_bond(k, longueur)` (un arc avec la gravité
+  de Pépin), et non une vitesse qu'on intègre : le chat revient EXACTEMENT à sa
+  place, et le bond entier se vérifie d'avance (`cible_du_bond`, qui le raccourcit
+  au bord du toit ou contre un mur). `bond_atteint` sort tôt avec
+  `let Some(longueur) = ... else { return false; };`. La grille est lue à travers
+  un objet-trait, `&dyn Grille` : le même code sert au vrai niveau et aux
+  mini-niveaux des tests.
 - **Fils d'exécution qui empruntent** : `game/src/difficulte.rs` mesure la difficulté
   avec `std::thread::scope` ; les fils empruntent des données locales (les itinéraires
   d'un niveau) sans `Arc`, car le compilateur sait qu'ils finissent avant la fin du
@@ -617,11 +643,11 @@ Mesure du dossier `dist/` produit par `./build.sh` (relevée sur les fichiers,
     fichier              octets     gzip
     index.html            14 693    5 617
     mq_js_bundle.js       36 148    9 839
-    game.wasm            494 519  198 624
+    game.wasm            497 647  200 154
 
-(mesure de la carte 6.2, les vies ; 491 619 octets à la carte 6.1, 491 395 à la
-carte 5.18 ; avec cinq niveaux, le wasm faisait 422 556 octets.) Le wasm pèse
-donc environ 0,49 Mo, soit 199 Ko transférés par
+(mesure de la carte 6.3, les chats qui bondissent ; 494 519 octets à la carte 6.2,
+491 619 à la carte 6.1, 491 395 à la carte 5.18 ; avec cinq niveaux, le wasm
+faisait 422 556 octets.) Le wasm pèse donc environ 0,50 Mo, soit 200 Ko transférés par
 un serveur qui compresse.
 Le budget de `build.sh` est : avertissement au-delà de 1,2 Mo, échec au-delà de
 2,5 Mo. Ces chiffres dépendent du code et de la version du compilateur ; ils

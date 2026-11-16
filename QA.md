@@ -737,7 +737,8 @@ l'autre. Niveau 2, colonne 66 (flaque de la colonne 70, toit des colonnes 62 à 
 lanterne. Aucune lanterne déplacée : la protection suffit (au plus une mort par passage de la flaque, comme
 n'importe où ailleurs sur le toit). (Carte 5.12 : le grand orage est devenu le niveau 4, la liste est
 désormais (2, 66), (2, 104), (4, 145) ; le marché couvert n'ajoute aucune lanterne sur le trajet d'un
-danger, chats compris.)
+danger, chats compris.) (Carte 6.3 : + (3, 50) et (3, 110), deux lanternes du marché couvert à portée
+du BOND d'un chat ; voir « Chats plus menaçants (carte 6.3) ».)
 
 Vérifié sur une extraction propre du commit 8d2a66a (`git archive`) :
 - `./docker-cargo.sh test --workspace --no-default-features` : 154 + 173 tests, tous verts ;
@@ -4408,3 +4409,189 @@ Commits : 3e21f3c (cœur), 39ccdbb (jeu : écran, HUD, aide, carte, fin), 2dd129
 - Défaut ANTÉRIEUR trouvé par le nouveau test des boutons tactiles, non corrigé (hors de cette carte) :
   sur un 667 x 375 à DPR 2 (jeu agrandi x4, presque tout l'écran), le bouton de pause recouvre le chrono
   en haut à droite. Les vies et les gouttes, elles, restent dégagées partout.
+
+## Chats plus menaçants : réveil plus rapide, bond sur Pépin (carte 6.3)
+
+Demande d'AGA : « Garde les chats mais rends les plus impactant, ils se réveillent plus vite et saute
+sur pépin ». Les règles (`core/src/entities/ennemi/chat.rs`, chaque durée et chaque portée est une
+constante nommée et commentée) :
+
+- cycle : il dort 100 pas (1,7 s, `DORT_PAS` ; 240 avant), s'annonce 48 pas (0,8 s, le « ! » doré qui
+  clignote de plus en plus vite, `REVEIL_PAS`, inchangé), reste éveillé 72 pas (1,2 s, `EVEILLE_PAS`,
+  inchangé) : 3,7 s au lieu de 6 ; les premiers sommeils des chats d'un niveau sont raccourcis de 0, 30,
+  60 ou 90 pas (0, 40, 80, 120 avant) ;
+- pendant l'annonce, s'il voit Pépin (`voit_pepin` : au plus 5 tuiles entre leurs centres en x,
+  `PORTEE_BOND_X` ; au plus 2 tuiles entre leurs pieds en hauteur, `PORTEE_BOND_Y` ; le segment entre
+  leurs centres ne traverse aucune tuile solide ni aucun solide d'entité) ET qu'un bond est possible, il
+  se ramasse : posture « prêt à bondir » (image `chat_pret`), tourné vers Pépin ;
+- au premier pas de l'éveil, même question avec la position de Pépin à ce moment : s'il le voit, il
+  bondit vers l'endroit où se tient Pépin (`cible_du_bond`, son centre sous celui de Pépin). Le bond est
+  un arc à la gravité de Pépin (`decalage_bond` : vitesse verticale `VITESSE_BOND_Y` = 225 px/s, 28 px de
+  haut, 30 pas pour l'aller, `BOND_PAS`), une pose de 12 pas au bout (`POSE_BOND_PAS`), puis le même arc
+  à l'envers : au dernier pas de l'éveil il est PILE à sa place, et il se rendort. Hors de portée (ou
+  sans bond possible), il se réveille sur place comme avant ;
+- le bond ne quitte jamais son toit : il est raccourci (au pixel) jusqu'à ce que toutes les colonnes
+  survolées aient un solide sous les pieds du chat (il s'arrête au bord du vide) ; puis, de 2 px en 2 px,
+  jusqu'à ce qu'aucun pas de l'arc ne touche une tuile solide ou un solide d'entité (il s'arrête contre un
+  mur, un plafond trop bas l'empêche de bondir) ; le retour repasse par les mêmes boîtes ;
+- éveillé (sur place, en l'air, posé au bout du bond, en revenant), le chat ne s'écrase pas : le toucher
+  tue, même par le dessus ; rendormi, il redevient écrasable (sommeil et annonce, comme avant) ;
+- la trajectoire est une fonction PURE du temps (`decalage_chat(phase, bond)`), comme la plongée du
+  pigeon : rien ne s'accumule, le chat revient exactement à sa place. Le chat retient la boîte de Pépin à
+  chaque pas (`Ennemi::guetter`, appelé par `resoudre_contacts` comme pour le pigeon) : le jeu, le robot
+  de QA et la mesure de difficulté ont tous le même chat, sans rien ajouter.
+
+### Pourquoi 1,7 s de sommeil et non 2 s
+
+La carte proposait `DORT_PAS` ≈ 120 (2 s). Avec 120, la mesure officielle (graine 20261113) donne pour
+l'Habitué 0,33 mort au marché couvert, sous les gouttières (0,50) : le juge de la courbe
+(`ecarts_de_la_courbe`, « la courbe ne redescend jamais avant le boss ») refuse. Avec 110 : 0,46, refusé
+aussi. Avec 100 : 0,54, vert. Consigne de la carte : ne pas toucher au juge ; le sommeil a donc été
+raccourci à 100 pas (dans le sens de la demande : « ils se réveillent plus vite »), pas allongé.
+
+À savoir : cet écart est du même ordre que le bruit de la mesure. Sur 6 graines (20261113 à 20261118, 48
+essais chacune, test `mesure_d_un_niveau` avec une variable `GRAINES` ajoutée dans une copie jetable,
+rien de commité), morts moyennes au marché couvert :
+
+| Sommeil (`DORT_PAS`)          | Débutant | Habitué | Expert | Game over Débutant (6 x 48) |
+| ----------------------------- | -------- | ------- | ------ | --------------------------- |
+| 240, sans bond (avant)        | 0,94     | 0,36    | 0,11   | 7                           |
+| 120                           | 0,89     | 0,32    | 0,10   | 4                           |
+| 110                           | 0,92     | 0,37    | 0,13   | 6                           |
+| 100 (retenu)                  | 0,99     | 0,37    | 0,06   | 8                           |
+| 90                            | 0,97     | 0,33    | 0,10   | 9                           |
+
+Gouttières (niveau 2), Habitué, mêmes graines : 0,53 en moyenne. Sur 6 graines, le marché couvert
+était donc DÉJÀ sous les gouttières pour l'Habitué avant cette carte ; le juge ne regarde que la graine
+officielle, où il passait de justesse (0,5 contre 0,5, arrondis au dixième). À signaler au coordinateur pour la carte 6.4a
+(plus d'ennemis aux niveaux 1 à 5), qui touchera aussi ces deux niveaux.
+
+Pourquoi le chat plus menaçant pèse si peu dans la mesure : le joueur simulé a une intention PARFAITE
+(il connaît le cycle du chat et l'attend hors de portée, comme le robot de QA) et ne rate que des gestes
+(élan, durée du saut, plané). Le bond punit surtout le joueur qui s'arrête près d'un chat sans regarder
+le « ! » : c'est exactement ce que la mesure ne simule pas. Les morts « ennemi » (flaques et chats) du
+marché couvert montent quand même pour le Débutant (64 sur les 6 graines avant, 85 avec 100 pas ; sur la
+graine officielle, colonnes 112 à 115, le chat du pied du bloc 116, en tête des morts « ennemi »).
+
+### Mesure de difficulté : avant / après
+
+Commande officielle (`mesure_de_difficulte`), graine 20261113, 48 essais. Avant : 88b2bce (version
+publiée) ; après : d65c9dc. Seul le marché couvert change ; les dix autres niveaux sont identiques ligne
+à ligne dans `docs/mesure-difficulte.txt` (morts, détail, lieux de mort, game over), sauf les lignes qui
+les additionnent (Total, partie enchaînée du Débutant).
+
+| 3. Le marché couvert   | Débutant           | Habitué            | Expert             |
+| ---------------------- | ------------------ | ------------------ | ------------------ |
+| Morts moyennes, avant  | 0,8                | 0,5                | 0,2                |
+| Morts moyennes, après  | 1,1                | 0,5 (0,54)         | 0,1                |
+| Game over, avant       | 0/48 (0 %)         | 0/48 (0 %)         | 0/48 (0 %)         |
+| Game over, après       | 3/48 (6 %)         | 0/48 (0 %)         | 0/48 (0 %)         |
+| Pire essai avant/après | 4 / 7 morts        | 4 / 3              | 2 / 2              |
+| Durée avant/après      | 33 s / 33 s        | 32 s / 30 s        | 28 s / 26 s        |
+
+Total des morts : Débutant 24,8 -> 25,1, Habitué 5,9 -> 5,9, Expert 1,8 -> 1,7. Partie enchaînée,
+Débutant : 47/48 parties avec au moins un game over (inchangé), 2,5 -> 2,6 en moyenne. Le marché couvert
+reste sous les 10 % de game over pour le Débutant (rien de nouveau à signaler). Le juge de la courbe
+(`courbe_de_difficulte_dans_les_bandes`) est vert : Habitué, marché couvert 0,54 dans sa bande (0,3 à
+1,2) et au-dessus des gouttières (0,50).
+
+### Robots
+
+- Robot de faisabilité (`core/src/faisabilite.rs`) : il garde le chat TOUJOURS endormi (un joueur patient
+  attend son sommeil), mais connaît maintenant le bond : il ne retient aucun état posé là où un chat
+  vivant bondirait sur lui (`chat_bondirait`, d'après `Ennemi::bond_atteint` : le chat le voit, un bond
+  est possible, et sa boîte touche celle de Pépin à un pas au moins de l'éveil). Il passe, ou il écrase le
+  chat, d'un seul plan. C'est prudent : un vrai joueur peut s'y poser un instant pendant le sommeil. Test
+  `le_robot_ne_s_arrete_pas_la_ou_le_chat_bondirait`. Le marché couvert et l'essai chat restent faisables
+  (robot précis et maladroit, depuis le départ et depuis chaque lanterne).
+- Robot de QA (`game/src/bot_qa/parcours.rs`) : vraie simulation, le bond y est donc joué tel quel (un plan
+  qui finit sous le chat est une mort, écartée). La case retient en plus si le chat proche est en plein bond
+  (`chats_de_la_case` : 32 x écrasés + 2 x tranche + bond ; proximité mesurée depuis sa PLACE) ; tranche du
+  cycle de 30 pas (8 tranches). Les deux parties (sans et avec bonus) finissent les onze niveaux sans
+  mourir (`le_robot_finit_tous_les_niveaux_sans_mourir`, `la_partie_complete_joue_le_bonus`). Essai chat
+  (F7) : fini sans mourir, 3 gouttes ; le robot arrive sur le bloc pendant le 2e sommeil et saute aussitôt
+  (il n'a plus à y attendre l'éveil) ; chat écrasé pendant son annonce (`Reveil(31)`), jamais de justesse.
+- Lanternes sur le trajet d'un danger (`zones::lanternes_sur_le_trajet_d_un_danger`) : le test calcule
+  aussi, lanterne par lanterne, si un chat bondirait sur Pépin réapparu immobile. Deux de plus au marché
+  couvert : colonne 50 (chat de la colonne 54) et colonne 110 (chat de la colonne 114). Pas un piège : la
+  protection de réapparition (1 s) couvre tout bond déjà parti, le bond suivant vient au plus tôt 3,7 s
+  plus tard, annoncé 0,8 s par le « ! » ; au plus une mort par réveil pour un joueur qui reste planté à la
+  lanterne. Aucune lanterne déplacée. Liste : (2, 66, flaque), (2, 104, flaque), (3, 50, bond de chat),
+  (3, 110, bond de chat), (4, 145, flaque).
+
+### Tests du cœur (mini-niveaux pas à pas, `ennemi/chat.rs`)
+
+- `le_cycle_dure_ce_qu_annoncent_les_constantes` (100 / 48 / 72 / 220) ;
+- `la_trajectoire_du_bond_est_un_arc_qui_revient_pile_a_sa_place` ;
+- `il_ne_voit_pepin_qu_a_portee_et_sans_mur_entre_eux` (5 tuiles, 2 tuiles, mur, solide d'entité) ;
+- `a_portee_il_se_prepare_puis_bondit_et_tue_pepin` (posture, cible au pixel, mort pendant l'aller) ;
+- `hors_de_portee_il_se_reveille_sur_place` (deux cycles, boîte immobile) ;
+- `le_bond_s_arrete_au_bord_du_toit` (33 px au lieu de 78 : bord du toit), `le_bond_ne_traverse_pas_un_mur`
+  (48 px contre une marche ; plafond trop bas : ni posture ni bond) ;
+- `aucun_bond_ne_traverse_un_solide_ni_ne_saute_dans_le_vide` (Pépin à chaque pixel de quatre mini-niveaux) ;
+- `en_plein_bond_il_tue_par_le_dessus_rendormi_il_s_ecrase`.
+- Côté jeu : `le_chat_a_une_image_par_phase` (posture et vol), `le_chat_a_sept_images_de_meme_taille_et_un_contour_sombre`,
+  `le_chat_eveille_a_les_yeux_ouverts`, `pret_a_bondir_et_en_plein_bond_se_reconnaissent`.
+
+### Lisibilité
+
+Deux images de plus (16 x 14, palette, contour sombre d'1 px, mêmes couleurs que le chat : orange, corail,
+blanc, or) : `chat_pret` (tête basse posée sur les pattes avant, yeux d'or grand ouverts, croupion levé et
+queue dressée, au lieu de l'annonce simple couchée, un œil ouvert) et `chat_bond` (corps allongé, pattes
+avant tendues vers l'avant, pattes arrière vers l'arrière). Posé au bout du bond : l'image éveillée
+(assis, hérissé). Le chat se tourne vers Pépin quand il est prêt, puis dans le sens du saut (aller,
+retour). Planche de sprites régénérée. Astuce de la carte du marché couvert : « Tombe sur un auvent : il te
+relance. Écrase le chat endormi : au « ! », il bondit. » (deux lignes, dans le cadre) ; intro de l'essai
+chat : « … réveillé, il bondit sur toi. »
+
+### Captures `docs/qa/63-*` (14 images)
+
+Build de QA d'une extraction propre de d65c9dc (`./build.sh --qa`), servi en local sur 127.0.0.1 (port
+libre, serveur arrêté à la fin), Chromium 1208 sans tête piloté par CDP, onglet au premier plan et canvas
+focalisé, 960 x 540 (x3), pilote `docs/capture-visibilite.mjs` avec `SCRIPT=target/qa/script-63.txt` et
+`TOUCHES=target/qa/touches-63.txt` (touche 3 à l'image 229 du pilote). Script écrit par le test ignoré
+`ecrire_script_chats` (numéros d'image de `trace-63.csv`) : le premier chat du marché couvert (colonne 12),
+Pépin d'abord au départ, à 11 tuiles :
+- `63-carte-marche` (400) : la carte du niveau 3, astuce sur deux lignes dans le cadre ;
+- `63-hors-portee-annonce` (571) : hors de portée, l'annonce simple (couché, un œil ouvert, « ! ») ;
+- `63-hors-portee-eveille` (641) : il se réveille SUR PLACE (assis, hérissé), Pépin toujours au départ ;
+- `63-approche-dort` (761) : rendormi (« z »), Pépin s'est approché à moins de 5 tuiles et s'arrête ;
+- `63-pret-a-bondir` (791) et `63-pret-a-bondir-fin` (816) : il se ramasse, tête basse, croupion et queue
+  levés, « ! » allumé, tourné vers Pépin ;
+- `63-bond-aller` (833) : en l'air, pattes tendues, vers l'endroit où se tenait Pépin, qui s'enfuit ;
+- `63-bond-pose` (859) : posé au bout du bond, assis, là où était Pépin (qui a fui à gauche) ;
+- `63-bond-retour` (879) : le bond de retour, tourné vers sa place ;
+- `63-rendormi` (901) : revenu à sa place, endormi ; 0 mort ;
+- `63-reste-sur-place-00` à `03` (série « attente » du pilote, lâché à l'image 822 : Pépin ne bouge plus,
+  une capture toutes les 8 images) : le chat bondit, lui retombe dessus ; dernière image : éclats, vies 5
+  -> 4, secousse de l'écran.
+Chaque capture regardée. `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur les 14.
+
+### Vérification sur une extraction propre de d65c9dc (dernier commit de code)
+
+`git archive`, nouveau dossier daté sous `$TMPDIR` :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : 374 (core, + 9) et 336 (game, + 1) tests,
+  tous verts (1 + 20 ignorés), dont `courbe_de_difficulte_dans_les_bandes`, les deux parties du robot et
+  l'essai chat ;
+- `./docker-cargo.sh lint` : `FMT-OK`, `LINT-OK` ;
+- `./build.sh` : `dist/` produit, wasm 497 647 octets (494 519 à la carte 6.2 : + 3 128), 0 occurrence des
+  noms interdits, seule URL `http://www.w3.org/2000/svg`, « Essai chat » absent de `dist/` ;
+  `./build.sh --qa` (build des captures) : `dist-qa/` produit.
+- Mesure de difficulté (`mesure_de_difficulte`, sur le dépôt au même contenu) : verte, fichier
+  `docs/mesure-difficulte.txt` commité avec d65c9dc.
+
+Commits : 6f79537 (cœur), 7b1bb25 (robots), 36e24ff (rendu, sprites, textes), 5eaf025 (script du
+navigateur), d65c9dc (sommeil 100 pas, mesure), a59ef9b (captures), cette section et le README.
+
+### Ce qui n'est PAS testé
+
+- Aucun humain n'a joué le nouveau chat : la portée (5 tuiles), la durée du sommeil (1,7 s) et la pose au
+  bout du bond (0,2 s) sont des choix ; la mesure, à intention parfaite, ne juge pas la surprise d'un
+  joueur qui ne regarde pas le « ! » (voir plus haut).
+- Le juge de la courbe passe sur la graine officielle seulement ; sur 6 graines, le marché couvert reste
+  sous les gouttières pour l'Habitué, avant comme après cette carte.
+- Pas de son propre au bond (aucun son ajouté) ; captures dans Chromium seulement, à 960 x 540 ; pas de
+  vrai téléphone, ni Safari, ni Firefox.
+- Le chat ne bondit que sur son toit (même rangée de sol) : un Pépin au-dessus d'un trou, ou sur un autre
+  toit, est vu mais pas atteint (voulu : il ne tombe jamais dans le vide).
