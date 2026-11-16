@@ -2,7 +2,7 @@
 //! chemin qui fait finir chaque niveau sans mourir.
 //!
 //! Principe : Dijkstra (sur la durée, avec `BinaryHeap` + `Reverse` : le tas de
-//! Rust sort le PLUS GRAND d'abord) entre des états « posés et immobiles » —
+//! Rust sort le PLUS GRAND d'abord) entre des états « posés et immobiles »,
 //! ou « lancés » (un auvent vient de relancer Pépin, il choisit de nouveau en
 //! l'air, voir `est_lance`). Chaque plan (courir, sauter, planer, attendre) est
 //! simulé sur une COPIE du monde (`Clone` d'une structure complète pour explorer
@@ -10,7 +10,7 @@
 //! est simplement écarté, donc le parcours trouvé est sûr par construction.
 //!
 //! Les états s'apparentent aux « cases » du niveau : deux états proches
-//! fusionnent en la même case (`CaseParcours`, via `cle`) — la mémoire de la
+//! fusionnent en la même case (`CaseParcours`, via `cle`), la mémoire de la
 //! recherche est une `HashMap` (`chercher`).
 //!
 //! ## Ce qui va où
@@ -23,7 +23,7 @@
 //! - Les cases : `CaseParcours`, `cle`, et les résumés par mécanique
 //!   (`nuage_de_la_case`, `aiguille_proche`, `aiguille_sous_pepin`,
 //!   `chats_de_la_case`, `escargot_proche`) : une mécanique qui a de l'état
-//!   (phase, temps) se résume en un ENTIER — 0 dans un niveau sans la
+//!   (phase, temps) se résume en un ENTIER, 0 dans un niveau sans la
 //!   mécanique, pour ne pas changer la case ailleurs.
 //! - La recherche : `Etape`, `depart_pose`, `chercher`, `trouver_parcours`.
 //!
@@ -523,7 +523,7 @@ fn horloge_du_nuage(m: &Monde) -> Option<(PhaseNuage, u16)> {
 /// et une mécanique nouvelle s'ajoute avec un nom et un commentaire, sans
 /// compter les éléments d'un 7-uple. `Copy` + `Eq` + `Hash` : une case sert de
 /// clé dans les `HashMap` / `HashSet` de la recherche (voir `chercher` et
-/// `difficulte`), et `Ord` (lexicographique, dans l'ordre des champs — comme
+/// `difficulte`), et `Ord` (lexicographique, dans l'ordre des champs, comme
 /// l'ancien 7-uple) : la mesure de difficulté trie ses cases dans un tas, et
 /// deux mesures comparables exigent le MÊME ordre.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -72,7 +72,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 };
 
 /// Réglage des deux aiguilles, dans l'ordre de lecture de la grille (de haut en
-/// bas) — les mêmes que le niveau d'essai « horloge » :
+/// bas), les mêmes que le niveau d'essai « horloge » :
 /// - 1re `h` (ligne 6, colonne 24) : la petite aiguille, 3 tuiles de rayon,
 ///   36 px/s (un tour en 8,4 s), partie de 9 h ;
 /// - 2e `h` (ligne 11, colonne 8) : la grande aiguille, 4 tuiles de rayon,

@@ -26,7 +26,7 @@ fn ascii_complet_present() {
 
 #[test]
 fn tous_les_caracteres_francais_sont_presents() {
-    let francais = "éèêëàâäçùûüôöîïÿœÉÈÊËÀÂÄÇÙÛÜÔÖÎÏŒ«»’…–—°€";
+    let francais = "éèêëàâäçùûüôöîïÿœÉÈÊËÀÂÄÇÙÛÜÔÖÎÏŒ«»’…–\u{2014}°€";
     for c in francais.chars() {
         assert!(glyphe(c).is_some(), "caractère français manquant : {c:?}");
     }

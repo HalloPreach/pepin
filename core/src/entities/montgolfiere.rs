@@ -8,7 +8,7 @@
 //! 1. `actualiser` : la nacelle monte (un passager à bord), reste en haut, ou
 //!    redescend (personne à bord) ;
 //! 2. `contacts::porter_par_plateformes` : Pépin posé dessus suit la nacelle,
-//!    comme sur une plateforme mobile — il est transporté sans glisser ;
+//!    comme sur une plateforme mobile, il est transporté sans glisser ;
 //! 3. `contacts::resoudre_contacts` appelle `embarquer` : « Pépin est-il posé
 //!    sur la nacelle à la fin de ce pas ? ». La réponse sert au pas SUIVANT.
 //!
@@ -346,7 +346,7 @@ mod tests {
     }
 
     /// Pépin posé sur la nacelle : elle monte à 0,8 px par pas, et Pépin est
-    /// TRANSPORTÉ sans glisser — à chaque pas il est au sol, ses pieds pile sur le
+    /// TRANSPORTÉ sans glisser, à chaque pas il est au sol, ses pieds pile sur le
     /// dessus de la nacelle, et il ne bouge pas d'un pixel en x.
     #[test]
     fn la_montee_porte_pepin_sans_glisser() {

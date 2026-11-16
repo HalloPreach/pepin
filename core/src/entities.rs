@@ -147,7 +147,7 @@ impl Entite {
     }
 
     /// Boîte SOLIDE de l'entité si elle en a une en ce moment (sinon `None`).
-    /// `Option<Aabb>` : « une boîte, ou rien » — pas de valeur magique.
+    /// `Option<Aabb>` : « une boîte, ou rien », pas de valeur magique.
     pub fn solide(&self) -> Option<Aabb> {
         match self {
             Entite::Friable(p) => p.solide(),

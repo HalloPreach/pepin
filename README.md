@@ -1,4 +1,4 @@
-# PÉPIN — un jeu de plateformes en Rust, pour apprendre Rust
+# PÉPIN : un jeu de plateformes en Rust, pour apprendre Rust
 
 PÉPIN (« pépin » : parapluie, en argot) est un petit jeu de plateformes en
 pixel art. Pépin est une créature ronde armée d'un grand parapluie corail. La

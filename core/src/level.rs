@@ -101,7 +101,7 @@ use crate::physics::{CourantAscendant, VentLateral};
 /// Réglage d'une aiguille d'horloge (pivot `h`). Le fichier de niveau en donne
 /// une petite table (`InfosNiveau::aiguilles`) : la 1re ligne règle le 1er `h`
 /// rencontré en lisant la grille (de haut en bas, puis de gauche à droite), la
-/// 2e le 2e, etc. — comme un chiffre désigne une plateforme mobile.
+/// 2e le 2e, etc., comme un chiffre désigne une plateforme mobile.
 ///
 /// ```text
 /// const AIGUILLES: &[ReglageAiguille] = &[

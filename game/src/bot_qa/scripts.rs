@@ -4,7 +4,7 @@
 //! dans `../target/qa/` :
 //!
 //! - `script-*.txt` : un chiffre hexadécimal par image (le code `Trame::code`
-//!   de la touche à appuyer — `0` quand la touche est lâchée) ;
+//!   de la touche à appuyer, `0` quand la touche est lâchée) ;
 //! - `touches-*.txt` : l'image du PILOTE où appuyer sur la touche raccourci
 //!   du niveau (0, F1, F2, … : le navigateur a un pas de retard sur la
 //!   numérotation du pilote, une touche d'UNE image doit tomber une image

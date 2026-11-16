@@ -279,7 +279,7 @@ Limites : mesure à 60 images par seconde (pas testé à 144 Hz) ; la flèche de
 (15x9 px à l'écran, comme demandé) ; le robot ne tombe jamais, la chute est obtenue en lui faisant
 courir tout droit dans le trou de la colonne 30.
 
-## Corrections des niveaux et textes (audit) — carte 4/4
+## Corrections des niveaux et textes (audit), carte 4/4
 
 Points I-07, I-08, I-12 (texte), I-13, I-14, I-24, I-25 et la partie « niveau » de I-01. Aucune
 physique ni mécanique touchée.
@@ -1418,7 +1418,7 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  > lointaine, toutes moindres que les tuiles), facteurs nommés `VERT_*`. Niveau d'un écran :
  même fond qu'avant, secousse comprise (test) ; contraste couches/ciel vérifié jusqu'à
  64 rangées.
- - Cœur (`core/src`) : éclair d'une grille haute — la colonne part du premier solide au-dessus
+ - Cœur (`core/src`) : éclair d'une grille haute, la colonne part du premier solide au-dessus
  du « e » (ou du haut de la carte s'il n'y en a pas), niveaux d'un écran inchangés (« e » sur
  la rangée du haut), test sur une grille de 30 rangées ; durée d'un plan selon la hauteur du
  niveau (`faisabilite::pas_max_plan` : plané sur toute la hauteur + 2 s, jamais moins des
@@ -1429,7 +1429,7 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  (robot précis et maladroit, 3 gouttes, 3 lanternes, reprise depuis chaque lanterne),
  lanternes posées, aucune poche close ; un niveau du jeu peut avoir plus de 11 rangées.
  - Jeu (`game/src`) : le niveau d'essai n'est chargé que dans le build de QA
- (`debug_niveaux`) — touche 0 (`entrees::RaccourciNiveau::Essai`), indice juste après la
+ (`debug_niveaux`), touche 0 (`entrees::RaccourciNiveau::Essai`), indice juste après la
  table (`monde::INDICE_ESSAI`, `monde::infos_niveau`), carte « NIVEAU D'ESSAI » et son intro
  (`contenu::INTRO_ESSAI`, « L'altitude et le puits vous attendent »). En PRODUCTION l'indice
  reste hors table et le niveau n'est référencé nulle part (test). Tests : raccourci, cible,
@@ -1449,7 +1449,7 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  - Robot de QA, partie complète à travers l'`Application`, AVANT (extraction propre de
  abd1483, parent de la carte) et APRÈS (extraction propre de 36a3e5f) : `target/qa/script.txt`
  et `trace.csv` IDENTIQUES À L'OKTET (12 131 images, 0 mort, 5 gouttes, score 800, chrono
- 10 727 pas — les 5 niveaux d'un écran n'ayant ni caméra ni durée de plan modifiées).
+ 10 727 pas, les 5 niveaux d'un écran n'ayant ni caméra ni durée de plan modifiées).
  - Mesure de difficulté et planche de sprites : aucune entrée ne change (ni niveau, ni ennemi,
  ni mécanique, ni sprite) ; régénérés sur l'extraction propre, IDENTIQUES À L'OKTET.
  - Rejeu du robot, AVANT (build de QA de l'extraction abd1483) et APRÈS : les 11 captures des
@@ -1481,7 +1481,7 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  raccourci de la carte 5.1).
  - Dans le navigateur, le jeu a un PAS de retard sur la numérotation du pilote (déjà noté à la
  carte 3.1b) : sans effet sur des touches tenues plusieurs images, mais une touche d'UNE
- image doit tomber une image plus tard que dans la trace — d'où `touches-52.txt` = 229
+ image doit tomber une image plus tard que dans la trace, d'où `touches-52.txt` = 229
  (pilote) et non 228 (trace) ; à l'image 228 la touche arrive sur la dernière image de la
  carte du niveau 1 et le jeu l'ignore.
  - Captures du niveau d'essai : les frames en MOUVEMENT (montée, haut, chute, fin de chute,
@@ -1517,7 +1517,7 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  chute avec le parapluie fermé, annulation de deux vents opposés, résistance au vent de
  face au sol).
  - Analyse des ASCII (`core/src/level/ascii.rs`) : les cases `<` (sens -1) et `>` (sens
- +1) forment des rectangles de même sens — les tuiles voisines de même sens sont fusionnées
+ +1) forment des rectangles de même sens, les tuiles voisines de même sens sont fusionnées
  en un seul AABB (`fusionner_zones`, le même algorithme que les courants ascendants `v`),
  les zones de sens opposés restent distinctes. `Niveau.vents` (`core/src/level.rs`) et
  légende de la doc.
@@ -1537,25 +1537,25 @@ Vérification sur une extraction propre de 024c06d (`git archive`, nouveau dossi
  reprise depuis chaque lanterne, lanternes posées, aucune poche close (suite de tests de
  `core/src/zones.rs` sur `niveaux_et_essai`, comme l'essai vertical).
  - Jeu (`game/src`) : la touche F1 charge le niveau (build de QA seulement :
- `entrees::RaccourciNiveau::Essai2`, et en build de production le raccourci est inactif —
+ `entrees::RaccourciNiveau::Essai2`, et en build de production le raccourci est inactif,
  `niveau_demande` reçoit `actif = false` et renvoie toujours `None`, comme les touches de
- la carte 5.1 — et l'indice est hors table : `INDICE_ESSAI_VENT` n'est compilé que dans
+ la carte 5.1, et l'indice est hors table : `INDICE_ESSAI_VENT` n'est compilé que dans
  les tests et le build de QA). L'indice est juste après les essais
  (`monde::INDICE_ESSAI_VENT = NB_NIVEAUX + 1`), carte « NIVEAU D'ESSAI » et son intro
  (INTRO_ESSAI_VENT : le vent porte, planer le double). Effet visuel : les zones de vent
  soufflent des traits horizontaux (`game/src/particules.rs::souffle_lateral`, largeur 3,
  hauteur 1) qui traversent la zone dans le sens du vent (bornés au rectangle de la zone,
  ils s'éteignent à l'arête opposée) et `game/src/effets.rs` les dépose d'après
- `monde.niveau.vents` — en production il n'y a aucune zone de vent, donc aucun trait.
+ `monde.niveau.vents`, en production il n'y a aucune zone de vent, donc aucun trait.
  - Bot de QA (`game/src/bot_qa.rs`) : `jouer_essai` généralisé (les deux essais se jouent
  au même endroit, avec leur parcours et leur raccourci) ; `le_robot_finit_le_niveau_d_essai_vent`
- : le robot finit le niveau d'essai « vent » SANS mourir à travers l'`Application` —
+ : le robot finit le niveau d'essai « vent » SANS mourir à travers l'`Application`,
  l'écran de fin est atteint, 3 gouttes ramassées, F1 appuyée une seule fois, la caméra
  reste au sol (niveau d'un écran, y toujours -4), Pépin traverse le vide et arrive à
  x = 533 (le drapeau est à droite de la zone de vent, 343 images de jeu) ;
  `ecrire_script_essai_vent` (test ignoré, comme les autres scripts) écrit
  `target/qa/script-53.txt` (824 images), `target/qa/touches-53.txt` (`229:F1`, image du
- PILOTE — la touche du navigateur tombe une image plus tard que dans la trace, déjà noté
+ PILOTE, la touche du navigateur tombe une image plus tard que dans la trace, déjà noté
  à la carte 3.1b) et `target/qa/trace-53.csv` (position de Pépin et caméra rendue, image
  par image).
 
@@ -1662,7 +1662,7 @@ Ce qui a été fait :
  protection se voit. Lisibilité sur tous les ciels : sur chaque bande de ciel de chaque
  thème, la glace ou le contour contraste d'au moins 4,5:1 (test
  `la_grele_se_detache_de_tous_les_ciels`). Planche de sprites régénérée.
-- Robot de QA (`game/src/bot_qa.rs`) : `le_robot_finit_le_niveau_d_essai_grele` — à travers
+- Robot de QA (`game/src/bot_qa.rs`) : `le_robot_finit_le_niveau_d_essai_grele`, à travers
  l'`Application`, fin atteinte, 0 mort, 3 gouttes (dont celle sous la corniche), F2 une
  seule fois, caméra au sol, 430 images de jeu dont 50 à planer DANS la grêle, arrivée à
  x = 516,6. Rien de spécial à lui apprendre : la vraie simulation tue les plans qui
@@ -1713,7 +1713,7 @@ Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors p
 
 Vérification sur une extraction propre de bc25be3 (`git archive`, nouveau dossier daté) :
 `./docker-cargo.sh test --workspace --no-default-features` : 214 + 237 tests, tous verts
-(9 ignorés : écritures de fichiers — scripts du robot, mesure, police — et diagnostics de la
+(9 ignorés : écritures de fichiers, scripts du robot, mesure, police, et diagnostics de la
 mesure) ; `./docker-cargo.sh lint` : `LINT-OK` ; `./build.sh` :
 `dist/` produit, 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg` ;
 `./build.sh --qa` : `dist-qa/` produit.
@@ -2666,7 +2666,7 @@ nuage), une lanterne au départ. Hors de la table `NIVEAUX`, il n'existe que dan
 le build de QA : touche **F10** (`F9` reste au plantage volontaire), carte et intro à part.
 
 Le robot de faisabilité (`core/src/zones.rs`) : `niveau_d_essai_nuage_faisable` et
-`niveau_d_essai_nuage_chaque_courant_mene_a_la_tete` — le nuage est jugé essoufflé, ses deux
+`niveau_d_essai_nuage_chaque_courant_mene_a_la_tete`, le nuage est jugé essoufflé, ses deux
 courants actifs, la tête compte comme l'arrivée ; chacun des deux courants mène à la tête,
 aucun sans courant. Le robot de QA (`game/src/bot_qa.rs`) a appris à le battre :
 `le_robot_bat_le_grand_nuage` (éclairement du combat : fin atteinte, 0 mort, 3 gouttes,
@@ -2684,7 +2684,7 @@ annonce, même frappe) ; il gronde au prélude (tremblement), le ciel se déchir
 (fente d'or pâle qui s'ouvre jusqu'à remplir l'écran, bande au milieu) ; ses points de vie
 dans le HUD (trois petits nuages, en haut au milieu : éteints un à un au fil des coups).
 
-Mesure de difficulté : inchangée — aucun niveau du jeu, aucun ennemi, aucune mécanique de
+Mesure de difficulté : inchangée, aucun niveau du jeu, aucun ennemi, aucune mécanique de
 niveau n'a été modifié (l'arène du nuage n'est pas un niveau du jeu, elle n'est compilée que
 dans le build de QA) ; `docs/mesure-difficulte.txt` régénéré sur l'extraction propre est
 identique à l'octet à la version sous dépôt (même tableau que la carte 5.10 : toits 0,4 /
@@ -2745,7 +2745,7 @@ Limites (non testé ou à relativiser) :
 ## Refactor du robot de QA (carte 5.11b)
 
 Refactorisation PURE de `game/src/bot_qa.rs` (2 748 lignes) : aucun niveau,
-aucun ennemi, aucune mécanique modifiés — seuls des fichiers de code ont bougé.
+aucun ennemi, aucune mécanique modifiés, seuls des fichiers de code ont bougé.
 Le module est découpé en `game/src/bot_qa/` (cinq fichiers, aucun ne dépasse
 ~800 lignes, chacun avec une documentation de module en français : rôle, ce qui
 va où, comment ajouter une nouvelle mécanique ou un niveau d'essai). La carte
@@ -2756,7 +2756,7 @@ rester dans `essais.rs` sous la limite de ~800 lignes, d'où `essais_tests.rs`.
   `Partie`, `jouer_tout`, `tous_les_parcours`, `empreinte` FNV-1a), le test
   « le robot finit tous les niveaux sans mourir » et le test ignore
   `ecrire_script_navigateur` (script de tous les niveaux, `script.txt`/`trace.csv`).
-- `parcours.rs` (798) : le « cerveau » du robot — plans et simulation sur copie
+- `parcours.rs` (798) : le « cerveau » du robot, plans et simulation sur copie
   du monde (`Plan`, `plans`, `simuler`), les cases du niveau et la recherche
   (`cle`, `chercher`, Dijkstra), la tenue au décalage (`tient_au_decalage`).
   **`CaseParcours` est maintenant un `struct` à champs nommés et commentés**
@@ -2766,7 +2766,7 @@ rester dans `essais.rs` sous la limite de ~800 lignes, d'où `essais_tests.rs`.
   ordre changé fausserait les comparaisons). `game/src/difficulte.rs` est
   adapté (quatre lignes) sans changer de comportement ; `MARGE_CHAT_PAS` passe
   `pub(crate)` (les tests y vont par `bot_qa::parcours`).
-- `essais.rs` (625) : les parties des niveaux d'essai — la fonction GÉNÉRIQUE
+- `essais.rs` (625) : les parties des niveaux d'essai, la fonction GÉNÉRIQUE
   `jouer_essai(indice, raccourci, parcours)` est paramétrée par le niveau et sa
   touche raccourci ; les dix `jouer_essai_*` sont chacun une ligne (doc
   comprise), `ImageEssai`/`PartieEssai` et les parcours de référence
@@ -2776,7 +2776,7 @@ rester dans `essais.rs` sous la limite de ~800 lignes, d'où `essais_tests.rs`.
 - `scripts.rs` (517) : les onze tests ignore `ecrire_script_essai_*` qui
   écrivent `target/qa/*` (script, touches, trace) pour le rejeu navigateur.
 
-Preuves (sur l'extraction propre du commit final — `git archive`, nouveau
+Preuves (sur l'extraction propre du commit final, `git archive`, nouveau
 dossier daté) :
 - `./docker-cargo.sh test --workspace --no-default-features` : 326 (core) +
   282 (game) tests, tous verts, MEME nombre de tests qu'avant (1 + 16 ignorés :
@@ -2792,10 +2792,10 @@ dossier daté) :
   12 131 images, 0 mort, 5 gouttes). Deux autres fichiers de `target/qa/`
   (`script-31.txt`, `trace-57-rapide.csv`) viennent de cartes antérieures, ne
   sont plus régénérés par un test courant (fichiers de travail de cartes
-  antérieures) et ne sont donc pas dans une extraction propre — sans
+  antérieures) et ne sont donc pas dans une extraction propre, sans
   importance : aucun code de production n'a changé.
 - Wasm de production : IDENTIQUE à l'octet (473 390 octets, SHA-256
-  `505b3a4c89e0c…`, delta 0 %, bien dans ±1 %) — le robot et `difficulte.rs`
+  `505b3a4c89e0c…`, delta 0 %, bien dans ±1 %), le robot et `difficulte.rs`
   sont compilés seulement sous `#[cfg(test)]`, ils n'entrent pas dans le
   binaire de production ; `dist/` : 0 occurrence des noms interdits, seule URL
   `http://www.w3.org/2000/svg`.
@@ -2871,10 +2871,10 @@ Robots :
 Aucune mécanique ne s'est mal comportée : rien n'a été corrigé dans l'auvent, le chat ni la flaque.
 
 Renumérotation (le niveau inséré décale les suivants) : tests qui nommaient un niveau par sa
-place — lanterne de l'orage sur la patrouille d'une flaque désormais (4, 145), pigeons rangés par
+place, lanterne de l'orage sur la patrouille d'une flaque désormais (4, 145), pigeons rangés par
 NOM de niveau (Vents d'altitude, Au-dessus des nuages), `niveau_5_exige_les_courants_ascendants`,
 étiquette « NIVEAU 2/6 », coupures de la carte de l'orage et du conseil final, juge de la courbe
-de difficulté (constantes `SOMMET`, `APRES_SOMMET`, `FINAL` — l'orage, les vents, les nuages —
+de difficulté (constantes `SOMMET`, `APRES_SOMMET`, `FINAL`, l'orage, les vents, les nuages,
 vérifiées par leur nom) ; README : six niveaux.
 
 Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais) :
@@ -2883,7 +2883,7 @@ Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais)
 | --------------------------- | ---------------------- | ---------------------- |
 | 1. Les toits                | 0,4 / 0,1 / 0,0        | 0,4 / 0,1 / 0,0        |
 | 2. Gouttières et cheminées  | 1,5 / 0,5 / 0,2        | 1,5 / 0,5 / 0,2        |
-| 3. Le marché couvert        | —                      | 0,8 / 0,5 / 0,2        |
+| 3. Le marché couvert        |,                      | 0,8 / 0,5 / 0,2        |
 | 4. Le grand orage (ex-3)    | 3,0 / 0,6 / 0,4        | 3,0 / 0,6 / 0,4        |
 | 5. Vents d'altitude (ex-4)  | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
 | 6. Au-dessus des nuages     | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
@@ -2895,7 +2895,7 @@ admise [0,3 ; 1,2[), l'orage reste le sommet. Ses lieux de mort : les chutes du 
 identiques LIGNE À LIGNE à la mesure d'avant (renumérotés ; seule la ligne Total change).
 Deux retouches pour y arriver :
 - première version (auvents espacés de 4, 4, 5, 3 et 4 tuiles comme l'essai, vide sous toutes les
-  paires) : Habitué 1,0, au-dessus de l'orage (0,7) — chutes au 5 et au 3 du moment fort et sous
+  paires) : Habitué 1,0, au-dessus de l'orage (0,7), chutes au 5 et au 3 du moment fort et sous
   les paires d'auvents. D'où la chaîne régulière (tout de 4) et la rue sous les paires ;
 - la graine d'un essai dépendait de la PLACE du niveau dans la table : insérer le marché changeait
   les tirages (donc les chiffres, au bruit près) des trois niveaux suivants sans qu'aucun ne change
@@ -3031,7 +3031,7 @@ Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais)
 | 2. Gouttières et cheminées  | 1,5 / 0,5 / 0,2        | 1,5 / 0,5 / 0,2        |
 | 3. Le marché couvert        | 0,8 / 0,5 / 0,2        | 0,8 / 0,5 / 0,2        |
 | 4. Le grand orage           | 3,0 / 0,6 / 0,4        | 3,0 / 0,6 / 0,4        |
-| 5. Le clocher               | —                      | 0,6 / 0,3 / 0,0        |
+| 5. Le clocher               |,                      | 0,6 / 0,3 / 0,0        |
 | 6. Vents d'altitude (ex-5)  | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
 | 7. Au-dessus des nuages     | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
 | Total                       | 7,6 / 2,3 / 0,9        | 8,2 / 2,6 / 0,9        |
@@ -3132,7 +3132,7 @@ Ce qui change (dessin seulement : aucune physique, aucune carte ASCII, aucun auv
   de la case et dressait encore le faîte 4 px au-dessus des toits ; corrigé par 9f938ca ;
 - la distinction auvent / manche à air de la carte 5.12 ne bouge pas (toile, mât et manche inchangés).
 
-Tests : `la_facade_n_a_pas_de_dessus_ou_se_poser` (nouveau) — l'arête d'un dessus de tuile (rangées 1
+Tests : `la_facade_n_a_pas_de_dessus_ou_se_poser` (nouveau), l'arête d'un dessus de tuile (rangées 1
 et 2 de `toit_haut` et `brique_haut`) n'a que des tons de 3 à 7, et la façade n'en a aucun (seulement
 `0 1 2 A`) ; sa rangée supérieure se réduit aux 2 px sombres du faîte contre le mât ; le haut de chaque
 colonne monte vers le mât sans redescendre, sans marche, sans palier de plus de 2 px (Pépin en fait
@@ -3253,7 +3253,7 @@ les sept autres niveaux sont identiques ligne à ligne, et la mesure du commit 6
 est identique À L'OCTET à celle d'avant la carte) : les cases de reprise après une mort sont ajoutées à
 l'exploration (sans arête : mourir n'est pas un chemin conseillé) ; les tranches de temps voisines
 comptent parmi les cases voisines ; un candidat n'est gardé que si la suite des conseils, huit plans plus
-loin, ne fait pas mourir (`chaine_sure`) — le joueur VOIT les colonnes annoncées ; détour plus long
+loin, ne fait pas mourir (`chaine_sure`), le joueur VOIT les colonnes annoncées ; détour plus long
 (`LIMITE_RECHERCHE_NUAGE`) ; et le secours ne reste plus sous une colonne qui va frapper
 (`secours_sous_les_eclairs`). Le joueur sans erreur bat le nuage sans mourir (22 s).
 
@@ -3266,7 +3266,7 @@ Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais)
 | 3. Le marché couvert        | 0,8 / 0,5 / 0,2        | 0,8 / 0,5 / 0,2        |
 | 4. Le grand orage           | 3,0 / 0,6 / 0,4        | 3,0 / 0,6 / 0,4        |
 | 5. Le clocher               | 0,6 / 0,3 / 0,0        | 0,6 / 0,3 / 0,0        |
-| 6. L'œil du cyclone         | —                      | 2,9 / 0,6 / 0,3        |
+| 6. L'œil du cyclone         |,                      | 2,9 / 0,6 / 0,3        |
 | 7. Vents d'altitude (ex-6)  | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
 | 8. Au-dessus des nuages     | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
 | Total                       | 8,2 / 2,6 / 0,9        | 11,1 / 3,2 / 1,2       |
@@ -3429,7 +3429,7 @@ Mesure de difficulté (`docs/mesure-difficulte.txt`, graine 20261113, 48 essais)
 | 5. Le clocher                  | 0,6 / 0,3 / 0,0        | 0,6 / 0,3 / 0,0        |
 | 6. L'œil du cyclone            | 2,9 / 0,6 / 0,3        | 2,9 / 0,6 / 0,3        |
 | 7. Vents d'altitude            | 1,3 / 0,4 / 0,1        | 1,3 / 0,4 / 0,1        |
-| 8. La mer de nuages            | —                      | 1,3 / 0,3 / 0,1        |
+| 8. La mer de nuages            |,                      | 1,3 / 0,3 / 0,1        |
 | 9. Au-dessus des nuages (ex-8) | 0,5 / 0,1 / 0,0        | 0,5 / 0,1 / 0,0        |
 | Total                          | 11,1 / 3,2 / 1,2       | 12,4 / 3,5 / 1,3       |
 
@@ -3581,7 +3581,7 @@ enchaînement n'ont pas bougé ; le bonus est sauté). Partie complète (`ecrire
 21 540 pas, empreinte ec81270b03b82c66 ; le bonus y dure 3 006 images (50,1 s, détours pour les
 gouttes compris).
 
-Mesure de difficulté (même commande, graine 20261113, 48 essais) — morts moyennes, avant (2fb73cd,
+Mesure de difficulté (même commande, graine 20261113, 48 essais), morts moyennes, avant (2fb73cd,
 carte 5.15) et après (d77cba3) :
 
 | Niveau                      | Débutant avant | Débutant après | Habitué avant | Habitué après | Expert avant | Expert après |
@@ -3595,7 +3595,7 @@ carte 5.15) et après (d77cba3) :
 | 7. Vents d'altitude         | 1,3            | 1,3            | 0,4           | 0,4           | 0,1          | 0,1          |
 | 8. La mer de nuages         | 1,3            | 1,3            | 0,3           | 0,3           | 0,1          | 0,1          |
 | 9. Au-dessus des nuages     | 0,5            | 0,5            | 0,1           | 0,1           | 0,0          | 0,0          |
-| 10. L'arc-en-ciel (bonus)   | —              | 8,8            | —             | 1,2           | —            | 0,3          |
+| 10. L'arc-en-ciel (bonus)   |,              | 8,8            |,             | 1,2           |,            | 0,3          |
 | Total                       | 12,4           | 21,2           | 3,5           | 4,7           | 1,3          | 1,6          |
 
 Détail du bonus : Débutant 39/48 essais finis (6 minutes au plus par essai), 215 s en moyenne, pire
@@ -3764,7 +3764,7 @@ Les DEUX chemins vers l'épilogue :
   partie complète : 25 511 images (425,2 s), 33 gouttes, score 4200, empreinte 2475461594d0de53.
 - Navigateur : les deux scripts rejoués dans le build de QA (captures plus bas).
 
-Mesure de difficulté (même commande, graine 20261113, 48 essais) — morts moyennes, avant (d286fee,
+Mesure de difficulté (même commande, graine 20261113, 48 essais), morts moyennes, avant (d286fee,
 carte 5.16) et après (133612b) :
 
 | Niveau                      | Débutant avant | Débutant après | Habitué avant | Habitué après | Expert avant | Expert après |
@@ -3779,7 +3779,7 @@ carte 5.16) et après (133612b) :
 | 8. La mer de nuages         | 1,3            | 1,3            | 0,3           | 0,3           | 0,1          | 0,1          |
 | 9. Au-dessus des nuages     | 0,5            | 0,5            | 0,1           | 0,1           | 0,0          | 0,0          |
 | 10. L'arc-en-ciel (bonus)   | 8,8            | 8,8            | 1,2           | 1,2           | 0,3          | 0,3          |
-| 11. La descente (épilogue)  | —              | 0,0            | —             | 0,0           | —            | 0,0          |
+| 11. La descente (épilogue)  |,              | 0,0            |,             | 0,0           |,            | 0,0          |
 | Total                       | 21,2           | 21,2           | 4,7           | 4,7           | 1,6          | 1,6          |
 
 Détail de l'épilogue : une seule mort en 144 essais (un Débutant, dans la grêle de la colonne 3 :
@@ -5919,8 +5919,8 @@ Demande d'AGA : « Des secrets. Sorties cachées, salles derrière un mur, racco
 | Gouttières et cheminées | salle derrière la façade gauche du grand immeuble (on y saute depuis le champignon) | celle au-dessus de l'immeuble |
 | Le marché couvert | salle dans le premier bloc de boutique (marcher droit dedans) | celle du rebond du 1er auvent |
 | Le grand orage | RACCOURCI : tunnel au pied du bloc de l'ascenseur (on évite la montée) | celle des nuages friables, au milieu du tunnel |
-| Le clocher | SORTIE CACHÉE : salle dans le mur gauche, 2e corniche du zigzag, drapeau secret (on évite la cage de l'horloge) | — |
-| La mer de nuages | RACCOURCI : tunnel au pied de la tour de nuages (on évite la montgolfière et le haut du plané) | — |
+| Le clocher | SORTIE CACHÉE : salle dans le mur gauche, 2e corniche du zigzag, drapeau secret (on évite la cage de l'horloge) |, |
+| La mer de nuages | RACCOURCI : tunnel au pied de la tour de nuages (on évite la montgolfière et le haut du plané) |, |
 
 Quatre salles (toits, gouttières, marché, clocher), deux raccourcis (orage, mer), une sortie
 cachée (clocher), une goutte déplacée sur quatre niveaux. Le chemin normal ne change pas : aucun

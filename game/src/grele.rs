@@ -46,7 +46,7 @@ pub enum Morceau {
 
 /// Où est le parapluie ouvert de Pépin : la boîte de son sprite de plané
 /// (20 x 20, toile en haut), à partir du coin haut-gauche de la boîte de Pépin
-/// (10 x 14) — même calcul que `scene::dessiner_pepin`.
+/// (10 x 14), même calcul que `scene::dessiner_pepin`.
 pub fn parapluie(x: f32, y: f32) -> Aabb {
     Aabb::new(x - 5.0, y - 6.0, 20.0, 20.0)
 }

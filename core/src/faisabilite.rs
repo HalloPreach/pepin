@@ -567,7 +567,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                     }
                     // Debout sur une nacelle de montgolfière au repos ? On attend la
                     // montée : posé sur la nacelle en haut, au même x, avec le temps
-                    // de la montée comme coût — si la boîte de Pépin monte sans rien
+                    // de la montée comme coût, si la boîte de Pépin monte sans rien
                     // toucher (une corniche au-dessus de lui arrêterait la vraie
                     // nacelle plus bas : le robot n'en tient pas compte, prudent).
                     for &(nx, bas, haut, w) in &montees {
@@ -943,7 +943,7 @@ mod tests {
     }
 
     /// Le même principe, mais vent de face (`<`) au-dessus du vide : la planée est
-    /// poussée vers l'arrière et le saut est freiné — la traversée devient
+    /// poussée vers l'arrière et le saut est freiné, la traversée devient
     /// impossible, alors que le vide SANS vent est franchissable (témoin).
     #[test]
     fn le_vent_de_face_bloque_la_traversee_du_vide() {
@@ -966,7 +966,7 @@ mod tests {
     }
 
     /// Bande de vent de face au niveau du sol : le robot la résiste (course à
-    /// 36 px/s nets) et arrive quand même — mais le vent ralentit la traversée.
+    /// 36 px/s nets) et arrive quand même, mais le vent ralentit la traversée.
     #[test]
     fn le_robot_resiste_au_vent_de_face_au_sol() {
         let n = niveau_vent(0, -1, true);
@@ -1033,7 +1033,7 @@ mod tests {
     /// Un rideau de grêle du ciel jusqu'au toit : impossible à franchir parapluie
     /// fermé (ni à pied, ni d'un saut : la colonne est plus haute que le saut), alors
     /// que le même toit sans grêle se traverse à pied (témoin). En planant dessous,
-    /// le robot passe — même le robot maladroit.
+    /// le robot passe, même le robot maladroit.
     #[test]
     fn la_grele_se_traverse_en_planant_dessous() {
         let temoin = niveau_grele(false, false, 0);

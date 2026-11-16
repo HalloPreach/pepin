@@ -191,7 +191,7 @@ fn le_robot_enchaine_les_six_auvents_de_l_essai() {
 
 /// Le robot finit le niveau d'essai « ventilateur » (carte 5.6) sans mourir, à
 /// travers l'`Application` (touche F4 du build de QA) : trois gouttes, et il
-/// monte réellement au balcon du drapeau — le seul chemin passe par le souffle
+/// monte réellement au balcon du drapeau, le seul chemin passe par le souffle
 /// du ventilateur, car le balcon est trop haut pour un saut direct.
 #[test]
 fn le_robot_finit_le_niveau_d_essai_ventilateur() {
@@ -276,8 +276,8 @@ fn le_robot_finit_le_niveau_d_essai_montgolfiere() {
 }
 
 /// Le parcours « jusqu'en haut » (celui des captures) : chaque montgolfière monte
-/// JUSQU'EN HAUT puis s'arrête — la première de 8 tuiles (nacelle de y = 256 à
-/// y = 128), la seconde sous le nuage (de y = 144 à y = 64) —, Pépin y est
+/// JUSQU'EN HAUT puis s'arrête, la première de 8 tuiles (nacelle de y = 256 à
+/// y = 128), la seconde sous le nuage (de y = 144 à y = 64), Pépin y est
 /// toujours posé pendant la montée, et la première, quittée, redescend vers son
 /// quai pendant que Pépin monte dans la seconde. Trois gouttes, aucune mort.
 #[test]

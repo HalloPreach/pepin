@@ -1494,7 +1494,7 @@ mod tests {
     }
 
     /// Le clocher (45 rangées, quatre écrans) : au sommet, la ville s'est nettement
-    /// enfoncée — la couche proche de plus de 100 px, la lointaine de plus de 50 —
+    /// enfoncée (la couche proche de plus de 100 px, la lointaine de plus de 50)
     /// donc bien plus de ciel à l'écran : on sent la hauteur (note du coordinateur).
     /// Les autres thèmes gardent la parallaxe verticale de la carte 5.2 (`vertige`
     /// à 1) : leur rendu ne change pas.

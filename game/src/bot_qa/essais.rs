@@ -11,7 +11,7 @@
 //!
 //! ## Ce qui va où
 //!
-//! - `jouer_essai` : la fonction GÉNÉRIQUE — le niveau (`indice`) et sa
+//! - `jouer_essai` : la fonction GÉNÉRIQUE, le niveau (`indice`) et sa
 //!   touche raccourci sont des PARAMÈTRES ; les dix niveaux d'essai
 //!   s'écrivent donc en une ligne chacun (`jouer_essai_*`, à ne pas
 //!   multiplier en copies : un jour un niveau de plus, une ligne de plus).
@@ -279,12 +279,12 @@ fn jouer_essai(
     }
 }
 
-/// Joue le niveau d'essai vertical (touche 0 du build de QA) — voir `jouer_essai`.
+/// Joue le niveau d'essai vertical (touche 0 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_vertical(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI, RaccourciNiveau::Essai, parcours)
 }
 
-/// Joue le niveau d'essai « vent » (touche F1 du build de QA) — voir `jouer_essai`.
+/// Joue le niveau d'essai « vent » (touche F1 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_vent(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_VENT, RaccourciNiveau::Essai2, parcours)
 }
@@ -306,17 +306,17 @@ pub fn parcours_essai_vent() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai vent")
 }
 
-/// Joue le niveau d'essai « grêle » (touche F2 du build de QA) — voir `jouer_essai`.
+/// Joue le niveau d'essai « grêle » (touche F2 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_grele(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_GRELE, RaccourciNiveau::Essai3, parcours)
 }
 
-/// Joue le niveau d'essai « auvent » (touche F3 du build de QA) — voir `jouer_essai`.
+/// Joue le niveau d'essai « auvent » (touche F3 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_auvent(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_AUVENT, RaccourciNiveau::Essai4, parcours)
 }
 
-/// Joue le niveau d'essai « ventilateur » (touche F4 du build de QA) — voir
+/// Joue le niveau d'essai « ventilateur » (touche F4 du build de QA), voir
 /// `jouer_essai`.
 pub fn jouer_essai_ventilateur(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_VENTILATEUR, RaccourciNiveau::Essai5, parcours)
@@ -489,7 +489,7 @@ pub fn parcours_essai_ventilateur() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai ventilateur")
 }
 
-/// Joue le niveau d'essai « montgolfière » (touche F5 du build de QA) — voir
+/// Joue le niveau d'essai « montgolfière » (touche F5 du build de QA), voir
 /// `jouer_essai`.
 pub fn jouer_essai_montgolfiere(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_MONTGOLFIERE, RaccourciNiveau::Essai6, parcours)
@@ -554,7 +554,7 @@ pub fn parcours_essai_montgolfiere_jusqu_en_haut() -> Vec<Entrees> {
     entrees
 }
 
-/// Joue le niveau d'essai « escargot » (touche F6 du build de QA) — voir
+/// Joue le niveau d'essai « escargot » (touche F6 du build de QA), voir
 /// `jouer_essai`.
 pub fn jouer_essai_escargot(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_ESCARGOT, RaccourciNiveau::Essai7, parcours)
@@ -573,7 +573,7 @@ pub fn parcours_essai_escargot() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai escargot")
 }
 
-/// Joue le niveau d'essai « chat » (touche F7 du build de QA) — voir `jouer_essai`.
+/// Joue le niveau d'essai « chat » (touche F7 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_chat(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_CHAT, RaccourciNiveau::Essai8, parcours)
 }
@@ -590,7 +590,7 @@ pub fn parcours_essai_chat() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai chat")
 }
 
-/// Joue l'arène du Grand Nuage (touche F10 du build de QA) — voir `jouer_essai`.
+/// Joue l'arène du Grand Nuage (touche F10 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_nuage(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_NUAGE, RaccourciNiveau::Essai10, parcours)
 }
@@ -608,7 +608,7 @@ pub fn parcours_essai_nuage() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours dans l'arène du Grand Nuage")
 }
 
-/// Joue le niveau d'essai « horloge » (touche F8 du build de QA) — voir `jouer_essai`.
+/// Joue le niveau d'essai « horloge » (touche F8 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_horloge(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_HORLOGE, RaccourciNiveau::Essai9, parcours)
 }

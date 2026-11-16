@@ -9,10 +9,10 @@
 //!
 //! ## Ce qui va où
 //!
-//! - `parcours.rs` : le « cerveau » du robot — plans, simulation, cases
+//! - `parcours.rs` : le « cerveau » du robot, plans, simulation, cases
 //!   (`CaseParcours`) et recherche de plus court chemin (`chercher`).
 //! - `essais.rs` : les parties des NIVEAUX D'ESSAI (`jouer_essai`, générique :
-//!   le niveau et sa touche raccourci — une par niveau — sont des PARAMÈTRES)
+//!   le niveau et sa touche raccourci (une par niveau) sont des PARAMÈTRES)
 //!   et leurs parcours de référence (`parcours_essai_*`).
 //! - `essais_tests.rs` : les tests des niveaux d'essai (le robot finit sans
 //!   mourir ; les parcours à horloge tiennent à une image près).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build.sh — construit dist/ : le jeu PÉPIN prêt à être servi par n'importe quel
+# build.sh : construit dist/ : le jeu PÉPIN prêt à être servi par n'importe quel
 # serveur de fichiers statiques (index.html + game.wasm + mq_js_bundle.js).
 #
 # Usage :   ./build.sh

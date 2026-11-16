@@ -3,7 +3,7 @@
 //! Étapes : 1) découper les lignes et vérifier le rectangle ; 2) lire chaque
 //! caractère (tuile, entité, repère, décor) ; 3) assembler les éléments qui dépendent
 //! de la grille complète (éclairs, grêle, courants, plateformes mobiles, appui du décor) ;
-//! 4) valider (un départ, une arrivée — ou un Grand Nuage —, trois gouttes) ;
+//! 4) valider (un départ, une arrivée (ou un Grand Nuage), trois gouttes) ;
 //! 5) poser les aiguilles d'horloge, dont le cercle se vérifie sur le niveau assemblé.
 
 use std::collections::BTreeMap;
