@@ -10,8 +10,8 @@
 //! de `entrees.rs` couvrent QWERTY et AZERTY (sur AZERTY, M est à la position du
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
-//! (changer de niveau) et F9 (plantage volontaire) : uniquement dans le build de mise
-//! au point (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
+//! (changer de niveau), F9 (plantage volontaire) et F11 (musique suivante) : uniquement
+//! dans le build de mise au point (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
 mod app;
 mod audio;
@@ -31,6 +31,7 @@ mod grele;
 mod hud;
 mod menu;
 mod monde;
+mod musiques;
 mod navigation;
 mod orientation;
 mod particules;
@@ -125,6 +126,10 @@ async fn main() {
         audio.regler(app.son, app.boucles_sonores());
         if bascule_son {
             audio.jouer(Effet::Menu);
+        }
+        // Build de QA seulement (F11) : musique suivante du catalogue, pour l'écouter.
+        if musiques::musique_suivante_qa() {
+            audio.choisir_musique(audio.musique_active().suivante());
         }
         let entrees = commandes.vers_entrees();
 

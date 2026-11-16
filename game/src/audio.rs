@@ -21,10 +21,11 @@ use macroquad::audio::{
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::Entite;
 use pepin_core::player::Evenements;
-use pepin_core::sons::{echantillons, musique, pluie, vers_wav, Effet};
+use pepin_core::sons::{echantillons, pluie, vers_wav, Effet};
 use pepin_core::LARGEUR_LOGIQUE;
 
 use crate::monde::Monde;
+use crate::musiques::Musique;
 
 /// Volume de la boucle musicale et de la pluie douce (discrets).
 const VOLUME_MUSIQUE: f32 = 0.30;
@@ -131,7 +132,11 @@ impl EtatSon {
 /// Tous les sons chargés, prêts à jouer.
 pub struct Audio {
     effets: HashMap<Effet, Sound>,
-    musique: Sound,
+    /// Une boucle par musique du catalogue (`musiques.rs`).
+    musiques: HashMap<Musique, Sound>,
+    /// La musique jouée (défaut : Orage). Simple paramètre : le choix du joueur
+    /// et sa sauvegarde seront branchés par la boutique.
+    musique_active: Musique,
     pluie: Sound,
     etat: EtatSon,
     detecteur: Detecteur,
@@ -144,9 +149,14 @@ impl Audio {
         for e in Effet::TOUS {
             effets.insert(e, charger_son(&echantillons(e)).await);
         }
+        let mut musiques = HashMap::new();
+        for m in Musique::TOUTES {
+            musiques.insert(m, charger_son(&m.echantillons()).await);
+        }
         Self {
             effets,
-            musique: charger_son(&musique()).await,
+            musiques,
+            musique_active: Musique::Orage,
             pluie: charger_son(&pluie()).await,
             etat: EtatSon::default(),
             detecteur: Detecteur::default(),
@@ -158,29 +168,35 @@ impl Audio {
         self.etat.actif
     }
 
+    /// La musique choisie.
+    pub fn musique_active(&self) -> Musique {
+        self.musique_active
+    }
+
+    /// Change de musique. Si les boucles tournent, l'ancienne s'arrête et la
+    /// nouvelle part de son début ; sinon elle attendra le prochain démarrage.
+    pub fn choisir_musique(&mut self, m: Musique) {
+        if m == self.musique_active {
+            return;
+        }
+        if self.etat.boucles {
+            stop_sound(&self.musiques[&self.musique_active]);
+            jouer_boucle(&self.musiques[&m], VOLUME_MUSIQUE);
+        }
+        self.musique_active = m;
+    }
+
     /// Active ou coupe le son, et dit si la musique et la pluie doivent tourner
     /// (`boucles` : faux pendant la pause). Appelé à chaque image ; n'agit que sur
     /// un changement. Une boucle arrêtée puis relancée repart de son début.
     pub fn regler(&mut self, actif: bool, boucles: bool) {
         let c = self.etat.regler(actif, boucles);
         if c.demarrer_boucles {
-            play_sound(
-                &self.musique,
-                PlaySoundParams {
-                    looped: true,
-                    volume: VOLUME_MUSIQUE,
-                },
-            );
-            play_sound(
-                &self.pluie,
-                PlaySoundParams {
-                    looped: true,
-                    volume: VOLUME_PLUIE,
-                },
-            );
+            jouer_boucle(&self.musiques[&self.musique_active], VOLUME_MUSIQUE);
+            jouer_boucle(&self.pluie, VOLUME_PLUIE);
         }
         if c.arreter_boucles {
-            stop_sound(&self.musique);
+            stop_sound(&self.musiques[&self.musique_active]);
             stop_sound(&self.pluie);
         }
         if c.arreter_effets {
@@ -211,6 +227,17 @@ impl Audio {
             self.jouer(e);
         }
     }
+}
+
+/// Lance un son en boucle.
+fn jouer_boucle(son: &Sound, volume: f32) {
+    play_sound(
+        son,
+        PlaySoundParams {
+            looped: true,
+            volume,
+        },
+    );
 }
 
 /// Encode en WAV puis confie à macroquad. Les échantillons sont fabriqués par
