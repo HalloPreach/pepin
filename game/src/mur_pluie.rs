@@ -1,23 +1,30 @@
-//! Dessin du MUR DE PLUIE du niveau de poursuite et du soleil qui perce à
-//! l'arrivée (carte 8.2). Les règles du mur sont dans `pepin_core::poursuite` ;
+//! Dessin du FRONT D'ORAGE du niveau « Le retour du Grand Nuage » et du soleil qui
+//! perce à l'arrivée (cartes 8.2 et 8.2b). Le Grand Nuage, vaincu au niveau 6, s'est
+//! enfui : il remonte de la mer de nuages et poursuit Pépin. Les règles du front (le
+//! « mur de pluie » : vitesse, contact qui tue) sont dans `pepin_core::poursuite` ;
 //! ici, rien que du dessin, en pixels entiers de la palette :
-//! - le rideau : un bloc d'ardoise très sombre, du bord gauche de l'écran au front,
-//!   avec un bord déchiqueté qui bouge, des traînées de pluie qui tombent dedans,
-//!   une frange de gouttes cyan devant lui et, de temps en temps, un éclair ;
+//! - le front : un nuage d'orage sombre (ardoise de nuit, liseré violet d'orage : les
+//!   couleurs du thème Cyclone et du ventre du boss), du bord gauche de l'écran au
+//!   front, au bord en volutes qui roulent ; la pluie et les éclairs tombent DEDANS,
+//!   jamais devant (le ciel d'altitude reste clair devant Pépin) ;
+//! - le visage du Grand Nuage (le sprite du boss, en colère) collé au bord qui
+//!   avance ; essoufflé quand le soleil perce et qu'il recule ;
 //! - le soleil : une fois percé (`MurDePluie::vaincu`), un disque d'or grandit en
-//!   haut à droite de l'écran et ses rayons s'allongent ; la pluie du thème
-//!   s'arrête (`scene::dessiner`).
+//!   haut à droite de l'écran et ses rayons s'allongent.
 //!
 //! Notions Rust illustrées ici : `let … else` pour sortir tôt quand le niveau n'a
-//! pas de mur, tableaux constants de motifs, arithmétique entière (`rem_euclid`)
+//! pas de front, tableaux constants de motifs, arithmétique entière (`rem_euclid`)
 //! pour animer sans flottants.
 
 use macroquad::prelude::draw_rectangle;
+use pepin_core::entities::nuage::PhaseNuage;
 use pepin_core::palette::*;
 use pepin_core::HAUTEUR_LOGIQUE;
 
 use crate::monde::Monde;
 use crate::rendu::couleur_mq;
+use crate::scene::image_nuage;
+use crate::sprites::Banque;
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     if w > 0 && h > 0 {
@@ -25,28 +32,39 @@ fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     }
 }
 
-/// Hauteur (px) d'une bande du bord déchiqueté.
-const BANDE: i32 = 4;
+/// Hauteur (px) d'une bande du bord en volutes.
+const BANDE: i32 = 2;
+/// Hauteur (px) d'une volute du bord du nuage (une bosse arrondie).
+const VOLUTE: i32 = 24;
+/// Épaisseur (px) du liseré violet du bord.
+const LISERE: i32 = 3;
 /// Centre du soleil qui perce, à l'écran (px logiques).
 const SOLEIL_X: i32 = 252;
 const SOLEIL_Y: i32 = 44;
-/// Retrait (px) du bord de chaque bande, selon son rang : le bord dentelé.
-const DENTS: [i32; 6] = [0, 3, 1, 5, 2, 4];
-/// Un éclair dans le rideau tous les `CYCLE_ECLAIR` pas, visible `DUREE_ECLAIR` pas.
+/// Un éclair dans le nuage tous les `CYCLE_ECLAIR` pas, visible `DUREE_ECLAIR` pas.
 const CYCLE_ECLAIR: u32 = 96;
 const DUREE_ECLAIR: u32 = 6;
 /// L'éclair part sous le HUD (le compteur de gouttes, en haut à gauche).
 const HAUT_ECLAIR: i32 = 16;
 /// Zigzag de l'éclair : décalage x à chaque segment de 12 px.
 const ZIGZAG: [i32; 9] = [0, -4, 2, -6, -1, -7, -3, -9, -5];
+/// Visage du Grand Nuage (sprite du boss, 48 x 32) : haut à l'écran, au-dessus de la
+/// ligne de course de Pépin, et son balancement vertical (un pixel tous les 10 pas).
+const VISAGE_Y: i32 = 46;
+const VISAGE_L: i32 = 48;
+const BALANCEMENT: [i32; 4] = [0, 1, 2, 1];
 
-/// Retrait du bord du rideau pour la bande `k` au pas `pas` (le bord ondule).
-fn retrait_bord(k: i32, pas: u32) -> i32 {
-    DENTS[(k + (pas / 4) as i32).rem_euclid(DENTS.len() as i32) as usize]
+/// Retrait (px) du bord du nuage à la hauteur `y` de l'écran au pas `pas` : des
+/// volutes arrondies (une parabole par volute, 0 au milieu, 6 aux creux) qui roulent
+/// vers le bas.
+fn retrait_bord(y: i32, pas: u32) -> i32 {
+    let d = (y + (pas / 3) as i32).rem_euclid(VOLUTE) - VOLUTE / 2;
+    d * d / VOLUTE
 }
 
-/// Dessine le rideau de pluie (devant le niveau). `cx` : caméra entière.
-pub fn dessiner_mur(monde: &Monde, cx: i32) {
+/// Dessine le front d'orage et le visage du Grand Nuage (devant le niveau).
+/// `cx` : caméra entière.
+pub fn dessiner_mur(monde: &Monde, banque: &Banque, cx: i32) {
     let Some(mur) = &monde.mur else {
         return;
     };
@@ -56,17 +74,20 @@ pub fn dessiner_mur(monde: &Monde, cx: i32) {
     }
     let h = HAUTEUR_LOGIQUE as i32;
     let pas = monde.pas;
-    // 1. Le corps du rideau, bande par bande, bord dentelé et liseré.
+    // 1. Le corps du nuage, bande par bande : liseré violet d'orage au bord en
+    //    volutes, ardoise de nuit dedans, et un cœur plus sombre qui roule à
+    //    contretemps.
     for k in 0..(h + BANDE - 1) / BANDE {
         let y = k * BANDE;
-        let bord = front - retrait_bord(k, pas);
-        rect(0, y, bord, BANDE, ARDOISE_OMBRE);
-        rect(bord - 2, y, 2, BANDE, ARDOISE_NUIT);
+        let bord = front - retrait_bord(y, pas);
+        rect(0, y, bord, BANDE, VIOLET_ORAGE);
+        rect(0, y, bord - LISERE, BANDE, ARDOISE_NUIT);
+        let coeur = front - 26 - retrait_bord(y + VOLUTE / 2, pas + 36);
+        rect(0, y, coeur, BANDE, ARDOISE_OMBRE);
     }
-    // 2. Pluie battante dans le rideau : une colonne tous les 4 px, quatre traînées
-    //    de 6 px par colonne (un quart d'écran entre elles), trois vitesses et deux
-    //    tons, pour qu'on lise « de la pluie » et pas un simple mur noir.
-    let mut x = front - 7;
+    // 2. La pluie DANS le nuage : une colonne tous les 4 px, derrière le liseré,
+    //    quatre traînées de 6 px par colonne, trois vitesses et deux tons.
+    let mut x = front - 10;
     let mut i = 0;
     while x > -4 {
         let vitesse = 4 + (i % 3) as u32;
@@ -82,15 +103,10 @@ pub fn dessiner_mur(monde: &Monde, cx: i32) {
         x -= 4;
         i += 1;
     }
-    // 3. La frange : des gouttes cyan projetées devant le front.
-    for j in 0..14 {
-        let y = ((j * 29) as u32 + pas * 4) % h as u32;
-        let dx = 1 + (j * 5 + (pas / 3) as i32) % 7;
-        rect(front + dx, y as i32, 1, 2, PLUIE);
-    }
-    // 4. L'éclair : un zigzag blanc dans le rideau, quelques pas tous les 1,6 s.
+    // 3. L'éclair : un zigzag blanc dans le nuage, quelques pas tous les 1,6 s
+    //    (derrière le visage).
     if pas % CYCLE_ECLAIR < DUREE_ECLAIR && front > 24 {
-        let x0 = front - 18;
+        let x0 = front - 14;
         for (s, d) in ZIGZAG.iter().enumerate() {
             let y = HAUT_ECLAIR + s as i32 * 12;
             let suivant = ZIGZAG.get(s + 1).copied().unwrap_or(*d);
@@ -100,10 +116,22 @@ pub fn dessiner_mur(monde: &Monde, cx: i32) {
             rect(x0 + d - 1, y + 3, 1, 4, OR_PALE);
         }
     }
+    // 4. Le visage du Grand Nuage, collé au bord qui avance (jamais devant : le
+    //    sprite finit au front, là où le nuage tue). En colère tant qu'il poursuit
+    //    Pépin, essoufflé quand le soleil perce et qu'il recule.
+    let phase = if mur.vaincu() {
+        PhaseNuage::Essouffle
+    } else {
+        PhaseNuage::Colere
+    };
+    if let Some(nom) = image_nuage(phase, 0, pas) {
+        let y = VISAGE_Y + BALANCEMENT[(pas / 10) as usize % BALANCEMENT.len()];
+        banque.dessiner(nom, (front - VISAGE_L) as f32, y as f32, false);
+    }
 }
 
-/// Le soleil qui perce au-dessus de l'arrivée, une fois le mur arrêté : le disque
-/// grandit pendant `pas_soleil` pas, puis ses rayons pointillés s'allongent.
+/// Le soleil qui perce au-dessus de l'arrivée, une fois le Grand Nuage arrêté : le
+/// disque grandit pendant `pas_soleil` pas, puis ses rayons pointillés s'allongent.
 /// Derrière le niveau (juste après le ciel).
 pub fn dessiner_soleil(monde: &Monde) {
     let Some(mur) = &monde.mur else {

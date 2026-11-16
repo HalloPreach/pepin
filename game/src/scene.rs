@@ -1059,10 +1059,11 @@ pub fn dessiner(
     dessiner_entites(monde, banque, alpha, cx, cy);
     dessiner_pepin(monde, banque, skin, alpha, cx, cy);
     particules.dessiner(cx, cy);
-    // Niveau de poursuite (carte 8.2) : le rideau devant tout ; la pluie s'arrête
-    // quand le soleil perce.
-    mur_pluie::dessiner_mur(monde, cx);
-    if !monde.mur.is_some_and(|m| m.vaincu()) {
+    // Niveau de poursuite (cartes 8.2 et 8.2b) : le front d'orage du Grand Nuage
+    // devant tout. Il pleut DANS le nuage seulement : pas de pluie du thème devant
+    // Pépin, le ciel d'altitude reste clair.
+    mur_pluie::dessiner_mur(monde, banque, cx);
+    if monde.mur.is_none() {
         decor::dessiner_avant(monde.infos.theme, monde.pas);
     }
     dessiner_repere_pepin(monde, alpha, cx, cy);
