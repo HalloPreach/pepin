@@ -191,6 +191,15 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                     }
                 };
                 poser(nom);
+                // L'indice de brique d'une zone cachée (carte 8.5) dépasse sur la case libre.
+                if nom == "brique_decalee" && !revele {
+                    let (saillie, dx) = if tuile_vue(monde, tx - 1, ty) == Tuile::Vide {
+                        ("brique_saillie_g", -taille)
+                    } else {
+                        ("brique_saillie_d", taille)
+                    };
+                    banque.dessiner_tuile(monde.infos.theme, saillie, x + dx as f32, y);
+                }
                 // Bande d'ombre du rebord, par-dessus le haut de la brique.
                 if ombre_sous_toit(t, tuile_vue(monde, tx, ty - 1)) {
                     poser("ombre_toit");
