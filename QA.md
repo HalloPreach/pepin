@@ -5838,3 +5838,58 @@ rechargement, tout est gardé. 0 erreur de console. `docs/mesure-capture.py` : 0
 - `./build.sh` : `dist/` produit, 0 `/home`, seule URL `http://www.w3.org/2000/svg` ; `./build.sh --qa` + `node docs/capture-boutique.mjs` (Chromium 1208 sans tête, CDP), 0 erreur de console.
 - Captures `docs/qa/75b-titre.png` (goutte + 30) et `docs/qa/75b-boutique.png` (GRATUIT x2, goutte + 60) : regardées, `mesure-capture.py` 0 pixel hors palette, 0 flou.
 - Pas testé : vrai téléphone ; personne n'a regardé à la main hors captures.
+
+## Une petite histoire en trois images (carte 8.4)
+
+- Trois images fixes dessinées en code (`game/src/ecrans/histoire.rs`, 320x180, palette du jeu, décor
+  des thèmes, tuiles et sprites existants), deux lignes de texte et « APPUIE POUR CONTINUER » dans un
+  bandeau en bas, numéro « 1/3 » en haut à droite. Textes dans `contenu::RECIT`.
+  1. Avant le niveau 1 : les toits sous l'averse, maisons aux fenêtres éteintes, Pépin sur une cheminée
+     qui regarde en haut (il cligne des yeux) ; « La pluie ne s'arrête plus : le soleil dort. / Pépin
+     prend son parapluie et monte le réveiller. »
+  2. Après le Grand Nuage (avant « Le ciel se déchire ») : la trouée d'or du cyclone, un rai de lumière,
+     le Grand Nuage essoufflé qui s'éloigne, une goutte d'or qui descend vers Pépin ; « Le cyclone s'est
+     tu. Plus haut, une lueur d'or. / Les gouttes d'or sont des éclats de soleil ! »
+  3. Avant la descente (l'épilogue, donc après le sommet et après le bonus s'il est joué) : le soleil
+     ouvre un œil au-dessus de la mer de nuages, des gouttes d'or remontent vers lui, Pépin parapluie
+     fermé ; « Le soleil ouvre un œil. / Il est temps de redescendre lui montrer la ville. »
+- Placement : règle pure `histoire::chapitre_avant(table, indice)` (1er niveau ; niveau qui suit le
+  thème `Cyclone` ; niveau `Epilogue`) : le futur niveau de poursuite de la carte 8.2, inséré au
+  sommet, passera de lui-même avant l'image 3.
+- Montrées une fois par partie lancée par JOUER (ni REJOUER, ni « recommencer », ni « plus de vies », ni
+  les raccourcis de niveau du build de QA). L'image ignore les appuis 0,5 s (un saut tenu ne la passe
+  pas sans la voir), puis Entrée / Espace / Échap / toucher la passe ; ensuite la carte du niveau. Aucun
+  effet sur le score, les gouttes, les vies ni le chrono.
+- Titre : nouvelle ligne HISTOIRE (entre BOUTIQUE et COMMENT JOUER) qui montre les trois images à la
+  suite puis revient au titre, curseur sur HISTOIRE ; Échap y revient tout de suite.
+- Robots de QA (`bot_qa`, `jusqu_a` des tests) : ils appuient sur Entrée dès qu'une image l'accepte
+  (`Application::histoire_en_attente`), comme un joueur.
+
+### Preuves
+
+- Tests ciblés : `ecrans::histoire` (5 : bandeau qui tient, ordre, bons niveaux dans la vraie table,
+  règle sur de fausses tables, délai) et `app` (4 : JOUER -> image 1 -> carte du niveau 1, focus perdu
+  sans pause ; une partie entière montre les 3 images une fois chacune, bonus joué ou non, « recommencer »
+  ne les remontre pas ; REJOUER et raccourcis sans histoire ; ligne HISTOIRE du titre + Échap).
+- Extraction propre `git archive` de la branche (commit 57d8ada) : `test -p core` 374 ok ;
+  `test -p game --no-default-features` 349 ok (26 ignorés, dont la partie complète du robot qui passe
+  les images) ; `lint` : LINT-OK ; `./build.sh` : game.wasm 522 965 octets (gzip 210 691), aucun `/home`,
+  seule URL `http://www.w3.org/2000/svg`.
+- main a avancé pendant la carte (7.3, 8.5, 7.8/7.8b) : `git merge-tree` signale 2 fichiers en conflit,
+  `game/src/app.rs` (champs et tests ajoutés des deux côtés, `choix_pour` sans `son_disponible`) et
+  `game/src/ecrans/mod.rs` (disposition du titre). Résolution essayée hors dépôt (arbre fusionné +
+  conflits résolus) : avec l'icône du son de 7.8b le titre n'a plus que 4 lignes (JOUER, BOUTIQUE,
+  HISTOIRE, COMMENT JOUER) : on GARDE alors le titre de main (sol 148, titre 14, sous-titre 56) et le
+  menu de y = 66, pas 20 ; les changements de `titre.rs` de cette branche ne servent plus. Sur cet arbre :
+  `test -p game` 350 ok, `test -p core` 375 ok, `lint` LINT-OK, `./build.sh` game.wasm 559 337 octets
+  (main seul : 555 926, soit + 3 411), build de QA + captures : 0 erreur de console.
+- Captures `docs/qa/84-*.png` (Chromium 1208 sans tête, CDP, `node docs/capture-histoire.mjs PORT
+  DOSSIER` sur le build de QA) : `84-1-depart`, `84-1-puis-carte-niveau1`, `84-titre-ligne-histoire`,
+  `84-2-lueur`, `84-2-lueur-plus-tard` (le nuage s'en va), `84-3-soleil`, `84-echap-titre` ; regardées,
+  `mesure-capture.py` : 0 pixel hors palette, 0 flou ; un appui juste après l'ouverture de l'image 1 est
+  bien ignoré.
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone (toucher pour passer l'image) ; personne n'a regardé à la main hors captures ; la
+  lisibilité des textes à la taille 640x360.
