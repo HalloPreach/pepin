@@ -507,15 +507,24 @@ Outil ajouté par la carte 3.1 (`game/src/difficulte.rs`, compilé pour les test
 « combien de fois meurt-on dans chaque niveau ? » par un chiffre reproductible, à comparer avant/après
 chaque carte qui touche un niveau, un ennemi ou une mécanique.
 
+**Facultative depuis la carte 6.5** (décision d'AGA du 2026-11-16) : AGA juge lui-même la difficulté en
+jouant. Les cartes ne relancent plus la mesure, ne régénèrent plus `docs/mesure-difficulte.txt` (il garde
+la mesure de la carte 6.4b) et ne sont plus bloquées par le juge de la courbe, qui est désormais un test
+ignoré. L'outil reste entier, à lancer À LA MAIN quand AGA le demande (commandes ci-dessous ; durées
+mesurées dans « Mesure de difficulté facultative (carte 6.5) », en fin de fichier). Restent obligatoires
+pour toute carte : faisabilité, lint de grille, robot de QA qui finit les onze niveaux sans mourir (lancés
+avec tous les tests).
+
 ### Commande
 
     ./docker-cargo.sh test -p game --no-default-features mesure_de_difficulte -- --ignored --nocapture
 
 Elle affiche les tableaux et réécrit `docs/mesure-difficulte.txt` (fichier versionné : `git diff` montre
-l'effet d'une carte). Durée : 30 à 90 s sur la machine de développement (un fil d'exécution par niveau
-puis par niveau et profil ; la durée dépend de la charge). Le test échoue si un profil finit moins de la
-moitié de ses essais sur un niveau, si l'ordre Débutant > Habitué > Expert n'est plus respecté sur le
-total, ou si la forme de la courbe sort de ses bandes (voir ci-dessous).
+l'effet d'une carte). Durée : 30 à 90 s sur la machine de développement à la carte 3.1 (un fil d'exécution
+par niveau puis par niveau et profil ; la durée dépend de la charge) ; à la carte 6.5, la même mesure
+(par le juge de la courbe) a pris 536 s, machine chargée (charge moyenne de 7 à 19). Le test échoue si un
+profil finit moins de la moitié de ses essais sur un niveau, si l'ordre Débutant > Habitué > Expert n'est
+plus respecté sur le total, ou si la forme de la courbe sort de ses bandes (voir ci-dessous).
 
 Depuis la carte 3.3, le fichier a une 3e partie, « Lieux de mort » : pour chaque niveau et chaque profil,
 les endroits où l'on meurt (colonne de tuile du centre de Pépin, cause : chute, ennemi, pointes, éclair),
@@ -528,15 +537,20 @@ au moins une fois, le niveau commencé avec 5 vies ; une estimation sur une part
 niveaux normaux où le Débutant dépasse 10 % de game over, SIGNALÉS (voir « Système de vies (carte 6.2) »).
 
 Deux autres tests :
-- `courbe_de_difficulte_dans_les_bandes` (lancé avec tous les tests, quelques minutes) : non-régression de
-  la forme de la courbe sur la mesure officielle (`ecarts_de_la_courbe`, `game/src/difficulte.rs`). Depuis la
-  carte 5.18 (courbe finale sur onze niveaux) : Débutant et Habitué, le boss (6) est le plus meurtrier de
-  tous sauf le bonus, la mer (8) l'est plus que les vents (7), et les vents plus que le final (9) ;
-  Habitué, la courbe ne redescend jamais avant le boss (niveaux 1 à 6), chaque niveau est dans sa bande
-  (`BANDES_HABITUE`) et les vents au moins 0,15 sous le boss ; Expert, le bonus dure de 45 à 75 s ;
+- `courbe_de_difficulte_dans_les_bandes` (IGNORÉ depuis la carte 6.5 ; avant, il était lancé avec tous
+  les tests) : le juge de la forme de la courbe sur la mesure officielle (`ecarts_de_la_courbe`,
+  `game/src/difficulte.rs`), sans réécrire aucun fichier. À la main :
+
+      ./docker-cargo.sh test -p game --no-default-features courbe_de_difficulte_dans_les_bandes -- --ignored
+
+  Depuis la carte 5.18 (courbe finale sur onze niveaux) : Débutant et Habitué, le boss (6) est le plus
+  meurtrier de tous sauf le bonus, la mer (8) l'est plus que les vents (7), et les vents plus que le
+  final (9) ; Habitué, la courbe ne redescend jamais avant le boss (niveaux 1 à 6), chaque niveau est dans
+  sa bande (`BANDES_HABITUE`) et les vents au moins 0,15 sous le boss ; Expert, le bonus dure de 45 à 75 s ;
   Débutant et Habitué, l'épilogue n'est jamais plus meurtrier qu'un autre niveau. En cas d'échec, le
   message liste tous les écarts et le tableau. (Avant la carte 5.18 : le sommet était le grand orage, voir
-  les sections des cartes 3.3 à 5.17.)
+  les sections des cartes 3.3 à 5.17.) Le test synthétique `la_forme_de_la_courbe_est_jugee` (mesures
+  inventées, instantané) reste dans la suite normale : il vérifie le juge lui-même.
 - `bruit_de_la_mesure` (ignoré, environ 2 min 30) : la même mesure avec 4 graines (l'officielle et ses 3
   voisines) et les lieux de mort cumulés sur toutes. Sert à savoir si un écart est réel ou dû au hasard :
   une différence plus petite que l'écart entre graines ne prouve rien. (Une variable `GRAINES=a,b,c`
@@ -545,7 +559,7 @@ Deux autres tests :
 
       ./docker-cargo.sh test -p game --no-default-features bruit_de_la_mesure -- --ignored --nocapture
 
-Pour le tableau avant/après d'une carte : lancer la commande sur une extraction propre du commit de départ
+Quand AGA demande un tableau avant/après : lancer la commande sur une extraction propre du commit de départ
 (`git archive <commit> | tar -x -C <nouveau dossier>`), puis sur le commit final, et recopier les deux
 tableaux « Morts moyennes » dans la section de la carte. Ne jamais changer `GRAINE`, `ESSAIS` ni `PROFILS`
 d'une carte à l'autre (sinon les chiffres ne sont plus comparables) ; si c'est indispensable, refaire la
@@ -5145,3 +5159,83 @@ poids du wasm, ennemis des niveaux 7, 8, 9 et 11).
   vents deux fois par le bas de la leur (voir « Bruit de la mesure »).
 - Pas de son propre aux nouveaux ennemis ; captures dans Chromium seulement, à 960 x 540 ; pas de vrai
   téléphone, ni Safari, ni Firefox.
+
+## Mesure de difficulté facultative (carte 6.5)
+
+Décision d'AGA (2026-11-16) : AGA juge lui-même la difficulté en jouant. Les cartes ne relancent plus la
+mesure de difficulté, ne régénèrent plus `docs/mesure-difficulte.txt` et ne sont plus bloquées par le juge de
+la courbe. L'outil reste entier dans le dépôt, utilisable à la demande d'AGA. Aucun niveau, aucune règle du
+jeu, aucun autre test touché ; aucune capture (rien ne change à l'écran).
+
+### Ce qui a changé
+
+- `game/src/difficulte.rs` : `courbe_de_difficulte_dans_les_bandes` porte `#[ignore = "mesure de difficulté
+  facultative (décision d'AGA, carte 6.5) : se lance à la main"]` ; son commentaire dit pourquoi et comment
+  le lancer. Commentaires du module et de `mesure_de_difficulte` mis à jour. Restent tels quels : la mesure
+  (`mesure_de_difficulte`, `bruit_de_la_mesure`, tous deux déjà ignorés), le juge (`ecarts_de_la_courbe`,
+  `BANDES_HABITUE`) et son test synthétique `la_forme_de_la_courbe_est_jugee` (mesures inventées,
+  instantané), qui reste dans la suite normale.
+- `docs/mesure-difficulte.txt` : non régénéré, il garde la mesure de la carte 6.4b.
+- Ce fichier, section « Mesure de difficulté » : statut facultatif, commande du juge à la main, « quand AGA
+  demande un tableau avant/après » au lieu de « pour chaque carte ». README : nombre de tests, durée.
+
+### À lancer à la main, sur demande d'AGA
+
+    ./docker-cargo.sh test -p game --no-default-features mesure_de_difficulte -- --ignored --nocapture
+    ./docker-cargo.sh test -p game --no-default-features courbe_de_difficulte_dans_les_bandes -- --ignored
+    ./docker-cargo.sh test -p game --no-default-features bruit_de_la_mesure -- --ignored --nocapture
+
+La première réécrit `docs/mesure-difficulte.txt` ; les deux autres n'écrivent rien. Le juge, lancé ainsi sur
+l'extraction propre de 09f28de : vert (1 test, 357 filtrés), 536 s (charge moyenne de 7 à 19), et
+`docs/mesure-difficulte.txt` inchangé (`sha256sum -c` avant/après : OK).
+
+### Restent obligatoires, dans la suite normale
+
+Faisabilité (`*_faisable` des onze niveaux et des niveaux d'essai, 21 tests ;
+`reprise_depuis_chaque_lanterne`), lint de grille (`aucune_lanterne_ne_flotte`, `aucune_poche_de_vide_close`),
+robot de QA (`le_robot_finit_tous_les_niveaux_sans_mourir`, `la_partie_complete_joue_le_bonus`), tous verts.
+Les noms et résultats des 733 tests listés par la suite, avant (c185e24) et après (09f28de), ne diffèrent
+que d'une ligne : `courbe_de_difficulte_dans_les_bandes ... ok` devient `... ignored`. `game` : 336
+réussis + 22 ignorés avant, 335 + 23 après ; `core` : 374 + 1, inchangé.
+
+### Durée de la suite, avant / après
+
+`./docker-cargo.sh test --workspace --no-default-features`, temps total mesuré de bout en bout (lancement
+du conteneur compris, tests déjà compilés), sur des extractions propres de c185e24 (avant) et 09f28de
+(après). Entre parenthèses : `core` / `game`, temps affichés par cargo.
+
+| Passe                   | Avant (c185e24)             | Après (09f28de)             |
+| ----------------------- | --------------------------- | --------------------------- |
+| 1                       | 1 178,6 s (322,0 / 855,3)   | 856,8 s (260,5 / 595,3)     |
+| 2                       | 1 138,9 s (376,2 / 761,6)   | 863,2 s (256,7 / 605,4)     |
+| 3 (avant puis après)    | 1 313,2 s (303,9 / 1 007,9) | 1 110,9 s (435,1 / 674,7)   |
+| Moyenne                 | 1 210,3 s (game : 874,9)    | 943,6 s (game : 625,1)      |
+
+Gain moyen : 267 s sur la suite (- 22 %), 250 s sur `game` (- 29 %), soit environ 4 min 30 par
+vérification complète. Les chiffres sont bruités : d'autres cartes compilaient et testaient sur la même
+machine (charge moyenne relevée de 2 à 42 ; `core`, inchangé, varie à lui seul de 257 à 435 s). La passe 3
+lance avant puis après à la suite, pour les comparer dans des conditions proches ; le gain y est le plus
+faible (202 s) mais reste net. Le test le plus long de la suite reste le robot de QA
+(`le_robot_finit_tous_les_niveaux_sans_mourir`, dernier à finir avant comme après).
+
+### Vérification sur une extraction propre de 09f28de (dernier commit de code)
+
+`git archive`, nouveau dossier daté sous `$TMPDIR` :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : vert, trois fois (tableau ci-dessus) ;
+- `./docker-cargo.sh lint` : `LINT-OK` ;
+- `./build.sh` : `dist/` produit, wasm 497 743 octets (identique à la carte 6.4b : les tests ne vont pas dans
+  le wasm), 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+
+Le commit de cette section ne touche que `QA.md` et `README.md`.
+
+Commits : 09f28de (le juge de la courbe ignoré, commentaires), cette section et le README.
+
+### Ce qui n'est PAS testé
+
+- La difficulté n'est plus surveillée automatiquement : une retouche de niveau qui casse la forme de la
+  courbe passe désormais la suite sans le signaler. C'est voulu (AGA juge en jouant) ; pour la vérifier,
+  lancer le juge à la main.
+- Durées mesurées sur une machine partagée et chargée : l'ordre de grandeur du gain est sûr, pas sa valeur
+  exacte.
+- Aucune partie jouée, aucune capture : rien ne change dans le jeu.

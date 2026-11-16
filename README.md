@@ -93,8 +93,8 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
     ciel refait tout le voyage en sens inverse, de l'or à la nuit. Le plus calme
     de tous : aucune chute n'y tue. L'écran de fin suit (« DE RETOUR ! »).
 
-La difficulté suit une courbe voulue (mesurée par un joueur simulé, voir `QA.md`,
-« Mesure de difficulté ») : elle monte jusqu'au boss (6), redescend aux vents
+La difficulté suit une courbe voulue (un joueur simulé peut la mesurer à la demande, voir
+`QA.md`, « Mesure de difficulté ») : elle monte jusqu'au boss (6), redescend aux vents
 d'altitude (7), remonte un peu à la mer de nuages (8) et se calme au-dessus des
 nuages (9) ; le bonus se juge au chronomètre, et l'épilogue est le plus calme de
 tous. Toutes les nouveautés se jouent avec les mêmes touches : courir, sauter,
@@ -311,13 +311,14 @@ Tests :
     ./docker-cargo.sh test -p core
     ./docker-cargo.sh test -p game --no-default-features
 
-Mesure à la dernière vérification de ce README (carte 6.4b, plus d'ennemis aux niveaux 7, 8,
-9 et 11) : **374 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
-l'image `docs/police-test.png`) et **336 tests réussis** dans `game` (plus 22 tests
-ignorés : ils écrivent les scripts du robot de QA, la mesure de difficulté ou des
-diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de minutes :
-le robot de QA joue réellement les onze niveaux, et la courbe de difficulté est
-mesurée en entier.
+Mesure à la dernière vérification de ce README (carte 6.5, mesure de difficulté rendue
+facultative) : **374 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
+l'image `docs/police-test.png`) et **335 tests réussis** dans `game` (plus 23 tests
+ignorés : ils écrivent les scripts du robot de QA, lancent la mesure de difficulté ou son juge
+de la courbe, ou des diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de
+minutes : le robot de QA joue réellement les onze niveaux. La mesure de difficulté et le juge
+de la courbe ne se lancent plus qu'à la main, à la demande (voir `QA.md`, « Mesure de
+difficulté »).
 
 Hygiène du code (format et avertissements) :
 
