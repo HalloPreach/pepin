@@ -6,14 +6,14 @@ Morts moyennes par niveau (graine 20261113, 48 essais par profil et par niveau) 
 | 2. Gouttières et cheminées  | 1,5 (1,5)    | 0,5 (0,5)    | 0,2 (0,2)    |
 | 3. Le marché couvert        | 1,1 (1,1)    | 0,5 (0,5)    | 0,1 (0,1)    |
 | 4. Le grand orage           | 3,0 (3,0)    | 0,6 (0,6)    | 0,4 (0,4)    |
-| 5. Le clocher               | 2,8 (2,8)    | 0,7 (0,7)    | 0,1 (0,1)    |
+| 5. Le clocher               | 2,6 (2,6)    | 0,8 (0,8)    | 0,1 (0,1)    |
 | 6. L'œil du cyclone         | 4,1 (4,1)    | 1,2 (1,2)    | 0,4 (0,4)    |
 | 7. Vents d'altitude         | 1,3 (1,3)    | 0,4 (0,4)    | 0,1 (0,1)    |
 | 8. La mer de nuages         | 1,5 (1,5)    | 0,5 (0,5)    | 0,1 (0,1)    |
 | 9. Au-dessus des nuages     | 0,5 (0,5)    | 0,1 (0,1)    | 0,0 (0,0)    |
 | 10. L'arc-en-ciel           | 8,8 (8,8)    | 1,2 (1,2)    | 0,3 (0,3)    |
 | 11. La descente             | 0,0 (0,0)    | 0,0 (0,0)    | 0,0 (0,0)    |
-| Total                       | 25,1 (25,1)  | 5,9 (5,9)    | 1,7 (1,7)    |
+| Total                       | 24,8 (24,8)  | 6,0 (6,0)    | 1,7 (1,7)    |
 
 Détail par case : essais finis / essais, durée moyenne en secondes, morts en série en moyenne (moins d'1 s après la précédente), pire essai.
 
@@ -23,7 +23,7 @@ Détail par case : essais finis / essais, durée moyenne en secondes, morts en s
 | 2. Gouttières et cheminées  | 48/48, 55 s, série 0,0, max 5  | 48/48, 46 s, série 0,0, max 3  | 48/48, 42 s, série 0,0, max 2  |
 | 3. Le marché couvert        | 48/48, 33 s, série 0,0, max 7  | 48/48, 30 s, série 0,0, max 3  | 48/48, 26 s, série 0,0, max 2  |
 | 4. Le grand orage           | 48/48, 67 s, série 0,0, max 11 | 48/48, 50 s, série 0,0, max 4  | 48/48, 46 s, série 0,0, max 3  |
-| 5. Le clocher               | 48/48, 78 s, série 0,0, max 11 | 48/48, 54 s, série 0,0, max 4  | 48/48, 44 s, série 0,0, max 1  |
+| 5. Le clocher               | 48/48, 79 s, série 0,0, max 8  | 48/48, 57 s, série 0,0, max 4  | 48/48, 56 s, série 0,0, max 1  |
 | 6. L'œil du cyclone         | 48/48, 46 s, série 0,0, max 14 | 48/48, 31 s, série 0,0, max 9  | 48/48, 26 s, série 0,0, max 2  |
 | 7. Vents d'altitude         | 48/48, 48 s, série 0,0, max 6  | 48/48, 41 s, série 0,0, max 2  | 48/48, 38 s, série 0,0, max 1  |
 | 8. La mer de nuages         | 48/48, 44 s, série 0,0, max 4  | 48/48, 36 s, série 0,0, max 2  | 48/48, 34 s, série 0,0, max 1  |
@@ -54,9 +54,9 @@ Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur le
 - Expert   : col. 58-59 chute 4 · col. 129 ennemi 3 · col. 164-166 pointes 3 · col. 136-137 chute 2 · col. 34 pointes 1 · col. 80 pointes 1 · ailleurs 3
 
 5. Le clocher
-- Débutant : col. 12-14 pointes 107 · col. 19-22 pointes 21 · col. 25-28 pointes 7 · col. 23 ennemi 1
-- Habitué  : col. 12-14 pointes 29 · col. 20-21 pointes 2 · col. 28 pointes 2
-- Expert   : col. 12-14 pointes 3 · col. 21 pointes 1 · col. 28 pointes 1
+- Débutant : col. 12-14 pointes 89 · col. 23-29 ennemi 17 · col. 28 pointes 9 · col. 19-20 pointes 7 · col. 23-25 pointes 2
+- Habitué  : col. 12-14 pointes 29 · col. 20-21 pointes 4 · col. 26-28 pointes 3 · col. 26 ennemi 2 · col. 0 chute 1
+- Expert   : col. 13-14 pointes 6 · col. 19 pointes 1
 
 6. L'œil du cyclone
 - Débutant : col. 2-15 éclair 195
@@ -96,7 +96,7 @@ Game over (carte 6.2) : essais où Pépin perd sa dernière vie au moins une foi
 | 2. Gouttières et cheminées  | 3/48 (6 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
 | 3. Le marché couvert        | 3/48 (6 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
 | 4. Le grand orage           | 12/48 (25 %)   | 0/48 (0 %)     | 0/48 (0 %)     |
-| 5. Le clocher               | 13/48 (27 %)   | 0/48 (0 %)     | 0/48 (0 %)     |
+| 5. Le clocher               | 8/48 (17 %)    | 0/48 (0 %)     | 0/48 (0 %)     |
 | 6. L'œil du cyclone         | 16/48 (33 %)   | 1/48 (2 %)     | 0/48 (0 %)     |
 | 7. Vents d'altitude         | 2/48 (4 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
 | 8. La mer de nuages         | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
@@ -105,8 +105,8 @@ Game over (carte 6.2) : essais où Pépin perd sa dernière vie au moins une foi
 | 11. La descente             | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
 
 Partie enchaînée (estimation) : les essais de même rang des niveaux du parcours (sans le bonus) mis bout à bout, 5 vies au départ, vies reportées d'un niveau au suivant ; après un game over, 5 vies et la suite de l'essai (le joueur recommencerait le niveau). Parties avec au moins un game over / 48, game over par partie en moyenne et au plus.
-- Débutant : 47/48, 2,6 en moyenne, 5 au plus
-- Habitué  : 13/48, 0,3 en moyenne, 2 au plus
+- Débutant : 48/48, 2,5 en moyenne, 5 au plus
+- Habitué  : 12/48, 0,3 en moyenne, 2 au plus
 - Expert   : 1/48, 0,0 en moyenne, 1 au plus
 
-À SIGNALER : niveaux normaux au-dessus de 10 % de game over pour le Débutant : 4. Le grand orage (12/48, 25 %) ; 5. Le clocher (13/48, 27 %) ; 6. L'œil du cyclone (16/48, 33 %).
+À SIGNALER : niveaux normaux au-dessus de 10 % de game over pour le Débutant : 4. Le grand orage (12/48, 25 %) ; 5. Le clocher (8/48, 17 %) ; 6. L'œil du cyclone (16/48, 33 %).

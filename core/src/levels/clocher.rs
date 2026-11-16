@@ -15,7 +15,10 @@
 //!    goutte suspendue au-dessus ;
 //! 2. une marche, l'arche du bas à travers la tour, puis la galerie de droite :
 //!    un pigeon (lettre `p`) guette sur une corniche, tourné vers l'arche ; on
-//!    passe dessous sans s'arrêter, il plonge derrière Pépin ;
+//!    passe dessous sans s'arrêter, il plonge derrière Pépin. Deux tuiles avant
+//!    le ventilateur dort un chat (carte 6.4a) : on attend le souffle à portée de
+//!    son bond, il faut donc l'écraser pendant son sommeil (ou monter tout de
+//!    suite si le ventilateur souffle) ;
 //! 3. le ventilateur (lettre `w`) au bout de la galerie : son souffle (2 s, puis
 //!    2 s d'arrêt annoncées comme un éclair) porte Pépin huit rangées plus haut,
 //!    jusqu'à la première corniche du zigzag ;
@@ -24,7 +27,9 @@
 //!    première, la 2e goutte, sous un second pigeon tourné vers Pépin qui
 //!    arrive : on y court sans s'arrêter (il plonge derrière lui) ; s'arrêter
 //!    sur sa diagonale, pour préparer le saut vers la corniche suivante, est
-//!    le vrai danger ;
+//!    le vrai danger. Entre la dernière corniche et la porte, un corbeau (carte
+//!    6.4a) vole juste au-dessus de la tête de Pépin : on saute vers la porte
+//!    quand il est passé ;
 //! 5. la porte de la cage (l'arche du haut), puis le MOMENT FORT : la cage de
 //!    l'horloge. Deux aiguilles (lettre `h`) tournent dans le sens horaire : on
 //!    saute sur la grande quand elle passe au plus bas, elle emporte Pépin
@@ -52,7 +57,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     genre: GenreNiveau::Normal,
     intro: "Une seule direction : en haut.",
     mecanique:
-        "Niveau vertical : escargots-tremplins, ventilateur, pigeons, aiguilles de l'horloge.",
+        "Niveau vertical : escargots-tremplins, ventilateur, pigeons, chat, corbeau, horloge.",
     duree_cible_s: 55,
     ascii: ASCII,
     aiguilles: AIGUILLES,
@@ -90,11 +95,14 @@ const AIGUILLES: &[ReglageAiguille] = &[
 /// - Galerie de droite (dessus en ligne 37, colonnes 19 à 31) : lanterne (20,
 ///   juste après l'arche : on la touche forcément),
 ///   pigeon 1 sur une corniche isolée (colonne 26, 4 rangées au-dessus de la
-///   galerie), ventilateur (colonne 30) ; son courant monte jusque sous la
-///   corniche F2 (ligne 26).
+///   galerie), chat (colonne 28, carte 6.4a : à 8 tuiles de la lanterne, hors de
+///   portée de son bond), ventilateur (colonne 30) ; son courant monte jusque
+///   sous la corniche F2 (ligne 26).
 /// - Zigzag : F1 ligne 29 (colonnes 19 à 28 ; goutte 2 en colonne 20, gardée par
 ///   le pigeon 2 perché en (19, 24)), F2 ligne 26 (25 à 31), F3 ligne 23
-///   (19 à 26), F4 ligne 20 (22 à 31), porte ligne 17 (19 à 23).
+///   (19 à 26), F4 ligne 20 (22 à 31), porte ligne 17 (19 à 23). Corbeau en
+///   ligne 18 (carte 6.4a), colonnes 21 à 31 : juste au-dessus de Pépin debout
+///   sur F4, sur le chemin du saut vers la porte.
 /// - Cage : sol en ligne 17 (colonnes 0 à 13, lanterne en 14, à la sortie de la
 ///   porte : on la touche forcément en marchant vers l'aiguille ; pointe en 13,
 ///   carte 5.18) ; grande aiguille
@@ -126,7 +134,7 @@ const ASCII: &str = r"
 .............................BBBBB
 .R...........^L..............BBBBB
 ########################........BB
-BBBBBBBBBBBBBBBBBBB.............BB
+BBBBBBBBBBBBBBBBBBB.......c.....BB
 BBBBBBBBBBBBBBBBBBB.............BB
 BBBBBBBBBBBBBBBBBBB...##########BB
 BBBBBBBBBBBBBBBBBBB.............BB
@@ -144,7 +152,7 @@ BBBBBBBBBBBBBBBBBBB.o...........BB
 ..............BBBBB.......B.....BB
 ..............BBBBB.............BB
 ................................BB
-....................L...R.....w.BB
+....................L...R...z.w.BB
 ..........s...##################BB
 ........######BBBBBBBBBBBBBBBBBBBB
 ........BBBBBBBBBBBBBBBBBBBBBBBBBB
