@@ -5913,6 +5913,10 @@ Données et règles seulement (l'écran de carte et la boutique liront la sauveg
 
 ### Preuves
 
+- Extraction propre (`git archive`) : suite complète verte sur 709838a (core 374 ok, game 341 ok,
+  partie complète du robot : 25 656 images, empreinte `0d1d8f8435a11586`) ; `lint` → LINT-OK et
+  `./build.sh` OK sur dac5197 (seul écart : une conversion inutile retirée pour clippy) ; `dist/` :
+  0 mention personnelle, seule URL `http://www.w3.org/2000/svg`.
 - Tests ciblés : `app::` (50, dont les menus du titre/bilan adaptés), `plan`, `ecrans`, `contenu`.
   Aucun test ajouté (consigne AGA : pas de nouvelle mécanique de core). Robot de QA : identique (la
   ligne JOUER reste la première), `ecrire_script_navigateur` → `target/qa/script.txt` 21 422 images.
