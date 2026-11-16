@@ -5716,3 +5716,75 @@ prises ; dans un vrai navigateur F11 bascule aussi le plein écran, sans gêne).
 
 - Le son à l'oreille (Chromium sans écran : rien n'est entendu ; écouter les WAV ci-dessus) ;
 - aucun écran de choix ni sauvegarde (cartes boutique) ; téléphone et Safari non essayés.
+
+## Secrets : faux murs, salles cachées, raccourcis, sortie secrète (carte 8.5)
+
+Demande d'AGA : « Des secrets. Sorties cachées, salles derrière un mur, raccourcis. »
+
+### Mécanique
+
+- Lettre de grille `m` : FAUX MUR. Case libre (aucune collision), dessinée comme le solide qu'elle
+  prolonge (brique, toit ou nuage). Les faux murs d'un seul tenant forment une zone cachée
+  (`Niveau::caches`, `core/src/level/secrets.rs`) ; une poche de cases libres fermée de tous côtés
+  par des solides et des faux murs (une salle, sa goutte, sa sortie) est cachée avec eux : les
+  objets qui y sont (gouttes) ne se dessinent pas tant que la zone est cachée.
+- Pépin touche la zone : elle se révèle pour de bon (`Monde::caches_reveles`) : les faux murs sont
+  dessinés tramés en damier (un pixel sur deux, aucune demi-teinte) et le son `Effet::Secret`
+  (petite gamme montante) joue une fois.
+- INDICE, sur la case d'entrée côté chemin : une brique au joint décalé (`brique_decalee`) dont le
+  bout dépasse de 3 px de la façade (`brique_saillie_g` / `_d`) ; dans un nuage, un petit creux
+  d'ombre (`nuage_creux`). Les variantes de brique tirées au hasard restent dans leur case : seul
+  l'indice sort du mur.
+- Lettre `x` : SORTIE SECRÈTE, un second drapeau (même boîte que `X`, une au plus) ; la toucher
+  finit le niveau comme une fin normale (`Monde::sortie_secrete` la distingue).
+- Un seul nouveau test : `level::tests::faux_murs_zone_cachee_et_sortie_secrete`.
+
+### Contenu (six niveaux, ni le boss, ni le bonus, ni « Au-dessus des nuages », ni la descente)
+
+| Niveau | Secret | Goutte déplacée |
+|---|---|---|
+| Les toits | salle sous le toit : on entre dans la cheminée gauche du creux et on tombe dans la salle | celle du haut de l'immeuble |
+| Gouttières et cheminées | salle derrière la façade gauche du grand immeuble (on y saute depuis le champignon) | celle au-dessus de l'immeuble |
+| Le marché couvert | salle dans le premier bloc de boutique (marcher droit dedans) | celle du rebond du 1er auvent |
+| Le grand orage | RACCOURCI : tunnel au pied du bloc de l'ascenseur (on évite la montée) | celle des nuages friables, au milieu du tunnel |
+| Le clocher | SORTIE CACHÉE : salle dans le mur gauche, 2e corniche du zigzag, drapeau secret (on évite la cage de l'horloge) | — |
+| La mer de nuages | RACCOURCI : tunnel au pied de la tour de nuages (on évite la montgolfière et le haut du plané) | — |
+
+Quatre salles (toits, gouttières, marché, clocher), deux raccourcis (orage, mer), une sortie
+cachée (clocher), une goutte déplacée sur quatre niveaux. Le chemin normal ne change pas : aucun
+faux mur sur une patrouille de flaque, ni sur le passage obligé.
+
+### Robot de QA
+
+- Partie NORMALE : `trouver_parcours` n'admet plus une arrivée après un secret révélé (et la case
+  `CaseParcours` retient « secret révélé », pour qu'un raccourci ne remplace pas le chemin
+  normal) : il suit le chemin normal, jusqu'au drapeau.
+- Partie COMPLÈTE : elle prend toujours les trois gouttes de chaque niveau, donc entre dans les
+  salles ; la sortie secrète ne compte jamais comme arrivée du robot.
+- `trouver_parcours_secret` (raccourci / sortie secrète) et le test ignoré
+  `ecrire_scripts_secrets_85` : scripts et traces des captures (`target/qa/*-85*`).
+
+### Preuves
+
+- Tests ciblés : `test -p core` complet vert (375, dont zones, faisabilité, niveaux touchés et le
+  nouveau test) ; `test -p game --no-default-features bot_qa::tests` : 4 verts (les deux parties,
+  0 mort ; arc-en-ciel ; clocher et ses lanternes) ; `sprites` : 54 verts (planche des sprites
+  régénérée : 4 tuiles nouvelles).
+- Captures `docs/qa/85-*` (Chromium sans écran, CDP, build de QA servi en local, x3) : pour chaque
+  niveau, l'indice vu du chemin (`-1-indice`), puis l'entrée et la salle révélée / le tunnel / la
+  sortie (`-2-`, `-3-`). Rejeu des parcours du robot (partie complète pour les salles, parcours
+  secret pour orage, clocher et mer), 0 mort. `docs/mesure-capture.py` : 0 pixel hors palette,
+  0 bloc flou sur les 18.
+- Avis sur les indices (captures regardées une à une) : le bout de brique qui dépasse se voit
+  quand on regarde la façade, sans sauter aux yeux (3 px sur un mur de briques) : trouvable sans
+  être évident aux toits, gouttières, marché et orage. Au clocher, le ciel violet a la couleur des
+  briques : seuls le liseré clair et le joint du bout de brique se voient (plus discret). Dans la
+  mer de nuages, le creux d'ombre est petit mais net sur le nuage uni.
+- Une révélation en jeu : `-2-` / `-3-` (faux mur tramé, goutte visible derrière, drapeau secret du
+  clocher).
+
+### Ce qui n'est PAS testé
+
+- Le son « secret » à l'oreille (Chromium sans écran) ;
+- un humain qui cherche les secrets sans les connaître (à faire juger par AGA) ;
+- téléphone, Safari.
