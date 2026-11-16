@@ -171,6 +171,10 @@ pub fn musique_de_l_ecran(ecran: Ecran, niveau: &InfosNiveau) -> Musique {
         Ecran::Carte(_) | Ecran::Jeu | Ecran::Pause | Ecran::PlusDeVies(_) | Ecran::BilanNiveau => {
             musique_du_niveau(niveau)
         }
+        // L'histoire (carte 8.4) : le soleil réveillé a sa musique, le reste garde
+        // celle du titre.
+        Ecran::Histoire(crate::ecrans::histoire::Chapitre::Soleil) => Musique::Soleil,
+        Ecran::Histoire(_) => Musique::Orage,
         Ecran::Fin => Musique::Soleil,
     }
 }
@@ -1009,9 +1013,9 @@ mod tests {
     fn chaque_niveau_a_la_musique_de_sa_zone() {
         use pepin_core::levels::NIVEAUX;
         use Musique::*;
-        // Dans l'ordre de la table : la ville, l'orage, le boss, l'altitude, puis le
-        // bonus et l'épilogue (« Le retour du Grand Nuage », Poursuite, viendra avec la
-        // carte 8.2).
+        // Dans l'ordre de la table : la ville, l'orage, le boss, l'altitude, le retour
+        // du Grand Nuage (carte 8.2 ; son thème `Poursuite` arrive avec la carte 8.11),
+        // puis le bonus et l'épilogue.
         let attendu = [
             ToitsDeNuit,    // les toits
             ToitsDeNuit,    // gouttières et cheminées
@@ -1022,6 +1026,7 @@ mod tests {
             ValseDesNuages, // vents d'altitude
             ValseDesNuages, // la mer de nuages
             ValseDesNuages, // au-dessus des nuages
+            Poursuite,      // le retour du Grand Nuage
             Soleil,         // l'arc-en-ciel (bonus)
             Soleil,         // la descente (épilogue)
         ];

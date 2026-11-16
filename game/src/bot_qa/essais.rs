@@ -143,7 +143,7 @@ fn jouer_essai(
     let mut fin_atteinte = false;
     for image in 0..60 * 60 * 3 {
         let mut trame = Trame {
-            valider: image == 0,
+            valider: image == 0 || app.histoire_en_attente(),
             ..Trame::default()
         };
         let en_essai = app.en_jeu() && app.monde.indice == indice_essai;

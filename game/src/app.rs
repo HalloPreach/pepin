@@ -1,7 +1,7 @@
-//! `Application` : la machine à écrans du jeu (titre, aide, carte de niveau, jeu,
-//! pause, « plus de vies », fin, carte des niveaux et bilan d'un niveau joué seul) et
-//! tout ce qui les relie (transitions, bilan, rejouer, recommencer le niveau quand
-//! Pépin n'a plus de vies).
+//! `Application` : la machine à écrans du jeu (titre, aide, histoire, carte de niveau,
+//! jeu, pause, « plus de vies », fin, carte des niveaux et bilan d'un niveau joué
+//! seul) et tout ce qui les relie (transitions, bilan, rejouer, recommencer le niveau
+//! quand Pépin n'a plus de vies).
 //!
 //! Deux sortes de parties (carte 7.4) : « JOUER » enchaîne tous les niveaux (records
 //! de partie, bonus de fin) ; un niveau choisi sur la carte des niveaux se joue SEUL
@@ -33,6 +33,7 @@ use crate::contenu;
 use crate::defis::{self, LigneBonus, ResultatNiveau, Tentative};
 use crate::ecrans::bilan_niveau::{self, Temps};
 use crate::ecrans::fin::{self, Bilan};
+use crate::ecrans::histoire::{self, Chapitre};
 use crate::ecrans::{
     self, aide, boutique as ecran_boutique, carte, pause, plan as ecran_plan, plus_de_vies,
     resultats, titre, Disposition, Ecran,
@@ -66,6 +67,10 @@ enum Suite {
     /// Plus de vies (carte 6.2) : recharger le niveau courant depuis son début, avec
     /// `VIES_DEPART` vies (`EtatJeu::apres_plus_de_vies`).
     PlusDeVies,
+    /// Une image de l'histoire revue depuis le titre (la suivante, carte 8.4).
+    Histoire(Chapitre),
+    /// La carte de présentation du niveau déjà chargé, après une image de l'histoire.
+    Carte,
     Titre,
     Fin,
     /// Jouer SEUL le niveau `indice`, choisi sur la carte des niveaux (carte 7.4).
@@ -94,12 +99,19 @@ pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
 /// carte 7.8b : c'est une icône en bas à gauche du titre et de la pause (clic ou M).
 pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
     match ecran {
-        Ecran::Titre => vec![Choix::Jouer, Choix::Carte, Choix::Boutique, Choix::Aide],
+        Ecran::Titre => vec![
+            Choix::Jouer,
+            Choix::Carte,
+            Choix::Boutique,
+            Choix::Histoire,
+            Choix::Aide,
+        ],
         Ecran::Pause => vec![Choix::Reprendre, Choix::Recommencer, Choix::QuitterAuTitre],
         Ecran::Fin => vec![Choix::Rejouer, Choix::RetourTitre],
         Ecran::BilanNiveau => vec![Choix::RejouerNiveau, Choix::Carte],
         Ecran::Aide
         | Ecran::Boutique
+        | Ecran::Histoire(_)
         | Ecran::Carte(_)
         | Ecran::Jeu
         | Ecran::PlusDeVies(_)
@@ -165,6 +177,13 @@ pub struct Application {
     niveau_seul: bool,
     /// Bilan d'un niveau joué seul : son temps et le meilleur temps d'avant.
     temps_niveau: Temps,
+    /// La partie en cours raconte-t-elle l'histoire (carte 8.4) ? Oui si elle a été
+    /// lancée par JOUER ; non par REJOUER (l'histoire vient d'être vue jusqu'au bout)
+    /// ni par un raccourci de niveau du build de QA.
+    partie_racontee: bool,
+    /// L'image de l'histoire affichée a été ouverte depuis le titre (ligne HISTOIRE) :
+    /// elle mène à la suivante puis au titre, et non à un niveau.
+    histoire_depuis_titre: bool,
 }
 
 impl Application {
@@ -203,6 +222,8 @@ impl Application {
             plan: EtatPlan::new(NIVEAUX, 0),
             niveau_seul: false,
             temps_niveau: Temps::default(),
+            partie_racontee: false,
+            histoire_depuis_titre: false,
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -275,6 +296,15 @@ impl Application {
         self.eclat_vie
     }
 
+    /// Une image de l'histoire attend qu'on la passe (robot de QA : il appuie alors sur
+    /// Entrée, comme un joueur, pour ne pas y rester bloqué).
+    #[cfg(test)]
+    pub fn histoire_en_attente(&self) -> bool {
+        matches!(self.ecran, Ecran::Histoire(_))
+            && !self.transition.est_active()
+            && histoire::prete(self.anim)
+    }
+
     /// Le monde de jeu est-il en train d'avancer (donc à interpoler) ?
     pub fn en_jeu(&self) -> bool {
         self.ecran == Ecran::Jeu && !self.transition.est_active()
@@ -286,7 +316,7 @@ impl Application {
     /// - En pleine partie : l'écran de pause s'ouvre (le monde et le chrono s'arrêtent,
     ///   la musique et la pluie aussi) ; seul le joueur en sort.
     /// - Déjà en pause : rien (la pause ne s'ouvre jamais deux fois, le curseur reste).
-    /// - Titre, aide, fin : rien. Carte de présentation, écran « plus de vies » ou volets
+    /// - Titre, aide, histoire, fin : rien (une image de l'histoire attend un appui). Carte de présentation, écran « plus de vies » ou volets
     ///   qui mènent au jeu : la pause est DIFFÉRÉE au premier pas de jeu, et annulée si le
     ///   focus revient avant (sinon, fenêtre visible mais sans focus, la carte finirait et
     ///   Pépin partirait seul).
@@ -307,8 +337,12 @@ impl Application {
             Some(Suite::Niveau { .. })
             | Some(Suite::NiveauSeul(_))
             | Some(Suite::Recommencer)
-            | Some(Suite::PlusDeVies) => true,
-            Some(Suite::Titre) | Some(Suite::Fin) | Some(Suite::Plan) => false,
+            | Some(Suite::PlusDeVies)
+            | Some(Suite::Carte) => true,
+            Some(Suite::Titre)
+            | Some(Suite::Fin)
+            | Some(Suite::Plan)
+            | Some(Suite::Histoire(_)) => false,
             // Rien en attente : carte de présentation, écran « plus de vies » (il finit
             // tout seul sur le niveau recommencé), ou volets qui s'ouvrent sur le niveau
             // recommencé.
@@ -374,6 +408,16 @@ impl Application {
                     }
                 }
             }
+            Ecran::Histoire(chapitre) => {
+                if nav.retour && self.histoire_depuis_titre {
+                    // Revue depuis le titre : Échap y revient tout de suite.
+                    self.retour_titre_sur(Choix::Histoire);
+                } else if histoire::prete(self.anim)
+                    && (nav.valider || nav.retour || nav.clic.is_some())
+                {
+                    self.apres_histoire(chapitre);
+                }
+            }
             Ecran::Carte(_) => {
                 if nav.valider || nav.clic.is_some() {
                     self.ecran = Ecran::Jeu;
@@ -394,6 +438,8 @@ impl Application {
                 } else if let Some(indice) = raccourci
                     .and_then(|r| entrees::cible_raccourci(r, self.monde.indice, NB_NIVEAUX))
                 {
+                    // Raccourci du build de QA : une partie sans histoire.
+                    self.partie_racontee = false;
                     self.lancer(Suite::Niveau { indice, etat: None });
                 }
             }
@@ -444,12 +490,31 @@ impl Application {
         }
     }
 
+    /// Une image de l'histoire est passée : la suivante (ou le titre) si elle a été
+    /// ouverte depuis le titre, sinon la carte du niveau qui l'attend.
+    fn apres_histoire(&mut self, chapitre: Chapitre) {
+        if !self.histoire_depuis_titre {
+            self.lancer(Suite::Carte);
+        } else if let Some(suivant) = chapitre.suivant() {
+            self.lancer(Suite::Histoire(suivant));
+        } else {
+            self.retour_titre_sur(Choix::Histoire);
+        }
+    }
+
     fn valider_choix(&mut self, choix: Choix) {
         match choix {
-            Choix::Jouer | Choix::Rejouer => self.lancer(Suite::Niveau {
-                indice: 0,
-                etat: None,
-            }),
+            Choix::Jouer | Choix::Rejouer => {
+                self.partie_racontee = choix == Choix::Jouer;
+                self.lancer(Suite::Niveau {
+                    indice: 0,
+                    etat: None,
+                });
+            }
+            Choix::Histoire => {
+                self.histoire_depuis_titre = true;
+                self.ouvrir(Ecran::Histoire(Chapitre::Depart));
+            }
             Choix::Boutique => {
                 self.boutique = EtatBoutique::new();
                 self.ouvrir(Ecran::Boutique);
@@ -513,7 +578,8 @@ impl Application {
                 | Ecran::Boutique
                 | Ecran::Pause
                 | Ecran::Plan
-                | Ecran::BilanNiveau => {}
+                | Ecran::BilanNiveau
+                | Ecran::Histoire(_) => {}
             }
         }
         self.particules.actualiser();
@@ -624,9 +690,26 @@ impl Application {
                     self.resultat_niveau = None;
                 }
                 self.recharger(indice, etat);
+                // Une image de l'histoire avant certains niveaux d'une partie lancée par
+                // JOUER (carte 8.4) ; chaque niveau n'est chargé ainsi qu'une fois par
+                // partie (« recommencer » et « plus de vies » passent par `relancer`),
+                // donc chaque image n'est vue qu'une fois.
+                match histoire::chapitre_avant(NIVEAUX, indice).filter(|_| self.partie_racontee) {
+                    Some(chapitre) => {
+                        self.histoire_depuis_titre = false;
+                        self.ouvrir(Ecran::Histoire(chapitre));
+                    }
+                    None => {
+                        self.anim = 0;
+                        self.ecran = Ecran::Carte(carte::DUREE_PAS);
+                    }
+                }
+            }
+            Suite::Carte => {
                 self.anim = 0;
                 self.ecran = Ecran::Carte(carte::DUREE_PAS);
             }
+            Suite::Histoire(chapitre) => self.ouvrir(Ecran::Histoire(chapitre)),
             Suite::Recommencer => {
                 // Le niveau repart comme au début, mais les morts restent comptées et
                 // les vies perdues restent perdues.
@@ -734,6 +817,7 @@ impl Application {
                 }
             }
             Ecran::Aide => aide::dessiner(),
+            Ecran::Histoire(chapitre) => histoire::dessiner(banque, self.skin, chapitre, self.anim),
             Ecran::Boutique => {
                 ecran_boutique::dessiner(banque, self.anim, &self.sauvegarde, &self.boutique)
             }
@@ -869,10 +953,15 @@ mod tests {
     }
 
     /// Avance jusqu'à ce que l'écran satisfasse `ok` (borné pour ne jamais boucler).
+    /// Une image de l'histoire (carte 8.4) qui n'est pas l'écran attendu est passée
+    /// d'un appui sur Entrée dès qu'elle l'accepte, comme le ferait le joueur.
     fn jusqu_a(app: &mut Application, ok: impl Fn(Ecran) -> bool) {
         for _ in 0..600 {
             if ok(app.ecran) && !app.transition.est_active() {
                 return;
+            }
+            if app.histoire_en_attente() {
+                app.reagir(&valider(), &Commandes::default(), None);
             }
             app.pas(&Entrees::default());
         }
@@ -893,7 +982,13 @@ mod tests {
     fn les_menus_ont_les_bonnes_lignes() {
         assert_eq!(
             choix_pour(Ecran::Titre),
-            vec![Choix::Jouer, Choix::Carte, Choix::Boutique, Choix::Aide]
+            vec![
+                Choix::Jouer,
+                Choix::Carte,
+                Choix::Boutique,
+                Choix::Histoire,
+                Choix::Aide
+            ]
         );
         assert_eq!(
             choix_pour(Ecran::BilanNiveau),
@@ -1040,7 +1135,8 @@ mod tests {
     fn un_clic_sur_une_ligne_la_valide() {
         let mut app = Application::new(true);
         let d = ecrans::disposition(Ecran::Titre).unwrap();
-        let (x, y, _, h) = d.rect_ligne(3);
+        let ligne = app.choix.iter().position(|&c| c == Choix::Aide).unwrap();
+        let (x, y, _, h) = d.rect_ligne(ligne);
         let clic = Navigation {
             clic: Some((x + 10.0, y + h / 2.0)),
             ..Navigation::default()
@@ -2011,5 +2107,162 @@ mod tests {
         jusqu_a(&mut app, |e| e == Ecran::Fin);
         assert_eq!(app.bilan.vies, VIES_DEPART - 1);
         assert_eq!(app.bilan.morts, 1);
+    }
+
+    // --- Histoire (carte 8.4) -----------------------------------------------------
+
+    /// Avance jusqu'à la prochaine image de l'histoire ou carte de niveau (sans passer
+    /// l'image) ; renvoie le chapitre montré (`None` : directement la carte).
+    fn image_suivante(app: &mut Application) -> Option<Chapitre> {
+        jusqu_a(app, |e| matches!(e, Ecran::Histoire(_) | Ecran::Carte(_)));
+        match app.ecran {
+            Ecran::Histoire(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    /// Termine le niveau en cours (gouttes de la partie inchangées).
+    fn finir_le_niveau(app: &mut Application) {
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(app.ecran, Ecran::Jeu);
+        app.monde.termine = true;
+        avancer(app, 1);
+    }
+
+    /// JOUER : la première image avant la carte du niveau 1. Elle ignore les appuis un
+    /// instant (un saut tenu ne la ferait pas disparaître sans être vue), puis un appui
+    /// mène à la carte du niveau 1, déjà chargé ; le chrono n'a pas bougé.
+    #[test]
+    fn jouer_montre_la_premiere_image_avant_le_niveau_1() {
+        let mut app = Application::new(true);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(image_suivante(&mut app), Some(Chapitre::Depart));
+        assert_eq!(app.monde.indice, 0);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(app.ecran, Ecran::Histoire(Chapitre::Depart), "trop tôt");
+        avancer(&mut app, histoire::DELAI_PAS);
+        // Rien ne la passe toute seule.
+        avancer(&mut app, 600);
+        assert_eq!(app.ecran, Ecran::Histoire(Chapitre::Depart));
+        // La fenêtre perd le focus : aucune pause (rien ne bouge derrière l'image).
+        app.focus(false);
+        assert_eq!(app.ecran, Ecran::Histoire(Chapitre::Depart));
+        assert!(!app.pause_differee);
+        app.focus(true);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(image_suivante(&mut app), None);
+        assert_eq!(app.ecran, Ecran::Carte(carte::DUREE_PAS));
+        assert_eq!(app.monde.indice, 0);
+        assert_eq!(app.chrono(), 0, "l'histoire ne compte pas dans le chrono");
+    }
+
+    /// Une partie de JOUER à la fin : les trois images, chacune UNE fois, aux bons
+    /// niveaux (avant le 1er, après le Grand Nuage, avant la descente), bonus joué ou
+    /// non. Mourir sans vies ou « recommencer » ne les remontre pas. Score et gouttes
+    /// ne bougent pas en les passant.
+    #[test]
+    fn une_partie_montre_les_trois_images_une_fois_chacune() {
+        for gouttes in [0, levels::gouttes_pour_le_bonus(NIVEAUX)] {
+            let mut app = Application::new(true);
+            app.reagir(&valider(), &Commandes::default(), None);
+            let mut vues = Vec::new();
+            loop {
+                if let Some(c) = image_suivante(&mut app) {
+                    vues.push((c, app.monde.indice));
+                    let e = &app.monde.etat;
+                    let avant = (e.score, e.gouttes, e.morts, e.vies.restantes());
+                    avancer(&mut app, histoire::DELAI_PAS);
+                    app.reagir(&valider(), &Commandes::default(), None);
+                    jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+                    let e = &app.monde.etat;
+                    let apres = (e.score, e.gouttes, e.morts, e.vies.restantes());
+                    assert_eq!(apres, avant, "rien ne change en passant l'image");
+                }
+                if app.monde.indice == 1 {
+                    // « Recommencer » ne remontre pas d'image.
+                    app.reagir(&valider(), &Commandes::default(), None);
+                    app.valider_choix(Choix::Recommencer);
+                    jusqu_a(&mut app, |e| e == Ecran::Jeu);
+                }
+                app.monde.etat.gouttes = gouttes;
+                finir_le_niveau(&mut app);
+                jusqu_a(&mut app, |e| {
+                    matches!(e, Ecran::Histoire(_) | Ecran::Carte(_) | Ecran::Fin)
+                });
+                if app.ecran == Ecran::Fin {
+                    break;
+                }
+            }
+            let indice_de_la_suite_du_boss = indice_de(levels::cyclone::INFOS.nom) + 1;
+            assert_eq!(
+                vues,
+                vec![
+                    (Chapitre::Depart, 0),
+                    (Chapitre::Lueur, indice_de_la_suite_du_boss),
+                    (Chapitre::Soleil, NB_NIVEAUX - 1),
+                ],
+                "gouttes : {gouttes}"
+            );
+        }
+    }
+
+    /// REJOUER (l'histoire vient d'être vue) et les raccourcis de niveau du build de
+    /// QA : aucune image.
+    #[test]
+    fn rejouer_et_les_raccourcis_ne_racontent_pas_l_histoire() {
+        let mut app = en_jeu();
+        app.ecran = Ecran::Fin;
+        app.choix = choix_pour(Ecran::Fin);
+        app.menu = Menu::new(2);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(image_suivante(&mut app), None, "REJOUER");
+        let mut app = en_jeu();
+        let descente = NB_NIVEAUX - 1;
+        app.reagir(
+            &rien(),
+            &Commandes::default(),
+            Some(RaccourciNiveau::Aller(descente)),
+        );
+        assert_eq!(image_suivante(&mut app), None, "raccourci");
+        assert_eq!(app.monde.indice, descente);
+    }
+
+    /// HISTOIRE au titre : les trois images dans l'ordre (sans rien charger), puis le
+    /// titre, curseur sur HISTOIRE ; Échap y revient à tout moment.
+    #[test]
+    fn la_ligne_histoire_du_titre_montre_les_trois_images() {
+        let mut app = Application::new(true);
+        let ligne = app
+            .choix
+            .iter()
+            .position(|&c| c == Choix::Histoire)
+            .unwrap();
+        app.menu.choisir(ligne);
+        app.reagir(&valider(), &Commandes::default(), None);
+        for attendu in Chapitre::TOUS {
+            jusqu_a(&mut app, |e| e == Ecran::Histoire(attendu));
+            avancer(&mut app, histoire::DELAI_PAS);
+            app.reagir(&valider(), &Commandes::default(), None);
+        }
+        assert_eq!(app.ecran, Ecran::Titre);
+        assert_eq!(app.choix[app.menu.selection()], Choix::Histoire);
+        assert_eq!(app.chrono(), 0);
+        // Échap, même tout de suite : retour au titre.
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(app.ecran, Ecran::Histoire(Chapitre::Depart));
+        let retour = Navigation {
+            retour: true,
+            ..Navigation::default()
+        };
+        app.reagir(&retour, &Commandes::default(), None);
+        assert_eq!(app.ecran, Ecran::Titre);
+        assert_eq!(app.choix[app.menu.selection()], Choix::Histoire);
+        // Puis JOUER raconte de nouveau l'histoire, et passe aux niveaux.
+        app.menu.choisir(0);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(image_suivante(&mut app), Some(Chapitre::Depart));
+        avancer(&mut app, histoire::DELAI_PAS);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(image_suivante(&mut app), None);
     }
 }

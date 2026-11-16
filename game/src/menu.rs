@@ -16,6 +16,8 @@ pub enum Choix {
     Carte,
     /// La boutique (carte 7.5).
     Boutique,
+    /// Revoir les trois images de l'histoire (carte 8.4).
+    Histoire,
     Aide,
     Reprendre,
     Recommencer,
