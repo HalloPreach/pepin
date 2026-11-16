@@ -31,14 +31,16 @@ use crate::boutique::{self, EtatBoutique};
 use crate::camera::Camera;
 use crate::contenu;
 use crate::cosmetiques::{self, Trainees};
+use crate::course::{self, Fantome, Force, ResultatCourse};
 use crate::defis::{self, LigneBonus, ResultatNiveau, Tentative};
 use crate::demo::{self, Demo, Rejeu};
+use crate::ecrans::bilan_course::{self, TempsCourse};
 use crate::ecrans::bilan_niveau::{self, Temps};
 use crate::ecrans::fin::{self, Bilan};
 use crate::ecrans::histoire::{self, Chapitre};
 use crate::ecrans::{
-    self, aide, boutique as ecran_boutique, carte, pause, plan as ecran_plan, plus_de_vies,
-    resultats, titre, Disposition, Ecran,
+    self, aide, boutique as ecran_boutique, carte, course_force, pause, plan as ecran_plan,
+    plus_de_vies, resultats, titre, Disposition, Ecran,
 };
 use crate::effets::effets;
 use crate::entrees::{self, Commandes, RaccourciNiveau};
@@ -78,6 +80,12 @@ enum Suite {
     Fin,
     /// Jouer SEUL le niveau `indice`, choisi sur la carte des niveaux (carte 7.4).
     NiveauSeul(usize),
+    /// Courir SEUL le niveau `indice` contre le fantôme de force `force` (carte 8.7) :
+    /// un niveau joué seul, avec le fantôme en plus.
+    Course {
+        indice: usize,
+        force: Force,
+    },
     /// Revenir à la carte des niveaux (fin ou abandon d'un niveau joué seul).
     Plan,
 }
@@ -113,6 +121,14 @@ pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
         Ecran::Pause => vec![Choix::Reprendre, Choix::Recommencer, Choix::QuitterAuTitre],
         Ecran::Fin => vec![Choix::Rejouer, Choix::RetourTitre],
         Ecran::BilanNiveau => vec![Choix::RejouerNiveau, Choix::Carte],
+        Ecran::BilanCourse => vec![Choix::RejouerCourse, Choix::Carte],
+        // Les forces sans partie embarquée sont retirées à l'ouverture (`ouvrir`).
+        Ecran::ChoixForce => vec![
+            Choix::Force(Force::Debutant),
+            Choix::Force(Force::Habitue),
+            Choix::Force(Force::Expert),
+            Choix::Carte,
+        ],
         Ecran::Aide
         | Ecran::Boutique
         | Ecran::Histoire(_)
@@ -209,6 +225,12 @@ pub struct Application {
     rang_demo: usize,
     /// Mode facile du Grand Nuage (carte 8.14) : niveau en facile, bannière ouverte.
     facile: EtatFacile,
+    /// Course contre le robot (carte 8.7) : le fantôme de la course en cours (`None` :
+    /// pas de course ; la partie est alors un niveau seul ordinaire ou une partie).
+    fantome: Option<Fantome>,
+    /// Bilan de la dernière course : issue, meilleur résultat d'avant, prime.
+    resultat_course: Option<ResultatCourse>,
+    temps_course: TempsCourse,
 }
 
 impl Application {
@@ -255,6 +277,9 @@ impl Application {
             demo: None,
             rang_demo: 0,
             facile: EtatFacile::default(),
+            fantome: None,
+            resultat_course: None,
+            temps_course: TempsCourse::default(),
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -271,6 +296,12 @@ impl Application {
         if self.sauvegarde.parties_finies == 0 {
             self.choix.retain(|&c| c != Choix::Histoire);
         }
+        // Course (carte 8.7) : seulement les forces qui ont une partie pour ce niveau.
+        let indice = self.plan.selection;
+        self.choix.retain(|&c| match c {
+            Choix::Force(f) => course::partie(indice, f).is_some(),
+            _ => true,
+        });
         // Pause d'un niveau joué seul : on quitte vers la carte des niveaux.
         if self.niveau_seul {
             for c in self
@@ -293,6 +324,7 @@ impl Application {
     /// Ouvre la carte des niveaux, l'étape `selection` choisie.
     fn ouvrir_plan(&mut self, selection: usize) {
         self.niveau_seul = false;
+        self.fantome = None;
         self.resultat_niveau = None;
         self.plan = EtatPlan::new(NIVEAUX, selection);
         self.ouvrir(Ecran::Plan);
@@ -380,6 +412,7 @@ impl Application {
             // Volets qui se ferment : tout dépend de ce qui vient derrière.
             Some(Suite::Niveau { .. })
             | Some(Suite::NiveauSeul(_))
+            | Some(Suite::Course { .. })
             | Some(Suite::Recommencer)
             | Some(Suite::PlusDeVies)
             | Some(Suite::Carte) => true,
@@ -442,9 +475,17 @@ impl Application {
             Ecran::Titre | Ecran::Pause | Ecran::Fin => self.reagir_menu(nav, commandes),
             // Traitée plus haut.
             Ecran::Demo => {}
-            Ecran::BilanNiveau => {
+            Ecran::BilanNiveau | Ecran::BilanCourse => {
                 if nav.retour {
                     self.valider_choix(Choix::Carte);
+                } else {
+                    self.reagir_menu(nav, commandes);
+                }
+            }
+            // Échap : retour à la carte des niveaux, telle qu'on l'a laissée.
+            Ecran::ChoixForce => {
+                if nav.retour {
+                    self.ouvrir(Ecran::Plan);
                 } else {
                     self.reagir_menu(nav, commandes);
                 }
@@ -465,6 +506,8 @@ impl Application {
                         self.facile.proposition = Some(Proposition::new(Origine::Plan(indice)));
                     }
                     ActionPlan::Jouer(indice) => self.lancer(Suite::NiveauSeul(indice)),
+                    // `plan.selection` est déjà l'étape à courir.
+                    ActionPlan::Course(_) => self.ouvrir(Ecran::ChoixForce),
                 }
             }
             Ecran::Aide => {
@@ -600,8 +643,18 @@ impl Application {
             Choix::Carte if self.ecran == Ecran::Titre => {
                 self.ouvrir_plan(EtatPlan::ou_on_en_est(NIVEAUX, &self.sauvegarde))
             }
+            // Choix de la force (carte 8.7) : la carte telle qu'on l'a laissée.
+            Choix::Carte if self.ecran == Ecran::ChoixForce => self.ouvrir(Ecran::Plan),
             Choix::Carte => self.lancer(Suite::Plan),
             Choix::RejouerNiveau => self.lancer(Suite::NiveauSeul(self.monde.indice)),
+            Choix::Force(force) => self.lancer(Suite::Course {
+                indice: self.plan.selection,
+                force,
+            }),
+            Choix::RejouerCourse => self.lancer(Suite::Course {
+                indice: self.monde.indice,
+                force: self.resultat_course.map_or(Force::Debutant, |r| r.force),
+            }),
             Choix::Reprendre => self.ecran = Ecran::Jeu,
             Choix::Recommencer => self.lancer(Suite::Recommencer),
             Choix::QuitterAuTitre | Choix::RetourTitre => self.lancer(Suite::Titre),
@@ -667,6 +720,8 @@ impl Application {
                 | Ecran::Pause
                 | Ecran::Plan
                 | Ecran::BilanNiveau
+                | Ecran::ChoixForce
+                | Ecran::BilanCourse
                 | Ecran::Histoire(_) => {}
             }
         }
@@ -683,6 +738,10 @@ impl Application {
         self.monde.avancer(entrees);
         self.trainees
             .actualiser(self.cosmetiques.trainee, &self.monde);
+        // Course (carte 8.7) : le fantôme fait le même pas, dans son propre monde.
+        if let Some(f) = &mut self.fantome {
+            f.avancer();
+        }
         self.eclat_vie = self.eclat_vie.saturating_sub(1);
         if self.monde.etat.vies.restantes() > vies_avant {
             self.eclat_vie = hud::DUREE_ECLAT_VIE;
@@ -743,6 +802,24 @@ impl Application {
             self.sauvegarde.enregistrer();
             // Un niveau joué seul (carte 7.4) : son bilan, par-dessus le niveau figé.
             if self.niveau_seul {
+                // Une course (carte 8.7) : son bilan à elle (gagné ou perdu, l'écart).
+                if let Some(f) = &self.fantome {
+                    let robot = f.temps();
+                    self.resultat_course = Some(course::noter_course(
+                        &mut self.sauvegarde,
+                        self.monde.infos.cle,
+                        f.force,
+                        self.tentative.pas,
+                        robot,
+                    ));
+                    self.sauvegarde.enregistrer();
+                    self.temps_course = TempsCourse {
+                        joueur: self.tentative.pas,
+                        robot,
+                    };
+                    self.ouvrir(Ecran::BilanCourse);
+                    return;
+                }
                 self.temps_niveau = Temps {
                     pas: self.tentative.pas,
                     ancien,
@@ -842,6 +919,7 @@ impl Application {
         match suite {
             Suite::Niveau { indice, etat } => {
                 self.niveau_seul = false;
+                self.fantome = None;
                 if let (Some(n), true) = (NIVEAUX.get(indice), etat.is_some()) {
                     // Atteint pendant une partie : ouvert sur la carte des niveaux.
                     self.sauvegarde.noter_niveau_atteint(n.cle);
@@ -890,22 +968,12 @@ impl Application {
                 self.relancer(etat);
                 self.ecran = Ecran::Jeu;
             }
-            Suite::NiveauSeul(indice) => {
-                // Une partie d'un seul niveau, comme une nouvelle partie (5 vies, chrono
-                // à zéro) ; à son drapeau, le bilan puis la carte des niveaux.
-                self.pas_partie = 0;
-                self.gouttes_bonus = None;
-                self.game_over_partie = false;
-                self.resultat_niveau = None;
-                self.facile.dans_la_partie = false;
-                self.recharger(indice, None);
-                self.niveau_seul = true;
-                self.anim = 0;
-                self.ecran = Ecran::Carte(carte::DUREE_PAS);
-            }
+            Suite::NiveauSeul(indice) => self.niveau_seul(indice, None),
+            Suite::Course { indice, force } => self.niveau_seul(indice, Some(force)),
             Suite::Plan => self.ouvrir_plan(self.monde.indice),
             Suite::Titre => {
                 self.niveau_seul = false;
+                self.fantome = None;
                 self.ouvrir(Ecran::Titre)
             }
             Suite::Fin => {
@@ -943,6 +1011,23 @@ impl Application {
         self.monde.gouttes_niveau.iter().filter(|&&g| g).count() as u32
     }
 
+    /// Une partie d'un seul niveau, comme une nouvelle partie (5 vies, chrono à zéro) ;
+    /// à son drapeau, le bilan puis la carte des niveaux. `course` : la force du
+    /// fantôme d'une course contre le robot (carte 8.7), sinon `None`.
+    fn niveau_seul(&mut self, indice: usize, course: Option<Force>) {
+        self.pas_partie = 0;
+        self.gouttes_bonus = None;
+        self.game_over_partie = false;
+        self.resultat_niveau = None;
+        self.resultat_course = None;
+        self.facile.dans_la_partie = false;
+        self.fantome = course.map(|force| Fantome::new(indice, force));
+        self.recharger(indice, None);
+        self.niveau_seul = true;
+        self.anim = 0;
+        self.ecran = Ecran::Carte(carte::DUREE_PAS);
+    }
+
     fn recharger(&mut self, indice: usize, etat: Option<EtatJeu>) {
         let (monde, camera) = charger(indice, etat);
         self.debut_niveau = monde.etat.clone();
@@ -959,10 +1044,15 @@ impl Application {
         self.nouvelle_tentative();
     }
 
-    /// Le niveau (re)commence : une nouvelle tentative pour les défis.
+    /// Le niveau (re)commence : une nouvelle tentative pour les défis. Dans une course
+    /// (carte 8.7), le fantôme repart aussi de zéro (recommencer, plus de vies) : la
+    /// course reste à armes égales.
     fn nouvelle_tentative(&mut self) {
         self.tentative = Tentative::default();
         self.morts_debut_tentative = self.monde.etat.morts;
+        if let Some(f) = &mut self.fantome {
+            *f = Fantome::new(self.monde.indice, f.force);
+        }
     }
 
     /// Recharge le niveau EN COURS tout neuf (entités, Grand Nuage, gouttes) avec
@@ -987,14 +1077,15 @@ impl Application {
     /// Une mort au boss en mode normal : une défaite de plus (enregistrée) ; à partir
     /// de `DEFAITES_AVANT_FACILE`, la bannière « TROP DUR ? » s'ouvre (pas pendant
     /// « plus de vies », ni si NON a déjà été répondu dans ce niveau). La démo du
-    /// titre ne passe pas par ici (`pas_demo`).
+    /// titre ne passe pas par ici (`pas_demo`), et une course ne compte pas.
     fn compter_defaite_au_boss(&mut self) {
         let mort = self
             .monde
             .contacts
             .iter()
             .any(|c| matches!(c, Contact::Mort(_)));
-        if !mort || self.facile.actif || self.monde.pv_nuage().is_none() {
+        // Une course contre le robot (carte 8.7) ne compte pas : on y rejoue pour le chrono.
+        if !mort || self.facile.actif || self.fantome.is_some() || self.monde.pv_nuage().is_none() {
             return;
         }
         let n = mode_facile::noter_defaite(&mut self.sauvegarde, self.monde.infos.cle);
@@ -1065,11 +1156,25 @@ impl Application {
             Ecran::Plan => {
                 ecran_plan::dessiner(banque, self.skin, self.anim, &self.sauvegarde, &self.plan)
             }
+            // Course (carte 8.7) : le choix de la force, par-dessus la carte des niveaux.
+            Ecran::ChoixForce => {
+                ecran_plan::dessiner(banque, self.skin, self.anim, &self.sauvegarde, &self.plan);
+                course_force::dessiner(
+                    &NIVEAUX[self.plan.selection],
+                    &self.sauvegarde,
+                    &self.choix,
+                    &libelles,
+                    &self.menu,
+                    &dispo,
+                    self.anim,
+                );
+            }
             Ecran::Jeu
             | Ecran::Carte(_)
             | Ecran::Pause
             | Ecran::PlusDeVies(_)
             | Ecran::BilanNiveau
+            | Ecran::BilanCourse
             | Ecran::Demo => {
                 // Pépin et la caméra sont arrondis ensemble (écart arrondi une seule fois) : pas de
                 // tremblement d'un pixel en courant (ni en tombant, dans un niveau haut).
@@ -1086,6 +1191,16 @@ impl Application {
                     cx + sx,
                     cy + sy,
                 );
+                // Course (carte 8.7) : le fantôme par-dessus, tant qu'il court.
+                if let Some(f) = self.fantome.as_ref().filter(|f| f.visible()) {
+                    scene::dessiner_fantome(
+                        &f.monde,
+                        banque,
+                        alpha,
+                        (cx + sx, cy + sy),
+                        f.force.libelle(),
+                    );
+                }
                 // Sous la trame (carte, pause) le HUD serait illisible : on ne le montre qu'en jeu.
                 if self.ecran == Ecran::Jeu {
                     // Niveau joué seul (carte 7.4) : les gouttes de CE niveau, sur 3.
@@ -1113,6 +1228,10 @@ impl Application {
                         cible,
                         self.monde.points_nuage(),
                     );
+                    // Course (carte 8.7) : l'état du fantôme sous le chrono.
+                    if let Some(f) = &self.fantome {
+                        hud::dessiner_ligne_course(&course::ligne_hud(f));
+                    }
                 }
                 match self.ecran {
                     Ecran::Carte(_) => {
@@ -1127,6 +1246,19 @@ impl Application {
                     }
                     Ecran::PlusDeVies(_) => plus_de_vies::dessiner(banque, self.anim),
                     Ecran::Demo => demo::dessiner_bandeau(self.anim),
+                    Ecran::BilanCourse => {
+                        if let (Some(c), Some(r)) = (&self.resultat_course, &self.resultat_niveau) {
+                            bilan_course::dessiner(
+                                &self.temps_course,
+                                c,
+                                r,
+                                self.anim,
+                                &libelles,
+                                &self.menu,
+                                &dispo,
+                            );
+                        }
+                    }
                     Ecran::BilanNiveau => {
                         if let Some(r) = &self.resultat_niveau {
                             bilan_niveau::dessiner(

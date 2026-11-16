@@ -38,9 +38,10 @@ use pepin_core::levels::gouttes_pour_le_bonus;
 const Y_VUE: f32 = 14.0;
 /// Largeur de la carte à l'écran.
 const L_CARTE: f32 = 176.0;
-/// Panneau de l'étape choisie, et son bouton JOUER.
+/// Panneau de l'étape choisie, et ses boutons JOUER et COURSE (carte 8.7) côte à côte.
 const PANNEAU: (f32, f32, f32, f32) = (180.0, 16.0, 136.0, 148.0);
-const BOUTON_JOUER: (f32, f32, f32, f32) = (188.0, 140.0, 120.0, 20.0);
+const BOUTON_JOUER: (f32, f32, f32, f32) = (184.0, 140.0, 63.0, 20.0);
+const BOUTON_COURSE: (f32, f32, f32, f32) = (249.0, 140.0, 63.0, 20.0);
 /// Bouton RETOUR, dans le bandeau du bas.
 const BOUTON_RETOUR: (f32, f32, f32, f32) = (4.0, 166.0, 62.0, 13.0);
 /// Demi-côté d'une étape, et demi-côté de sa zone de toucher (plus large).
@@ -52,6 +53,8 @@ const LIGNE_PANNEAU: usize = 21;
 const _: () = {
     assert!(Y_VUE + H_VUE <= BOUTON_RETOUR.1);
     assert!(BOUTON_JOUER.1 + BOUTON_JOUER.3 <= PANNEAU.1 + PANNEAU.3 - 2.0);
+    assert!(BOUTON_JOUER.0 + BOUTON_JOUER.2 < BOUTON_COURSE.0);
+    assert!(BOUTON_COURSE.0 + BOUTON_COURSE.2 <= PANNEAU.0 + PANNEAU.2 - 4.0);
     assert!(L_CARTE < PANNEAU.0);
 };
 
@@ -93,6 +96,10 @@ impl Zones for MiseEnPage {
 
     fn sur_jouer(&self, x: f32, y: f32) -> bool {
         dedans(BOUTON_JOUER, x, y)
+    }
+
+    fn sur_course(&self, x: f32, y: f32) -> bool {
+        dedans(BOUTON_COURSE, x, y)
     }
 
     fn sur_retour(&self, x: f32, y: f32) -> bool {
@@ -139,7 +146,7 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
         4.0,
         ombre(BLANC_CASSE),
     );
-    dessiner_panneau(banque, s, e.selection, anim);
+    dessiner_panneau(banque, s, e, anim);
     let (x, y, w, h) = BOUTON_RETOUR;
     panneau(x, y, w, h, ARDOISE_NUIT, BRUME);
     texte::dessiner_centre_sur(contenu::RETOUR, x + w / 2.0, y + 3.0, ombre(BRUME));
@@ -343,7 +350,8 @@ fn goutte(banque: &Banque, x: f32, y: f32, trouvee: bool) {
 }
 
 /// Le panneau de l'étape choisie.
-fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
+fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
+    let i = e.selection;
     let (px, py, pw, ph) = PANNEAU;
     panneau(px, py, pw, ph, ARDOISE_NUIT, ARDOISE_CLAIRE);
     let centre = px + pw / 2.0;
@@ -373,7 +381,7 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
         let gx = (centre - lc / 2.0).round();
         banque.dessiner("goutte0", gx, y + 3.0, false);
         texte::dessiner(&compte, gx + 12.0, y + 5.0, ombre(OR_PALE));
-        dessiner_bouton_jouer(false, anim);
+        dessiner_boutons(false, false, e.course, anim);
         return;
     }
     texte::dessiner_centre_sur(
@@ -404,7 +412,7 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
             texte::dessiner_centre_sur(&ligne, centre, y, ombre(ARDOISE_PALE));
             y += 10.0;
         }
-        dessiner_bouton_jouer(false, anim);
+        dessiner_boutons(false, false, e.course, anim);
         return;
     }
     // Meilleur temps (« FINI » sans temps : niveau migré de la v2, carte 8.13).
@@ -440,27 +448,47 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
         texte::dessiner(&defi.libelle(), x + L_ICONE + ECART_ICONE, y, ombre(c));
         y += 10.0;
     }
-    dessiner_bouton_jouer(true, anim);
+    dessiner_boutons(true, plan::course_possible(NIVEAUX, s, i), e.course, anim);
 }
 
-/// Le bouton JOUER du panneau (grisé si l'étape n'est pas jouable).
-fn dessiner_bouton_jouer(actif: bool, anim: u32) {
-    let (x, y, w, h) = BOUTON_JOUER;
-    let (fond, bord, c) = if actif {
-        (ARDOISE_OMBRE, OR, OR_PALE)
-    } else {
-        (ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE)
+/// Les boutons JOUER et COURSE du panneau (carte 8.7) : grisés si l'étape n'est pas
+/// jouable (COURSE aussi sans partie de fantôme) ; celui que choisit le clavier
+/// (gauche / droite, `course`) a le liseré d'or et les chevrons.
+fn dessiner_boutons(jouer: bool, course: bool, choix_course: bool, anim: u32) {
+    bouton(
+        BOUTON_JOUER,
+        contenu::JOUER,
+        jouer,
+        jouer && !choix_course,
+        anim,
+    );
+    bouton(
+        BOUTON_COURSE,
+        contenu::COURSE,
+        course,
+        course && choix_course,
+        anim,
+    );
+}
+
+/// Un bouton du panneau : `actif` (sinon grisé), `choisi` (liseré d'or, chevrons).
+fn bouton((x, y, w, h): (f32, f32, f32, f32), libelle: &str, actif: bool, choisi: bool, anim: u32) {
+    let (fond, bord, c) = match (actif, choisi) {
+        (true, true) => (ARDOISE_OMBRE, OR, OR_PALE),
+        (true, false) => (ARDOISE_OMBRE, ARDOISE_CLAIRE, BRUME),
+        (false, _) => (ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE),
     };
     panneau(x, y, w, h, fond, bord);
+    let ty = y + (h - 7.0) / 2.0;
     texte::dessiner_centre_sur(
-        contenu::JOUER,
+        libelle,
         x + w / 2.0,
-        y + 3.0,
-        Style::simple(c, 2).avec_ombre(ARDOISE_OMBRE),
+        ty,
+        Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE),
     );
-    if actif && (anim / 20).is_multiple_of(2) {
-        let chevron = Style::simple(OR, 2);
-        texte::dessiner(">", x + 6.0, y + 3.0, chevron);
-        texte::dessiner_a_droite("<", x + w - 6.0, y + 3.0, chevron);
+    if choisi && (anim / 20).is_multiple_of(2) {
+        let chevron = Style::simple(OR, 1);
+        texte::dessiner(">", x + 4.0, ty, chevron);
+        texte::dessiner_a_droite("<", x + w - 4.0, ty, chevron);
     }
 }

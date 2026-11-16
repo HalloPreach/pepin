@@ -7,7 +7,7 @@ use pepin_core::entities::nuage::PV_NUAGE;
 use pepin_core::font::largeur_texte;
 use pepin_core::level::GOUTTES_PAR_NIVEAU;
 use pepin_core::levels::{gouttes_du_parcours, NIVEAUX};
-use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, OR};
+use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR};
 use pepin_core::LARGEUR_LOGIQUE;
 
 use crate::chrono;
@@ -155,6 +155,16 @@ pub fn dessiner(
         }
     }
 }
+
+/// Course contre le robot (carte 8.7) : l'état du fantôme (`course::ligne_hud`), à
+/// droite sous le chrono.
+pub fn dessiner_ligne_course(ligne: &str) {
+    let style = Style::simple(BRUME, 1).avec_ombre(ARDOISE_OMBRE);
+    texte::dessiner_a_droite(ligne, LARGEUR_LOGIQUE as f32 - 6.0, Y_LIGNE_COURSE, style);
+}
+
+/// Ordonnée de la ligne de la course : sous le chrono (y = 6, 7 px de haut).
+const Y_LIGNE_COURSE: f32 = 16.0;
 
 #[cfg(test)]
 mod tests {

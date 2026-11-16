@@ -6324,3 +6324,84 @@ comparable ». Rien dans `core/` ; le monde (physique, collisions, score) n'est 
 - RÈGLE des récompenses (7.9, crédit unique) : vaincre en facile = niveau FINI (`facile:1`, la suite s'ouvre), gouttes nouvelles créditées ; ni défi, ni médaille, ni meilleur temps du niveau, ni record de partie (`facile::noter_partie` compte seulement la partie finie). Bilan « NIVEAU RÉUSSI : FACILE » + « Pas de médaille ni de record en facile. », carte « FACILE ». Battre le boss plus tard en normal donne médaille et défis comme d'habitude.
 - Preuves : core `nuage` 21, `levels::cyclone` 1, `zones` 55, `faisabilite` 25 ok ; game `sauvegarde` 3, `plan` 4, `defis` 1, `hud` 6, `contenu` 9, `ecrans` 24, `nuage` 18 ok (un filtre par commande) ; `./docker-cargo.sh lint` LINT-OK ; `le_robot_finit_tous_les_niveaux_sans_mourir` ok ; script complet régénéré (`--ignored ecrire_script_navigateur`) : empreinte `e02065b280103725` IDENTIQUE à celle de la base 1dbb50d (mode normal inchangé), 0 mort ; `./build.sh` : game.wasm 594 600 octets, aucun `/home` dans `dist/`. Navigateur (build de QA, Chromium 1208 CDP, `node docs/capture-814.mjs PORT docs/qa SCRIPT 11831 12700 48`, SCRIPT : `script.txt` du robot) : sauvegarde à 9 défaites → mort → `defaites:10` + bannière ; OUI → nuage vaincu en 2 coups → `gouttes:111 defis:000 medaille:0 facile:1` (défaites à 0) ; vents jouable ; rechargé : relu tel quel, la carte repropose le choix. Captures `814-*` regardées, 0 pixel hors palette, 0 erreur console.
 - PAS testé : vrai téléphone (tactile seulement par le code partagé avec la boutique), Safari.
+
+## Course contre le robot (carte 8.7)
+
+### Ce qui a été fait
+
+- Mode COURSE : sur la carte des niveaux, un bouton COURSE à droite de JOUER (Gauche/Droite au
+  clavier, ou clic ; grisé si l'étape n'est pas jouable ou n'a pas de fantôme) ouvre le choix de la
+  force (`Ecran::ChoixForce`, `ecrans/course_force.rs`) : DÉBUTANT, HABITUÉ, EXPERT (les trois
+  `PROFILS` de `difficulte.rs`), CARTE ; sous la force choisie, le meilleur résultat contre elle
+  (« PAS ENCORE COURU » sinon) et, pour EXPERT, « 1re VICTOIRE : +5 GOUTTES » tant que la prime
+  reste à gagner.
+- Le fantôme (`game/src/course/mod.rs`) : son propre `Monde` (la même simulation core), avancé d'un
+  pas à chaque pas de jeu, nourri par une partie EMBARQUÉE (`course/parties.rs`, généré). Aucun
+  contact avec Pépin ni avec le monde du joueur (deux mondes séparés, aucun état global). Dessin
+  (`scene::dessiner_fantome`) : les images de Pépin tramées en damier (`Banque::dessiner_trame`, un
+  pixel sur deux, aucune demi-teinte), l'étiquette de la force au-dessus ; hors champ, une flèche
+  blanc cassé sur ombre d'ardoise au bord de l'écran, de son côté (`course::fleche_hors_champ`). Il
+  meurt et réapparaît à sa lanterne comme le joueur simulé (animation de mort non bornée au cadre).
+  HUD : sous le chrono, « ROBOT DÉBUTANT », puis « ROBOT ARRIVÉ 0:41,6 ».
+- Parties embarquées : le test ignoré `course::tests::ecrire_parties_des_fantomes` (un fil par
+  niveau, 785 s) rejoue le joueur simulé de la mesure (`difficulte::partie_du_fantome` : le premier
+  essai, graine OFFICIELLE, qui atteint le drapeau) et compresse ses entrées en plages, au format de
+  la démo 8.1 (`demo::compresser`). 11 niveaux x 3 forces = 33 parties, 2 988 plages. Le marché
+  couvert n'a PAS de fantôme : `Itineraires::tenter` (nouveau, le `calculer` sans panique) n'y
+  trouve pas le drapeau (la mesure de difficulté, allégée depuis 6.5, n'y passe plus) ; son bouton
+  COURSE est grisé. Le niveau de poursuite a ses trois fantômes.
+- Divergence (un niveau changé depuis la génération) : le fantôme s'arrête proprement dès que son
+  rejeu s'écarte de la partie prévue (plus d'entrées, drapeau au mauvais pas, plus de morts que
+  prévu) : il disparaît, le HUD dit « LE ROBOT A ABANDONNÉ » et la course ne compte pas (aucun
+  `unwrap` sur le chemin du jeu). Un niveau renommé perd simplement sa course.
+- Fin (`Ecran::BilanCourse`, `ecrans/bilan_course.rs`) : par-dessus le niveau figé, ce que le
+  niveau a rapporté (comme un niveau joué seul : médaille, défis, gouttes, règles inchangées), puis
+  « GAGNÉ DE 2,5 s » / « PERDU DE 1,0 s » (égalité = perdu), « TOI 0:39,1   ROBOT EXPERT 0:41,6 »,
+  le meilleur résultat et la prime ; REJOUER (même force) ou CARTE. Pas de record de partie.
+- Sauvegarde : `courses` (par CLÉ de niveau, l'écart signé en pas contre chaque force, négatif =
+  gagné), écrit `course.<clé>=0:-978 1:-659 2:-152`, ignoré par les versions d'avant (pas de
+  changement de version). Prime : `defis::GAIN_COURSE_EXPERT` = 5, à côté des autres revenus,
+  créditée UNE fois par niveau par `bonus_credites` (`course_expert_<clé>`).
+- Textes dans `contenu.rs` (forces, COURSE, GAGNÉ/PERDU, ROBOT…), aide de la carte « Haut/Bas :
+  niveau  Gauche/Droite : mode », README (un paragraphe).
+
+### Preuves
+
+- Test ciblé (le seul nouveau) : `course::tests::chaque_partie_des_fantomes_rejoue_sans_divergence`
+  (chaque partie embarquée, rejouée par `Fantome` comme dans le jeu, touche le drapeau au pas prévu
+  avec les morts prévues ; plages identiques à la recompression) : ok.
+- Extraction propre (`git archive`) du commit du code : `./docker-cargo.sh test --workspace
+  --no-default-features` : core 377 ok (2 ignorés), game 355 ok (29 ignorés), dont
+  `bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir` et
+  `sauvegarde::tests::la_migration_v2_range_chaque_niveau_sous_sa_cle` ; `./docker-cargo.sh lint` :
+  LINT-OK (rejoué sur l'extraction du commit d'après, alias de type pour clippy) ;
+  `./build.sh` (production) : dans `dist/`, 0 nom interdit, aucun `/home`, seule URL
+  `http://www.w3.org/2000/svg` ; game.wasm 617 223 octets (gzip 246 329), contre 588 088 (gzip 236 883) mesurés à la
+  carte 8.11 sur la même base : +29 135 octets, dans le budget de +40 Ko (parties.rs : 36 234 octets
+  de source, environ 12 Ko de plages).
+- Vrai navigateur (build de QA servi sur 127.0.0.1, Chromium 1208 sans tête par CDP, onglet au
+  premier plan, horloge virtuelle `docs/pilote-qa.js`) : `node docs/capture-course.mjs PORT docs/qa 2
+  "Gouttières et cheminées" ROBOT 2226 game/src/course/parties.rs 229`, ROBOT : le parcours du robot
+  de QA sur le niveau 2 (`bot_qa::trouver_parcours(1)`, 2 346 pas, écrit par un brouillon hors
+  dépôt). Sauvegarde vide, touche U (niveaux 1 à 8 ouverts), niveau 2, COURSE, puis pour chaque force
+  : Pépin attend au pas 2 226 (posé, avant la dernière ligne droite) le temps de se faire battre,
+  puis REJOUER sans attendre. Temps de Pépin = 2 346 pas exactement à chaque fois (même horloge que
+  le fantôme). Résultats : PERDU DE 1,0 s contre les trois forces (DÉBUTANT 0:55,4, HABITUÉ 0:50,0,
+  EXPERT 0:41,6), puis GAGNÉ DE 16,3 s, 10,9 s, 2,5 s ; « EXPERT BATTU : +5 GOUTTES ! » ;
+  localStorage `course.gouttieres=0:-978 1:-659 2:-152`, `bonus_credites=course_expert_gouttieres`,
+  poche 0 → 8 ; page rechargée : résultats conservés. 0 erreur de console, 0 erreur du pilote.
+- Captures `docs/qa/87c-*.png` (regardées ; `mesure-capture.py` : 0 pixel hors palette, 0 flou) :
+  `87c-carte-bouton-course` (bouton COURSE choisi), `87c-choix-force`, `87c-fantome-double` (le
+  fantôme DÉBUTANT tramé, étiquette au-dessus, double Pépin qui attend), `87c-fantome-hors-champ`
+  (flèche au bord gauche : le fantôme est derrière), `87c-perdu-force-0`, `87c-gagne-force-2`
+  (prime), `87c-choix-force-expert-battu` (« MEILLEUR : GAGNÉ DE 2,5 s », plus de prime à gagner).
+
+### Limites, ce qui n'est PAS testé
+
+- Les toits : HABITUÉ et EXPERT font exactement le parcours du robot de QA (2 037 pas, sans
+  erreur) ; l'égalité étant perdue, les battre demande de faire mieux que le robot (il attend 40 pas
+  de toucher le sol au départ, par exemple). Laissé tel quel : c'est le vrai niveau du joueur simulé.
+- L'arc-en-ciel DÉBUTANT : 4 min 40 et 14 morts (la partie la plus longue, 545 plages).
+- L'abandon du fantôme n'est pas montré dans le navigateur (il faudrait un niveau modifié) : il
+  repose sur `verdict` (`course/mod.rs`) ; recommencer ou « plus de vies » relance aussi le fantôme.
+- Pas de vrai téléphone (bouton COURSE au toucher non essayé), pas de son à l'oreille.

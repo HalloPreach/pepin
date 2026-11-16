@@ -24,6 +24,7 @@ mod camera;
 mod chrono;
 mod contenu;
 mod cosmetiques;
+mod course;
 mod decor;
 mod defis;
 mod demo;

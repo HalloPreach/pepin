@@ -52,8 +52,9 @@ pub fn libelle(choix: Choix) -> &'static str {
         Choix::Reprendre => REPRENDRE,
         Choix::Recommencer => RECOMMENCER,
         Choix::QuitterAuTitre => QUITTER_AU_TITRE,
-        Choix::Rejouer | Choix::RejouerNiveau => REJOUER,
+        Choix::Rejouer | Choix::RejouerNiveau | Choix::RejouerCourse => REJOUER,
         Choix::RetourTitre => RETOUR_TITRE,
+        Choix::Force(f) => f.libelle(),
     }
 }
 
@@ -390,8 +391,9 @@ pub const AIDE_BOUTIQUE: &str = "Entrée : choisir   Échap : retour";
 // --- Carte des niveaux (carte 7.4) ----------------------------------------------
 
 pub const TITRE_PLAN: &str = "CARTE DES NIVEAUX";
-/// Rappel des touches en bas de la carte.
-pub const AIDE_PLAN: &str = "Haut/Bas : choisir  Entrée : jouer";
+/// Rappel des touches en bas de la carte (Gauche/Droite : bouton JOUER ou COURSE,
+/// carte 8.7).
+pub const AIDE_PLAN: &str = "Haut/Bas : niveau  Gauche/Droite : mode";
 pub const NIVEAU_SECRET: &str = "NIVEAU SECRET";
 
 // --- Démo du titre (carte 8.1) ----------------------------------------------
@@ -412,6 +414,35 @@ pub const LIBELLE_MEILLEUR: &str = "MEILLEUR";
 /// Bilan d'un niveau joué depuis la carte.
 pub const NOUVEAU_MEILLEUR_TEMPS: &str = "NOUVEAU MEILLEUR TEMPS";
 pub const PREMIER_TEMPS: &str = "PREMIER TEMPS SUR CE NIVEAU !";
+
+// --- Course contre le robot (carte 8.7) ---------------------------------------
+
+/// Les trois forces du fantôme, de la plus faible à la plus forte (`course::Force`).
+pub const FORCES: [&str; 3] = ["DÉBUTANT", "HABITUÉ", "EXPERT"];
+/// Bouton de la carte des niveaux et titre de l'écran du choix de la force.
+pub const COURSE: &str = "COURSE";
+pub const TITRE_COURSE: &str = "COURSE CONTRE LE ROBOT";
+/// Choix de la force : rien de couru encore contre elle.
+pub const PAS_ENCORE_COURU: &str = "PAS ENCORE COURU";
+pub const MEILLEUR_RESULTAT: &str = "MEILLEUR :";
+/// La prime pas encore touchée, sous le choix de la force (EXPERT).
+pub fn prime_a_gagner(n: u32) -> String {
+    format!("1re VICTOIRE : +{n} GOUTTES")
+}
+pub const GAGNE: &str = "GAGNÉ";
+pub const PERDU: &str = "PERDU";
+/// Bilan d'une course : le temps du joueur.
+pub const TOI: &str = "TOI";
+/// Sous le chrono pendant la course.
+pub const ROBOT: &str = "ROBOT";
+pub const ROBOT_ARRIVE: &str = "ROBOT ARRIVÉ";
+pub const ROBOT_ABANDON: &str = "LE ROBOT A ABANDONNÉ";
+/// Bilan d'une course.
+pub const NOUVEAU_MEILLEUR_RESULTAT: &str = "MEILLEUR RÉSULTAT !";
+/// La prime touchée au bilan.
+pub fn prime_gagnee(n: u32) -> String {
+    format!("EXPERT BATTU : +{n} GOUTTES !")
+}
 
 /// « 1 GOUTTE », « 60 GOUTTES ».
 pub fn gouttes(n: u32) -> String {
@@ -544,7 +575,21 @@ pub(crate) mod tests {
             GOUTTES_A_REPRENDRE,
             HISTOIRE,
             APPUIE_POUR_CONTINUER,
+            COURSE,
+            TITRE_COURSE,
+            PAS_ENCORE_COURU,
+            MEILLEUR_RESULTAT,
+            GAGNE,
+            PERDU,
+            TOI,
+            ROBOT,
+            ROBOT_ARRIVE,
+            ROBOT_ABANDON,
+            NOUVEAU_MEILLEUR_RESULTAT,
         ];
+        t.extend(FORCES);
+        t.push(prime_a_gagner(5).leak());
+        t.push(prime_gagnee(5).leak());
         t.extend(RECIT.iter().flatten());
         let vies = recommencer_avec_vies(pepin_core::vies::VIES_DEPART);
         t.push(vies.leak());

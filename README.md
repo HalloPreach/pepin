@@ -136,6 +136,15 @@ offerte dès le départ), une traînée derrière lui, un motif sur son paraplui
 autre palette de couleurs pour tout le jeu, et une musique qui remplace celle des
 zones.
 
+Sur la carte, le bouton COURSE (à droite de JOUER) lance une course contre le
+robot : un fantôme de Pépin, tramé, court le niveau en même temps, sans rien
+toucher. Trois forces (DÉBUTANT, HABITUÉ, EXPERT) : ce sont les parties
+enregistrées des trois profils du joueur simulé (`game/src/difficulte.rs`), qui
+hésitent et meurent parfois comme un vrai joueur. Au drapeau : « GAGNÉ » ou
+« PERDU » et l'écart ; le meilleur résultat contre chaque force est gardé, et la
+première victoire contre EXPERT sur un niveau rapporte 5 gouttes. Le marché
+couvert n'a pas encore de fantôme (le joueur simulé n'y trouve pas le drapeau).
+
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.
 On réapparaît à la dernière lanterne allumée.

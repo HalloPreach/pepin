@@ -209,6 +209,8 @@ pub struct Banque {
     /// Les images du Grand Nuage tramées en damier : le nuage « pâle » du mode facile
     /// (carte 8.14), sans aucune demi-teinte hors palette.
     nuages_trames: HashMap<&'static str, Texture2D>,
+    /// Les personnages tramés en damier : le fantôme de la course (carte 8.7).
+    personnages_trames: HashMap<&'static str, Texture2D>,
 }
 
 impl Banque {
@@ -245,6 +247,10 @@ impl Banque {
             .filter(|(nom, _)| nom.starts_with("nuage_"))
             .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
             .collect();
+        let personnages_trames = personnages()
+            .into_iter()
+            .map(|(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
+            .collect();
         Self {
             sprites,
             tuiles: jeu(false),
@@ -252,6 +258,7 @@ impl Banque {
             motifs,
             motif: Cell::new(None),
             nuages_trames,
+            personnages_trames,
         }
     }
 
@@ -296,6 +303,14 @@ impl Banque {
     pub fn dessiner_tuile_tramee(&self, theme: Theme, nom: &str, x: f32, y: f32) {
         if let Some(t) = self.tuiles_tramees[theme.indice()].get(nom) {
             Self::poser(t, x, y, false);
+        }
+    }
+
+    /// Dessine le personnage `nom` tramé en damier : le fantôme de la course contre le
+    /// robot (carte 8.7), « translucide » sans demi-teinte.
+    pub fn dessiner_trame(&self, nom: &str, x: f32, y: f32, miroir: bool) {
+        if let Some(t) = self.personnages_trames.get(nom) {
+            Self::poser(t, x, y, miroir);
         }
     }
 
