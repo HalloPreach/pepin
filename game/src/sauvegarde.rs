@@ -1,15 +1,22 @@
-//! Sauvegarde (carte 7.2) : ce qui reste d'une partie à l'autre.
+//! Sauvegarde (cartes 7.2 et 7.3) : ce qui reste d'une partie à l'autre.
 //!
-//! - le porte-monnaie : les gouttes d'or gagnées (niveaux RÉUSSIS seulement), la
-//!   monnaie des skins (la boutique vient avec la carte 7.3) ;
+//! - le porte-monnaie : les gouttes d'or gagnées (niveaux RÉUSSIS, défis, médailles
+//!   et bonus de fin, voir `defis`), la monnaie de la boutique ;
 //! - les records : meilleur score et meilleur temps d'une partie finie (affichés,
 //!   jamais dépensés) ;
-//! - les skins débloqués (« pepin » et « pepinette » d'office) et le skin choisi.
+//! - la PROGRESSION (carte 7.3) : le niveau le plus loin atteint et, pour chaque
+//!   niveau, les gouttes trouvées (lesquelles des 3), le meilleur temps, les défis
+//!   déjà réussis et la meilleure médaille (`ProgresNiveau`) ;
+//! - l'INVENTAIRE des cosmétiques (carte 7.3) : des identifiants « categorie:id »
+//!   (`skin:pepinette`, `musique:orage`, `trainee:etoiles`…) et l'objet ÉQUIPÉ par
+//!   catégorie. Les champs de la v1 (`skins_debloques`, `skin_choisi`) restent : ce
+//!   sont des façades de la catégorie `skin`, tenues à jour dans les deux sens
+//!   (`normaliser`).
 //!
-//! Format texte, une ligne `cle=valeur` par champ, avec `version=1` en tête. La
-//! lecture est TOLÉRANTE : texte absent, vide ou sans `version=1` → valeurs par
-//! défaut ; champ inconnu → ignoré ; valeur illisible → valeur par défaut de ce
-//! champ. Jamais de plantage.
+//! Format texte, une ligne `cle=valeur` par champ, avec `version=2` en tête (une v1
+//! est relue sans perte, puis réécrite en v2). La lecture est TOLÉRANTE : texte
+//! absent, vide ou de version inconnue → valeurs par défaut ; champ inconnu → ignoré ;
+//! valeur illisible → valeur par défaut de ce champ. Jamais de plantage.
 //!
 //! Stockage : dans le navigateur, `localStorage` (clé `pepin.sauvegarde`), par le
 //! petit plugin JavaScript de `web/index.html` (fonctions `pepin_sauvegarde_lire` et
@@ -18,13 +25,35 @@
 //! (tests), rien n'est écrit sur le disque : la sauvegarde vit en mémoire.
 //!
 //! Notions Rust illustrées ici : `str::split_once`, `parse::<u32>().ok()`,
-//! `saturating_add`, `#[cfg(target_arch = "wasm32")]` pour un code propre au web, et
-//! `extern "C"` pour appeler une fonction JavaScript depuis le WebAssembly.
+//! `saturating_add`, `BTreeMap` (ordre stable à l'écriture), tableau de taille
+//! constante `[T; NB_NIVEAUX]`, `#[cfg(target_arch = "wasm32")]` pour un code propre
+//! au web, et `extern "C"` pour appeler une fonction JavaScript depuis le WebAssembly.
 
-/// Version du format texte.
-const VERSION: u32 = 1;
+use std::collections::BTreeMap;
+
+use pepin_core::levels::NB_NIVEAUX;
+
+/// Version du format texte écrit (les versions 1 et 2 sont lues).
+const VERSION: u32 = 2;
 /// Skins disponibles dès le départ.
 pub const SKINS_DE_DEPART: [&str; 2] = ["pepin", "pepinette"];
+/// Inventaire de départ (carte 7.3) : les deux skins et la musique d'origine.
+pub const INVENTAIRE_DE_DEPART: [&str; 3] = ["skin:pepin", "skin:pepinette", "musique:orage"];
+/// Objets équipés au départ, par catégorie.
+pub const EQUIPES_DE_DEPART: [(&str, &str); 2] = [("skin", "pepin"), ("musique", "orage")];
+
+/// Progression d'un niveau (carte 7.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ProgresNiveau {
+    /// Gouttes d'or trouvées dans un niveau RÉUSSI : `gouttes[i]` pour la goutte i.
+    pub gouttes: [bool; 3],
+    /// Meilleur temps d'une tentative réussie, en pas de 1/60 s (`None` : jamais fini).
+    pub meilleur_temps: Option<u32>,
+    /// Défis réussis au moins une fois (dans l'ordre de `defis::defis_du_niveau`).
+    pub defis: [bool; 3],
+    /// Meilleure médaille : défis réussis dans UNE même tentative (0 à 3 ; 3 = or).
+    pub medaille: u8,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sauvegarde {
@@ -38,8 +67,18 @@ pub struct Sauvegarde {
     pub meilleur_temps: Option<u32>,
     pub parties_finies: u32,
     /// Identifiants des skins débloqués (contient toujours `SKINS_DE_DEPART`).
+    /// Façade v1 de la catégorie `skin` de l'inventaire.
     pub skins_debloques: Vec<String>,
+    /// Façade v1 du skin équipé.
     pub skin_choisi: String,
+    /// Indice (0 : le premier) du niveau le plus loin atteint.
+    pub niveau_max_atteint: usize,
+    /// Progression niveau par niveau, dans l'ordre de `NIVEAUX`.
+    pub niveaux: [ProgresNiveau; NB_NIVEAUX],
+    /// Cosmétiques possédés, « categorie:id » (contient `INVENTAIRE_DE_DEPART`).
+    pub inventaire: Vec<String>,
+    /// Objet équipé par catégorie (catégorie → id).
+    pub equipes: BTreeMap<String, String>,
 }
 
 impl Default for Sauvegarde {
@@ -52,14 +91,21 @@ impl Default for Sauvegarde {
             parties_finies: 0,
             skins_debloques: SKINS_DE_DEPART.iter().map(|s| s.to_string()).collect(),
             skin_choisi: SKINS_DE_DEPART[0].to_string(),
+            niveau_max_atteint: 0,
+            niveaux: [ProgresNiveau::default(); NB_NIVEAUX],
+            inventaire: INVENTAIRE_DE_DEPART.iter().map(|s| s.to_string()).collect(),
+            equipes: EQUIPES_DE_DEPART
+                .iter()
+                .map(|&(c, i)| (c.to_string(), i.to_string()))
+                .collect(),
         }
     }
 }
 
-// La boutique (carte 7.3) utilisera `depenser`, `debloquer` et `skin_choisi`.
+// La boutique utilisera `depenser`, `acquerir`, `equiper`…
 #[cfg_attr(not(test), allow(dead_code))]
 impl Sauvegarde {
-    /// Gouttes d'un niveau réussi : dans le porte-monnaie.
+    /// Gouttes gagnées (niveau réussi, défi, médaille, bonus) : dans le porte-monnaie.
     pub fn ajouter_gouttes(&mut self, n: u32) {
         self.gouttes_en_poche = self.gouttes_en_poche.saturating_add(n);
         self.gouttes_total_gagnees = self.gouttes_total_gagnees.saturating_add(n);
@@ -76,10 +122,66 @@ impl Sauvegarde {
         }
     }
 
-    /// Ajoute un skin aux skins débloqués (sans doublon).
+    /// Ajoute un skin aux skins débloqués (sans doublon) ; façade de
+    /// `acquerir("skin:…")`.
     pub fn debloquer(&mut self, skin: &str) {
         if !self.skins_debloques.iter().any(|s| s == skin) {
             self.skins_debloques.push(skin.to_string());
+        }
+        let objet = format!("skin:{skin}");
+        if !self.inventaire.contains(&objet) {
+            self.inventaire.push(objet);
+        }
+    }
+
+    /// Possède-t-on l'objet « categorie:id » ?
+    pub fn possede(&self, objet: &str) -> bool {
+        match objet.split_once(':') {
+            Some(("skin", id)) => self.skins_debloques.iter().any(|s| s == id),
+            _ => self.inventaire.iter().any(|o| o == objet),
+        }
+    }
+
+    /// Ajoute l'objet « categorie:id » à l'inventaire (sans doublon). Un texte qui
+    /// n'est pas un identifiant d'objet est ignoré.
+    pub fn acquerir(&mut self, objet: &str) {
+        let Some((categorie, id)) = decouper_objet(objet) else {
+            return;
+        };
+        if categorie == "skin" {
+            self.debloquer(id);
+        } else if !self.inventaire.iter().any(|o| o == objet) {
+            self.inventaire.push(objet.to_string());
+        }
+    }
+
+    /// Équipe l'objet « categorie:id » s'il est possédé (`false` sinon).
+    pub fn equiper(&mut self, objet: &str) -> bool {
+        let Some((categorie, id)) = decouper_objet(objet) else {
+            return false;
+        };
+        if !self.possede(objet) {
+            return false;
+        }
+        if categorie == "skin" {
+            self.skin_choisi = id.to_string();
+        }
+        self.equipes.insert(categorie.to_string(), id.to_string());
+        true
+    }
+
+    /// Objet équipé dans une catégorie (`None` : rien d'équipé).
+    pub fn equipe(&self, categorie: &str) -> Option<&str> {
+        if categorie == "skin" {
+            return Some(&self.skin_choisi);
+        }
+        self.equipes.get(categorie).map(String::as_str)
+    }
+
+    /// Pépin est arrivé au niveau `indice` (hors de la table : ignoré).
+    pub fn noter_niveau_atteint(&mut self, indice: usize) {
+        if indice < NB_NIVEAUX {
+            self.niveau_max_atteint = self.niveau_max_atteint.max(indice);
         }
     }
 
@@ -93,32 +195,98 @@ impl Sauvegarde {
         record
     }
 
-    /// Le texte enregistré.
+    /// Accorde les façades v1 et l'inventaire, dans les deux sens : skins débloqués
+    /// ↔ `skin:…`, `skin_choisi` ↔ objet équipé de la catégorie `skin` ; objets de
+    /// départ toujours présents ; un objet équipé qu'on ne possède pas est retiré
+    /// (le skin, lui, revient à Pépin).
+    pub fn normaliser(&mut self) {
+        for depart in INVENTAIRE_DE_DEPART {
+            self.acquerir(depart);
+        }
+        for skin in self.skins_debloques.clone() {
+            self.debloquer(&skin);
+        }
+        for objet in self.inventaire.clone() {
+            if let Some(("skin", id)) = objet.split_once(':') {
+                self.debloquer(id);
+            }
+        }
+        if !self.skins_debloques.contains(&self.skin_choisi) {
+            self.skin_choisi = SKINS_DE_DEPART[0].to_string();
+        }
+        let possedes: Vec<(String, String)> = self
+            .equipes
+            .iter()
+            .filter(|(c, i)| self.possede(&format!("{c}:{i}")))
+            .map(|(c, i)| (c.clone(), i.clone()))
+            .collect();
+        self.equipes = possedes.into_iter().collect();
+        for (categorie, id) in EQUIPES_DE_DEPART {
+            self.equipes
+                .entry(categorie.to_string())
+                .or_insert_with(|| id.to_string());
+        }
+        self.equipes
+            .insert("skin".to_string(), self.skin_choisi.clone());
+    }
+
+    /// Le texte enregistré (format v2).
     pub fn vers_texte(&self) -> String {
+        // Les façades ont pu être changées directement : on écrit leur accord.
+        let mut s = self.clone();
+        s.normaliser();
         let mut t = format!(
             "version={VERSION}\ngouttes_en_poche={}\ngouttes_total_gagnees={}\n\
-             meilleur_score={}\nparties_finies={}\nskins_debloques={}\nskin_choisi={}\n",
-            self.gouttes_en_poche,
-            self.gouttes_total_gagnees,
-            self.meilleur_score,
-            self.parties_finies,
-            self.skins_debloques.join(","),
-            self.skin_choisi,
+             meilleur_score={}\nparties_finies={}\nniveau_max_atteint={}\n\
+             inventaire={}\nequipe={}\n",
+            s.gouttes_en_poche,
+            s.gouttes_total_gagnees,
+            s.meilleur_score,
+            s.parties_finies,
+            s.niveau_max_atteint,
+            s.inventaire.join(","),
+            s.equipes
+                .iter()
+                .map(|(c, i)| format!("{c}:{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
         );
-        if let Some(temps) = self.meilleur_temps {
+        if let Some(temps) = s.meilleur_temps {
             t.push_str(&format!("meilleur_temps={temps}\n"));
+        }
+        // Une ligne par niveau déjà touché : `niveau.N=gouttes:101 defis:110 medaille:2
+        // temps:2345` (N à partir de 1, chaînes de bits dans l'ordre 0, 1, 2).
+        for (i, p) in s.niveaux.iter().enumerate() {
+            if *p == ProgresNiveau::default() {
+                continue;
+            }
+            t.push_str(&format!(
+                "niveau.{}=gouttes:{} defis:{} medaille:{}",
+                i + 1,
+                bits(p.gouttes),
+                bits(p.defis),
+                p.medaille
+            ));
+            if let Some(temps) = p.meilleur_temps {
+                t.push_str(&format!(" temps:{temps}"));
+            }
+            t.push('\n');
         }
         t
     }
 
-    /// Relit un texte de `vers_texte`, avec tolérance (voir l'en-tête du module).
+    /// Relit un texte de `vers_texte` (v2) ou de la v1, avec tolérance (voir
+    /// l'en-tête du module).
     pub fn depuis_texte(texte: &str) -> Self {
         let mut s = Self::default();
         let paires = texte
             .lines()
             .filter_map(|l| l.split_once('='))
             .map(|(c, v)| (c.trim(), v.trim()));
-        if !paires.clone().any(|p| p == ("version", "1")) {
+        if !paires
+            .clone()
+            .any(|p| p == ("version", "1") || p == ("version", "2"))
+        {
             return s;
         }
         let nombre = |v: &str, defaut: u32| v.parse::<u32>().unwrap_or(defaut);
@@ -129,6 +297,7 @@ impl Sauvegarde {
                 "meilleur_score" => s.meilleur_score = nombre(valeur, 0),
                 "meilleur_temps" => s.meilleur_temps = valeur.parse().ok(),
                 "parties_finies" => s.parties_finies = nombre(valeur, 0),
+                // v1 : migrés vers l'inventaire par `normaliser`.
                 "skins_debloques" => {
                     for skin in valeur.split(',').map(str::trim) {
                         if est_identifiant(skin) {
@@ -137,13 +306,39 @@ impl Sauvegarde {
                     }
                 }
                 "skin_choisi" => s.skin_choisi = valeur.to_string(),
-                _ => {} // champ inconnu (version future) : ignoré
+                // v2.
+                "niveau_max_atteint" => {
+                    s.niveau_max_atteint =
+                        valeur.parse::<usize>().map_or(0, |n| n.min(NB_NIVEAUX - 1))
+                }
+                "inventaire" => {
+                    for objet in valeur.split(',').map(str::trim) {
+                        s.acquerir(objet);
+                    }
+                }
+                "equipe" => {
+                    for objet in valeur.split(',').map(str::trim) {
+                        if let Some((categorie, id)) = decouper_objet(objet) {
+                            s.equipes.insert(categorie.to_string(), id.to_string());
+                            if categorie == "skin" {
+                                s.skin_choisi = id.to_string();
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    if let Some(i) = cle
+                        .strip_prefix("niveau.")
+                        .and_then(|n| n.parse::<usize>().ok())
+                        .filter(|n| (1..=NB_NIVEAUX).contains(n))
+                    {
+                        s.niveaux[i - 1] = lire_niveau(valeur);
+                    }
+                    // Sinon, champ inconnu (version future) : ignoré.
+                }
             }
         }
-        // Un skin choisi qui n'est pas débloqué (texte abîmé) : retour au skin de base.
-        if !s.skins_debloques.contains(&s.skin_choisi) {
-            s.skin_choisi = SKINS_DE_DEPART[0].to_string();
-        }
+        s.normaliser();
         s
     }
 
@@ -158,12 +353,48 @@ impl Sauvegarde {
     }
 }
 
-/// Un identifiant de skin : lettres minuscules, chiffres, `_` ou `-`.
+/// `[vrai, faux, vrai]` → `"101"`.
+fn bits(b: [bool; 3]) -> String {
+    b.iter().map(|&x| if x { '1' } else { '0' }).collect()
+}
+
+/// `"101"` → `[vrai, faux, vrai]` ; autre chose → `None`.
+fn lire_bits(t: &str) -> Option<[bool; 3]> {
+    let c: Vec<char> = t.chars().collect();
+    if c.len() != 3 || c.iter().any(|&x| x != '0' && x != '1') {
+        return None;
+    }
+    Some([c[0] == '1', c[1] == '1', c[2] == '1'])
+}
+
+/// Relit `gouttes:101 defis:110 medaille:2 temps:2345` (morceau illisible : défaut).
+fn lire_niveau(valeur: &str) -> ProgresNiveau {
+    let mut p = ProgresNiveau::default();
+    for (cle, v) in valeur.split_whitespace().filter_map(|m| m.split_once(':')) {
+        match cle {
+            "gouttes" => p.gouttes = lire_bits(v).unwrap_or_default(),
+            "defis" => p.defis = lire_bits(v).unwrap_or_default(),
+            "medaille" => p.medaille = v.parse::<u8>().map_or(0, |m| m.min(3)),
+            "temps" => p.meilleur_temps = v.parse().ok(),
+            _ => {}
+        }
+    }
+    p
+}
+
+/// Un identifiant (de skin, de catégorie…) : lettres minuscules, chiffres, `_` ou `-`.
 fn est_identifiant(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 32
         && s.bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-')
+}
+
+/// « categorie:id » → `(categorie, id)` si les deux sont des identifiants.
+fn decouper_objet(objet: &str) -> Option<(&str, &str)> {
+    objet
+        .split_once(':')
+        .filter(|(c, i)| est_identifiant(c) && est_identifiant(i))
 }
 
 /// Navigateur : `localStorage`, par le plugin JavaScript de `web/index.html`.
@@ -223,7 +454,7 @@ mod tests {
     use super::*;
 
     /// Aller-retour texte ; texte absent, vide ou abîmé → défaut ; dépense refusée
-    /// sans assez de gouttes.
+    /// sans assez de gouttes ; une v1 relue sans perte (carte 7.3).
     #[test]
     fn la_sauvegarde_fait_l_aller_retour_et_tolere_un_texte_abime() {
         let mut s = Sauvegarde::default();
@@ -236,7 +467,24 @@ mod tests {
         assert!(s.noter_partie(900, 5000), "première partie finie");
         assert!(!s.noter_partie(800, 4000));
         assert_eq!((s.meilleur_score, s.meilleur_temps), (900, Some(4000)));
+        // v2 : progression, inventaire générique, objet équipé.
+        s.noter_niveau_atteint(4);
+        s.noter_niveau_atteint(99);
+        s.niveaux[2] = ProgresNiveau {
+            gouttes: [true, false, true],
+            meilleur_temps: Some(2345),
+            defis: [true, true, false],
+            medaille: 2,
+        };
+        s.acquerir("trainee:etoiles");
+        assert!(s.equiper("trainee:etoiles"));
+        assert!(!s.equiper("motif:pois"), "pas acheté");
+        s.normaliser();
         assert_eq!(Sauvegarde::depuis_texte(&s.vers_texte()), s);
+        assert_eq!(s.niveau_max_atteint, 4);
+        assert_eq!(s.equipe("skin"), Some("pepinette"));
+        assert_eq!(s.equipe("musique"), Some("orage"));
+        assert!(s.possede("skin:pepin_dore") && s.possede("musique:orage"));
 
         for abime in [
             "",
@@ -255,5 +503,24 @@ mod tests {
         assert_eq!((lu.gouttes_en_poche, lu.parties_finies), (0, 4));
         assert_eq!(lu.skin_choisi, "pepin");
         assert_eq!(lu.skins_debloques, ["pepin", "pepinette"]);
+
+        // Une v1 (carte 7.2) : rien ne se perd, les skins passent dans l'inventaire.
+        let v1 = "version=1\ngouttes_en_poche=14\ngouttes_total_gagnees=20\nmeilleur_score=2500\n\
+                  parties_finies=1\nskins_debloques=pepin,pepinette,pepin_dore\n\
+                  skin_choisi=pepin_dore\nmeilleur_temps=18877\n";
+        let lu = Sauvegarde::depuis_texte(v1);
+        assert_eq!((lu.gouttes_en_poche, lu.gouttes_total_gagnees), (14, 20));
+        assert_eq!((lu.meilleur_score, lu.meilleur_temps), (2500, Some(18877)));
+        assert!(lu.possede("skin:pepin_dore"));
+        assert_eq!(lu.equipe("skin"), Some("pepin_dore"));
+        assert!(lu.vers_texte().starts_with("version=2\n"));
+        assert_eq!(Sauvegarde::depuis_texte(&lu.vers_texte()), lu);
+        // Ligne de niveau abîmée : défaut pour le morceau illisible seulement.
+        let lu = Sauvegarde::depuis_texte("version=2\nniveau.1=gouttes:1x1 defis:111 medaille:9");
+        assert_eq!(lu.niveaux[0].gouttes, [false; 3]);
+        assert_eq!(
+            (lu.niveaux[0].defis, lu.niveaux[0].medaille),
+            ([true; 3], 3)
+        );
     }
 }
