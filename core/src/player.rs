@@ -293,7 +293,7 @@ impl Joueur {
         let sens_vent: i32 = env
             .vents
             .iter()
-            .filter(|v| v.zone.chevauche(&self.boite))
+            .filter(|v| !v.leger && v.zone.chevauche(&self.boite))
             .map(|v| i32::from(v.sens))
             .sum();
         let sens_vent = if sens_vent.abs() > 1 {
@@ -311,6 +311,18 @@ impl Joueur {
         let mut dx = self.vitesse.x * DT + poussee_vent * DT;
         if self.elan_auvent != 0.0 {
             dx += self.elan_auvent * DT;
+        }
+        // Le léger vent de face de la nouvelle partie + (carte 8.8) : même force
+        // plané ou non. Ajouté à part, et seulement s'il existe : en partie normale,
+        // le calcul reste celui d'avant, au bit près.
+        let poussee_legere: f32 = env
+            .vents
+            .iter()
+            .filter(|v| v.leger && v.zone.chevauche(&self.boite))
+            .map(|v| f32::from(v.sens) * VENT_DE_FACE)
+            .sum();
+        if poussee_legere != 0.0 {
+            dx += poussee_legere * DT;
         }
         let contacts = deplacer(
             &mut self.boite,

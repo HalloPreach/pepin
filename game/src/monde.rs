@@ -17,6 +17,7 @@ use pepin_core::entities::{
     courants_des_entites, reprendre_apres_une_mort, solides_des_entites, Actualisable, Entite,
 };
 use pepin_core::level::Niveau;
+use pepin_core::levels::variantes;
 use pepin_core::physics::{CourantAscendant, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
 use pepin_core::poursuite::MurDePluie;
@@ -62,6 +63,9 @@ pub struct Monde {
     pub sortie_secrete: bool,
     /// Le mur de pluie du niveau de poursuite (carte 8.2) : `None` ailleurs.
     pub mur: Option<MurDePluie>,
+    /// Nouvelle partie + (carte 8.8) : le niveau a été chargé avec sa variante
+    /// (`levels::variantes`) ; la pluie dessinée est plus forte.
+    pub ng_plus: bool,
     precedent_joueur: (f32, f32),
     precedent_entites: Vec<(f32, f32)>,
 }
@@ -165,10 +169,22 @@ fn niveau_essai(_indice: usize) -> Option<&'static InfosNiveau> {
 impl Monde {
     /// Charge le niveau `indice` de la table `NIVEAUX` (ou le niveau d'essai, voir
     /// `infos_niveau`). Les niveaux sont validés par les tests du cœur : un échec ici est
-    /// une erreur de programmation, d'où le `expect`.
+    /// une erreur de programmation, d'où le `expect`. Toujours en partie normale
+    /// (le fantôme de la course, carte 8.7, les tests) ; la partie passe par `charger`.
     pub fn new(indice: usize) -> Self {
+        Self::charger(indice, false)
+    }
+
+    /// Comme `new`, en nouvelle partie + si `ng_plus` (carte 8.8) : la variante du
+    /// niveau (ennemis déplacés, éclairs plus fréquents, Grand Nuage serré, vent de
+    /// face sur les toits), validée par les tests du cœur.
+    pub fn charger(indice: usize, ng_plus: bool) -> Self {
         let infos = infos_niveau(indice).expect("indice de niveau valide");
-        let niveau = infos.charger().expect("niveau embarqué valide");
+        let niveau = if ng_plus {
+            variantes::charger_ng_plus(infos).expect("variante embarquée valide")
+        } else {
+            infos.charger().expect("niveau embarqué valide")
+        };
         let joueur = Joueur::new(niveau.depart.0, niveau.depart.1);
         let mut etat = EtatJeu::new(niveau.depart);
         etat.appliquer(Ordre::Demarrer)
@@ -201,6 +217,7 @@ impl Monde {
             secret_revele: false,
             sortie_secrete: false,
             mur,
+            ng_plus,
             precedent_entites,
         }
     }

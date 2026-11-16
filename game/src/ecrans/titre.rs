@@ -24,6 +24,9 @@ const Y_SOUS_TITRE: f32 = 54.0;
 /// Bas du sous-titre, ombre comprise : le menu commence en dessous (test de `ecrans`).
 #[cfg(test)]
 pub const FIN_SOUS_TITRE: f32 = Y_SOUS_TITRE + HAUTEUR_GLYPHE as f32 + 1.0;
+/// Bas du grand titre, ombre comprise : le menu à six lignes commence en dessous.
+#[cfg(test)]
+pub const FIN_TITRE: f32 = Y_TITRE + (HAUTEUR_GLYPHE * 5 + 5) as f32;
 
 // Le titre (7 rangées à l'échelle 5, ombre décalée de 5 px) finit avant le sous-titre.
 const _: () = assert!(Y_TITRE + (HAUTEUR_GLYPHE * 5 + 5) as f32 <= Y_SOUS_TITRE);
@@ -52,7 +55,7 @@ pub fn dessiner(
         SOL - 16.0,
         false,
     );
-    decor::dessiner_avant(Theme::Toits, anim);
+    decor::dessiner_avant(Theme::Toits, anim, false);
 
     // Remontés à la carte 7.4 pour la cinquième ligne du menu (CARTE).
     texte::dessiner_centre(
@@ -60,11 +63,14 @@ pub fn dessiner(
         Y_TITRE,
         Style::simple(OR_PALE, 5).avec_ombre(ARDOISE_OMBRE),
     );
-    texte::dessiner_centre(
-        contenu::SOUS_TITRE,
-        Y_SOUS_TITRE,
-        Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE),
-    );
+    // Six lignes (carte 8.8) : le menu prend la place du sous-titre.
+    if libelles.len() <= super::LIGNES_TITRE_MAX {
+        texte::dessiner_centre(
+            contenu::SOUS_TITRE,
+            Y_SOUS_TITRE,
+            Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE),
+        );
+    }
     dessiner_menu(libelles, menu, d, anim);
     // Bandeau sombre derrière le rappel des touches : lisible malgré les briques.
     rect(0.0, 164.0, LARGEUR_LOGIQUE as f32, 16.0, ARDOISE_OMBRE);

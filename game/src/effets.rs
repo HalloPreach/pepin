@@ -104,7 +104,9 @@ pub fn effets(
         // (carte 5.15 : une seule traînée tous les 3 pas se perdait dans une grande
         // zone).
         let couleurs = ambiance(monde.infos.theme).vent;
-        for v in &monde.niveau.vents {
+        // Le léger vent de face de la nouvelle partie + (carte 8.8) n'a pas de
+        // traînées : c'est la pluie forte, plus penchée, qui le montre.
+        for v in monde.niveau.vents.iter().filter(|v| !v.leger) {
             let z = v.zone;
             if z.x + z.w < cam_x || z.x > cam_x + LARGEUR_LOGIQUE as f32 {
                 continue;

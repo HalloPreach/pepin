@@ -138,6 +138,12 @@ pub const VENT_LAT: f32 = 60.0;
 /// plus forte que `VENT_LAT`. On s'en sert pour allonger un plané, ou on ferme
 /// le parapluie pour résister au vent.
 pub const VENT_LAT_PLANE: f32 = 2.0 * VENT_LAT;
+/// Vitesse (px/s) du léger vent de face de la NOUVELLE PARTIE + (carte 8.8), sur
+/// les niveaux de toits : il pousse Pépin vers la GAUCHE (contre sa course), de
+/// 6 px/s, parapluie ouvert ou fermé. C'est 10 fois moins que `VENT_LAT` : la
+/// course (96 px/s) et le plané (72 px/s) le remontent toujours sans peine ; il
+/// raccourcit seulement un peu les sauts et les planés.
+pub const VENT_DE_FACE: f32 = 6.0;
 
 // ---------------------------------------------------------------------------
 // Auvents (lettre `A`) : rebond en diagonale, vers le haut et vers la droite
@@ -170,12 +176,29 @@ pub struct VentLateral {
     pub zone: Aabb,
     /// Sens du vent : 1 (vers la droite, `>`), -1 (vers la gauche, `<`).
     pub sens: i8,
+    /// Vent LÉGER (carte 8.8, le vent de face de la nouvelle partie +) : il pousse
+    /// de `VENT_DE_FACE`, plané ou non, au lieu de `VENT_LAT` / `VENT_LAT_PLANE`.
+    pub leger: bool,
 }
 
 impl VentLateral {
     /// Zone de vent de `sens` (1 ou -1).
     pub fn new(zone: Aabb, sens: i8) -> Self {
-        Self { zone, sens }
+        Self {
+            zone,
+            sens,
+            leger: false,
+        }
+    }
+
+    /// Le léger vent de face de la nouvelle partie + sur toute la `zone` : vers la
+    /// gauche, de `VENT_DE_FACE`.
+    pub fn de_face(zone: Aabb) -> Self {
+        Self {
+            zone,
+            sens: -1,
+            leger: true,
+        }
     }
 }
 

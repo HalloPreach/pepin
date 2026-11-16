@@ -92,7 +92,12 @@ enum Suite {
 
 /// Charge le niveau `indice` en conservant (ou non) le score de la partie.
 pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
-    let mut monde = Monde::new(indice);
+    charger_mode(indice, garder, false)
+}
+
+/// Comme `charger`, en nouvelle partie + si `ng_plus` (carte 8.8).
+pub fn charger_mode(indice: usize, garder: Option<EtatJeu>, ng_plus: bool) -> (Monde, Camera) {
+    let mut monde = Monde::charger(indice, ng_plus);
     if let Some(mut etat) = garder {
         // Un NOUVEAU niveau : nouveau départ, et sa vie des trois gouttes à prendre.
         etat.nouveau_niveau(monde.niveau.depart, monde.infos.genre);
@@ -113,6 +118,7 @@ pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
     match ecran {
         Ecran::Titre => vec![
             Choix::Jouer,
+            Choix::NouvellePartiePlus,
             Choix::Carte,
             Choix::Boutique,
             Choix::Histoire,
@@ -231,6 +237,9 @@ pub struct Application {
     /// Bilan de la dernière course : issue, meilleur résultat d'avant, prime.
     resultat_course: Option<ResultatCourse>,
     temps_course: TempsCourse,
+    /// La partie en cours est une NOUVELLE PARTIE + (carte 8.8) : chaque niveau est
+    /// chargé avec sa variante ; ses records sont à part (`Sauvegarde::ng_plus`).
+    pub ng_plus: bool,
 }
 
 impl Application {
@@ -280,6 +289,7 @@ impl Application {
             fantome: None,
             resultat_course: None,
             temps_course: TempsCourse::default(),
+            ng_plus: false,
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -293,8 +303,10 @@ impl Application {
         self.choix = choix_pour(ecran);
         // HISTOIRE n'apparaît au titre qu'une fois le jeu fini (carte 8.11) : avant,
         // ses images se découvrent en jouant. Pas de ligne grisée ni de cadenas.
+        // La NOUVELLE PARTIE + aussi (carte 8.8).
         if self.sauvegarde.parties_finies == 0 {
-            self.choix.retain(|&c| c != Choix::Histoire);
+            self.choix
+                .retain(|&c| c != Choix::Histoire && c != Choix::NouvellePartiePlus);
         }
         // Course (carte 8.7) : seulement les forces qui ont une partie pour ce niveau.
         let indice = self.plan.selection;
@@ -356,6 +368,14 @@ impl Application {
     fn lancer(&mut self, suite: Suite) {
         self.suite = Some(suite);
         self.transition.demarrer();
+    }
+
+    /// Robot de QA (carte 8.8) : une première partie est finie, le titre est rouvert
+    /// avec la ligne NOUVELLE PARTIE+ (juste sous JOUER).
+    #[cfg(test)]
+    pub fn debloquer_ng_plus_qa(&mut self) {
+        self.sauvegarde.parties_finies = 1;
+        self.ouvrir(Ecran::Titre);
     }
 
     /// Chrono de la partie en cours (pas de jeu), pour le robot de QA.
@@ -622,8 +642,16 @@ impl Application {
 
     fn valider_choix(&mut self, choix: Choix) {
         match choix {
-            Choix::Jouer | Choix::Rejouer => {
+            // REJOUER garde le mode de la partie finie ; JOUER : une partie normale ;
+            // NOUVELLE PARTIE + : la même, variantes et pluie forte (carte 8.8), sans
+            // les images de l'histoire (déjà vues).
+            Choix::Jouer | Choix::Rejouer | Choix::NouvellePartiePlus => {
                 self.partie_racontee = choix == Choix::Jouer;
+                match choix {
+                    Choix::Jouer => self.ng_plus = false,
+                    Choix::NouvellePartiePlus => self.ng_plus = true,
+                    _ => {}
+                }
                 self.lancer(Suite::Niveau {
                     indice: 0,
                     etat: None,
@@ -799,6 +827,15 @@ impl Application {
                 defis::noter_niveau(&mut self.sauvegarde, self.monde.infos, &self.tentative)
             };
             self.resultat_niveau = Some(r);
+            // Nouvelle partie + (carte 8.8) : gouttes et défis comptent comme d'habitude,
+            // mais le temps du niveau va dans ses records à elle.
+            if self.ng_plus {
+                let cle = self.monde.infos.cle;
+                if let Some(p) = self.sauvegarde.progres_mut(cle) {
+                    p.meilleur_temps = ancien;
+                    self.sauvegarde.ng_plus.noter_temps(cle, self.tentative.pas);
+                }
+            }
             self.sauvegarde.enregistrer();
             // Un niveau joué seul (carte 7.4) : son bilan, par-dessus le niveau figé.
             if self.niveau_seul {
@@ -856,7 +893,9 @@ impl Application {
             return;
         };
         self.rang_demo = rang + 1;
-        // Un monde tout neuf, à part de la sauvegarde : ni défis ni gouttes notés.
+        // Un monde tout neuf, à part de la sauvegarde : ni défis ni gouttes notés. Le
+        // parcours de la démo est celui des niveaux normaux (pas de nouvelle partie +).
+        self.ng_plus = false;
         self.recharger(indice, None);
         self.particules = Particules::new();
         self.trainees = Trainees::new();
@@ -988,13 +1027,20 @@ impl Application {
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
                 };
-                // Un boss vaincu en facile (carte 8.14) : partie finie, mais pas de record.
-                self.nouveau_record = mode_facile::noter_partie(
-                    &mut self.sauvegarde,
-                    e.score,
-                    self.pas_partie,
-                    self.facile.dans_la_partie,
-                );
+                // Un boss vaincu en facile (carte 8.14) : partie finie, mais pas de record ;
+                // une nouvelle partie + (carte 8.8) a ses records à part.
+                self.nouveau_record = if self.ng_plus {
+                    self.sauvegarde
+                        .ng_plus
+                        .noter_partie(e.score, self.pas_partie)
+                } else {
+                    mode_facile::noter_partie(
+                        &mut self.sauvegarde,
+                        e.score,
+                        self.pas_partie,
+                        self.facile.dans_la_partie,
+                    )
+                };
                 // Bonus de fin de partie (carte 7.3) : chaque ligne n'est créditée que
                 // la première fois qu'elle est gagnée (carte 7.9).
                 let toutes = self.bilan.gouttes >= levels::gouttes_du_parcours(NIVEAUX);
@@ -1021,6 +1067,7 @@ impl Application {
         self.resultat_niveau = None;
         self.resultat_course = None;
         self.facile.dans_la_partie = false;
+        self.ng_plus = false;
         self.fantome = course.map(|force| Fantome::new(indice, force));
         self.recharger(indice, None);
         self.niveau_seul = true;
@@ -1029,7 +1076,7 @@ impl Application {
     }
 
     fn recharger(&mut self, indice: usize, etat: Option<EtatJeu>) {
-        let (monde, camera) = charger(indice, etat);
+        let (monde, camera) = charger_mode(indice, etat, self.ng_plus);
         self.debut_niveau = monde.etat.clone();
         self.monde = monde;
         self.camera = camera;
@@ -1060,7 +1107,7 @@ impl Application {
     /// nouveau niveau, la vie de ses trois gouttes, si elle a été donnée, le reste.
     /// La photo du début du niveau (`debut_niveau`) ne change pas.
     fn relancer(&mut self, etat: EtatJeu) {
-        let (mut monde, camera) = charger(self.monde.indice, None);
+        let (mut monde, camera) = charger_mode(self.monde.indice, None, self.ng_plus);
         monde.etat = etat;
         // « Recommencer » et « plus de vies » gardent le mode facile (carte 8.14).
         if self.facile.actif {
@@ -1227,6 +1274,7 @@ impl Application {
                         pas,
                         cible,
                         self.monde.points_nuage(),
+                        self.monde.ng_plus,
                     );
                     // Course (carte 8.7) : l'état du fantôme sous le chrono.
                     if let Some(f) = &self.fantome {
@@ -1355,6 +1403,7 @@ mod tests {
             choix_pour(Ecran::Titre),
             vec![
                 Choix::Jouer,
+                Choix::NouvellePartiePlus,
                 Choix::Carte,
                 Choix::Boutique,
                 Choix::Histoire,

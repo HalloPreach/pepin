@@ -758,7 +758,12 @@ pub(crate) struct Etape {
 /// Le monde du niveau `indice` après `PAS_DEPART` pas sans entrée (Pépin posé),
 /// et ces entrées vides.
 pub(crate) fn depart_pose(indice: usize) -> (Monde, Vec<Entrees>) {
-    let mut depart = Monde::new(indice);
+    depart_pose_mode(indice, false)
+}
+
+/// Comme `depart_pose`, en nouvelle partie + si `ng_plus` (carte 8.8).
+fn depart_pose_mode(indice: usize, ng_plus: bool) -> (Monde, Vec<Entrees>) {
+    let mut depart = Monde::charger(indice, ng_plus);
     let prefixe = vec![Entrees::default(); PAS_DEPART as usize];
     for e in &prefixe {
         depart.avancer(e);
@@ -900,7 +905,13 @@ pub(crate) fn chercher_avec(
 /// (carte 8.5) : une arrivée après avoir révélé un secret (salle, raccourci) ne
 /// compte pas ; seule la partie complète entre dans les salles secrètes.
 pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
-    let (depart, mut entrees) = depart_pose(indice);
+    trouver_parcours_mode(indice, precis, false)
+}
+
+/// Comme `trouver_parcours`, dans la variante de la nouvelle partie + si `ng_plus`
+/// (carte 8.8 : ennemis déplacés, éclairs plus fréquents, vent de face...).
+pub fn trouver_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Option<Vec<Entrees>> {
+    let (depart, mut entrees) = depart_pose_mode(indice, ng_plus);
     let sans_secret =
         |m: &Monde| gouttes_avant_la_victoire(m) && !m.caches_reveles.iter().any(|&r| r);
     let etapes = chercher_avec(

@@ -251,6 +251,9 @@ pub struct GrandNuage {
     /// Points de vie au début du combat : `PV_NUAGE`, ou `PV_NUAGE_FACILE` en mode
     /// facile (`passer_en_facile`).
     pv_max: u8,
+    /// Nouvelle partie + (carte 8.8) : le nuage joue à chaque colère le motif
+    /// SUIVANT, plus serré (le 2e à 3 points de vie, puis le 3e).
+    serre: bool,
 }
 
 impl GrandNuage {
@@ -264,6 +267,7 @@ impl GrandNuage {
             ecoule: 0,
             pv: PV_NUAGE,
             pv_max: PV_NUAGE,
+            serre: false,
         }
     }
 
@@ -285,6 +289,11 @@ impl GrandNuage {
         self.pv_max < PV_NUAGE
     }
 
+    /// Nouvelle partie + (carte 8.8) : des motifs plus serrés (voir `motif`).
+    pub fn serrer(&mut self) {
+        self.serre = true;
+    }
+
     pub fn phase(&self) -> PhaseNuage {
         self.phase
     }
@@ -300,9 +309,19 @@ impl GrandNuage {
     }
 
     /// Le motif joué en colère : le nombre de points déjà perdus. En normal, 0 à 3
-    /// points de vie, 1 à 2, 2 à 1 ; en facile (2 points au départ), 0 à 2, 1 à 1 :
-    /// les deux premiers motifs seulement, jamais hors du tableau `MOTIFS`.
+    /// points de vie, 1 à 2, 2 à 1 ; en facile (2 points au départ), 0 à 2, 1 à 1.
+    /// Serré (nouvelle partie +) : le suivant, sans sortir du tableau `MOTIFS`.
     pub fn motif(&self) -> usize {
+        let motif = self.motif_des_points_de_vie();
+        if self.serre {
+            (motif + 1).min(MOTIFS.len() - 1)
+        } else {
+            motif
+        }
+    }
+
+    /// Le motif des points de vie restants (points déjà perdus depuis `pv_max`).
+    fn motif_des_points_de_vie(&self) -> usize {
         usize::from(self.pv_max - self.pv.clamp(1, self.pv_max))
     }
 
@@ -319,9 +338,10 @@ impl GrandNuage {
     }
 
     /// Côté du courant de l'essoufflement : à gauche après les motifs 1 et 3, à
-    /// droite après le motif 2 (il faut traverser l'arène).
+    /// droite après le motif 2 (il faut traverser l'arène). Il suit les points de
+    /// vie, pas le motif : le nuage serré (nouvelle partie +) garde les mêmes côtés.
     pub fn cote_du_courant(&self) -> Cote {
-        if self.motif().is_multiple_of(2) {
+        if self.motif_des_points_de_vie().is_multiple_of(2) {
             Cote::Gauche
         } else {
             Cote::Droite

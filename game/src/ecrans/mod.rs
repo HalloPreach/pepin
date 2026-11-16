@@ -134,16 +134,27 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
     }
 }
 
-/// Lignes du menu du titre quand il est complet (avec HISTOIRE) : sa disposition
-/// est calculée pour elles.
+/// Lignes du menu du titre avant une partie finie (sans HISTOIRE ni NOUVELLE PARTIE+,
+/// 4) et après (6) : la disposition de base (`disposition`) est calculée pour 5.
 pub const LIGNES_TITRE_MAX: usize = 5;
+/// Titre à six lignes (carte 8.8, une fois le jeu fini) : le sous-titre s'efface,
+/// et les lignes, au pas de 17 px, partent juste sous le grand titre (y = 52) pour
+/// finir sur le dessus des toits (y = 154).
+pub const TITRE_SIX_LIGNES: Disposition = Disposition {
+    y0: 52.0,
+    pas: 17.0,
+};
 
 /// Mise en page d'un menu de `nb` lignes. Le titre n'a HISTOIRE qu'après une partie
 /// finie (carte 8.11) : ses 4 lignes d'avant sont centrées dans la place des 5, au
-/// même pas de 18 px. Les autres écrans : `disposition`.
+/// même pas de 18 px ; avec la NOUVELLE PARTIE + (6 lignes) : `TITRE_SIX_LIGNES`.
+/// Les autres écrans : `disposition`.
 pub fn disposition_menu(ecran: Ecran, nb: usize) -> Option<Disposition> {
     let mut d = disposition(ecran)?;
     if ecran == Ecran::Titre {
+        if nb > LIGNES_TITRE_MAX {
+            return Some(TITRE_SIX_LIGNES);
+        }
         d.y0 += LIGNES_TITRE_MAX.saturating_sub(nb) as f32 * d.pas / 2.0;
     }
     Some(d)
@@ -299,6 +310,7 @@ mod tests {
     fn tous_les_libelles_tiennent_dans_la_ligne_de_menu() {
         let tous = [
             Choix::Jouer,
+            Choix::NouvellePartiePlus,
             Choix::Boutique,
             Choix::Histoire,
             Choix::Aide,
@@ -361,6 +373,13 @@ mod tests {
         let (_, y, _, h) = d.rect_ligne(4);
         assert!(y + h <= titre::SOL, "titre : 5 lignes au-dessus du sol");
         assert!(d.y0 >= titre::FIN_SOUS_TITRE, "sous le sous-titre");
+        // Six lignes (carte 8.8) : sous le grand titre, au-dessus du sol.
+        let d = disposition_menu(Ecran::Titre, 6).unwrap();
+        let (_, y, _, h) = d.rect_ligne(5);
+        assert!(
+            y + h <= titre::SOL && d.y0 >= titre::FIN_TITRE,
+            "titre : 6 lignes"
+        );
     }
 
     #[test]

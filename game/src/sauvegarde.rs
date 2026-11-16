@@ -126,6 +126,75 @@ impl ProgresNiveau {
     }
 }
 
+/// Records de la NOUVELLE PARTIE + (carte 8.8), à part des records normaux : parties
+/// finies, meilleur score et meilleur temps d'une partie, et meilleur temps de chaque
+/// niveau (par CLÉ). Les gouttes, défis et médailles, eux, vont dans la progression
+/// normale (crédités une seule fois). Texte : `ng_plus=parties:1 score:900 temps:5000`
+/// et `ng_plus.toits=temps:1234`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RecordsNgPlus {
+    pub parties_finies: u32,
+    pub meilleur_score: u32,
+    pub meilleur_temps: Option<u32>,
+    pub temps_niveaux: BTreeMap<String, u32>,
+}
+
+impl RecordsNgPlus {
+    /// Une nouvelle partie + finie : `true` si c'est un record de score (ou la première).
+    pub fn noter_partie(&mut self, score: u32, temps: u32) -> bool {
+        let record = self.parties_finies == 0 || score > self.meilleur_score;
+        self.parties_finies = self.parties_finies.saturating_add(1);
+        self.meilleur_score = self.meilleur_score.max(score);
+        self.meilleur_temps = Some(self.meilleur_temps.map_or(temps, |t| t.min(temps)));
+        record
+    }
+
+    /// Un niveau réussi en nouvelle partie + : son meilleur temps (en pas).
+    pub fn noter_temps(&mut self, cle: &str, pas: u32) {
+        let t = self.temps_niveaux.entry(cle.to_string()).or_insert(pas);
+        *t = (*t).min(pas);
+    }
+
+    /// Lignes du texte de sauvegarde (rien tant qu'aucun record n'existe).
+    fn vers_texte(&self, t: &mut String) {
+        if *self != Self::default() {
+            t.push_str(&format!(
+                "ng_plus=parties:{} score:{}",
+                self.parties_finies, self.meilleur_score
+            ));
+            if let Some(temps) = self.meilleur_temps {
+                t.push_str(&format!(" temps:{temps}"));
+            }
+            t.push('\n');
+        }
+        for (cle, temps) in &self.temps_niveaux {
+            t.push_str(&format!("ng_plus.{cle}=temps:{temps}\n"));
+        }
+    }
+
+    /// Relit une ligne `ng_plus…` (`cle` : le nom du champ). Tolérante, comme le reste.
+    fn lire(&mut self, cle: &str, valeur: &str) {
+        let champs = || valeur.split_whitespace().filter_map(|c| c.split_once(':'));
+        if cle == "ng_plus" {
+            for (nom, v) in champs() {
+                match nom {
+                    "parties" => self.parties_finies = v.parse().unwrap_or(0),
+                    "score" => self.meilleur_score = v.parse().unwrap_or(0),
+                    "temps" => self.meilleur_temps = v.parse().ok(),
+                    _ => {}
+                }
+            }
+        } else if let Some(niveau) = cle.strip_prefix("ng_plus.").filter(|n| est_identifiant(n)) {
+            if let Some(temps) = champs()
+                .find(|(n, _)| *n == "temps")
+                .and_then(|(_, v)| v.parse().ok())
+            {
+                self.temps_niveaux.insert(niveau.to_string(), temps);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sauvegarde {
     /// Porte-monnaie : gouttes d'or à dépenser.
@@ -155,6 +224,8 @@ pub struct Sauvegarde {
     /// contre chaque force (rang de `course::Force`), en écart SIGNÉ de pas : négatif =
     /// gagné de tant, positif = perdu de tant (`None` : jamais couru et fini).
     pub courses: BTreeMap<String, [Option<i32>; 3]>,
+    /// Records de la nouvelle partie + (carte 8.8).
+    pub ng_plus: RecordsNgPlus,
 }
 
 impl Default for Sauvegarde {
@@ -175,6 +246,7 @@ impl Default for Sauvegarde {
                 .map(|&(c, i)| (c.to_string(), i.to_string()))
                 .collect(),
             courses: BTreeMap::new(),
+            ng_plus: RecordsNgPlus::default(),
         }
     }
 }
@@ -414,6 +486,7 @@ impl Sauvegarde {
                 t.push_str(&format!("course.{cle}={}\n", morceaux.join(" ")));
             }
         }
+        s.ng_plus.vers_texte(&mut t);
         t
     }
 
@@ -484,6 +557,8 @@ impl Sauvegarde {
                         }
                     }
                 }
+                // Carte 8.8 : les records de la nouvelle partie +.
+                _ if cle.starts_with("ng_plus") => s.ng_plus.lire(cle, valeur),
                 _ => {
                     // Courses (carte 8.7) : un champ de plus en v3, ignoré par les
                     // versions d'avant (pas de changement de version).
@@ -701,6 +776,14 @@ mod tests {
         s.acquerir("trainee:etoiles");
         assert!(s.equiper("trainee:etoiles"));
         assert!(!s.equiper("motif:pois"), "pas acheté");
+        assert!(
+            s.ng_plus.noter_partie(700, 6000),
+            "carte 8.8 : records à part"
+        );
+        s.ng_plus.noter_temps("toits", 1500);
+        s.ng_plus.noter_temps("toits", 1800);
+        assert_eq!(s.ng_plus.temps_niveaux["toits"], 1500);
+        assert_eq!(s.meilleur_score, 900, "records normaux intacts");
         s.normaliser();
         assert_eq!(Sauvegarde::depuis_texte(&s.vers_texte()), s);
         assert!(s.progres("clocher").atteint);

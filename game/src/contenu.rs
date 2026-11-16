@@ -28,6 +28,10 @@ pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
 // --- Libellés de menus -----------------------------------------------------
 
 pub const JOUER: &str = "JOUER";
+/// Carte 8.8 : 16 caractères, la plus longue ligne de menu (190 px sur 192).
+pub const NOUVELLE_PARTIE_PLUS: &str = "NOUVELLE PARTIE+";
+/// Le repère de la nouvelle partie + dans le HUD.
+pub const REPERE_NG_PLUS: &str = "+";
 pub const BOUTIQUE: &str = "BOUTIQUE";
 /// La carte des niveaux (carte 7.4).
 pub const CARTE: &str = "CARTE";
@@ -45,6 +49,7 @@ pub const RETOUR_TITRE: &str = "TITRE";
 pub fn libelle(choix: Choix) -> &'static str {
     match choix {
         Choix::Jouer => JOUER,
+        Choix::NouvellePartiePlus => NOUVELLE_PARTIE_PLUS,
         Choix::Boutique => BOUTIQUE,
         Choix::Carte => CARTE,
         Choix::Histoire => HISTOIRE,
@@ -523,6 +528,7 @@ pub(crate) mod tests {
             SOUS_TITRE,
             AIDE_MENU,
             JOUER,
+            NOUVELLE_PARTIE_PLUS,
             COMMENT_JOUER,
             REPRENDRE,
             RECOMMENCER,

@@ -18,6 +18,8 @@ pub enum Choix {
     Boutique,
     /// Revoir les trois images de l'histoire (carte 8.4).
     Histoire,
+    /// Les mêmes niveaux, plus durs, après une partie finie (carte 8.8).
+    NouvellePartiePlus,
     Aide,
     Reprendre,
     Recommencer,

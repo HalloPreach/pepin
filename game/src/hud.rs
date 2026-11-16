@@ -11,6 +11,7 @@ use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR};
 use pepin_core::LARGEUR_LOGIQUE;
 
 use crate::chrono;
+use crate::contenu;
 use crate::skins::Skin;
 use crate::sprites::Banque;
 use crate::texte::{self, Style};
@@ -112,8 +113,10 @@ pub fn compteur(
 /// carte des niveaux (carte 7.4) : le chrono affiche alors « 0:12/0:50 », en or tant
 /// qu'on est dans les temps ;
 /// `pv_nuage` : points de vie du Grand Nuage et son maximum, `(pv, max)`, s'il y en a
-/// un dans le niveau ; `skin` : la
-/// tenue de Pépin, dont l'icône des vies montre le visage.
+/// un dans le niveau ; `skin` : la tenue de Pépin, dont l'icône des vies montre le
+/// visage ; `ng_plus` : une nouvelle partie + (carte 8.8), marquée d'un « + » en or
+/// devant le chrono.
+#[allow(clippy::too_many_arguments)]
 pub fn dessiner(
     banque: &Banque,
     skin: Skin,
@@ -122,6 +125,7 @@ pub fn dessiner(
     pas: u32,
     cible: Option<u32>,
     pv_nuage: Option<(u8, u8)>,
+    ng_plus: bool,
 ) {
     let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
     // Sprite 10x10 (contour de 2 px) : décalé d'un pixel pour garder la goutte à la même place.
@@ -149,6 +153,15 @@ pub fn dessiner(
         None => (chrono::temps_court(pas), style),
     };
     texte::dessiner_a_droite(&temps, LARGEUR_LOGIQUE as f32 - 6.0, 6.0, style_chrono);
+    if ng_plus {
+        let x = LARGEUR_LOGIQUE as f32 - 6.0 - largeur_texte(&temps, 1) as f32 - 10.0;
+        texte::dessiner_a_droite(
+            contenu::REPERE_NG_PLUS,
+            x,
+            6.0,
+            Style::simple(OR, 1).avec_ombre(ARDOISE_OMBRE),
+        );
+    }
     if let Some((pv, max)) = pv_nuage {
         for (nom, x) in points_de_vie(pv, max) {
             banque.dessiner(nom, x as f32, 6.0, false);
