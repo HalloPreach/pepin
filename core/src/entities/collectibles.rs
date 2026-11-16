@@ -40,6 +40,37 @@ impl Actualisable for GoutteDor {
     fn actualiser(&mut self, _env: &Environnement<'_>) {}
 }
 
+/// Lettre cachée (carte 8.6) : une des lettres P, É, P, I, N, au plus une par
+/// niveau (laquelle : `crate::lettres`). Prise, elle est gardée dans la sauvegarde.
+#[derive(Debug, Clone)]
+pub struct Lettre {
+    pub boite: Aabb,
+    prise: bool,
+}
+
+impl Lettre {
+    /// Lettre de 8 x 8 px dont le coin haut-gauche est en `(x, y)`.
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
+            boite: Aabb::new(x, y, 8.0, 8.0),
+            prise: false,
+        }
+    }
+
+    pub fn est_prise(&self) -> bool {
+        self.prise
+    }
+
+    /// Prend la lettre : `true` la PREMIÈRE fois seulement.
+    pub fn prendre(&mut self) -> bool {
+        !std::mem::replace(&mut self.prise, true)
+    }
+}
+
+impl Actualisable for Lettre {
+    fn actualiser(&mut self, _env: &Environnement<'_>) {}
+}
+
 /// Lanterne : une fois allumée, le joueur y réapparaît après une mort.
 #[derive(Debug, Clone)]
 pub struct Lanterne {

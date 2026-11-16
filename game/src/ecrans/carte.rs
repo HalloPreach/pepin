@@ -2,6 +2,7 @@
 //! Elle s'affiche par-dessus le niveau figé, juste après la transition.
 
 use pepin_core::font::largeur_texte;
+use pepin_core::lettres::{rang_du_niveau, NB_LETTRES};
 use pepin_core::levels::{nb_normaux, NIVEAUX};
 use pepin_core::palette::{
     ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL_CLAIR, OR_PALE,
@@ -39,8 +40,9 @@ fn echelle_nom(nom: &str) -> u32 {
 }
 
 /// `indice` : place du niveau dans la table ; `infos` : le niveau ; `anim` : pas écoulés
-/// (clignotement).
-pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32) {
+/// (clignotement) ; `lettres` : les lettres cachées déjà trouvées (carte 8.6), en
+/// petit en haut à droite, celle de ce niveau en corail tant qu'elle n'est pas trouvée.
+pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32, lettres: &[bool; NB_LETTRES]) {
     let nom = titre_niveau(infos.nom);
     let nom = nom.as_str();
     trame();
@@ -50,6 +52,7 @@ pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32) {
 
     let etiquette = contenu::etiquette_niveau(infos, nb_normaux(NIVEAUX));
     texte::dessiner_centre(&etiquette, 44.0, ombre(BRUME));
+    super::fin::dessiner_lettres(lettres, rang_du_niveau(infos.cle), l - 20.0, 44.0);
     texte::dessiner_centre(
         nom,
         56.0 + if echelle_nom(nom) == 3 { 0.0 } else { 4.0 },

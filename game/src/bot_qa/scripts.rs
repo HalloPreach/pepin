@@ -1028,8 +1028,9 @@ fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
 }
 
 /// Comme `ecrire_scripts_des_ajouts`, avec le parcours que donne `trouver` (carte
-/// 8.5 : parcours complet ou secret). La trace finit par la colonne `secrets` : le
-/// nombre de zones cachées déjà révélées.
+/// 8.5 : parcours complet ou secret). La trace finit par les colonnes `secrets` (le
+/// nombre de zones cachées déjà révélées) et `lettre` (carte 8.6 : 1 dès que la
+/// lettre cachée du niveau est prise).
 fn ecrire_scripts_des_parcours(
     prefixe: &str,
     niveaux: &[(usize, Ajouts)],
@@ -1066,11 +1067,13 @@ fn ecrire_scripts_des_parcours(
                 ",e{k}_{t:?}_{c}_{r}_x,e{k}_y,e{k}_etat,e{k}_phase,e{k}_ecran"
             ));
         }
-        trace.push_str(",secrets\n");
+        trace.push_str(",secrets,lettre\n");
         // Touches de raccourci appuyées : (image de la trace, code de la touche).
         let mut touches: Vec<(usize, String)> = Vec::new();
         let mut commence = false;
-        for image in 0..60 * 60 {
+        // Trois minutes au plus (une partie complète du clocher est longue) : la
+        // boucle s'arrête au drapeau.
+        for image in 0..60 * 60 * 3 {
             let mut trame = Trame {
                 valider: image == 0 || app.histoire_en_attente(),
                 ..Trame::default()
@@ -1155,7 +1158,8 @@ fn ecrire_scripts_des_parcours(
                 }
             }
             let secrets = app.monde.caches_reveles.iter().filter(|&&r| r).count();
-            trace.push_str(&format!(",{secrets}\n"));
+            let lettre = u8::from(app.monde.lettre_prise);
+            trace.push_str(&format!(",{secrets},{lettre}\n"));
         }
         assert!(commence, "niveau {} jamais atteint", cible + 1);
         assert_eq!(app.monde.etat.morts, 0, "le robot ne meurt pas");
@@ -1200,4 +1204,37 @@ fn ecrire_scripts_secrets_85() {
         .map(|n| (indice(n), &[][..]))
         .collect();
     ecrire_scripts_des_parcours("85s", &secrets, &secret);
+}
+
+/// Carte 8.6 (lettres cachées) : scripts des captures `86l-`, dans `target/qa/`. La
+/// partie COMPLÈTE du robot dans chacun des cinq niveaux à lettre (elle prend la
+/// lettre ; colonne `lettre` de la trace) : `86l-N` ; au clocher, aussi le parcours
+/// SECRET (`86ls-N`) : la lettre est dans la salle de la sortie secrète, il la prend en
+/// passant et finit tout de suite (le rejeu de la partie complète, qui ressort de la
+/// salle et monte toute la tour, ne finit pas le niveau dans le navigateur ; voir
+/// QA.md) ; la descente par le chemin normal, pour finir une partie dans le
+/// navigateur (fin habituelle ou secrète selon la sauvegarde) : `86lf-N`.
+/// Lancer avec : cargo test -p game --no-default-features -- --ignored --exact
+/// bot_qa::scripts::ecrire_scripts_lettres_86l
+#[test]
+#[ignore]
+fn ecrire_scripts_lettres_86l() {
+    use crate::bot_qa::{trouver_parcours_complet, trouver_parcours_secret};
+    use pepin_core::lettres::LETTRES;
+    use pepin_core::levels::{descente, indice_de_cle, NIVEAUX};
+    let complet =
+        |i| trouver_parcours_complet(i, false).or_else(|| trouver_parcours_complet(i, true));
+    let lettres: Vec<(usize, Ajouts)> = LETTRES
+        .iter()
+        .map(|&(cle, _)| (indice_de_cle(NIVEAUX, cle).unwrap(), &[][..]))
+        .collect();
+    ecrire_scripts_des_parcours("86l", &lettres, &complet);
+    let secret = |i| trouver_parcours_secret(i, false).or_else(|| trouver_parcours_secret(i, true));
+    let clocher = indice_de_cle(NIVEAUX, "clocher").unwrap();
+    ecrire_scripts_des_parcours("86ls", &[(clocher, &[][..])], &secret);
+    let fin = NIVEAUX
+        .iter()
+        .position(|n| n.nom == descente::INFOS.nom)
+        .unwrap();
+    ecrire_scripts_des_ajouts("86lf", &[(fin, &[][..])]);
 }

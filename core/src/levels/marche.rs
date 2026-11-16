@@ -37,7 +37,8 @@
 //! Secret (carte 8.5) : le premier bloc de boutique (colonnes 59 à 63) est creux.
 //! Sa face gauche (rangée 7, une brique décalée) est un faux mur `m` : en
 //! marchant droit dedans au lieu de sauter sur le bloc, on trouve la goutte qui
-//! était sur le rebond du premier auvent (colonne 61).
+//! était sur le rebond du premier auvent (colonne 61), et juste avant elle le É de
+//! « PÉPIN » (carte 8.6, case `*`, colonne 60).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -79,7 +80,7 @@ const ASCII: &str = r"
 ....................................................................z....................................................................................
 .................................................................######........................o......................T..................................
 ...........................................................#####.BBBBBB.............................................######...............................
-.@.L..H.....z.....................f...............L...z....mmoBB.BBBBBB..L...H...T............................L...z.BBBBBB......f....................X...
+.@.L..H.....z.....................f...............L...z....m*oBB.BBBBBB..L...H...T............................L...z.BBBBBB......f....................X...
 ####################A...################A...A...###########BBBBBz..o.BB##############A...A...A...A...A...A..########BBBBBB#############A...A...##########
 BBBBBBBBBBBBBBBBBBBB....BBBBBBBBBBBBBBBB........BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBBBBBBBBBBBBBBB........BBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBB....BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB

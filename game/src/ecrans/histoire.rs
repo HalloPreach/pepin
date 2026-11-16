@@ -6,7 +6,11 @@
 //! - `Lueur`, après le Grand Nuage : il s'enfuit (il reviendra au sommet), une lueur
 //!   d'or perce, une goutte d'or (un éclat de soleil) y descend ;
 //! - `Soleil`, avant la descente : le soleil ouvre un œil au-dessus de la mer de
-//!   nuages, Pépin à côté, parapluie fermé.
+//!   nuages, Pépin à côté, parapluie fermé ;
+//! - `Secret` (carte 8.6), hors du récit : la fin secrète, quand les cinq lettres P,
+//!   É, P, I, N sont réunies, juste avant l'écran de fin (et après l'image 3 quand on
+//!   revoit l'histoire depuis le titre). Le soleil écrit « PÉPIN » en rayons d'or, la
+//!   ville rallume ses fenêtres et ouvre ses parapluies.
 //!
 //! Chaque image est DESSINÉE EN CODE avec les briques du jeu (décor des thèmes,
 //! tuiles, sprites, palette de 16 couleurs) et s'anime à peine (pluie, clignement,
@@ -15,10 +19,11 @@
 //! `chapitre_avant`, une règle pure sur la table des niveaux.
 
 use pepin_core::font::HAUTEUR_GLYPHE;
+use pepin_core::lettres;
 use pepin_core::levels::GenreNiveau;
 use pepin_core::palette::{
-    ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, NUAGE, OR,
-    ORANGE_SOLEIL, OR_PALE,
+    Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL,
+    CORAIL_CLAIR, NUAGE, OR, ORANGE_SOLEIL, OR_PALE, PLUIE, VIOLET_ORAGE,
 };
 use pepin_core::zones::{InfosNiveau, Theme};
 use pepin_core::LARGEUR_LOGIQUE;
@@ -40,17 +45,21 @@ pub enum Chapitre {
     Lueur,
     /// Avant la descente (l'épilogue) : le soleil se réveille.
     Soleil,
+    /// La fin secrète (carte 8.6), après la descente, si les cinq lettres P, É, P, I,
+    /// N sont réunies : le soleil écrit « PÉPIN » en rayons, la ville ouvre ses
+    /// parapluies. Hors de `TOUS` (le récit), elle n'a pas de numéro.
+    Secret,
 }
 
 impl Chapitre {
     pub const TOUS: [Chapitre; 3] = [Chapitre::Depart, Chapitre::Lueur, Chapitre::Soleil];
 
-    /// Place dans le récit, à partir de 0.
+    /// Place dans le récit, à partir de 0 (la fin secrète : 3).
     pub fn indice(self) -> usize {
         self as usize
     }
 
-    /// L'image suivante (`None` après la dernière).
+    /// L'image suivante du récit (`None` après la dernière, et après la fin secrète).
     pub fn suivant(self) -> Option<Chapitre> {
         Self::TOUS.get(self.indice() + 1).copied()
     }
@@ -119,6 +128,7 @@ pub fn dessiner(banque: &Banque, skin: Skin, chapitre: Chapitre, anim: u32) {
         Chapitre::Depart => dessiner_depart(banque, skin, anim),
         Chapitre::Lueur => dessiner_lueur(banque, skin, anim),
         Chapitre::Soleil => dessiner_soleil(banque, skin, anim),
+        Chapitre::Secret => dessiner_secret(banque, skin, anim),
     }
     dessiner_bandeau(chapitre, anim);
 }
@@ -144,8 +154,11 @@ fn dessiner_bandeau(chapitre: Chapitre, anim: u32) {
     }
     let numero = format!("{}/{}", chapitre.indice() + 1, Chapitre::TOUS.len());
     // Dans le bandeau, en bas à droite, aux couleurs de l'invitation (carte 8.11) : en
-    // haut à droite, il se lisait mal sur le ciel saumon de l'image 3.
-    texte::dessiner_a_droite(&numero, l - 4.0, Y_CONTINUER, ombre(BRUME));
+    // haut à droite, il se lisait mal sur le ciel saumon de l'image 3. La fin secrète
+    // (hors du récit) n'a pas de numéro.
+    if Chapitre::TOUS.contains(&chapitre) {
+        texte::dessiner_a_droite(&numero, l - 4.0, Y_CONTINUER, ombre(BRUME));
+    }
 }
 
 /// Pépin (ou le skin choisi) qui regarde en l'air, et cligne des yeux de temps en temps.
@@ -182,9 +195,10 @@ fn ilot(banque: &Banque, theme: Theme, x: f32, n: usize) {
 }
 
 /// Une maison de la ville derrière les toits : façade d'ardoise sombre au contour d'un
-/// pixel, toit en pente (marches de 2 px), deux rangées de fenêtres ÉTEINTES.
+/// pixel, toit en pente (marches de 2 px), deux rangées de fenêtres, ÉTEINTES (personne
+/// n'allume plus) ou `allumees` (la fin secrète, carte 8.6).
 /// `(x, haut)` : coin haut-gauche de la façade ; elle descend jusqu'au `SOL`.
-fn maison(x: f32, haut: f32, largeur: f32) {
+fn maison(x: f32, haut: f32, largeur: f32, allumees: bool) {
     let h = SOL - haut;
     rect(x, haut, largeur, h, ARDOISE_OMBRE);
     rect(x + 1.0, haut + 1.0, largeur - 2.0, h - 1.0, ARDOISE_NUIT);
@@ -200,7 +214,8 @@ fn maison(x: f32, haut: f32, largeur: f32) {
         );
         k += 1.0;
     }
-    // Fenêtres : 6 x 8, cadre d'ardoise, vitre noire (personne n'allume plus).
+    // Fenêtres : 6 x 8, cadre d'ardoise, vitre noire (personne n'allume plus) ou d'or.
+    let vitre = if allumees { OR_PALE } else { ARDOISE_OMBRE };
     let n = ((largeur - 6.0) / 12.0).floor().max(1.0) as i32;
     let marge = (largeur - n as f32 * 12.0 + 6.0) / 2.0;
     for rangee in 0..2 {
@@ -211,22 +226,25 @@ fn maison(x: f32, haut: f32, largeur: f32) {
         for i in 0..n {
             let xf = x + marge + i as f32 * 12.0;
             rect(xf, y, 6.0, 8.0, ARDOISE);
-            rect(xf + 1.0, y + 1.0, 4.0, 6.0, ARDOISE_OMBRE);
+            rect(xf + 1.0, y + 1.0, 4.0, 6.0, vitre);
         }
     }
 }
+
+/// Les maisons de la ville (images 1 et fin secrète) : `(x, haut, largeur)`.
+const MAISONS: [(f32, f32, f32); 4] = [
+    (6.0, 70.0, 54.0),
+    (78.0, 82.0, 42.0),
+    (188.0, 66.0, 42.0),
+    (252.0, 78.0, 62.0),
+];
 
 /// Image 1 : nuit d'averse sur les toits, fenêtres éteintes. Pépin est debout sur une
 /// cheminée et regarde le ciel.
 fn dessiner_depart(banque: &Banque, skin: Skin, anim: u32) {
     decor::dessiner_fond(Theme::Toits, 0, 0, anim);
-    for (x, haut, largeur) in [
-        (6.0, 70.0, 54.0),
-        (78.0, 82.0, 42.0),
-        (188.0, 66.0, 42.0),
-        (252.0, 78.0, 62.0),
-    ] {
-        maison(x, haut, largeur);
+    for (x, haut, largeur) in MAISONS {
+        maison(x, haut, largeur, false);
     }
     toits(banque);
     banque.dessiner("antenne", 52.0, SOL - 24.0, false);
@@ -328,6 +346,155 @@ fn dessiner_soleil(banque: &Banque, skin: Skin, anim: u32) {
     banque.dessiner(pepin_regarde_en_haut(skin, anim), 104.0, SOL - 16.0, false);
 }
 
+/// Le mot que le soleil écrit dans le ciel de la fin secrète, son coin haut-gauche et
+/// le pas d'une lettre à l'autre (échelle 3 : glyphe de 5 px + 1, fois 3).
+const MOT_SECRET: (f32, f32) = (62.0, 18.0);
+const PAS_LETTRE_SECRET: f32 = 18.0;
+
+// Le mot tient dans le ciel, vérifié À LA COMPILATION : à 8 px au moins du bord gauche
+// et du bout des rayons de la couronne du soleil (34 px de son centre), au-dessus de la
+// plus haute maison (8 px de marge).
+const _: () = {
+    let droite = MOT_SECRET.0 + (lettres::NB_LETTRES - 1) as f32 * PAS_LETTRE_SECRET + 15.0;
+    assert!(MOT_SECRET.0 >= 8.0);
+    assert!(droite + 8.0 <= SOLEIL.0 - 34.0);
+    let mut k = 0;
+    while k < MAISONS.len() {
+        assert!(MOT_SECRET.1 + 3.0 * LIGNE + 8.0 <= MAISONS[k].1);
+        k += 1;
+    }
+};
+/// Pas entre deux lettres qui s'écrivent, puis entre deux parapluies qui s'ouvrent.
+const PAS_ECRITURE: u32 = 16;
+const PAS_PARAPLUIE: u32 = 9;
+/// Les parapluies de la ville : abscisse (ils dépassent des toits) et couleur.
+const PARAPLUIES: [(f32, Couleur); 9] = [
+    (14.0, CORAIL),
+    (40.0, PLUIE),
+    (68.0, VIOLET_ORAGE),
+    (96.0, OR),
+    (126.0, CORAIL_CLAIR),
+    (182.0, PLUIE),
+    (212.0, CORAIL),
+    (262.0, VIOLET_ORAGE),
+    (292.0, OR),
+];
+
+/// Image de la fin secrète (carte 8.6) : sous le ciel doré, le soleil, les deux yeux
+/// ouverts et couronné de rayons, écrit « PÉPIN » lettre après lettre (un rayon file
+/// vers chaque lettre) ; la ville a rallumé ses fenêtres, ses parapluies s'ouvrent un à
+/// un au-dessus des toits, et Pépin, sur sa cheminée, ouvre le sien. Plus une goutte de
+/// pluie.
+fn dessiner_secret(banque: &Banque, skin: Skin, anim: u32) {
+    decor::dessiner_fond(Theme::Soleil, 0, 0, anim);
+    // Le soleil sourit, les deux yeux ouverts.
+    let (sx, sy) = SOLEIL;
+    for dx in [-8.0, 5.0] {
+        rect(sx + dx, sy - 4.0, 3.0, 4.0, ARDOISE_NUIT);
+        rect(sx + dx + 1.0, sy - 4.0, 1.0, 1.0, BLANC_CASSE);
+    }
+    rect(sx - 3.0, sy + 4.0, 6.0, 1.0, ORANGE_SOLEIL);
+    rect(sx - 4.0, sy + 3.0, 1.0, 1.0, ORANGE_SOLEIL);
+    rect(sx + 3.0, sy + 3.0, 1.0, 1.0, ORANGE_SOLEIL);
+    // Une couronne de douze rayons d'or autour du soleil, qui palpite (les maisons,
+    // dessinées après, cachent ceux du bas).
+    for k in 0..12u32 {
+        let angle = (k as f32 + 0.5) * std::f32::consts::TAU / 12.0;
+        let longueur = 6 + (anim / 10 + k) % 3;
+        for r in 0..longueur {
+            let rr = 26.0 + r as f32;
+            rect(
+                (sx + angle.cos() * rr).round(),
+                (sy + angle.sin() * rr).round(),
+                1.0,
+                1.0,
+                OR_PALE,
+            );
+        }
+    }
+    // Chaque lettre arrive par un rayon (tirets qui filent du soleil vers elle, le temps
+    // de l'écrire), puis reste écrite en or pâle cerné de corail.
+    let (mx, my) = MOT_SECRET;
+    let ecrites = (anim / PAS_ECRITURE).min(lettres::NB_LETTRES as u32) as usize;
+    for (i, &(_, lettre)) in lettres::LETTRES.iter().enumerate().take(ecrites) {
+        let x = mx + i as f32 * PAS_LETTRE_SECRET;
+        texte::dessiner(
+            &lettre.to_string(),
+            x,
+            my,
+            Style::simple(OR_PALE, 3).avec_ombre(CORAIL),
+        );
+    }
+    if ecrites < lettres::NB_LETTRES {
+        let x = mx + ecrites as f32 * PAS_LETTRE_SECRET;
+        rayon((sx - 26.0, sy - 4.0), (x + 7.0, my + 10.0), anim);
+    }
+    // La ville : fenêtres rallumées, toits, et les parapluies qui s'ouvrent un à un
+    // (après le mot), en se balançant d'un pixel.
+    for (x, haut, largeur) in MAISONS {
+        maison(x, haut, largeur, true);
+    }
+    for (k, &(x, couleur)) in PARAPLUIES.iter().enumerate() {
+        let ouvert =
+            anim >= PAS_ECRITURE * (lettres::NB_LETTRES as u32 + 1) + k as u32 * PAS_PARAPLUIE;
+        let balance = if ouvert && (anim / 20 + k as u32).is_multiple_of(2) {
+            1.0
+        } else {
+            0.0
+        };
+        parapluie(x, SOL - 13.0 + balance, couleur, ouvert);
+    }
+    toits(banque);
+    // Pépin sur sa cheminée, au milieu, parapluie ouvert (l'image du plané, 20 x 20).
+    let x_cheminee = (LARGEUR_LOGIQUE as f32 - 12.0) / 2.0;
+    banque.dessiner("cheminee", x_cheminee, SOL - 20.0, false);
+    banque.dessiner(
+        image(&skin.images().planer, anim, 20),
+        x_cheminee - 4.0,
+        SOL - 40.0,
+        false,
+    );
+}
+
+/// Un rayon de soleil de `de` à `a` : des tirets d'or pâle (3 px allumés sur 6) qui
+/// filent vers la lettre.
+fn rayon(de: (f32, f32), a: (f32, f32), anim: u32) {
+    let (dx, dy) = (a.0 - de.0, a.1 - de.1);
+    let n = dx.abs().max(dy.abs()) as u32;
+    for t in 0..n {
+        if (t + 6 - (anim / 2) % 6) % 6 < 3 {
+            let f = t as f32 / n as f32;
+            rect(
+                (de.0 + dx * f).round(),
+                (de.1 + dy * f).round(),
+                1.0,
+                1.0,
+                OR_PALE,
+            );
+        }
+    }
+}
+
+/// Un petit parapluie de 9 px de large, haut en `(x, y)` : ouvert (dôme de la couleur,
+/// manche et crosse sombres, 13 px de haut) ou encore fermé (fuseau sur son manche).
+fn parapluie(x: f32, y: f32, couleur: Couleur, ouvert: bool) {
+    if ouvert {
+        rect(x + 4.0, y - 1.0, 1.0, 1.0, ARDOISE_OMBRE);
+        rect(x + 2.0, y, 5.0, 1.0, couleur);
+        rect(x + 1.0, y + 1.0, 7.0, 1.0, couleur);
+        rect(x, y + 2.0, 9.0, 1.0, couleur);
+        for k in [0.0, 4.0, 8.0] {
+            rect(x + k, y + 3.0, 1.0, 1.0, couleur);
+        }
+        rect(x + 4.0, y + 3.0, 1.0, 9.0, ARDOISE_OMBRE);
+        rect(x + 3.0, y + 12.0, 1.0, 1.0, ARDOISE_OMBRE);
+    } else {
+        rect(x + 4.0, y + 1.0, 1.0, 12.0, ARDOISE_OMBRE);
+        rect(x + 3.0, y + 3.0, 3.0, 5.0, couleur);
+        rect(x + 4.0, y + 2.0, 1.0, 1.0, couleur);
+    }
+}
+
 /// La mer de nuages, tout en bas, plus sombre que l'îlot de Pépin : une bande continue
 /// (brume) coiffée de dômes qui se chevauchent, liserés de nuage clair, et qui
 /// dérivent lentement vers la gauche.
@@ -359,7 +526,7 @@ mod tests {
     #[test]
     fn l_histoire_tient_dans_son_bandeau() {
         let utile = LARGEUR_LOGIQUE - 2 * MARGE;
-        for c in Chapitre::TOUS {
+        for c in Chapitre::TOUS.into_iter().chain([Chapitre::Secret]) {
             for l in c.lignes() {
                 assert!(largeur_texte(l, 1) <= utile, "« {l} » déborde");
             }
@@ -372,6 +539,11 @@ mod tests {
         assert_eq!(Chapitre::Depart.suivant(), Some(Chapitre::Lueur));
         assert_eq!(Chapitre::Lueur.suivant(), Some(Chapitre::Soleil));
         assert_eq!(Chapitre::Soleil.suivant(), None);
+        assert_eq!(
+            Chapitre::Secret.suivant(),
+            None,
+            "la fin secrète, hors du récit"
+        );
         for (i, c) in Chapitre::TOUS.iter().enumerate() {
             assert_eq!(c.indice(), i);
         }

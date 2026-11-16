@@ -66,6 +66,8 @@
 //!      prolonge (voir `ZoneCachee`) ; Pépin y entre et la zone se révèle
 //!   x  sortie secrète : un second drapeau, qui finit le niveau comme `X`
 //!      (une au plus, en plus du drapeau `X`)
+//!   *  lettre cachée (carte 8.6) : une des lettres de « PÉPIN », une au plus,
+//!      laquelle : `crate::lettres` (8 x 8 au milieu de la case, comme `o`)
 //!   P  mur de pluie (un au plus, carte 8.2) : son front part du bord droit de
 //!      la case `P` et avance vers la droite ; il tue au contact (voir
 //!      `crate::poursuite`). Hors de ce repère, la case est vide

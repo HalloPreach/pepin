@@ -463,6 +463,7 @@ pub(crate) fn tient_au_decalage(
         let (a, b) = (&m_d.joueur.boite, &arrivee.joueur.boite);
         fin_d == fin
             && m_d.gouttes_niveau == arrivee.gouttes_niveau
+            && m_d.lettre_prise == arrivee.lettre_prise
             && m_d.pv_nuage() == arrivee.pv_nuage()
             && (!coup || horloge_du_nuage(&m_d) == horloge_du_nuage(arrivee))
             && (fin == Fin::Arrivee || ((a.x - b.x).abs() <= ecart && (a.y - b.y).abs() <= ecart))
@@ -932,11 +933,23 @@ fn gouttes_prises(m: &Monde) -> usize {
     m.gouttes_niveau.iter().filter(|&&g| g).count()
 }
 
+/// Objets de la partie complète pris dans `m` (gouttes d'or, et la lettre cachée du
+/// niveau, carte 8.6), et combien le niveau en a en tout.
+fn objets_pris(m: &Monde) -> usize {
+    gouttes_prises(m) + usize::from(m.lettre_prise)
+}
+
+fn objets_du_niveau(m: &Monde) -> usize {
+    let lettre = m.entites.iter().any(|e| matches!(e, Entite::Lettre(_)));
+    m.gouttes_niveau.len() + usize::from(lettre)
+}
+
 /// Comme `trouver_parcours`, mais en ramassant les TROIS gouttes d'or du niveau
 /// avant l'arrivée (carte 5.16 : la partie « complète », celle qui débloque le
-/// bonus). Recherche par étapes, comme pour les auvents de l'essai : la goutte la
-/// plus proche (en temps), puis la suivante, puis l'arrivée ; une arrivée avec une
-/// goutte en moins est une impasse (`chercher_avec`). Chaque étape est rejouée sur
+/// bonus), et sa lettre cachée s'il en a une (carte 8.6 : la fin secrète). Recherche
+/// par étapes, comme pour les auvents de l'essai : l'objet le plus proche (en temps),
+/// puis le suivant, puis l'arrivée ; une arrivée avec un objet en moins est une
+/// impasse (`chercher_avec`). Chaque étape est rejouée sur
 /// le vrai monde (la simulation est déterministe : on retrouve exactement l'état
 /// trouvé par la recherche). Le parcours n'est pas forcément le plus court qui
 /// ramasse tout (on prend les gouttes dans l'ordre où elles sont les plus proches),
@@ -944,13 +957,14 @@ fn gouttes_prises(m: &Monde) -> usize {
 pub fn trouver_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     let (mut monde, mut entrees) = depart_pose(indice);
     let tous = plans(precis);
-    let toutes = |m: &Monde| gouttes_prises(m) == m.gouttes_niveau.len() && !m.sortie_secrete;
+    let total = objets_du_niveau(&monde);
+    let toutes = |m: &Monde| objets_pris(m) == total && !m.sortie_secrete;
     while !monde.termine {
-        let prises = gouttes_prises(&monde);
+        let prises = objets_pris(&monde);
         let etapes = if toutes(&monde) {
             chercher(&monde, &tous, &|_| false, usize::MAX)?
         } else {
-            let une_de_plus = |m: &Monde| gouttes_prises(m) > prises;
+            let une_de_plus = |m: &Monde| objets_pris(m) > prises;
             chercher_avec(&monde, &tous, &une_de_plus, &toutes, usize::MAX)?
         };
         for e in etapes {

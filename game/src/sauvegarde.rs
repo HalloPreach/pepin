@@ -108,6 +108,8 @@ pub struct ProgresNiveau {
     /// Carte 8.14 : le boss a été vaincu en MODE FACILE (le niveau compte comme fini,
     /// sans médaille ni meilleur temps).
     pub facile: bool,
+    /// La lettre cachée du niveau (carte 8.6) a été prise dans un niveau réussi.
+    pub lettre: bool,
 }
 
 impl ProgresNiveau {
@@ -349,6 +351,19 @@ impl Sauvegarde {
         }
     }
 
+    /// Lettres cachées (carte 8.6) : prises une fois, gardées pour toujours, par clé
+    /// de niveau. `noter_lettre` : celle du niveau `cle` (hors de la table : ignoré) ;
+    /// `lettres` : les cinq, dans l'ordre du mot « PÉPIN ».
+    pub fn noter_lettre(&mut self, cle: &str) {
+        if let Some(p) = self.progres_mut(cle) {
+            p.lettre = true;
+        }
+    }
+
+    pub fn lettres(&self) -> [bool; pepin_core::lettres::NB_LETTRES] {
+        pepin_core::lettres::trouvees(|cle| self.progres(cle).lettre)
+    }
+
     /// Le bonus de fin `id` est crédité : `true` la PREMIÈRE fois seulement (il est
     /// alors noté), `false` s'il l'avait déjà été.
     pub fn crediter_bonus(&mut self, id: &str) -> bool {
@@ -472,6 +487,9 @@ impl Sauvegarde {
             }
             if p.facile {
                 t.push_str(" facile:1");
+            }
+            if p.lettre {
+                t.push_str(" lettre:1");
             }
             t.push('\n');
         }
@@ -656,6 +674,7 @@ fn lire_niveau(valeur: &str) -> ProgresNiveau {
             "temps" => p.meilleur_temps = v.parse().ok(),
             "defaites" => p.defaites = v.parse().unwrap_or(0),
             "facile" => p.facile = v == "1",
+            "lettre" => p.lettre = v == "1",
             _ => {}
         }
     }
@@ -769,6 +788,7 @@ mod tests {
             meilleur_temps: Some(2345),
             defis: [true, true, false],
             medaille: 2,
+            lettre: true,
             ..ProgresNiveau::default()
         };
         assert!(s.crediter_bonus("sans_game_over"));
@@ -786,6 +806,8 @@ mod tests {
         assert_eq!(s.meilleur_score, 900, "records normaux intacts");
         s.normaliser();
         assert_eq!(Sauvegarde::depuis_texte(&s.vers_texte()), s);
+        // La lettre cachée du marché (carte 8.6), la 2e du mot, relue avec le reste.
+        assert_eq!(s.lettres(), [false, true, false, false, false]);
         assert!(s.progres("clocher").atteint);
         assert_eq!(s.niveaux.len(), 2, "hors de la table : rien de noté");
         assert_eq!(s.equipe("skin"), Some("pepinette"));

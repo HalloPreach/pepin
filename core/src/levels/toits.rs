@@ -15,7 +15,8 @@
 //! mur `m`, le toit dessous aussi : on y entre en marchant, on tombe dans une
 //! salle sous le toit (rangée 9, colonnes 71 à 73) où attend une goutte d'or ; on
 //! en ressort d'un saut. La goutte qui était au-dessus de l'immeuble y est
-//! descendue.
+//! descendue. Le premier P de « PÉPIN » (carte 8.6, case `*`) l'y attend aussi, au
+//! bout gauche de la salle (colonne 71).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -50,6 +51,6 @@ const ASCII: &str = r"
 .............o..........................................................BB......B.......####BBBBBBBBBBBBBBBBBBBBBBBB........................BB..................................
 ..@..D....S.....######.....S........T...L......H.......G............T...mB..f...B...####BBBBBBBBBBBBBBBBBBBBBBBBBBBB..f......H....L.........BB........T.........H.......X.......
 ################BBBBBB########...##########################.......######m###########BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB#####..#####################################################
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBB.......BBBBB..oBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBB.......BBBBB*.oBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBB.......BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ";

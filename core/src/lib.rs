@@ -5,6 +5,7 @@ pub mod aabb;
 pub mod entities;
 pub mod faisabilite;
 pub mod font;
+pub mod lettres;
 pub mod level;
 pub mod levels;
 pub mod palette;

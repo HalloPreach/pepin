@@ -62,6 +62,7 @@ use pepin_core::player::{Direction, Entrees};
 use pepin_core::zones::NB_NIVEAUX;
 
 use crate::app::Application;
+use crate::ecrans::histoire::Chapitre;
 use crate::ecrans::Ecran;
 use crate::entrees::Commandes;
 use crate::navigation::Navigation;
@@ -154,6 +155,10 @@ pub struct Partie {
     /// Chrono de la partie (pas de jeu, sans menus ni transitions).
     pub chrono: u32,
     pub fin_atteinte: bool,
+    /// Les lettres cachées dans la sauvegarde à la fin (carte 8.6), et l'image de la
+    /// fin secrète vue avant l'écran de fin.
+    pub lettres: [bool; pepin_core::lettres::NB_LETTRES],
+    pub fin_secrete_vue: bool,
 }
 
 /// Empreinte (hachage FNV-1a sur 64 bits) de la partie, image par image : écran,
@@ -195,6 +200,7 @@ pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
     let image_jouer = u32::from(ng_plus);
     let mut trames: Vec<Trame> = Vec::new();
     let mut fin_atteinte = false;
+    let mut fin_secrete_vue = false;
     for image in 0..60 * 60 * 15 {
         // Image 0 : « JOUER » au titre. Ensuite les cartes passent toutes seules ; les
         // images de l'histoire (carte 8.4), elles, attendent un appui : le robot appuie
@@ -219,6 +225,7 @@ pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
         };
         app.reagir(&nav, &Commandes::default(), None);
         app.pas(&trame.entrees);
+        fin_secrete_vue |= app.ecran == Ecran::Histoire(Chapitre::Secret);
         trame.ecran = nom_ecran(app.ecran);
         trame.niveau = if app.ecran == Ecran::Jeu {
             app.monde.infos.numero
@@ -270,6 +277,8 @@ pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
         score: app.monde.etat.score,
         chrono: app.chrono(),
         fin_atteinte,
+        lettres: app.sauvegarde.lettres(),
+        fin_secrete_vue,
     }
 }
 
@@ -374,6 +383,9 @@ mod tests {
         assert!(gouttes_au_10e < pepin_core::levels::gouttes_pour_le_bonus(NIVEAUX));
         let sans_bonus: Vec<u8> = (1..=10).chain([12]).collect();
         assert_eq!(numeros, sans_bonus, "bonus sauté, épilogue joué");
+        // Partie normale (carte 8.6) : aucune lettre cachée, la fin habituelle.
+        assert_eq!(partie.lettres, [false; 5]);
+        assert!(!partie.fin_secrete_vue);
     }
 
     /// La troisième partie du robot (carte 8.8) : la NOUVELLE PARTIE +, choisie au
@@ -425,6 +437,9 @@ mod tests {
         let attendu: Vec<(u8, u32)> = (1..=12).map(|n| (n, 3 * u32::from(n))).collect();
         assert_eq!(joues, attendu);
         assert_eq!(partie.gouttes as usize, GOUTTES_TOTAL);
+        // Les cinq lettres cachées (carte 8.6) prises en route : la fin secrète.
+        assert_eq!(partie.lettres, [true; 5]);
+        assert!(partie.fin_secrete_vue, "l'image de la fin secrète");
         println!(
             "partie complète : {} images, chrono {} pas, empreinte {:016x}",
             partie.trames.len(),

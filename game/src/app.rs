@@ -22,6 +22,7 @@
 //! à chaque écran, méthodes qui ne se contredisent pas (un seul endroit change
 //! d'écran).
 
+use pepin_core::lettres;
 use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
 use pepin_core::physics::HZ;
 use pepin_core::player::Entrees;
@@ -78,6 +79,8 @@ enum Suite {
     Carte,
     Titre,
     Fin,
+    /// L'écran de fin, son bilan déjà fait : après l'image de la fin secrète (carte 8.6).
+    EcranFin,
     /// Jouer SEUL le niveau `indice`, choisi sur la carte des niveaux (carte 7.4).
     NiveauSeul(usize),
     /// Courir SEUL le niveau `indice` contre le fantôme de force `force` (carte 8.7) :
@@ -438,6 +441,7 @@ impl Application {
             | Some(Suite::Carte) => true,
             Some(Suite::Titre)
             | Some(Suite::Fin)
+            | Some(Suite::EcranFin)
             | Some(Suite::Plan)
             | Some(Suite::Histoire(_)) => false,
             // Rien en attente : carte de présentation, écran « plus de vies » (il finit
@@ -629,11 +633,19 @@ impl Application {
     }
 
     /// Une image de l'histoire est passée : la suivante (ou le titre) si elle a été
-    /// ouverte depuis le titre, sinon la carte du niveau qui l'attend.
+    /// ouverte depuis le titre, sinon la carte du niveau qui l'attend ; après la fin
+    /// secrète (carte 8.6), l'écran de fin. Depuis le titre, la fin secrète suit la
+    /// 3e image une fois les cinq lettres réunies.
     fn apres_histoire(&mut self, chapitre: Chapitre) {
-        if !self.histoire_depuis_titre {
+        let secrete = lettres::manquantes(&self.sauvegarde.lettres()) == 0;
+        let suivant = chapitre
+            .suivant()
+            .or_else(|| (chapitre == Chapitre::Soleil && secrete).then_some(Chapitre::Secret));
+        if chapitre == Chapitre::Secret && !self.histoire_depuis_titre {
+            self.lancer(Suite::EcranFin);
+        } else if !self.histoire_depuis_titre {
             self.lancer(Suite::Carte);
-        } else if let Some(suivant) = chapitre.suivant() {
+        } else if let Some(suivant) = suivant {
             self.lancer(Suite::Histoire(suivant));
         } else {
             self.retour_titre_sur(Choix::Histoire);
@@ -813,6 +825,10 @@ impl Application {
             // sont remises à zéro quand le niveau recommence. Les défis (carte 7.3) sont
             // notés au passage, et leurs premières réussites créditées.
             self.tentative.gouttes = self.monde.gouttes_niveau;
+            // La lettre cachée (carte 8.6) d'un niveau réussi : gardée pour toujours.
+            if self.monde.lettre_prise {
+                self.sauvegarde.noter_lettre(self.monde.infos.cle);
+            }
             let ancien = self.sauvegarde.progres(self.monde.infos.cle).meilleur_temps;
             // Boss vaincu en mode facile (carte 8.14) : fini, gouttes créditées, mais
             // ni défi ni médaille ni meilleur temps.
@@ -1026,6 +1042,7 @@ impl Application {
                     score: e.score,
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
+                    lettres: Some(self.sauvegarde.lettres()),
                 };
                 // Un boss vaincu en facile (carte 8.14) : partie finie, mais pas de record ;
                 // une nouvelle partie + (carte 8.8) a ses records à part.
@@ -1047,8 +1064,15 @@ impl Application {
                 self.bonus_fin = defis::bonus_fin(!self.game_over_partie, toutes);
                 defis::crediter_bonus_fin(&mut self.sauvegarde, &mut self.bonus_fin);
                 self.sauvegarde.enregistrer();
-                self.ouvrir(Ecran::Fin);
+                // Les cinq lettres réunies (carte 8.6) : la 4e image, puis la fin secrète.
+                if self.bilan.fin_secrete() {
+                    self.histoire_depuis_titre = false;
+                    self.ouvrir(Ecran::Histoire(Chapitre::Secret));
+                } else {
+                    self.ouvrir(Ecran::Fin);
+                }
             }
+            Suite::EcranFin => self.ouvrir(Ecran::Fin),
         }
     }
 
@@ -1282,9 +1306,12 @@ impl Application {
                     }
                 }
                 match self.ecran {
-                    Ecran::Carte(_) => {
-                        carte::dessiner(self.monde.indice, self.monde.infos, self.anim)
-                    }
+                    Ecran::Carte(_) => carte::dessiner(
+                        self.monde.indice,
+                        self.monde.infos,
+                        self.anim,
+                        &self.sauvegarde.lettres(),
+                    ),
                     Ecran::Pause => {
                         pause::dessiner(self.anim, &libelles, &self.menu, &dispo);
                         // En jeu, pas d'icône : le coin est aux commandes tactiles et au HUD.
@@ -1647,6 +1674,7 @@ mod tests {
                 score: 900,
                 gouttes_bonus: None,
                 epilogue: true,
+                lettres: Some([false; 5]),
             }
         );
         assert_eq!(app.choix, vec![Choix::Rejouer, Choix::RetourTitre]);

@@ -620,6 +620,20 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 };
                 banque.dessiner(nom, sx, sy, false);
             }
+            // La lettre cachée (carte 8.6), comme la goutte : dessin 10x10 autour de
+            // la boîte 8x8, flottement d'un pixel (à contretemps de la goutte).
+            Entite::Lettre(l) => {
+                if !l.est_prise() {
+                    let lettre = pepin_core::lettres::lettre_du_niveau(monde.infos.cle);
+                    let flotte = [0.0, 0.0, -1.0, -1.0][(pas / 15) as usize % 4];
+                    banque.dessiner(
+                        objets::lettre(lettre.unwrap_or('P')),
+                        sx - 1.0,
+                        sy + flotte - 1.0,
+                        false,
+                    );
+                }
+            }
             Entite::Champignon(c) => {
                 // Sprite 16x12 : le chapeau commence à la hauteur de la boîte.
                 let nom = if c.est_comprime() {

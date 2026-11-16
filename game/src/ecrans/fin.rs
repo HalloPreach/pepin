@@ -13,10 +13,11 @@
 //! La mise en page est calculée par une fonction pure (`mise_en_page`), testée sans
 //! fenêtre ; `dessiner` ne fait que la suivre.
 
+use pepin_core::lettres::{self, NB_LETTRES};
 use pepin_core::levels::{self, GenreNiveau, NIVEAUX};
 use pepin_core::palette::{
-    ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL_CLAIR, OR, OR_PALE,
-    PLUIE,
+    ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE, BRUME, CORAIL_CLAIR,
+    OR, OR_PALE, PLUIE,
 };
 use pepin_core::zones::Theme;
 
@@ -51,6 +52,16 @@ pub struct Bilan {
     pub gouttes_bonus: Option<u32>,
     /// La partie s'est-elle terminée par l'épilogue (le retour sur les toits) ?
     pub epilogue: bool,
+    /// Les lettres cachées trouvées (carte 8.6, toutes parties confondues), dans
+    /// l'ordre du mot ; `None` : pas de ligne (un bilan sans lettres, tests).
+    pub lettres: Option<[bool; NB_LETTRES]>,
+}
+
+impl Bilan {
+    /// Les cinq lettres sont réunies : la fin secrète (carte 8.6).
+    pub fn fin_secrete(&self) -> bool {
+        self.lettres.is_some_and(|l| lettres::manquantes(&l) == 0)
+    }
 }
 
 /// Ce que montre l'écran de fin et où : calculé sans rien dessiner.
@@ -69,6 +80,10 @@ pub struct MiseEnPage {
     /// Le petit mot de fin, coupé en lignes, et l'ordonnée de sa première ligne.
     pub mot: Vec<String>,
     pub y_mot: f32,
+    /// La ligne des lettres (carte 8.6), si le bilan en a : son libellé
+    /// (« LETTRES » ou « IL MANQUE N LETTRES ») et les lettres trouvées. Elle est
+    /// dans `lignes` sous le nom `contenu::LIBELLE_LETTRES` (sa place), valeur vide.
+    pub lettres: Option<(String, [bool; NB_LETTRES])>,
 }
 
 /// Le bonus du jeu, vu de l'écran de fin.
@@ -106,7 +121,10 @@ const PAS_LIGNES_MIN: f32 = 10.0;
 /// exactement celle d'avant la carte 5.17 (lignes en 42, tous les 13 px ; mot en
 /// 98). L'épilogue ajoute une phrase sous le titre, le bonus une ligne : les lignes
 /// se resserrent (tous les 11 px) pour laisser le menu à sa place. La ligne VIES
-/// (carte 6.2) s'ajoute après MORTS quand elle tient (`ligne_vies_tient`).
+/// (carte 6.2) s'ajoute après MORTS quand elle tient (`ligne_vies_tient`). La ligne
+/// des lettres (carte 8.6) passe avant elle : si le bilan ne tient plus, les lignes
+/// se resserrent d'un pixel à la fois (jusqu'à 10 px), puis le bloc remonte de 2 px
+/// avec 2 px seulement avant le mot. Les cinq lettres réunies : « FIN SECRÈTE ».
 pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
     let total = levels::gouttes_du_parcours(NIVEAUX);
     let mut lignes = vec![
@@ -120,10 +138,17 @@ pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
         let total_bonus = levels::gouttes_du_bonus(NIVEAUX);
         lignes.push((contenu::LIBELLE_BONUS, format!("{b}/{total_bonus}")));
     }
+    // Les lettres cachées : leur place dans les lignes, dessinées à part (`lettres`).
+    let lettres = bilan
+        .lettres
+        .map(|l| (contenu::libelle_lettres(lettres::manquantes(&l)), l));
+    if lettres.is_some() {
+        lignes.push((contenu::LIBELLE_LETTRES, String::new()));
+    }
     lignes.push((contenu::LIBELLE_MORTS, bilan.morts.to_string()));
     lignes.push((contenu::LIBELLE_SCORE, bilan.score.to_string()));
     let serre = bilan.epilogue || bilan.gouttes_bonus.is_some();
-    let (y_lignes, mut pas_lignes, ecart_mot) = if serre {
+    let (mut y_lignes, mut pas_lignes, mut ecart_mot) = if serre {
         (46.0, 11.0, 3.0)
     } else {
         (42.0, 13.0, 4.0)
@@ -132,6 +157,18 @@ pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
         contenu::message_fin(bilan.gouttes, total, bonus_fin(bilan)),
         LIGNE_MAX_MOT,
     );
+    // Le bilan et le mot tiennent-ils au-dessus du menu ? (Toujours sans la ligne
+    // des lettres : rien ne bouge alors.)
+    let bilan_tient = |y: f32, pas: f32, ecart: f32| {
+        bas_du_mot((y, pas, ecart), lignes.len(), mot.len()) <= Y_MENU
+    };
+    while pas_lignes > PAS_LIGNES_MIN && !bilan_tient(y_lignes, pas_lignes, ecart_mot) {
+        pas_lignes -= 1.0;
+    }
+    if !bilan_tient(y_lignes, pas_lignes, ecart_mot) {
+        y_lignes -= 2.0;
+        ecart_mot = 2.0;
+    }
     // La ligne VIES : à l'écart habituel si elle tient, sinon avec des lignes
     // resserrées d'un pixel (jamais moins de 10 px : 2 px entre deux lignes), sinon
     // pas du tout.
@@ -148,23 +185,32 @@ pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
         let i = lignes.len() - 1;
         lignes.insert(i, (contenu::LIBELLE_VIES, bilan.vies.to_string()));
     }
+    let secrete = bilan.fin_secrete();
     MiseEnPage {
-        fond: if bilan.epilogue {
+        fond: if bilan.epilogue && !secrete {
             Theme::Descente
         } else {
             Theme::Soleil
         },
-        titre: if bilan.epilogue {
+        titre: if secrete {
+            contenu::TITRE_FIN_SECRETE
+        } else if bilan.epilogue {
             contenu::TITRE_FIN_RETOUR
         } else {
             contenu::TITRE_FIN
         },
-        phrase: bilan.epilogue.then_some(contenu::PHRASE_RETOUR),
+        // La phrase sous le titre : après l'épilogue seulement (les lignes sont plus bas).
+        phrase: bilan.epilogue.then_some(if secrete {
+            contenu::PHRASE_SECRETE
+        } else {
+            contenu::PHRASE_RETOUR
+        }),
         y_mot: y_lignes + lignes.len() as f32 * pas_lignes + ecart_mot,
         lignes,
         y_lignes,
         pas_lignes,
         mot,
+        lettres,
     }
 }
 
@@ -205,6 +251,15 @@ pub fn dessiner(
     }
     for (i, (nom, valeur)) in m.lignes.iter().enumerate() {
         let y = m.y_lignes + i as f32 * m.pas_lignes;
+        // La ligne des lettres (carte 8.6) : « IL MANQUE N LETTRES », puis le mot
+        // PÉPIN, lettres trouvées en or, les autres grisées.
+        if *nom == contenu::LIBELLE_LETTRES {
+            if let Some((libelle, trouvees)) = &m.lettres {
+                texte::dessiner(libelle, 56.0, y, ombre(BRUME));
+                dessiner_lettres(trouvees, None, 264.0, y);
+            }
+            continue;
+        }
         texte::dessiner(nom, 56.0, y, ombre(BRUME));
         texte::dessiner_a_droite(valeur, 264.0, y, ombre(BLANC_CASSE));
         // Record battu (carte 7.2) : au milieu de la ligne SCORE, qui clignote.
@@ -219,6 +274,31 @@ pub fn dessiner(
     particules.dessiner(0, 0);
 }
 
+/// Pas d'une lettre à l'autre dans le petit mot « PÉPIN » (glyphe de 5 px + 2).
+const PAS_LETTRE: f32 = 7.0;
+/// Largeur du petit mot « PÉPIN » dessiné par `dessiner_lettres`.
+pub const LARGEUR_LETTRES: f32 = PAS_LETTRE * NB_LETTRES as f32 - 2.0;
+
+/// Le petit mot « PÉPIN » (carte 8.6), son bord droit en `droite` : les lettres
+/// trouvées en or, les autres en ardoise pâle. `ici` : la lettre du niveau présenté
+/// (rang) ; pas encore trouvée, elle est en corail (« elle est cachée ici »). Sert à
+/// l'écran de fin et à la carte de présentation d'un niveau.
+pub fn dessiner_lettres(trouvees: &[bool; NB_LETTRES], ici: Option<usize>, droite: f32, y: f32) {
+    let x0 = droite - LARGEUR_LETTRES;
+    for (i, &(_, lettre)) in lettres::LETTRES.iter().enumerate() {
+        let x = x0 + i as f32 * PAS_LETTRE;
+        let couleur = if trouvees[i] {
+            OR
+        } else if ici == Some(i) {
+            CORAIL_CLAIR
+        } else {
+            ARDOISE_PALE
+        };
+        let style = Style::simple(couleur, 1).avec_ombre(ARDOISE_OMBRE);
+        texte::dessiner(&lettre.to_string(), x, y, style);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,21 +306,28 @@ mod tests {
     use pepin_core::font::HAUTEUR_GLYPHE;
 
     /// Tous les bilans qui comptent : avec ou sans épilogue, bonus joué ou non, peu
-    /// ou toutes les gouttes.
+    /// ou toutes les gouttes, sans ligne des lettres, avec 2 manquantes ou toutes.
     fn bilans() -> Vec<Bilan> {
         let mut v = Vec::new();
         for epilogue in [false, true] {
             for gouttes_bonus in [None, Some(0), Some(3)] {
                 for gouttes in [0, 15, 29, 33] {
-                    v.push(Bilan {
-                        pas: 3600,
-                        gouttes,
-                        morts: 2,
-                        vies: 9,
-                        score: 900,
-                        gouttes_bonus,
-                        epilogue,
-                    });
+                    for lettres in [
+                        None,
+                        Some([true, false, true, true, false]),
+                        Some([true; 5]),
+                    ] {
+                        v.push(Bilan {
+                            pas: 3600,
+                            gouttes,
+                            morts: 2,
+                            vies: 9,
+                            score: 900,
+                            gouttes_bonus,
+                            epilogue,
+                            lettres,
+                        });
+                    }
                 }
             }
         }
@@ -308,6 +395,7 @@ mod tests {
             score: 900,
             gouttes_bonus: None,
             epilogue: false,
+            lettres: None,
         });
         assert_eq!(m.mot.len(), 2);
         assert_eq!(
@@ -407,6 +495,7 @@ mod tests {
             score: 900,
             gouttes_bonus: None,
             epilogue: true,
+            lettres: None,
         };
         assert_eq!(
             noms(&base),

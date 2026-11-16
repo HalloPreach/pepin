@@ -40,6 +40,8 @@ pub enum CauseMort {
 pub enum Contact {
     /// Une goutte d'or vient d'être ramassée (numéro dans son niveau).
     Goutte(u8),
+    /// La lettre cachée du niveau vient d'être prise (carte 8.6).
+    Lettre,
     /// Une lanterne vient de s'allumer : voici où réapparaître `(x, y)`.
     Lanterne(f32, f32),
     /// Un ennemi vient d'être écrasé.
@@ -183,6 +185,11 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
             Entite::Goutte(g) => {
                 if !g.est_ramassee() && joueur.boite.chevauche(&g.boite) && g.ramasser() {
                     contacts.push(Contact::Goutte(g.index));
+                }
+            }
+            Entite::Lettre(l) => {
+                if !l.est_prise() && joueur.boite.chevauche(&l.boite) && l.prendre() {
+                    contacts.push(Contact::Lettre);
                 }
             }
             Entite::Lanterne(l) => {

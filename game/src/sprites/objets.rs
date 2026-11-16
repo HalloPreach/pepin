@@ -3,6 +3,62 @@
 
 use super::Image;
 
+/// Lettre cachée (carte 8.6) 10x10 : un jeton VIOLET cerclé d'or (la goutte est un
+/// dessin d'or sans violet), la lettre en or pâle ; 2 px de contour (ombre puis or) comme
+/// la goutte, pour rester lisible sur tous les ciels. La boîte de ramassage (8x8) est au
+/// milieu. Les deux P du mot ont le même dessin.
+pub const LETTRE_P: Image = &[
+    ".00000000.",
+    "0BBBBBBBB0",
+    "0BFFFFFFB0",
+    "0BFCCCFFB0",
+    "0BFCFFCFB0",
+    "0BFCCCFFB0",
+    "0BFCFFFFB0",
+    "0BFCFFFFB0",
+    "0BBBBBBBB0",
+    ".00000000.",
+];
+
+pub const LETTRE_E: Image = &[
+    ".00000000.",
+    "0BBBBBBBB0",
+    "0BFFFCFFB0",
+    "0BFCCCCFB0",
+    "0BFCFFFFB0",
+    "0BFCCCFFB0",
+    "0BFCFFFFB0",
+    "0BFCCCCFB0",
+    "0BBBBBBBB0",
+    ".00000000.",
+];
+
+pub const LETTRE_I: Image = &[
+    ".00000000.",
+    "0BBBBBBBB0",
+    "0BFFFFFFB0",
+    "0BFCCCCFB0",
+    "0BFFCCFFB0",
+    "0BFFCCFFB0",
+    "0BFFCCFFB0",
+    "0BFCCCCFB0",
+    "0BBBBBBBB0",
+    ".00000000.",
+];
+
+pub const LETTRE_N: Image = &[
+    ".00000000.",
+    "0BBBBBBBB0",
+    "0BFFFFFFB0",
+    "0BFCFFCFB0",
+    "0BFCCFCFB0",
+    "0BFCFCCFB0",
+    "0BFCFFCFB0",
+    "0BFCFFCFB0",
+    "0BBBBBBBB0",
+    ".00000000.",
+];
+
 /// Goutte d'or 10x10 : la goutte de 8x8 (boîte de ramassage) cernée de 2 px de contour sombre
 /// (le contour d'origine + un anneau), pour rester lisible devant tous les ciels, même dorés.
 pub const GOUTTE0: Image = &[
@@ -773,6 +829,10 @@ pub const MONTGOLFIERE_FEU1: Image = &[
 
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
+    ("lettre_p", LETTRE_P),
+    ("lettre_e", LETTRE_E),
+    ("lettre_i", LETTRE_I),
+    ("lettre_n", LETTRE_N),
     ("goutte0", GOUTTE0),
     ("goutte1", GOUTTE1),
     ("goutte2", GOUTTE2),
@@ -816,6 +876,15 @@ pub const SPRITES: &[(&str, Image)] = &[
 
 /// Goutte d'or : 4 images de brillance.
 pub const GOUTTE: [&str; 4] = ["goutte0", "goutte1", "goutte2", "goutte3"];
+/// Nom du sprite de la lettre cachée `lettre` (carte 8.6) : P, É, I ou N.
+pub fn lettre(lettre: char) -> &'static str {
+    match lettre {
+        'P' => "lettre_p",
+        'É' => "lettre_e",
+        'I' => "lettre_i",
+        _ => "lettre_n",
+    }
+}
 /// Lanterne : éteinte puis allumée.
 pub const LANTERNE: [&str; 2] = ["lanterne0", "lanterne1"];
 /// Champignon-trampoline : détendu puis comprimé.
