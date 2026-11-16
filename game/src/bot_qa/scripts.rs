@@ -913,7 +913,28 @@ fn ecrire_script_ennemis_64b() {
     );
 }
 
-/// Le travail commun des deux tests précédents : pour chaque `(indice, ajouts)`,
+/// Scripts des captures de la carte 6.6 (le pigeon redessiné) : même chose, en
+/// suivant TOUS les pigeons du jeu (fichiers `script-66-N.txt`, `touches-66-N.txt`
+/// et `trace-66-N.csv`) : le clocher (ciel violet), les vents (ciel corail), la mer,
+/// Au-dessus des nuages et la descente. La trace donne la phase de vol de chacun.
+/// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_pigeons_66
+#[test]
+#[ignore]
+fn ecrire_script_pigeons_66() {
+    use pepin_core::entities::TypeEnnemi::Pigeon;
+    ecrire_scripts_des_ajouts(
+        "66",
+        &[
+            (4, &[(Pigeon, 26, 32), (Pigeon, 19, 24)]),
+            (6, &[(Pigeon, 38, 3), (Pigeon, 167, 3)]),
+            (7, &[(Pigeon, 65, 3)]),
+            (8, &[(Pigeon, 108, 3)]),
+            (10, &[(Pigeon, 15, 10), (Pigeon, 21, 10)]),
+        ],
+    );
+}
+
+/// Le travail commun des trois tests précédents : pour chaque `(indice, ajouts)`,
 /// le script du parcours du robot dans le niveau d'indice `indice`, ses touches de
 /// raccourci et sa trace, dans `target/qa/` avec le préfixe `prefixe`.
 fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
