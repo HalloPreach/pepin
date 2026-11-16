@@ -23,6 +23,7 @@ use pepin_core::physics::{CourantAscendant, VentLateral, HZ};
 use pepin_core::player::EtatJoueur;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
+use crate::cosmetiques::Trainees;
 use crate::decor;
 use crate::grele;
 use crate::monde::{Monde, REAPPARITION_PAS};
@@ -1109,11 +1110,14 @@ fn dessiner_repere_pepin(monde: &Monde, alpha: f32, cx: i32, cy: i32) {
 }
 
 /// Dessine tout le monde dans la cible logique. `(cx, cy)` : caméra entière ; `skin` :
-/// la tenue de Pépin (`Skin::Pepin` par défaut).
+/// la tenue de Pépin (`Skin::Pepin` par défaut) ; `trainees` : la traînée cosmétique
+/// (carte 7.6), sous les ennemis et les dangers.
+#[allow(clippy::too_many_arguments)]
 pub fn dessiner(
     monde: &Monde,
     banque: &Banque,
     particules: &Particules,
+    trainees: &Trainees,
     skin: Skin,
     alpha: f32,
     cx: i32,
@@ -1131,6 +1135,7 @@ pub fn dessiner(
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);
     dessiner_cadrans(monde, banque, alpha, cx, cy);
+    trainees.dessiner(cx, cy);
     dessiner_entites(monde, banque, alpha, cx, cy);
     dessiner_pepin(monde, banque, skin, alpha, cx, cy);
     particules.dessiner(cx, cy);

@@ -4,10 +4,11 @@
 //!
 //! Organisation à ONGLETS : un onglet = une `Categorie`, avec sa liste d'`Objet`s
 //! (identifiant, nom, prix, aperçu ; débloqué ? équipé ? se lisent dans la sauvegarde).
-//! Aujourd'hui un seul onglet, SKINS (catalogue de la carte 7.1). Une carte suivante
-//! (traînées, motifs de parapluie, palettes, musiques) ajoute une variante à
-//! `Categorie`, sa ligne dans `TOUTES` et dans chaque `match` : l'écran n'a rien à
-//! changer. Un onglet sans objet n'est pas affiché (`onglets`).
+//! Cinq onglets : SKINS (carte 7.1), puis TRAÎNÉES, PARAPLUIES (motifs), PALETTES et
+//! MUSIQUES (carte 7.6, catalogues et prix dans `cosmetiques`). Chaque catégorie a
+//! son préfixe dans l'inventaire de la sauvegarde (« trainee:bulles »…) ; ajouter une
+//! catégorie = une variante de `Categorie`, sa ligne dans `TOUTES` et dans chaque
+//! `match`. Un onglet sans objet n'est pas affiché (`onglets`).
 //!
 //! Ce module est PUR (aucun dessin) : l'écran est dans `ecrans/boutique.rs`, et
 //! `app.rs` ne fait qu'appeler `EtatBoutique::reagir` puis appliquer l'`Action`.
@@ -16,7 +17,9 @@
 //! `#[cfg(feature = ...)]` sur une variante et sur un élément de liste (objet factice
 //! présent seulement dans le build de QA), `Option::take`.
 
+use crate::cosmetiques::{self as cosm, Motif, Palette, Trainee};
 use crate::menu::Menu;
+use crate::musiques::Musique;
 use crate::navigation::Navigation;
 use crate::sauvegarde::Sauvegarde;
 use crate::skins::Skin;
@@ -25,16 +28,41 @@ use crate::skins::Skin;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Categorie {
     Skins,
+    Trainees,
+    Motifs,
+    Palettes,
+    Musiques,
 }
 
 impl Categorie {
     /// Toutes les catégories, dans l'ordre des onglets.
-    pub const TOUTES: [Categorie; 1] = [Categorie::Skins];
+    pub const TOUTES: [Categorie; 5] = [
+        Categorie::Skins,
+        Categorie::Trainees,
+        Categorie::Motifs,
+        Categorie::Palettes,
+        Categorie::Musiques,
+    ];
 
     /// Nom de l'onglet.
     pub fn nom(self) -> &'static str {
         match self {
             Categorie::Skins => "SKINS",
+            Categorie::Trainees => "TRAÎNÉES",
+            Categorie::Motifs => "PARAPLUIES",
+            Categorie::Palettes => "PALETTES",
+            Categorie::Musiques => "MUSIQUES",
+        }
+    }
+
+    /// Préfixe des objets de la catégorie dans la sauvegarde (« categorie:id »).
+    pub fn prefixe(self) -> &'static str {
+        match self {
+            Categorie::Skins => "skin",
+            Categorie::Trainees => "trainee",
+            Categorie::Motifs => "motif",
+            Categorie::Palettes => "palette",
+            Categorie::Musiques => "musique",
         }
     }
 
@@ -65,6 +93,59 @@ impl Categorie {
                 });
                 v
             }
+            // Le choix « rien » d'abord (gratuit), puis le catalogue.
+            Categorie::Trainees => {
+                let mut v =
+                    vec![self.objet(cosm::SANS_TRAINEE, "AUCUNE", 0, Apercu::Trainee(None))];
+                v.extend(Trainee::TOUTES.map(|t| {
+                    self.objet(
+                        t.id(),
+                        t.nom(),
+                        cosm::PRIX_TRAINEE,
+                        Apercu::Trainee(Some(t)),
+                    )
+                }));
+                v
+            }
+            Categorie::Motifs => {
+                let mut v = vec![self.objet(cosm::SANS_MOTIF, "UNI", 0, Apercu::Motif(None))];
+                v.extend(Motif::TOUS.map(|m| {
+                    self.objet(m.id(), m.nom(), cosm::PRIX_MOTIF, Apercu::Motif(Some(m)))
+                }));
+                v
+            }
+            Categorie::Palettes => {
+                let mut v =
+                    vec![self.objet(cosm::SANS_PALETTE, "ORIGINALE", 0, Apercu::Palette(None))];
+                v.extend(Palette::TOUTES.map(|p| {
+                    self.objet(
+                        p.id(),
+                        p.nom(),
+                        cosm::PRIX_PALETTE,
+                        Apercu::Palette(Some(p)),
+                    )
+                }));
+                v
+            }
+            Categorie::Musiques => {
+                let mut v =
+                    vec![self.objet(cosm::MUSIQUE_PAR_ZONE, "PAR ZONE", 0, Apercu::Musique(None))];
+                v.extend(
+                    Musique::TOUTES
+                        .map(|m| self.objet(m.id(), m.nom(), m.prix(), Apercu::Musique(Some(m)))),
+                );
+                v
+            }
+        }
+    }
+
+    fn objet(self, id: &'static str, nom: &'static str, prix: u32, apercu: Apercu) -> Objet {
+        Objet {
+            categorie: self,
+            id,
+            nom,
+            prix,
+            apercu,
         }
     }
 }
@@ -82,6 +163,14 @@ pub fn onglets() -> Vec<Categorie> {
 pub enum Apercu {
     /// Un skin : aperçu animé (course).
     Skin(Skin),
+    /// Une traînée derrière Pépin qui court (`None` : aucune).
+    Trainee(Option<Trainee>),
+    /// Le parapluie ouvert avec ce motif (`None` : uni).
+    Motif(Option<Motif>),
+    /// Quelques couleurs de la palette (`None` : l'originale).
+    Palette(Option<Palette>),
+    /// Une note de musique (`None` : la musique de chaque zone).
+    Musique(Option<Musique>),
     /// L'objet factice du build de QA : une goutte d'or, rien à équiper.
     #[cfg(any(test, feature = "debug_niveaux"))]
     Factice,
@@ -108,19 +197,19 @@ pub enum Etat {
 }
 
 impl Objet {
+    /// Identifiant dans l'inventaire de la sauvegarde : « categorie:id ».
+    pub fn cle(&self) -> String {
+        format!("{}:{}", self.categorie.prefixe(), self.id)
+    }
+
     /// L'objet est-il à lui (acheté ou gratuit) ?
     pub fn debloque(&self, s: &Sauvegarde) -> bool {
-        self.prix == 0
-            || match self.categorie {
-                Categorie::Skins => s.skins_debloques.iter().any(|id| id == self.id),
-            }
+        self.prix == 0 || s.possede(&self.cle())
     }
 
     /// L'objet est-il celui en service ?
     pub fn equipe(&self, s: &Sauvegarde) -> bool {
-        match self.categorie {
-            Categorie::Skins => s.skin_choisi == self.id,
-        }
+        s.equipe(self.categorie.prefixe()) == Some(self.id)
     }
 
     pub fn etat(&self, s: &Sauvegarde) -> Etat {
@@ -149,7 +238,8 @@ pub enum Action {
     Rien,
     /// Retour à l'écran titre.
     Quitter,
-    /// La sauvegarde a changé (achat ou équipement) : l'enregistrer et appliquer le skin.
+    /// La sauvegarde a changé (achat ou équipement) : l'enregistrer et appliquer le skin
+    /// et les cosmétiques.
     Enregistrer,
 }
 
@@ -317,22 +407,25 @@ pub fn acheter(objet: &Objet, s: &mut Sauvegarde) -> bool {
     if !s.depenser(objet.prix) {
         return false;
     }
-    match objet.categorie {
-        Categorie::Skins => s.debloquer(objet.id),
-    }
+    s.acquerir(&objet.cle());
     true
 }
 
 /// Équipe `objet` (déjà débloqué). `false` si rien n'a changé (déjà équipé, ou
 /// objet factice qui ne s'équipe pas).
 pub fn equiper(objet: &Objet, s: &mut Sauvegarde) -> bool {
-    match objet.apercu {
-        Apercu::Skin(_) if !objet.equipe(s) => {
-            s.skin_choisi = objet.id.to_string();
-            true
-        }
-        _ => false,
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if objet.apercu == Apercu::Factice {
+        return false;
     }
+    if objet.equipe(s) {
+        return false;
+    }
+    // Un objet gratuit est à tout le monde, même absent d'une vieille sauvegarde.
+    if objet.prix == 0 {
+        s.acquerir(&objet.cle());
+    }
+    s.equiper(&objet.cle())
 }
 
 #[cfg(test)]
@@ -365,7 +458,11 @@ mod tests {
         let droite = nav(|n| n.droite = true);
         let mut s = Sauvegarde::default();
         let mut e = EtatBoutique::new();
-        assert_eq!(e.onglets, [Categorie::Skins]);
+        assert_eq!(
+            e.onglets.len(),
+            5,
+            "skins, traînées, parapluies, palettes, musiques"
+        );
         assert_eq!(e.objets.len(), 3, "Pépin, Pépinette, factice (tests)");
         // Pépinette : gratuite, équipée d'un appui.
         e.reagir(&bas, &mut s, &SansZones);

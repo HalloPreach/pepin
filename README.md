@@ -130,8 +130,11 @@ montre le chemin des toits jusqu'au soleil et permet de rejouer chaque niveau d�
 atteint. Chaque niveau a trois défis (« SANS MOURIR », « SANS PLANER » ou « LES 3
 GOUTTES », et un « CHRONO ») ; la médaille compte ceux réussis dans une même
 tentative (bronze, argent, or). Gouttes d'or, défis et médailles rapportent des
-gouttes, chacune une seule fois, à dépenser dans la BOUTIQUE (les apparences de
-Pépin ; Pépinette y est offerte dès le départ).
+gouttes, chacune une seule fois, à dépenser dans la BOUTIQUE, uniquement pour
+l'apparence (le score reste comparable) : les tenues de Pépin (Pépinette y est
+offerte dès le départ), une traînée derrière lui, un motif sur son parapluie, une
+autre palette de couleurs pour tout le jeu, et une musique qui remplace celle des
+zones.
 
 Chaque niveau contient trois gouttes d'or et des lanternes (points de
 réapparition), sauf le bonus, sans lanterne : une chute y ramène au départ.

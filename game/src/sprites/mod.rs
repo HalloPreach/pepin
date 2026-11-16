@@ -29,6 +29,7 @@ mod planche;
 #[rustfmt::skip]
 pub mod tuiles;
 
+use std::cell::Cell;
 use std::collections::HashMap;
 
 use macroquad::prelude::{
@@ -37,6 +38,7 @@ use macroquad::prelude::{
 use pepin_core::palette::{Couleur, TOUTES};
 use pepin_core::zones::Theme;
 
+use crate::cosmetiques::{appliquer_motif, Motif};
 use crate::decor::ambiance;
 use crate::rendu::couleur_mq;
 use crate::skins::Skin;
@@ -166,14 +168,15 @@ fn remplacer(c: char, theme: Theme) -> char {
 }
 
 /// Convertit une grille en texture « nearest ». `theme` : substitution de couleurs.
-fn texture(image: Image, theme: Option<Theme>) -> Texture2D {
+fn texture(image: &[&str], theme: Option<Theme>) -> Texture2D {
     texture_tramee(image, theme, false)
 }
 
 /// Comme `texture` ; `trame` : un pixel sur deux en damier reste transparent (le faux mur
 /// révélé de la carte 8.5 : « translucide » sans aucune demi-teinte).
-fn texture_tramee(image: Image, theme: Option<Theme>, trame: bool) -> Texture2D {
-    let mut img = ImageMq::gen_image_color(largeur(image) as u16, hauteur(image) as u16, BLANK);
+fn texture_tramee(image: &[&str], theme: Option<Theme>, trame: bool) -> Texture2D {
+    let l = image.first().map_or(0, |l| l.chars().count());
+    let mut img = ImageMq::gen_image_color(l as u16, image.len() as u16, BLANK);
     for (y, ligne) in image.iter().enumerate() {
         for (x, c) in ligne.chars().enumerate() {
             if trame && (x + y) % 2 == 1 {
@@ -198,6 +201,11 @@ pub struct Banque {
     tuiles: Vec<HashMap<&'static str, Texture2D>>,
     /// Les mêmes tuiles tramées en damier (faux murs révélés, carte 8.5).
     tuiles_tramees: Vec<HashMap<&'static str, Texture2D>>,
+    /// Les images des skins avec un motif sur le parapluie (carte 7.6), par motif.
+    motifs: HashMap<(Motif, &'static str), Texture2D>,
+    /// Le motif en service : `dessiner` prend alors ces images-là pour Pépin, sur
+    /// tous les écrans (jeu, titre, carte des niveaux, histoire).
+    motif: Cell<Option<Motif>>,
 }
 
 impl Banque {
@@ -219,17 +227,43 @@ impl Banque {
                 })
                 .collect()
         };
+        let mut motifs = HashMap::new();
+        for skin in Skin::TOUS {
+            for motif in Motif::TOUS {
+                for &(nom, dessin) in skin.sprites() {
+                    let avec = appliquer_motif(dessin, skin, motif);
+                    let lignes: Vec<&str> = avec.iter().map(String::as_str).collect();
+                    motifs.insert((motif, nom), texture(&lignes, None));
+                }
+            }
+        }
         Self {
             sprites,
             tuiles: jeu(false),
             tuiles_tramees: jeu(true),
+            motifs,
+            motif: Cell::new(None),
+        }
+    }
+
+    /// Le motif de parapluie en service (`None` : parapluie uni).
+    pub fn choisir_motif(&self, motif: Option<Motif>) {
+        self.motif.set(motif);
+    }
+
+    /// Comme `dessiner`, avec un motif donné (aperçus de la boutique).
+    pub fn dessiner_avec_motif(&self, nom: &str, motif: Option<Motif>, x: f32, y: f32) {
+        let t = motif.and_then(|m| self.motifs.get(&(m, nom)));
+        if let Some(t) = t.or_else(|| self.sprites.get(nom)) {
+            Self::poser(t, x, y, false);
         }
     }
 
     /// Dessine le sprite `nom` avec son coin haut-gauche en `(x, y)` (arrondi au pixel).
     /// `miroir` : retourne l'image horizontalement (Pépin qui regarde à gauche).
     pub fn dessiner(&self, nom: &str, x: f32, y: f32, miroir: bool) {
-        if let Some(t) = self.sprites.get(nom) {
+        let avec_motif = self.motif.get().and_then(|m| self.motifs.get(&(m, nom)));
+        if let Some(t) = avec_motif.or_else(|| self.sprites.get(nom)) {
             Self::poser(t, x, y, miroir);
         }
     }

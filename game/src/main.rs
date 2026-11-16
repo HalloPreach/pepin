@@ -10,7 +10,8 @@
 //! de `entrees.rs` couvrent QWERTY et AZERTY (sur AZERTY, M est à la position du
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
-//! (changer de niveau), K (skin suivant), G (100 gouttes en poche), F9 (plantage
+//! (changer de niveau), K (skin suivant), T, Y, O (traînée, motif de parapluie, palette
+//! suivants), G (100 gouttes en poche), F9 (plantage
 //! volontaire) et F11 (force la musique suivante) : uniquement dans le build de mise au point
 //! (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
@@ -22,6 +23,7 @@ mod boutique;
 mod camera;
 mod chrono;
 mod contenu;
+mod cosmetiques;
 mod decor;
 mod defis;
 mod demo;
@@ -130,6 +132,19 @@ async fn main() {
         if entrees::skin_suivant_demande() {
             app.skin = app.skin.suivant();
         }
+        // Build de QA seulement : T, Y, O passent à la traînée, au motif, à la palette
+        // suivants (« rien » compris), sans les enregistrer (captures de la carte 7.6).
+        let [trainee, motif, palette] = entrees::cosmetiques_suivants_demandes();
+        let c = &mut app.cosmetiques;
+        if trainee {
+            c.trainee = cosmetiques::suivant(&cosmetiques::Trainee::TOUTES, c.trainee);
+        }
+        if motif {
+            c.motif = cosmetiques::suivant(&cosmetiques::Motif::TOUS, c.motif);
+        }
+        if palette {
+            c.palette = cosmetiques::suivant(&cosmetiques::Palette::TOUTES, c.palette);
+        }
         // Build de QA seulement (`debug_niveaux`) : G met 100 gouttes en poche (essai de la
         // boutique), enregistrées comme des gouttes gagnées.
         if entrees::gouttes_qa_demandees() {
@@ -147,15 +162,17 @@ async fn main() {
             panic!("plantage volontaire (build de QA, touche F9)");
         }
         // Build de QA seulement (F11) : FORCE la musique suivante du catalogue, pour
-        // l'écouter partout. (La future boutique vendra ce même forçage.)
+        // l'écouter partout (la boutique vend ce forçage pour le jeu, carte 7.6).
         if musiques::musique_suivante_qa() {
             forcage = Some(audio.musique_active().suivante());
         }
         // Une musique par zone (carte 8.7) : celle de l'écran et du niveau chargé, sauf
-        // forçage. `choisir_musique` n'agit que si elle CHANGE : deux niveaux de la même
-        // zone gardent la boucle sans coupure.
-        let voulue =
-            forcage.unwrap_or_else(|| musiques::musique_de_l_ecran(app.ecran, app.monde.infos));
+        // musique choisie dans la boutique (en jeu, carte 7.6) ou forçage.
+        // `choisir_musique` n'agit que si elle CHANGE : deux niveaux de la même zone
+        // gardent la boucle sans coupure.
+        let voulue = forcage.unwrap_or_else(|| {
+            musiques::musique_jouee(app.ecran, app.monde.infos, app.cosmetiques.musique)
+        });
         audio.choisir_musique(voulue);
         // Le réglage son vient des menus ou de la touche M ; l'audio ne fait que l'appliquer.
         // La musique et la pluie se taisent pendant la pause et reprennent à sa sortie.
@@ -181,9 +198,10 @@ async fn main() {
         if a_tourner {
             orientation::dessiner(get_time());
         } else {
+            banque.choisir_motif(app.cosmetiques.motif);
             app.dessiner(&banque, pas_fixe.alpha());
         }
-        cible.afficher();
+        cible.afficher(app.cosmetiques.palette);
         if !a_tourner && matches!(app.ecran, Ecran::Jeu) {
             tactile.dessiner();
         }

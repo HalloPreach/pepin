@@ -9,16 +9,19 @@
 
 use pepin_core::font::{largeur_texte, HAUTEUR_GLYPHE};
 use pepin_core::palette::{
-    ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR, OR_PALE,
+    ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR, OR_PALE, TOUTES,
 };
 use pepin_core::zones::Theme;
 use pepin_core::LARGEUR_LOGIQUE;
 
-use super::{image, panneau, trame};
+use super::{image, panneau, rect, trame};
 use crate::boutique::{Apercu, Dialogue, Etat, EtatBoutique, Zones};
 use crate::contenu;
+use crate::cosmetiques::{dessiner_apercu_trainee, Palette};
 use crate::decor;
+use crate::rendu::{couleur_mq, hors_remplacement};
 use crate::sauvegarde::Sauvegarde;
+use crate::skins::Skin;
 use crate::sprites::Banque;
 use crate::texte::{self, Style};
 
@@ -66,11 +69,47 @@ fn premiere_visible(selection: usize, nb: usize) -> usize {
     }
 }
 
-/// Rectangle de l'onglet `i`.
+/// Rectangle de l'onglet `i`. La rangée est centrée (cinq onglets depuis la carte 7.6).
 fn rect_onglet(noms: &[&str], i: usize) -> (f32, f32, f32, f32) {
-    let largeur = |n: &str| largeur_texte(n, 1) as f32 + 12.0;
-    let x = X + noms[..i].iter().map(|n| largeur(n) + 4.0).sum::<f32>();
+    let largeur = |n: &str| largeur_texte(n, 1) as f32 + 8.0;
+    let total = noms.iter().map(|n| largeur(n) + 3.0).sum::<f32>() - 3.0;
+    let x0 = ((LARGEUR_LOGIQUE as f32 - total) / 2.0).floor();
+    let x = x0 + noms[..i].iter().map(|n| largeur(n) + 3.0).sum::<f32>();
     (x, Y_ONGLETS, largeur(noms[i]), H_ONGLET)
+}
+
+/// Rangs (dans la palette) des 8 couleurs montrées par l'aperçu d'une palette :
+/// l'ardoise, le blanc, le corail, l'or, le cyan et le violet.
+const RANGS_APERCU: [usize; 8] = [0, 2, 4, 7, 8, 11, 13, 15];
+
+/// Aperçu d'une palette : 8 cases de 5 x 8 px. Ses couleurs réelles (hors palette
+/// d'origine : le shader de la palette en service les laisse telles quelles) ; pour
+/// l'originale, des couleurs à peine décalées, pour la même raison.
+fn apercu_palette(palette: Option<Palette>, x: f32, y: f32) {
+    for (k, &i) in RANGS_APERCU.iter().enumerate() {
+        let couleur = match palette {
+            Some(p) => couleur_mq(p.couleurs()[i]),
+            None => hors_remplacement(TOUTES[i]),
+        };
+        let (cx, cy) = (x + (k % 4) as f32 * 5.0, y + (k / 4) as f32 * 8.0);
+        macroquad::prelude::draw_rectangle(cx, cy, 5.0, 8.0, couleur);
+    }
+}
+
+/// Aperçu d'une musique : une croche d'or ; la musique de chaque zone : deux croches.
+fn apercu_musique(par_zone: bool, x: f32, y: f32) {
+    let croche = |x: f32, y: f32| {
+        rect(x, y + 8.0, 4.0, 3.0, OR);
+        rect(x + 3.0, y, 1.0, 9.0, OR);
+        rect(x + 4.0, y, 3.0, 1.0, OR);
+        rect(x + 6.0, y + 1.0, 1.0, 2.0, OR);
+    };
+    if par_zone {
+        croche(x + 1.0, y + 2.0);
+        croche(x + 9.0, y + 5.0);
+    } else {
+        croche(x + 5.0, y + 3.0);
+    }
 }
 
 /// Les zones cliquables de l'écran.
@@ -167,9 +206,19 @@ pub fn dessiner(banque: &Banque, anim: u32, s: &Sauvegarde, e: &EtatBoutique) {
         texte::dessiner(nom, x + 6.0, y + 3.0, Style::simple(c, 1));
     }
 
-    // Objets.
+    // Objets. Les aperçus montrent le skin équipé.
+    let skin = Skin::depuis_id(&s.skin_choisi).unwrap_or_default();
     let nb = e.objets.len();
     let debut = premiere_visible(e.menu.selection(), nb);
+    // Une seule taille de nom par onglet : l'échelle 2 si TOUS les noms de l'onglet
+    // y tiennent, sinon l'échelle 1 pour tous (sinon SOLEIL en grand entre deux
+    // petits noms, ce qui fait désordre).
+    let place_nom =
+        rect_ligne(0).2 - 34.0 - 8.0 - largeur_texte(contenu::ETAT_A_ACHETER, 1) as f32 - 6.0;
+    let grand = e
+        .objets
+        .iter()
+        .all(|o| largeur_texte(o.nom, 2) as f32 <= place_nom);
     for (k, objet) in e.objets.iter().enumerate().skip(debut).take(MAX_VISIBLES) {
         let r @ (x, y, w, _) = rect_ligne(k - debut);
         cadre(r, k == e.menu.selection());
@@ -182,10 +231,33 @@ pub fn dessiner(banque: &Banque, anim: u32, s: &Sauvegarde, e: &EtatBoutique) {
                 y + 6.0,
                 false,
             ),
+            // Carte 7.6 : la traînée derrière le skin équipé qui court ; le motif sur
+            // son parapluie ouvert ; la palette ; la musique.
+            Apercu::Trainee(t) => {
+                if let Some(t) = t {
+                    dessiner_apercu_trainee(t, x + 4.0, y + 6.0, anim);
+                }
+                banque.dessiner(
+                    image(&skin.images().course, anim, 5),
+                    x + 11.0,
+                    y + 6.0,
+                    false,
+                );
+            }
+            Apercu::Motif(m) => {
+                banque.dessiner_avec_motif(skin.images().planer[0], m, x + 6.0, y + 4.0)
+            }
+            Apercu::Palette(p) => apercu_palette(p, x + 6.0, y + 6.0),
+            Apercu::Musique(m) => apercu_musique(m.is_none(), x + 6.0, y + 6.0),
             #[cfg(any(test, feature = "debug_niveaux"))]
             Apercu::Factice => banque.dessiner("goutte0", x + 11.0, y + 9.0, false),
         }
-        texte::dessiner(objet.nom, x + 34.0, y + 3.0, ombre(BLANC_CASSE, 2));
+        // Nom à l'échelle choisie pour tout l'onglet (`grand`, plus haut).
+        if grand {
+            texte::dessiner(objet.nom, x + 34.0, y + 3.0, ombre(BLANC_CASSE, 2));
+        } else {
+            texte::dessiner(objet.nom, x + 34.0, y + 7.0, ombre(BLANC_CASSE, 1));
+        }
         // Le prix : GRATUIT, ou la goutte d'or suivie du nombre (carte 7.5b).
         if objet.prix == 0 {
             texte::dessiner(contenu::GRATUIT, x + 34.0, y + 19.0, ombre(OR, 1));

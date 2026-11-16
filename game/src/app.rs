@@ -30,6 +30,7 @@ use pepin_core::state::EtatJeu;
 use crate::boutique::{self, EtatBoutique};
 use crate::camera::Camera;
 use crate::contenu;
+use crate::cosmetiques::{self, Trainees};
 use crate::defis::{self, LigneBonus, ResultatNiveau, Tentative};
 use crate::demo::{self, Demo, Rejeu};
 use crate::ecrans::bilan_niveau::{self, Temps};
@@ -164,6 +165,12 @@ pub struct Application {
     /// sauvegarde (carte 7.5), Pépin par défaut. La touche K du build de QA la change
     /// aussi, sans l'enregistrer.
     pub skin: Skin,
+    /// Traînée, motif de parapluie, palette et musique choisis dans la boutique
+    /// (carte 7.6), gardés par la sauvegarde. Les touches T, Y et O du build de QA
+    /// les changent aussi, sans les enregistrer.
+    pub cosmetiques: cosmetiques::Choix,
+    /// Les brins de la traînée derrière Pépin (rendu seulement).
+    trainees: Trainees,
     /// L'écran boutique : onglet, ligne choisie, dialogue (carte 7.5).
     boutique: EtatBoutique,
     /// Tentative en cours du niveau (carte 7.3) : ce que les défis regardent. Remise à
@@ -228,6 +235,8 @@ impl Application {
             sauvegarde: Sauvegarde::charger(),
             nouveau_record: false,
             skin: Skin::default(),
+            cosmetiques: cosmetiques::Choix::default(),
+            trainees: Trainees::new(),
             boutique: EtatBoutique::new(),
             tentative: Tentative::default(),
             morts_debut_tentative: 0,
@@ -292,9 +301,11 @@ impl Application {
         self.sauvegarde.enregistrer();
     }
 
-    /// Le skin choisi dans la sauvegarde devient celui du rendu (inconnu : Pépin).
+    /// Le skin et les cosmétiques choisis dans la sauvegarde deviennent ceux du rendu
+    /// (inconnu : Pépin, rien).
     fn appliquer_skin(&mut self) {
         self.skin = Skin::depuis_id(&self.sauvegarde.skin_choisi).unwrap_or_default();
+        self.cosmetiques = cosmetiques::Choix::depuis(&self.sauvegarde);
     }
 
     /// Revient au titre, curseur sur la ligne `choix` (retour de l'aide, de la boutique).
@@ -641,6 +652,8 @@ impl Application {
         );
         let vies_avant = self.monde.etat.vies.restantes();
         self.monde.avancer(entrees);
+        self.trainees
+            .actualiser(self.cosmetiques.trainee, &self.monde);
         self.eclat_vie = self.eclat_vie.saturating_sub(1);
         if self.monde.etat.vies.restantes() > vies_avant {
             self.eclat_vie = hud::DUREE_ECLAT_VIE;
@@ -731,6 +744,7 @@ impl Application {
         // Un monde tout neuf, à part de la sauvegarde : ni défis ni gouttes notés.
         self.recharger(indice, None);
         self.particules = Particules::new();
+        self.trainees = Trainees::new();
         self.ouvrir(Ecran::Demo);
         self.demo = Some(Demo {
             rejeu: Rejeu::new(demo::PARCOURS[rang].plages),
@@ -759,6 +773,8 @@ impl Application {
             self.monde.niveau.hauteur_px(),
         );
         self.monde.avancer(&entrees);
+        self.trainees
+            .actualiser(self.cosmetiques.trainee, &self.monde);
         self.camera.suivre(&self.monde.joueur, largeur, hauteur);
         effets(
             &self.monde,
@@ -784,6 +800,7 @@ impl Application {
             return;
         };
         self.particules = Particules::new();
+        self.trainees = Trainees::new();
         match suite {
             Suite::Niveau { indice, etat } => {
                 self.niveau_seul = false;
@@ -959,6 +976,7 @@ impl Application {
                     &self.monde,
                     banque,
                     &self.particules,
+                    &self.trainees,
                     self.skin,
                     alpha,
                     cx + sx,
