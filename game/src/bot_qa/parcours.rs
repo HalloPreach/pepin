@@ -645,7 +645,7 @@ pub(crate) fn aiguille_sous_pepin(m: &Monde) -> Option<usize> {
 const PORTEE_CHAT: (f32, f32) = PORTEE_ESCARGOT;
 
 /// Tranche du cycle du chat (pas) retenue dans la case : 30 pas (0,5 s), donc
-/// 8 tranches pour un cycle de 4 s (12 pour 6 s avant la carte 6.3).
+/// 8 tranches pour un cycle de 3,7 s (12 pour 6 s avant la carte 6.3).
 const TRANCHE_CHAT_PAS: u16 = 30;
 
 /// Les chats du niveau, résumés en un entier : `32 × écrasés + 2 × tranche + bond`.

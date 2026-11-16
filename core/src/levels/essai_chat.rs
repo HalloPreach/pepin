@@ -38,8 +38,8 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   tourné vers le passage (un solide à sa gauche, du vide à sa droite).
 /// - La course jusqu'au bloc : avant la carte 6.3 (sommeil de 4 s), Pépin y
 ///   arrivait pendant l'éveil du chat (entre 4,8 s et 6 s) et devait l'attendre ;
-///   depuis (sommeil de 2 s, cycle de 4 s), il y arrive pendant son 2e sommeil
-///   (entre 4 s et 6 s) et peut sauter tout de suite. Le chat de la fente ne voit
+///   depuis (sommeil de 1,7 s, cycle de 3,7 s), il y arrive pendant son 2e
+///   sommeil et peut sauter tout de suite. Le chat de la fente ne voit
 ///   pas le dessus du bloc (le coin du bloc cache la vue) : il ne bondit pas
 ///   sur Pépin qui attend là-haut.
 /// - Gouttes : en haut de la fente, juste au-dessus du chat (colonne 26, ligne 6 :

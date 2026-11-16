@@ -321,7 +321,7 @@ pub(super) fn analyser(
     // bord haut de la carte) : on doit toujours pouvoir lui sauter dessus pendant
     // son sommeil. Il regarde à gauche (vers le départ), sauf si un solide le
     // borde à gauche et que la droite est libre. Les premiers sommeils sont
-    // raccourcis de 0, 30, 60 ou 90 pas (le sommeil dure 120 pas depuis la carte
+    // raccourcis de 0, 30, 60 ou 90 pas (le sommeil dure 100 pas depuis la carte
     // 6.3) : deux chats ne se réveillent pas ensemble (comme les éclairs et les
     // ventilateurs).
     for (k, &(tx, ty)) in chats.iter().enumerate() {

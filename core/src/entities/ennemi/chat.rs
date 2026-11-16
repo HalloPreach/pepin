@@ -4,9 +4,9 @@
 //! voit Pépin à la fin de l'annonce, il lui BONDIT dessus.
 //!
 //! ```text
-//!   phase :  Dort (2 s) ──> Réveil (0,8 s, l'annonce) ──> Éveillé (1,2 s) ──┐
-//!              ^                                                             │
-//!              └─────────────────────────────────────────────────────────────┘
+//!   phase :  Dort (1,7 s) ──> Réveil (0,8 s, l'annonce) ──> Éveillé (1,2 s) ──┐
+//!              ^                                                               │
+//!              └───────────────────────────────────────────────────────────────┘
 //!
 //!   éveil avec bond :  aller (0,5 s) ─> posé (0,2 s) ─> retour (0,5 s) ─> il se rendort
 //! ```
@@ -43,16 +43,20 @@ use super::{Ennemi, EtatEnnemi, TypeEnnemi};
 use crate::aabb::{touche_un_obstacle, Aabb, Grille, TAILLE_TUILE};
 use crate::physics::{Environnement, GRAVITE, HZ};
 
-/// Durée du sommeil : 2 s (4 s avant la carte 6.3). Juste le temps de lui
-/// sauter dessus quand on l'a attendu hors de sa portée.
-pub const DORT_PAS: u16 = 120;
+/// Durée du sommeil : 100 pas, 1,7 s (4 s avant la carte 6.3). Juste le temps de
+/// lui sauter dessus quand on l'a attendu hors de sa portée. Le coordinateur
+/// proposait « environ 2 s » (120 pas) : avec 120, et aussi avec 110, la mesure de
+/// difficulté officielle place le marché couvert SOUS les gouttières pour
+/// l'Habitué, et le juge de la courbe (`game/src/difficulte.rs`) refuse ; 100 est
+/// la valeur la plus proche (de 10 en 10) qui le garde vert (voir QA.md, carte 6.3).
+pub const DORT_PAS: u16 = 100;
 /// Durée de l'annonce du réveil : 0,8 s, comme l'annonce d'un éclair. Gardée
 /// telle quelle : c'est elle qui rend le bond juste (on le voit venir).
 pub const REVEIL_PAS: u16 = 48;
 /// Durée de l'éveil : 1,2 s (« il se réveille brièvement »). Avec un bond, elle
 /// contient l'aller, la pose et le retour (`BOND_PAS`, `POSE_BOND_PAS`).
 pub const EVEILLE_PAS: u16 = 72;
-/// Période complète du cycle : 4 s (240 pas).
+/// Période complète du cycle : 3,7 s (220 pas).
 pub const PERIODE_CHAT_PAS: u16 = DORT_PAS + REVEIL_PAS + EVEILLE_PAS;
 
 /// Portée du bond en x (px), entre le centre du chat (à sa place) et celui de
@@ -405,8 +409,8 @@ mod tests {
     fn le_cycle_dure_ce_qu_annoncent_les_constantes() {
         assert_eq!(
             (DORT_PAS, REVEIL_PAS, EVEILLE_PAS, PERIODE_CHAT_PAS),
-            (120, 48, 72, 240),
-            "carte 6.3 : 2 s de sommeil au lieu de 4, annonce et éveil inchangés"
+            (100, 48, 72, 220),
+            "carte 6.3 : 1,7 s de sommeil au lieu de 4, annonce et éveil inchangés"
         );
         let mut c = Ennemi::chat(32.0, 40.0, 0);
         assert_eq!(c.phase_chat(), PhaseChat::Dort(DORT_PAS));
@@ -420,7 +424,7 @@ mod tests {
             }
             avancer(&mut c, 1);
         }
-        assert_eq!((dort, reveil, eveille), (3 * 120, 3 * 48, 3 * 72));
+        assert_eq!((dort, reveil, eveille), (3 * 100, 3 * 48, 3 * 72));
         // Retour exact au point de départ après un nombre entier de périodes.
         assert_eq!(c.phase_chat(), PhaseChat::Dort(DORT_PAS));
     }
