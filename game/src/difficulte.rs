@@ -1538,13 +1538,13 @@ mod tests {
             cases[b][DEBUTANT].game_over = 40; // le bonus n'est jamais signalé
         }
         assert_eq!(niveaux_a_signaler(&cases), [(1, 5, 48)]);
-        // Deux morts par niveau sur l'essai 0 : 2 x 10 niveaux du parcours (sans le
-        // bonus) = 20 morts = 4 game over ; l'essai 1, aucune.
+        // Deux morts par niveau sur l'essai 0 : 2 x 11 niveaux du parcours (sans le
+        // bonus, carte 8.2) = 22 morts = 4 game over ; l'essai 1, aucune.
         let parcours = NIVEAUX
             .iter()
             .filter(|n| n.genre != GenreNiveau::Bonus)
             .count();
-        assert_eq!(parcours, 10);
+        assert_eq!(parcours, 11);
         assert_eq!(parties_enchainees(&cases, DEBUTANT), [4, 0]);
         assert_eq!(pour_cent(5, 48), 10);
         assert_eq!(pour_cent(0, 48), 0);

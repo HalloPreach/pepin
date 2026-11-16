@@ -159,8 +159,8 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
     // Le sommet (carte 8.2) : la poursuite du mur de pluie.
     Intro {
-        texte: "L'orage revient en force. Cours vers le soleil !",
-        astuce: "Le mur de pluie ne s'arrête pas : toi non plus.",
+        texte: "Cours vers le soleil, l'orage te poursuit !",
+        astuce: "Le mur de pluie avance : ne t'arrête pas.",
     },
     // Le bonus (carte 5.16) : seulement avec toutes les gouttes.
     Intro {

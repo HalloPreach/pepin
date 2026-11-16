@@ -231,7 +231,7 @@ mod tests {
         let mut v = Vec::new();
         for epilogue in [false, true] {
             for gouttes_bonus in [None, Some(0), Some(3)] {
-                for gouttes in [0, 15, 26, 30] {
+                for gouttes in [0, 15, 29, 33] {
                     v.push(Bilan {
                         pas: 3600,
                         gouttes,
@@ -324,24 +324,24 @@ mod tests {
     #[test]
     fn apres_l_epilogue_pepin_est_de_retour_la_nuit() {
         let m = mise_en_page(&Bilan {
-            gouttes: 30,
+            gouttes: 33,
             epilogue: true,
             ..Bilan::default()
         });
         assert_eq!(m.fond, Theme::Descente);
         assert_eq!(m.titre, "DE RETOUR !");
         assert_eq!(m.phrase, Some("Pépin replie son parapluie."));
-        assert_eq!(m.lignes[1], ("GOUTTES D'OR", "30/30".to_string()));
+        assert_eq!(m.lignes[1], ("GOUTTES D'OR", "33/33".to_string()));
         assert!(!Theme::Descente.pluie());
     }
 
-    /// Le compteur : les gouttes du parcours sur 30 (les neuf niveaux normaux et
-    /// l'épilogue) ; le bonus, joué, sur sa propre ligne (x/3) ; pas joué, pas de
+    /// Le compteur : les gouttes du parcours sur 33 (les dix niveaux normaux et
+    /// l'épilogue, carte 8.2) ; le bonus, joué, sur sa propre ligne (x/3) ; pas joué, pas de
     /// ligne, et le mot annonce le niveau secret.
     #[test]
     fn les_gouttes_du_parcours_et_du_bonus_sont_comptees_a_part() {
         let joue = mise_en_page(&Bilan {
-            gouttes: 30,
+            gouttes: 33,
             gouttes_bonus: Some(2),
             epilogue: true,
             ..Bilan::default()
@@ -351,7 +351,7 @@ mod tests {
             noms,
             ["TEMPS", "GOUTTES D'OR", "NIVEAU SECRET", "MORTS", "SCORE"]
         );
-        assert_eq!(joue.lignes[1].1, "30/30");
+        assert_eq!(joue.lignes[1].1, "33/33");
         assert_eq!(joue.lignes[2].1, "2/3");
         let manque = mise_en_page(&Bilan {
             gouttes: 20,
@@ -359,7 +359,7 @@ mod tests {
             ..Bilan::default()
         });
         assert_eq!(manque.lignes.len(), 5, "VIES comprise");
-        assert_eq!(manque.lignes[1].1, "20/30");
+        assert_eq!(manque.lignes[1].1, "20/33");
         let mot = manque.mot.join(" ");
         assert!(mot.contains("niveau secret"), "{mot}");
     }
@@ -415,7 +415,7 @@ mod tests {
         );
         assert_eq!(mise_en_page(&base).lignes[3].1, "3");
         let complet = Bilan {
-            gouttes: 30,
+            gouttes: 33,
             gouttes_bonus: Some(3),
             ..base
         };
@@ -438,7 +438,7 @@ mod tests {
         );
         assert_eq!(mise_en_page(&base).pas_lignes, 11.0, "à l'écart habituel");
         let incomplet = Bilan {
-            gouttes: 30,
+            gouttes: 33,
             gouttes_bonus: Some(1),
             ..base
         };
