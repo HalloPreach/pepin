@@ -12,8 +12,8 @@
 //! - deux colonnes de GRÊLE (colonnes 117 et 125) : on les traverse en planant ;
 //! - un second pont friable sous un corbeau (colonne 146, rangée 3) : on passe
 //!   dessous en marchant ;
-//! - la dernière ligne droite : le mur s'arrête 14 tuiles avant le drapeau
-//!   (`ARRET_AVANT_SOLEIL`), le soleil perce et la pluie recule.
+//! - la dernière ligne droite : à 24 tuiles du drapeau (`PERCEE_AVANT_ARRIVEE`,
+//!   en arrivant sur le long toit de nuages), le soleil perce et la pluie recule.
 //!
 //! Trois gouttes d'or presque sur le chemin (un saut au bon moment : colonnes 19,
 //! 98 et 160) et trois lanternes (colonnes 54, 102 et 134).

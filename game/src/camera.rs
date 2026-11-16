@@ -18,10 +18,11 @@
 use pepin_core::player::Joueur;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
-/// Niveau de poursuite (carte 8.2) : le front du mur de pluie reste au moins à
-/// 40 px du bord gauche de l'écran (`Camera::pousser_par_le_mur`) : on voit le
-/// rideau qui talonne.
-const MARGE_MUR: f32 = 40.0;
+/// Niveau de poursuite (carte 8.2) : le front du mur de pluie est toujours à 48 px
+/// du bord gauche de l'écran (`Camera::defiler_avec_le_mur`) : on voit le rideau
+/// qui talonne, et Pépin (au plus `RETARD_MAX` = 128 px devant lui) voit encore
+/// 9 tuiles devant lui.
+const MARGE_MUR: f32 = 48.0;
 /// Distance (px) regardée en avant de Pépin.
 const AVANCE_X: f32 = 28.0;
 /// Décalage vertical (px) vers le haut quand Pépin monte.
@@ -158,13 +159,14 @@ impl Camera {
         }
     }
 
-    /// Défilement automatique du niveau de poursuite (carte 8.2) : la caméra ne
-    /// laisse jamais le front du mur de pluie (`front`, px) à moins de `MARGE_MUR`
-    /// px du bord gauche de l'écran. Le mur avance : l'écran défile tout seul,
-    /// même si Pépin s'arrête (et Pépin, vivant, est toujours devant le front).
-    pub fn pousser_par_le_mur(&mut self, front: f32, largeur_niveau: f32) {
-        let mini = Self::borner(front - MARGE_MUR, largeur_niveau, LARGEUR_LOGIQUE as f32);
-        self.x = self.x.max(mini);
+    /// Défilement automatique du niveau de poursuite (carte 8.2), après `suivre` :
+    /// en x, la caméra est accrochée au front du mur de pluie (`front`, px), à
+    /// `MARGE_MUR` px du bord gauche de l'écran. Le mur avance : l'écran défile
+    /// tout seul, même si Pépin s'arrête (et Pépin, vivant, est entre le front et
+    /// `RETARD_MAX` px devant lui : toujours à l'écran). Quand le soleil perce, le jeu
+    /// cesse de l'appeler et `suivre` reprend la main en douceur (lissage).
+    pub fn defiler_avec_le_mur(&mut self, front: f32, largeur_niveau: f32) {
+        self.x = Self::borner(front - MARGE_MUR, largeur_niveau, LARGEUR_LOGIQUE as f32);
     }
 
     /// Suivi vertical d'un niveau plus haut que l'écran, en deux temps :

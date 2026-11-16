@@ -1048,7 +1048,7 @@ pub fn dessiner(
     // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
-    mur_pluie::dessiner_soleil(monde, cx);
+    mur_pluie::dessiner_soleil(monde);
     dessiner_dechirure(monde, cx);
     dessiner_facades(monde, banque, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);

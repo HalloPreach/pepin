@@ -14,8 +14,9 @@
 //! - après une mort, Pépin réapparaît à sa lanterne et le front est replacé
 //!   `RECUL_REAPPARITION` px derrière lui (`replacer`) : toujours le même délai pour
 //!   repartir, donc jamais de mort en boucle ;
-//! - près de l'arrivée (`ARRET_AVANT_SOLEIL` px avant le drapeau), le soleil perce :
-//!   le mur s'arrête et recule (`RECUL_SOLEIL` px/s), la caméra est libre.
+//! - quand Pépin arrive à `PERCEE_AVANT_ARRIVEE` px du drapeau (la dernière ligne
+//!   droite), le soleil perce : le mur s'arrête et recule (`RECUL_SOLEIL` px/s), il
+//!   ne tue plus ; la caméra redevient libre.
 //!
 //! Notions Rust illustrées ici : une petite `struct` dont les règles sont gardées par
 //! ses méthodes (le champ `front` est en lecture seule hors du module), `Option` pour
@@ -37,8 +38,9 @@ const _: () = assert!(VITESSE_MUR <= 0.8 * VITESSE_COURSE);
 pub const RETARD_MAX: f32 = 128.0;
 /// Distance (px) du front derrière Pépin quand il réapparaît : 7 tuiles (1,75 s).
 pub const RECUL_REAPPARITION: f32 = 112.0;
-/// Le mur s'arrête quand son front arrive à cette distance (px) du drapeau : 14 tuiles.
-pub const ARRET_AVANT_SOLEIL: f32 = 224.0;
+/// Le soleil perce quand le bord gauche de Pépin arrive à cette distance (px) du
+/// drapeau : 24 tuiles, environ 4 s de course au soleil avant l'arrivée.
+pub const PERCEE_AVANT_ARRIVEE: f32 = 384.0;
 /// Vitesse (px/s) à laquelle le mur recule une fois le soleil percé.
 pub const RECUL_SOLEIL: f32 = 48.0;
 
@@ -47,24 +49,24 @@ pub const RECUL_SOLEIL: f32 = 48.0;
 pub struct MurDePluie {
     /// Abscisse (px) du front : tout ce qui est à sa gauche est sous le mur.
     front: f32,
-    /// Abscisse du front où le soleil perce : le mur s'arrête là.
-    arret: f32,
+    /// Abscisse de Pépin (bord gauche) où le soleil perce.
+    percee: f32,
     /// Pas écoulés depuis que le soleil a percé (`None` avant) : le mur recule et
     /// ne tue plus personne ; le jeu s'en sert pour faire grandir le soleil.
     soleil: Option<u32>,
 }
 
 impl MurDePluie {
-    /// Le mur d'un niveau : `None` si sa grille n'a pas de `P`. Il s'arrête
-    /// `ARRET_AVANT_SOLEIL` px avant le drapeau (jamais, sans drapeau).
+    /// Le mur d'un niveau : `None` si sa grille n'a pas de `P`. Le soleil perce
+    /// `PERCEE_AVANT_ARRIVEE` px avant le drapeau (jamais, sans drapeau).
     pub fn du_niveau(niveau: &Niveau) -> Option<MurDePluie> {
         let front = niveau.mur_de_pluie?;
-        let arret = niveau
+        let percee = niveau
             .arrivee
-            .map_or(f32::INFINITY, |a| a.x - ARRET_AVANT_SOLEIL);
+            .map_or(f32::INFINITY, |a| a.x - PERCEE_AVANT_ARRIVEE);
         Some(MurDePluie {
             front,
-            arret,
+            percee,
             soleil: None,
         })
     }
@@ -84,19 +86,19 @@ impl MurDePluie {
         self.soleil
     }
 
-    /// Un pas (1/60 s) : le front avance, rattrape Pépin s'il est trop loin devant,
-    /// s'arrête au soleil puis recule.
+    /// Un pas (1/60 s) : le front avance et rattrape Pépin s'il est trop loin devant ;
+    /// une fois le soleil percé (Pépin dans la dernière ligne droite), il recule.
     pub fn avancer(&mut self, joueur: &Aabb) {
         if let Some(t) = &mut self.soleil {
             *t += 1;
             self.front -= RECUL_SOLEIL * DT;
             return;
         }
-        self.front = (self.front + VITESSE_MUR * DT).max(joueur.x - RETARD_MAX);
-        if self.front >= self.arret {
-            self.front = self.arret;
+        if joueur.x >= self.percee {
             self.soleil = Some(0);
+            return;
         }
+        self.front = (self.front + VITESSE_MUR * DT).max(joueur.x - RETARD_MAX);
     }
 
     /// Le mur touche-t-il Pépin (son front a passé le bord gauche de sa boîte) ?
@@ -153,15 +155,16 @@ mod tests {
         mur.replacer(&pepin);
         assert_eq!(mur.front(), 300.0 - RECUL_REAPPARITION);
         assert!(!mur.touche(&pepin));
-        // Au soleil : le mur s'arrête 14 tuiles avant le drapeau, puis recule et ne
-        // tue plus.
-        let arret = niveau.arrivee.unwrap().x - ARRET_AVANT_SOLEIL;
-        pepin.x = arret + RETARD_MAX + 50.0;
+        // Pépin à 24 tuiles du drapeau : le soleil perce, le mur s'arrête (sans
+        // rattraper Pépin), puis recule et ne tue plus.
+        let avant = mur.front();
+        pepin.x = niveau.arrivee.unwrap().x - PERCEE_AVANT_ARRIVEE;
         mur.avancer(&pepin);
         assert!(mur.vaincu());
-        assert_eq!(mur.front(), arret);
+        assert_eq!(mur.front(), avant);
         pepin.x = 0.0;
         mur.avancer(&pepin);
-        assert!(mur.front() < arret && !mur.touche(&pepin));
+        assert!(mur.front() < avant && !mur.touche(&pepin));
+        assert_eq!(mur.pas_soleil(), Some(1));
     }
 }

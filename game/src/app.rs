@@ -398,8 +398,8 @@ impl Application {
             self.camera.recentrer(&self.monde.joueur, largeur, hauteur);
         }
         self.camera.suivre(&self.monde.joueur, largeur, hauteur);
-        if let Some(mur) = &self.monde.mur {
-            self.camera.pousser_par_le_mur(mur.front(), largeur);
+        if let Some(mur) = self.monde.mur.filter(|m| !m.vaincu()) {
+            self.camera.defiler_avec_le_mur(mur.front(), largeur);
         }
         effets(
             &self.monde,
