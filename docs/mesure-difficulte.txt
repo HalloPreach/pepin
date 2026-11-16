@@ -3,7 +3,7 @@ Morts moyennes par niveau (graine 20261113, 48 essais par profil et par niveau) 
 | Niveau                      | Débutant     | Habitué      | Expert       |
 | --------------------------- | ------------ | ------------ | ------------ |
 | 1. Les toits                | 0,4 (0,4)    | 0,1 (0,1)    | 0,0 (0,0)    |
-| 2. Gouttières et cheminées  | 1,5 (1,5)    | 0,5 (0,5)    | 0,2 (0,2)    |
+| 2. Gouttières et cheminées  | 1,5 (1,5)    | 0,6 (0,6)    | 0,1 (0,1)    |
 | 3. Le marché couvert        | 1,3 (1,3)    | 0,7 (0,7)    | 0,1 (0,1)    |
 | 4. Le grand orage           | 3,5 (3,5)    | 0,8 (0,8)    | 0,4 (0,4)    |
 | 5. Le clocher               | 2,6 (2,6)    | 0,8 (0,8)    | 0,1 (0,1)    |
@@ -13,14 +13,14 @@ Morts moyennes par niveau (graine 20261113, 48 essais par profil et par niveau) 
 | 9. Au-dessus des nuages     | 0,5 (0,5)    | 0,1 (0,1)    | 0,0 (0,0)    |
 | 10. L'arc-en-ciel           | 8,8 (8,8)    | 1,2 (1,2)    | 0,3 (0,3)    |
 | 11. La descente             | 0,0 (0,0)    | 0,0 (0,0)    | 0,0 (0,0)    |
-| Total                       | 25,5 (25,5)  | 6,2 (6,2)    | 1,8 (1,8)    |
+| Total                       | 25,4 (25,4)  | 6,3 (6,3)    | 1,7 (1,7)    |
 
 Détail par case : essais finis / essais, durée moyenne en secondes, morts en série en moyenne (moins d'1 s après la précédente), pire essai.
 
 | Niveau                      | Débutant                       | Habitué                        | Expert                         |
 | --------------------------- | ------------------------------ | ------------------------------ | ------------------------------ |
 | 1. Les toits                | 48/48, 38 s, série 0,0, max 4  | 48/48, 36 s, série 0,0, max 1  | 48/48, 34 s, série 0,0, max 1  |
-| 2. Gouttières et cheminées  | 48/48, 55 s, série 0,0, max 5  | 48/48, 46 s, série 0,0, max 3  | 48/48, 42 s, série 0,0, max 2  |
+| 2. Gouttières et cheminées  | 48/48, 57 s, série 0,0, max 7  | 48/48, 47 s, série 0,0, max 3  | 48/48, 42 s, série 0,0, max 2  |
 | 3. Le marché couvert        | 48/48, 36 s, série 0,0, max 6  | 48/48, 31 s, série 0,0, max 3  | 48/48, 26 s, série 0,0, max 1  |
 | 4. Le grand orage           | 48/48, 70 s, série 0,0, max 16 | 48/48, 51 s, série 0,0, max 5  | 48/48, 46 s, série 0,0, max 3  |
 | 5. Le clocher               | 48/48, 79 s, série 0,0, max 8  | 48/48, 57 s, série 0,0, max 4  | 48/48, 56 s, série 0,0, max 1  |
@@ -39,9 +39,9 @@ Lieux de mort : colonne de tuile où Pépin meurt, cause, morts cumulées sur le
 - Expert   : col. 61 chute 2
 
 2. Gouttières et cheminées
-- Débutant : col. 29-32 chute 15 · col. 83-87 chute 14 · col. 120-121 chute 6 · col. 76-80 ennemi 5 · col. 130-132 chute 5 · col. 143-145 chute 5 · ailleurs 23
-- Habitué  : col. 130-134 chute 5 · col. 79 ennemi 4 · col. 29-30 chute 2 · col. 46-48 ennemi 2 · col. 163-165 ennemi 2 · col. 75 ennemi 1 · ailleurs 8
-- Expert   : col. 29-30 chute 3 · col. 54 ennemi 2 · col. 79 ennemi 1 · col. 87 ennemi 1 · col. 121 chute 1 · col. 130 chute 1
+- Débutant : col. 29-30 chute 23 · col. 84-86 chute 13 · col. 130-133 chute 8 · col. 45-46 ennemi 4 · col. 120-121 chute 4 · col. 126 chute 3 · ailleurs 17
+- Habitué  : col. 83-85 chute 10 · col. 105-108 ennemi 3 · col. 29-30 chute 2 · col. 91 ennemi 2 · col. 136 chute 2 · col. 141 chute 2 · ailleurs 6
+- Expert   : col. 29-30 chute 3 · col. 54 ennemi 1 · col. 105 ennemi 1 · col. 133 chute 1 · col. 148 ennemi 1
 
 3. Le marché couvert
 - Débutant : col. 104 chute 16 · col. 92-94 chute 13 · col. 87 chute 9 · col. 132-134 ennemi 5 · col. 66-67 ennemi 4 · col. 111-115 ennemi 4 · ailleurs 10
@@ -93,7 +93,7 @@ Game over (carte 6.2) : essais où Pépin perd sa dernière vie au moins une foi
 | Niveau                      | Débutant       | Habitué        | Expert         |
 | --------------------------- | -------------- | -------------- | -------------- |
 | 1. Les toits                | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
-| 2. Gouttières et cheminées  | 3/48 (6 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
+| 2. Gouttières et cheminées  | 2/48 (4 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
 | 3. Le marché couvert        | 2/48 (4 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
 | 4. Le grand orage           | 13/48 (27 %)   | 1/48 (2 %)     | 0/48 (0 %)     |
 | 5. Le clocher               | 8/48 (17 %)    | 0/48 (0 %)     | 0/48 (0 %)     |
@@ -105,7 +105,7 @@ Game over (carte 6.2) : essais où Pépin perd sa dernière vie au moins une foi
 | 11. La descente             | 0/48 (0 %)     | 0/48 (0 %)     | 0/48 (0 %)     |
 
 Partie enchaînée (estimation) : les essais de même rang des niveaux du parcours (sans le bonus) mis bout à bout, 5 vies au départ, vies reportées d'un niveau au suivant ; après un game over, 5 vies et la suite de l'essai (le joueur recommencerait le niveau). Parties avec au moins un game over / 48, game over par partie en moyenne et au plus.
-- Débutant : 47/48, 2,6 en moyenne, 6 au plus
+- Débutant : 47/48, 2,6 en moyenne, 7 au plus
 - Habitué  : 17/48, 0,4 en moyenne, 2 au plus
 - Expert   : 1/48, 0,0 en moyenne, 1 au plus
 

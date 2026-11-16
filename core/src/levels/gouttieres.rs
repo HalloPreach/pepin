@@ -1,6 +1,15 @@
 //! Niveau 2 : « Gouttières et cheminées ».
 //!
 //! Flaques patrouilleuses (on les écrase en sautant dessus), trampolines et gouttières suspendues.
+//!
+//! Deux corbeaux (carte 6.4a), qui volent DEUX rangées au-dessus des toits
+//! (rangée 5) : on passe dessous en marchant, on saute par-dessus une flaque d'un
+//! petit bond, mais un grand saut au mauvais moment s'y cogne. Le premier patrouille
+//! au-dessus des deux flaques du milieu (colonnes 45 à 55, avant le champignon de la
+//! colonne 57, hors de son rebond) ; le second au-dessus de la lanterne 104 et de la
+//! flaque 108, entre la cheminée haute (100-101, où il fait demi-tour) et le
+//! champignon de la colonne 112 (hors de son rebond, colonne 111 au plus). À la
+//! lanterne, Pépin réapparu debout passe dessous : rien ne le touche s'il ne saute pas.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -11,20 +20,21 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     theme: Theme::Gouttieres,
     genre: GenreNiveau::Normal,
     intro: "L'averse redouble. Les flaques rôdent entre les cheminées : saute-leur dessus !",
-    mecanique: "Flaques à écraser, champignons-trampolines, gouttières suspendues.",
+    mecanique: "Flaques à écraser, champignons-trampolines, gouttières suspendues, corbeaux.",
     duree_cible_s: 55,
     ascii: ASCII,
     aiguilles: &[],
 };
 
 /// Dessin du niveau (190 x 11 tuiles). Légende : voir `crate::level`.
+/// - Corbeaux (rangée 5) : colonnes 50 et 106.
 const ASCII: &str = r"
 ..............................................................................................................................................................................................
 ............................................................................o...................................o.............................................................................
 ..............................................................................................................................................................................................
 ............................................................BB....L...f.......................................................................................................................
 ............................................................BB#####################.................................................F.........................................................
-............................................................BBBBBBBBBBBBBBBBBBBBBBB.................BB........................................................................................
+..................................................c.........BBBBBBBBBBBBBBBBBBBBBBB.................BB....c...................................................................................
 .........o..............BB..............BB..................BBBBBBBBBBBBBBBBBBBBBBB.........BB......BB.............................###.....................BB.........BB......................
 ..@.................f...BB........L..H..BB....f.....f....M..BBBBBBBBBBBBBBBBBBBBBBB.......f.BB...f..BB..L...f...M.............###.......###...........f....BB...f.....BB.T..L....H......X..T..
 ############################...###############################BBBBBBBBBBBBBBBBBBBBB...#################################..###.................###..############################################
