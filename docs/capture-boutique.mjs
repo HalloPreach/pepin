@@ -1,7 +1,7 @@
 // Pilote CDP de la carte 7.5 (boutique) : sauvegarde préparée dans localStorage (clé
 // « pepin.sauvegarde »), puis appuis de touches avec l'horloge virtuelle de docs/pilote-qa.js :
-// titre -> BOUTIQUE, équiper Pépinette, achat refusé (pas assez de gouttes), achat confirmé
-// (objet factice du build de QA), retour au titre, page rechargée (skin gardé ?), jeu.
+// titre -> BOUTIQUE, équiper Pépinette, achat refusé (pas assez de gouttes), touche G (+100
+// gouttes), achat confirmé (objet factice du build de QA), retour au titre, page rechargée (skin gardé ?), jeu.
 // Relève localStorage après chaque étape et compte les erreurs de la console.
 // Usage : node capture-boutique.mjs PORT_HTTP DOSSIER_SORTIE
 import { spawn } from 'node:child_process';
@@ -96,9 +96,10 @@ await capture('75-achat-refuse');
 console.log('3. après refus :', await sauvegarde());
 await touche('Enter');
 
-// 4. 100 gouttes : confirmation (NON choisi d'abord), OUI, achat.
-await ecrire((await evalue('localStorage.getItem("pepin.sauvegarde")')).replace(/gouttes_en_poche=\d+/, 'gouttes_en_poche=100'));
-console.log('4. démarré (100 gouttes) :', await ouvrir(), '| sauvegarde :', await sauvegarde());
+// 4. Touche G du build de QA (+100 gouttes) : confirmation (NON choisi d'abord), OUI, achat.
+console.log('4. démarré :', await ouvrir());
+await touche('KeyG');
+console.log('4. après la touche G :', await sauvegarde());
 await touche('ArrowDown');
 await touche('Enter', 30);
 for (let i = 0; i < 2; i++) await touche('ArrowDown', 5);
