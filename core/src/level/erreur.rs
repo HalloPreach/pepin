@@ -73,6 +73,8 @@ pub enum ErreurNiveau {
     /// Le cercle d'une aiguille touche un solide (la plateforme, ou Pépin debout
     /// dessus) : elle passerait à travers le décor.
     AiguilleBloquee { ligne: usize, colonne: usize },
+    /// Une sortie secrète `x` au plus par niveau (carte 8.5).
+    SortieSecreteMultiple { nombre: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -161,6 +163,9 @@ impl fmt::Display for ErreurNiveau {
                 "ligne {ligne}, colonne {colonne} : le cercle de l'aiguille « h » touche un solide \
                  (la plateforme, ou Pépin debout dessus)"
             ),
+            ErreurNiveau::SortieSecreteMultiple { nombre } => {
+                write!(f, "{nombre} sorties secrètes « x » (une au plus)")
+            }
         }
     }
 }

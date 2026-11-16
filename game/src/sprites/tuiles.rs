@@ -247,6 +247,28 @@ pub const BRIQUE_COULURE: Image = &[
     "2222222222222222",
 ];
 
+/// Indice d'un faux mur (carte 8.5) : la brique du milieu a glissé d'un pixel vers la droite ; le
+/// jour qu'elle laisse à gauche montre l'ombre derrière le mur (0 en haut, 1 dessous). Le reste est
+/// la brique pleine : seul un œil attentif voit le joint décalé.
+pub const BRIQUE_DECALEE: Image = &[
+    "2333333323333333",
+    "2FFFFFFF2FFFFFFF",
+    "2FFFFFFF2FFFFFFF",
+    "2222222222222222",
+    "3333203333333233",
+    "FFFF21FFFFFFF2FF",
+    "FFFF21FFFFFFF2FF",
+    "2222222222222222",
+    "2333333323333333",
+    "2FFFFFFF2FFFFFFF",
+    "2FFFFFFF2FFFFFFF",
+    "2222222222222222",
+    "3333233333332333",
+    "FFFF2FFFFFFF2FFF",
+    "FFFF2FFFFFFF2FFF",
+    "2222222222222222",
+];
+
 /// Ombre sous le rebord d'un toit : bande de 2 px posée PAR-DESSUS le haut de la brique qui est
 /// juste sous une tuile de toit. 0 (ombre la plus profonde) contre le rebord, puis 1 (ombre de
 /// nuit) : deux niveaux d'ombre, sans dégradé. Elle donne l'épaisseur de l'avancée du toit.
@@ -269,5 +291,6 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("brique_fissure", BRIQUE_FISSURE),
     ("brique_manquante", BRIQUE_MANQUANTE),
     ("brique_coulure", BRIQUE_COULURE),
+    ("brique_decalee", BRIQUE_DECALEE),
     ("ombre_toit", OMBRE_TOIT),
 ];

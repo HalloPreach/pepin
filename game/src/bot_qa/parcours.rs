@@ -489,9 +489,10 @@ fn rejouer(depart: &Monde, entrees: &[Entrees]) -> (Fin, Monde) {
 
 /// Une arrivée compte-t-elle ? Toujours, sauf dans l'arène du Grand Nuage : là, le
 /// dernier coup finit le niveau, et le robot doit avoir pris toutes les gouttes
-/// avant (comme un joueur qui veut les trois gouttes du niveau).
+/// avant (comme un joueur qui veut les trois gouttes du niveau). La sortie secrète
+/// (carte 8.5) ne compte jamais : le robot suit le chemin normal, jusqu'au drapeau.
 pub(crate) fn gouttes_avant_la_victoire(m: &Monde) -> bool {
-    m.pv_nuage().is_none() || m.gouttes_niveau.iter().all(|&g| g)
+    !m.sortie_secrete && (m.pv_nuage().is_none() || m.gouttes_niveau.iter().all(|&g| g))
 }
 
 /// La phase du Grand Nuage et le temps passé dans cette phase (`None` sans nuage).
@@ -908,7 +909,8 @@ fn gouttes_prises(m: &Monde) -> usize {
 pub fn trouver_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     let (mut monde, mut entrees) = depart_pose(indice);
     let tous = plans(precis);
-    let toutes = |m: &Monde| gouttes_prises(m) == m.gouttes_niveau.len();
+    let toutes =
+        |m: &Monde| gouttes_prises(m) == m.gouttes_niveau.len() && !m.sortie_secrete;
     while !monde.termine {
         let prises = gouttes_prises(&monde);
         let etapes = if toutes(&monde) {

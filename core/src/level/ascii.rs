@@ -97,6 +97,9 @@ pub(super) fn analyser(
     // d'éclairs jusqu'au sol, ses courants).
     let mut nuages: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
+    // Secrets (carte 8.5) : faux murs `m` et sortie secrète `x`.
+    let mut faux_murs: Vec<Case> = Vec::new();
+    let mut sorties_secretes: Vec<Case> = Vec::new();
 
     for (ty, ligne) in lignes.iter().enumerate() {
         for (tx, c) in ligne.chars().enumerate() {
@@ -110,6 +113,8 @@ pub(super) fn analyser(
                 'N' => tuiles[ty * largeur + tx] = Tuile::Nuage,
                 '@' => departs.push(case),
                 'X' => arrivees.push(case),
+                'm' => faux_murs.push(case),
+                'x' => sorties_secretes.push(case),
                 'L' => entites.push(Entite::Lanterne(Lanterne::new(x + 4.0, y))),
                 'o' => {
                     entites.push(Entite::Goutte(GoutteDor::new(
@@ -198,6 +203,11 @@ pub(super) fn analyser(
             })
         }
     };
+    if sorties_secretes.len() > 1 {
+        return Err(ErreurNiveau::SortieSecreteMultiple {
+            nombre: sorties_secretes.len(),
+        });
+    }
     if gouttes != GOUTTES_PAR_NIVEAU {
         return Err(ErreurNiveau::NombreDeGouttes { trouve: gouttes });
     }
@@ -391,6 +401,7 @@ pub(super) fn analyser(
         let (x, y) = px((tx, ty));
         objets_decor.push(ObjetDecor { x, y, genre });
     }
+    let caches = super::secrets::zones_cachees(&tuiles, largeur, hauteur, &faux_murs);
     let (dx, dy) = px(depart_case);
     let mut niveau = Niveau {
         largeur,
@@ -411,6 +422,12 @@ pub(super) fn analyser(
         vents: vents_laterales,
         panneaux,
         decors: objets_decor,
+        caches,
+        // Même boîte que le drapeau `X`.
+        sortie_secrete: sorties_secretes.first().map(|&case| {
+            let (sx, sy) = px(case);
+            Aabb::new(sx, sy - TAILLE_TUILE, TAILLE_TUILE, 2.0 * TAILLE_TUILE)
+        }),
     };
     // Aiguilles d'horloge : en DERNIER, une fois le niveau assemblé, pour vérifier
     // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).

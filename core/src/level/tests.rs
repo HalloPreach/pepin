@@ -908,3 +908,33 @@ fn grand_nuage_sans_place_refuse() {
     .to_string();
     assert!(msg.contains("« O »") && msg.contains("sa place"), "{msg}");
 }
+
+/// Secrets (carte 8.5) : le faux mur `m` est libre, il forme une zone cachée avec
+/// la goutte qu'il enferme ; il imite la brique qui prolonge sa rangée ; l'indice
+/// est la case d'entrée, côté chemin ; la sortie secrète `x` a la boîte d'un
+/// drapeau, et il n'y en a qu'une.
+#[test]
+fn faux_murs_zone_cachee_et_sortie_secrete() {
+    const SECRET: &str = "
+.......BBBBB..
+.o.o...mmoBB..
+.@.x...BBBBB.X
+##############
+";
+    let n = Niveau::depuis_ascii(SECRET).expect("niveau valide");
+    assert!(!n.est_solide(7, 1) && !n.est_solide(8, 1), "un faux mur se traverse");
+    assert_eq!(n.caches.len(), 1);
+    let z = &n.caches[0];
+    let b = Tuile::Brique;
+    assert_eq!(z.cases, vec![(7, 1, b), (8, 1, b), (9, 1, b)]);
+    assert_eq!(z.indice, Some((7, 1)));
+    assert_eq!(n.cache_en(9, 1), Some((0, b)));
+    assert_eq!(n.cache_en(6, 1), None);
+    assert!(z.touche(&Aabb::new(7.0 * 16.0 - 4.0, 16.0, 10.0, 14.0)));
+    assert!(!z.touche(&Aabb::new(5.0 * 16.0, 16.0, 10.0, 14.0)));
+    assert_eq!(n.sortie_secrete, Some(Aabb::new(48.0, 16.0, 16.0, 32.0)));
+    assert_eq!(
+        Niveau::depuis_ascii(&SECRET.replace(".X", "xX")).unwrap_err(),
+        ErreurNiveau::SortieSecreteMultiple { nombre: 2 }
+    );
+}

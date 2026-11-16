@@ -53,6 +53,12 @@ pub struct Monde {
     /// Pas passés immobile au sol (voir `compter_immobile`) : au bout de 2 s, Pépin
     /// s'occupe (animation d'attente, `scene::image_attente`). Sert au dessin seulement.
     pub immobile: u32,
+    /// Secrets (carte 8.5) : zones cachées déjà révélées (une par zone de
+    /// `niveau.caches`), la zone révélée à CE pas (le son « secret ») et la fin
+    /// par la sortie secrète `x` (elle compte comme une fin normale).
+    pub caches_reveles: Vec<bool>,
+    pub secret_revele: bool,
+    pub sortie_secrete: bool,
     precedent_joueur: (f32, f32),
     precedent_entites: Vec<(f32, f32)>,
 }
@@ -169,6 +175,7 @@ impl Monde {
         etat.nouveau_niveau(niveau.depart, infos.genre);
         let entites = niveau.entites.clone();
         let precedent_entites = entites.iter().map(Self::coin).collect();
+        let caches_reveles = vec![false; niveau.caches.len()];
         Self {
             indice,
             infos,
@@ -186,6 +193,9 @@ impl Monde {
             termine: false,
             gouttes_niveau: [false; 3],
             immobile: 0,
+            caches_reveles,
+            secret_revele: false,
+            sortie_secrete: false,
             precedent_entites,
         }
     }
@@ -286,7 +296,21 @@ impl Monde {
             .entites
             .iter()
             .any(|e| matches!(e, Entite::Nuage(n) if n.est_vaincu()));
-        if drapeau || nuage_vaincu {
+        // Secrets (carte 8.5) : une zone cachée que Pépin touche se révèle pour de
+        // bon ; la sortie secrète finit le niveau comme le drapeau.
+        self.secret_revele = false;
+        for (z, revele) in self.niveau.caches.iter().zip(&mut self.caches_reveles) {
+            if !*revele && z.touche(&self.joueur.boite) {
+                *revele = true;
+                self.secret_revele = true;
+            }
+        }
+        let secrete = self
+            .niveau
+            .sortie_secrete
+            .is_some_and(|a| self.joueur.boite.chevauche(&a));
+        if drapeau || nuage_vaincu || secrete {
+            self.sortie_secrete = secrete && !drapeau;
             self.termine = true;
         }
         self.pas += 1;

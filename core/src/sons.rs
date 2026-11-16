@@ -34,11 +34,13 @@ pub enum Effet {
     Victoire,
     /// Déplacement / validation dans les menus.
     Menu,
+    /// Une zone secrète se révèle (carte 8.5).
+    Secret,
 }
 
 impl Effet {
     /// Tous les effets, pour tout charger d'un coup.
-    pub const TOUS: [Effet; 11] = [
+    pub const TOUS: [Effet; 12] = [
         Effet::Saut,
         Effet::Plane,
         Effet::Atterrissage,
@@ -50,6 +52,7 @@ impl Effet {
         Effet::Eclair,
         Effet::Victoire,
         Effet::Menu,
+        Effet::Secret,
     ];
 
     /// Volume de lecture conseillé (de 0.0 à 1.0) : les bruits forts sont baissés.
@@ -118,6 +121,8 @@ pub fn echantillons(effet: Effet) -> Vec<f32> {
             son
         }
         Effet::Menu => note(Note::fixe(CARRE, 740.0, 0.05, 0.22)),
+        // Petite gamme montante, douce et rapide : « tiens, un passage ! »
+        Effet::Secret => arpege(Onde::Triangle, &[79, 83, 86, 91], 0.06, 0.18, 0.40),
     }
 }
 
