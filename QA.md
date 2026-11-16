@@ -5750,8 +5750,11 @@ Demande d'AGA : un niveau de poursuite, un mur de pluie qui avance et fait défi
 - `test -p core poursuite`, `levels`, `zones`, `faisabilite` : verts (niveau 10 faisable, reprise
   depuis chaque lanterne, décor, manches à air, premier défi à l'écran) ;
 - `test -p game --no-default-features le_robot_finit_tous_les_niveaux_sans_mourir` : vert ; partie
-  du robot (`ecrire_script_navigateur`) : 23 528 images, 0 mort ; la partie complète avec le bonus
-  est jouée par la suite complète (voir plus bas) ;
+  du robot (`ecrire_script_navigateur`) : 23 528 images, 0 mort ;
+- extraction propre (`git archive HEAD`) : `test --workspace --no-default-features` core 376 verts,
+  game 339 verts (dont la partie complète avec le bonus, 0 mort) ; `./docker-cargo.sh lint` FMT-OK,
+  LINT-OK ; `./build.sh` : `dist/` sans nom interdit (0), seule URL `http://www.w3.org/2000/svg`,
+  game.wasm 517 083 octets (gzip 206 893) ;
 - captures (build de QA `./build.sh --qa` servi sur 127.0.0.1, Chromium 1208 sans tête par CDP,
   `docs/capture-visibilite.mjs`, 960 x 540, x3), parcours du robot : `docs/qa/82-1-depart.png`
   (image 20 130) ; `82-2-talonne.png` et `82-2-reapparition.png` (à l'image 20 300 le robot lâche
