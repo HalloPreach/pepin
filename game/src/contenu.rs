@@ -397,6 +397,9 @@ pub const VERROUILLE: &str = "VERROUILLÉ";
 pub const INDICE_VERROUILLE: &str = "Atteins-le en jouant pour l'ouvrir.";
 /// Étape jamais finie : à la place du meilleur temps.
 pub const PAS_ENCORE_FINI: &str = "PAS ENCORE FINI";
+/// Étape finie sans meilleur temps connu (niveau migré de la v2 avec une médaille ou
+/// un défi, carte 8.13) : à la place du meilleur temps.
+pub const FINI_SANS_TEMPS: &str = "FINI";
 pub const LIBELLE_MEILLEUR: &str = "MEILLEUR";
 /// Bilan d'un niveau joué depuis la carte.
 pub const NOUVEAU_MEILLEUR_TEMPS: &str = "NOUVEAU MEILLEUR TEMPS";

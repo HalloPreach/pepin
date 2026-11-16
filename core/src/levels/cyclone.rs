@@ -30,6 +30,7 @@ use crate::zones::{InfosNiveau, Theme};
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 6,
     cle: "cyclone",
+    sans_planer: true,
     nom: "L'œil du cyclone",
     theme: Theme::Cyclone,
     genre: GenreNiveau::Normal,

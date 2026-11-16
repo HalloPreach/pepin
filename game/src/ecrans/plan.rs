@@ -407,11 +407,14 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
         dessiner_bouton_jouer(false, anim);
         return;
     }
-    // Meilleur temps.
+    // Meilleur temps (« FINI » sans temps : niveau migré de la v2, carte 8.13).
     match progres.meilleur_temps {
         Some(t) => {
             let ligne = format!("{} {}", contenu::LIBELLE_MEILLEUR, chrono::temps_precis(t));
             texte::dessiner(&ligne, x, y, ombre(BLANC_CASSE));
+        }
+        None if progres.fini() => {
+            texte::dessiner(contenu::FINI_SANS_TEMPS, x, y, ombre(BLANC_CASSE))
         }
         None => texte::dessiner(contenu::PAS_ENCORE_FINI, x, y, ombre(ARDOISE_PALE)),
     }

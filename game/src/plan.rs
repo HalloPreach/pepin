@@ -32,7 +32,8 @@ pub enum EtatEtape {
     Cachee,
     /// Jouable, jamais finie.
     Ouverte,
-    /// Finie au moins une fois (elle a un meilleur temps).
+    /// Finie au moins une fois (meilleur temps, médaille ou défi réussi :
+    /// `ProgresNiveau::fini`).
     Finie,
 }
 
@@ -48,9 +49,20 @@ pub fn progres(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> ProgresNive
     niveaux.get(i).map(|n| s.progres(n.cle)).unwrap_or_default()
 }
 
-/// Le niveau `i` a-t-il été fini au moins une fois ?
+/// Le niveau `i` a-t-il été fini au moins une fois (`ProgresNiveau::fini`) ?
 fn fini(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
-    progres(niveaux, s, i).meilleur_temps.is_some()
+    progres(niveaux, s, i).fini()
+}
+
+/// Le joueur est-il déjà allé AU-DELÀ du niveau `i` (carte 8.13) ? Oui s'il a fini
+/// une partie, ou si un niveau du chemin plus loin (normal ou épilogue, pas le
+/// bonus) est déjà atteint ou fini. Un niveau inséré dans la table après coup
+/// (`poursuite`, carte 8.2) ne reste ainsi pas cadenassé pour qui l'a dépassé.
+fn deja_depasse(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
+    s.parties_finies > 0
+        || niveaux.iter().enumerate().skip(i + 1).any(|(j, n)| {
+            n.genre != GenreNiveau::Bonus && (s.progres(n.cle).atteint || fini(niveaux, s, j))
+        })
 }
 
 /// Gouttes TROUVÉES (au cumul de la sauvegarde) dans les niveaux normaux.
@@ -68,6 +80,8 @@ pub fn gouttes_trouvees_normales(niveaux: &[InfosNiveau], s: &Sauvegarde) -> u32
 ///   (`ProgresNiveau::atteint`) ou si le niveau qui le précède sur le chemin (bonus
 ///   sauté) a été fini : l'épilogue s'ouvre donc une fois le dernier niveau normal
 ///   fini ;
+/// - un niveau normal est aussi ouvert si le joueur l'a déjà dépassé
+///   (`deja_depasse` : une partie finie, ou un niveau plus loin atteint ou fini) ;
 /// - le bonus se révèle avec toutes les gouttes des niveaux normaux TROUVÉES (au
 ///   cumul de la sauvegarde, la règle de `levels::bonus_debloque`), ou s'il a déjà
 ///   été fini ; sinon il reste caché.
@@ -87,7 +101,10 @@ pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtap
             let precedent = (0..i)
                 .rev()
                 .find(|&j| niveaux[j].genre != GenreNiveau::Bonus);
-            i == 0 || s.progres(n.cle).atteint || precedent.is_some_and(|j| fini(niveaux, s, j))
+            i == 0
+                || s.progres(n.cle).atteint
+                || precedent.is_some_and(|j| fini(niveaux, s, j))
+                || (n.genre == GenreNiveau::Normal && deja_depasse(niveaux, s, i))
         }
     };
     match (ouverte, fini(niveaux, s, i)) {

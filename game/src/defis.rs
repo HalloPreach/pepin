@@ -6,7 +6,7 @@
 //! Chaque niveau (boss, bonus et épilogue compris) a 3 défis :
 //! 1. « SANS MOURIR » : aucune mort pendant la tentative ;
 //! 2. « SANS PLANER » (jamais le parapluie ouvert) là où le robot de faisabilité
-//!    le prouve possible (`levels::SANS_PLANER_POSSIBLE`), sinon « LES 3 GOUTTES »
+//!    le prouve possible (champ `InfosNiveau::sans_planer`), sinon « LES 3 GOUTTES »
 //!    (les trois gouttes d'or ramassées pendant la tentative) ;
 //! 3. « CHRONO » : finir en `duree_cible_s` secondes au plus.
 //!
@@ -31,7 +31,6 @@
 //! Notions Rust illustrées ici : `enum` avec donnée (`Chrono(u32)`), tableaux
 //! `[T; 3]` et `map` sur un tableau, fonctions pures testables sans fenêtre.
 
-use pepin_core::levels::{indice_de_cle, NIVEAUX, SANS_PLANER_POSSIBLE};
 use pepin_core::physics::HZ;
 use pepin_core::zones::InfosNiveau;
 
@@ -80,13 +79,10 @@ impl Defi {
     }
 }
 
-/// Les 3 défis du niveau `infos`, retrouvé dans `NIVEAUX` par sa clé (hors table,
-/// niveaux d'essai compris : « LES 3 GOUTTES » au milieu).
+/// Les 3 défis du niveau `infos` (milieu : son champ `sans_planer`, rangé par clé
+/// depuis la carte 8.13 ; niveaux d'essai : « LES 3 GOUTTES »).
 pub fn defis_du_niveau(infos: &InfosNiveau) -> [Defi; 3] {
-    let sans_planer = indice_de_cle(NIVEAUX, infos.cle)
-        .and_then(|i| SANS_PLANER_POSSIBLE.get(i))
-        .copied();
-    let milieu = if sans_planer == Some(true) {
+    let milieu = if infos.sans_planer {
         Defi::SansPlaner
     } else {
         Defi::TroisGouttes
@@ -254,16 +250,17 @@ pub fn total_bonus(bonus: &[LigneBonus]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pepin_core::levels::NIVEAUX;
 
     /// Défis de chaque niveau, réussites, médaille, gains de la PREMIÈRE réussite
     /// seulement (pas de farm), meilleur temps et gouttes trouvées gardés.
     #[test]
     fn les_defis_rapportent_une_seule_fois_et_gardent_le_meilleur() {
-        for (i, n) in NIVEAUX.iter().enumerate() {
+        for n in NIVEAUX {
             let d = defis_du_niveau(n);
             assert_eq!(d[0], Defi::SansMourir);
             assert_eq!(d[2], Defi::Chrono(u32::from(n.duree_cible_s)));
-            let attendu = if SANS_PLANER_POSSIBLE[i] {
+            let attendu = if n.sans_planer {
                 Defi::SansPlaner
             } else {
                 Defi::TroisGouttes

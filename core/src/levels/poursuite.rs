@@ -27,6 +27,7 @@ use crate::zones::{InfosNiveau, Theme};
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 10,
     cle: "poursuite",
+    sans_planer: false,
     nom: "Le retour du Grand Nuage",
     theme: Theme::Poursuite,
     genre: GenreNiveau::Normal,
