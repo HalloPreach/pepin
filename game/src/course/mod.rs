@@ -374,6 +374,9 @@ mod tests {
         }
     }
 
+    /// Une partie trouvée par le générateur : force, numéro de l'essai, morts, entrées.
+    type PartieTrouvee = (Force, u32, u32, Vec<Entrees>);
+
     /// Régénère `src/course/parties.rs` avec le joueur simulé de la mesure de difficulté
     /// (graine officielle), à relancer si un niveau change (un fil d'exécution par
     /// niveau ; plusieurs minutes) :
@@ -393,7 +396,7 @@ mod tests {
              pub const PARTIES: &[PartieFantome] = &[\n",
         );
         // Un fil par niveau (`thread::scope`) ; les résultats gardent l'ordre de la table.
-        let parties: Vec<Vec<(Force, u32, u32, Vec<Entrees>)>> = std::thread::scope(|portee| {
+        let parties: Vec<Vec<PartieTrouvee>> = std::thread::scope(|portee| {
             let fils: Vec<_> = (0..NIVEAUX.len())
                 .map(|indice| {
                     portee.spawn(move || {
