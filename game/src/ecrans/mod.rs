@@ -13,6 +13,7 @@ use macroquad::prelude::draw_rectangle;
 use pepin_core::palette::{Couleur, ARDOISE_OMBRE, BRUME, OR, OR_PALE};
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
+use crate::contenu;
 use crate::menu::Menu;
 use crate::rendu::couleur_mq;
 use crate::texte::{self, Style};
@@ -119,6 +120,69 @@ pub fn image<'a>(anim: &'a [&'a str], pas: u32, duree: u32) -> &'a str {
     anim[(pas / duree) as usize % anim.len()]
 }
 
+/// Icône du haut-parleur, son actif : le haut-parleur et deux ondes. Même hauteur
+/// que la police (7 pixels) : à l'échelle du menu, elle a la taille des lettres.
+const ICONE_SON_ACTIF: [&str; 7] = [
+    "....X....X.",
+    "...XX.X...X",
+    "XXXXX..X..X",
+    "XXXXX..X..X",
+    "XXXXX..X..X",
+    "...XX.X...X",
+    "....X....X.",
+];
+
+/// Icône du haut-parleur, son coupé : une croix à la place des ondes (même largeur,
+/// l'icône ne saute pas quand on bascule).
+const ICONE_SON_COUPE: [&str; 7] = [
+    "....X......",
+    "...XX.X...X",
+    "XXXXX..X.X.",
+    "XXXXX...X..",
+    "XXXXX..X.X.",
+    "...XX.X...X",
+    "....X......",
+];
+
+/// L'icône à montrer à la place d'un libellé de menu, s'il en a une (la ligne du son).
+fn icone_de(libelle: &str) -> Option<&'static [&'static str]> {
+    if libelle == contenu::libelle_son(true) {
+        Some(&ICONE_SON_ACTIF)
+    } else if libelle == contenu::libelle_son(false) {
+        Some(&ICONE_SON_COUPE)
+    } else {
+        None
+    }
+}
+
+/// Dessine une icône (motif de « X ») centrée dans l'écran, coin haut en `y`, comme du
+/// texte : mêmes couleur, échelle et ombre portée que `style`, pixels entiers (nets).
+fn dessiner_icone(motif: &[&str], y: f32, style: Style) {
+    let e = style.echelle as f32;
+    let largeur = motif.iter().map(|l| l.len()).max().unwrap_or(0) as f32 * e;
+    let x = (LARGEUR_LOGIQUE as f32 / 2.0 - largeur / 2.0).round();
+    let y = y.round();
+    let passe = |dx: f32, couleur: Couleur| {
+        for (ly, ligne) in motif.iter().enumerate() {
+            for (lx, c) in ligne.chars().enumerate() {
+                if c == 'X' {
+                    rect(
+                        x + dx + lx as f32 * e,
+                        y + dx + ly as f32 * e,
+                        e,
+                        e,
+                        couleur,
+                    );
+                }
+            }
+        }
+    };
+    if let Some(ombre) = style.ombre {
+        passe(e, ombre);
+    }
+    passe(0.0, style.couleur);
+}
+
 /// Dessine un menu : la ligne choisie est encadrée d'or, avec des chevrons qui
 /// bougent. `anim` : compteur de pas, pour le mouvement.
 pub fn dessiner_menu(libelles: &[&str], menu: &Menu, d: &Disposition, anim: u32) {
@@ -132,7 +196,12 @@ pub fn dessiner_menu(libelles: &[&str], menu: &Menu, d: &Disposition, anim: u32)
         } else {
             Style::simple(BRUME, ECHELLE_MENU).avec_ombre(ARDOISE_OMBRE)
         };
-        texte::dessiner_centre(libelle, y + 2.0, style);
+        // La ligne du son montre une icône (carte 7.8) ; son libellé texte reste
+        // le nom interne de la ligne (tests, contrôles d'ensemble).
+        match icone_de(libelle) {
+            Some(motif) => dessiner_icone(motif, y + 2.0, style),
+            None => texte::dessiner_centre(libelle, y + 2.0, style),
+        }
         if choisi {
             // Les chevrons font un petit va-et-vient d'un pixel d'écran.
             let dx = if (anim / 20).is_multiple_of(2) {

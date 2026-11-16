@@ -36,8 +36,9 @@ pub const QUITTER_AU_TITRE: &str = "QUITTER AU TITRE";
 pub const REJOUER: &str = "REJOUER";
 pub const RETOUR_TITRE: &str = "TITRE";
 
-/// Libellé de l'option son selon son état (en capitales : à l'échelle du menu, les
-/// minuscules flotteraient au-dessus du pied des majuscules).
+/// Libellé de l'option son selon son état. Depuis la carte 7.8, il n'est plus affiché :
+/// le menu montre à sa place une icône de haut-parleur (barré ou non, `ecrans/mod.rs`) ;
+/// il reste le nom interne de la ligne (tests, contrôles d'ensemble).
 pub fn libelle_son(actif: bool) -> &'static str {
     if actif {
         "SON : OUI"
