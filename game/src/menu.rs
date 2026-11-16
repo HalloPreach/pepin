@@ -11,6 +11,9 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Choix {
     Jouer,
+    /// La carte des niveaux (carte 7.4) depuis le titre ; depuis la pause ou le bilan
+    /// d'un niveau joué seul, le retour à cette carte.
+    Carte,
     /// La boutique (carte 7.5).
     Boutique,
     Aide,
@@ -20,6 +23,8 @@ pub enum Choix {
     QuitterAuTitre,
     Rejouer,
     RetourTitre,
+    /// Bilan d'un niveau joué depuis la carte (carte 7.4) : le relancer tout de suite.
+    RejouerNiveau,
 }
 
 /// Le curseur d'un menu vertical.

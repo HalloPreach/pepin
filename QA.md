@@ -5888,3 +5888,45 @@ Données et règles seulement (l'écran de carte et la boutique liront la sauveg
 - Vrai téléphone (texte à l'échelle 1, comme les autres lignes des écrans) ; Safari, Firefox.
 - Pas de boutique branchée (le coordinateur la réconcilie à la fusion avec 7.5) ; pas de suite
   complète (tests ciblés seulement, consigne de la carte).
+
+## Carte des niveaux : des toits jusqu'au soleil (carte 7.4)
+
+- Titre : nouvelle ligne CARTE (sous JOUER ; cinq lignes, titre et sous-titre remontés). La carte
+  est VERTICALE : les 9 niveaux normaux montent des toits (en bas, sous la pluie) jusqu'au soleil
+  (en haut), le bonus est une branche secrète à gauche du sommet, l'épilogue (« É ») redescend de
+  l'autre côté jusqu'aux toits. Tout se déduit de `NIVEAUX` (genres) : aucun numéro en dur.
+- Étape : case avec son numéro, cadenas si verrouillée, « ? » pour le bonus caché, bordure à la
+  couleur de la médaille, 3 petites gouttes dessous ; Pépin (skin actif) debout sur l'étape choisie.
+  Panneau de droite : nom, meilleur temps, gouttes trouvées, médaille, les 3 défis cochés, JOUER.
+- Déblocage (`plan::etat_etape`, d'après la sauvegarde v2) : le 1er toujours ; un niveau atteint
+  (`niveau_max_atteint`, noté désormais dès qu'une partie « JOUER » arrive à un niveau) ou dont le
+  précédent est fini ; épilogue une fois le 9e fini ; bonus révélé avec toutes les gouttes des
+  niveaux normaux TROUVÉES au cumul (27), sinon caché (« ? » et le compte 16/27).
+- Commandes : Haut/Bas (ou Droite/Gauche) parcourent les étapes, Entrée ou JOUER lance une étape
+  jouable, toucher une étape la choisit, molette et glisser du doigt font défiler, Échap ou RETOUR.
+- Niveau joué depuis la carte = partie d'UN niveau (5 vies, « plus de vies » = on recommence ce
+  niveau, défis/médailles/gouttes comptés comme en 7.3). Au drapeau : bilan (temps, « -1,8 s !
+  NOUVEAU MEILLEUR TEMPS » ou « +3,2 s », défis, médaille, gain), REJOUER ou CARTE. Pause : la
+  dernière ligne devient CARTE. Les records de partie (score, temps) ne bougent pas.
+- Build de QA : touche U = progression avancée (1er appui : 7 niveaux finis, bonus caché ; 2e
+  appui : tout fini, bonus révélé), enregistrée ; elle n'ajoute qu'à la progression existante.
+
+### Preuves
+
+- Tests ciblés : `app::` (50, dont les menus du titre/bilan adaptés), `plan`, `ecrans`, `contenu`.
+  Aucun test ajouté (consigne AGA : pas de nouvelle mécanique de core). Robot de QA : identique (la
+  ligne JOUER reste la première), `ecrire_script_navigateur` → `target/qa/script.txt` 21 422 images.
+- Vrai navigateur (Chromium sans tête, CDP, build de QA sur 127.0.0.1, `docs/capture-plan.mjs`) :
+  sauvegarde vide → seul le niveau 1 ouvert, Entrée sur le 2 sans effet ; niveau 1 lancé depuis la
+  carte et fini (niveau 1 du robot rejoué) → bilan « PREMIER TEMPS SUR CE NIVEAU ! », 0:33,9,
+  ARGENT, +7 gouttes, `parties_finies=0` (pas de record de partie) ; CARTE → niveau 2 ouvert ; page
+  rechargée → conservé ; U puis U → bonus caché puis révélé ; 640 x 360 au toucher : étape touchée
+  puis JOUER → carte de présentation du niveau 7. 0 erreur console.
+- Captures `docs/qa/74-*.png` (14), regardées : carte en bas (toits), milieu, haut (soleil +
+  bonus caché, puis débloqué), descente, bilan, titre, téléphone ; rien ne se chevauche ;
+  `mesure-capture.py` : 0 pixel hors palette, 0 flou.
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone (glisser du doigt seulement émulé par CDP pour le toucher simple, pas le glisser) ;
+  Safari, Firefox ; molette d'un vrai pavé tactile (défilement par crans).

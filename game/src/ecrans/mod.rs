@@ -18,10 +18,12 @@ use crate::rendu::couleur_mq;
 use crate::texte::{self, Style};
 
 pub mod aide;
+pub mod bilan_niveau;
 pub mod boutique;
 pub mod carte;
 pub mod fin;
 pub mod pause;
+pub mod plan;
 pub mod plus_de_vies;
 pub mod resultats;
 pub mod titre;
@@ -41,6 +43,11 @@ pub enum Ecran {
     /// restants avant que le niveau ne recommence tout seul.
     PlusDeVies(u16),
     Fin,
+    /// La carte des niveaux (carte 7.4) : sa logique est dans `crate::plan`.
+    Plan,
+    /// Bilan d'un niveau joué seul depuis la carte (carte 7.4) : temps, défis,
+    /// médaille, puis REJOUER ou CARTE.
+    BilanNiveau,
 }
 
 /// Position horizontale et largeur des lignes de menu (pixels logiques).
@@ -74,11 +81,12 @@ impl Disposition {
 /// Mise en page du menu de l'écran donné (`None` : cet écran n'a pas de menu).
 pub fn disposition(ecran: Ecran) -> Option<Disposition> {
     match ecran {
-        // Quatre lignes depuis la boutique (carte 7.5) : JOUER, BOUTIQUE, COMMENT JOUER,
-        // SON ; elles finissent en y = 146, au-dessus des toits (Pépin court à gauche).
+        // Cinq lignes depuis la carte des niveaux (carte 7.4) : JOUER, CARTE, BOUTIQUE,
+        // COMMENT JOUER, SON ; elles finissent en y = 148, au-dessus des toits (Pépin
+        // court à gauche). Le titre est remonté d'autant (`titre.rs`).
         Ecran::Titre => Some(Disposition {
-            y0: 66.0,
-            pas: 20.0,
+            y0: 58.0,
+            pas: 18.0,
         }),
         Ecran::Pause => Some(Disposition {
             y0: 68.0,
@@ -88,7 +96,17 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
             y0: 124.0,
             pas: 20.0,
         }),
-        Ecran::Aide | Ecran::Boutique | Ecran::Carte(_) | Ecran::Jeu | Ecran::PlusDeVies(_) => None,
+        // REJOUER et CARTE, dans le panneau du bilan (`bilan_niveau.rs`).
+        Ecran::BilanNiveau => Some(Disposition {
+            y0: 124.0,
+            pas: 20.0,
+        }),
+        Ecran::Aide
+        | Ecran::Boutique
+        | Ecran::Carte(_)
+        | Ecran::Jeu
+        | Ecran::PlusDeVies(_)
+        | Ecran::Plan => None,
     }
 }
 
@@ -166,6 +184,8 @@ mod tests {
             Choix::QuitterAuTitre,
             Choix::Rejouer,
             Choix::RetourTitre,
+            Choix::Carte,
+            Choix::RejouerNiveau,
         ];
         for c in tous {
             for son in [true, false] {
@@ -213,8 +233,8 @@ mod tests {
         let (_, y, _, h) = d.rect_ligne(1);
         assert!(y + h <= HAUTEUR_LOGIQUE as f32, "fin : 2 lignes");
         let d = disposition(Ecran::Titre).unwrap();
-        let (_, y, _, h) = d.rect_ligne(3);
-        assert!(y + h <= 148.0, "titre : 4 lignes au-dessus du sol");
+        let (_, y, _, h) = d.rect_ligne(4);
+        assert!(y + h <= 148.0, "titre : 5 lignes au-dessus du sol");
     }
 
     #[test]

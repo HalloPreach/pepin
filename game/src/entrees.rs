@@ -305,6 +305,18 @@ pub fn gouttes_qa_demandees() -> bool {
     RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_GOUTTES)
 }
 
+/// Touche de mise au point « progression avancée » (carte 7.4) : U, même position en
+/// QWERTY et en AZERTY. Un premier appui finit les sept premiers niveaux (médailles et
+/// gouttes variées, bonus encore caché), le suivant finit tout et révèle le bonus
+/// (`plan::progression_qa`). Sert à essayer la carte des niveaux. Build de QA seulement.
+const TOUCHE_PROGRESSION: KeyCode = KeyCode::U;
+
+/// La progression avancée est-elle demandée ? Toujours faux sans `debug_niveaux` : la
+/// touche U est inerte en production.
+pub fn progression_qa_demandee() -> bool {
+    RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_PROGRESSION)
+}
+
 /// Plantage volontaire (touche F9) : n'existe que dans le build de QA, fonctionnalité
 /// Cargo `qa_plantage`. Il sert à vérifier dans un vrai navigateur qu'un plantage en
 /// cours de partie (panique Rust, devenue « RuntimeError: unreachable » en wasm)

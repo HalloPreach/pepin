@@ -29,6 +29,8 @@ pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
 
 pub const JOUER: &str = "JOUER";
 pub const BOUTIQUE: &str = "BOUTIQUE";
+/// La carte des niveaux (carte 7.4).
+pub const CARTE: &str = "CARTE";
 pub const COMMENT_JOUER: &str = "COMMENT JOUER";
 pub const REPRENDRE: &str = "REPRENDRE";
 pub const RECOMMENCER: &str = "RECOMMENCER";
@@ -51,12 +53,13 @@ pub fn libelle(choix: Choix, son: bool) -> &'static str {
     match choix {
         Choix::Jouer => JOUER,
         Choix::Boutique => BOUTIQUE,
+        Choix::Carte => CARTE,
         Choix::Aide => COMMENT_JOUER,
         Choix::Son => libelle_son(son),
         Choix::Reprendre => REPRENDRE,
         Choix::Recommencer => RECOMMENCER,
         Choix::QuitterAuTitre => QUITTER_AU_TITRE,
-        Choix::Rejouer => REJOUER,
+        Choix::Rejouer | Choix::RejouerNiveau => REJOUER,
         Choix::RetourTitre => RETOUR_TITRE,
     }
 }
@@ -350,6 +353,22 @@ pub const IL_TE_MANQUE: &str = "IL TE MANQUE";
 /// Rappel des touches en bas de la boutique.
 pub const AIDE_BOUTIQUE: &str = "Entrée : choisir   Échap : retour";
 
+// --- Carte des niveaux (carte 7.4) ----------------------------------------------
+
+pub const TITRE_PLAN: &str = "CARTE DES NIVEAUX";
+/// Rappel des touches en bas de la carte.
+pub const AIDE_PLAN: &str = "Haut/Bas : choisir  Entrée : jouer";
+pub const NIVEAU_SECRET: &str = "NIVEAU SECRET";
+pub const INDICE_SECRET: &str = "Trouve toutes les gouttes d'or des niveaux pour l'ouvrir.";
+pub const VERROUILLE: &str = "VERROUILLÉ";
+pub const INDICE_VERROUILLE: &str = "Atteins-le en jouant pour l'ouvrir.";
+/// Étape jamais finie : à la place du meilleur temps.
+pub const PAS_ENCORE_FINI: &str = "PAS ENCORE FINI";
+pub const LIBELLE_MEILLEUR: &str = "MEILLEUR";
+/// Bilan d'un niveau joué depuis la carte.
+pub const NOUVEAU_MEILLEUR_TEMPS: &str = "NOUVEAU MEILLEUR TEMPS";
+pub const PREMIER_TEMPS: &str = "PREMIER TEMPS SUR CE NIVEAU !";
+
 /// « 1 GOUTTE », « 60 GOUTTES ».
 pub fn gouttes(n: u32) -> String {
     if n == 1 {
@@ -444,6 +463,17 @@ pub(crate) mod tests {
             NOUVEAU_RECORD,
             LIBELLE_RECORD,
             BOUTIQUE,
+            CARTE,
+            TITRE_PLAN,
+            AIDE_PLAN,
+            NIVEAU_SECRET,
+            INDICE_SECRET,
+            VERROUILLE,
+            INDICE_VERROUILLE,
+            PAS_ENCORE_FINI,
+            LIBELLE_MEILLEUR,
+            NOUVEAU_MEILLEUR_TEMPS,
+            PREMIER_TEMPS,
             RETOUR,
             GRATUIT,
             ETAT_EQUIPE,

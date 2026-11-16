@@ -33,7 +33,7 @@ pub fn dessiner(
         banque.dessiner_tuile(Theme::Toits, "toit_haut", x, SOL);
         banque.dessiner_tuile(Theme::Toits, "toit_plein", x, SOL + 16.0);
     }
-    // À gauche du menu (4 lignes depuis la boutique, carte 7.5), sous le skin choisi.
+    // À gauche du menu (5 lignes depuis la carte des niveaux, carte 7.4), sous le skin choisi.
     banque.dessiner(
         image(&skin.images().course, anim, 5),
         14.0,
@@ -42,14 +42,15 @@ pub fn dessiner(
     );
     decor::dessiner_avant(Theme::Toits, anim);
 
+    // Remontés à la carte 7.4 pour la cinquième ligne du menu (CARTE).
     texte::dessiner_centre(
         contenu::TITRE,
-        14.0,
+        12.0,
         Style::simple(OR_PALE, 5).avec_ombre(ARDOISE_OMBRE),
     );
     texte::dessiner_centre(
         contenu::SOUS_TITRE,
-        56.0,
+        49.0,
         Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE),
     );
     dessiner_menu(libelles, menu, d, anim);

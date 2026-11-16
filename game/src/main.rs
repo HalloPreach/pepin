@@ -38,6 +38,7 @@ mod musiques;
 mod navigation;
 mod orientation;
 mod particules;
+mod plan;
 mod rendu;
 mod sauvegarde;
 mod scene;
@@ -129,6 +130,11 @@ async fn main() {
         if entrees::gouttes_qa_demandees() {
             app.sauvegarde.ajouter_gouttes(100);
             app.sauvegarde.enregistrer();
+        }
+        // Build de QA seulement (`debug_niveaux`) : U avance la progression de la carte des
+        // niveaux (carte 7.4), enregistrée.
+        if entrees::progression_qa_demandee() {
+            app.progression_qa();
         }
         // Build de QA seulement (`qa_plantage`) : F9 provoque une vraie panique, pour
         // vérifier le message de plantage de la page web. Toujours faux en production.
