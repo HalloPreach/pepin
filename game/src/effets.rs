@@ -4,7 +4,9 @@
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::Entite;
-use pepin_core::palette::{BLANC_CASSE, CORAIL_CLAIR, OR, OR_PALE, PLUIE, PLUIE_SOMBRE};
+use pepin_core::palette::{
+    BLANC_CASSE, CORAIL_CLAIR, OR, OR_PALE, PLUIE, PLUIE_SOMBRE, VIOLET_ORAGE,
+};
 use pepin_core::LARGEUR_LOGIQUE;
 
 use crate::decor::ambiance;
@@ -127,6 +129,11 @@ pub fn effets(
             Contact::Goutte(_) => {
                 particules.eclabousser(x, y - 6.0, 10, OR, 2.0);
                 particules.etincelles(x, y - 8.0, 8, OR_PALE);
+            }
+            // La lettre cachée (carte 8.6) : une gerbe d'étincelles or et violet.
+            Contact::Lettre => {
+                particules.etincelles(x, y - 8.0, 12, OR);
+                particules.etincelles(x, y - 8.0, 8, VIOLET_ORAGE);
             }
             Contact::Ecrase => particules.eclabousser(x, y, 10, PLUIE, 2.0),
             // Coup sur la tête du Grand Nuage : gerbe de pluie, étincelles d'or et

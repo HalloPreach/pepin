@@ -46,6 +46,8 @@ pub fn effets_du_pas(evenements: &Evenements, contacts: &[Contact]) -> Vec<Effet
     for c in contacts {
         match c {
             Contact::Goutte(_) => v.push(Effet::Goutte),
+            // La lettre cachée (carte 8.6) : la petite fanfare des secrets.
+            Contact::Lettre => v.push(Effet::Secret),
             Contact::Lanterne(..) => v.push(Effet::Lanterne),
             // Un coup sur la tête du Grand Nuage sonne comme un ennemi écrasé.
             Contact::Ecrase | Contact::Nuage => v.push(Effet::Ecrase),

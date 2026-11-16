@@ -31,6 +31,11 @@ pub fn rang_du_niveau(cle: &str) -> Option<usize> {
     LETTRES.iter().position(|&(c, _)| c == cle)
 }
 
+/// La lettre cachée dans le niveau de clé `cle` (`None` : aucune).
+pub fn lettre_du_niveau(cle: &str) -> Option<char> {
+    rang_du_niveau(cle).map(|i| LETTRES[i].1)
+}
+
 /// Les lettres trouvées, dans l'ordre du mot : `trouvee(cle)` dit si la lettre du
 /// niveau de clé `cle` a été prise (la sauvegarde répond).
 pub fn trouvees(trouvee: impl Fn(&str) -> bool) -> [bool; NB_LETTRES] {

@@ -51,6 +51,8 @@ pub struct Monde {
     pub termine: bool,
     /// Gouttes d'or ramassées dans CE niveau (index 0 à 2).
     pub gouttes_niveau: [bool; 3],
+    /// La lettre cachée du niveau (carte 8.6) a été prise dans cette tentative.
+    pub lettre_prise: bool,
     /// Pas passés immobile au sol (voir `compter_immobile`) : au bout de 2 s, Pépin
     /// s'occupe (animation d'attente, `scene::image_attente`). Sert au dessin seulement.
     pub immobile: u32,
@@ -196,6 +198,7 @@ impl Monde {
             pos_mort: (0.0, 0.0),
             termine: false,
             gouttes_niveau: [false; 3],
+            lettre_prise: false,
             immobile: 0,
             caches_reveles,
             secret_revele: false,
@@ -277,6 +280,7 @@ impl Monde {
                         *g = true;
                     }
                 }
+                Contact::Lettre => self.lettre_prise = true,
                 Contact::Mort(cause) => {
                     // Le Grand Nuage reprend son combat au début (il garde ses
                     // points perdus) : Pépin réapparaît au début de l'arène. Les

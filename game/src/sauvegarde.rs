@@ -85,6 +85,8 @@ pub struct ProgresNiveau {
     /// Meilleure médaille (créditée) : défis réussis dans UNE même tentative (0 à 3 ;
     /// 3 = or).
     pub medaille: u8,
+    /// La lettre cachée du niveau (carte 8.6) a été prise dans un niveau réussi.
+    pub lettre: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,6 +235,19 @@ impl Sauvegarde {
         }
     }
 
+    /// Lettres cachées (carte 8.6) : prises une fois, gardées pour toujours, par clé
+    /// de niveau. `noter_lettre` : celle du niveau `cle` (hors de la table : ignoré) ;
+    /// `lettres` : les cinq, dans l'ordre du mot « PÉPIN ».
+    pub fn noter_lettre(&mut self, cle: &str) {
+        if let Some(p) = self.progres_mut(cle) {
+            p.lettre = true;
+        }
+    }
+
+    pub fn lettres(&self) -> [bool; pepin_core::lettres::NB_LETTRES] {
+        pepin_core::lettres::trouvees(|cle| self.progres(cle).lettre)
+    }
+
     /// Le bonus de fin `id` est crédité : `true` la PREMIÈRE fois seulement (il est
     /// alors noté), `false` s'il l'avait déjà été.
     pub fn crediter_bonus(&mut self, id: &str) -> bool {
@@ -327,6 +342,9 @@ impl Sauvegarde {
             ));
             if let Some(temps) = p.meilleur_temps {
                 t.push_str(&format!(" temps:{temps}"));
+            }
+            if p.lettre {
+                t.push_str(" lettre:1");
             }
             t.push('\n');
         }
@@ -473,6 +491,7 @@ fn lire_niveau(valeur: &str) -> ProgresNiveau {
             "defis" => p.defis = lire_bits(v).unwrap_or_default(),
             "medaille" => p.medaille = v.parse::<u8>().map_or(0, |m| m.min(3)),
             "temps" => p.meilleur_temps = v.parse().ok(),
+            "lettre" => p.lettre = v == "1",
             _ => {}
         }
     }
@@ -573,6 +592,7 @@ mod tests {
             meilleur_temps: Some(2345),
             defis: [true, true, false],
             medaille: 2,
+            lettre: false,
         };
         assert!(s.crediter_bonus("sans_game_over"));
         assert!(!s.crediter_bonus("sans_game_over"), "une seule fois");

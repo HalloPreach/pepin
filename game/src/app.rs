@@ -22,6 +22,7 @@
 //! à chaque écran, méthodes qui ne se contredisent pas (un seul endroit change
 //! d'écran).
 
+use pepin_core::lettres;
 use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
 use pepin_core::physics::HZ;
 use pepin_core::player::Entrees;
@@ -74,6 +75,8 @@ enum Suite {
     Carte,
     Titre,
     Fin,
+    /// L'écran de fin, son bilan déjà fait : après l'image de la fin secrète (carte 8.6).
+    EcranFin,
     /// Jouer SEUL le niveau `indice`, choisi sur la carte des niveaux (carte 7.4).
     NiveauSeul(usize),
     /// Revenir à la carte des niveaux (fin ou abandon d'un niveau joué seul).
@@ -368,6 +371,7 @@ impl Application {
             | Some(Suite::Carte) => true,
             Some(Suite::Titre)
             | Some(Suite::Fin)
+            | Some(Suite::EcranFin)
             | Some(Suite::Plan)
             | Some(Suite::Histoire(_)) => false,
             // Rien en attente : carte de présentation, écran « plus de vies » (il finit
@@ -532,11 +536,19 @@ impl Application {
     }
 
     /// Une image de l'histoire est passée : la suivante (ou le titre) si elle a été
-    /// ouverte depuis le titre, sinon la carte du niveau qui l'attend.
+    /// ouverte depuis le titre, sinon la carte du niveau qui l'attend — ou, après la
+    /// fin secrète (carte 8.6), l'écran de fin. Depuis le titre, la fin secrète suit la
+    /// 3e image une fois les cinq lettres réunies.
     fn apres_histoire(&mut self, chapitre: Chapitre) {
-        if !self.histoire_depuis_titre {
+        let secrete = lettres::manquantes(&self.sauvegarde.lettres()) == 0;
+        let suivant = chapitre
+            .suivant()
+            .or_else(|| (chapitre == Chapitre::Soleil && secrete).then_some(Chapitre::Secret));
+        if chapitre == Chapitre::Secret && !self.histoire_depuis_titre {
+            self.lancer(Suite::EcranFin);
+        } else if !self.histoire_depuis_titre {
             self.lancer(Suite::Carte);
-        } else if let Some(suivant) = chapitre.suivant() {
+        } else if let Some(suivant) = suivant {
             self.lancer(Suite::Histoire(suivant));
         } else {
             self.retour_titre_sur(Choix::Histoire);
@@ -683,6 +695,10 @@ impl Application {
             // sont remises à zéro quand le niveau recommence. Les défis (carte 7.3) sont
             // notés au passage, et leurs premières réussites créditées.
             self.tentative.gouttes = self.monde.gouttes_niveau;
+            // La lettre cachée (carte 8.6) d'un niveau réussi : gardée pour toujours.
+            if self.monde.lettre_prise {
+                self.sauvegarde.noter_lettre(self.monde.infos.cle);
+            }
             let ancien = self.sauvegarde.progres(self.monde.infos.cle).meilleur_temps;
             self.resultat_niveau = Some(defis::noter_niveau(
                 &mut self.sauvegarde,
@@ -862,6 +878,7 @@ impl Application {
                     score: e.score,
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
+                    lettres: Some(self.sauvegarde.lettres()),
                 };
                 self.nouveau_record = self.sauvegarde.noter_partie(e.score, self.pas_partie);
                 // Bonus de fin de partie (carte 7.3) : chaque ligne n'est créditée que
@@ -870,8 +887,15 @@ impl Application {
                 self.bonus_fin = defis::bonus_fin(!self.game_over_partie, toutes);
                 defis::crediter_bonus_fin(&mut self.sauvegarde, &mut self.bonus_fin);
                 self.sauvegarde.enregistrer();
-                self.ouvrir(Ecran::Fin);
+                // Les cinq lettres réunies (carte 8.6) : la 4e image, puis la fin secrète.
+                if self.bilan.fin_secrete() {
+                    self.histoire_depuis_titre = false;
+                    self.ouvrir(Ecran::Histoire(Chapitre::Secret));
+                } else {
+                    self.ouvrir(Ecran::Fin);
+                }
             }
+            Suite::EcranFin => self.ouvrir(Ecran::Fin),
         }
     }
 
@@ -993,9 +1017,12 @@ impl Application {
                     );
                 }
                 match self.ecran {
-                    Ecran::Carte(_) => {
-                        carte::dessiner(self.monde.indice, self.monde.infos, self.anim)
-                    }
+                    Ecran::Carte(_) => carte::dessiner(
+                        self.monde.indice,
+                        self.monde.infos,
+                        self.anim,
+                        &self.sauvegarde.lettres(),
+                    ),
                     Ecran::Pause => {
                         pause::dessiner(self.anim, &libelles, &self.menu, &dispo);
                         // En jeu, pas d'icône : le coin est aux commandes tactiles et au HUD.
@@ -1340,6 +1367,7 @@ mod tests {
                 score: 900,
                 gouttes_bonus: None,
                 epilogue: true,
+                lettres: Some([false; 5]),
             }
         );
         assert_eq!(app.choix, vec![Choix::Rejouer, Choix::RetourTitre]);
@@ -1668,6 +1696,80 @@ mod tests {
                     (gouttes + 3, None)
                 );
             }
+        }
+    }
+
+    /// Lettres cachées (carte 8.6) : prise dans un niveau RÉUSSI, la lettre va dans la
+    /// sauvegarde, par clé (prise puis niveau recommencé : rien) ; gardée d'une partie à
+    /// l'autre.
+    #[test]
+    fn la_lettre_d_un_niveau_reussi_va_dans_la_sauvegarde() {
+        let mut app = en_jeu();
+        assert_eq!(app.monde.infos.cle, "toits");
+        app.monde.lettre_prise = true;
+        app.lancer(Suite::Recommencer);
+        jusqu_a(&mut app, |e| e == Ecran::Jeu);
+        assert!(
+            !app.monde.lettre_prise,
+            "niveau recommencé : lettre à reprendre"
+        );
+        assert_eq!(app.sauvegarde.lettres(), [false; 5]);
+        app.monde.lettre_prise = true;
+        app.monde.termine = true;
+        avancer(&mut app, 1);
+        assert_eq!(app.sauvegarde.lettres(), [true, false, false, false, false]);
+        assert!(app.sauvegarde.progres("toits").lettre);
+        let relu = Sauvegarde::depuis_texte(&app.sauvegarde.vers_texte());
+        assert_eq!(
+            relu.lettres(),
+            [true, false, false, false, false],
+            "rechargée"
+        );
+    }
+
+    /// La fin de partie avec les cinq lettres (carte 8.6) : l'image de la fin secrète,
+    /// puis l'écran « FIN SECRÈTE » ; avec quatre, directement la fin habituelle et
+    /// « IL MANQUE 1 LETTRE ». Revue depuis le titre, l'histoire montre la fin secrète
+    /// après l'image 3 (seulement avec les cinq lettres).
+    #[test]
+    fn les_cinq_lettres_ouvrent_la_fin_secrete() {
+        use pepin_core::lettres::LETTRES;
+        for nb in [4, 5] {
+            let mut app = en_jeu();
+            for &(cle, _) in &LETTRES[..nb] {
+                app.sauvegarde.noter_lettre(cle);
+            }
+            let (monde, camera) = charger(NB_NIVEAUX - 1, None);
+            app.monde = monde;
+            app.camera = camera;
+            app.monde.termine = true;
+            avancer(&mut app, 1);
+            if nb == 5 {
+                jusqu_a(&mut app, |e| e == Ecran::Histoire(Chapitre::Secret));
+                assert!(app.bilan.fin_secrete());
+                avancer(&mut app, histoire::DELAI_PAS);
+                app.reagir(&valider(), &Commandes::default(), None);
+            }
+            jusqu_a(&mut app, |e| e == Ecran::Fin);
+            let m = fin::mise_en_page(&app.bilan);
+            if nb == 5 {
+                assert_eq!(m.titre, contenu::TITRE_FIN_SECRETE);
+            } else {
+                assert_eq!(m.titre, contenu::TITRE_FIN_RETOUR);
+                assert_eq!(m.lettres.unwrap().0, "IL MANQUE 1 LETTRE");
+            }
+            // L'histoire revue depuis le titre : après l'image 3, la fin secrète ou le titre.
+            app.histoire_depuis_titre = true;
+            app.ouvrir(Ecran::Histoire(Chapitre::Soleil));
+            avancer(&mut app, histoire::DELAI_PAS);
+            app.reagir(&valider(), &Commandes::default(), None);
+            avancer(&mut app, 40);
+            let attendu = if nb == 5 {
+                Ecran::Histoire(Chapitre::Secret)
+            } else {
+                Ecran::Titre
+            };
+            assert_eq!(app.ecran, attendu, "{nb} lettres");
         }
     }
 

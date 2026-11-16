@@ -116,8 +116,9 @@ pub const GOUTTES_A_REPRENDRE: &str = "Ses gouttes d'or sont à reprendre.";
 /// Pépin monte réveiller le soleil. Le Grand Nuage n'est pas vaincu au niveau 6 : il
 /// s'enfuit, et revient au sommet (« Le retour du Grand Nuage », carte 8.11). Chaque
 /// ligne tient dans le bandeau du bas, 8 px de marge de chaque côté (test
-/// `l_histoire_tient_dans_son_bandeau` de `ecrans::histoire`).
-pub const RECIT: [[&str; 2]; 3] = [
+/// `l_histoire_tient_dans_son_bandeau` de `ecrans::histoire`). La 4e (carte 8.6) est
+/// la fin secrète : elle ne se voit qu'avec les cinq lettres P, É, P, I, N.
+pub const RECIT: [[&str; 2]; 4] = [
     [
         "La pluie ne s'arrête plus : le soleil dort.",
         "Pépin prend son parapluie et monte le réveiller.",
@@ -129,6 +130,10 @@ pub const RECIT: [[&str; 2]; 3] = [
     [
         "Le Grand Nuage s'est vidé de sa pluie.",
         "Le soleil ouvre un œil : montrons-lui la ville !",
+    ],
+    [
+        "Le soleil écrit ton nom en rayons d'or.",
+        "La ville ouvre ses parapluies : merci, Pépin !",
     ],
 ];
 
@@ -350,6 +355,21 @@ pub const TITRE_FIN: &str = "LE SOLEIL !";
 /// conclut l'histoire (carte 8.11) : la pluie s'est arrêtée, le soleil est réveillé.
 pub const TITRE_FIN_RETOUR: &str = "DE RETOUR !";
 pub const PHRASE_RETOUR: &str = "Plus de pluie : Pépin replie son parapluie.";
+/// Fin secrète (carte 8.6) : les cinq lettres P, É, P, I, N réunies.
+pub const TITRE_FIN_SECRETE: &str = "FIN SECRÈTE";
+pub const PHRASE_SECRETE: &str = "La ville entière fête Pépin sous le soleil.";
+/// Ligne des lettres cachées de l'écran de fin (carte 8.6) : son nom dans le bilan,
+/// et ce qui s'affiche selon les lettres qui manquent (`libelle_lettres`).
+pub const LIBELLE_LETTRES: &str = "LETTRES";
+
+/// « IL MANQUE 2 LETTRES », « IL MANQUE 1 LETTRE », « LETTRES » (toutes trouvées).
+pub fn libelle_lettres(manquantes: usize) -> String {
+    match manquantes {
+        0 => LIBELLE_LETTRES.to_string(),
+        1 => "IL MANQUE 1 LETTRE".to_string(),
+        n => format!("IL MANQUE {n} LETTRES"),
+    }
+}
 pub const LIBELLE_TEMPS: &str = "TEMPS";
 pub const LIBELLE_GOUTTES: &str = "GOUTTES D'OR";
 /// Gouttes du niveau bonus, comptées à part (ligne affichée s'il a été joué).
@@ -494,6 +514,9 @@ pub(crate) mod tests {
             TITRE_FIN,
             TITRE_FIN_RETOUR,
             PHRASE_RETOUR,
+            TITRE_FIN_SECRETE,
+            PHRASE_SECRETE,
+            LIBELLE_LETTRES,
             LIBELLE_TEMPS,
             LIBELLE_GOUTTES,
             LIBELLE_BONUS,
