@@ -253,15 +253,28 @@ pub fn jouer_tout(parcours: &[Vec<Entrees>]) -> Partie {
 }
 
 /// Cherche le parcours de chaque niveau de la table (robot « maladroit » d'abord,
-/// puis précis si besoin).
+/// puis précis si besoin). Un fil d'exécution par niveau, comme
+/// `tous_les_parcours_complets` (carte 6.9 : les onze recherches l'une après
+/// l'autre prenaient plusieurs minutes). La recherche de chaque niveau ne dépend
+/// que de son indice : les parcours sont les mêmes qu'en série, et `join` dans
+/// l'ordre des fils les range dans l'ordre des niveaux.
 pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
-    (0..NB_NIVEAUX)
-        .map(|i| {
-            trouver_parcours(i, false)
-                .or_else(|| trouver_parcours(i, true))
-                .unwrap_or_else(|| panic!("le robot ne trouve aucun parcours au niveau {}", i + 1))
-        })
-        .collect()
+    std::thread::scope(|portee| {
+        let fils: Vec<_> = (0..NB_NIVEAUX)
+            .map(|i| {
+                portee.spawn(move || {
+                    trouver_parcours(i, false)
+                        .or_else(|| trouver_parcours(i, true))
+                        .unwrap_or_else(|| {
+                            panic!("le robot ne trouve aucun parcours au niveau {}", i + 1)
+                        })
+                })
+            })
+            .collect();
+        fils.into_iter()
+            .map(|f| f.join().expect("fil du parcours"))
+            .collect()
+    })
 }
 
 /// Parcours « complet » de chaque niveau de la table : les trois gouttes d'or

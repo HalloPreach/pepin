@@ -1030,10 +1030,24 @@ fn ecrire_scripts_des_ajouts(prefixe: &str, niveaux: &[(usize, Ajouts)]) {
     const DERNIER_CHIFFRE: usize = 8;
 
     std::fs::create_dir_all("../target/qa").unwrap();
-    for &(cible, ajouts) in niveaux {
-        let parcours = trouver_parcours(cible, false)
-            .or_else(|| trouver_parcours(cible, true))
-            .expect("parcours du robot");
+    // Les parcours de tous les niveaux d'abord, un fil par niveau (carte 6.9, comme
+    // `tous_les_parcours`) ; les rejeux ci-dessous restent dans l'ordre.
+    let parcours_des_niveaux: Vec<_> = std::thread::scope(|portee| {
+        let fils: Vec<_> = niveaux
+            .iter()
+            .map(|&(cible, _)| {
+                portee.spawn(move || {
+                    trouver_parcours(cible, false)
+                        .or_else(|| trouver_parcours(cible, true))
+                        .expect("parcours du robot")
+                })
+            })
+            .collect();
+        fils.into_iter()
+            .map(|f| f.join().expect("fil du parcours"))
+            .collect()
+    });
+    for (&(cible, ajouts), parcours) in niveaux.iter().zip(parcours_des_niveaux) {
         let mut app = Application::new(true);
         let mut script = String::new();
         let mut trace = String::from("image,ecran,indice,pas,x,y,cam_x,cam_y,morts");
