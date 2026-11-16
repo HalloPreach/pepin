@@ -295,6 +295,16 @@ pub fn skin_suivant_demande() -> bool {
     RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_SKIN)
 }
 
+/// Touche de mise au point « 100 gouttes en poche » (carte 7.5) : G, même position en
+/// QWERTY et en AZERTY. Sert à essayer l'achat de la boutique. Build de QA seulement.
+const TOUCHE_GOUTTES: KeyCode = KeyCode::G;
+
+/// Les 100 gouttes de mise au point sont-elles demandées ? Toujours faux sans
+/// `debug_niveaux` : la touche G est inerte en production.
+pub fn gouttes_qa_demandees() -> bool {
+    RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_GOUTTES)
+}
+
 /// Plantage volontaire (touche F9) : n'existe que dans le build de QA, fonctionnalité
 /// Cargo `qa_plantage`. Il sert à vérifier dans un vrai navigateur qu'un plantage en
 /// cours de partie (panique Rust, devenue « RuntimeError: unreachable » en wasm)

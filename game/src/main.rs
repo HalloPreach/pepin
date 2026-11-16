@@ -10,7 +10,8 @@
 //! de `entrees.rs` couvrent QWERTY et AZERTY (sur AZERTY, M est à la position du
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
-//! (changer de niveau) et F9 (plantage volontaire) : uniquement dans le build de mise
+//! (changer de niveau), K (skin suivant), G (100 gouttes en poche) et F9 (plantage
+//! volontaire) : uniquement dans le build de mise
 //! au point (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
 mod app;
@@ -120,6 +121,12 @@ async fn main() {
         // Build de QA seulement (`debug_niveaux`) : K passe au skin suivant (captures).
         if entrees::skin_suivant_demande() {
             app.skin = app.skin.suivant();
+        }
+        // Build de QA seulement (`debug_niveaux`) : G met 100 gouttes en poche (essai de la
+        // boutique), enregistrées comme des gouttes gagnées.
+        if entrees::gouttes_qa_demandees() {
+            app.sauvegarde.ajouter_gouttes(100);
+            app.sauvegarde.enregistrer();
         }
         // Build de QA seulement (`qa_plantage`) : F9 provoque une vraie panique, pour
         // vérifier le message de plantage de la page web. Toujours faux en production.
