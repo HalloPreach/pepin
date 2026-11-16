@@ -4865,3 +4865,283 @@ README.
   5 risque de retourner la graine officielle.
 - Pas de son propre aux nouveaux ennemis (aucun son ajouté) ; captures dans Chromium seulement, à 960 x
   540 ; pas de vrai téléphone, ni Safari, ni Firefox.
+
+## Plus d'ennemis dans les niveaux 7, 8, 9 et 11 (carte 6.4b)
+
+Demande d'AGA (mot pour mot) : « tu peux rajouter des ennemis sur les niveau, il y a beaucoup de niveaux
+avec peu d'ennemis ». Le but est un défi. Cette carte traite les niveaux 7, 8, 9 et 11, avec la démarche
+de la carte 6.4a (niveaux 1 à 5) : types existants seulement, aucune physique ni mécanique modifiée, un
+commit par niveau avec sa mesure. Non touchés : 6 (L'œil du cyclone, le boss) et 10 (L'arc-en-ciel, le
+bonus sans ennemi) ; leurs lignes de `docs/mesure-difficulte.txt`, comme celles des niveaux 1 à 5, sont
+identiques ligne à ligne à la fin de la carte 6.4a.
+
+### Inventaire avant / après
+
+f flaque, c corbeau, p pigeon (case de la lettre dans la grille : colonne, rangée).
+
+| Niveau                  | Avant (6.4a)  | Après               | Ajouts                                      |
+| ----------------------- | ------------- | ------------------- | ------------------------------------------- |
+| 7. Vents d'altitude     | 2 c + 1 p (3) | 4 c + 2 p (6)       | c (76, 3), c (147, 3), p (38, 3)            |
+| 8. La mer de nuages     | aucun (0)     | 3 c + 1 p (4)       | p (65, 3), c (85, 4), c (97, 7), c (162, 6) |
+| 9. Au-dessus des nuages | 1 p (1)       | 1 p + 2 c + 1 f (4) | f (37, 5), c (63, 3), c (120, 2)            |
+| 11. La descente         | 2 p (2)       | 2 p + 1 c (3)       | c (10, 12)                                  |
+| Total des quatre        | 6             | 17                  | + 11                                        |
+
+Cibles de la carte : vents +2 c +1 p (fait) ; mer +2-3 c et +1 p (fait : 3 c et 1 p ; le plané de vingt
+tuiles reste SANS ennemi, la demande en admettait un au plus) ; nuages +2 c et +1-2 f ou chats (fait : 2 c
+et 1 f, la seconde flaque retirée, voir plus bas) ; descente +1 au plus (fait : 1 c, et elle reste le
+niveau le plus calme).
+
+Emplacements et raisons (détail dans le commentaire en tête de chaque fichier de niveau) :
+
+- Vents d'altitude (`core/src/levels/vents.rs`) :
+  - corbeau (76, 3), patrouille des colonnes 71 à 81, juste au-dessus de la tête de Pépin posé sur les
+    nuages friables (72 à 75) : on passe dessous en marchant, mais il faut repartir d'un saut avant que
+    les friables ne cèdent, et un saut au mauvais moment s'y cogne ;
+  - corbeau (147, 3), à hauteur de Pépin sur l'îlot des colonnes 143 à 151 (patrouille 142 à 152) : on
+    lui tombe dessus en descendant de l'îlot de la lanterne 136, ou on le saute ; la lanterne 136 est
+    hors de sa patrouille ;
+  - pigeon (38, 3) sur un petit nuage posé pour lui (38, 4), quatre rangées au-dessus de l'îlot de la
+    lanterne 43, comme celui du dernier toit : tourné vers l'arrivée de Pépin, il plonge derrière lui,
+    au ras de l'îlot (colonne 34), loin de la lanterne et à plus de 4 tuiles de tout oiseau de décor.
+- La mer de nuages (`core/src/levels/mer.rs`, jusque-là sans ennemi) :
+  - pigeon (65, 3) au bord gauche de l'étage, tourné vers le premier quai : il plonge sur qui passe
+    dessous, au bout du quai ou dans la nacelle de la première montgolfière (63), et finit au ras du
+    quai. On le fait plonger d'un pas au bout du quai, on recule, on embarque pendant son repos ; en
+    haut, on peut lui tomber dessus. La demande disait « un pigeon sur un quai » : perché SUR un quai,
+    il ne guetterait que le vide ; perché au-dessus du quai, il le garde ;
+  - corbeau (85, 4), patrouille 80 à 90, entre les deux rideaux de grêle, sous le long plané vers le
+    second quai : on part de l'étage quand il s'éloigne ; fermer le parapluie pour plonger sous lui ne
+    se fait qu'entre les rideaux (sous la grêle, parapluie fermé, on meurt) ;
+  - corbeau (97, 7), patrouille 92 à 102, à hauteur de Pépin sur le second quai, avant la montgolfière
+    104 : on atterrit dessus ou on le saute ;
+  - corbeau (162, 6), patrouille 157 à 167, une rangée sous le vent du dernier plané : on plane haut
+    dans le vent, ou l'on part de la corniche quand il s'éloigne ;
+  - le moment fort (colonnes 110 à 130) : aucune patrouille ne le croise (test).
+- Au-dessus des nuages (`core/src/levels/nuages.rs`) :
+  - flaque (37, 5) sur le petit nuage des colonnes 35 à 40, entre deux sauts de l'escalier du début ;
+  - corbeau (63, 3), patrouille 58 à 68, juste au-dessus de la tête de Pépin posé sur la traversée
+    friable ;
+  - corbeau (120, 2), patrouille 115 à 125, juste au-dessus de la tête de Pépin posé sur le nuage
+    d'avant le dernier toit : on attend qu'il s'éloigne pour sauter.
+- La descente (`core/src/levels/descente.rs`) : corbeau (10, 12), patrouille 5 à 15, sous la première
+  goutte, 21 px au-dessus de la tête de Pépin posé sur la première couche : on passe dessous en marchant,
+  on lui tombe dessus en descendant du départ, un saut vers la goutte au mauvais moment s'y cogne.
+
+### Réglage : ce qui a été essayé, et ce qui est réduit
+
+Chaque placement essayé avec `mesure_d_un_niveau` (mêmes graines que la mesure officielle) dans une
+copie jetable du dépôt ; Habitué en morts moyennes, avant -> après.
+
+- Vents (0,40) : corbeau au-dessus de l'îlot de la lanterne 43 (40, 5) -> 0,69, hors de la bande des
+  vents ([0,3 ; 0,65[), écarté ; corbeaux (88, 4) et (116, 2) -> 0,42 et 0,40 (jamais sur le chemin,
+  écartés) ; corbeau (152, 2) -> 0,44, (147, 3) gardé (même effet, mais à hauteur de Pépin sur l'îlot :
+  il se voit et se saute). Retenu : 0,52.
+- Mer (0,46) : corbeau au-dessus du premier vent (22, 3) et après le moment fort (137, 7) -> 0,46 (aucun
+  effet, écartés) ; pigeon, corbeaux (84, 3) et (57, 7) -> Expert 0,27, écarté ; corbeau du premier quai
+  (57, 7) à la place de celui du second -> 0,58. Retenu : pigeon, (85, 4), (97, 7), (162, 6) -> 0,73.
+- Au-dessus des nuages (0,08) : corbeau (85, 5) au-dessus du trampoline -> Expert 0,19 avec les autres
+  ajouts, écarté ; chat (124, 3) seul -> 0,21, hors de la bande du niveau ([0 ; 0,2[), écarté ; chat
+  (37, 5) -> 0,06 ; flaques (37, 5) et (124, 3) avec les deux corbeaux -> 0,17, commité (a1492c7),
+  puis réduit (9befa46) : sur six graines, cette version sortait de la bande trois fois sur six (0,21,
+  0,21, 0,27) et passait au-dessus des vents une fois (graine 20261118 : 0,27 contre 0,25). Sans la
+  flaque (124, 3) : une fois hors de la bande (0,23), jamais au-dessus des vents ; sans celle de
+  l'escalier (37, 5) à la place : deux fois hors de la bande, une fois au-dessus des vents. Retenu : la
+  flaque de l'escalier et les deux corbeaux -> 0,15.
+- Descente : corbeaux (16, 20) et (16, 22), au-dessus de la deuxième couche -> 0,00 partout (la seule
+  mort d'avant, à la grêle, disparaît) ; (7, 13), (12, 13), (10, 12) -> Débutant 0,02 comme avant.
+  Retenu (10, 12) : sous la goutte, là où l'on saute. La mesure de la descente est identique à
+  l'octet : aucun joueur simulé n'y meurt du corbeau (il le voit venir et passe dessous ou à côté).
+
+### Mesure de difficulté : avant / après
+
+Commande officielle (`mesure_de_difficulte`), graine 20261113, 48 essais. Avant : 97067bc (fin de la
+carte 6.4a) ; après : 9befa46. Centièmes : `mesure_d_un_niveau` (mêmes chiffres que la mesure
+officielle, qui arrondit au dixième). Dans `docs/mesure-difficulte.txt`, seules changent les lignes des
+niveaux 7, 8 et 9 et celles qui les additionnent (Total, partie enchaînée, liste « À SIGNALER ») ; les
+niveaux 1 à 6, 10 et 11 sont identiques ligne à ligne.
+
+| Morts moyennes           | Débutant      | Habitué       | Expert        |
+| ------------------------ | ------------- | ------------- | ------------- |
+| 7. Vents d'altitude      | 1,31 -> 1,54  | 0,40 -> 0,52  | 0,10 -> 0,10  |
+| 8. La mer de nuages      | 1,46 -> 2,23  | 0,46 -> 0,73  | 0,12 -> 0,17  |
+| 9. Au-dessus des nuages  | 0,50 -> 0,67  | 0,08 -> 0,15  | 0,00 -> 0,06  |
+| 11. La descente          | 0,02 (inchangé) | 0,00 (inchangé) | 0,00 (inchangé) |
+
+| Game over (niveau commencé avec 5 vies) | Débutant      | Habitué | Expert |
+| --------------------------------------- | ------------- | ------- | ------ |
+| 7. Vents d'altitude                     | 2/48 -> 4/48  | 0 -> 0  | 0 -> 0 |
+| 8. La mer de nuages                     | 0/48 -> 5/48  | 0 -> 0  | 0 -> 0 |
+| 9. Au-dessus des nuages                 | 1/48 -> 0/48  | 0 -> 0  | 0 -> 0 |
+| 11. La descente                         | 0/48 -> 0/48  | 0 -> 0  | 0 -> 0 |
+
+Pire essai (morts, Débutant / Habitué / Expert) avant -> après : vents 6/2/1 -> 8/4/1 ; mer 4/2/1 ->
+7/4/1 ; nuages 5/2/0 -> 3/1/1 ; descente 1/0/0 inchangé. Durée moyenne d'un essai (mêmes profils) :
+vents 48/41/38 s -> 50/42/38 s ; mer 44/36/34 s -> 51/41/35 s ; nuages 32/29/29 s -> 35/31/30 s ;
+descente 19/18/18 s inchangé. Total des morts : Débutant 25,6 -> 26,7, Habitué 6,3 -> 6,8, Expert
+1,7 -> 1,8. Partie enchaînée : Débutant 47/48 parties avec au moins un game over (inchangé), 2,6 -> 2,9
+en moyenne, 7 -> 6 au plus ; Habitué 17/48 -> 23/48, 0,4 -> 0,5 en moyenne ; Expert 1/48 -> 2/48.
+
+Où l'on meurt des nouveaux ennemis (lieux de mort de la mesure) : à la mer, le pigeon du quai (colonne
+63 : 8 des 35 morts de l'Habitué, 3 des 8 de l'Expert) ; aux nuages, la flaque de l'escalier (colonnes
+35-36) et le corbeau d'avant le dernier toit (colonne 119) ; aux vents, presque aucune mort d'un nouvel
+ennemi (le Débutant, une fois, le corbeau de l'îlot, colonne 149) : la hausse vient de chutes nouvelles
+aux colonnes 49 (après l'îlot du pigeon) et 82 à 84 (après les friables, sous le corbeau). Les ennemis
+pressent le saut ; c'est une explication probable, pas une preuve.
+
+À SIGNALER : la mer de nuages entre dans la liste des niveaux normaux au-dessus de 10 % de game over
+pour le Débutant, de justesse (5/48, 10,4 %) ; sur six graines, 26/288 (9,0 %). Si le coordinateur la
+veut sous le seuil, le levier est le pigeon du quai (le plus meurtrier) ; cette carte ne l'a pas retiré
+(c'est le seul ennemi de la mer qui demande d'attendre, le défi voulu).
+
+#### Courbe finale des onze niveaux (graine officielle, morts moyennes)
+
+| Niveau                      | Débutant | Habitué | Expert |
+| --------------------------- | -------- | ------- | ------ |
+| 1. Les toits                | 0,54     | 0,19    | 0,06   |
+| 2. Gouttières et cheminées  | 1,50     | 0,56    | 0,15   |
+| 3. Le marché couvert        | 1,27     | 0,67    | 0,08   |
+| 4. Le grand orage           | 3,48     | 0,75    | 0,40   |
+| 5. Le clocher               | 2,58     | 0,79    | 0,15   |
+| 6. L'œil du cyclone (boss)  | 4,06     | 1,19    | 0,38   |
+| 7. Vents d'altitude         | 1,54     | 0,52    | 0,10   |
+| 8. La mer de nuages         | 2,23     | 0,73    | 0,17   |
+| 9. Au-dessus des nuages     | 0,67     | 0,15    | 0,06   |
+| 10. L'arc-en-ciel (bonus)   | 8,83     | 1,23    | 0,29   |
+| 11. La descente (épilogue)  | 0,02     | 0,00    | 0,00   |
+
+Le juge de la courbe est vert (`courbe_de_difficulte_dans_les_bandes`, et la mesure officielle
+elle-même), sans retouche du juge : le boss reste le sommet (Débutant et Habitué) ; la mer au-dessus
+des vents (Habitué 0,73 contre 0,52 ; Débutant 2,23 contre 1,54) ; les vents au-dessus du niveau 9 et
+nettement sous le boss (1,19 - 0,52 = 0,67, il en faut 0,15) ; chaque niveau dans sa bande Habitué
+(vents [0,3 ; 0,65[, mer [0,2 ; 1,0[, nuages [0 ; 0,2[, descente [0 ; 0,2[) ; l'épilogue le plus calme
+de tous ; le bonus en 58,5 s pour l'Expert (borne [45 ; 75[ s).
+
+#### Bruit de la mesure : six graines
+
+Même méthode qu'à la carte 6.4a (graines 20261113 à 20261118, 48 essais chacune, `mesure_d_un_niveau`
+dans une copie jetable où la graine se choisit par GRAINES ; rien de commité). Morts moyennes :
+
+| Moyenne de 6 graines     | Débutant      | Habitué       | Expert        | Habitué, graine par graine (après) |
+| ------------------------ | ------------- | ------------- | ------------- | ---------------------------------- |
+| 7. Vents d'altitude      | 1,31 -> 1,61  | 0,43 -> 0,45  | 0,08 -> 0,08  | 0,52 0,27 0,52 0,58 0,56 0,25      |
+| 8. La mer de nuages      | 1,33 -> 1,95  | 0,46 -> 0,59  | 0,09 -> 0,19  | 0,73 0,67 0,48 0,67 0,65 0,33      |
+| 9. Au-dessus des nuages  | 0,45 -> 0,69  | 0,06 -> 0,16  | 0,01 -> 0,02  | 0,15 0,23 0,19 0,15 0,10 0,15      |
+| 11. La descente          | 0,00 -> 0,00  | 0,00 -> 0,00  | 0,00 -> 0,00  | 0,00 sur les six                   |
+
+Ce qu'il faut en retenir :
+- la mer passe au-dessus des vents pour l'Habitué sur 5 graines sur 6 (3 sur 6 avant), pour le
+  Débutant sur 6 sur 6 (4 sur 6 avant) : la « remontée » de la courbe, fragile avant, est plus nette ;
+- les vents restent au-dessus du niveau 9 sur les six graines (Habitué et Débutant), et nettement sous
+  le boss (au moins 0,34 d'écart) ;
+- le niveau 9 sort de sa bande Habitué ([0 ; 0,2[) sur une graine (20261114 : 0,23) : c'est ce qui
+  reste de fragile, après le retrait d'une flaque (voir « Réglage ») ;
+- les vents sortent PAR LE BAS de leur bande ([0,3 ; 0,65[) sur deux graines (0,27 et 0,25) ; c'était
+  déjà le cas d'une graine avant (0,25) ;
+- game over du Débutant sur les six graines : vents 10/288 -> 17/288, mer 1/288 -> 26/288, nuages
+  1/288 -> 1/288, descente 0 -> 0.
+
+### Robots et tests
+
+- Robot de faisabilité : vert sur les onze niveaux, depuis le départ et depuis chaque lanterne, robot
+  précis et maladroit (il ignore flaques, corbeaux et pigeons, évitables en attendant ou en écrasant).
+  Aucun robot à modifier : aucune mécanique nouvelle.
+- Robot de QA (vraie simulation : un plan qui meurt est écarté) : les deux parties finissent les onze
+  niveaux sans mourir (`le_robot_finit_tous_les_niveaux_sans_mourir`, `la_partie_complete_joue_le_bonus`).
+  Il écrase le corbeau du second quai de la mer et le corbeau des friables du niveau 9 ; il passe sous
+  le corbeau d'avant le dernier toit du niveau 9 à 0 px près (voir les captures).
+- Lanternes sur le trajet d'un danger (`lanternes_sur_le_trajet_d_un_danger`) : liste INCHANGÉE, (2, 66,
+  flaque), (2, 104, flaque), (3, 50, bond de chat), (3, 110, bond de chat), (4, 145, flaque) : aucun
+  ennemi ajouté ne passe sur Pépin réapparu à une lanterne.
+- Pigeons : `les_pigeons_sont_dans_le_clocher_vents_mer_nuages_et_descente_loin_des_oiseaux_de_decor`
+  (renommé : la mer est admise, 1 à 3 pigeons par niveau, à au moins 4 tuiles de tout oiseau de décor) ;
+  `la_plongee_des_pigeons_reste_en_l_air_et_loin_des_lanternes` vert (les deux nouvelles plongées ne
+  traversent aucun solide et ne passent ni sur une lanterne ni sur le départ) ;
+  `le_pigeon_se_detache_du_ciel_des_niveaux_4_et_5` couvre aussi la mer (contraste d'au moins 3:1 sur le
+  ciel corail, du perchoir au fond de la plongée).
+- Mer : `aucun_ennemi` remplacé par `trois_corbeaux_un_pigeon_et_aucun_dans_le_moment_fort` (aucune
+  patrouille de corbeau ne croise les colonnes 110 à 130). Descente :
+  `aucune_chute_ne_tue_et_seuls_deux_pigeons_un_corbeau_et_deux_colonnes_de_grele_menacent` (renommé,
+  compte le corbeau) ; `se_laisser_tomber_du_bord_d_un_trou_ne_touche_pas_la_grele` vert.
+- Décor : aucun objet sur une patrouille (`aucun_decor_devant_un_danger_ni_un_objet`), lint de grille
+  (lanternes posées, aucune poche de vide close), premier défi visible, durées plausibles : verts.
+
+### Captures `docs/qa/64b-*` (15 images)
+
+Build de QA (`./build.sh --qa`) d'une copie dont `core/`, `game/`, `web/` et les scripts de build sont
+identiques à ab45cdb pour les niveaux 7, 8 et 11, et à 9befa46 pour le niveau 9 (repris après le retrait
+de la flaque), servi en local sur 127.0.0.1 (port libre, serveur arrêté à la fin), Chromium 1208 (Chrome
+for Testing 145) sans tête piloté par CDP (`docs/capture-visibilite.mjs`, onglet au premier plan et
+canvas focalisé), 960 x 540 (x3). Un script par niveau, écrit par le test ignoré
+`ecrire_script_ennemis_64b` (`SCRIPT=target/qa/script-64b-N.txt`, `TOUCHES=target/qa/touches-64b-N.txt` :
+touche 7, 8 ou 9 à l'image 229 du pilote ; pour la descente, touche 9 puis N aux images 457 et 685) ;
+numéros d'image de `trace-64b-N.csv`, qui suit chaque ennemi ajouté (et la phase de vol des pigeons).
+
+- `64b-vents-pigeon-plongee` (907) : le pigeon du nuage (38, 4) en pleine plongée, derrière Pépin qui
+  file vers la droite sur l'îlot de la lanterne 43 ;
+- `64b-vents-corbeau-friables` (1350) : Pépin posé sur les nuages friables, le corbeau qui arrive vers
+  lui, juste au-dessus de sa tête ; `64b-vents-corbeau-friables-saut` (1378) : Pépin quitte les
+  friables d'un saut, le corbeau sous lui ;
+- `64b-vents-corbeau-ilot` (2262) : Pépin sur l'îlot des colonnes 143 à 151, le corbeau qui vient à sa
+  hauteur ; `64b-vents-corbeau-ilot-saut` (2284) : Pépin le saute ;
+- `64b-mer-pigeon-nacelle` (1171) : le pigeon plonge pendant que la montgolfière hisse Pépin (il le
+  manque de peu) ;
+- `64b-mer-corbeau-grele` (1431) : Pépin plane entre les deux rideaux de grêle, le corbeau sous lui ;
+- `64b-mer-corbeau-quai` (1521) : Pépin tombe sur le corbeau du second quai (écrasé à l'image 1528) ;
+- `64b-mer-corbeau-vent` (2359) : Pépin plane dans le vent du dernier plané, le corbeau une rangée plus
+  bas, la grêle derrière (6 vies : la troisième goutte en rend une) ;
+- `64b-nuages-flaque-escalier` (890) : la flaque sur le petit nuage de l'escalier, Pépin au-dessus ;
+- `64b-nuages-corbeau-friables` (1200) : Pépin sur la traversée friable, le corbeau juste au-dessus de
+  sa tête, un peu devant ;
+  `64b-nuages-corbeau-ecrase` (1259) : le corbeau écrasé sous Pépin ;
+- `64b-nuages-corbeau-attente` (1912) : Pépin attend sur le nuage d'avant le dernier toit, le corbeau
+  arrive au-dessus ; `64b-nuages-corbeau-saut` (1927) : Pépin saute sous le corbeau qui arrive ;
+- `64b-descente-corbeau` (1046) : Pépin tombe du départ vers la première couche, à droite du corbeau
+  qui patrouille sous la goutte.
+
+Chaque capture regardée ; `docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur
+les 15. Compteur de vies vérifié sur chacune (même chiffre que la capture de référence, sauf la mer à 6
+vies après la troisième goutte). Une capture écartée : au niveau 9, à l'image 1934, le rejeu du
+navigateur a touché le corbeau d'avant le dernier toit (4 vies, Pépin à la lanterne) ; dans la
+simulation, le robot passe dessous à 0 px près (haut de Pépin à y = 45, bas du corbeau à y = 45) et le
+rejeu glisse d'un pas, comme noté à la carte 6.4a. Ce n'est pas un défaut du niveau : un joueur passe
+avec de la marge en attendant que le corbeau s'éloigne.
+
+### Vérification sur une extraction propre de 5250968 (dernier commit de code et des captures)
+
+`git archive`, nouveau dossier daté sous `$TMPDIR` :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : 374 (core) et 336 (game) tests, tous verts
+  (1 + 22 ignorés : `ecrire_script_ennemis_64b` s'ajoute aux tests ignorés), dont les tests de
+  faisabilité des onze niveaux, `reprise_depuis_chaque_lanterne`, `lanternes_sur_le_trajet_d_un_danger`,
+  `aucun_decor_devant_un_danger_ni_un_objet`, les tests des pigeons, `courbe_de_difficulte_dans_les_bandes`
+  et les deux parties du robot ;
+- `./docker-cargo.sh lint` : `FMT-OK`, `LINT-OK` ;
+- `./build.sh` : `dist/` produit, wasm 497 743 octets (497 695 à la carte 6.4a : + 48), 0 occurrence des
+  noms interdits, seule URL `http://www.w3.org/2000/svg`, « Essai chat » absent de `dist/` ;
+- mesure de difficulté (`mesure_de_difficulte`) : verte sur chacun des états intermédiaires (un par
+  commit de niveau) ; le fichier `docs/mesure-difficulte.txt` de chaque commit est celui de son état ;
+  relancée sur l'extraction propre de 5250968 : verte, et le fichier qu'elle écrit est identique à
+  l'octet à celui du dépôt ;
+- partie du robot (`ecrire_script_navigateur`) : 21 414 images (21 348 à la carte 6.4a), 0 mort, 15
+  gouttes (16 à la carte 6.4a : son parcours change avec les nouveaux ennemis et passe par une goutte de
+  moins), empreinte `1f3190119f6bd9b3` ;
+- `ecrire_script_ennemis` (scripts des captures 6.4a, dont le travail passe dans
+  `ecrire_scripts_des_ajouts`) : ses quinze fichiers `script-64-N`, `touches-64-N`, `trace-64-N`
+  identiques à l'octet à ceux de la carte 6.4a.
+
+Commits : fc9ffcb (mer de nuages), 73dc73c (vents d'altitude), a1492c7 (au-dessus des nuages), 8fbfdb1
+(descente), ab45cdb (script du navigateur), b4442cd (captures), 9befa46 (au-dessus des nuages : une
+flaque retirée), 5250968 (captures du niveau 9 refaites), cette section et le README (nombre de tests,
+poids du wasm, ennemis des niveaux 7, 8, 9 et 11).
+
+### Ce qui n'est PAS testé
+
+- Aucun humain n'a joué ces niveaux : l'emplacement des ennemis est jugé sur la mesure (joueur simulé à
+  intention parfaite, qui ne rate que des gestes) et sur des captures fixes, pas en mouvement.
+- La descente : le corbeau ne tue aucun joueur simulé (mesure identique à l'octet) ; son effet sur un
+  humain (un saut raté vers la goutte) n'est pas mesuré.
+- Le juge passe sur la graine officielle ; sur six graines, le niveau 9 sort une fois de sa bande et les
+  vents deux fois par le bas de la leur (voir « Bruit de la mesure »).
+- Pas de son propre aux nouveaux ennemis ; captures dans Chromium seulement, à 960 x 540 ; pas de vrai
+  téléphone, ni Safari, ni Firefox.

@@ -73,12 +73,15 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
    motifs d'éclairs de plus en plus serrés, puis s'essouffle et laisse échapper un
    courant : on y monte et on lui saute sur la tête. Trois fois, et le ciel se
    déchire (pas de drapeau, une seule lanterne).
-7. Vents d'altitude : courants ascendants, longs planés, nuage friable, corbeaux,
-   pigeon.
+7. Vents d'altitude : courants ascendants, longs planés, nuage friable, quatre
+   corbeaux (dont un au-dessus des nuages friables), deux pigeons.
 8. La mer de nuages : vent latéral (longs planés portés, et un plané de vingt
    tuiles où le vent change deux fois de sens), montgolfières, rideaux de grêle ;
-   une manche à air à l'entrée de chaque vent.
-9. Au-dessus des nuages : final calme, nuages friables, pigeon.
+   une manche à air à l'entrée de chaque vent. Trois corbeaux sur les planés et
+   un pigeon au-dessus du premier quai ; le plané de vingt tuiles reste sans
+   ennemi.
+9. Au-dessus des nuages : final calme, nuages friables, un pigeon, deux corbeaux
+   et une flaque.
 10. L'arc-en-ciel (bonus) : joué seulement si TOUTES les gouttes d'or des neuf
     niveaux ont été ramassées pendant la partie (sinon on passe directement à
     l'épilogue). Un pont de nuages friables d'un bout à l'autre, sans ennemi
@@ -86,9 +89,9 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
     d'une minute, pour le chronomètre.
 11. La descente (épilogue) : le niveau vertical à l'envers (quatre écrans de
     haut). Du soleil jusqu'au toit du premier niveau, à travers trois couches de
-    nuages percées, entre deux pigeons et deux colonnes de grêle ; le ciel refait
-    tout le voyage en sens inverse, de l'or à la nuit. Le plus calme de tous :
-    aucune chute n'y tue. L'écran de fin suit (« DE RETOUR ! »).
+    nuages percées, entre deux pigeons, un corbeau et deux colonnes de grêle ; le
+    ciel refait tout le voyage en sens inverse, de l'or à la nuit. Le plus calme
+    de tous : aucune chute n'y tue. L'écran de fin suit (« DE RETOUR ! »).
 
 La difficulté suit une courbe voulue (mesurée par un joueur simulé, voir `QA.md`,
 « Mesure de difficulté ») : elle monte jusqu'au boss (6), redescend aux vents
@@ -308,9 +311,9 @@ Tests :
     ./docker-cargo.sh test -p core
     ./docker-cargo.sh test -p game --no-default-features
 
-Mesure à la dernière vérification de ce README (carte 6.4a, plus d'ennemis aux niveaux 1 à 5) :
-**374 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
-l'image `docs/police-test.png`) et **336 tests réussis** dans `game` (plus 21 tests
+Mesure à la dernière vérification de ce README (carte 6.4b, plus d'ennemis aux niveaux 7, 8,
+9 et 11) : **374 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
+l'image `docs/police-test.png`) et **336 tests réussis** dans `game` (plus 22 tests
 ignorés : ils écrivent les scripts du robot de QA, la mesure de difficulté ou des
 diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de minutes :
 le robot de QA joue réellement les onze niveaux, et la courbe de difficulté est
@@ -646,10 +649,10 @@ Mesure du dossier `dist/` produit par `./build.sh` (relevée sur les fichiers,
     fichier              octets     gzip
     index.html            14 693    5 617
     mq_js_bundle.js       36 148    9 839
-    game.wasm            497 695  200 215
+    game.wasm            497 743  200 242
 
-(mesure de la carte 6.4a, plus d'ennemis aux niveaux 1 à 5 ; 497 647 octets à la carte
-6.3, 494 519 à la carte 6.2, 491 619 à la carte 6.1, 491 395 à la carte 5.18 ; avec cinq
+(mesure de la carte 6.4b, plus d'ennemis aux niveaux 7, 8, 9 et 11 ; 497 695 octets à la
+carte 6.4a, 497 647 à la carte 6.3, 494 519 à la carte 6.2, 491 619 à la carte 6.1, 491 395 à la carte 5.18 ; avec cinq
 niveaux, le wasm faisait 422 556 octets.) Le wasm pèse donc environ 0,50 Mo, soit 200 Ko transférés par
 un serveur qui compresse.
 Le budget de `build.sh` est : avertissement au-delà de 1,2 Mo, échec au-delà de
