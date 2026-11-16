@@ -1,7 +1,7 @@
 //! Niveau 11 (bonus) : « L'arc-en-ciel ».
 //!
 //! « Il ne tient que le temps de le traverser. » Le niveau BONUS : on n'y entre
-//! qu'avec TOUTES les gouttes d'or des neuf niveaux normaux, ramassées pendant la
+//! qu'avec TOUTES les gouttes d'or des dix niveaux normaux, ramassées pendant la
 //! partie en cours (`levels::apres`) ; sinon on passe directement au suivant.
 //!
 //! Un pont de nuages friables (`F`) d'un bout à l'autre, sans ennemi ni lanterne :

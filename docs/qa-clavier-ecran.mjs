@@ -98,7 +98,9 @@ function ecart(a, b, zone = [0, 0, 1, 1]) {
   }
   return n / ((x1 - x0) * (y1 - y0));
 }
-// Ligne « SON : ... » du menu du titre (logique y 114-134 sur 180, x 60-260 sur 320).
+// PÉRIMÉ depuis la carte 7.8b : cette zone visait l'ancienne ligne de son du menu du titre
+// (logique y 114-134 sur 180, x 60-260 sur 320), supprimée ; le son passe maintenant par l'icône
+// en bas à gauche. Les mesures « azerty_M_* » / « qwerty_M_* » ci-dessous sont donc à refaire.
 const ZONE_SON = [0.33, 0.63, 0.7, 0.75];
 // Empreinte du texte de la ligne « SON » : colonnes (x) occupées par les pixels de la couleur du texte.
 // Le fond animé ne pèse pas : on ne compte que les pixels très clairs du texte (lettres des menus).

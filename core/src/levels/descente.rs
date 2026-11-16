@@ -14,7 +14,7 @@
 //! hauteur, de l'or du soleil à la nuit des toits, voir `decor::VOYAGE`). Rien de
 //! nouveau à apprendre : on tombe ou on plane, entre deux pigeons (`p`) puis deux
 //! colonnes de grêle (`g`) ; depuis la carte 6.4b, un corbeau (`c`) patrouille
-//! au-dessus de la première couche. Le plus calme des onze niveaux : aucune chute
+//! au-dessus de la première couche. Le plus calme des douze niveaux : aucune chute
 //! ne tue (chaque trou mène à l'étage du dessous), aucune pointe, aucun éclair.
 //!
 //! La forme : trois couches de nuages, neuf rangées l'une sous l'autre, chacune
@@ -55,7 +55,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     intro: "Le soleil est réveillé : on redescend lui montrer la ville.",
     mecanique: "Épilogue : le niveau vertical à l'envers ; on descend du soleil jusqu'aux \
                 toits, en tombant ou en planant, entre les pigeons, un corbeau et la grêle.",
-    // Le plus court des onze : une descente tranquille (la mesure de difficulté la
+    // Le plus court des douze : une descente tranquille (la mesure de difficulté la
     // joue en 18 à 19 s ; le robot de faisabilité, en course rapide, en 14 s).
     duree_cible_s: 40,
     ascii: ASCII,
@@ -131,7 +131,7 @@ mod tests {
     use crate::physics::{Environnement, JOUEUR_H};
     use crate::player::{Direction, Entrees, Joueur};
 
-    /// Le plus calme des onze niveaux : le toit de l'arrivée couvre toute la largeur
+    /// Le plus calme des douze niveaux : le toit de l'arrivée couvre toute la largeur
     /// (aucune chute ne tue : tout ce qui tombe finit sur une couche ou sur le toit),
     /// aucune pointe, aucun éclair, aucune plateforme qui bouge ; pour seuls dangers,
     /// deux pigeons, deux colonnes de grêle et, depuis la carte 6.4b (« plus

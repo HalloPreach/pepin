@@ -6212,6 +6212,9 @@ Après la fusion de 7.9, 8.2/8.2b, 8.4, 8.12 et 7.4 : finir l'intégration de l'
   `gouttes_du_parcours`, plus de « 30/30 » en dur).
 - Image 2 : le Grand Nuage s'enfuit vers la droite EN DESCENDANT (il passait au-dessus). Numéro « n/3 » :
   dans le bandeau du bas, à droite (il se lisait mal sur le ciel saumon de l'image 3).
+- Image 3 : « … : montrons-lui la ville ! » (validé) ; « … : on redescend montrer la ville ! » fait 335 px
+  pour 304 utiles et déborderait du bandeau. Commentaires « neuf »/« onze » de arc.rs et descente.rs et
+  zone de l'ancienne ligne de son de `docs/qa-clavier-ecran.mjs` (marquée périmée) corrigés au tour 2.
 - Site et doc : `web/index.html` (meta, og, texte sr-only : dix niveaux, bonus, épilogue, l'histoire, le
   final, secrets, carte, défis, boutique) ; `README.md` (dix niveaux + bonus + épilogue, le niveau 10,
   l'histoire, secrets, carte/défis/médailles/boutique, l'icône du son à la place de la ligne SON).
