@@ -10,7 +10,7 @@
 //! de `entrees.rs` couvrent QWERTY et AZERTY (sur AZERTY, M est à la position du
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
-//! (changer de niveau), K (skin suivant), T, Y, O (traînée, motif de parapluie, palette
+//! (changer de niveau), K (skin suivant), T, Y (traînée, motif de parapluie
 //! suivants), G (100 gouttes en poche), F9 (plantage
 //! volontaire) et F11 (force la musique suivante) : uniquement dans le build de mise au point
 //! (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
@@ -134,18 +134,15 @@ async fn main() {
         if entrees::skin_suivant_demande() {
             app.skin = app.skin.suivant();
         }
-        // Build de QA seulement : T, Y, O passent à la traînée, au motif, à la palette
-        // suivants (« rien » compris), sans les enregistrer (captures de la carte 7.6).
-        let [trainee, motif, palette] = entrees::cosmetiques_suivants_demandes();
+        // Build de QA seulement : T, Y passent à la traînée, au motif suivants (« rien »
+        // compris), sans les enregistrer (captures de la carte 7.6).
+        let [trainee, motif] = entrees::cosmetiques_suivants_demandes();
         let c = &mut app.cosmetiques;
         if trainee {
             c.trainee = cosmetiques::suivant(&cosmetiques::Trainee::TOUTES, c.trainee);
         }
         if motif {
             c.motif = cosmetiques::suivant(&cosmetiques::Motif::TOUS, c.motif);
-        }
-        if palette {
-            c.palette = cosmetiques::suivant(&cosmetiques::Palette::TOUTES, c.palette);
         }
         // Build de QA seulement (`debug_niveaux`) : G met 100 gouttes en poche (essai de la
         // boutique), enregistrées comme des gouttes gagnées.
@@ -203,7 +200,7 @@ async fn main() {
             banque.choisir_motif(app.cosmetiques.motif);
             app.dessiner(&banque, pas_fixe.alpha());
         }
-        cible.afficher(app.cosmetiques.palette);
+        cible.afficher();
         if !a_tourner && matches!(app.ecran, Ecran::Jeu) {
             tactile.dessiner();
         }

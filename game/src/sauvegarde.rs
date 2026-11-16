@@ -65,23 +65,21 @@ pub const ORDRE_V2: [&str; 11] = [
 pub const SKINS_DE_DEPART: [&str; 2] = ["pepin", "pepinette"];
 /// Inventaire de départ (cartes 7.3 et 7.6) : les deux skins, la musique d'origine et
 /// les choix « rien » de chaque catégorie (musique de la zone, pas de traînée,
-/// parapluie uni, palette d'origine : voir `cosmetiques`).
-pub const INVENTAIRE_DE_DEPART: [&str; 7] = [
+/// parapluie uni : voir `cosmetiques`).
+pub const INVENTAIRE_DE_DEPART: [&str; 6] = [
     "skin:pepin",
     "skin:pepinette",
     "musique:orage",
     "musique:zone",
     "trainee:aucune",
     "motif:uni",
-    "palette:origine",
 ];
 /// Objets équipés au départ, par catégorie : le jeu tel qu'il était.
-pub const EQUIPES_DE_DEPART: [(&str, &str); 5] = [
+pub const EQUIPES_DE_DEPART: [(&str, &str); 4] = [
     ("skin", "pepin"),
     ("musique", "zone"),
     ("trainee", "aucune"),
     ("motif", "uni"),
-    ("palette", "origine"),
 ];
 
 /// Progression d'un niveau (cartes 7.3 et 7.9). Ce qui est noté ici a AUSSI été
@@ -405,8 +403,22 @@ impl Sauvegarde {
     /// Accorde les façades v1 et l'inventaire, dans les deux sens : skins débloqués
     /// ↔ `skin:…`, `skin_choisi` ↔ objet équipé de la catégorie `skin` ; objets de
     /// départ toujours présents ; un objet équipé qu'on ne possède pas est retiré
-    /// (le skin, lui, revient à Pépin).
+    /// (le skin, lui, revient à Pépin). Chaque palette de couleurs achetée (retirée de
+    /// la boutique à la carte 7.6b) est remboursée puis effacée : une seule fois,
+    /// puisqu'il n'en reste plus.
     pub fn normaliser(&mut self) {
+        /// Remboursement d'une palette retirée (carte 7.6b) : son ancien prix.
+        const REMBOURSEMENT_PALETTE: u32 = 20;
+        let achetees = self
+            .inventaire
+            .iter()
+            .filter(|o| o.starts_with("palette:") && o.as_str() != "palette:origine")
+            .count() as u32;
+        self.gouttes_en_poche = self
+            .gouttes_en_poche
+            .saturating_add(achetees * REMBOURSEMENT_PALETTE);
+        self.inventaire.retain(|o| !o.starts_with("palette:"));
+        self.equipes.remove("palette");
         for depart in INVENTAIRE_DE_DEPART {
             self.acquerir(depart);
         }
@@ -637,8 +649,16 @@ impl Sauvegarde {
     }
 
     /// Lit la sauvegarde du stockage (défaut s'il n'y a rien ou si elle est abîmée).
+    /// Une sauvegarde qui avait une palette de couleurs (remboursée par `normaliser`)
+    /// est réenregistrée tout de suite : le remboursement n'a lieu qu'une fois.
     pub fn charger() -> Self {
-        stockage::lire().map_or_else(Self::default, |t| Self::depuis_texte(&t))
+        stockage::lire().map_or_else(Self::default, |t| {
+            let s = Self::depuis_texte(&t);
+            if t.contains("palette:") {
+                s.enregistrer();
+            }
+            s
+        })
     }
 
     /// Écrit la sauvegarde dans le stockage (sans effet s'il est indisponible).

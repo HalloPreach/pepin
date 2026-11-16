@@ -3,21 +3,12 @@
 //! la fenêtre, avec des bandes sombres si les proportions ne tombent pas juste.
 //! Pas de flou : filtre « nearest », positions arrondies, jamais de demi-pixel.
 //!
-//! Palette alternative (carte 7.6) : l'image est toujours dessinée avec la palette
-//! d'origine ; à l'affichage, un petit shader remplace chaque couleur de la palette
-//! par celle de même rang dans la palette choisie. Une couleur hors palette (aperçus
-//! de la boutique) passe telle quelle.
-//!
 //! Notions Rust illustrées ici : fonctions pures testables (`facteur_entier`,
-//! `placement`), struct qui possède une ressource graphique (`Cible`), texte d'un
-//! shader fabriqué avec `format!`.
+//! `placement`), struct qui possède une ressource graphique (`Cible`).
 
-use macroquad::miniquad::{BlendFactor, BlendState, BlendValue, Equation};
 use macroquad::prelude::*;
-use pepin_core::palette::{Couleur, ARDOISE_OMBRE, TOUTES};
+use pepin_core::palette::{Couleur, ARDOISE_OMBRE};
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
-
-use crate::cosmetiques::Palette;
 
 /// Convertit une couleur de palette en couleur macroquad opaque.
 pub fn couleur_mq(c: Couleur) -> Color {
@@ -41,112 +32,17 @@ pub fn placement(largeur: u32, hauteur: u32) -> (i32, i32, u32) {
     (x, y, k)
 }
 
-/// Écart (couleurs entre 0 et 1) sous lequel le shader reconnaît une couleur de la
-/// palette d'origine : 1,5 niveau sur 255. Les couleurs des palettes alternatives en
-/// sont toutes à plus de 2 niveaux.
-const TOLERANCE: f32 = 0.006;
-
-/// Le même sommet que le shader par défaut de macroquad.
-const SOMMETS: &str = "#version 100
-attribute vec3 position;
-attribute vec2 texcoord;
-attribute vec4 color0;
-varying lowp vec2 uv;
-varying lowp vec4 color;
-uniform mat4 Model;
-uniform mat4 Projection;
-void main() {
-    gl_Position = Projection * Model * vec4(position, 1);
-    color = color0 / 255.0;
-    uv = texcoord;
-}";
-
-/// Le shader de la palette `p` : 16 remplacements écrits en dur (pas de tableau
-/// uniforme : WebGL 1 reste simple).
-fn shader_palette(p: Palette) -> String {
-    let v = |c: Couleur| {
-        let [r, g, b] = c.en_f32();
-        format!("vec3({r:.5}, {g:.5}, {b:.5})")
-    };
-    let remplacements: String = TOUTES
-        .iter()
-        .zip(p.couleurs())
-        .map(|(&o, &a)| {
-            format!(
-                "    if (distance(c, {}) < {TOLERANCE}) r = {};\n",
-                v(o),
-                v(a)
-            )
-        })
-        .collect();
-    format!(
-        "#version 100
-precision mediump float;
-varying lowp vec4 color;
-varying lowp vec2 uv;
-uniform sampler2D Texture;
-void main() {{
-    vec4 t = texture2D(Texture, uv);
-    vec3 c = t.rgb;
-    vec3 r = c;
-{remplacements}    gl_FragColor = vec4(r, t.a) * color;
-}}"
-    )
-}
-
-/// Une couleur d'origine à peine décalée (3 niveaux par canal) : le shader de palette
-/// la laisse passer telle quelle. Sert à l'aperçu de la palette ORIGINALE dans la
-/// boutique quand une autre palette est en service.
-pub fn hors_remplacement(c: Couleur) -> Color {
-    let d = |v: u8| if v > 127 { v - 3 } else { v + 3 };
-    couleur_mq(Couleur::new(d(c.r), d(c.g), d(c.b)))
-}
-
 /// L'image 320x180 dans laquelle on dessine tout le jeu.
 pub struct Cible {
     cible: RenderTarget,
-    /// Un shader par palette alternative (carte 7.6). Un shader refusé par la carte
-    /// graphique manque : cette palette s'affiche alors comme l'originale.
-    palettes: Vec<(Palette, Material)>,
 }
 
 impl Cible {
-    /// Crée la cible en filtre « nearest » et les shaders des palettes.
+    /// Crée la cible en filtre « nearest ».
     pub fn new() -> Self {
         let cible = render_target(LARGEUR_LOGIQUE, HAUTEUR_LOGIQUE);
         cible.texture.set_filter(FilterMode::Nearest);
-        let melange = BlendState::new(
-            Equation::Add,
-            BlendFactor::Value(BlendValue::SourceAlpha),
-            BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
-        );
-        let palettes = Palette::TOUTES
-            .into_iter()
-            .filter_map(|p| {
-                let fragment = shader_palette(p);
-                let materiau = load_material(
-                    ShaderSource::Glsl {
-                        vertex: SOMMETS,
-                        fragment: &fragment,
-                    },
-                    MaterialParams {
-                        pipeline_params: PipelineParams {
-                            color_blend: Some(melange),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
-                );
-                match materiau {
-                    Ok(m) => Some((p, m)),
-                    Err(e) => {
-                        warn!("palette {} : shader refusé ({e:?})", p.id());
-                        None
-                    }
-                }
-            })
-            .collect();
-        Self { cible, palettes }
+        Self { cible }
     }
 
     /// À appeler avant de dessiner : les coordonnées sont alors celles de l'écran logique
@@ -162,17 +58,10 @@ impl Cible {
         set_camera(&camera);
     }
 
-    /// Affiche la cible sur la fenêtre, agrandie d'un facteur entier et centrée,
-    /// avec la palette `palette` (`None` : celle d'origine).
-    pub fn afficher(&self, palette: Option<Palette>) {
+    /// Affiche la cible sur la fenêtre, agrandie d'un facteur entier et centrée.
+    pub fn afficher(&self) {
         set_default_camera();
-        // Les bandes : l'ombre de la palette en service.
-        let fond = palette.map_or(ARDOISE_OMBRE, |p| p.couleurs()[0]);
-        clear_background(couleur_mq(fond));
-        let materiau = palette.and_then(|p| self.palettes.iter().find(|(q, _)| *q == p));
-        if let Some((_, m)) = materiau {
-            gl_use_material(m);
-        }
+        clear_background(couleur_mq(ARDOISE_OMBRE));
         // Taille de la fenêtre en pixels PHYSIQUES (l'écran peut avoir un facteur d'échelle).
         let dpi = screen_dpi_scale();
         let (l, h) = (
@@ -195,7 +84,6 @@ impl Cible {
                 ..Default::default()
             },
         );
-        gl_use_default_material();
     }
 }
 

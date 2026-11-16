@@ -1,6 +1,7 @@
-//! Cosmétiques visuels (carte 7.6) : TRAÎNÉES derrière Pépin, MOTIFS de parapluie et
-//! PALETTES alternatives, vendus dans la boutique (carte 7.5) à côté des skins et des
-//! musiques. Demande d'AGA : « uniquement du cosmétique, pour que le score reste
+//! Cosmétiques visuels (carte 7.6) : TRAÎNÉES derrière Pépin et MOTIFS de parapluie,
+//! vendus dans la boutique (carte 7.5) à côté des skins et des musiques (le choix de
+//! la palette de couleurs, jugé moche par AGA, a été retiré à la carte 7.6b). Demande
+//! d'AGA : « uniquement du cosmétique, pour que le score reste
 //! comparable ». Rien ici ne touche au monde : ni physique, ni collision, ni score.
 //! Tout est du RENDU, avec ses propres données (les brins de traînée ne sont pas les
 //! particules du jeu).
@@ -12,13 +13,8 @@
 //!   du skin (`appliquer_motif`) : les pixels de la TOILE du parapluie (ses deux
 //!   couleurs, dans la zone du parapluie, ouvert ou fermé) prennent le motif. Marche
 //!   pour chaque skin, par-dessus la couleur de SON parapluie.
-//! - Palette : l'image 320x180 est dessinée avec la palette d'origine, puis, à
-//!   l'affichage, un petit shader remplace chaque couleur par celle de même rang dans
-//!   la palette choisie (`rendu::Cible::afficher`). Chaque palette garde la
-//!   LUMINANCE de chaque couleur d'origine (seule la teinte change) : tous les
-//!   contrastes du jeu, donc sa lisibilité, sont gardés (test plus bas).
 //!
-//! Chaque catégorie a un choix « rien » (AUCUNE, UNI, ORIGINALE), gratuit et équipé
+//! Chaque catégorie a un choix « rien » (AUCUNE, UNI), gratuit et équipé
 //! au départ : `None` dans le rendu, le jeu tel qu'il était.
 //!
 //! Notions Rust illustrées ici : fonctions génériques avec contrainte de trait
@@ -36,16 +32,14 @@ use crate::skins::Skin;
 
 // --- Prix, en gouttes d'or (regroupés ici pour être retouchés facilement) ----------
 //
-// Total de la boutique : 3 traînées x 15 + 3 motifs x 15 + 3 palettes x 20
-// + 5 musiques x 15 = 225 gouttes, pour 224 gagnables dans le jeu de base (plus les
+// Total de la boutique : 3 traînées x 15 + 3 motifs x 15 + 5 musiques x 15
+// = 165 gouttes, pour 224 gagnables dans le jeu de base (plus les
 // courses contre le robot).
 
 /// Prix d'une traînée.
 pub const PRIX_TRAINEE: u32 = 15;
 /// Prix d'un motif de parapluie.
 pub const PRIX_MOTIF: u32 = 15;
-/// Prix d'une palette alternative.
-pub const PRIX_PALETTE: u32 = 20;
 /// Prix d'une musique (sauf ORAGE, la musique d'origine, gratuite).
 pub const PRIX_MUSIQUE: u32 = 15;
 
@@ -56,8 +50,6 @@ pub const PRIX_MUSIQUE: u32 = 15;
 pub const SANS_TRAINEE: &str = "aucune";
 /// Parapluie uni (pas de motif).
 pub const SANS_MOTIF: &str = "uni";
-/// La palette d'origine.
-pub const SANS_PALETTE: &str = "origine";
 /// La musique de la zone (rien d'imposé).
 pub const MUSIQUE_PAR_ZONE: &str = "zone";
 
@@ -120,116 +112,6 @@ impl Motif {
     }
 }
 
-/// Une palette alternative de 16 couleurs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Palette {
-    Sepia,
-    NuitFroide,
-    EcranVert,
-}
-
-impl Palette {
-    pub const TOUTES: [Palette; 3] = [Palette::Sepia, Palette::NuitFroide, Palette::EcranVert];
-
-    pub fn id(self) -> &'static str {
-        match self {
-            Palette::Sepia => "sepia",
-            Palette::NuitFroide => "nuit_froide",
-            Palette::EcranVert => "ecran_vert",
-        }
-    }
-
-    pub fn nom(self) -> &'static str {
-        match self {
-            Palette::Sepia => "SÉPIA",
-            Palette::NuitFroide => "NUIT FROIDE",
-            Palette::EcranVert => "ÉCRAN VERT",
-        }
-    }
-
-    /// Les 16 couleurs, au même rang que celles de `palette::TOUTES` qu'elles
-    /// remplacent.
-    pub fn couleurs(self) -> &'static [Couleur; 16] {
-        match self {
-            Palette::Sepia => &SEPIA,
-            Palette::NuitFroide => &NUIT_FROIDE,
-            Palette::EcranVert => &ECRAN_VERT,
-        }
-    }
-}
-
-const fn c(rgb: u32) -> Couleur {
-    Couleur::new((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8)
-}
-
-// Les trois palettes. Chaque couleur a la luminance de la couleur d'origine de même
-// rang (à l'arrondi près), dans une autre teinte : l'ardoise devient une rampe
-// brune, bleu nuit ou verte ; le corail du parapluie, l'or des gouttes et le cyan de
-// la pluie gardent chacun une teinte à eux. ÉCRAN VERT : 16 nuances de vert, façon
-// console portable. Avec seulement 4 tons, des couleurs d'origine de luminances
-// différentes se confondaient (des briques invisibles sur le ciel, 1:1) : la
-// lisibilité passe avant le nombre de tons.
-
-/// SÉPIA : vieille photo, bruns et crème.
-const SEPIA: [Couleur; 16] = [
-    c(0x19130F),
-    c(0x2D2118),
-    c(0x4A3624),
-    c(0x6D5334),
-    c(0xAF8C60),
-    c(0xC9B496),
-    c(0xDDCEB7),
-    c(0xF7F0E7),
-    c(0xD57A6C),
-    c(0xE1A794),
-    c(0xE7BA8B),
-    c(0xF0D9A5),
-    c(0xF8F0D4),
-    c(0xC5C2AF),
-    c(0x928161),
-    c(0x704A52),
-];
-
-/// NUIT FROIDE : bleus de glace, le parapluie lilas, l'or devenu givre.
-const NUIT_FROIDE: [Couleur; 16] = [
-    c(0x0E1422),
-    c(0x1B223D),
-    c(0x2A395E),
-    c(0x425785),
-    c(0x7B93BC),
-    c(0xA8B8D2),
-    c(0xC4D1E4),
-    c(0xEBF2F7),
-    c(0xBF77D6),
-    c(0xCEA6E0),
-    c(0xBCBFEB),
-    c(0xB8E2F0),
-    c(0xE5F2F9),
-    c(0x69D1D9),
-    c(0x308EA3),
-    c(0x634495),
-];
-
-/// ÉCRAN VERT : l'écran d'une vieille console portable.
-const ECRAN_VERT: [Couleur; 16] = [
-    c(0x0C1708),
-    c(0x152810),
-    c(0x29401C),
-    c(0x42602A),
-    c(0x749E48),
-    c(0xA0C272),
-    c(0xC3D897),
-    c(0xEEF4D9),
-    c(0x48A648),
-    c(0x81C571),
-    c(0xACCE6A),
-    c(0xD5E389),
-    c(0xEFF3CF),
-    c(0x92CFA7),
-    c(0x41935C),
-    c(0x355E31),
-];
-
 /// L'élément suivant d'un catalogue, « rien » compris : rien → le premier → … → le
 /// dernier → rien. Sert aux touches de mise au point du build de QA.
 pub fn suivant<T: Copy + PartialEq>(tous: &[T], actuel: Option<T>) -> Option<T> {
@@ -244,7 +126,6 @@ pub fn suivant<T: Copy + PartialEq>(tous: &[T], actuel: Option<T>) -> Option<T> 
 pub struct Choix {
     pub trainee: Option<Trainee>,
     pub motif: Option<Motif>,
-    pub palette: Option<Palette>,
     /// Musique imposée en jeu à la place de celle de la zone.
     pub musique: Option<Musique>,
 }
@@ -258,9 +139,6 @@ impl Choix {
                 .into_iter()
                 .find(|t| t.id() == equipe("trainee")),
             motif: Motif::TOUS.into_iter().find(|m| m.id() == equipe("motif")),
-            palette: Palette::TOUTES
-                .into_iter()
-                .find(|p| p.id() == equipe("palette")),
             musique: Musique::depuis_id(equipe("musique")),
         }
     }
@@ -511,49 +389,10 @@ pub fn dessiner_apercu_trainee(genre: Trainee, x: f32, y: f32, anim: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::palette::TOUTES;
 
-    /// Luminance relative (WCAG) d'une couleur.
-    fn luminance(c: Couleur) -> f32 {
-        let lin = |v: u8| {
-            let v = f32::from(v) / 255.0;
-            if v <= 0.039_28 {
-                v / 12.92
-            } else {
-                ((v + 0.055) / 1.055).powf(2.4)
-            }
-        };
-        0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b)
-    }
-
-    fn contraste(a: Couleur, b: Couleur) -> f32 {
-        let (la, lb) = (luminance(a), luminance(b));
-        (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
-    }
-
-    /// Le seul test de la carte (paramétré par palette) : chaque palette a 16
-    /// couleurs distinctes et garde, POUR CHAQUE PAIRE de couleurs, le contraste de
-    /// la palette d'origine à 1 % près. Tous les tests de contraste du jeu (Pépin,
-    /// gouttes, dangers, plateformes, vent, sur chaque bande de ciel de chaque thème)
-    /// comparent deux couleurs de la palette : ils restent donc vrais dans chaque
-    /// palette, et le jeu reste lisible. Au passage : un motif ne touche que la
-    /// toile du parapluie, ouvert et fermé, pour chaque skin.
+    /// Un motif ne touche que la toile du parapluie, ouvert et fermé, pour chaque skin.
     #[test]
-    fn chaque_palette_garde_les_contrastes_et_les_motifs_restent_sur_la_toile() {
-        for p in Palette::TOUTES {
-            let alt = p.couleurs();
-            let distinctes: std::collections::HashSet<_> = alt.iter().collect();
-            assert_eq!(distinctes.len(), 16, "{p:?}");
-            for i in 0..16 {
-                for j in 0..16 {
-                    let (k0, k1) = (contraste(TOUTES[i], TOUTES[j]), contraste(alt[i], alt[j]));
-                    assert!(
-                        (k1 / k0 - 1.0).abs() < 0.01,
-                        "{p:?} : couleurs {i} et {j}, {k0:.3} devient {k1:.3}"
-                    );
-                }
-            }
-        }
+    fn les_motifs_restent_sur_la_toile() {
         for skin in Skin::TOUS {
             let images = skin.images();
             let (couleurs, _) = toile(skin);

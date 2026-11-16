@@ -191,9 +191,9 @@ pub struct Application {
     /// sauvegarde (carte 7.5), Pépin par défaut. La touche K du build de QA la change
     /// aussi, sans l'enregistrer.
     pub skin: Skin,
-    /// Traînée, motif de parapluie, palette et musique choisis dans la boutique
-    /// (carte 7.6), gardés par la sauvegarde. Les touches T, Y et O du build de QA
-    /// les changent aussi, sans les enregistrer.
+    /// Traînée, motif de parapluie et musique choisis dans la boutique (carte 7.6),
+    /// gardés par la sauvegarde. Les touches T et Y du build de QA les changent aussi,
+    /// sans les enregistrer.
     pub cosmetiques: cosmetiques::Choix,
     /// Les brins de la traînée derrière Pépin (rendu seulement).
     trainees: Trainees,
