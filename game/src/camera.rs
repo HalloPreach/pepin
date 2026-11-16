@@ -20,8 +20,8 @@ use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
 /// Niveau de poursuite (carte 8.2) : le front du mur de pluie est toujours à 48 px
 /// du bord gauche de l'écran (`Camera::defiler_avec_le_mur`) : on voit le rideau
-/// qui talonne, et Pépin (au plus `RETARD_MAX` = 128 px devant lui) voit encore
-/// 9 tuiles devant lui.
+/// qui talonne, et Pépin (au plus `RETARD_MAX` = 96 px devant lui) voit encore
+/// 11 tuiles devant lui.
 const MARGE_MUR: f32 = 48.0;
 /// Distance (px) regardée en avant de Pépin.
 const AVANCE_X: f32 = 28.0;
