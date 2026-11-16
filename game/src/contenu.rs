@@ -331,8 +331,8 @@ pub const LIBELLE_VIES: &str = "VIES";
 pub const LIBELLE_SCORE: &str = "SCORE";
 /// Sur la ligne SCORE de l'écran de fin, quand la partie bat le record (carte 7.2).
 pub const NOUVEAU_RECORD: &str = "NOUVEAU RECORD !";
-/// Écran titre (carte 7.2) : le porte-monnaie de gouttes et le meilleur score.
-pub const LIBELLE_POCHE: &str = "GOUTTES";
+/// Écran titre (carte 7.2) : le meilleur score (le porte-monnaie n'a plus de mot depuis la
+/// carte 7.5b, seulement la goutte d'or).
 pub const LIBELLE_RECORD: &str = "RECORD";
 
 // --- Boutique (carte 7.5) ----------------------------------------------------
@@ -442,7 +442,6 @@ pub(crate) mod tests {
             LIBELLE_VIES,
             LIBELLE_SCORE,
             NOUVEAU_RECORD,
-            LIBELLE_POCHE,
             LIBELLE_RECORD,
             BOUTIQUE,
             RETOUR,

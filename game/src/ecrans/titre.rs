@@ -58,12 +58,14 @@ pub fn dessiner(
     texte::dessiner_centre(contenu::AIDE_MENU, 168.0, Style::simple(BRUME, 1));
 }
 
-/// Le porte-monnaie de gouttes (en haut à gauche) et, dès qu'une partie a été finie,
-/// le meilleur score (en haut à droite), au-dessus du titre (carte 7.2).
-pub fn dessiner_poche(s: &Sauvegarde) {
+/// Le porte-monnaie de gouttes (en haut à gauche : la goutte d'or et le nombre, carte 7.5b)
+/// et, dès qu'une partie a été finie, le meilleur score (en haut à droite), au-dessus du
+/// titre (carte 7.2).
+pub fn dessiner_poche(banque: &Banque, s: &Sauvegarde) {
     let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
-    let poche = format!("{} : {}", contenu::LIBELLE_POCHE, s.gouttes_en_poche);
-    texte::dessiner(&poche, 4.0, 3.0, style);
+    // Sprite 10x10, deux pixels plus haut que le texte, comme dans le HUD.
+    banque.dessiner("goutte0", 4.0, 1.0, false);
+    texte::dessiner(&s.gouttes_en_poche.to_string(), 16.0, 3.0, style);
     if s.parties_finies > 0 {
         let record = format!("{} : {}", contenu::LIBELLE_RECORD, s.meilleur_score);
         texte::dessiner_a_droite(&record, LARGEUR_LOGIQUE as f32 - 4.0, 3.0, style);
