@@ -37,7 +37,8 @@
 //! Secret (carte 8.5) : le premier bloc de boutique (colonnes 59 à 63) est creux.
 //! Sa face gauche (rangée 7, une brique décalée) est un faux mur `m` : en
 //! marchant droit dedans au lieu de sauter sur le bloc, on trouve la goutte qui
-//! était sur le rebond du premier auvent (colonne 61).
+//! était sur le rebond du premier auvent (colonne 61), et juste avant elle le É de
+//! « PÉPIN » (carte 8.6, case `*`, colonne 60).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};

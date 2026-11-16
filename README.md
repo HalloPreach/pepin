@@ -123,7 +123,10 @@ une ligne « NIVEAU SECRET » s'il a été joué).
 
 Des secrets (carte 8.5) se cachent dans six niveaux, derrière des faux murs : une
 brique décalée trahit le passage. Quatre petites salles, deux raccourcis et une
-sortie cachée au clocher.
+sortie cachée au clocher. Cinq d'entre eux gardent une lettre (carte 8.6) : P, É, P,
+I, N, aux toits, au marché, dans l'orage, au clocher et dans la mer de nuages. Une
+lettre prise dans un niveau réussi est gardée pour toujours (sauvegarde) ; les cinq
+réunies, la partie finit sur une fin secrète.
 
 La progression est sauvegardée dans le navigateur. La CARTE des niveaux (au titre)
 montre le chemin des toits jusqu'au soleil et permet de rejouer chaque niveau déjà

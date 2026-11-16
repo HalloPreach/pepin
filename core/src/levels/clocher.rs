@@ -50,7 +50,9 @@
 //! (rangée 23, contre le mur gauche), le mur a une brique décalée (colonne 18,
 //! rangée 22). C'est un faux mur `m` : derrière, une petite salle (colonnes 15-16,
 //! rangées 21-22) et un second drapeau (`x`) qui finit le niveau sans passer par
-//! la cage de l'horloge (une fin normale).
+//! la cage de l'horloge (une fin normale). Le I de « PÉPIN » (carte 8.6, case `*`)
+//! est dans la salle, devant le drapeau (colonne 16, rangée 22) : on peut le prendre
+//! et ressortir par le faux mur sans toucher le drapeau.
 
 use crate::level::ReglageAiguille;
 use crate::levels::GenreNiveau;

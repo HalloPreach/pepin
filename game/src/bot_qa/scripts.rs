@@ -1210,9 +1210,9 @@ fn ecrire_scripts_secrets_85() {
 /// partie COMPLÈTE du robot dans chacun des cinq niveaux à lettre (elle prend la
 /// lettre ; colonne `lettre` de la trace) : `86l-N` ; au clocher, aussi le parcours
 /// SECRET (`86ls-N`) : la lettre est dans la salle de la sortie secrète, il la prend en
-/// passant et finit tout de suite (la partie complète, elle, ressort de la salle et
-/// monte jusqu'en haut de la tour : dans le navigateur, son rejeu glisse d'une image
-/// avant le drapeau) ; la descente par le chemin normal, pour finir une partie dans le
+/// passant et finit tout de suite (le rejeu de la partie complète, qui ressort de la
+/// salle et monte toute la tour, ne finit pas le niveau dans le navigateur ; voir
+/// QA.md) ; la descente par le chemin normal, pour finir une partie dans le
 /// navigateur (fin habituelle ou secrète selon la sauvegarde) : `86lf-N`.
 /// Lancer avec : cargo test -p game --no-default-features -- --ignored --exact
 /// bot_qa::scripts::ecrire_scripts_lettres_86l

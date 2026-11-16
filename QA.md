@@ -6248,3 +6248,94 @@ Après la fusion de 7.9, 8.2/8.2b, 8.4, 8.12 et 7.4 : finir l'intégration de l'
 
 - Vrai téléphone ; personne n'a lu les textes à la main à 640x360 ; partie complète du robot (ignorée,
   ~10 min) non relancée pour cette retouche.
+
+## Lettres cachées P-É-P-I-N et fin secrète (carte 8.6)
+
+Demande d'AGA : « Un quatrième objet par niveau. Par exemple les lettres P, É, P, I, N dispersées dans le
+jeu, pour débloquer une fin différente. »
+
+### Mécanique
+
+- Lettre de grille `*` (libre jusque-là) : une LETTRE cachée, boîte 8 x 8 au milieu de la case comme la
+  goutte, une au plus par niveau (`ErreurNiveau::LettreMultiple`). Entité `Entite::Lettre`, contact
+  `Contact::Lettre` (ni score ni vie). Laquelle des cinq : table `core/src/lettres.rs`, PAR CLÉ de
+  niveau (les deux P sont deux lettres différentes).
+- Les cinq niveaux, toujours DERRIÈRE UN FAUX MUR de la carte 8.5 (jamais sur le chemin) : P aux toits
+  (salle sous le toit, à côté de sa goutte), É au marché couvert (bloc de boutique creux, devant la
+  goutte), P dans le grand orage (tunnel du raccourci, après la goutte), I au clocher (salle de la sortie
+  cachée, devant le second drapeau : on peut la prendre et ressortir), N dans la mer de nuages (tunnel
+  du raccourci). Début (niveaux 1 et 3), milieu (4 et 5), fin (8). Aucune goutte déplacée, aucun
+  chemin changé : la partie normale du robot est inchangée.
+- Sprite 10 x 10 (`objets::LETTRE_P/E/I/N`) : un jeton VIOLET cerclé d'or, la lettre en or pâle,
+  2 px de contour comme la goutte ; il flotte à contretemps d'elle. Prise : la petite gamme des secrets
+  (`Effet::Secret`) et une gerbe d'étincelles or et violet.
+- SAUVEGARDE : la lettre prise dans un niveau RÉUSSI (drapeau ou sortie secrète) est notée pour toujours
+  sous la clé du niveau : `niveau.<cle>=… lettre:1` (v3 inchangée : un mot de plus, absent = 0, relu
+  par les anciennes versions sans erreur). Prise puis niveau raté ou recommencé : rien. Collection entre
+  les parties : pas besoin de tout faire dans la même.
+- HUD : sur la carte de présentation de chaque niveau, en haut à droite, le petit mot « PÉPIN » (lettres
+  trouvées en or, les autres en ardoise pâle, celle du niveau présenté en corail tant qu'elle n'est pas
+  trouvée). À l'écran de fin, une ligne avant MORTS : « IL MANQUE N LETTRE(S) » (ou « LETTRES ») et le
+  même petit mot. Pour qu'elle tienne, les lignes se resserrent d'un pixel à la fois (10 px au moins),
+  puis le bloc remonte de 2 px ; la ligne VIES ne s'affiche alors que si elle tient encore.
+- FIN SECRÈTE : à la fin d'une partie, si les cinq lettres sont dans la sauvegarde, une 4e image
+  d'histoire (`Chapitre::Secret`, hors du récit, sans numéro) : sous le ciel doré, le soleil sourit,
+  couronné de rayons, et écrit « PÉPIN » lettre après lettre (un rayon file vers chaque lettre) ; la
+  ville a rallumé ses fenêtres, neuf parapluies s'ouvrent un à un au-dessus des toits, Pépin ouvre le
+  sien sur sa cheminée. Texte : « Le soleil écrit ton nom en rayons d'or. / La ville ouvre ses
+  parapluies : merci, Pépin ! ». Puis l'écran « FIN SECRÈTE » (ciel doré, « La ville entière fête Pépin
+  sous le soleil. »). Revue depuis le titre (HISTOIRE), elle suit l'image 3 une fois les cinq réunies.
+- Carte des niveaux (7.4, `plan.rs`) : PAS touchée (la carte 8.13 y travaille en parallèle).
+
+### Robot de QA
+
+- Partie normale : inchangée (aucune lettre, pas de fin secrète ; vérifié par
+  `le_robot_finit_tous_les_niveaux_sans_mourir`).
+- Partie COMPLÈTE : `trouver_parcours_complet` compte la lettre du niveau comme un objet de plus (avec
+  les trois gouttes) ; elle prend les cinq lettres, 0 mort, et voit l'image de la fin secrète avant
+  l'écran de fin (`la_partie_complete_joue_le_bonus`, assertions ajoutées). Tenue au décalage : la
+  lettre prise compte comme les gouttes.
+- Test ignoré `bot_qa::scripts::ecrire_scripts_lettres_86l` : scripts, touches et traces des captures
+  (`target/qa/*-86l-*`, `*-86ls-5` : parcours secret du clocher, `*-86lf-12` : la descente) ; la trace a
+  une colonne `lettre`.
+
+### Preuves
+
+- Un seul test nouveau : `lettres::tests::chaque_lettre_de_pepin_est_cachee_dans_son_niveau` (core : le
+  mot, l'ordre, une case `*` dans ces cinq niveaux NORMAUX et eux seuls, chacune dans une zone cachée).
+  Le reste : assertions ajoutées aux tests existants (aller-retour de la sauvegarde avec une lettre ;
+  bilans de l'écran de fin avec 0, 2 et 5 lettres manquantes dans `rien_ne_se_chevauche…` ; parties du
+  robot) et constantes vérifiées à la compilation (le mot PÉPIN tient dans le ciel, entre le bord, les
+  rayons du soleil et les toits).
+- `./docker-cargo.sh test -p core` : 378 ok, 2 ignorés. `test -p game --no-default-features` (suite
+  complète, robot compris, avant le regroupement des tests) : 358 ok, 28 ignorés ; ciblés après :
+  `ecrans` 24, `contenu` 9, `histoire` 7, `sauvegarde` 2, `sprites` 54, `app::tests` 54, tous verts.
+  `./docker-cargo.sh lint` : LINT-OK. `faisabilite` : dans la suite core (niveaux touchés compris).
+- Vrai navigateur, build de QA (`./build.sh --qa`, servi sur 127.0.0.1, Chromium 1208 sans tête par
+  CDP, pilote `docs/capture-lettres.mjs PORT docs/qa target/qa`, horloge virtuelle de
+  `docs/pilote-qa.js`) :
+  - sauvegarde vide, chacun des cinq niveaux rejoué jusqu'à sa lettre puis au drapeau : localStorage
+    relevé après chaque niveau, `lettre:1` sous la bonne clé (toits, marche, orage, clocher, mer) ;
+  - page RECHARGÉE : la sauvegarde relue garde `lettre:1` (mer) et la carte de présentation de la mer
+    montre le N en or ;
+  - sauvegarde à 4 lettres, descente jusqu'au drapeau : « DE RETOUR ! » et « IL MANQUE 1 LETTRE »
+    (PÉPI en or, N en ardoise) ;
+  - sauvegarde à 5 lettres, même descente : l'image de la fin secrète, puis « FIN SECRÈTE » ; page
+    rechargée : 5 lignes `lettre:1` ;
+  - 0 erreur de console, 0 erreur du pilote.
+- Captures `docs/qa/86l-*.png` (16, regardées) : `86l-<niveau>-1-lettre` (la lettre en place, zone
+  révélée) et `-2-prise` pour toits, marche, orage, clocher, mer ; `86l-hud-carte-marche-a-trouver`
+  (É en corail), `86l-hud-carte-mer-apres-rechargement`, `86l-hud-carte-4-lettres` ;
+  `86l-fin-4-lettres`, `86l-fin-secrete-image`, `86l-fin-secrete`. `mesure-capture.py` : 0 pixel hors
+  palette, 0 bloc flou sur les 16.
+- Au clocher, le rejeu de la partie COMPLÈTE du robot (elle ressort de la salle et grimpe toute la tour)
+  ne finit pas le niveau dans le navigateur (à la fin du script, la sauvegarde n'a pas la ligne du
+  clocher), alors que la simulation native le finit sans mourir (le test qui écrit le script le
+  vérifie) ; cause non cherchée plus loin. Les captures du clocher rejouent donc le parcours SECRET
+  (lettre prise, sortie secrète), qui finit dans la salle.
+
+### Ce qui n'est PAS testé
+
+- Un joueur humain qui cherche les lettres sans les connaître ; le son à l'oreille ; vrai téléphone ;
+- la partie complète du clocher rejouée en entier dans le navigateur (voir ci-dessus) ;
+- la carte des niveaux (7.4) ne montre pas encore les lettres.

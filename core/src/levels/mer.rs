@@ -60,7 +60,8 @@
 //! Secret (carte 8.5), un RACCOURCI : le pied de la tour de nuages (rangée 7,
 //! colonnes 106 à 112) est un faux mur `m`, marqué d'un petit creux d'ombre côté
 //! montgolfière. Depuis la nacelle au sol, on traverse la tour et l'on sort sur
-//! la marche de la couche de vent du bas, sans monter au sommet.
+//! la marche de la couche de vent du bas, sans monter au sommet. Au milieu du
+//! tunnel, le N de « PÉPIN » (carte 8.6, case `*`, colonne 110).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};

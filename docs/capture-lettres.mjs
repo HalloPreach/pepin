@@ -1,7 +1,8 @@
 // Pilote CDP de la carte 8.6 (lettres cachées P, É, P, I, N et fin secrète), sur le build de
 // QA servi en local, avec l'horloge virtuelle de docs/pilote-qa.js :
-// 1. sauvegarde vide : pour chacun des cinq niveaux à lettre, la partie COMPLÈTE du robot
-//    (target/qa/script-86l-N.txt, ses touches de raccourci, sa trace) rejouée jusqu'à la
+// 1. sauvegarde vide : pour chacun des cinq niveaux à lettre, un parcours du robot qui la prend
+//    (target/qa/script-86l-N.txt, ou 86ls au clocher ; ses touches de raccourci, sa trace)
+//    rejoué jusqu'à la
 //    lettre : une capture la lettre en place (zone révélée, pas encore prise), une juste
 //    après. À la fin du niveau, la sauvegarde (localStorage) est relevée : `lettre:1` sous
 //    la clé du niveau. Puis la page est RECHARGÉE : la sauvegarde est relue (la lettre reste).
@@ -61,17 +62,23 @@ const vide = async () => {
   await dormir(200);
 };
 const sauvegarde = async () => await evalue('localStorage.getItem("pepin.sauvegarde")');
-const ouvrir = async () => {
+// `blanc` : 60 images sans rien avant de rendre la main (menus pilotés à la main). Pour
+// rejouer un script du robot, aucune : son image 0 suit le chargement, comme dans
+// `capture-visibilite.mjs`.
+const ouvrir = async (blanc = true) => {
   await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
   await dormir(4000);
   await cdp('Page.bringToFront');
   await evalue('window.focus(); document.querySelector("canvas").focus(); 1');
   await evalue(fs.readFileSync(path.join(ici, 'pilote-qa.js'), 'utf8'));
-  await evalue('window.__P.file.push({ n: 60, m: 0 }); 1');
-  await vide();
+  if (blanc) {
+    await evalue('window.__P.file.push({ n: 60, m: 0 }); 1');
+    await vide();
+  }
   return evalue('typeof wasm_exports !== "undefined" && !!wasm_exports && getComputedStyle(document.getElementById("erreur")).display === "none"');
 };
-// Pose une sauvegarde (texte v3, ou null : vide), puis (re)charge la page.
+// Pose une sauvegarde (texte v3, ou null : vide), puis (re)charge la page, prête pour un
+// script du robot.
 const poser = async (texte) => {
   await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
   await dormir(1500);
@@ -95,16 +102,31 @@ const charger = (pref, n) => {
   });
   return { script, touches, trace };
 };
-// Rejoue le script chargé jusqu'à l'image `image` (exclue).
+// Rejoue le script chargé jusqu'à l'image `image` (exclue), puis attend que l'image soit
+// redessinée (horloge figée, comme `capture-visibilite.mjs`).
 const jusqua = async (image) => {
-  await evalue(`(() => { const P = window.__P; P.parRaf = 16; P.cible = ${image}; return 1; })()`);
-  for (let i = 0; i < 6000; i++) {
-    if (await evalue(`window.__P.pos >= ${image}`)) break;
-    await dormir(100);
+  await evalue(`(() => { const P = window.__P; P.parRaf = 8; P.cible = ${image}; P.gel = 0; return 1; })()`);
+  for (let i = 0; i < 12000; i++) {
+    const ok = await evalue('(() => { const P = window.__P; return P.pos >= Math.min(P.cible, P.script.length) && P.file.length === 0 && P.gel >= 3; })()');
+    if (ok) break;
+    await dormir(50);
   }
 };
-const demarrer = async ({ script, touches }) => {
-  await evalue(`(() => { const P = window.__P; P.script = ${JSON.stringify(script)}; P.pos = 0; P.cible = 0; P.touches = ${JSON.stringify(touches)}; return 1; })()`);
+// Démarre le script chargé : JOUER et l'image 1 de l'histoire sont passées À LA MAIN (le
+// robot appuie sur l'image dès la première image où elle l'accepte ; dans le navigateur,
+// l'image l'accepte parfois une image plus tard et l'appui serait perdu), puis le script
+// reprend à la première image de jeu, `delai` images après l'appui qui passe l'histoire
+// (`delai` lu dans la trace, comme pour `capture-integration.mjs`).
+const demarrer = async ({ script, touches, trace }) => {
+  const appuis = [...script].map((c, i) => [i, parseInt(c, 16) & 1]).filter(([, v]) => v).map(([i]) => i);
+  const histoire = appuis[1];
+  const debut = trace.findIndex((r) => r.ecran === 'jeu');
+  await evalue('window.__P.file.push({ n: 1, m: 0, taper: ["Enter"] }); 1');
+  await evalue('window.__P.file.push({ n: 99, m: 0 }); 1');
+  await evalue('window.__P.file.push({ n: 1, m: 0, taper: ["Enter"] }); 1');
+  await evalue(`window.__P.file.push({ n: ${debut - histoire - 1}, m: 0 }); 1`);
+  await vide();
+  await evalue(`(() => { const P = window.__P; P.script = ${JSON.stringify(script)}; P.pos = ${debut}; P.cible = ${debut}; P.touches = ${JSON.stringify(touches)}; return 1; })()`);
 };
 
 await cdp('Page.enable');
@@ -114,38 +136,65 @@ await cdp('Page.bringToFront');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
 fs.mkdirSync(sortie, { recursive: true });
 
-// 1. Chaque lettre, une partie à chaque fois sur une sauvegarde VIDE.
-const NIVEAUX = [[1, 'toits'], [3, 'marche'], [5, 'orage'], [7, 'clocher'], [9, 'mer']];
-for (const [n, cle] of NIVEAUX) {
-  const s = charger('86l', n);
+// 1. Chaque lettre, une partie à chaque fois sur une sauvegarde VIDE (numéros des niveaux :
+// ceux des scripts du robot, `script-86l-N` ; au clocher, le parcours SECRET `script-86ls-5`,
+// qui prend la lettre dans la salle de la sortie secrète et finit là : le rejeu de la partie
+// complète du clocher ne finit pas le niveau dans le navigateur, voir QA.md).
+const NIVEAUX = [[1, 'toits', '86l'], [3, 'marche', '86l'], [4, 'orage', '86l'], [5, 'clocher', '86ls'], [8, 'mer', '86l']];
+// Début (image) de la DERNIÈRE carte de présentation d'une trace.
+const derniereCarte = (trace) => trace.reduce(
+  (acc, r, i) => (r.ecran === 'carte' && (i === 0 || trace[i - 1].ecran !== 'carte') ? i : acc), -1);
+// Variable d'environnement SEULEMENT=cle : ce niveau seulement (étape 1), avec une capture
+// tous les DEBUG images de jeu après la lettre (`86l-cle-dbg-IMAGE`), pour un rejeu à
+// regarder de près ; les étapes 2 à 4 sont sautées.
+const seulement = process.env.SEULEMENT;
+for (const [n, cle, pref] of NIVEAUX.filter(([, c]) => !seulement || c === seulement)) {
+  const s = charger(pref, n);
   // Ligne i de la trace = image i du script ; la lettre prise, la zone révélée.
   const prise = s.trace.findIndex((r) => r.lettre === '1');
   const revele = s.trace.findIndex((r) => Number(r.secrets) > 0);
-  const avant = Math.max(revele + 1, Math.min(revele + 12, prise - 3));
+  const avant = Math.max(revele + 1, prise - 20);
   console.log(`1. ${cle} (niveau ${n}) : zone révélée image ${revele}, lettre prise image ${prise}, capture ${avant}`);
   console.log('   démarré :', await poser(null));
   await demarrer(s);
-  await jusqua(avant);
-  await capture(`86l-${cle}-1-lettre`);
-  await jusqua(prise + 8);
-  await capture(`86l-${cle}-2-prise`);
+  // Au marché : sa carte de présentation (lettre du niveau pas encore trouvée : en corail).
+  if (cle === 'marche' && !process.env.SANS_CAPTURE) {
+    await jusqua(derniereCarte(s.trace) + 60);
+    await capture('86l-hud-carte-marche-a-trouver');
+  }
+  if (!process.env.SANS_CAPTURE) {
+    await jusqua(avant);
+    await capture(`86l-${cle}-1-lettre`);
+    await jusqua(prise + 8);
+    await capture(`86l-${cle}-2-prise`);
+  }
+  if (seulement && process.env.DEBUG) {
+    for (let i = prise + 8 + Number(process.env.DEBUG); i < s.script.length; i += Number(process.env.DEBUG)) {
+      await jusqua(i);
+      await capture(`86l-${cle}-dbg-${i}`);
+    }
+  }
   await jusqua(s.script.length);
   await evalue('window.__P.file.push({ n: 120, m: 0 }); 1');
   await vide();
   const t = await sauvegarde();
   console.log(`   sauvegarde après le niveau : ${(t || '').split('\n').filter((l) => l.startsWith(`niveau.${cle}=`)).join(' | ')}`);
 }
+if (seulement) {
+  ws.close(); chrome.kill('SIGKILL');
+  await dormir(300);
+  fs.rmSync(profil, { recursive: true, force: true });
+  process.exit(0);
+}
 
 // 2. Rechargement : la sauvegarde (celle du dernier niveau joué, la mer) est relue ; la carte
 // de présentation de la mer montre N en or, souligné.
-console.log('2. rechargé :', await ouvrir());
-const mer = charger('86l', 9);
-const carte = mer.trace.findIndex((r, i) => i > 60 && r.ecran === 'carte' && Number(r.niveau || 0) !== 1);
-await demarrer(mer);
-const premiereCarte = mer.trace.reduce((acc, r, i) => (acc < 0 && r.ecran === 'jeu' && i > 0 ? i : acc), -1);
-console.log(`   images carte/jeu : ${carte} / ${premiereCarte}`);
-await jusqua(premiereCarte - 20 > 0 ? premiereCarte - 20 : 200);
+console.log("2. rechargé :", await ouvrir());
 console.log('   sauvegarde relue :', JSON.stringify((await sauvegarde() || '').split('\n').filter((l) => l.includes('lettre'))));
+const mer = charger('86l', 8);
+await demarrer(mer);
+await jusqua(derniereCarte(mer.trace) + 60);
+await capture('86l-hud-carte-mer-apres-rechargement');
 
 // 3 et 4. Fin de partie avec 4 lettres, puis avec les 5.
 const ligne = (c) => `niveau.${c}=atteint:1 gouttes:000 defis:000 medaille:0 lettre:1`;
@@ -156,9 +205,9 @@ for (const [nb, cles] of [[4, ['toits', 'marche', 'orage', 'clocher']], [5, ['to
   console.log(`${nb === 4 ? 3 : 4}. ${nb} lettres, démarré :`, await poser(v3(cles)));
   // La carte de présentation de la descente : le mot PÉPIN avec ses lettres.
   await demarrer(fin);
-  const carteDescente = fin.trace.findIndex((r, i) => r.ecran === 'carte' && i > 100);
+  const carteDescente = derniereCarte(fin.trace);
   if (nb === 4 && carteDescente > 0) {
-    await jusqua(carteDescente + 40);
+    await jusqua(carteDescente + 60);
     await capture('86l-hud-carte-4-lettres');
   }
   await jusqua(finJeu);
@@ -167,7 +216,7 @@ for (const [nb, cles] of [[4, ['toits', 'marche', 'orage', 'clocher']], [5, ['to
     await vide();
     await capture('86l-fin-4-lettres');
   } else {
-    await evalue('window.__P.file.push({ n: 170, m: 0 }); 1');
+    await evalue('window.__P.file.push({ n: 260, m: 0 }); 1');
     await vide();
     await capture('86l-fin-secrete-image');
     await evalue('window.__P.file.push({ n: 1, m: 0, taper: ["Enter"] }); 1');

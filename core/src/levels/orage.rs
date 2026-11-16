@@ -18,7 +18,8 @@
 //! l'indice est la brique décalée de l'entrée, à droite de l'ascenseur). Au lieu
 //! de monter avec l'ascenseur puis de redescendre, on traverse le bloc et on
 //! saute le trou de la sortie. Au milieu du tunnel, la goutte qui flottait
-//! au-dessus des nuages friables.
+//! au-dessus des nuages friables, suivie du second P de « PÉPIN » (carte 8.6, case
+//! `*`, colonne 125).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
