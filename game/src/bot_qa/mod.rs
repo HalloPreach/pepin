@@ -328,7 +328,7 @@ mod tests {
         let numeros: Vec<u8> = joues.iter().map(|&(n, _)| n).collect();
         assert_eq!(numeros, attendu);
         // Le robot ne ramasse pas toutes les gouttes : le bonus (11e) est SAUTÉ, on
-        // passe du 10e (le mur de pluie, carte 8.2) à l'épilogue (12e, carte 5.17),
+        // passe du 10e (le retour du Grand Nuage, 8.2) à l'épilogue (12e, carte 5.17),
         // puis la fin (carte 5.16 : l'un des deux chemins).
         let gouttes_au_10e = joues.iter().find(|j| j.0 == 10).map(|j| j.1).unwrap();
         assert!(gouttes_au_10e < pepin_core::levels::gouttes_pour_le_bonus(NIVEAUX));

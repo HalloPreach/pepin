@@ -618,7 +618,7 @@ fn nom_cause(c: CauseMort) -> &'static str {
         CauseMort::Pointe => "pointes",
         CauseMort::Eclair => "éclair",
         CauseMort::Grele => "grêle",
-        CauseMort::Pluie => "mur de pluie",
+        CauseMort::Pluie => "Grand Nuage",
     }
 }
 
@@ -1237,7 +1237,7 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.3, 0.65), // 7. Vents d'altitude : redescend
     (0.2, 1.0),  // 8. La mer de nuages (5.15, rive plus loin en 5.18 : 0,46) : remonte un peu
     (0.0, 0.2),  // 9. Au-dessus des nuages : calme, sous 0,2
-    (0.3, 1.5),  // 10. Le mur de pluie (carte 8.2) : la poursuite, sous le boss (non mesurée)
+    (0.3, 1.5),  // 10. Le retour du Grand Nuage (8.2b) : poursuite, sous le boss (non mesurée)
     (0.0, 2.0),  // 11. L'arc-en-ciel (carte 5.16) : le bonus, jugé au chrono (garde-fou large)
     (0.0, 0.2),  // 12. La descente (carte 5.17) : l'épilogue, le plus calme de tous
 ];

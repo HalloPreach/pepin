@@ -1,7 +1,9 @@
-//! Niveau 10 : « Le mur de pluie » (carte 8.2), le SOMMET du jeu.
+//! Niveau 10 : « Le retour du Grand Nuage » (cartes 8.2 et 8.2b), le SOMMET du jeu.
 //!
-//! L'orage n'a pas dit son dernier mot : un rideau de pluie avance depuis la
-//! gauche (`P`, voir `crate::poursuite`) et l'écran défile avec lui. Pépin court
+//! Le Grand Nuage, vaincu au niveau 6, s'est enfui : il remonte de la mer de nuages,
+//! furieux, et son front d'orage avance depuis la gauche (`P`, le « mur de pluie »,
+//! voir `crate::poursuite` ; il pleut dedans, pas devant) et l'écran défile avec
+//! lui. Pépin court
 //! vers le soleil en enchaînant, sous pression, les mécaniques déjà connues :
 //! - départ sur les toits de nuages, une marche, un pont FRIABLE (colonnes 41 à
 //!   50) ;
@@ -13,7 +15,8 @@
 //! - un second pont friable sous un corbeau (colonne 146, rangée 3) : on passe
 //!   dessous en marchant ;
 //! - la dernière ligne droite : à 24 tuiles du drapeau (`PERCEE_AVANT_ARRIVEE`,
-//!   en arrivant sur le long toit de nuages), le soleil perce et la pluie recule.
+//!   en arrivant sur le long toit de nuages), le soleil perce et le Grand Nuage
+//!   recule.
 //!
 //! Trois gouttes d'or presque sur le chemin (un saut au bon moment : colonnes 19,
 //! 98 et 160) et trois lanternes (colonnes 54, 102 et 134).
@@ -23,19 +26,19 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 10,
-    nom: "Le mur de pluie",
+    nom: "Le retour du Grand Nuage",
     theme: Theme::Altitude,
     genre: GenreNiveau::Normal,
-    intro: "L'orage revient en force : cours vers le soleil, ne te retourne pas.",
-    mecanique: "Poursuite : un mur de pluie avance et fait défiler l'écran ; vent arrière, \
-                courant, grêle, ponts friables, corbeau.",
+    intro: "Le Grand Nuage remonte de la mer : il veut garder le soleil endormi.",
+    mecanique: "Poursuite : le front d'orage du Grand Nuage avance et fait défiler l'écran ; \
+                vent arrière, courant, grêle, ponts friables, corbeau.",
     duree_cible_s: 45,
     ascii: ASCII,
     aiguilles: &[],
 };
 
 /// Dessin du niveau (200 x 11 tuiles). Légende : voir `crate::level` (`P` : le
-/// départ du mur de pluie, tout à gauche).
+/// départ du front d'orage, tout à gauche).
 const ASCII: &str = r"
 .....................................................................................................................g.......g..........................................................................
 .......................................................................................vvv........o.....................................................................................................

@@ -146,7 +146,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
     },
     Intro {
-        texte: "Le ciel se déchire. Les courants montent : laisse-toi porter, puis plane.",
+        texte: "Le Grand Nuage s'est enfui. Les courants montent : laisse-toi porter, puis plane.",
         astuce: "Les brins de vent montrent où ça monte.",
     },
     Intro {
@@ -154,13 +154,13 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "Parapluie ouvert, le vent te porte ; fermé, tu lui résistes.",
     },
     Intro {
-        texte: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
+        texte: "Là-haut, le soleil. Prends ton temps : l'orage est resté en bas.",
         astuce: "Le champignon t'aide à monter.",
     },
-    // Le sommet (carte 8.2) : la poursuite du mur de pluie.
+    // Le sommet (cartes 8.2 et 8.2b) : le Grand Nuage, enfui au niveau 6, revient.
     Intro {
-        texte: "Cours vers le soleil, l'orage te poursuit !",
-        astuce: "Le mur de pluie avance : ne t'arrête pas.",
+        texte: "Le Grand Nuage remonte de la mer : il veut garder le soleil endormi.",
+        astuce: "Ne t'arrête pas : il avance !",
     },
     // Le bonus (carte 5.16) : seulement avec toutes les gouttes.
     Intro {
@@ -534,7 +534,7 @@ pub(crate) mod tests {
         use pepin_core::levels::{nb_normaux, NIVEAUX};
         // Les dix niveaux normaux (le marché couvert inséré en 3e place, carte 5.12 ;
         // le clocher en 5e, carte 5.13 ; l'œil du cyclone en 6e, carte 5.14 ; la mer
-        // de nuages en 8e, carte 5.15 ; le mur de pluie en 10e, carte 8.2), puis le
+        // de nuages en 8e, carte 5.15 ; le retour du Grand Nuage en 10e, 8.2), puis le
         // bonus (carte 5.16) et l'épilogue (carte 5.17).
         assert_eq!(
             etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
