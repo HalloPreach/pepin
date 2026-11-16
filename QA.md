@@ -6248,3 +6248,63 @@ Après la fusion de 7.9, 8.2/8.2b, 8.4, 8.12 et 7.4 : finir l'intégration de l'
 
 - Vrai téléphone ; personne n'a lu les textes à la main à 640x360 ; partie complète du robot (ignorée,
   ~10 min) non relancée pour cette retouche.
+
+## Cosmétiques visuels et musiques dans la boutique (carte 7.6)
+
+Demande d'AGA : « autre chose que des skins […] uniquement du cosmétique, pour que le score reste
+comparable ». Rien dans `core/` ; le monde (physique, collisions, score) n'est jamais modifié.
+
+- Boutique à 5 onglets : SKINS, TRAÎNÉES, PARAPLUIES, PALETTES, MUSIQUES (rangée centrée). Chaque
+  onglet commence par un choix gratuit équipé au départ : AUCUNE, UNI, ORIGINALE, PAR ZONE. Inventaire
+  `categorie:id` de la sauvegarde v3 (pas de nouvelle version de format) ; une sauvegarde sans
+  `musique:zone` (d'avant la carte, où `musique:orage` était équipée d'office) revient à PAR ZONE.
+- PRIX (constantes `PRIX_*` en tête de `game/src/cosmetiques.rs`) : traînées 3 × 15, motifs 3 × 15,
+  palettes 3 × 20, musiques 5 × 15 (ORAGE gratuite) : TOTAL 225 gouttes (224 gagnables dans le jeu de
+  base, plus les courses contre le robot).
+- Traînées ÉTINCELLES (petites croix d'or), BULLES (anneaux cyan qui montent), PLUMES (traits blancs qui
+  tombent) : brins à part des particules du jeu, un tous les 3 pas quand Pépin bouge (> 8 px/s), 40 au
+  plus, dessinés AVANT les ennemis et les dangers.
+- Motifs POIS, RAYURES, ÉTOILES : images de chaque skin recopiées au chargement avec le motif sur la
+  seule toile du parapluie (ouvert et fermé) ; couleurs choisies par skin (Pépin : blanc / or pâle ;
+  Pépinette : corail / violet).
+- Palettes SÉPIA, NUIT FROIDE, ÉCRAN VERT : un shader à l'affichage remplace chacune des 16 couleurs.
+  Chaque couleur garde la LUMINANCE de l'originale : tous les contrastes à 1 % près (un seul test
+  paramétré, `cosmetiques::tests::chaque_palette_garde…`), donc tous les tests de contraste existants
+  (Pépin, gouttes, dangers, plateformes, vent, sur chaque ciel) valent pour chaque palette. ÉCART À LA
+  CARTE : ÉCRAN VERT a 16 verts et non 4 tons : avec 4 tons, briques et ciel tombaient à 1:1.
+- Musique équipée : remplace celle de la zone en jeu (carte de présentation, jeu, pause, plus de vies,
+  bilan) ; titre, menus, démo, histoire et fin gardent la leur (`musiques::musique_jouee`, pure).
+- Build de QA seulement : T, Y, O font défiler traînée, motif, palette (« rien » compris), sans
+  enregistrer ; inertes en production. Pas F12 : elle ouvre les outils du navigateur.
+
+### Preuves
+
+- Extraction propre (`git archive` de 09ece00 ; le commit suivant n'ajoute que 4 lignes d'assertions
+  à `chaque_niveau_a_la_musique_de_sa_zone`, `... musiques` 2 ok) : `./docker-cargo.sh test -p game --no-default-features --
+  sprites skins cosmetiques boutique sauvegarde musiques decor scene app:: ecrans entrees rendu
+  particules hud` : 242 ok ; `./docker-cargo.sh lint` : LINT-OK ; `./build.sh` : game.wasm 607 750
+  octets (gzip 245 931 ; 588 088 notés à la carte 8.11), aucun `/home`, seule URL
+  `http://www.w3.org/2000/svg`.
+- Robot, une passe (`-- --exact --include-ignored bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir
+  bot_qa::tests::ecrire_script_navigateur`, extraction de 09ece00) : vert, 0 mort ; 23 690 images, 13
+  gouttes, score 2400, empreinte `e02065b280103725`, IDENTIQUE à celle de main (b4233a3, même commande)
+  avec les réglages par défaut.
+- Captures `docs/qa/76-*.png` (39 ; Chromium 1208 sans tête, CDP, build de QA, `node
+  docs/capture-cosmetiques.mjs PORT docs/qa DOSSIER_GRILLES`) : boutique (5 onglets, achat d'ÉTINCELLES
+  100 → 85 puis de SÉPIA → 65, toute la boutique en sépia, retour à ORIGINALE, page rechargée : la traînée
+  équipée suit Pépin en jeu) ; chaque traînée en course et en plané ; chaque motif fermé et ouvert sur
+  Pépin et sur Pépinette ; chaque palette (et l'originale) aux toits, à l'orage et à la mer de nuages.
+  Tampon WebGL lu contre la palette ACTIVE : 0 flou partout, 0 pixel hors palette sur 36 captures ; les 3
+  autres (onglet PALETTES) n'ont hors palette que les cases d'aperçu des palettes, voulues (24 cases de
+  5 × 8 px = 960 px ; 640 en sépia, ses 8 cases étant dans la palette). 0 erreur de console.
+- Toutes regardées (recadrages agrandis pour les parapluies) : lisibles. Pépin, gouttes, plateformes,
+  dangers et HUD se lisent dans les trois palettes aux trois niveaux. Retouches faites après les avoir
+  regardées : étincelles (un point seul se perdait dans la pluie → petite croix), étoiles du parapluie
+  de Pépin (l'or vif se voyait mal sur le corail → or pâle), rayures du parapluie fermé (paraissait
+  blanc), onglets (débordaient à 5 : centrés, plus serrés).
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone, Safari, Firefox (shader WebGL 1 très simple) ; l'écoute d'une musique équipée en
+  jeu (le choix est vérifié dans `chaque_niveau_a_la_musique_de_sa_zone`, pas de crochet audio) ; les
+  palettes sur les 9 autres niveaux.

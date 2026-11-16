@@ -1053,6 +1053,11 @@ mod tests {
         assert_eq!(musique_de_l_ecran(Ecran::Carte(10), cyclone), Cyclone);
         assert_eq!(musique_de_l_ecran(Ecran::Pause, cyclone), Cyclone);
         assert_eq!(musique_de_l_ecran(Ecran::Fin, cyclone), Soleil);
+        // Carte 7.6 : une musique équipée remplace celle de la zone en jeu seulement.
+        assert_eq!(musique_jouee(Ecran::Jeu, cyclone, Some(Soleil)), Soleil);
+        assert_eq!(musique_jouee(Ecran::Pause, cyclone, Some(Soleil)), Soleil);
+        assert_eq!(musique_jouee(Ecran::Titre, cyclone, Some(Soleil)), Orage);
+        assert_eq!(musique_jouee(Ecran::Jeu, cyclone, None), Cyclone);
     }
 
     /// Pas un test : régénère les extraits à écouter `docs/qa/77-*.wav` et `87-*.wav` (10 s de
