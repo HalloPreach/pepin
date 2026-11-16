@@ -155,7 +155,12 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
     Intro {
         texte: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
-        astuce: "Dernière ligne droite : le champignon t'aide.",
+        astuce: "Le champignon t'aide à monter.",
+    },
+    // Le sommet (carte 8.2) : la poursuite du mur de pluie.
+    Intro {
+        texte: "L'orage revient en force. Cours vers le soleil !",
+        astuce: "Le mur de pluie ne s'arrête pas : toi non plus.",
     },
     // Le bonus (carte 5.16) : seulement avec toutes les gouttes.
     Intro {

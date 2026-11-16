@@ -1,4 +1,4 @@
-//! Niveau 10 (bonus) : « L'arc-en-ciel ».
+//! Niveau 11 (bonus) : « L'arc-en-ciel ».
 //!
 //! « Il ne tient que le temps de le traverser. » Le niveau BONUS : on n'y entre
 //! qu'avec TOUTES les gouttes d'or des neuf niveaux normaux, ramassées pendant la
@@ -32,7 +32,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
-    numero: 10,
+    numero: 11,
     nom: "L'arc-en-ciel",
     theme: Theme::ArcEnCiel,
     genre: GenreNiveau::Bonus,

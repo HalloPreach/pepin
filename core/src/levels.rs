@@ -5,7 +5,7 @@
 //! tout se déduit de cette table (`NB_NIVEAUX` est sa longueur).
 //!
 //! Chaque niveau a un GENRE (`GenreNiveau`) :
-//! - `Normal` : le parcours principal, numéroté « NIVEAU 3/9 » ;
+//! - `Normal` : le parcours principal, numéroté « NIVEAU 3/10 » ;
 //! - `Bonus` : joué seulement si TOUTES les gouttes d'or des niveaux normaux ont été
 //!   ramassées pendant la partie en cours ; sinon on passe directement au suivant ;
 //! - `Epilogue` : le dernier niveau ; l'écran de fin vient juste après.
@@ -43,6 +43,7 @@ pub mod marche;
 pub mod mer;
 pub mod nuages;
 pub mod orage;
+pub mod poursuite;
 pub mod toits;
 pub mod vents;
 
@@ -71,6 +72,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     vents::INFOS,
     mer::INFOS,
     nuages::INFOS,
+    poursuite::INFOS,
     arc::INFOS,
     descente::INFOS,
 ];

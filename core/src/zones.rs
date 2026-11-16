@@ -639,6 +639,7 @@ mod tests {
         niveau_9_faisable => 8,
         niveau_10_faisable => 9,
         niveau_11_faisable => 10,
+        niveau_12_faisable => 11,
     }
 
     #[test]

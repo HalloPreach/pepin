@@ -41,8 +41,8 @@ use std::fmt::Write as _;
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::CauseMort;
 use pepin_core::levels::{
-    arc, clocher, cyclone, descente, gouttieres, marche, mer, nuages, orage, toits, vents,
-    GenreNiveau,
+    arc, clocher, cyclone, descente, gouttieres, marche, mer, nuages, orage, poursuite, toits,
+    vents, GenreNiveau,
 };
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
@@ -818,6 +818,7 @@ const RANGS_DE_GRAINE: &[&str] = &[
     mer::INFOS.nom,
     arc::INFOS.nom,
     descente::INFOS.nom,
+    poursuite::INFOS.nom,
 ];
 
 /// Rang de graine du niveau d'indice `n` de la table (voir `RANGS_DE_GRAINE`).
@@ -1235,9 +1236,10 @@ const BANDES_HABITUE: [(f32, f32); NB_NIVEAUX] = [
     (0.7, 1.6),  // 6. L'œil du cyclone (5.14, motifs élargis en 5.18 : 1,19) : le sommet
     (0.3, 0.65), // 7. Vents d'altitude : redescend
     (0.2, 1.0),  // 8. La mer de nuages (5.15, rive plus loin en 5.18 : 0,46) : remonte un peu
-    (0.0, 0.2),  // 9. Au-dessus des nuages : final calme, sous 0,2
-    (0.0, 2.0),  // 10. L'arc-en-ciel (carte 5.16) : le bonus, jugé au chrono (garde-fou large)
-    (0.0, 0.2),  // 11. La descente (carte 5.17) : l'épilogue, le plus calme de tous
+    (0.0, 0.2),  // 9. Au-dessus des nuages : calme, sous 0,2
+    (0.3, 1.5),  // 10. Le mur de pluie (carte 8.2) : la poursuite, sous le boss (non mesurée)
+    (0.0, 2.0),  // 11. L'arc-en-ciel (carte 5.16) : le bonus, jugé au chrono (garde-fou large)
+    (0.0, 0.2),  // 12. La descente (carte 5.17) : l'épilogue, le plus calme de tous
 ];
 
 /// Le bonus (« L'arc-en-ciel », carte 5.16) se juge au CHRONO, pas aux morts
