@@ -30,6 +30,7 @@ use crate::menu::{Choix, Menu};
 use crate::monde::Monde;
 use crate::navigation::Navigation;
 use crate::particules::Particules;
+use crate::sauvegarde::Sauvegarde;
 use crate::scene;
 use crate::secousse::Secousse;
 use crate::sprites::Banque;
@@ -116,6 +117,10 @@ pub struct Application {
     pause_differee: bool,
     /// Pas restants du petit signe d'une vie gagnée dans le HUD (0 : aucun).
     eclat_vie: u16,
+    /// Porte-monnaie de gouttes et records, gardés d'une partie à l'autre (carte 7.2).
+    pub sauvegarde: Sauvegarde,
+    /// La partie qui vient de finir a battu le record de score (écran de fin).
+    nouveau_record: bool,
 }
 
 impl Application {
@@ -142,6 +147,8 @@ impl Application {
             gouttes_bonus: None,
             pause_differee: false,
             eclat_vie: 0,
+            sauvegarde: Sauvegarde::charger(),
+            nouveau_record: false,
         };
         app.ouvrir(Ecran::Titre);
         app
@@ -401,6 +408,11 @@ impl Application {
             return;
         }
         if self.monde.termine {
+            // Niveau réussi (bonus compris) : ses gouttes vont au porte-monnaie, tout de
+            // suite enregistré. Celles d'un niveau raté ne comptent pas : elles sont
+            // remises à zéro quand le niveau recommence.
+            self.sauvegarde.ajouter_gouttes(self.gouttes_du_niveau());
+            self.sauvegarde.enregistrer();
             // Le bonus fini : ses gouttes sont mises à part (compteur, écran de fin).
             if self.monde.infos.genre == GenreNiveau::Bonus {
                 self.gouttes_bonus = Some(self.gouttes_du_niveau());
@@ -463,6 +475,8 @@ impl Application {
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
                 };
+                self.nouveau_record = self.sauvegarde.noter_partie(e.score, self.pas_partie);
+                self.sauvegarde.enregistrer();
                 self.ouvrir(Ecran::Fin);
             }
         }
@@ -507,7 +521,10 @@ impl Application {
             .collect();
         let dispo = ecrans::disposition(self.ecran).unwrap_or(Disposition { y0: 0.0, pas: 20.0 });
         match self.ecran {
-            Ecran::Titre => titre::dessiner(banque, self.anim, &libelles, &self.menu, &dispo),
+            Ecran::Titre => {
+                titre::dessiner(banque, self.anim, &libelles, &self.menu, &dispo);
+                titre::dessiner_poche(&self.sauvegarde);
+            }
             Ecran::Aide => aide::dessiner(),
             Ecran::Fin => fin::dessiner(
                 &self.bilan,
@@ -516,6 +533,7 @@ impl Application {
                 &libelles,
                 &self.menu,
                 &dispo,
+                self.nouveau_record,
             ),
             Ecran::Jeu | Ecran::Carte(_) | Ecran::Pause | Ecran::PlusDeVies(_) => {
                 // Pépin et la caméra sont arrondis ensemble (écart arrondi une seule fois) : pas de

@@ -327,6 +327,11 @@ pub const LIBELLE_MORTS: &str = "MORTS";
 /// Vies restantes (ligne affichée seulement quand elle tient, carte 6.2).
 pub const LIBELLE_VIES: &str = "VIES";
 pub const LIBELLE_SCORE: &str = "SCORE";
+/// Sur la ligne SCORE de l'écran de fin, quand la partie bat le record (carte 7.2).
+pub const NOUVEAU_RECORD: &str = "NOUVEAU RECORD !";
+/// Écran titre (carte 7.2) : le porte-monnaie de gouttes et le meilleur score.
+pub const LIBELLE_POCHE: &str = "GOUTTES";
+pub const LIBELLE_RECORD: &str = "RECORD";
 
 /// Mot de fin quand tout a été ramassé. Sur UNE ligne de l'écran de fin (42
 /// caractères au plus) : « Collection complète : pas une goutte oubliée ! » laissait
@@ -405,6 +410,9 @@ pub(crate) mod tests {
             LIBELLE_MORTS,
             LIBELLE_VIES,
             LIBELLE_SCORE,
+            NOUVEAU_RECORD,
+            LIBELLE_POCHE,
+            LIBELLE_RECORD,
             SANS_PERTE_DE_VIE,
             TITRE_PLUS_DE_VIES,
             GOUTTES_A_REPRENDRE,

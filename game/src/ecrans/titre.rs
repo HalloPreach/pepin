@@ -8,6 +8,7 @@ use super::{dessiner_menu, image, rect, Disposition};
 use crate::contenu;
 use crate::decor;
 use crate::menu::Menu;
+use crate::sauvegarde::Sauvegarde;
 use crate::sprites::{pepin, Banque};
 use crate::texte::{self, Style};
 
@@ -41,4 +42,16 @@ pub fn dessiner(banque: &Banque, anim: u32, libelles: &[&str], menu: &Menu, d: &
     // Bandeau sombre derrière le rappel des touches : lisible malgré les briques.
     rect(0.0, 164.0, LARGEUR_LOGIQUE as f32, 16.0, ARDOISE_OMBRE);
     texte::dessiner_centre(contenu::AIDE_MENU, 168.0, Style::simple(BRUME, 1));
+}
+
+/// Le porte-monnaie de gouttes (en haut à gauche) et, dès qu'une partie a été finie,
+/// le meilleur score (en haut à droite), au-dessus du titre (carte 7.2).
+pub fn dessiner_poche(s: &Sauvegarde) {
+    let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
+    let poche = format!("{} : {}", contenu::LIBELLE_POCHE, s.gouttes_en_poche);
+    texte::dessiner(&poche, 4.0, 3.0, style);
+    if s.parties_finies > 0 {
+        let record = format!("{} : {}", contenu::LIBELLE_RECORD, s.meilleur_score);
+        texte::dessiner_a_droite(&record, LARGEUR_LOGIQUE as f32 - 4.0, 3.0, style);
+    }
 }
