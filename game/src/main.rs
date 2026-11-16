@@ -30,6 +30,7 @@ mod difficulte;
 mod ecrans;
 mod effets;
 mod entrees;
+mod facile;
 mod focus;
 mod grele;
 mod hud;

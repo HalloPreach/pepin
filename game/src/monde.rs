@@ -345,6 +345,25 @@ impl Monde {
         })
     }
 
+    /// Points de vie du Grand Nuage et son maximum, `(pv, pv_max)` : le HUD montre
+    /// `pv_max` cases (2 en mode facile, carte 8.14).
+    pub fn points_nuage(&self) -> Option<(u8, u8)> {
+        self.entites.iter().find_map(|e| match e {
+            Entite::Nuage(g) => Some((g.pv(), g.pv_max())),
+            _ => None,
+        })
+    }
+
+    /// Mode facile du boss (carte 8.14) : chaque Grand Nuage du niveau passe à
+    /// `PV_NUAGE_FACILE` points de vie. Sans nuage, rien.
+    pub fn passer_nuage_en_facile(&mut self) {
+        for e in &mut self.entites {
+            if let Entite::Nuage(g) = e {
+                g.passer_en_facile();
+            }
+        }
+    }
+
     /// Position interpolée de Pépin (coin haut-gauche), `alpha` entre 0 et 1.
     pub fn joueur_interpole(&self, alpha: f32) -> (f32, f32) {
         interpoler(

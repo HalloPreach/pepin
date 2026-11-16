@@ -2,6 +2,7 @@
 //! haut à droite) et, dans l'arène du Grand Nuage, ses points de vie (en haut au
 //! milieu).
 
+#[cfg(test)]
 use pepin_core::entities::nuage::PV_NUAGE;
 use pepin_core::font::largeur_texte;
 use pepin_core::level::GOUTTES_PAR_NIVEAU;
@@ -65,10 +66,11 @@ pub fn vies(restantes: u8, eclat: u16) -> AffichageVies {
     }
 }
 
-/// Points de vie du Grand Nuage : `(nom du sprite, x)` de chacun, de gauche à droite,
-/// centrés en haut de l'écran : pleins d'abord (`pv` restants), puis perdus. Pure.
-pub fn points_de_vie(pv: u8) -> Vec<(&'static str, i32)> {
-    let n = i32::from(PV_NUAGE);
+/// Points de vie du Grand Nuage : `(nom du sprite, x)` de chacun des `max` (3, ou 2
+/// en mode facile, carte 8.14), de gauche à droite, centrés en haut de l'écran :
+/// pleins d'abord (`pv` restants), puis perdus. Pure.
+pub fn points_de_vie(pv: u8, max: u8) -> Vec<(&'static str, i32)> {
+    let n = i32::from(max);
     let total = n * LARGEUR_PV + (n - 1) * ECART_PV;
     let x0 = (LARGEUR_LOGIQUE as i32 - total) / 2;
     (0..n)
@@ -109,7 +111,8 @@ pub fn compteur(
 /// `cible` : temps cible du défi CHRONO en pas, pour un niveau joué seul depuis la
 /// carte des niveaux (carte 7.4) : le chrono affiche alors « 0:12/0:50 », en or tant
 /// qu'on est dans les temps ;
-/// `pv_nuage` : points de vie du Grand Nuage s'il y en a un dans le niveau ; `skin` : la
+/// `pv_nuage` : points de vie du Grand Nuage et son maximum, `(pv, max)`, s'il y en a
+/// un dans le niveau ; `skin` : la
 /// tenue de Pépin, dont l'icône des vies montre le visage.
 pub fn dessiner(
     banque: &Banque,
@@ -118,7 +121,7 @@ pub fn dessiner(
     vies: &AffichageVies,
     pas: u32,
     cible: Option<u32>,
-    pv_nuage: Option<u8>,
+    pv_nuage: Option<(u8, u8)>,
 ) {
     let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
     // Sprite 10x10 (contour de 2 px) : décalé d'un pixel pour garder la goutte à la même place.
@@ -146,8 +149,8 @@ pub fn dessiner(
         None => (chrono::temps_court(pas), style),
     };
     texte::dessiner_a_droite(&temps, LARGEUR_LOGIQUE as f32 - 6.0, 6.0, style_chrono);
-    if let Some(pv) = pv_nuage {
-        for (nom, x) in points_de_vie(pv) {
+    if let Some((pv, max)) = pv_nuage {
+        for (nom, x) in points_de_vie(pv, max) {
             banque.dessiner(nom, x as f32, 6.0, false);
         }
     }
@@ -177,19 +180,22 @@ mod tests {
     #[test]
     fn les_points_de_vie_du_nuage_sont_centres_pleins_puis_perdus() {
         assert_eq!(
-            points_de_vie(3),
+            points_de_vie(3, PV_NUAGE),
             vec![("pv_nuage", 142), ("pv_nuage", 155), ("pv_nuage", 168)]
         );
         assert_eq!(
-            points_de_vie(1),
+            points_de_vie(1, PV_NUAGE),
             vec![
                 ("pv_nuage", 142),
                 ("pv_nuage_perdu", 155),
                 ("pv_nuage_perdu", 168)
             ]
         );
-        assert!(points_de_vie(0).iter().all(|(n, _)| *n == "pv_nuage_perdu"));
-        let (premier, dernier) = (points_de_vie(3)[0].1, points_de_vie(3)[2].1 + LARGEUR_PV);
+        assert!(points_de_vie(0, PV_NUAGE)
+            .iter()
+            .all(|(n, _)| *n == "pv_nuage_perdu"));
+        let plein = points_de_vie(3, PV_NUAGE);
+        let (premier, dernier) = (plein[0].1, plein[2].1 + LARGEUR_PV);
         assert_eq!(premier + dernier, LARGEUR_LOGIQUE as i32, "centrés");
     }
 
@@ -202,7 +208,7 @@ mod tests {
         let total = gouttes_du_parcours(NIVEAUX);
         let fin_gouttes = X_GOUTTES + largeur_texte(&format!("{total}/{total}"), 1) as f32 + 1.0;
         assert!(X_ICONE_VIE >= fin_gouttes + 4.0, "{fin_gouttes}");
-        let debut_nuage = points_de_vie(3)[0].1 as f32;
+        let debut_nuage = points_de_vie(3, PV_NUAGE)[0].1 as f32;
         for n in 0..=pepin_core::vies::VIES_MAX {
             for eclat in [0, 1, DUREE_ECLAT_VIE / 2, DUREE_ECLAT_VIE] {
                 let a = vies(n, eclat);

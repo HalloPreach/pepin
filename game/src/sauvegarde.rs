@@ -18,7 +18,8 @@
 //!
 //! Format texte, une ligne `cle=valeur` par champ, avec `version=3` en tête ; une
 //! ligne par niveau touché : `niveau.toits=atteint:1 gouttes:101 defis:110 medaille:2
-//! temps:2345`. Une v1 ou une v2 est relue sans perte, puis réécrite en v3 :
+//! temps:2345` (plus, pour le boss, ` defaites:9 facile:1` s'ils ne sont pas nuls,
+//! carte 8.14). Une v1 ou une v2 est relue sans perte, puis réécrite en v3 :
 //! MIGRATION v2 → v3, la v2 rangeait les niveaux par NUMÉRO (`niveau.10=…`,
 //! `niveau_max_atteint=9`) ; ces numéros se lisent dans `ORDRE_V2`, la table FIGÉE de
 //! l'ordre publié en v2 (surtout pas la table vivante `NIVEAUX`, qui peut gagner un
@@ -85,6 +86,12 @@ pub struct ProgresNiveau {
     /// Meilleure médaille (créditée) : défis réussis dans UNE même tentative (0 à 3 ;
     /// 3 = or).
     pub medaille: u8,
+    /// Carte 8.14 (boss) : morts d'affilée dans ce niveau, en mode normal, depuis la
+    /// dernière victoire (voir `facile`).
+    pub defaites: u32,
+    /// Carte 8.14 : le boss a été vaincu en MODE FACILE (le niveau compte comme fini,
+    /// sans médaille ni meilleur temps).
+    pub facile: bool,
 }
 
 impl ProgresNiveau {
@@ -93,6 +100,12 @@ impl ProgresNiveau {
     /// gagnent qu'en finissant le niveau, et la v2 ne notait pas toujours le temps
     /// (un niveau migré en OR sans temps restait « PAS ENCORE FINI »).
     pub fn fini(&self) -> bool {
+        self.battu_en_normal() || self.facile
+    }
+
+    /// Fini en mode NORMAL (carte 8.14) : meilleur temps, médaille ou défi. Une
+    /// victoire en facile (`facile`) ne les donne pas.
+    pub fn battu_en_normal(&self) -> bool {
         self.meilleur_temps.is_some() || self.medaille > 0 || self.defis.contains(&true)
     }
 }
@@ -338,6 +351,13 @@ impl Sauvegarde {
             if let Some(temps) = p.meilleur_temps {
                 t.push_str(&format!(" temps:{temps}"));
             }
+            // Carte 8.14 : seulement s'ils servent (les autres lignes ne changent pas).
+            if p.defaites > 0 {
+                t.push_str(&format!(" defaites:{}", p.defaites));
+            }
+            if p.facile {
+                t.push_str(" facile:1");
+            }
             t.push('\n');
         }
         t
@@ -488,6 +508,8 @@ fn lire_niveau(valeur: &str) -> ProgresNiveau {
             "defis" => p.defis = lire_bits(v).unwrap_or_default(),
             "medaille" => p.medaille = v.parse::<u8>().map_or(0, |m| m.min(3)),
             "temps" => p.meilleur_temps = v.parse().ok(),
+            "defaites" => p.defaites = v.parse().unwrap_or(0),
+            "facile" => p.facile = v == "1",
             _ => {}
         }
     }
@@ -588,6 +610,7 @@ mod tests {
             meilleur_temps: Some(2345),
             defis: [true, true, false],
             medaille: 2,
+            ..ProgresNiveau::default()
         };
         assert!(s.crediter_bonus("sans_game_over"));
         assert!(!s.crediter_bonus("sans_game_over"), "une seule fois");

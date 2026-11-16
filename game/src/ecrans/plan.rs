@@ -425,7 +425,11 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, i: usize, anim: u32) {
         goutte(banque, x + k as f32 * 13.0, y, trouvee);
     }
     y += 13.0;
-    let (couleur, nom) = medaille(progres.medaille);
+    let (couleur, mut nom) = medaille(progres.medaille);
+    // Boss vaincu seulement en mode facile (carte 8.14) : « FACILE », sans médaille.
+    if progres.facile && !progres.battu_en_normal() {
+        nom = contenu::FACILE;
+    }
     icone_medaille(x, y, progres.medaille);
     texte::dessiner(nom, x + L_ICONE + ECART_ICONE, y, ombre(couleur));
     y += 13.0;
