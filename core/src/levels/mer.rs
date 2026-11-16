@@ -6,7 +6,8 @@
 //! deux fois plus fort parapluie ouvert ; avec lui, les deux mécaniques que la
 //! demande d'AGA lui associe : les montgolfières (`b`, carte 5.7) pour reprendre
 //! de la hauteur, et les rideaux de grêle (`g`, carte 5.4) à traverser parapluie
-//! ouvert. Aucun ennemi.
+//! ouvert. Sans ennemi jusqu'à la carte 6.4b, qui y met trois corbeaux et un
+//! pigeon (voir « Les ennemis », plus bas).
 //!
 //! Chaque zone de vent a sa manche à air (`Q`) à son entrée (le côté par où Pépin
 //! y arrive), tournée dans le sens du vent (`scene::manche_vers_la_droite`).
@@ -29,6 +30,32 @@
 //!    difficulté au-dessus de celle des vents d'altitude (niveau 7) ;
 //! 7. une troisième montgolfière, puis un dernier plané porté sous la grêle
 //!    jusqu'au drapeau.
+//!
+//! Les ennemis (carte 6.4b, « plus d'ennemis » : un défi de plus après les vents
+//! d'altitude) :
+//! - un PIGEON au bord gauche de l'étage (colonne 65, rangée 3), tourné vers le
+//!   premier quai : il plonge sur qui passe sous lui, au bout du quai ou dans la
+//!   nacelle de la première montgolfière (colonne 63), et finit sa plongée au ras
+//!   du quai (colonnes 61-62). On le fait plonger d'un pas au bout du quai, on
+//!   recule, on le laisse remonter au-dessus de la nacelle, puis on embarque : son
+//!   repos sur le perchoir (1,5 s) laisse à la montgolfière (48 px/s) le temps de
+//!   hisser Pépin hors de son cône (1,1 s) ; arrivé en haut, on peut aussi lui
+//!   tomber dessus (il s'écrase par le dessus) ;
+//! - un CORBEAU entre les deux rideaux de grêle (colonne 85, rangée 4 : il
+//!   patrouille des colonnes 80 à 90), sur la trajectoire du long plané vers le
+//!   second quai : on part de l'étage quand il s'éloigne. Fermer le parapluie
+//!   pour plonger sous lui ne se fait qu'entre les deux rideaux (colonnes 83 à
+//!   85) : sous la grêle, parapluie fermé, on meurt ;
+//! - un CORBEAU au ras du second quai (colonne 97, rangée 7 : colonnes 92 à 102),
+//!   à hauteur de Pépin : on atterrit dessus (il s'écrase) ou on le saute ; il
+//!   s'arrête avant la montgolfière de la colonne 104 ;
+//! - un CORBEAU sous le vent du dernier plané (colonne 162, rangée 6 : colonnes
+//!   157 à 167), une rangée sous la zone de vent : on plane haut dans le vent, ou
+//!   l'on part de la corniche quand il s'éloigne.
+//!
+//! Le moment fort reste sans ennemi : aucune patrouille ne croise les colonnes 110
+//! à 130 (la demande en admettait un corbeau au plus ; test
+//! `trois_corbeaux_un_pigeon_et_aucun_dans_le_moment_fort`).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -40,7 +67,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     genre: GenreNiveau::Normal,
     intro: "Laisse le vent choisir, puis reprends la main.",
     mecanique: "Vent latéral : longs planés portés, une couche contraire à traverser ; \
-                montgolfières, rideaux de grêle.",
+                montgolfières, rideaux de grêle, corbeaux, pigeon.",
     duree_cible_s: 50,
     ascii: ASCII,
     aiguilles: &[],
@@ -70,15 +97,16 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// - Montgolfière (142, 9) jusqu'à la corniche 144-150 (dessus à y = 80), manche à
 ///   air (149, 4) ; vent `>` 151-166 lignes 3-5, grêle colonnes 158-159 ; drapeau
 ///   (172, 7).
+/// - Ennemis (carte 6.4b) : pigeon (65, 3) ; corbeaux (85, 4), (97, 7) et (162, 6).
 const ASCII: &str = r"
 ..............................................................NNN................gg...gg...............NNN......................................................................
 ................................................gg..............................................................o............................NNN..............gg................
 ....................................................................................o.........................>>>>>>>>>>>>>>>>>>>>..............................................
-.................o................................................L.......................................L.Q.>>>>>>>>>>>>>>>>>>>>.....................>>>>>>>>>>>>>>>>.........
-..............>>>>>>>>>>>>>......................................NNNNNNNNNNNNN............................NNNN...<<<<<<<<<<<<<<<<<...................Q.>>>>>>>>>>>>>>>>.........
+.................o...............................................pL.......................................L.Q.>>>>>>>>>>>>>>>>>>>>.....................>>>>>>>>>>>>>>>>.........
+..............>>>>>>>>>>>>>......................................NNNNNNNNNNNNN.......c....................NNNN...<<<<<<<<<<<<<<<<<...................Q.>>>>>>>>>>>>>>>>.........
 ..............>>>>>>>>>>>>>......................................NNNNNNNNNNNNN............................NNNN.Q.<<<<<<<<<<<<<<<<<..............NNNNNNN>>>>>>>>>>>>>>>>.........
-..............>>>>>>>>>>>>>...............................................................................NNNNNNN<<<<<<<<<<<<<<<<<..............NNNNNNN.........................
-..@.........Q.>>>>>>>>>>>>>..L............................................................................NNNNNNN.Q.>>>>>>>>>>>>>>..........................................X...
+..............>>>>>>>>>>>>>...............................................................................NNNNNNN<<<<<<<<<<<<<<<<<..............NNNNNNN...........c.............
+..@.........Q.>>>>>>>>>>>>>..L...................................................................c........NNNNNNN.Q.>>>>>>>>>>>>>>..........................................X...
 NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNNb...........................NNNNNNNNNNNNNb.NNNNNNNNNN>>>>>>>>>>>>>>..L..................................NNNNNNNNN
 NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN...............NNNNNNNNNNNb........................NNNNNNNNN
 NNNNNNNNNNNNNN.............NNNNNNNNNNNNNNNNNN......NNNNNNNNNNNN............................NNNNNNNNNNNNN..NNNNNNNNNN...............NNNNNNNNNNN.........................NNNNNNNNN
@@ -215,10 +243,36 @@ mod tests {
         assert!(!n.tuile_decor(131, 8).est_solide());
     }
 
-    /// Aucun ennemi : le vent, la grêle et le vide suffisent.
+    /// Carte 6.4b : trois corbeaux et un pigeon (jusque-là, aucun ennemi), et aucun
+    /// dans le moment fort. La patrouille d'un corbeau va de sa case de départ moins
+    /// `PORTEE_CORBEAU` à sa case de départ plus `PORTEE_CORBEAU` (plus sa largeur) :
+    /// elle doit rester hors des colonnes 110 à 130 (le plané de vingt tuiles et la
+    /// colonne sans vent qui le termine). La demande admettait un corbeau au plus sur
+    /// ce plané ; il n'y en a aucun.
     #[test]
-    fn aucun_ennemi() {
+    fn trois_corbeaux_un_pigeon_et_aucun_dans_le_moment_fort() {
+        use crate::entities::ennemi::PORTEE_CORBEAU;
+        use crate::entities::TypeEnnemi;
         let n = INFOS.charger().unwrap();
-        assert!(!n.entites.iter().any(|e| matches!(e, Entite::Ennemi(_))));
+        let (debut, fin) = (110.0 * TAILLE_TUILE, 131.0 * TAILLE_TUILE);
+        let (mut corbeaux, mut pigeons) = (0, 0);
+        for e in &n.entites {
+            let Entite::Ennemi(en) = e else { continue };
+            match en.type_ennemi {
+                TypeEnnemi::Corbeau => {
+                    corbeaux += 1;
+                    let (x, _) = en.perchoir();
+                    let (gauche, droite) = (x - PORTEE_CORBEAU, x + PORTEE_CORBEAU + en.boite.w);
+                    assert!(
+                        droite <= debut || gauche >= fin,
+                        "corbeau parti de x = {x} : sa patrouille ({gauche} à {droite}) croise \
+                         le moment fort"
+                    );
+                }
+                TypeEnnemi::Pigeon => pigeons += 1,
+                autre => panic!("la mer n'a que des corbeaux et un pigeon : {autre:?}"),
+            }
+        }
+        assert_eq!((corbeaux, pigeons), (3, 1));
     }
 }

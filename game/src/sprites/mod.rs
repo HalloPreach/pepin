@@ -799,7 +799,9 @@ mod tests {
     }
 
     /// Contraste d'au moins 3:1 entre le pigeon et le ciel derrière lui, dans les vrais
-    /// niveaux 4 et 5 : pour chaque pigeon posé, toutes les bandes de ciel qu'il traverse
+    /// niveaux 4 et 5 (aujourd'hui les vents d'altitude et Au-dessus des nuages) et, depuis
+    /// la carte 6.4b, dans la mer de nuages (son ciel corail, qui se dore vers le bas) :
+    /// pour chaque pigeon posé, toutes les bandes de ciel qu'il traverse
     /// (perché, puis jusqu'au fond de sa plongée) contrastent avec son corps (ardoise) et
     /// son contour. Le haut du ciel du niveau 4 est violet (ARDOISE et violet : 1,5:1) :
     /// ce test interdit d'y percher un pigeon.
@@ -808,10 +810,10 @@ mod tests {
         use crate::decor::{ambiance, ciel_a};
         use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
         use pepin_core::entities::{Entite, TypeEnnemi};
-        use pepin_core::levels::{nuages, vents};
+        use pepin_core::levels::{mer, nuages, vents};
         use pepin_core::HAUTEUR_LOGIQUE;
         let mut vus = 0;
-        for infos in [vents::INFOS, nuages::INFOS] {
+        for infos in [vents::INFOS, mer::INFOS, nuages::INFOS] {
             let niveau = infos.charger().unwrap();
             // Niveau pas plus haut que l'écran : la caméra aligne son bas sur celui de
             // l'écran (`Camera::borner`) et ne bouge pas en hauteur.
@@ -843,7 +845,10 @@ mod tests {
                 }
             }
         }
-        assert!(vus >= 2, "{vus} pigeon(s) dans les niveaux 4 et 5");
+        assert!(
+            vus >= 3,
+            "{vus} pigeon(s) dans les vents, la mer et Au-dessus des nuages"
+        );
     }
 
     /// Même contrôle dans la descente (carte 5.17), dont le ciel défile avec la

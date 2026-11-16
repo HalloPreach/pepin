@@ -1397,16 +1397,17 @@ mod tests {
         ((x / t) as i32, (y / t) as i32)
     }
 
-    /// Un à trois pigeons dans le Clocher (sur les corniches), Vents d'altitude, Au-dessus
-    /// des nuages (le deuxième ennemi de ces niveaux) et La descente (l'épilogue,
-    /// au-dessus de la première couche de nuages), aucun ailleurs ; jamais à moins de
-    /// 4 tuiles d'un oiseau de décor.
+    /// Un à trois pigeons dans le Clocher (sur les corniches), Vents d'altitude, La mer de
+    /// nuages (carte 6.4b : au-dessus du premier quai), Au-dessus des nuages et La
+    /// descente (l'épilogue, au-dessus de la première couche de nuages), aucun ailleurs ;
+    /// jamais à moins de 4 tuiles d'un oiseau de décor.
     #[test]
-    fn les_pigeons_sont_dans_le_clocher_vents_nuages_et_descente_loin_des_oiseaux_de_decor() {
-        use crate::levels::{clocher, descente, nuages, vents};
+    fn les_pigeons_sont_dans_le_clocher_vents_mer_nuages_et_descente_loin_des_oiseaux_de_decor() {
+        use crate::levels::{clocher, descente, mer, nuages, vents};
         let avec_pigeons = [
             clocher::INFOS.nom,
             vents::INFOS.nom,
+            mer::INFOS.nom,
             nuages::INFOS.nom,
             descente::INFOS.nom,
         ];
