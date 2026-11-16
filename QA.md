@@ -5888,3 +5888,10 @@ Données et règles seulement (l'écran de carte et la boutique liront la sauveg
 - Vrai téléphone (texte à l'échelle 1, comme les autres lignes des écrans) ; Safari, Firefox.
 - Pas de boutique branchée (le coordinateur la réconcilie à la fusion avec 7.5) ; pas de suite
   complète (tests ciblés seulement, consigne de la carte).
+
+## Carte 7.8 : icône du haut-parleur à la place de « SON : OUI / NON »
+
+- Menus du titre et de la pause : la ligne du son montre un haut-parleur de 11 x 7 pixels (hauteur de la police, à ECHELLE_MENU, mêmes couleurs/ombre que le texte, pixels nets) : 2 ondes si actif, une croix si coupé. `libelle_son` reste le nom interne (tests) ; comportement inchangé.
+- Tests `ecrans` (19) et `contenu` (9) verts sans retouche, `lint` LINT-OK, `./build.sh` (dist/) et `./build.sh --qa` faits.
+- Chromium 1208 sans tête, CDP (`docs/capture-son.mjs`), 0 erreur de console : `docs/qa/78-titre-son-coupe.png`, `78-titre-son-actif.png` (après Entrée), `78-pause-son-actif.png` (ligne au repos) ; regardées, `mesure-capture.py` : 0 pixel hors palette, 0 flou.
+- Pas testé : vrai téléphone (clic/toucher sur l'icône : même rectangle de ligne qu'avant), Safari, Firefox.
