@@ -21,6 +21,7 @@ mod camera;
 mod chrono;
 mod contenu;
 mod decor;
+mod defis;
 #[cfg(test)]
 mod difficulte;
 mod ecrans;
