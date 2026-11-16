@@ -5920,7 +5920,8 @@ Données et règles seulement (l'écran de carte et la boutique liront la sauveg
 
 - Retouche après coup (chrono cible, gouttes x/3, accès `progres`) : tests `app::`, `hud`,
   `sauvegarde`, lint, `./build.sh` et le robot (`--exact le_robot_finit_tous_les_niveaux_sans_mourir`)
-  relancés sur l'extraction propre du dernier commit : voir le résultat de la carte.
+  relancés sur l'extraction propre de 8789c40 : 100 tests ciblés verts, robot vert (0 mort),
+  LINT-OK, `./build.sh` OK, `dist/` : 0 mention personnelle, seule URL `http://www.w3.org/2000/svg`.
 - Extraction propre (`git archive`) : suite complète verte sur 709838a (core 374 ok, game 341 ok,
   partie complète du robot : 25 656 images, empreinte `0d1d8f8435a11586`) ; `lint` → LINT-OK et
   `./build.sh` OK sur dac5197 (seul écart : une conversion inutile retirée pour clippy) ; `dist/` :
