@@ -50,6 +50,12 @@ impl Eclair {
         self.phase
     }
 
+    /// Change la pause entre deux coups (nouvelle partie +, carte 8.8 : l'orage
+    /// frappe plus souvent). Le coup en cours et le délai de départ ne changent pas.
+    pub fn changer_repos(&mut self, repos_pas: u16) {
+        self.repos_pas = repos_pas.max(1);
+    }
+
     /// Le flash d'annonce est-il visible ?
     pub fn en_annonce(&self) -> bool {
         self.phase == PhaseEclair::Annonce

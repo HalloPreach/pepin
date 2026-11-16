@@ -239,6 +239,9 @@ pub struct GrandNuage {
     /// Pas écoulés depuis le début de la phase.
     ecoule: u16,
     pv: u8,
+    /// Nouvelle partie + (carte 8.8) : le nuage joue à chaque colère le motif
+    /// SUIVANT, plus serré (le 2e à 3 points de vie, puis le 3e).
+    serre: bool,
 }
 
 impl GrandNuage {
@@ -251,7 +254,13 @@ impl GrandNuage {
             phase: PhaseNuage::Prelude,
             ecoule: 0,
             pv: PV_NUAGE,
+            serre: false,
         }
+    }
+
+    /// Nouvelle partie + (carte 8.8) : des motifs plus serrés (voir `motif`).
+    pub fn serrer(&mut self) {
+        self.serre = true;
     }
 
     pub fn phase(&self) -> PhaseNuage {
@@ -268,8 +277,19 @@ impl GrandNuage {
         self.ecoule
     }
 
-    /// Le motif joué en colère : 0 à 3 points de vie, 1 à 2, 2 à 1.
+    /// Le motif joué en colère : 0 à 3 points de vie, 1 à 2, 2 à 1. Serré (nouvelle
+    /// partie +) : le suivant, 1 à 3 points de vie, puis 2 et 2.
     pub fn motif(&self) -> usize {
+        let motif = self.motif_des_points_de_vie();
+        if self.serre {
+            (motif + 1).min(MOTIFS.len() - 1)
+        } else {
+            motif
+        }
+    }
+
+    /// Le motif des points de vie restants (0 à 3 points, 1 à 2, 2 à 1), serré ou non.
+    fn motif_des_points_de_vie(&self) -> usize {
         usize::from(PV_NUAGE - self.pv.clamp(1, PV_NUAGE))
     }
 
@@ -286,9 +306,10 @@ impl GrandNuage {
     }
 
     /// Côté du courant de l'essoufflement : à gauche après les motifs 1 et 3, à
-    /// droite après le motif 2 (il faut traverser l'arène).
+    /// droite après le motif 2 (il faut traverser l'arène). Il suit les points de
+    /// vie, pas le motif : le nuage serré (nouvelle partie +) garde les mêmes côtés.
     pub fn cote_du_courant(&self) -> Cote {
-        if self.motif().is_multiple_of(2) {
+        if self.motif_des_points_de_vie().is_multiple_of(2) {
             Cote::Gauche
         } else {
             Cote::Droite

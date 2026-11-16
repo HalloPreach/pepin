@@ -45,6 +45,7 @@ pub mod nuages;
 pub mod orage;
 pub mod poursuite;
 pub mod toits;
+pub mod variantes;
 pub mod vents;
 
 use crate::level::GOUTTES_PAR_NIVEAU;
