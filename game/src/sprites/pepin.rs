@@ -15,7 +15,7 @@
 //! parapluie reste à sa place, sauf dans `PEPIN_TAPOTE` où il descend d'un pixel
 //! (l'embout touche le sol).
 
-use super::Image;
+use super::{Image, JeuImages};
 
 pub const PEPIN_IDLE0: Image = &[
     "...........000..",
@@ -384,3 +384,15 @@ pub const ATTENTE: [&str; 3] = ["pepin_cligne", "pepin_ciel", "pepin_tapote"];
 pub const PLANER: [&str; 2] = ["pepin_plane0", "pepin_plane1"];
 /// Images de la réapparition (étincelles qui se rassemblent puis Pépin).
 pub const REAPPARITION: [&str; 3] = ["pepin_mort0", "pepin_mort1", "pepin_mort2"];
+
+/// Le jeu d'images de Pépin, animation par animation (voir `skins`).
+pub const IMAGES: JeuImages = JeuImages {
+    repos: REPOS,
+    course: COURSE,
+    saut: "pepin_saut",
+    chute: "pepin_chute",
+    attente: ATTENTE,
+    planer: PLANER,
+    reapparition: REAPPARITION,
+    vie: "vie",
+};

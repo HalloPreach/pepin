@@ -28,7 +28,8 @@ use crate::grele;
 use crate::monde::{Monde, REAPPARITION_PAS};
 use crate::particules::Particules;
 use crate::rendu::couleur_mq;
-use crate::sprites::{ennemis, hauteur, largeur, objets, objets_decor, pepin, Banque};
+use crate::skins::Skin;
+use crate::sprites::{ennemis, hauteur, largeur, objets, objets_decor, Banque, JeuImages};
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
@@ -946,6 +947,7 @@ const NB_TACS: u32 = 4;
 
 /// Image de l'attente quand Pépin est immobile au sol depuis `immobile` pas (voir
 /// `monde::compter_immobile`), ou `None` : il respire simplement (images du repos).
+/// Les noms viennent du jeu d'images du skin actif (`images`).
 /// Avant 2 s, toujours `None`. Ensuite, un cycle de 5 s qui recommence :
 /// - 0 à 8 : il cligne des yeux ;
 /// - 60 à 120 : il lève les yeux vers le ciel (1 s), puis cligne de nouveau (120 à 128) ;
@@ -954,10 +956,10 @@ const NB_TACS: u32 = 4;
 ///
 /// Comme la minuterie repart de zéro au premier mouvement, l'attente s'arrête net dès
 /// qu'on appuie sur une touche. Fonction pure.
-pub(crate) fn image_attente(immobile: u32) -> Option<&'static str> {
+pub(crate) fn image_attente(images: &JeuImages, immobile: u32) -> Option<&'static str> {
     // `checked_sub` : `None` avant 2 s, et `?` sort aussitôt de la fonction avec ce `None`.
     let t = immobile.checked_sub(ATTENTE_PAS)? % CYCLE_ATTENTE;
-    let [cligne, ciel, tapote] = pepin::ATTENTE;
+    let [cligne, ciel, tapote] = images.attente;
     match t {
         0..8 | 120..128 => Some(cligne),
         60..120 => Some(ciel),
@@ -966,14 +968,17 @@ pub(crate) fn image_attente(immobile: u32) -> Option<&'static str> {
             Some(if coup.is_multiple_of(2) {
                 tapote
             } else {
-                pepin::REPOS[0]
+                images.repos[0]
             })
         }
         _ => None,
     }
 }
 
-fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) {
+/// Dessine Pépin avec les images du skin actif : même logique d'animation pour tous les
+/// skins, seuls les noms des images changent (`JeuImages`).
+fn dessiner_pepin(monde: &Monde, banque: &Banque, skin: Skin, alpha: f32, cx: i32, cy: i32) {
+    let images = skin.images();
     let pas = monde.pas;
     let j = &monde.joueur;
     let miroir = !j.regarde_droite;
@@ -988,7 +993,7 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) 
             mort_x.round() as i32 - cx - 3,
             mort_y.round() as i32 - cy - 2,
         );
-        banque.dessiner(pepin::REAPPARITION[k], mx as f32, my as f32, false);
+        banque.dessiner(images.reapparition[k], mx as f32, my as f32, false);
     }
     // Tout juste réapparu, Pépin est protégé des dangers (1 s) : il clignote.
     if pepin_cache(j.protection_restante(), pas) {
@@ -1001,15 +1006,16 @@ fn dessiner_pepin(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32) 
     let (bas, milieu) = (by + j.boite.h as i32, bx + j.boite.w as i32 / 2);
     match j.etat() {
         EtatJoueur::Plane => {
-            let nom = image(&pepin::PLANER, pas, 8);
+            let nom = image(&images.planer, pas, 8);
             banque.dessiner(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
         }
         etat => {
             let nom = match etat {
-                EtatJoueur::Montee => "pepin_saut",
-                EtatJoueur::Chute => "pepin_chute",
-                _ if j.vitesse.x.abs() > 8.0 => image(&pepin::COURSE, pas, 5),
-                _ => image_attente(monde.immobile).unwrap_or_else(|| image(&pepin::REPOS, pas, 30)),
+                EtatJoueur::Montee => images.saut,
+                EtatJoueur::Chute => images.chute,
+                _ if j.vitesse.x.abs() > 8.0 => image(&images.course, pas, 5),
+                _ => image_attente(images, monde.immobile)
+                    .unwrap_or_else(|| image(&images.repos, pas, 30)),
             };
             banque.dessiner(nom, (milieu - 8) as f32, (bas - 16) as f32, miroir);
         }
@@ -1026,11 +1032,13 @@ fn dessiner_repere_pepin(monde: &Monde, alpha: f32, cx: i32, cy: i32) {
     }
 }
 
-/// Dessine tout le monde dans la cible logique. `(cx, cy)` : caméra entière.
+/// Dessine tout le monde dans la cible logique. `(cx, cy)` : caméra entière ; `skin` :
+/// la tenue de Pépin (`Skin::Pepin` par défaut).
 pub fn dessiner(
     monde: &Monde,
     banque: &Banque,
     particules: &Particules,
+    skin: Skin,
     alpha: f32,
     cx: i32,
     cy: i32,
@@ -1047,7 +1055,7 @@ pub fn dessiner(
     dessiner_arrivee(monde, banque, cx, cy);
     dessiner_cadrans(monde, banque, alpha, cx, cy);
     dessiner_entites(monde, banque, alpha, cx, cy);
-    dessiner_pepin(monde, banque, alpha, cx, cy);
+    dessiner_pepin(monde, banque, skin, alpha, cx, cy);
     particules.dessiner(cx, cy);
     decor::dessiner_avant(monde.infos.theme, monde.pas);
     dessiner_repere_pepin(monde, alpha, cx, cy);
@@ -1056,6 +1064,7 @@ pub fn dessiner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sprites::pepin;
 
     // --- Grand Nuage (carte 5.11) ---
 
@@ -1530,10 +1539,17 @@ mod tests {
     #[test]
     fn pas_d_attente_avant_2_s_immobile() {
         for immobile in 0..ATTENTE_PAS {
-            assert_eq!(image_attente(immobile), None, "pas {immobile}");
+            assert_eq!(
+                image_attente(&pepin::IMAGES, immobile),
+                None,
+                "pas {immobile}"
+            );
         }
         // Pile à 2 s, il cligne des yeux.
-        assert_eq!(image_attente(ATTENTE_PAS), Some("pepin_cligne"));
+        assert_eq!(
+            image_attente(&pepin::IMAGES, ATTENTE_PAS),
+            Some("pepin_cligne")
+        );
     }
 
     /// Un cycle de 5 s montre les trois images d'attente, chacune dans sa plage, et laisse
@@ -1541,7 +1557,7 @@ mod tests {
     #[test]
     fn un_cycle_d_attente_montre_les_trois_images() {
         let cycle: Vec<Option<&str>> = (0..CYCLE_ATTENTE)
-            .map(|t| image_attente(ATTENTE_PAS + t))
+            .map(|t| image_attente(&pepin::IMAGES, ATTENTE_PAS + t))
             .collect();
         let duree = |nom: &str| cycle.iter().filter(|i| **i == Some(nom)).count();
         assert_eq!(duree("pepin_cligne"), 16, "deux clignements de 8 pas");
@@ -1564,9 +1580,9 @@ mod tests {
     fn pepin_tapote_quatre_fois() {
         let debut = ATTENTE_PAS + DEBUT_TAPOTE;
         let mut changements = Vec::new();
-        let mut precedente = image_attente(debut - 1);
+        let mut precedente = image_attente(&pepin::IMAGES, debut - 1);
         for t in debut..debut + 80 {
-            let i = image_attente(t);
+            let i = image_attente(&pepin::IMAGES, t);
             if i != precedente {
                 changements.push((t - debut, i));
                 precedente = i;
@@ -1594,10 +1610,14 @@ mod tests {
     #[test]
     fn l_attente_se_repete_tant_que_pepin_ne_bouge_pas() {
         for t in 0..CYCLE_ATTENTE {
-            let i = image_attente(ATTENTE_PAS + t);
-            assert_eq!(image_attente(ATTENTE_PAS + t + CYCLE_ATTENTE), i, "t = {t}");
+            let i = image_attente(&pepin::IMAGES, ATTENTE_PAS + t);
             assert_eq!(
-                image_attente(ATTENTE_PAS + t + 1000 * CYCLE_ATTENTE),
+                image_attente(&pepin::IMAGES, ATTENTE_PAS + t + CYCLE_ATTENTE),
+                i,
+                "t = {t}"
+            );
+            assert_eq!(
+                image_attente(&pepin::IMAGES, ATTENTE_PAS + t + 1000 * CYCLE_ATTENTE),
                 i,
                 "t = {t}"
             );
@@ -1618,13 +1638,13 @@ mod tests {
         for _ in 0..ATTENTE_PAS + 90 {
             immobile = compter_immobile(immobile, &m.joueur, &Entrees::default());
         }
-        assert_eq!(image_attente(immobile), Some("pepin_ciel"));
+        assert_eq!(image_attente(&pepin::IMAGES, immobile), Some("pepin_ciel"));
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
         };
         immobile = compter_immobile(immobile, &m.joueur, &droite);
-        assert_eq!(image_attente(immobile), None);
+        assert_eq!(image_attente(&pepin::IMAGES, immobile), None);
     }
 
     // --- Escargot (carte 5.8) ---

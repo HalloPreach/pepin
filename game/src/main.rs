@@ -37,6 +37,7 @@ mod particules;
 mod rendu;
 mod scene;
 mod secousse;
+mod skins;
 mod sprites;
 mod tactile;
 mod texte;
@@ -113,6 +114,10 @@ async fn main() {
             orientation::doit_afficher(screen_width(), screen_height(), tactile.est_actif());
         if !a_tourner {
             app.reagir(&nav, &commandes, entrees::raccourci_niveau());
+        }
+        // Build de QA seulement (`debug_niveaux`) : K passe au skin suivant (captures).
+        if entrees::skin_suivant_demande() {
+            app.skin = app.skin.suivant();
         }
         // Build de QA seulement (`qa_plantage`) : F9 provoque une vraie panique, pour
         // vérifier le message de plantage de la page web. Toujours faux en production.
