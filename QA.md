@@ -5702,8 +5702,9 @@ GRATUIT, état ÉQUIPÉ / ACHETÉ / À ACHETER), RETOUR et le rappel des touches
   N GOUTTES » + OK, rien ne change.
 - `Skin::id` / `Skin::depuis_id` : l'identifiant gardé dans la sauvegarde (« pepin », « pepinette »).
 - Build de QA seulement (`debug_niveaux`, et tests) : un objet factice payant « FACTICE QA » (60 gouttes,
-  ne s'équipe pas) pour essayer l'achat sans ajouter de vrai skin payant. Absent de `dist/` (vérifié :
-  0 occurrence de « factice_qa » / « FACTICE QA »).
+  ne s'équipe pas) pour essayer l'achat sans ajouter de vrai skin payant, et la touche G
+  (`entrees::gouttes_qa_demandees`) qui met 100 gouttes en poche (enregistrées). Absents de `dist/`
+  (vérifié : 0 occurrence de « factice_qa » / « FACTICE QA » ; G inerte sans `debug_niveaux`).
 
 Un seul test ajouté (nouvelle mécanique) : `boutique::tests::equiper_puis_acheter_avec_confirmation`
 (Pépinette équipée d'un appui ; factice refusé sans gouttes, « il te manque 60 » ; avec 100 : NON par
@@ -5713,7 +5714,8 @@ mise en page du titre dans `ecrans`).
 
 ### Preuves
 
-Extraction propre (`git archive`, commit 23cef84) :
+Extraction propre (`git archive`, commit 23cef84 ; la touche G, ajoutée ensuite, a été revérifiée sur
+une nouvelle extraction : lint, tests `boutique`, `sauvegarde`, `skins`, `entrees`, build) :
 
 - `./docker-cargo.sh test --workspace --no-default-features` : core 374 verts (1 ignoré), game 339 verts
   (25 ignorés), 0 échec ;
@@ -5728,14 +5730,15 @@ localStorage, puis appuis de touches). 960 x 540 (x3) sauf la dernière :
 - `75-titre-ligne-boutique.png` : titre, BOUTIQUE choisie, 30 gouttes en poche ;
 - `75-boutique.png` : la boutique (onglet SKINS, Pépin ÉQUIPÉ, Pépinette GRATUIT, factice 60 gouttes) ;
 - `75-achat-refuse.png` : factice avec 30 gouttes, « IL TE MANQUE 30 GOUTTES » ;
-- `75-achat-confirmation-oui.png` : 100 gouttes, « ACHETER POUR 60 ? », OUI choisi ;
-- `75-achat-fait.png` : 40 gouttes, factice ACHETÉ, Pépinette ÉQUIPÉ ;
+- `75-achat-confirmation-oui.png` : touche G (30 + 100 = 130 gouttes), « ACHETER POUR 60 ? », OUI choisi ;
+- `75-achat-fait.png` : 70 gouttes, factice ACHETÉ, Pépinette ÉQUIPÉ ;
 - `75-titre-pepinette-recharge.png` : page rechargée, Pépinette court sur le titre ;
 - `75-jeu-pepinette.png` : JOUER, Pépinette en jeu (et dans l'icône des vies) ;
 - `75-boutique-640x360.png` : la boutique en 640 x 360 (x2, téléphone en paysage), lisible.
 
 localStorage relevé par le pilote : après l'équipement `skin_choisi=pepinette` ; après le refus, rien ne
-change (30) ; après l'achat `gouttes_en_poche=40`, `skins_debloques=pepin,pepinette,factice_qa` ; après
+change (30) ; après la touche G `gouttes_en_poche=130` ; après l'achat `gouttes_en_poche=70`,
+`skins_debloques=pepin,pepinette,factice_qa` ; après
 rechargement, tout est gardé. 0 erreur de console. `docs/mesure-capture.py` : 0 pixel hors palette,
 0 semi-transparent, 0 bloc flou sur les huit captures. Regardées.
 
