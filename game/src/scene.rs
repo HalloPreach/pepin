@@ -26,6 +26,7 @@ use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 use crate::decor;
 use crate::grele;
 use crate::monde::{Monde, REAPPARITION_PAS};
+use crate::mur_pluie;
 use crate::particules::Particules;
 use crate::rendu::couleur_mq;
 use crate::skins::Skin;
@@ -1047,6 +1048,7 @@ pub fn dessiner(
     // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    mur_pluie::dessiner_soleil(monde, cx);
     dessiner_dechirure(monde, cx);
     dessiner_facades(monde, banque, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
@@ -1057,7 +1059,12 @@ pub fn dessiner(
     dessiner_entites(monde, banque, alpha, cx, cy);
     dessiner_pepin(monde, banque, skin, alpha, cx, cy);
     particules.dessiner(cx, cy);
-    decor::dessiner_avant(monde.infos.theme, monde.pas);
+    // Niveau de poursuite (carte 8.2) : le rideau devant tout ; la pluie s'arrête
+    // quand le soleil perce.
+    mur_pluie::dessiner_mur(monde, cx);
+    if !monde.mur.is_some_and(|m| m.vaincu()) {
+        decor::dessiner_avant(monde.infos.theme, monde.pas);
+    }
     dessiner_repere_pepin(monde, alpha, cx, cy);
 }
 

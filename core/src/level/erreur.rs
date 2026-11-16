@@ -73,6 +73,8 @@ pub enum ErreurNiveau {
     /// Le cercle d'une aiguille touche un solide (la plateforme, ou Pépin debout
     /// dessus) : elle passerait à travers le décor.
     AiguilleBloquee { ligne: usize, colonne: usize },
+    /// Un seul mur de pluie (`P`) par niveau.
+    MurMultiple { nombre: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -161,6 +163,9 @@ impl fmt::Display for ErreurNiveau {
                 "ligne {ligne}, colonne {colonne} : le cercle de l'aiguille « h » touche un solide \
                  (la plateforme, ou Pépin debout dessus)"
             ),
+            ErreurNiveau::MurMultiple { nombre } => {
+                write!(f, "{nombre} murs de pluie « P » (un seul au plus)")
+            }
         }
     }
 }

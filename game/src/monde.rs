@@ -19,6 +19,7 @@ use pepin_core::entities::{
 use pepin_core::level::Niveau;
 use pepin_core::physics::{CourantAscendant, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
+use pepin_core::poursuite::MurDePluie;
 use pepin_core::state::{EtatJeu, Ordre};
 use pepin_core::zones::{self, InfosNiveau};
 
@@ -53,6 +54,8 @@ pub struct Monde {
     /// Pas passés immobile au sol (voir `compter_immobile`) : au bout de 2 s, Pépin
     /// s'occupe (animation d'attente, `scene::image_attente`). Sert au dessin seulement.
     pub immobile: u32,
+    /// Le mur de pluie du niveau de poursuite (carte 8.2) : `None` ailleurs.
+    pub mur: Option<MurDePluie>,
     precedent_joueur: (f32, f32),
     precedent_entites: Vec<(f32, f32)>,
 }
@@ -168,6 +171,7 @@ impl Monde {
         // compte aussi pour un niveau chargé seul (tests, mesure, build de QA).
         etat.nouveau_niveau(niveau.depart, infos.genre);
         let entites = niveau.entites.clone();
+        let mur = MurDePluie::du_niveau(&niveau);
         let precedent_entites = entites.iter().map(Self::coin).collect();
         Self {
             indice,
@@ -186,6 +190,7 @@ impl Monde {
             termine: false,
             gouttes_niveau: [false; 3],
             immobile: 0,
+            mur,
             precedent_entites,
         }
     }
@@ -212,6 +217,10 @@ impl Monde {
             for e in &mut self.entites {
                 e.actualiser(&env);
             }
+        }
+        // Le mur de pluie avance avec elles (carte 8.2).
+        if let Some(mur) = &mut self.mur {
+            mur.avancer(&self.joueur.boite);
         }
         // 2. Les plateformes ont bougé : on recalcule les solides, le joueur est porté.
         let solides = solides_des_entites(&self.entites);
@@ -241,6 +250,12 @@ impl Monde {
                 contacts.push(mort);
             }
         }
+        // Le mur de pluie tue au contact (carte 8.2).
+        if self.mur.is_some_and(|m| m.touche(&self.joueur.boite))
+            && !contacts.iter().any(|c| matches!(c, Contact::Mort(_)))
+        {
+            contacts.push(Contact::Mort(CauseMort::Pluie));
+        }
         // 5. L'état de partie digère les contacts (score, checkpoint, respawn).
         //    On retient où Pépin se trouvait : l'animation de mort se joue là.
         let avant_mort = (self.joueur.boite.x, self.joueur.boite.y);
@@ -258,6 +273,11 @@ impl Monde {
                     // dalles friables se reforment (carte 5.16), sauf sous Pépin
                     // déjà replacé.
                     reprendre_apres_une_mort(&mut self.entites, &self.joueur.boite);
+                    // Le mur recule à distance fixe derrière Pépin replacé : jamais
+                    // de mort en boucle (carte 8.2).
+                    if let Some(mur) = &mut self.mur {
+                        mur.replacer(&self.joueur.boite);
+                    }
                     self.derniere_mort = Some(cause);
                     self.reapparition = REAPPARITION_PAS;
                     // Mort dans le vide : on garde l'animation visible, au bas du niveau.

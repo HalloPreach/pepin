@@ -62,6 +62,9 @@
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
 //!              antenne, paratonnerre, manche à air, oiseau posé
+//!   P  mur de pluie (un au plus, carte 8.2) : son front part du bord droit de
+//!      la case `P` et avance vers la droite ; il tue au contact (voir
+//!      `crate::poursuite`). Hors de ce repère, la case est vide
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
@@ -224,6 +227,8 @@ pub struct Niveau {
     pub panneaux: Vec<Panneau>,
     /// Objets de décor (dessin seulement).
     pub decors: Vec<ObjetDecor>,
+    /// Front de départ du mur de pluie (case `P`, carte 8.2), en px : `None` sans mur.
+    pub mur_de_pluie: Option<f32>,
 }
 
 impl Niveau {

@@ -31,6 +31,7 @@ mod grele;
 mod hud;
 mod menu;
 mod monde;
+mod mur_pluie;
 mod musiques;
 mod navigation;
 mod orientation;

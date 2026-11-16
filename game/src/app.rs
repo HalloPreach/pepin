@@ -398,6 +398,9 @@ impl Application {
             self.camera.recentrer(&self.monde.joueur, largeur, hauteur);
         }
         self.camera.suivre(&self.monde.joueur, largeur, hauteur);
+        if let Some(mur) = &self.monde.mur {
+            self.camera.pousser_par_le_mur(mur.front(), largeur);
+        }
         effets(
             &self.monde,
             &mut self.particules,

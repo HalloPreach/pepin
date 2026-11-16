@@ -97,6 +97,8 @@ pub(super) fn analyser(
     // d'éclairs jusqu'au sol, ses courants).
     let mut nuages: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
+    // Mur de pluie (au plus un, carte 8.2) : cases `P`.
+    let mut murs: Vec<Case> = Vec::new();
 
     for (ty, ligne) in lignes.iter().enumerate() {
         for (tx, c) in ligne.chars().enumerate() {
@@ -149,6 +151,7 @@ pub(super) fn analyser(
                 'z' => chats.push(case),
                 'h' => pivots.push(case),
                 'O' => nuages.push(case),
+                'P' => murs.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -411,6 +414,15 @@ pub(super) fn analyser(
         vents: vents_laterales,
         panneaux,
         decors: objets_decor,
+        mur_de_pluie: match murs.as_slice() {
+            [] => None,
+            [m] => Some(px(*m).0 + TAILLE_TUILE),
+            autres => {
+                return Err(ErreurNiveau::MurMultiple {
+                    nombre: autres.len(),
+                })
+            }
+        },
     };
     // Aiguilles d'horloge : en DERNIER, une fois le niveau assemblé, pour vérifier
     // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).

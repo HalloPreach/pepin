@@ -10,6 +10,7 @@ pub mod levels;
 pub mod palette;
 pub mod physics;
 pub mod player;
+pub mod poursuite;
 pub mod sons;
 pub mod state;
 pub mod synthese;

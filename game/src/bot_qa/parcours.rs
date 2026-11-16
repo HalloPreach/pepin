@@ -65,6 +65,10 @@ use crate::monde::Monde;
 
 /// Pas d'immobilité qui valident un atterrissage stable.
 const PAS_STABLE: u16 = 20;
+/// Même chose dans le niveau de poursuite (carte 8.2) : le mur de pluie avance,
+/// le robot ne peut pas s'arrêter 1/3 s à chaque atterrissage. Il repart dès qu'il
+/// est posé (3 pas : ses pieds sont bien au sol).
+const PAS_STABLE_POURSUITE: u16 = 3;
 /// Pas d'attente au départ : Pépin tombe au sol et se pose.
 pub(crate) const PAS_DEPART: u16 = 40;
 /// Pas passés en l'air avant que le plan `planer` n'ouvre le parapluie.
@@ -305,7 +309,12 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
             stable = 0;
         } else if a_decolle || marche_finie {
             stable += 1;
-            if stable >= PAS_STABLE {
+            let pas_stable = if m.mur.is_some() {
+                PAS_STABLE_POURSUITE
+            } else {
+                PAS_STABLE
+            };
+            if stable >= pas_stable {
                 return (Fin::Pose, m, script);
             }
         }
