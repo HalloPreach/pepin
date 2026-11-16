@@ -5782,6 +5782,10 @@ faux mur sur une patrouille de flaque, ni sur le passage obligé.
   mer de nuages, le creux d'ombre est petit mais net sur le nuage uni.
 - Une révélation en jeu : `-2-` / `-3-` (faux mur tramé, goutte visible derrière, drapeau secret du
   clocher).
+- Extraction propre (`git archive` de 81c6a2a) : `test --workspace --no-default-features` : core
+  375 verts, game 339 verts ; `./docker-cargo.sh lint` : LINT-OK (sur 31196bf, même code) ;
+  `./build.sh` : `dist/` sans nom interdit, seule URL `http://www.w3.org/2000/svg`, game.wasm
+  523 670 octets (gzip 211 121).
 
 ### Ce qui n'est PAS testé
 
