@@ -5716,3 +5716,53 @@ prises ; dans un vrai navigateur F11 bascule aussi le plein écran, sans gêne).
 
 - Le son à l'oreille (Chromium sans écran : rien n'est entendu ; écouter les WAV ci-dessus) ;
 - aucun écran de choix ni sauvegarde (cartes boutique) ; téléphone et Safari non essayés.
+
+## Sauvegarde v2, défis, médailles et bonus de fin (carte 7.3)
+
+Données et règles seulement (l'écran de carte et la boutique liront la sauvegarde : cartes 7.4, 7.5).
+
+- Sauvegarde `version=2` (`game/src/sauvegarde.rs`) : en plus de la v1, `niveau_max_atteint`, une
+  ligne par niveau touché (`niveau.N=gouttes:101 defis:110 medaille:2 temps:2345` : lesquelles des 3
+  gouttes trouvées dans un niveau réussi, défis déjà réussis, meilleure médaille, meilleur temps en
+  pas), un inventaire générique `inventaire=skin:pepin,skin:pepinette,musique:orage,...` et l'objet
+  équipé par catégorie `equipe=musique:orage,skin:pepin`. Une v1 est relue sans perte puis réécrite en
+  v2 ; `skins_debloques`/`skin_choisi`/`debloquer`/`depenser` restent (façades de la catégorie `skin`,
+  accordées par `normaliser`) ; `possede`, `acquerir`, `equiper`, `equipe` pour la boutique. Lecture
+  toujours tolérante (champ inconnu ignoré, morceau illisible → défaut).
+- Défis (`game/src/defis.rs`), sans rien changer au jeu : SANS MOURIR (0 mort dans la tentative),
+  SANS PLANER (parapluie jamais ouvert) ou LES 3 GOUTTES, CHRONO (`duree_cible_s`). Une tentative
+  repart à chaque (re)chargement du niveau. SANS PLANER n'est proposé que là où le robot de
+  faisabilité, parapluie interdit, finit le niveau : table `levels::SANS_PLANER_POSSIBLE`, recopiée
+  du test ignoré `sans_planer_possible_d_apres_le_robot` (possible : 2, 3, 4, 6, 7, 9 (boss), 11
+  (épilogue) ; LES 3 GOUTTES : 1, 5, 8, 10 (bonus)). Le boss, le bonus et l'épilogue ont leurs 3
+  défis tels quels (dans le bonus on ne perd pas de vie, mais une chute compte comme une mort).
+- Médaille = défis réussis dans une même tentative (1 bronze, 2 argent, 3 or), la meilleure gardée.
+- Revenus (constantes `GAIN_*` en tête de `defis.rs`) : défi réussi la 1re fois +3, or la 1re fois +5,
+  gouttes ramassées comme en 7.2 ; bonus de fin à chaque partie finie : FIN +5, SANS GAME OVER +5,
+  100% GOUTTES +10 (gouttes du parcours, bonus non compris).
+- Affichage : sous la carte du niveau suivant, « NIVEAU RÉUSSI : ARGENT, +7 GOUTTES » et les 3 défis
+  cochés ou non ; sous l'écran de fin, une bande qui alterne toutes les 3 s entre le bonus de fin
+  (gagné en or pâle, raté en gris) et les défis du dernier niveau. Score et physique inchangés.
+
+### Preuves (extraction propre `git archive carte-7.3`)
+
+- Robot de QA : `ecrire_script_navigateur` redonne `71df3e47c4844537` (21 422 images, 0 mort,
+  14 gouttes, score 2500), la même empreinte qu'en 7.2 : les écrans de fin ajoutent un dessin, pas
+  d'image ni de pas.
+- `test -p game --no-default-features sauvegarde defis bot_qa`, `test -p core faisabilite`, lint,
+  `./build.sh` : voir le résultat de la carte. Un seul test ajouté (`defis`) et le test de
+  `sauvegarde` étendu (aller-retour v2, migration d'une v1).
+- Vrai navigateur (Chromium sans tête, CDP, build de QA servi sur 127.0.0.1, `docs/capture-defis.mjs`)
+  : sauvegarde vide, niveau 1 joué par le robot (34 s, 0 mort, 1 goutte) → carte du niveau 2 :
+  SANS MOURIR et CHRONO 0:50 cochés, LES 3 GOUTTES non, ARGENT, +7 gouttes, `gouttes_en_poche=7`,
+  `niveau.1=gouttes:010 defis:101 medaille:2 temps:2036`. Partie entière : 92 gouttes (14 ramassées
+  + défis + une médaille d'or au niveau 8 + bonus FIN et SANS GAME OVER), page rechargée → tout est
+  conservé ; 0 erreur console. Captures `docs/qa/73-fin-de-niveau-defis.png`,
+  `73-fin-de-partie-bonus.png`, `73-fin-de-partie-defis.png` (regardées : rien ne se chevauche ;
+  `mesure-capture.py` : 0 pixel hors palette, 0 flou).
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone (texte à l'échelle 1, comme les autres lignes des écrans) ; Safari, Firefox.
+- Pas de boutique branchée (le coordinateur la réconcilie à la fusion avec 7.5) ; pas de suite
+  complète (tests ciblés seulement, consigne de la carte).
