@@ -1,16 +1,22 @@
 //! Catalogue des musiques de PÉPIN : la boucle d'origine (« Orage », gratuite) et
-//! trois musiques à débloquer dans la boutique (25 gouttes d'or chacune). C'est
+//! cinq autres musiques (25 gouttes d'or chacune dans la future boutique). C'est
 //! purement cosmétique : la musique ne change rien au jeu ni au score.
+//!
+//! Une musique par ZONE (carte 8.7) : `musique_du_niveau` choisit la boucle d'après
+//! le THÈME du niveau (jamais d'après son numéro : un niveau inséré ou déplacé garde
+//! la musique de sa zone), et `musique_de_l_ecran` ajoute les écrans hors niveau
+//! (titre, aide, boutique : Orage ; fin : Soleil). Deux niveaux de la même zone
+//! jouent la même musique : `Audio::choisir_musique` ne coupe donc rien entre eux.
 //!
 //! Chaque nouvelle musique est une `Partition` : quelques voix (mélodie, basse,
 //! accompagnement, charleston de bruit) écrites en notes MIDI et en croches, puis
 //! « jouées » par le même synthétiseur 8 bits que tous les autres sons
 //! (`pepin_core::synthese`) : aucun fichier audio, aucune dépendance.
 //!
-//! Ce module ne fait que le catalogue et la fabrication des échantillons. Le choix
-//! du joueur (et sa sauvegarde) sera branché par la carte de la boutique : pour
-//! l'instant, la musique jouée est le simple paramètre `musique_active` de
-//! `audio::Audio` (par défaut : Orage).
+//! Le choix du joueur (et sa sauvegarde) sera branché par la carte de la boutique :
+//! elle vendra un « forçage » qui passe PAR-DESSUS la musique de la zone (la boucle
+//! principale, `main.rs`, a déjà la place pour ce forçage : la touche F11 du build
+//! de QA s'en sert).
 //!
 //! Notions Rust illustrées ici : `enum` + tableau constant `TOUTES` pour un
 //! catalogue, structures `const` imbriquées (`&'static [Voix]`), itérateurs
@@ -19,6 +25,9 @@
 use macroquad::input::{is_key_pressed, KeyCode};
 use pepin_core::sons;
 use pepin_core::synthese::{ajouter, midi_vers_hz, Bruit, Note, Onde, TAUX};
+use pepin_core::zones::{InfosNiveau, Theme};
+
+use crate::ecrans::Ecran;
 
 /// Une musique du catalogue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,6 +40,11 @@ pub enum Musique {
     Soleil,
     /// Valse aérienne à trois temps, sol majeur.
     ValseDesNuages,
+    /// Le combat contre le Grand Nuage : mi mineur, rapide et tendu (carte 8.7).
+    Cyclone,
+    /// Le niveau final : le Grand Nuage remonte et poursuit Pépin. Le motif du
+    /// Cyclone, furieux et plus rapide, la plus rapide du jeu (carte 8.7).
+    Poursuite,
 }
 
 // Les identifiants, noms et prix ne servent pas encore dans le jeu : la carte de la
@@ -38,11 +52,13 @@ pub enum Musique {
 #[cfg_attr(not(test), allow(dead_code))]
 impl Musique {
     /// Tout le catalogue, dans l'ordre d'affichage (et de la touche de QA).
-    pub const TOUTES: [Musique; 4] = [
+    pub const TOUTES: [Musique; 6] = [
         Musique::Orage,
         Musique::ToitsDeNuit,
         Musique::Soleil,
         Musique::ValseDesNuages,
+        Musique::Cyclone,
+        Musique::Poursuite,
     ];
 
     /// Identifiant texte STABLE (sauvegarde) : ne jamais le changer une fois publié.
@@ -52,6 +68,8 @@ impl Musique {
             Musique::ToitsDeNuit => "toits_de_nuit",
             Musique::Soleil => "soleil",
             Musique::ValseDesNuages => "valse_des_nuages",
+            Musique::Cyclone => "cyclone",
+            Musique::Poursuite => "poursuite",
         }
     }
 
@@ -67,6 +85,8 @@ impl Musique {
             Musique::ToitsDeNuit => "TOITS DE NUIT",
             Musique::Soleil => "SOLEIL",
             Musique::ValseDesNuages => "VALSE DES NUAGES",
+            Musique::Cyclone => "CYCLONE",
+            Musique::Poursuite => "POURSUITE",
         }
     }
 
@@ -92,6 +112,8 @@ impl Musique {
             Musique::ToitsDeNuit => Some(&TOITS_DE_NUIT),
             Musique::Soleil => Some(&SOLEIL),
             Musique::ValseDesNuages => Some(&VALSE_DES_NUAGES),
+            Musique::Cyclone => Some(&CYCLONE),
+            Musique::Poursuite => Some(&POURSUITE),
         }
     }
 
@@ -101,6 +123,53 @@ impl Musique {
             Some(p) => p.rendre(),
             None => sons::musique(),
         }
+    }
+}
+
+/// La musique d'un niveau, d'après sa ZONE (son thème). Fonction pure.
+///
+/// On regarde le thème et non le numéro : insérer un niveau ou en déplacer un ne
+/// change pas la musique des autres. Un thème qui n'est rangé dans aucune zone
+/// (par exemple un thème tout neuf) retombe sur la boucle d'origine, Orage.
+///
+/// Le niveau final « Le retour du Grand Nuage » (carte 8.2, développée en parallèle)
+/// n'existe pas encore dans cette branche : sa musique, Poursuite, n'est donc encore
+/// choisie par aucun niveau. À la fusion :
+/// - s'il a un thème À LUI, ajouter au `match` la ligne en commentaire ci-dessous ;
+/// - s'il garde le thème `Cyclone`, le thème ne suffit plus à le distinguer du boss :
+///   il faudra un autre critère (son genre, ou un champ « musique » dans ses
+///   `InfosNiveau`), jamais son numéro.
+pub fn musique_du_niveau(niveau: &InfosNiveau) -> Musique {
+    match niveau.theme {
+        // La ville la nuit : les toits, les gouttières, le marché couvert.
+        Theme::Toits | Theme::Gouttieres | Theme::Marche => Musique::ToitsDeNuit,
+        // Le boss : le Grand Nuage, dans l'œil du cyclone.
+        Theme::Cyclone => Musique::Cyclone,
+        // Le retour du Grand Nuage (carte 8.2), s'il a son propre thème :
+        // Theme::<thème du retour du Grand Nuage> => Musique::Poursuite,
+        // L'altitude : les vents, la mer de nuages, au-dessus des nuages (dont le
+        // thème s'appelle « Soleil » : le soleil doré du ciel, pas encore la fin).
+        Theme::Altitude | Theme::Mer | Theme::Soleil => Musique::ValseDesNuages,
+        // Le bonus et l'épilogue : l'orage est fini, le soleil est réveillé.
+        Theme::ArcEnCiel | Theme::Descente => Musique::Soleil,
+        // L'orage (le grand orage, le clocher) et tout thème non rangé : repli sur la
+        // boucle d'origine.
+        _ => Musique::Orage,
+    }
+}
+
+/// La musique d'un écran. `niveau` : le niveau chargé (celui de la carte de
+/// présentation, de la partie, de la pause...). Fonction pure.
+///
+/// La carte de présentation joue déjà la musique du niveau qu'elle annonce : entre
+/// deux niveaux de la même zone, la boucle continue sans coupure.
+pub fn musique_de_l_ecran(ecran: Ecran, niveau: &InfosNiveau) -> Musique {
+    match ecran {
+        Ecran::Titre | Ecran::Aide | Ecran::Boutique => Musique::Orage,
+        Ecran::Carte(_) | Ecran::Jeu | Ecran::Pause | Ecran::PlusDeVies(_) => {
+            musique_du_niveau(niveau)
+        }
+        Ecran::Fin => Musique::Soleil,
     }
 }
 
@@ -505,6 +574,383 @@ static VALSE_DES_NUAGES: Partition = Partition {
     ],
 };
 
+// --- Cyclone : le boss, mi mineur rapide et tendu (8 mesures de 8 croches, ~ 9,6 s)
+
+/// Motifs hachés (une croche jouée, une croche de silence) : le cyclone qui tourne.
+const CYCLONE_MELODIE: &[(u8, u8)] = &[
+    (76, 1), // mi mineur
+    (0, 1),
+    (76, 1),
+    (79, 1),
+    (78, 2),
+    (76, 1),
+    (71, 1),
+    (76, 1), // mi mineur
+    (0, 1),
+    (76, 1),
+    (79, 1),
+    (83, 2),
+    (81, 1),
+    (79, 1),
+    (79, 2), // do
+    (76, 2),
+    (72, 2),
+    (76, 2),
+    (78, 2), // ré
+    (74, 2),
+    (78, 1),
+    (81, 1),
+    (78, 2),
+    (76, 1), // mi mineur
+    (0, 1),
+    (76, 1),
+    (79, 1),
+    (78, 2),
+    (76, 1),
+    (71, 1),
+    (76, 1), // mi mineur
+    (0, 1),
+    (76, 1),
+    (79, 1),
+    (83, 2),
+    (84, 1),
+    (83, 1),
+    (84, 2), // do
+    (83, 2),
+    (79, 2),
+    (76, 2),
+    (75, 2), // si (majeur : tension)
+    (78, 2),
+    (75, 1),
+    (71, 1),
+    (0, 2),
+];
+
+/// Basse « pompe » : la fondamentale et son octave, une croche chacune, sans répit.
+const CYCLONE_BASSE: &[(u8, u8)] = &[
+    (40, 1), // mi mineur
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1), // mi mineur
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (36, 1), // do
+    (48, 1),
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (48, 1),
+    (38, 1), // ré
+    (50, 1),
+    (38, 1),
+    (50, 1),
+    (38, 1),
+    (50, 1),
+    (38, 1),
+    (50, 1),
+    (40, 1), // mi mineur
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1), // mi mineur
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (52, 1),
+    (36, 1), // do
+    (48, 1),
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (48, 1),
+    (35, 1), // si (majeur : tension)
+    (47, 1),
+    (35, 1),
+    (47, 1),
+    (35, 1),
+    (47, 1),
+    (35, 1),
+    (47, 1),
+];
+
+/// Charleston : un souffle de bruit aigu sur chaque contretemps.
+const CYCLONE_CHARLESTON: &[(u8, u8)] = &[(0, 1), (120, 1)];
+
+static CYCLONE: Partition = Partition {
+    croche: 0.15,
+    voix: &[
+        Voix {
+            onde: NASILLARD,
+            volume: 0.20,
+            declin: 0.9,
+            tenue: 0.8,
+            notes: CYCLONE_MELODIE,
+            fois: 1,
+        },
+        Voix {
+            onde: Onde::Triangle,
+            volume: 0.54,
+            declin: 1.2,
+            tenue: 0.85,
+            notes: CYCLONE_BASSE,
+            fois: 1,
+        },
+        Voix {
+            onde: Onde::Bruit,
+            volume: 0.05,
+            declin: 3.0,
+            tenue: 0.5,
+            notes: CYCLONE_CHARLESTON,
+            fois: 32,
+        },
+    ],
+};
+
+// --- Poursuite : le retour du Grand Nuage, la version furieuse du Cyclone (même
+// mi mineur, même motif, plus rapide : 12 mesures de 8 croches, ~ 11,5 s)
+
+/// Le motif du Cyclone (mi, mi, mi, sol, fa#, mi, si), joué SANS ses silences puis une
+/// octave plus haut : le Grand Nuage furieux qui poursuit Pépin.
+const POURSUITE_MELODIE: &[(u8, u8)] = &[
+    (76, 1), // mi mineur
+    (76, 1),
+    (76, 1),
+    (79, 1),
+    (78, 1),
+    (76, 1),
+    (71, 1),
+    (76, 1),
+    (76, 1), // mi mineur
+    (76, 1),
+    (76, 1),
+    (79, 1),
+    (83, 1),
+    (81, 1),
+    (79, 1),
+    (78, 1),
+    (79, 1), // do
+    (76, 1),
+    (72, 1),
+    (76, 1),
+    (79, 1),
+    (76, 1),
+    (72, 1),
+    (76, 1),
+    (78, 1), // ré
+    (74, 1),
+    (78, 1),
+    (81, 1),
+    (78, 1),
+    (74, 1),
+    (78, 1),
+    (81, 1),
+    (88, 1), // mi mineur (le motif une octave plus haut)
+    (88, 1),
+    (88, 1),
+    (91, 1),
+    (90, 1),
+    (88, 1),
+    (83, 1),
+    (88, 1),
+    (88, 1), // mi mineur
+    (88, 1),
+    (88, 1),
+    (91, 1),
+    (95, 2),
+    (93, 1),
+    (91, 1),
+    (96, 2), // do
+    (95, 2),
+    (91, 2),
+    (88, 2),
+    (87, 2), // si
+    (90, 2),
+    (87, 1),
+    (83, 1),
+    (0, 2),
+    (81, 1), // la mineur
+    (0, 1),
+    (81, 1),
+    (84, 1),
+    (83, 2),
+    (81, 1),
+    (76, 1),
+    (83, 1), // si
+    (0, 1),
+    (83, 1),
+    (87, 1),
+    (90, 2),
+    (87, 1),
+    (83, 1),
+    (76, 1), // mi mineur
+    (76, 1),
+    (79, 1),
+    (83, 1),
+    (88, 1),
+    (83, 1),
+    (79, 1),
+    (76, 1),
+    (88, 1), // mi mineur
+    (0, 1),
+    (88, 1),
+    (0, 1),
+    (76, 2),
+    (0, 2),
+];
+
+/// Basse au galop : deux graves, l'octave, un grave (deux fois par mesure).
+const POURSUITE_BASSE: &[(u8, u8)] = &[
+    (40, 1), // mi mineur
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1), // mi mineur
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (36, 1), // do
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (36, 1),
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (38, 1), // ré
+    (38, 1),
+    (50, 1),
+    (38, 1),
+    (38, 1),
+    (38, 1),
+    (50, 1),
+    (38, 1),
+    (40, 1), // mi mineur (le motif une octave plus haut)
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1), // mi mineur
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (36, 1), // do
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (36, 1),
+    (36, 1),
+    (48, 1),
+    (36, 1),
+    (35, 1), // si
+    (35, 1),
+    (47, 1),
+    (35, 1),
+    (35, 1),
+    (35, 1),
+    (47, 1),
+    (35, 1),
+    (33, 1), // la mineur
+    (33, 1),
+    (45, 1),
+    (33, 1),
+    (33, 1),
+    (33, 1),
+    (45, 1),
+    (33, 1),
+    (35, 1), // si
+    (35, 1),
+    (47, 1),
+    (35, 1),
+    (35, 1),
+    (35, 1),
+    (47, 1),
+    (35, 1),
+    (40, 1), // mi mineur
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1), // mi mineur
+    (40, 1),
+    (52, 1),
+    (40, 1),
+    (40, 1),
+    (40, 1),
+    (52, 1),
+    (40, 1),
+];
+/// Un souffle de bruit sur CHAQUE croche : la respiration de la course.
+const POURSUITE_SOUFFLE: &[(u8, u8)] = &[(120, 1)];
+
+static POURSUITE: Partition = Partition {
+    croche: 0.12,
+    voix: &[
+        Voix {
+            onde: NASILLARD,
+            volume: 0.20,
+            declin: 0.9,
+            tenue: 0.8,
+            notes: POURSUITE_MELODIE,
+            fois: 1,
+        },
+        Voix {
+            onde: Onde::Triangle,
+            volume: 0.54,
+            declin: 1.2,
+            tenue: 0.85,
+            notes: POURSUITE_BASSE,
+            fois: 1,
+        },
+        Voix {
+            onde: Onde::Bruit,
+            volume: 0.04,
+            declin: 3.0,
+            tenue: 0.5,
+            notes: POURSUITE_SOUFFLE,
+            fois: 96,
+        },
+    ],
+};
+
 /// Build de QA seulement (fonctionnalité `debug_niveaux`, `./build.sh --qa`) : la
 /// touche F11 passe à la musique suivante du catalogue (F1 à F10 sont déjà prises par
 /// les niveaux d'essai et le plantage volontaire). Toujours faux en production : la
@@ -554,7 +1000,42 @@ mod tests {
         }
     }
 
-    /// Pas un test : régénère les extraits à écouter `docs/qa/77-*.wav` (10 s de
+    /// Une musique par zone (carte 8.7) : chaque niveau du jeu reçoit celle de sa
+    /// zone (d'après son thème), le boss et l'épilogue ont la leur, et les écrans hors
+    /// niveau suivent la règle (titre : Orage ; fin : Soleil ; pause : celle du niveau).
+    #[test]
+    fn chaque_niveau_a_la_musique_de_sa_zone() {
+        use pepin_core::levels::NIVEAUX;
+        use Musique::*;
+        // Dans l'ordre de la table : la ville, l'orage, le boss, l'altitude, puis le
+        // bonus et l'épilogue (« Le retour du Grand Nuage », Poursuite, viendra avec la
+        // carte 8.2).
+        let attendu = [
+            ToitsDeNuit,    // les toits
+            ToitsDeNuit,    // gouttières et cheminées
+            ToitsDeNuit,    // le marché couvert
+            Orage,          // le grand orage
+            Orage,          // le clocher
+            Cyclone,        // l'œil du cyclone (boss)
+            ValseDesNuages, // vents d'altitude
+            ValseDesNuages, // la mer de nuages
+            ValseDesNuages, // au-dessus des nuages
+            Soleil,         // l'arc-en-ciel (bonus)
+            Soleil,         // la descente (épilogue)
+        ];
+        let obtenu: Vec<Musique> = NIVEAUX.iter().map(musique_du_niveau).collect();
+        assert_eq!(obtenu, attendu);
+        // Le boss a une musique à lui seul.
+        assert_eq!(obtenu.iter().filter(|&&m| m == Cyclone).count(), 1);
+        let cyclone = &NIVEAUX[5];
+        assert_eq!(musique_de_l_ecran(Ecran::Titre, cyclone), Orage);
+        assert_eq!(musique_de_l_ecran(Ecran::Boutique, cyclone), Orage);
+        assert_eq!(musique_de_l_ecran(Ecran::Carte(10), cyclone), Cyclone);
+        assert_eq!(musique_de_l_ecran(Ecran::Pause, cyclone), Cyclone);
+        assert_eq!(musique_de_l_ecran(Ecran::Fin, cyclone), Soleil);
+    }
+
+    /// Pas un test : régénère les extraits à écouter `docs/qa/77-*.wav` et `87-*.wav` (10 s de
     /// chaque nouvelle musique, boucle comprise) et affiche leur volume efficace à
     /// côté de celui d'Orage. Lancé à la main :
     /// `./docker-cargo.sh test -p game --no-default-features ecrire_les_extraits -- --ignored`
@@ -571,10 +1052,14 @@ mod tests {
                 .copied()
                 .collect();
             println!("{:<18} efficace {:.3}", m.id(), efficace(&boucle));
-            if m != Musique::Orage {
-                let chemin = format!("../docs/qa/77-musique-{}.wav", m.id());
-                std::fs::write(&chemin, sons::vers_wav(&dix_s)).expect("écriture du WAV");
-            }
+            // Préfixe : la carte qui a ajouté la musique (7.7, puis 8.7 pour les zones).
+            let carte = match m {
+                Musique::Orage => continue,
+                Musique::Cyclone | Musique::Poursuite => 87,
+                _ => 77,
+            };
+            let chemin = format!("../docs/qa/{carte}-musique-{}.wav", m.id());
+            std::fs::write(&chemin, sons::vers_wav(&dix_s)).expect("écriture du WAV");
         }
     }
 }

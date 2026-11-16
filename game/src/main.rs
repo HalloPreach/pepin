@@ -11,7 +11,7 @@
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
 //! (changer de niveau), K (skin suivant), G (100 gouttes en poche), F9 (plantage
-//! volontaire) et F11 (musique suivante) : uniquement dans le build de mise au point
+//! volontaire) et F11 (force la musique suivante) : uniquement dans le build de mise au point
 //! (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
 mod app;
@@ -98,6 +98,9 @@ async fn main() {
     // (et un navigateur n'autorise l'audio qu'après une première interaction).
     let mut audio = Audio::charger().await;
     let mut app = Application::new(true);
+    // Musique imposée par-dessus celle de la zone (`None` : la musique de la zone).
+    // Aujourd'hui seule la touche F11 du build de QA la règle.
+    let mut forcage: Option<musiques::Musique> = None;
 
     loop {
         let commandes = sources.lire();
@@ -135,16 +138,23 @@ async fn main() {
         if entrees::plantage_qa() {
             panic!("plantage volontaire (build de QA, touche F9)");
         }
+        // Build de QA seulement (F11) : FORCE la musique suivante du catalogue, pour
+        // l'écouter partout. (La future boutique vendra ce même forçage.)
+        if musiques::musique_suivante_qa() {
+            forcage = Some(audio.musique_active().suivante());
+        }
+        // Une musique par zone (carte 8.7) : celle de l'écran et du niveau chargé, sauf
+        // forçage. `choisir_musique` n'agit que si elle CHANGE : deux niveaux de la même
+        // zone gardent la boucle sans coupure.
+        let voulue =
+            forcage.unwrap_or_else(|| musiques::musique_de_l_ecran(app.ecran, app.monde.infos));
+        audio.choisir_musique(voulue);
         // Le réglage son vient des menus ou de la touche M ; l'audio ne fait que l'appliquer.
         // La musique et la pluie se taisent pendant la pause et reprennent à sa sortie.
         let bascule_son = app.son != audio.est_actif();
         audio.regler(app.son, app.boucles_sonores());
         if bascule_son {
             audio.jouer(Effet::Menu);
-        }
-        // Build de QA seulement (F11) : musique suivante du catalogue, pour l'écouter.
-        if musiques::musique_suivante_qa() {
-            audio.choisir_musique(audio.musique_active().suivante());
         }
         let entrees = commandes.vers_entrees();
 
