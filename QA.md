@@ -5547,3 +5547,33 @@ Regardée.
   complète, ni le lint, ni la partie complète du robot (`la_partie_complete_joue_le_bonus`, qui ramasse
   toutes les gouttes) ; `zones` vérifie seulement que le robot du cœur atteint les trois gouttes.
 - Chromium sans tête seulement : ni vrai téléphone, ni Safari, ni Firefox.
+
+## Robot de QA plus rapide : un niveau par fil (carte 6.9)
+
+`tous_les_parcours()` (game/src/bot_qa/mod.rs) cherchait le parcours des 11 niveaux l'un après l'autre.
+Il en cherche maintenant un par fil (`std::thread::scope`, comme `tous_les_parcours_complets()`), rangés
+dans l'ordre des niveaux, même message de panique. `ecrire_scripts_des_ajouts` (scripts.rs : scripts 64,
+64b, 66) cherche aussi ses niveaux en parallèle avant de les rejouer dans l'ordre. Code de test
+seulement, rien dans core/ ni dans le jeu, aucun nouveau test.
+
+### Preuves
+
+Deux extractions propres, `git archive` de 589d6eb (avant) et de carte-6.9 au commit 96a84eb (après) :
+
+- durée de `./docker-cargo.sh test -p game --no-default-features -- --exact
+  bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir` (mesurée une fois chaque) : avant
+  534,8 s (charge 6,9 au début, 7,8 à la fin) ; après 259,4 s (charge 8,0 puis 5,3). Le temps est
+  maintenant celui de la recherche du niveau le plus long, plus le rejeu de la partie ;
+- parcours identiques à l'octet : `ecrire_script_navigateur` donne la même empreinte avant et après
+  (71df3e47c4844537 : 21 422 images, 0 mort, 14 gouttes, chrono 18 878 pas) et `ecrire_script_ennemis`
+  aussi ; les 17 fichiers écrits dans `target/qa/` (script.txt, trace.csv, script-64-1 à 5,
+  touches-64-*, trace-64-*) sont identiques (`cmp`) ;
+- `./docker-cargo.sh test -p game --no-default-features bot_qa` : 19 verts, 19 ignorés ;
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK ; `./build.sh` : `dist/` produit.
+
+### Ce qui n'est PAS testé
+
+- `ecrire_script_ennemis` n'a pas été plus rapide pendant cette mesure (388 s avant, 394 s après, lancé
+  en même temps que d'autres tests, charge jusqu'à 13) : son niveau 5 domine. Les scripts 64b et 66
+  (même fonction) n'ont pas été relancés.
+- Pas de suite complète (consigne vitesse) ; une seule mesure de chaque côté, sur une machine chargée.
