@@ -533,6 +533,10 @@ pub(crate) struct CaseParcours {
     pub(crate) aiguille: i32,
     /// Le Grand Nuage, résumé en entier (`nuage_de_la_case`) ; 0 sans nuage.
     pub(crate) nuage: i32,
+    /// Un secret déjà révélé (carte 8.5) : le même endroit atteint par un raccourci
+    /// ne remplace pas celui du chemin normal (`trouver_parcours` refuse l'arrivée
+    /// après un secret).
+    pub(crate) secret: bool,
 }
 
 /// La case (`CaseParcours`) de Pépin dans `m`.
@@ -545,6 +549,7 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         chats: chats_de_la_case(m),
         aiguille: aiguille_proche(m),
         nuage: nuage_de_la_case(m),
+        secret: m.caches_reveles.iter().any(|&r| r),
     }
 }
 
@@ -882,10 +887,14 @@ pub(crate) fn chercher_avec(
 }
 
 /// Cherche les entrées (une par pas) qui mènent du début du niveau `indice` à
-/// l'arrivée sans jamais mourir. `None` si rien n'est trouvé.
+/// l'arrivée sans jamais mourir. `None` si rien n'est trouvé. Le chemin NORMAL
+/// (carte 8.5) : une arrivée après avoir révélé un secret (salle, raccourci) ne
+/// compte pas ; seule la partie complète entre dans les salles secrètes.
 pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     let (depart, mut entrees) = depart_pose(indice);
-    let etapes = chercher(&depart, &plans(precis), &|_| false, usize::MAX)?;
+    let sans_secret =
+        |m: &Monde| gouttes_avant_la_victoire(m) && !m.caches_reveles.iter().any(|&r| r);
+    let etapes = chercher_avec(&depart, &plans(precis), &|_| false, &sans_secret, usize::MAX)?;
     for e in etapes {
         entrees.extend(e.entrees);
     }
@@ -925,6 +934,23 @@ pub fn trouver_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entre
             }
             entrees.extend(e.entrees);
         }
+    }
+    Some(entrees)
+}
+
+/// Parcours qui prend le SECRET du niveau `indice` (carte 8.5) : une arrivée ne
+/// compte qu'après avoir révélé une zone cachée (le raccourci), et, si le niveau a
+/// une sortie secrète, que par elle. Sert aux captures de QA.md ; `None` si rien
+/// n'est trouvé.
+pub fn trouver_parcours_secret(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
+    let (depart, mut entrees) = depart_pose(indice);
+    let par_le_secret = |m: &Monde| {
+        m.caches_reveles.iter().any(|&r| r)
+            && (m.niveau.sortie_secrete.is_none() || m.sortie_secrete)
+    };
+    let etapes = chercher_avec(&depart, &plans(precis), &|_| false, &par_le_secret, usize::MAX)?;
+    for e in etapes {
+        entrees.extend(e.entrees);
     }
     Some(entrees)
 }

@@ -9,7 +9,8 @@
 //! Le parcours, de gauche à droite :
 //! 1. le toit de départ, un premier chat endormi (on l'écrase ou on le saute) ;
 //! 2. un premier auvent au bord du toit : en marchant droit devant, Pépin tombe
-//!    dessus et rebondit (la première goutte est sur la trajectoire du rebond) ;
+//!    dessus et rebondit (la première goutte, longtemps sur la trajectoire du
+//!    rebond, est cachée depuis la carte 8.5 : voir « Secret » plus bas) ;
 //! 3. un toit gardé par une flaque, puis deux auvents au-dessus de la rue du
 //!    marché (deux rangées plus bas : on y tombe sans mourir, on remonte d'un saut) ;
 //! 4. la goutte CACHÉE : un bloc de boutique, une fente où dort un chat, et un
@@ -32,6 +33,11 @@
 //! façade ; au-dessus du vide, le rendu dessine une façade de boutique derrière
 //! son mât (`game/src/scene.rs`, dessin seulement, aucune collision). Aucune
 //! manche à air ici : on ne doit pas la confondre avec un auvent.
+//!
+//! Secret (carte 8.5) : le premier bloc de boutique (colonnes 59 à 63) est creux.
+//! Sa face gauche (rangée 7, une brique décalée) est un faux mur `m` : en
+//! marchant droit dedans au lieu de sauter sur le bloc, on trouve la goutte qui
+//! était sur le rebond du premier auvent (colonne 61).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -69,9 +75,9 @@ const ASCII: &str = r"
 .........................................................................................................................................................
 .........................................................................................................................................................
 ....................................................................z....................................................................................
-......................o..........................................######........................o......................T..................................
+.................................................................######........................o......................T..................................
 ...........................................................#####.BBBBBB.............................................######...............................
-.@.L..H.....z.....................f...............L...z....BBBBB.BBBBBB..L...H...T............................L...z.BBBBBB......f....................X...
+.@.L..H.....z.....................f...............L...z....mmoBB.BBBBBB..L...H...T............................L...z.BBBBBB......f....................X...
 ####################A...################A...A...###########BBBBBz..o.BB##############A...A...A...A...A...A..########BBBBBB#############A...A...##########
 BBBBBBBBBBBBBBBBBBBB....BBBBBBBBBBBBBBBB........BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBBBBBBBBBBBBBBB........BBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBB....BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB

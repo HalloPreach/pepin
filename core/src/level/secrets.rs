@@ -30,37 +30,39 @@ pub(super) fn zones_cachees(
     for &(x, y) in faux {
         cache[i(x, y)] = true;
     }
-    // Hors carte : murs à gauche et à droite, ouvert en haut et en bas.
-    let bouche = |x: i32, y: i32, cache: &[bool]| -> bool {
-        if x < 0 || x >= largeur as i32 {
-            return true;
-        }
-        if y < 0 || y >= hauteur as i32 {
-            return false;
-        }
-        let k = i(x as usize, y as usize);
-        cache[k] || tuiles[k].est_solide()
-    };
-    // Cases libres enfermées par des faux murs : cachées aussi (une seule passe).
+    // Poches enfermées : une composante (4-connexité) de cases libres non cachées
+    // qui ne touche ni le haut ni le bas de la carte (hors carte : murs à gauche et
+    // à droite, ciel ouvert en haut et en bas) et qui borde au moins un faux mur
+    // est cachée avec eux (une salle secrète, sa goutte, sa sortie).
+    let libre = |k: usize, cache: &[bool]| !cache[k] && !tuiles[k].est_solide();
+    let mut vue_poche = vec![false; largeur * hauteur];
     let mut enfermees = Vec::new();
-    for y in 0..hauteur {
-        for x in 0..largeur {
-            let (xi, yi) = (x as i32, y as i32);
-            let voisins = [(xi - 1, yi), (xi + 1, yi), (xi, yi - 1), (xi, yi + 1)];
-            let contre_un_faux = voisins.iter().any(|&(vx, vy)| {
-                vx >= 0
-                    && vy >= 0
-                    && (vx as usize) < largeur
-                    && (vy as usize) < hauteur
-                    && cache[i(vx as usize, vy as usize)]
-            });
-            if !cache[i(x, y)]
-                && !tuiles[i(x, y)].est_solide()
-                && contre_un_faux
-                && voisins.iter().all(|&(vx, vy)| bouche(vx, vy, &cache))
-            {
-                enfermees.push(i(x, y));
+    for depart in 0..largeur * hauteur {
+        if vue_poche[depart] || !libre(depart, &cache) {
+            continue;
+        }
+        vue_poche[depart] = true;
+        let mut file = VecDeque::from([depart]);
+        let mut poche = Vec::new();
+        let (mut ouverte, mut contre_un_faux) = (false, false);
+        while let Some(k) = file.pop_front() {
+            poche.push(k);
+            let (x, y) = (k % largeur, k / largeur);
+            ouverte |= y == 0 || y + 1 == hauteur;
+            for (vx, vy) in voisins(x, y) {
+                if vx >= largeur || vy >= hauteur {
+                    continue;
+                }
+                let v = i(vx, vy);
+                contre_un_faux |= cache[v];
+                if !vue_poche[v] && libre(v, &cache) {
+                    vue_poche[v] = true;
+                    file.push_back(v);
+                }
             }
+        }
+        if !ouverte && contre_un_faux {
+            enfermees.extend(poche);
         }
     }
     for k in enfermees {
@@ -80,13 +82,7 @@ pub(super) fn zones_cachees(
         while let Some(k) = file.pop_front() {
             let (x, y) = (k % largeur, k / largeur);
             cases.push((x, y));
-            let voisins = [
-                (x.wrapping_sub(1), y),
-                (x + 1, y),
-                (x, y.wrapping_sub(1)),
-                (x, y + 1),
-            ];
-            for (vx, vy) in voisins {
+            for (vx, vy) in voisins(x, y) {
                 if vx < largeur && vy < hauteur && cache[i(vx, vy)] && !vue[i(vx, vy)] {
                     vue[i(vx, vy)] = true;
                     file.push_back(i(vx, vy));
@@ -97,6 +93,17 @@ pub(super) fn zones_cachees(
         zones.push(zone(tuiles, largeur, hauteur, &cache, cases));
     }
     zones
+}
+
+/// Les quatre voisines de `(x, y)` ; hors carte à gauche ou en haut : `usize::MAX`
+/// (`wrapping_sub`), que le test `< largeur` / `< hauteur` écarte.
+fn voisins(x: usize, y: usize) -> [(usize, usize); 4] {
+    [
+        (x.wrapping_sub(1), y),
+        (x + 1, y),
+        (x, y.wrapping_sub(1)),
+        (x, y + 1),
+    ]
 }
 
 /// Assemble une zone : l'apparence de chaque case et la case de l'indice.
@@ -143,13 +150,13 @@ fn zone(
         })
         .collect();
     // Indice : une case d'entrée (voisine, à gauche ou à droite, d'une case libre
-    // non cachée) qui imite une brique coiffée d'une autre case pleine ; la plus
-    // basse, puis la plus à gauche.
+    // non cachée) qui imite une brique ou un nuage, coiffée d'une autre case
+    // pleine ; la plus basse, puis la plus à gauche.
     let indice = cases
         .iter()
         .filter(|&&(x, y, t)| {
             let libre = |vx: i32| solide(vx, y).is_none() && !est_cache(vx, y) && vx >= 0;
-            t == Tuile::Brique
+            matches!(t, Tuile::Brique | Tuile::Nuage)
                 && (libre(x - 1) || libre(x + 1))
                 && (solide(x, y - 1).is_some() || est_cache(x, y - 1))
         })

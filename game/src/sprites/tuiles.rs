@@ -269,6 +269,27 @@ pub const BRIQUE_DECALEE: Image = &[
     "2222222222222222",
 ];
 
+/// Indice d'un faux mur de nuage (carte 8.5) : un petit creux d'ombre (5) dans le nuage plein,
+/// comme si le nuage était moins épais à cet endroit.
+pub const NUAGE_CREUX: Image = &[
+    "7666666666666666",
+    "6666667666666666",
+    "6666666666667666",
+    "6666666666666666",
+    "6766666666666666",
+    "6666655566666666",
+    "6666555556666766",
+    "6666555556666666",
+    "6676655566666666",
+    "6666666676666666",
+    "6666666666666676",
+    "6666666666666666",
+    "5567556655665566",
+    "5665566557655665",
+    "5555555555555555",
+    "5555555555555555",
+];
+
 /// Ombre sous le rebord d'un toit : bande de 2 px posée PAR-DESSUS le haut de la brique qui est
 /// juste sous une tuile de toit. 0 (ombre la plus profonde) contre le rebord, puis 1 (ombre de
 /// nuit) : deux niveaux d'ombre, sans dégradé. Elle donne l'épaisseur de l'avancée du toit.
@@ -292,5 +313,6 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("brique_manquante", BRIQUE_MANQUANTE),
     ("brique_coulure", BRIQUE_COULURE),
     ("brique_decalee", BRIQUE_DECALEE),
+    ("nuage_creux", NUAGE_CREUX),
     ("ombre_toit", OMBRE_TOIT),
 ];

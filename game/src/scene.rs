@@ -124,6 +124,11 @@ fn boite_cachee(monde: &Monde, b: &Aabb) -> bool {
     )
 }
 
+/// La case `(tx, ty)` est-elle l'indice d'une zone cachée (carte 8.5) ?
+fn case_d_indice(monde: &Monde, tx: i32, ty: i32) -> bool {
+    monde.niveau.caches.iter().any(|z| z.indice == Some((tx, ty)))
+}
+
 /// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus ; un nuage dont la
 /// case voisine est vide (à gauche et/ou à droite) prend un bord arrondi. Dessin seulement :
 /// la collision reste celle de la case. Les faux murs comptent comme le solide qu'ils imitent
@@ -146,11 +151,8 @@ fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
         (Tuile::Toit, true) => "toit_haut",
         (Tuile::Toit, false) => "toit_plein",
         (Tuile::Brique, true) => "brique_haut",
-        (Tuile::Brique, false)
-            if monde.niveau.caches.iter().any(|z| z.indice == Some((tx, ty))) =>
-        {
-            "brique_decalee"
-        }
+        (Tuile::Brique, false) if case_d_indice(monde, tx, ty) => "brique_decalee",
+        (Tuile::Nuage, false) if case_d_indice(monde, tx, ty) => "nuage_creux",
         (Tuile::Brique, false) => variante_brique(tx, ty).unwrap_or("brique_plein"),
         (Tuile::Nuage, true) => "nuage_haut",
         (Tuile::Nuage, false) => "nuage_plein",

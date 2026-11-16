@@ -45,6 +45,12 @@
 //! La cage reprend la géométrie du niveau d'essai « horloge » (mêmes rayons,
 //! vitesses et heures de départ, mêmes écarts entre pivots et tours) : le
 //! robot de QA y passe à coup sûr, aiguilles décalées d'une ou deux images.
+//!
+//! Secret (carte 8.5), la SORTIE CACHÉE : sur la deuxième corniche du zigzag
+//! (rangée 23, contre le mur gauche), le mur a une brique décalée (colonne 18,
+//! rangée 22). C'est un faux mur `m` : derrière, une petite salle (colonnes 15-16,
+//! rangées 21-22) et un second drapeau (`x`) qui finit le niveau sans passer par
+//! la cage de l'horloge (une fin normale).
 
 use crate::level::ReglageAiguille;
 use crate::levels::GenreNiveau;
@@ -137,8 +143,8 @@ const ASCII: &str = r"
 BBBBBBBBBBBBBBBBBBB.......c.....BB
 BBBBBBBBBBBBBBBBBBB.............BB
 BBBBBBBBBBBBBBBBBBB...##########BB
-BBBBBBBBBBBBBBBBBBB.............BB
-BBBBBBBBBBBBBBBBBBB.............BB
+BBBBBBBBBBBBBBB..BB.............BB
+BBBBBBBBBBBBBBBx.mm.............BB
 BBBBBBBBBBBBBBBBBBB########.....BB
 BBBBBBBBBBBBBBBBBBBp............BB
 BBBBBBBBBBBBBBBBBBBB............BB
