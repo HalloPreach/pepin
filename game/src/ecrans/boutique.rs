@@ -210,6 +210,15 @@ pub fn dessiner(banque: &Banque, anim: u32, s: &Sauvegarde, e: &EtatBoutique) {
     let skin = Skin::depuis_id(&s.skin_choisi).unwrap_or_default();
     let nb = e.objets.len();
     let debut = premiere_visible(e.menu.selection(), nb);
+    // Une seule taille de nom par onglet : l'échelle 2 si TOUS les noms de l'onglet
+    // y tiennent, sinon l'échelle 1 pour tous (sinon SOLEIL en grand entre deux
+    // petits noms, ce qui fait désordre).
+    let place_nom =
+        rect_ligne(0).2 - 34.0 - 8.0 - largeur_texte(contenu::ETAT_A_ACHETER, 1) as f32 - 6.0;
+    let grand = e
+        .objets
+        .iter()
+        .all(|o| largeur_texte(o.nom, 2) as f32 <= place_nom);
     for (k, objet) in e.objets.iter().enumerate().skip(debut).take(MAX_VISIBLES) {
         let r @ (x, y, w, _) = rect_ligne(k - debut);
         cadre(r, k == e.menu.selection());
@@ -243,9 +252,8 @@ pub fn dessiner(banque: &Banque, anim: u32, s: &Sauvegarde, e: &EtatBoutique) {
             #[cfg(any(test, feature = "debug_niveaux"))]
             Apercu::Factice => banque.dessiner("goutte0", x + 11.0, y + 9.0, false),
         }
-        // Nom à l'échelle 2, ou 1 s'il déborderait sur l'état (VALSE DES NUAGES…).
-        let place = w - 34.0 - 8.0 - largeur_texte(contenu::ETAT_A_ACHETER, 1) as f32 - 6.0;
-        if largeur_texte(objet.nom, 2) as f32 <= place {
+        // Nom à l'échelle choisie pour tout l'onglet (`grand`, plus haut).
+        if grand {
             texte::dessiner(objet.nom, x + 34.0, y + 3.0, ombre(BLANC_CASSE, 2));
         } else {
             texte::dessiner(objet.nom, x + 34.0, y + 7.0, ombre(BLANC_CASSE, 1));
