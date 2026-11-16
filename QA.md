@@ -6248,3 +6248,65 @@ Après la fusion de 7.9, 8.2/8.2b, 8.4, 8.12 et 7.4 : finir l'intégration de l'
 
 - Vrai téléphone ; personne n'a lu les textes à la main à 640x360 ; partie complète du robot (ignorée,
   ~10 min) non relancée pour cette retouche.
+
+## Nouvelle partie + (carte 8.8)
+
+« Après la fin, les mêmes niveaux avec les ennemis déplacés et la pluie plus forte. »
+
+- Déblocage : la ligne NOUVELLE PARTIE+ (`contenu::NOUVELLE_PARTIE_PLUS`, 16 caractères, 190 px pour 192)
+  apparaît au titre, sous JOUER, dès qu'une partie est finie (`parties_finies > 0`, comme HISTOIRE). Le titre
+  a alors six lignes : `ecrans::TITRE_SIX_LIGNES` (pas de 17 px au lieu de 18, de y = 52 à 154) ; le
+  sous-titre s'efface pour leur faire place. La partie ne raconte pas l'histoire (déjà vue) ; REJOUER garde
+  le mode de la partie finie ; un niveau joué seul depuis la carte et la démo du titre restent normaux.
+- HUD : un « + » en or devant le chrono pendant toute la nouvelle partie +.
+- Variantes (`core/src/levels/variantes.rs`) : les GRILLES NE CHANGENT PAS (la carte 8.6 les modifie en même
+  temps). Par CLÉ de niveau, une table écrite à la main de déplacements `(case, case)` et d'ajouts `(lettre,
+  case)`, appliquée au texte de la grille au chargement, puis lue par le même parseur. Chaque ennemi qui le
+  peut change de côté sur son toit (ou de place dans son couloir de vol) ; restent en place les pigeons
+  d'un perchoir d'une case, les gardiens d'un secret et le chat du clocher (sa place va avec le souffle du
+  ventilateur). Une première variante du clocher (chat au pied de l'arche, corbeau devant la porte, flaque
+  sur F4) : la recherche du robot de QA n'y avait pas abouti au bout de 20 min ; refaite (corbeau au bout de
+  F4, flaque sur F2). Un ennemi de plus par niveau (flaque, ou corbeau au marché et dans la descente). Aucun ennemi placé par une variante à moins de 6 cases d'une lanterne ou du
+  départ à hauteur de Pépin, et aucune flaque nouvelle ne patrouille sur le toit d'une reprise qui n'en avait
+  pas. L'arène du Grand Nuage et l'arc-en-ciel (bonus sans ennemi) n'ont pas de table.
+- Plus dur, partout : éclairs plus fréquents (`REPOS_ECLAIR_NG_PLUS` = 110 pas de repos au lieu de 150,
+  l'annonce ne change pas) ; Grand Nuage « serré » (`GrandNuage::serrer` : à chaque colère le motif suivant,
+  le 2e à 3 points de vie puis le 3e ; le côté du courant suit toujours les points de vie) ; léger vent de
+  face sur les quatre niveaux de toits (`NIVEAUX_DE_TOITS`, `physics::VENT_DE_FACE` = 6 px/s vers la
+  gauche, plané ou non : 10 fois moins que le vent latéral, la course à 96 px/s le remonte sans peine ; une
+  zone `VentLateral::de_face`, sans traînées). Le front du niveau de poursuite est inchangé.
+- Pluie plus forte (dessin seulement) : 1,5 fois plus de gouttes par couche et 45° au lieu d'une pente de
+  2 (`decor::PLUIE_FORTE_NUM / PLUIE_FORTE_DEN`).
+- Sauvegarde : records à part (`RecordsNgPlus` : parties finies, meilleur score, meilleur temps, temps de
+  chaque niveau par clé ; lignes `ng_plus=parties:… score:… temps:…` et `ng_plus.<clé>=temps:…`, relues
+  avec la même tolérance). Gouttes, défis et médailles comptent comme d'habitude pour le porte-monnaie
+  (crédités une seule fois) ; le meilleur temps NORMAL d'un niveau n'est pas touché par la nouvelle partie +.
+
+### Preuves
+
+- `./docker-cargo.sh test -p core --release variantes` : 1 ok (617 s, machine chargée) :
+  `chaque_variante_ng_plus_est_finissable` (le seul test nouveau, pour la mécanique du cœur) : chaque
+  variante s'applique, même géométrie/gouttes/lanternes/départ, un ennemi de plus, distance aux reprises,
+  et chaque niveau NG+ finissable (vent de face compris) par le robot de faisabilité précis (arrivée, 3
+  gouttes, lanternes) et maladroit, et depuis chaque lanterne.
+- `test -p game --no-default-features` ciblés : `sauvegarde` 2 ok (aller-retour avec les records NG+),
+  `ecrans` 24 ok (six lignes sous le grand titre, au-dessus des toits), `contenu` 9, `hud` 6, `decor` 37,
+  `app::tests` 54 (menu du titre à six lignes), `menu` 10.
+- Robot de QA, troisième partie (`le_robot_finit_la_nouvelle_partie_plus_sans_mourir`, `-- --exact`) :
+  ok en 1134 s (machine chargée) : choisie au titre (une ligne sous JOUER), les niveaux 1 à 10 puis
+  l'épilogue (bonus sauté), 0 mort ; 24 461 images, chrono 21 688 pas, empreinte `ba4a1ce378de679f`.
+  Parcours cherchés dans les variantes (`trouver_parcours_mode`, un fil par niveau).
+- Captures `docs/qa/88-*.png` (build de QA sur 127.0.0.1, Chromium 1208 sans tête par CDP,
+  `node docs/capture-ng-plus.mjs PORT docs/qa`), regardées ;
+  `mesure-capture.py` : 0 pixel hors palette, 0 flou ; 0 erreur de console :
+  `88-titre-ng-plus` (six lignes, NOUVELLE PARTIE+ choisie) ; même endroit, mêmes touches, même image
+  après la carte, en normal puis en NG+ : `88-toits-*` (Pépin sur la marche des toits ; en NG+, la flaque
+  ajoutée en colonne 25 et, vent de face oblige, Pépin un peu moins loin : il y prend la goutte du saut),
+  `88-gouttieres-*` (la flaque passée de la colonne 20 à 14, pluie dense et à 45°, « + » dans le HUD),
+  `88-marche-*` (le chat du départ passé de la colonne 12 à 17).
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone (les lignes du titre à six font 17 px, 1 de moins que le minimum « doigt » de 18) ; le
+  vent de face n'a pas été joué à la main ; le Grand Nuage serré n'a pas de capture ; partie complète du
+  robot (ignorée) non relancée en NG+.
