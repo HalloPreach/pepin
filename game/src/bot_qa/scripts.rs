@@ -873,7 +873,8 @@ fn ecrire_script_ennemis() {
 /// Même chose pour la carte 6.4b (plus d'ennemis aux niveaux 7, 8, 9 et 11) :
 /// fichiers `script-64b-N.txt`, `touches-64b-N.txt` et `trace-64b-N.csv`. Les
 /// touches 1 à 9 du build de QA ne mènent qu'aux neuf premiers niveaux : pour la
-/// descente (le 11e), touche 9 puis deux fois N (niveau suivant, bonus compris).
+/// descente (le 12e depuis la carte 8.2), touche 9 puis N (niveau suivant) autant
+/// de fois qu'il le faut, bonus compris.
 /// La trace donne aussi la phase de vol des pigeons (plongée, remontée…).
 /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_ennemis_64b
 #[test]
@@ -908,7 +909,7 @@ fn ecrire_script_ennemis_64b() {
                     (TypeEnnemi::Corbeau, 120, 2),
                 ],
             ),
-            (10, &[(TypeEnnemi::Corbeau, 10, 12)]),
+            (11, &[(TypeEnnemi::Corbeau, 10, 12)]),
         ],
     );
 }
@@ -929,14 +930,14 @@ fn ecrire_script_pigeons_66() {
             (6, &[(Pigeon, 38, 3), (Pigeon, 167, 3)]),
             (7, &[(Pigeon, 65, 3)]),
             (8, &[(Pigeon, 108, 3)]),
-            (10, &[(Pigeon, 15, 10), (Pigeon, 21, 10)]),
+            (11, &[(Pigeon, 15, 10), (Pigeon, 21, 10)]),
         ],
     );
 }
 
 /// Carte 6.6 : le robot ne tombe jamais sur un pigeon, il n'y en a donc aucun
 /// d'écrasé dans ses parties. Pour capturer l'image « écrasé » en jeu, ce test
-/// cherche, dans la descente (niveau 11), une suite de touches simple qui fait
+/// cherche, dans la descente (niveau 12 depuis la carte 8.2), une suite de touches simple qui fait
 /// tomber Pépin sur le premier pigeon : courir à droite `a` pas, sauter et planer
 /// (saut maintenu) `b` pas, puis lâcher tout et tomber. Il écrit le parcours trouvé
 /// (un chiffre hexadécimal par pas, comme `script.txt` : 4 = droite, 8 = saut)
@@ -952,7 +953,7 @@ fn ecrire_parcours_pigeon_ecrase_66() {
     use pepin_core::entities::{Entite, TypeEnnemi};
     use pepin_core::player::{Direction, Entrees};
 
-    const DESCENTE: usize = 10;
+    const DESCENTE: usize = 11;
     let droite = Entrees {
         direction: Direction::Droite,
         saut: false,

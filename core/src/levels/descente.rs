@@ -1,4 +1,4 @@
-//! Niveau 11 (épilogue) : « La descente ».
+//! Niveau 12 (épilogue) : « La descente ».
 //!
 //! « Maintenant, on rentre. » Le dernier niveau, joué après le neuvième (ou après
 //! le bonus) ; l'écran de fin le suit. C'est le niveau VERTICAL À L'ENVERS : le
@@ -46,7 +46,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
-    numero: 11,
+    numero: 12,
     cle: "descente",
     nom: "La descente",
     theme: Theme::Descente,

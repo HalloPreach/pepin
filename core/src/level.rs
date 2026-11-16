@@ -66,6 +66,9 @@
 //!      prolonge (voir `ZoneCachee`) ; Pépin y entre et la zone se révèle
 //!   x  sortie secrète : un second drapeau, qui finit le niveau comme `X`
 //!      (une au plus, en plus du drapeau `X`)
+//!   P  mur de pluie (un au plus, carte 8.2) : son front part du bord droit de
+//!      la case `P` et avance vers la droite ; il tue au contact (voir
+//!      `crate::poursuite`). Hors de ce repère, la case est vide
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
@@ -233,6 +236,8 @@ pub struct Niveau {
     pub caches: Vec<ZoneCachee>,
     /// Sortie secrète `x` (carte 8.5) : la toucher finit le niveau comme le drapeau.
     pub sortie_secrete: Option<Aabb>,
+    /// Front de départ du mur de pluie (case `P`, carte 8.2), en px : `None` sans mur.
+    pub mur_de_pluie: Option<f32>,
 }
 
 /// Zone cachée (carte 8.5) : des faux murs `m` d'un seul tenant, et les cases

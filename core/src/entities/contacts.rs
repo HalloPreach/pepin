@@ -31,6 +31,8 @@ pub enum CauseMort {
     /// Grêle reçue parapluie fermé.
     Grele,
     Vide,
+    /// Rattrapé par le mur de pluie (carte 8.2, `crate::poursuite`).
+    Pluie,
 }
 
 /// Ce qui s'est passé pendant ce pas de simulation.

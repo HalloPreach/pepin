@@ -5,7 +5,7 @@
 //! tout se déduit de cette table (`NB_NIVEAUX` est sa longueur).
 //!
 //! Chaque niveau a un GENRE (`GenreNiveau`) :
-//! - `Normal` : le parcours principal, numéroté « NIVEAU 3/9 » ;
+//! - `Normal` : le parcours principal, numéroté « NIVEAU 3/10 » ;
 //! - `Bonus` : joué seulement si TOUTES les gouttes d'or des niveaux normaux ont été
 //!   ramassées pendant la partie en cours ; sinon on passe directement au suivant ;
 //! - `Epilogue` : le dernier niveau ; l'écran de fin vient juste après.
@@ -43,6 +43,7 @@ pub mod marche;
 pub mod mer;
 pub mod nuages;
 pub mod orage;
+pub mod poursuite;
 pub mod toits;
 pub mod vents;
 
@@ -71,6 +72,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     vents::INFOS,
     mer::INFOS,
     nuages::INFOS,
+    poursuite::INFOS,
     arc::INFOS,
     descente::INFOS,
 ];
@@ -141,9 +143,10 @@ pub const SANS_PLANER_POSSIBLE: [bool; NB_NIVEAUX] = [
     true,  // 6 cyclone
     true,  // 7 vents
     false, // 8 mer
-    true,  // 9 nuages (boss)
-    false, // 10 arc (bonus)
-    true,  // 11 descente (épilogue)
+    true,  // 9 nuages
+    false, // 10 poursuite (le retour du Grand Nuage, carte 8.2 : non mesuré, prudence)
+    false, // 11 arc (bonus)
+    true,  // 12 descente (épilogue)
 ];
 
 /// Ce qui vient après un niveau terminé.
@@ -335,38 +338,38 @@ mod tests {
         assert_eq!(NB_NIVEAUX, NIVEAUX.len());
     }
 
-    /// La vraie table depuis la carte 5.17 : neuf niveaux normaux, le bonus
-    /// (« L'arc-en-ciel », 10e) et l'épilogue (« La descente », 11e). Les DEUX
-    /// chemins : avec les 27 gouttes des neuf niveaux normaux, le bonus est joué
-    /// après le 9e, puis l'épilogue ; avec une goutte de moins (ou aucune), on passe
-    /// du 9e directement à l'épilogue. Après l'épilogue : la fin. Avant le 9e, les
-    /// gouttes ne changent rien.
+    /// La vraie table depuis la carte 8.2 : dix niveaux normaux (le 10e, « Le mur de
+    /// pluie », est le sommet), le bonus (« L'arc-en-ciel », 11e) et l'épilogue
+    /// (« La descente », 12e). Les DEUX chemins : avec les 30 gouttes des dix niveaux
+    /// normaux, le bonus est joué après le 10e, puis l'épilogue ; avec une goutte de
+    /// moins (ou aucune), on passe du 10e directement à l'épilogue. Après l'épilogue :
+    /// la fin. Avant le 10e, les gouttes ne changent rien.
     #[test]
     fn la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_finit_par_l_epilogue() {
         let normaux = NB_NIVEAUX - 2;
-        assert_eq!(normaux, 9);
-        assert_eq!(NB_NIVEAUX, 11);
+        assert_eq!(normaux, 10);
+        assert_eq!(NB_NIVEAUX, 12);
         assert!(NIVEAUX[..normaux].iter().all(|n| n.genre == Normal));
         assert_eq!(NIVEAUX[normaux].genre, Bonus);
         assert_eq!(NIVEAUX[normaux].nom, arc::INFOS.nom);
         assert_eq!(NIVEAUX[normaux + 1].genre, Epilogue);
         assert_eq!(NIVEAUX[normaux + 1].nom, descente::INFOS.nom);
-        assert_eq!(gouttes_pour_le_bonus(NIVEAUX), 27);
-        // Toutes les gouttes : 1 à 9, le bonus, l'épilogue, puis la fin.
-        assert_eq!(parcours(NIVEAUX, 27), (0..11).collect::<Vec<_>>());
-        // Une goutte manque : de 9 à l'épilogue, sans le bonus.
-        let sans_bonus: Vec<usize> = (0..9).chain([10]).collect();
-        assert_eq!(parcours(NIVEAUX, 26), sans_bonus);
+        assert_eq!(gouttes_pour_le_bonus(NIVEAUX), 30);
+        // Toutes les gouttes : 1 à 10, le bonus, l'épilogue, puis la fin.
+        assert_eq!(parcours(NIVEAUX, 30), (0..12).collect::<Vec<_>>());
+        // Une goutte manque : de 10 à l'épilogue, sans le bonus.
+        let sans_bonus: Vec<usize> = (0..10).chain([11]).collect();
+        assert_eq!(parcours(NIVEAUX, 29), sans_bonus);
         assert_eq!(parcours(NIVEAUX, 0), sans_bonus);
-        assert_eq!(apres(NIVEAUX, 8, 27), Apres::Niveau(9));
-        assert_eq!(apres(NIVEAUX, 8, 26), Apres::Niveau(10));
-        // Après le bonus : l'épilogue, quelles que soient les gouttes (30 avec les
-        // siennes) ; après l'épilogue : la fin.
         assert_eq!(apres(NIVEAUX, 9, 30), Apres::Niveau(10));
-        assert_eq!(apres(NIVEAUX, 10, 33), Apres::Fin);
-        assert_eq!(apres(NIVEAUX, 10, 0), Apres::Fin);
-        // Avant le 9e : toujours le niveau suivant.
-        for gouttes in [0, 26, 27] {
+        assert_eq!(apres(NIVEAUX, 9, 29), Apres::Niveau(11));
+        // Après le bonus : l'épilogue, quelles que soient les gouttes (33 avec les
+        // siennes) ; après l'épilogue : la fin.
+        assert_eq!(apres(NIVEAUX, 10, 33), Apres::Niveau(11));
+        assert_eq!(apres(NIVEAUX, 11, 36), Apres::Fin);
+        assert_eq!(apres(NIVEAUX, 11, 0), Apres::Fin);
+        // Avant le 10e : toujours le niveau suivant.
+        for gouttes in [0, 29, 30] {
             for i in 0..normaux - 1 {
                 assert_eq!(apres(NIVEAUX, i, gouttes), Apres::Niveau(i + 1));
             }
@@ -415,11 +418,11 @@ mod tests {
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (12, 3));
         let t = table(&[Normal, Normal]);
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (6, 0));
-        // La vraie table : 9 normaux et l'épilogue (30), le bonus (3) ; en tout, les
-        // 33 gouttes du jeu.
+        // La vraie table : 10 normaux et l'épilogue (33), le bonus (3) ; en tout, les
+        // 36 gouttes du jeu.
         assert_eq!(
             (gouttes_du_parcours(NIVEAUX), gouttes_du_bonus(NIVEAUX)),
-            (30, 3)
+            (33, 3)
         );
         assert_eq!(
             (gouttes_du_parcours(NIVEAUX) + gouttes_du_bonus(NIVEAUX)) as usize,

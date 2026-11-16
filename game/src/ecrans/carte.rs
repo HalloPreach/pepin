@@ -209,15 +209,17 @@ mod tests {
             ]
         );
         // Conseil d'« Au-dessus des nuages » (niveau 9 depuis l'arrivée de la mer de
-        // nuages) : une seule ligne.
+        // nuages ; ce n'est plus la dernière ligne droite depuis la carte 8.2) : une
+        // seule ligne.
         assert_eq!(
             couper_lignes(contenu::intro(8).astuce, LIGNE_MAX),
-            ["Dernière ligne droite : le champignon t'aide."]
+            ["Le champignon t'aide à monter."]
         );
         assert!(!contenu::intro(3).texte.to_lowercase().contains("flash"));
         // Le bonus (carte 5.16) : la phrase d'AGA et le conseil tiennent chacun sur
         // une ligne (une première version laissait « toi. » seul sur la seconde).
-        for texte in [contenu::intro(9).texte, contenu::intro(9).astuce] {
+        // (11e niveau depuis la carte 8.2.)
+        for texte in [contenu::intro(10).texte, contenu::intro(10).astuce] {
             assert_eq!(couper_lignes(texte, LIGNE_MAX), [texte]);
         }
     }

@@ -330,19 +330,19 @@ mod tests {
         }
         let numeros: Vec<u8> = joues.iter().map(|&(n, _)| n).collect();
         assert_eq!(numeros, attendu);
-        // Le robot ne ramasse pas toutes les gouttes : le bonus (10e) est SAUTÉ, on
-        // passe du 9e à l'épilogue (11e, carte 5.17), puis la fin (carte 5.16 : l'un
-        // des deux chemins).
-        let gouttes_au_9e = joues.iter().find(|j| j.0 == 9).map(|j| j.1).unwrap();
-        assert!(gouttes_au_9e < pepin_core::levels::gouttes_pour_le_bonus(NIVEAUX));
-        let sans_bonus: Vec<u8> = (1..=9).chain([11]).collect();
+        // Le robot ne ramasse pas toutes les gouttes : le bonus (11e) est SAUTÉ, on
+        // passe du 10e (le retour du Grand Nuage, 8.2) à l'épilogue (12e, carte 5.17),
+        // puis la fin (carte 5.16 : l'un des deux chemins).
+        let gouttes_au_10e = joues.iter().find(|j| j.0 == 10).map(|j| j.1).unwrap();
+        assert!(gouttes_au_10e < pepin_core::levels::gouttes_pour_le_bonus(NIVEAUX));
+        let sans_bonus: Vec<u8> = (1..=10).chain([12]).collect();
         assert_eq!(numeros, sans_bonus, "bonus sauté, épilogue joué");
     }
 
     /// L'autre chemin (carte 5.16) : la partie « complète » ramasse les trois
-    /// gouttes de chaque niveau ; après le 9e, avec les 27 gouttes des niveaux
+    /// gouttes de chaque niveau ; après le 10e, avec les 30 gouttes des niveaux
     /// normaux, le BONUS est joué (« NIVEAU BONUS », l'arc-en-ciel), puis
-    /// l'épilogue (carte 5.17) et l'écran de fin, avec les 33 gouttes du jeu ;
+    /// l'épilogue (carte 5.17) et l'écran de fin, avec les 36 gouttes du jeu ;
     /// aucune mort.
     #[test]
     fn la_partie_complete_joue_le_bonus() {
@@ -357,9 +357,9 @@ mod tests {
                 _ => joues.push((t.niveau, t.gouttes)),
             }
         }
-        // Trois gouttes de plus à chaque niveau ; le bonus (10e) joué après le 9e,
-        // puis l'épilogue (11e).
-        let attendu: Vec<(u8, u32)> = (1..=11).map(|n| (n, 3 * u32::from(n))).collect();
+        // Trois gouttes de plus à chaque niveau ; le bonus (11e) joué après le 10e,
+        // puis l'épilogue (12e).
+        let attendu: Vec<(u8, u32)> = (1..=12).map(|n| (n, 3 * u32::from(n))).collect();
         assert_eq!(joues, attendu);
         assert_eq!(partie.gouttes as usize, GOUTTES_TOTAL);
         println!(

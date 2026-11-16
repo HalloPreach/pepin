@@ -34,7 +34,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     nom: "Au-dessus des nuages",
     theme: Theme::Soleil,
     genre: GenreNiveau::Normal,
-    intro: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
+    intro: "Là-haut, le soleil. Prends ton temps : l'orage est resté en bas.",
     mecanique: "Final calme : nuages, trampoline, petite traversée de nuages friables, pigeon, \
                 corbeaux, flaque.",
     duree_cible_s: 45,

@@ -6055,3 +6055,74 @@ faux mur sur une patrouille de flaque, ni sur le passage obligé.
 - Navigateur (build de PRODUCTION, Chromium 1208 CDP, `node docs/capture-migration.mjs PORT docs/qa target/qa/script.txt 20100 21160 215`) : v2 réaliste relue → carte : descente MEILLEUR 0:18,3 OR, arc-en-ciel 0:55,0 ARGENT (`79-carte-*.png`) ; descente rejouée (robot) → « ARGENT, +0 GOUTTE », -0,9 s nouveau meilleur temps, « 1 GOUTTE DÉJÀ COMPTÉE », poche 57 → 57, sauvegarde réécrite en `version=3` par clés ; 0 erreur console ; 6 captures, 0 pixel hors palette.
 - Économie (maximum total, une fois) : par niveau 3 gouttes + 3 défis × 3 + or 5 = 17 ; 11 niveaux = 187 + bonus de fin 20 = 207 ; avec la poursuite (8.2) 12 × 17 + 20 = 224. Prix : musiques payantes 5 × 25 = 125 (main), skins payants : aucun aujourd'hui (factice QA 60). 125 + un skin à 60 = 185 ≤ 207 : boutique accessible. Proposition (non appliquée) : au-delà d'un skin payant, skins à 40 ou musiques à 20, pour que tout reste achetable (224 ≥ 5 × 20 + 3 × 40 = 220).
 - Pas testé : un joueur v1 n'avait pas de progression : ses gouttes de niveau d'avant la carte 7.3 seront créditées une fois de plus (une seule fois).
+
+## Le mur de pluie : un vrai final (carte 8.2)
+
+Demande d'AGA : un niveau de poursuite, un mur de pluie qui avance et fait défiler l'écran.
+
+- Mécanique (`core/src/poursuite.rs`, lettre de grille `P`, une au plus) : le front du mur avance à
+  `VITESSE_MUR` = 64 px/s, 2/3 de la course de Pépin (96 px/s ; le build échoue au-delà de 80 %). Il
+  n'est jamais plus de `RETARD_MAX` = 128 px derrière Pépin (rattrapage : 2 s d'avance au plus) et tue
+  au contact (`CauseMort::Pluie`). Après une mort, Pépin réapparaît à sa lanterne et le front est
+  replacé à `RECUL_REAPPARITION` = 112 px derrière lui : toujours 1,75 s pour repartir, jamais de mort
+  en boucle. À 24 tuiles du drapeau (`PERCEE_AVANT_ARRIVEE`), le soleil perce : le mur ne tue plus et
+  recule, la caméra redevient libre. Un seul test (toutes ces règles).
+- Défilement : tant que le soleil n'a pas percé, la caméra est accrochée au front, à 48 px du bord
+  gauche (`Camera::defiler_avec_le_mur`) ; Pépin, entre le front et 128 px devant, est toujours à
+  l'écran et voit 9 tuiles devant lui au moins.
+- Dessin (`game/src/mur_pluie.rs`) : rideau d'ardoise très sombre au bord dentelé qui ondule, pluie
+  battante dedans (traits ardoise claire et cyan sombre), frange de gouttes cyan devant, un éclair
+  blanc toutes les 1,6 s ; le soleil qui perce grandit en haut à droite, rayons pointillés qui
+  s'allongent, et la pluie du thème s'arrête.
+- Niveau 10 « Le mur de pluie » (renommé « Le retour du Grand Nuage » en 8.2b ;
+  `core/src/levels/poursuite.rs`, 200 x 11 tuiles, thème Altitude),
+  inséré après « Au-dessus des nuages » : pont friable, vent arrière, courant ascendant devant une
+  falaise de nuages, deux colonnes de grêle, second pont friable sous un corbeau, long toit final au
+  soleil. 3 gouttes (colonnes 19, 98, 160), 3 lanternes (54, 102, 134). Le bonus devient le 11e, la
+  descente le 12e ; le bonus demande 30 gouttes (36 dans le jeu, 33 au parcours). Tests qui nommaient
+  les niveaux par numéro : un commit séparé.
+- Robot QA : il se repose 3 pas au lieu de 20 entre deux plans dans un niveau de poursuite (il ne
+  peut pas s'arrêter 1/3 s à chaque atterrissage). Il finit le niveau 10 à 0 mort en temps réel :
+  1 902 images (31,7 s), le front jamais à moins de 83 px de lui.
+
+### Preuves
+
+- `test -p core poursuite`, `levels`, `zones`, `faisabilite` : verts (niveau 10 faisable, reprise
+  depuis chaque lanterne, décor, manches à air, premier défi à l'écran) ;
+- `test -p game --no-default-features le_robot_finit_tous_les_niveaux_sans_mourir` : vert ; partie
+  du robot (`ecrire_script_navigateur`) : 23 528 images, 0 mort ;
+- extraction propre (`git archive HEAD`) : `test --workspace --no-default-features` core 376 verts,
+  game 339 verts (dont la partie complète avec le bonus, 0 mort) ; `./docker-cargo.sh lint` FMT-OK,
+  LINT-OK ; `./build.sh` : `dist/` sans nom interdit (0), seule URL `http://www.w3.org/2000/svg`,
+  game.wasm 517 083 octets (gzip 206 893) ;
+- captures (build de QA `./build.sh --qa` servi sur 127.0.0.1, Chromium 1208 sans tête par CDP,
+  `docs/capture-visibilite.mjs`, 960 x 540, x3), parcours du robot : `docs/qa/82-1-depart.png`
+  (image 20 130) ; `82-2-talonne.png` et `82-2-reapparition.png` (à l'image 20 300 le robot lâche
+  tout : le rideau rattrape Pépin immobile à l'image 20 420 ; 30 images plus tard il est reparti du
+  départ, 6 vies, le front ~90 px derrière lui) ; `82-3-eclair.png` (éclair dans le rideau) ;
+  `82-4-courant.png` ; `82-5-soleil-perce.png` (le moment fort, 48 images après la percée) ;
+  `82-6-arrivee.png` (le drapeau sous le soleil). `docs/mesure-capture.py` : 0 pixel hors palette,
+  0 bloc flou sur chacune ; toutes regardées. Deux retouches faites après les avoir regardées : le
+  soleil perçait trop tard (hors de l'écran, derrière l'arrivée), et le rideau sortait de l'écran
+  quand Pépin courait devant (caméra seulement poussée par le front) : elle est maintenant accrochée
+  au front.
+
+### Ce qui n'est PAS testé
+
+- Personne n'a joué le niveau à la main : la pression réelle (vitesse du mur, 2/3 de la course) et
+  la difficulté sont à juger par AGA en jouant (pas de mesure de difficulté, consigne) ;
+  `difficulte.rs` a seulement reçu une bande Habitué provisoire pour le niveau 10.
+- Faisabilité du cœur : le robot de `core/src/faisabilite.rs` ignore le mur (comme les ennemis) ;
+  c'est le robot QA du jeu, dans la vraie simulation, qui prouve qu'on finit devant lui.
+- Téléphone, Safari, son (aucun son propre au mur : la pluie et l'orage du thème suffisent).
+
+## Le retour du Grand Nuage (carte 8.2b)
+
+- Cohérence (AGA) : le Grand Nuage s'enfuit au niveau 6 et revient au 10, renommé « Le retour du Grand
+  Nuage ». Mécanique inchangée ; dessin (`game/src/mur_pluie.rs`) : front d'orage ardoise et violet en volutes,
+  pluie et éclair DEDANS, visage du boss (`nuage_colere`, `nuage_essouffle` après la percée) sur le bord qui
+  avance ; plus de pluie du thème : ciel clair devant Pépin. Textes : accueil, conseil, Vents d'altitude
+  (« s'est enfui »), Au-dessus des nuages, README. Aucun nouveau test.
+- Preuves : `test -p core` 376 verts ; `game` `contenu`, `carte`, `scene` verts ; lint FMT-OK, LINT-OK ;
+  `./build.sh` 0 nom interdit ; captures CDP regardées (0 hors palette, 0 flou) `docs/qa/82b-1-carte.png` à
+  `82b-5-soleil.png` (`82b-4-talonne` : Pépin immobile, le front tout près). Robot complet non relancé.

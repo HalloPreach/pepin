@@ -71,8 +71,8 @@ Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
    porte de la cage, et la cage de l'horloge dont les aiguilles emportent Pépin.
 6. L'œil du cyclone : le boss. Une arène d'un écran ; le Grand Nuage lance trois
    motifs d'éclairs de plus en plus serrés, puis s'essouffle et laisse échapper un
-   courant : on y monte et on lui saute sur la tête. Trois fois, et le ciel se
-   déchire (pas de drapeau, une seule lanterne).
+   courant : on y monte et on lui saute sur la tête. Trois fois, et il s'enfuit
+   par une déchirure du ciel (pas de drapeau, une seule lanterne).
 7. Vents d'altitude : courants ascendants, longs planés, nuage friable, quatre
    corbeaux (dont un au-dessus des nuages friables), deux pigeons.
 8. La mer de nuages : vent latéral (longs planés portés, et un plané de vingt

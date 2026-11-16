@@ -75,6 +75,8 @@ pub enum ErreurNiveau {
     AiguilleBloquee { ligne: usize, colonne: usize },
     /// Une sortie secrète `x` au plus par niveau (carte 8.5).
     SortieSecreteMultiple { nombre: usize },
+    /// Un seul mur de pluie (`P`) par niveau.
+    MurMultiple { nombre: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -165,6 +167,9 @@ impl fmt::Display for ErreurNiveau {
             ),
             ErreurNiveau::SortieSecreteMultiple { nombre } => {
                 write!(f, "{nombre} sorties secrètes « x » (une au plus)")
+            }
+            ErreurNiveau::MurMultiple { nombre } => {
+                write!(f, "{nombre} murs de pluie « P » (un seul au plus)")
             }
         }
     }

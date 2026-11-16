@@ -49,7 +49,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     nom: "Vents d'altitude",
     theme: Theme::Altitude,
     genre: GenreNiveau::Normal,
-    intro: "Le ciel se déchire. Les courants montent : laisse-toi porter, puis plane.",
+    intro: "Le Grand Nuage s'est enfui. Les courants montent : laisse-toi porter, puis plane.",
     mecanique: "Courants ascendants, longs planés, nuage friable, corbeaux, pigeons.",
     duree_cible_s: 55,
     ascii: ASCII,

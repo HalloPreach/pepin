@@ -141,7 +141,7 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
     },
     Intro {
-        texte: "Le ciel se déchire. Les courants montent : laisse-toi porter, puis plane.",
+        texte: "Le Grand Nuage s'est enfui. Les courants montent : laisse-toi porter, puis plane.",
         astuce: "Les brins de vent montrent où ça monte.",
     },
     Intro {
@@ -149,8 +149,13 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         astuce: "Parapluie ouvert, le vent te porte ; fermé, tu lui résistes.",
     },
     Intro {
-        texte: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
-        astuce: "Dernière ligne droite : le champignon t'aide.",
+        texte: "Là-haut, le soleil. Prends ton temps : l'orage est resté en bas.",
+        astuce: "Le champignon t'aide à monter.",
+    },
+    // Le sommet (cartes 8.2 et 8.2b) : le Grand Nuage, enfui au niveau 6, revient.
+    Intro {
+        texte: "Le Grand Nuage remonte de la mer : il veut garder le soleil endormi.",
+        astuce: "Ne t'arrête pas : il avance !",
     },
     // Le bonus (carte 5.16) : seulement avec toutes les gouttes.
     Intro {
@@ -595,16 +600,16 @@ pub(crate) mod tests {
     #[test]
     fn etiquette_de_niveau() {
         use pepin_core::levels::{nb_normaux, NIVEAUX};
-        // Les neuf niveaux normaux (le marché couvert inséré en 3e place, carte 5.12 ;
+        // Les dix niveaux normaux (le marché couvert inséré en 3e place, carte 5.12 ;
         // le clocher en 5e, carte 5.13 ; l'œil du cyclone en 6e, carte 5.14 ; la mer
-        // de nuages en 8e, carte 5.15), puis le bonus (carte 5.16) et l'épilogue
-        // (carte 5.17).
+        // de nuages en 8e, carte 5.15 ; le retour du Grand Nuage en 10e, 8.2), puis le
+        // bonus (carte 5.16) et l'épilogue (carte 5.17).
         assert_eq!(
             etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
-            "NIVEAU 2/9"
+            "NIVEAU 2/10"
         );
-        assert_eq!(etiquette_niveau(&NIVEAUX[9], 9), "NIVEAU BONUS");
-        assert_eq!(etiquette_niveau(&NIVEAUX[10], 9), "ÉPILOGUE");
+        assert_eq!(etiquette_niveau(&NIVEAUX[10], 10), "NIVEAU BONUS");
+        assert_eq!(etiquette_niveau(&NIVEAUX[11], 10), "ÉPILOGUE");
         // Un jeu de 11 niveaux (9 normaux, bonus, épilogue) : le bonus et l'épilogue
         // ne sont pas comptés dans « /9 ».
         let mut infos = NIVEAUX[0];
