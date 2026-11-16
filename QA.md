@@ -5779,17 +5779,11 @@ Demande d'AGA : un niveau de poursuite, un mur de pluie qui avance et fait défi
 
 ## Le retour du Grand Nuage (carte 8.2b)
 
-- Cohérence (AGA) : le Grand Nuage n'est plus détruit au niveau 6, il s'enfuit ; au niveau 10, renommé « Le
-  retour du Grand Nuage », il remonte de la mer de nuages et poursuit Pépin. Mécanique inchangée (vitesse,
-  contact qui tue, caméra) : rien que le dessin (`game/src/mur_pluie.rs`) et les textes.
-- Dessin : front d'orage ardoise de nuit et cœur ardoise d'ombre, liseré violet d'orage en volutes qui roulent,
-  pluie et éclair DEDANS seulement ; visage du boss (sprites `nuage_colere`, `nuage_essouffle` après la percée)
-  collé au bord qui avance. Plus de pluie du thème dans ce niveau : le ciel reste clair devant Pépin.
-- Textes : accueil « Le Grand Nuage remonte de la mer : il veut garder le soleil endormi. », conseil « Ne
-  t'arrête pas : il avance ! » ; Vents d'altitude « Le Grand Nuage s'est enfui. » ; Au-dessus des nuages
-  « l'orage est resté en bas » ; README (niveau 6 : il s'enfuit). Aucun nouveau test.
-- Preuves : `test -p core` 376 verts (dont `poursuite`, `faisabilite`) ; `test -p game --no-default-features`
-  `contenu`, `carte`, `scene` verts ; `lint` FMT-OK, LINT-OK ; `./build.sh` : 0 nom interdit dans `dist/`, seule
-  URL celle du SVG ; captures (build de QA, Chromium 1208 par CDP, script du robot, 960 x 540) regardées, 0 pixel
-  hors palette, 0 bloc flou : `docs/qa/82b-1-carte.png`, `82b-2-front.png`, `82b-3-course.png`,
-  `82b-4-talonne.png` (Pépin immobile, le front à quelques tuiles), `82b-5-soleil.png`. Robot complet non relancé.
+- Cohérence (AGA) : le Grand Nuage s'enfuit au niveau 6 et revient au 10, renommé « Le retour du Grand
+  Nuage ». Mécanique inchangée ; dessin (`game/src/mur_pluie.rs`) : front d'orage ardoise et violet en volutes,
+  pluie et éclair DEDANS, visage du boss (`nuage_colere`, `nuage_essouffle` après la percée) sur le bord qui
+  avance ; plus de pluie du thème : ciel clair devant Pépin. Textes : accueil, conseil, Vents d'altitude
+  (« s'est enfui »), Au-dessus des nuages, README. Aucun nouveau test.
+- Preuves : `test -p core` 376 verts ; `game` `contenu`, `carte`, `scene` verts ; lint FMT-OK, LINT-OK ;
+  `./build.sh` 0 nom interdit ; captures CDP regardées (0 hors palette, 0 flou) `docs/qa/82b-1-carte.png` à
+  `82b-5-soleil.png` (`82b-4-talonne` : Pépin immobile, le front tout près). Robot complet non relancé.
