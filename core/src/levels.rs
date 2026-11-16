@@ -125,30 +125,6 @@ const fn cles_valides(niveaux: &[InfosNiveau]) -> bool {
     true
 }
 
-/// Défi « SANS PLANER » (carte 7.3) : le niveau de même rang dans `NIVEAUX` se
-/// finit-il sans JAMAIS ouvrir le parapluie ? Ailleurs, le défi devient « LES 3
-/// GOUTTES ».
-///
-/// Résultat du robot de faisabilité (`faisabilite::analyser`, parapluie interdit,
-/// courants et vents gardés), lancé UNE fois et recopié ici à la main. Le test
-/// ignoré `sans_planer_possible_d_apres_le_robot` le relance (à refaire si une
-/// grille change) :
-/// `./docker-cargo.sh test -p core --release -- --ignored sans_planer_possible`.
-pub const SANS_PLANER_POSSIBLE: [bool; NB_NIVEAUX] = [
-    false, // 1 toits
-    true,  // 2 gouttières
-    true,  // 3 marché
-    true,  // 4 orage
-    false, // 5 clocher
-    true,  // 6 cyclone
-    true,  // 7 vents
-    false, // 8 mer
-    true,  // 9 nuages
-    false, // 10 poursuite (le retour du Grand Nuage, carte 8.2 : non mesuré, prudence)
-    false, // 11 arc (bonus)
-    true,  // 12 descente (épilogue)
-];
-
 /// Ce qui vient après un niveau terminé.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Apres {
@@ -281,6 +257,7 @@ mod tests {
         InfosNiveau {
             numero,
             cle: "faux",
+            sans_planer: false,
             nom: "faux",
             theme: Theme::Toits,
             genre,
@@ -293,7 +270,8 @@ mod tests {
     }
 
     /// Relance le robot de faisabilité, parapluie interdit, sur chaque niveau et
-    /// compare à `SANS_PLANER_POSSIBLE` (lent : ignoré, voir la doc de la table).
+    /// compare au champ `InfosNiveau::sans_planer` (lent : ignoré, voir la doc du
+    /// champ).
     #[test]
     #[ignore]
     fn sans_planer_possible_d_apres_le_robot() {
@@ -302,16 +280,19 @@ mod tests {
             planer: false,
             ..Options::default()
         };
-        let mesure: Vec<bool> = NIVEAUX
-            .iter()
-            .map(|n| {
-                let niveau = n.charger().expect("niveau valide");
-                let r = analyser(&niveau, niveau.depart, sans_planer);
-                println!("{} {} : sans planer {}", n.numero, n.nom, r.arrivee);
-                r.arrivee
-            })
-            .collect();
-        assert_eq!(mesure, SANS_PLANER_POSSIBLE);
+        let mut ecarts = Vec::new();
+        for n in NIVEAUX {
+            let niveau = n.charger().expect("niveau valide");
+            let r = analyser(&niveau, niveau.depart, sans_planer);
+            println!("{} {} : sans planer {}", n.numero, n.cle, r.arrivee);
+            if r.arrivee != n.sans_planer {
+                ecarts.push(n.cle);
+            }
+        }
+        assert!(
+            ecarts.is_empty(),
+            "à recopier dans `sans_planer` : {ecarts:?}"
+        );
     }
 
     /// Une fausse table rangée dans l'ordre donné.

@@ -125,6 +125,15 @@ pub struct InfosNiveau {
     /// la place dans la table : insérer un niveau ne fait glisser aucune médaille.
     /// Ne JAMAIS la changer une fois publiée (unique : vérifié par les tests).
     pub cle: &'static str,
+    /// Défi « SANS PLANER » (carte 7.3, rangé par clé depuis la carte 8.13) : le
+    /// niveau se finit-il sans JAMAIS ouvrir le parapluie ? Sinon, le défi devient
+    /// « LES 3 GOUTTES ». Résultat du robot de faisabilité (parapluie interdit,
+    /// courants et vents gardés), recopié à la main : le test ignoré
+    /// `levels::tests::sans_planer_possible_d_apres_le_robot` le relance (à refaire
+    /// si une grille change) :
+    /// `./docker-cargo.sh test -p core --release -- --ignored sans_planer_possible`.
+    /// Niveaux d'essai : `false` (non mesurés).
+    pub sans_planer: bool,
     /// Titre affiché.
     pub nom: &'static str,
     pub theme: Theme,

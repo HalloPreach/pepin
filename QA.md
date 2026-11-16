@@ -6248,3 +6248,11 @@ Après la fusion de 7.9, 8.2/8.2b, 8.4, 8.12 et 7.4 : finir l'intégration de l'
 
 - Vrai téléphone ; personne n'a lu les textes à la main à 640x360 ; partie complète du robot (ignorée,
   ~10 min) non relancée pour cette retouche.
+
+## Carte 8.13 : retouches de la sauvegarde v3 (niveaux migrés finis, niveau 10 ouvert, défis par clé)
+
+- Migration v2 : un niveau avec une médaille ou un défi réussi est FINI (`ProgresNiveau::fini`) et atteint ; sans temps, la carte écrit « FINI ». Plan : un niveau normal s'ouvre aussi après une partie finie ou si un niveau plus loin est atteint ou fini (`plan::deja_depasse`) ; le bonus garde sa règle. Un test : `un_niveau_v2_medaille_sans_temps_est_fini`.
+- « SANS PLANER » rangé par clé : champ `InfosNiveau::sans_planer` à la place de `levels::SANS_PLANER_POSSIBLE` ; robot relancé (`--ignored sans_planer_possible`), aucun écart, poursuite mesurée `false`.
+- Laissé par rang, rien changé : `contenu::INTROS`, vérifiée à la main dans l'ordre de `NIVEAUX` (poursuite 10e, « Le Grand Nuage remonte de la mer ») ; `difficulte::BANDES_HABITUE`, outil de mesure `#[ignore]`, à recaler à la prochaine insertion.
+- Tests ciblés : core `levels` 29 ok (1 ignoré), `zones` 55 ok ; game `sauvegarde` 3, `plan` 4, `defis` 1 ok. `./docker-cargo.sh lint` LINT-OK ; `./build.sh` (game.wasm 591 252 octets).
+- Navigateur (build de production, Chromium 1208 CDP, `node docs/capture-813.mjs PORT docs/qa`) : v2 `parties_finies=1`, `niveau_max_atteint=10`, seul `niveau.11=gouttes:111 defis:111 medaille:3` → `813-carte-descente-finie` (FINI, OR, 3 gouttes, 3 défis cochés), `813-carte-poursuite-jouable` (NIVEAU 10/10, JOUER, pas de cadenas). Regardées ; 0 erreur console.

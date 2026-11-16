@@ -87,6 +87,16 @@ pub struct ProgresNiveau {
     pub medaille: u8,
 }
 
+impl ProgresNiveau {
+    /// Le niveau a-t-il été fini au moins une fois ? Oui s'il a un meilleur temps,
+    /// mais aussi (carte 8.13) s'il a une médaille ou un défi réussi : ils ne se
+    /// gagnent qu'en finissant le niveau, et la v2 ne notait pas toujours le temps
+    /// (un niveau migré en OR sans temps restait « PAS ENCORE FINI »).
+    pub fn fini(&self) -> bool {
+        self.meilleur_temps.is_some() || self.medaille > 0 || self.defis.contains(&true)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sauvegarde {
     /// Porte-monnaie : gouttes d'or à dépenser.
@@ -422,7 +432,9 @@ impl Sauvegarde {
     /// Fin de la migration v1/v2 → v3. Le « niveau le plus loin » (un indice de
     /// `ORDRE_V2`) devient l'état `atteint` de chaque niveau jusqu'à lui. Les gouttes,
     /// défis et médailles déjà notés restent tels quels : ils comptent comme DÉJÀ
-    /// CRÉDITÉS (c'était le cas, le porte-monnaie est gardé). Le bonus « FIN » a été
+    /// CRÉDITÉS (c'était le cas, le porte-monnaie est gardé). Un niveau v2 avec une
+    /// médaille ou un défi réussi a été FINI (`ProgresNiveau::fini`, carte 8.13) : il
+    /// est donc aussi atteint. Le bonus « FIN » a été
     /// crédité à chaque partie finie de la v2 : il l'est déjà si une partie a été
     /// finie. Les deux autres bonus (non mémorisés en v2) restent à gagner une fois.
     fn migrer_v2(&mut self, max_atteint: Option<usize>) {
@@ -430,6 +442,9 @@ impl Sauvegarde {
             for cle in ORDRE_V2.iter().take(max.saturating_add(1)) {
                 self.niveaux.entry(cle.to_string()).or_default().atteint = true;
             }
+        }
+        for p in self.niveaux.values_mut() {
+            p.atteint |= p.fini();
         }
         if self.parties_finies > 0 {
             self.bonus_credites
@@ -671,5 +686,31 @@ mod tests {
         assert_eq!(progres(NIVEAUX, &lu, i + 1), arc);
         assert_eq!(progres(NIVEAUX, &lu, i + 2), descente);
         assert_eq!(etat_etape(NIVEAUX, &lu, i + 2), EtatEtape::Finie);
+    }
+
+    /// Carte 8.13 : un niveau v2 avec une médaille ou un défi, mais SANS temps, est
+    /// FINI (et donc atteint) ; le niveau inséré (`poursuite`) est jouable pour qui a
+    /// fini une partie, ou sans partie finie s'il a déjà atteint plus loin.
+    #[test]
+    fn un_niveau_v2_medaille_sans_temps_est_fini() {
+        use crate::plan::{etat_etape, EtatEtape};
+        let v2 = "version=2\nparties_finies=1\nniveau_max_atteint=10\n\
+                  niveau.11=gouttes:111 defis:111 medaille:3\nniveau.8=defis:010\n";
+        let lu = Sauvegarde::depuis_texte(v2);
+        let descente = indice_de_cle(NIVEAUX, "descente").unwrap();
+        let poursuite = indice_de_cle(NIVEAUX, "poursuite").unwrap();
+        assert!(lu.progres("descente").fini() && lu.progres("mer").fini());
+        assert_eq!(etat_etape(NIVEAUX, &lu, descente), EtatEtape::Finie);
+        assert_eq!(etat_etape(NIVEAUX, &lu, poursuite), EtatEtape::Ouverte);
+        // Sans partie finie ni `niveau_max_atteint` : le défi de la mer suffit à la
+        // dire atteinte, et la poursuite s'ouvre parce que la descente l'est.
+        let sans = Sauvegarde::depuis_texte("version=2\nniveau.8=defis:010\nniveau.11=medaille:1");
+        assert!(sans.progres("mer").atteint && sans.progres("descente").atteint);
+        assert_eq!(etat_etape(NIVEAUX, &sans, poursuite), EtatEtape::Ouverte);
+        assert_eq!(etat_etape(NIVEAUX, &sans, 1), EtatEtape::Ouverte);
+        assert_eq!(
+            etat_etape(NIVEAUX, &Sauvegarde::default(), 1),
+            EtatEtape::Verrouillee
+        );
     }
 }
