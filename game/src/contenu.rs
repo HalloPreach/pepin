@@ -130,7 +130,8 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
     Intro {
         texte: "Sous les toiles, tout rebondit.",
-        astuce: "Tombe sur un auvent : il te relance. Un chat ne s'écrase qu'endormi.",
+        astuce:
+            "Tombe sur un auvent : il te relance. Écrase le chat endormi : au « ! », il bondit.",
     },
     Intro {
         texte: "L'orage éclate. Chaque éclair est annoncé : garde la tête froide !",
@@ -274,7 +275,7 @@ pub const INTRO_ESSAI_ESCARGOT: Intro = Intro {
 /// `monde::INDICE_ESSAI_CHAT`).
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INTRO_ESSAI_CHAT: Intro = Intro {
-    texte: "Le chat dort, puis se réveille. Endormi, on l'écrase ; réveillé, il griffe.",
+    texte: "Le chat dort, puis se réveille. Endormi, on l'écrase ; réveillé, il bondit sur toi.",
     astuce: "Attends les « z », puis tombe-lui dessus.",
 };
 

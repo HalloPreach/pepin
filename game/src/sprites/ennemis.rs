@@ -335,6 +335,46 @@ pub const CHAT_EVEILLE: Image = &[
     "...0.0000000000.",
 ];
 
+/// Prêt à bondir (pendant l'annonce, quand Pépin est à portée, carte 6.3) :
+/// tête basse posée sur les pattes avant tendues, yeux d'or grand ouverts,
+/// arrière-train levé, queue dressée au bout recourbé. Distinct de l'annonce
+/// simple (`CHAT_REVEIL`, couché, un œil ouvert).
+pub const CHAT_PRET: Image = &[
+    ".............0..",
+    "............080.",
+    ".............080",
+    "............0080",
+    ".0.....0...0AAA0",
+    "090...090.0AAAA0",
+    "0A90009A00AA8AA0",
+    "0AAAAAAA00AAAAA0",
+    "0A0BA0BA0AAAA8A0",
+    "0AAA8AAA0AAAAAA0",
+    "077707770AA8AAA0",
+    ".07777700AAAAAA0",
+    "077AAAAA0AAAA770",
+    ".0000000.000000.",
+];
+
+/// En plein bond (carte 6.3) : corps allongé, pattes avant tendues vers
+/// l'avant, pattes arrière tendues vers l'arrière, queue en arrière.
+pub const CHAT_BOND: Image = &[
+    "................",
+    ".0.....0......0.",
+    "090...090....080",
+    "0A90009A00000080",
+    "0AAAAAAA0AAAA080",
+    "0A0BA0BA08A8AA80",
+    "0AAA8AAA0AAAA80.",
+    "077707770AAAAA0.",
+    ".0777770AAAAAA0.",
+    "..000A000000A0..",
+    "...0A0......0A0.",
+    "..0A0........070",
+    ".070..........0.",
+    "..0.............",
+];
+
 /// Écrasé : aplati comme une crêpe, oreilles rentrées dans la tête. Il reste
 /// mignon : yeux plissés en « ^ ^ », petit nez rose, museau blanc.
 pub const CHAT_ECRASE: Image = &[
@@ -602,6 +642,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("chat_dort1", CHAT_DORT1),
     ("chat_reveil", CHAT_REVEIL),
     ("chat_eveille", CHAT_EVEILLE),
+    ("chat_pret", CHAT_PRET),
+    ("chat_bond", CHAT_BOND),
     ("chat_ecrase", CHAT_ECRASE),
     ("chat_z", CHAT_Z),
     ("chat_alerte", CHAT_ALERTE),

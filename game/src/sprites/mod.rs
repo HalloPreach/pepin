@@ -572,12 +572,14 @@ mod tests {
     // --- Chat endormi (carte 5.9) ---
 
     /// Les cinq images du chat : dort (2), réveil, éveillé, écrasé.
-    const CHAT_TOUT: [&str; 5] = [
+    const CHAT_TOUT: [&str; 7] = [
         "chat_dort0",
         "chat_dort1",
         "chat_reveil",
         "chat_eveille",
         "chat_ecrase",
+        "chat_pret",
+        "chat_bond",
     ];
 
     /// Tout pixel coloré (ni vide ni contour) a ses quatre voisins dans le dessin
@@ -604,7 +606,7 @@ mod tests {
     }
 
     #[test]
-    fn le_chat_a_cinq_images_de_meme_taille_et_un_contour_sombre() {
+    fn le_chat_a_sept_images_de_meme_taille_et_un_contour_sombre() {
         for nom in CHAT_TOUT {
             assert_eq!(taille(nom), (16, 14), "{nom}");
             verifier_contour(nom);
@@ -644,6 +646,44 @@ mod tests {
         );
         assert_eq!(or("chat_reveil"), 1, "un œil ouvert");
         assert_eq!(or("chat_eveille"), 2, "les deux yeux");
+        // Carte 6.3 : prêt à bondir et en plein bond, les deux yeux grands ouverts.
+        assert_eq!(or("chat_pret"), 2);
+        assert_eq!(or("chat_bond"), 2);
+    }
+
+    /// Carte 6.3 : les deux nouvelles postures se distinguent au premier coup
+    /// d'œil. Prêt à bondir : l'arrière-train (colonnes 9 à 15) monte plus haut
+    /// que celui du chat qui s'annonce simplement, et la tête est plus basse. En
+    /// plein bond : les pattes tendues atteignent les deux bords du dessin (à
+    /// gauche les pattes avant, à droite les pattes arrière) dans le bas.
+    #[test]
+    fn pret_a_bondir_et_en_plein_bond_se_reconnaissent() {
+        // Première rangée où la zone (colonnes `de..a`) a un pixel opaque.
+        let haut = |nom: &str, de: usize, a: usize| {
+            dessin(nom)
+                .iter()
+                .position(|l| l.chars().skip(de).take(a - de).any(|c| c != '.'))
+                .unwrap()
+        };
+        assert!(
+            haut("chat_pret", 9, 16) + 3 <= haut("chat_reveil", 9, 16),
+            "croupion levé"
+        );
+        assert!(
+            haut("chat_pret", 0, 9) > haut("chat_reveil", 0, 9),
+            "tête basse"
+        );
+        assert_ne!(dessin("chat_pret"), dessin("chat_reveil"));
+        let bas = &dessin("chat_bond")[10..];
+        let colonnes = |l: &&str| {
+            l.char_indices()
+                .filter(|&(_, c)| c != '.')
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>()
+        };
+        let tout: Vec<usize> = bas.iter().flat_map(colonnes).collect();
+        assert!(tout.iter().any(|&i| i <= 2), "pattes avant tendues");
+        assert!(tout.iter().any(|&i| i >= 14), "pattes arrière tendues");
     }
 
     /// Le chat et ses indices se lisent sur TOUS les ciels : sur chaque bande de ciel

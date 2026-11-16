@@ -711,10 +711,17 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     }
                     TypeEnnemi::Chat => {
                         // Le chat du dessin regarde à gauche. Sprite 16x14 posé sur le
-                        // bas de la boîte 14x8, centré (1 px de chaque côté).
+                        // bas de la boîte 14x8, centré (1 px de chaque côté). Il se
+                        // tourne vers Pépin quand il est prêt à bondir, et dans le sens
+                        // du saut pendant un bond (carte 6.3).
                         let (x, y) = (sx - 1.0, sy - 6.0);
-                        let miroir = e.vers_la_droite;
-                        banque.dessiner(image_chat(e.phase_chat(), ecrase, pas), x, y, miroir);
+                        let miroir = e.regarde_a_droite();
+                        let posture = PostureChat {
+                            pret: e.est_pret_a_bondir(),
+                            en_vol: e.en_plein_bond(),
+                        };
+                        let nom = image_chat(e.phase_chat(), ecrase, posture, pas);
+                        banque.dessiner(nom, x, y, miroir);
                         // L'indice au-dessus de sa tête : les « z » du sommeil, puis le
                         // « ! » de l'annonce, qui clignote de plus en plus vite.
                         if !ecrase {
@@ -742,16 +749,33 @@ pub(crate) fn image_escargot(comprime: bool, pas: u32) -> &'static str {
     }
 }
 
-/// Image du chat selon sa phase. Endormi, il respire (2 images de 0,5 s) ; pendant
-/// l'annonce il lève la tête, un œil ouvert ; éveillé, il est assis, hérissé.
-/// Fonction pure.
-pub(crate) fn image_chat(phase: PhaseChat, ecrase: bool, pas: u32) -> &'static str {
+/// Posture du chat (carte 6.3), en plus de sa phase : prêt à bondir pendant
+/// l'annonce (`Ennemi::est_pret_a_bondir`), en l'air pendant un bond
+/// (`Ennemi::en_plein_bond`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PostureChat {
+    pub(crate) pret: bool,
+    pub(crate) en_vol: bool,
+}
+
+/// Image du chat selon sa phase et sa posture. Endormi, il respire (2 images de
+/// 0,5 s) ; pendant l'annonce il lève la tête, un œil ouvert, ou, si Pépin est
+/// à portée, il se ramasse, prêt à bondir (tête basse, arrière-train levé) ;
+/// éveillé, il est assis, hérissé, ou en plein bond, pattes tendues. Fonction pure.
+pub(crate) fn image_chat(
+    phase: PhaseChat,
+    ecrase: bool,
+    posture: PostureChat,
+    pas: u32,
+) -> &'static str {
     if ecrase {
         return "chat_ecrase";
     }
     match phase {
         PhaseChat::Dort(_) => image(&ennemis::CHAT_DORT, pas, 30),
+        PhaseChat::Reveil(_) if posture.pret => "chat_pret",
         PhaseChat::Reveil(_) => "chat_reveil",
+        PhaseChat::Eveille(_) if posture.en_vol => "chat_bond",
         PhaseChat::Eveille(_) => "chat_eveille",
     }
 }
@@ -1606,17 +1630,40 @@ mod tests {
     fn le_chat_a_une_image_par_phase() {
         use pepin_core::entities::ennemi::{DORT_PAS, EVEILLE_PAS, REVEIL_PAS};
         // Endormi, il respire : les deux images alternent.
+        let rien = PostureChat::default();
         let dort: Vec<_> = (0..120)
-            .map(|p| image_chat(PhaseChat::Dort(DORT_PAS), false, p))
+            .map(|p| image_chat(PhaseChat::Dort(DORT_PAS), false, rien, p))
             .collect();
         assert!(dort.contains(&"chat_dort0") && dort.contains(&"chat_dort1"));
         assert!(dort.iter().all(|n| n.starts_with("chat_dort")));
         assert_eq!(
-            image_chat(PhaseChat::Reveil(REVEIL_PAS), false, 3),
+            image_chat(PhaseChat::Reveil(REVEIL_PAS), false, rien, 3),
             "chat_reveil"
         );
         assert_eq!(
-            image_chat(PhaseChat::Eveille(EVEILLE_PAS), false, 3),
+            image_chat(PhaseChat::Eveille(EVEILLE_PAS), false, rien, 3),
+            "chat_eveille"
+        );
+        // Carte 6.3 : prêt à bondir pendant l'annonce, pattes tendues en l'air.
+        let pret = PostureChat {
+            pret: true,
+            en_vol: false,
+        };
+        let en_vol = PostureChat {
+            pret: false,
+            en_vol: true,
+        };
+        assert_eq!(
+            image_chat(PhaseChat::Reveil(REVEIL_PAS), false, pret, 3),
+            "chat_pret"
+        );
+        assert_eq!(
+            image_chat(PhaseChat::Eveille(40), false, en_vol, 3),
+            "chat_bond"
+        );
+        // Posé au bout du bond : debout, hérissé, comme l'éveil sur place.
+        assert_eq!(
+            image_chat(PhaseChat::Eveille(40), false, rien, 3),
             "chat_eveille"
         );
         for phase in [
@@ -1624,7 +1671,9 @@ mod tests {
             PhaseChat::Reveil(5),
             PhaseChat::Eveille(5),
         ] {
-            assert_eq!(image_chat(phase, true, 9), "chat_ecrase");
+            for posture in [rien, pret, en_vol] {
+                assert_eq!(image_chat(phase, true, posture, 9), "chat_ecrase");
+            }
         }
         // Toutes ces images existent dans la banque de sprites.
         let noms: Vec<&str> = crate::sprites::tous().iter().map(|(n, _)| *n).collect();
@@ -1634,6 +1683,8 @@ mod tests {
             "chat_reveil",
             "chat_eveille",
             "chat_ecrase",
+            "chat_pret",
+            "chat_bond",
         ] {
             assert!(noms.contains(&n), "{n}");
         }
