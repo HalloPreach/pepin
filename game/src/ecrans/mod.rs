@@ -52,6 +52,8 @@ pub enum Ecran {
     /// Bilan d'un niveau joué seul depuis la carte (carte 7.4) : temps, défis,
     /// médaille, puis REJOUER ou CARTE.
     BilanNiveau,
+    /// La démo du titre (carte 8.1) : le robot joue seul, voir `crate::demo`.
+    Demo,
 }
 
 /// Position horizontale et largeur des lignes de menu (pixels logiques).
@@ -112,7 +114,8 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
         | Ecran::Carte(_)
         | Ecran::Jeu
         | Ecran::PlusDeVies(_)
-        | Ecran::Plan => None,
+        | Ecran::Plan
+        | Ecran::Demo => None,
     }
 }
 

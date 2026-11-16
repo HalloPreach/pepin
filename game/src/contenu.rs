@@ -383,6 +383,13 @@ pub const TITRE_PLAN: &str = "CARTE DES NIVEAUX";
 /// Rappel des touches en bas de la carte.
 pub const AIDE_PLAN: &str = "Haut/Bas : choisir  Entrée : jouer";
 pub const NIVEAU_SECRET: &str = "NIVEAU SECRET";
+
+// --- Démo du titre (carte 8.1) ----------------------------------------------
+
+/// Bandeau clignotant en haut pendant que le robot joue seul.
+pub const DEMO: &str = "DÉMO";
+/// Bandeau du bas : toute entrée ramène au titre.
+pub const APPUIE_SUR_UNE_TOUCHE: &str = "APPUIE SUR UNE TOUCHE";
 pub const INDICE_SECRET: &str = "Trouve toutes les gouttes d'or des niveaux pour l'ouvrir.";
 pub const VERROUILLE: &str = "VERROUILLÉ";
 pub const INDICE_VERROUILLE: &str = "Atteins-le en jouant pour l'ouvrir.";

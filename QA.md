@@ -6181,3 +6181,11 @@ Demande d'AGA : un niveau de poursuite, un mur de pluie qui avance et fait défi
 
 - Vrai téléphone (toucher pour passer l'image) ; personne n'a regardé à la main hors captures ; la
   lisibilité des textes à la taille 640x360.
+
+## Carte 8.1 : démo du robot sur l'écran titre
+
+- Après 10 s sans AUCUNE entrée sur le titre (touche, clic, souris qui bouge, molette, toucher, commande tenue), la démo (`Ecran::Demo`, `game/src/demo/`) rejoue un parcours EMBARQUÉ du robot, en rotation : Les toits, Le grand orage, Vents d'altitude, La mer de nuages (34 à 40 s chacun). Bandeau « DÉMO » clignotant en haut, « APPUIE SUR UNE TOUCHE » en bas (`contenu.rs`). Toute entrée ramène au titre tout de suite, sans autre effet ; drapeau, mort, entrées épuisées ou 45 s : retour au titre derrière les volets. Musique du niveau, aucun bruitage ; un `Monde` à part : rien n'est écrit dans la sauvegarde.
+- Parcours : `demo/parcours.rs` GÉNÉRÉ par le test ignoré `ecrire_parcours_de_la_demo` (`trouver_parcours` du robot, compressé en plages `(pas, code)` : 268 plages en tout). À régénérer si l'un de ces niveaux change ; le test `chaque_parcours_de_la_demo_atteint_le_drapeau` (le seul ajouté) le signale. Un parcours périmé ne plante rien : la démo s'arrête et revient au titre.
+- Tests : `test -p game --no-default-features --release` : 343 verts, 0 échec (dont `bot_qa` et le nouveau test `demo::`) ; `test -p core --release` vert ; `lint` LINT-OK. Wasm de `./build.sh` : 571 419 octets contre 568 706 avant (+2 713, gzip +1 617).
+- Vrai navigateur (Chromium sans tête, CDP, build de QA sur 127.0.0.1, protocole `docs/pilote-qa.js`, horloge virtuelle), sauvegarde préparée à 42 gouttes : après une touche, 9 s → titre, la démo apparaît à l'image 600 exactement (10 s) ; touche A → titre à l'image suivante, curseur sur JOUER ; mouvement de souris et toucher → titre (le toucher n'a pas validé de ligne) ; deux démos laissées jusqu'au bout reviennent seules au titre (< 45 s) ; sauvegarde identique à l'octet du début à la fin ; aucune erreur du pilote, pas d'écran d'erreur. Captures `docs/qa/81-demo.png` (Vents d'altitude, bandeau allumé), `81-retour-titre.png` (porte-monnaie 42), regardées, `mesure-capture.py` : 0 flou.
+- Pas testé : vrai téléphone, Safari, Firefox.
