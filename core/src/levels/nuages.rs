@@ -8,18 +8,22 @@
 //! les voit ensemble, on ne les confond pas.
 //!
 //! Carte 6.4b (« plus d'ennemis », sans quitter le calme : le niveau reste sous
-//! les vents d'altitude dans la mesure de difficulté) : deux corbeaux et deux
-//! flaques.
+//! les vents d'altitude dans la mesure de difficulté) : deux corbeaux et une
+//! flaque.
 //! - Une flaque sur le petit nuage des colonnes 35 à 40 (rangée 6), entre deux
 //!   sauts de l'escalier du début : on lui saute dessus, ou par-dessus.
 //! - Un corbeau au-dessus de la traversée friable (colonne 63, rangée 3 : il
 //!   patrouille des colonnes 58 à 68), juste au-dessus de la tête de Pépin posé
 //!   sur les friables : on passe dessous en marchant ; un saut au mauvais moment
 //!   s'y cogne.
-//! - Une flaque sur le nuage des colonnes 121 à 127 (rangée 4), avant le dernier
-//!   toit, et au-dessus d'elle un corbeau (colonne 120, rangée 2 : colonnes 115 à
-//!   125), juste au-dessus de la tête de Pépin posé sur ce nuage : pour écraser la
-//!   flaque d'un saut, on attend que le corbeau s'éloigne.
+//! - Un corbeau au-dessus du nuage des colonnes 121 à 127 (colonne 120, rangée 2 :
+//!   colonnes 115 à 125), juste au-dessus de la tête de Pépin posé sur ce nuage,
+//!   avant le saut vers le dernier toit : on attend qu'il s'éloigne pour sauter.
+//!
+//! Une seconde flaque, sous ce dernier corbeau (colonne 124), a été retirée : sur
+//! six graines de la mesure, elle faisait passer le niveau au-dessus des vents
+//! pour l'Habitué une fois sur six, et hors de sa bande trois fois sur six (QA.md,
+//! carte 6.4b).
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -31,19 +35,19 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     genre: GenreNiveau::Normal,
     intro: "Là-haut, le soleil. Prends ton temps : il n'y a plus d'orage.",
     mecanique: "Final calme : nuages, trampoline, petite traversée de nuages friables, pigeon, \
-                corbeaux, flaques.",
+                corbeaux, flaque.",
     duree_cible_s: 45,
     ascii: ASCII,
     aiguilles: &[],
 };
 
 /// Dessin du niveau (150 x 11 tuiles). Légende : voir `crate::level`.
-/// - Ennemis (carte 6.4b) : flaques (37, 5) et (124, 3) ; corbeaux (63, 3) et (120, 2).
+/// - Ennemis (carte 6.4b) : flaque (37, 5) ; corbeaux (63, 3) et (120, 2).
 const ASCII: &str = r"
 ......................................................................................................................................................
 ............................................................................o.........................................................................
 ........................................................................................................................c..........K....L.......X.....
-......................................o........................c............................................p...............f...NNNNNNNNNNNNNNNNNNNNNN
+......................................o........................c............................................p...................NNNNNNNNNNNNNNNNNNNNNN
 ..................................................L...K.....................................................N............NNNNNNN......................
 .....................................f.....NNNNNNNNNNNNNNN..FFFFFFF................................................K..................................
 .........o....................K....NNNNNN...................................M....................................NNNNNN...............................

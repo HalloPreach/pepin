@@ -906,7 +906,6 @@ fn ecrire_script_ennemis_64b() {
                     (TypeEnnemi::Flaque, 37, 5),
                     (TypeEnnemi::Corbeau, 63, 3),
                     (TypeEnnemi::Corbeau, 120, 2),
-                    (TypeEnnemi::Flaque, 124, 3),
                 ],
             ),
             (10, &[(TypeEnnemi::Corbeau, 10, 12)]),
