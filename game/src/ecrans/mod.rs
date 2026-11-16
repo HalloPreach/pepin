@@ -116,6 +116,21 @@ pub fn disposition(ecran: Ecran) -> Option<Disposition> {
     }
 }
 
+/// Lignes du menu du titre quand il est complet (avec HISTOIRE) : sa disposition
+/// est calculée pour elles.
+pub const LIGNES_TITRE_MAX: usize = 5;
+
+/// Mise en page d'un menu de `nb` lignes. Le titre n'a HISTOIRE qu'après une partie
+/// finie (carte 8.11) : ses 4 lignes d'avant sont centrées dans la place des 5, au
+/// même pas de 18 px. Les autres écrans : `disposition`.
+pub fn disposition_menu(ecran: Ecran, nb: usize) -> Option<Disposition> {
+    let mut d = disposition(ecran)?;
+    if ecran == Ecran::Titre {
+        d.y0 += LIGNES_TITRE_MAX.saturating_sub(nb) as f32 * d.pas / 2.0;
+    }
+    Some(d)
+}
+
 /// Rectangle plein.
 pub fn rect(x: f32, y: f32, w: f32, h: f32, c: Couleur) {
     draw_rectangle(x, y, w, h, couleur_mq(c));

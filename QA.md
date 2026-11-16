@@ -6181,3 +6181,59 @@ Demande d'AGA : un niveau de poursuite, un mur de pluie qui avance et fait défi
 
 - Vrai téléphone (toucher pour passer l'image) ; personne n'a regardé à la main hors captures ; la
   lisibilité des textes à la taille 640x360.
+
+## Intégration de l'histoire (carte 8.11)
+
+Après la fusion de 7.9, 8.2/8.2b, 8.4, 8.12 et 7.4 : finir l'intégration de l'histoire et du final.
+
+- Thème `Theme::Poursuite` (dernier de l'enum : les indices des autres thèmes ne bougent pas) pour « Le
+  retour du Grand Nuage » : le décor et le ciel d'altitude (`ambiance(Altitude)` repris tel quel), mais
+  SANS pluie de thème (`Theme::pluie` faux, 0 goutte d'ambiance) : il ne pleut que dans le front d'orage.
+  Luminosité 3 (celle de l'altitude). `musique_du_niveau` : `Theme::Poursuite => Musique::Poursuite` (le
+  niveau jouait la valse).
+- Verrou HISTOIRE : la ligne n'apparaît au titre que si `parties_finies > 0` (aucune ligne grisée ni
+  cadenas). Avant, le titre a 4 lignes, centrées dans la place des 5 (`ecrans::disposition_menu` : y0 + 9
+  px, même pas de 18 px) ; clic et survol utilisent la même disposition que le dessin.
+- Textes (`contenu.rs`) : histoire 2 « Le Grand Nuage s'enfuit sous la mer de nuages. / Plus haut, une
+  lueur d'or : des éclats de soleil ! » ; histoire 3 « Le Grand Nuage s'est vidé de sa pluie. / Le soleil
+  ouvre un œil : montrons-lui la ville ! » ; accueils du niveau 1 (« en route vers le soleil »), du Grand
+  Nuage (« C'est lui qui cache le soleil »), d'« Au-dessus des nuages » (l'orage gronde encore) et de la
+  descente (« Le soleil est réveillé : on redescend lui montrer la ville. ») ; fin « DE RETOUR ! » + « Plus
+  de pluie : Pépin replie son parapluie. ». Les `intro` de `core/src/levels/*.rs` suivent. Compteur de
+  gouttes « n/33 » et « NIVEAU n/10 » déjà calculés depuis la table (test du HUD : la largeur vient de
+  `gouttes_du_parcours`, plus de « 30/30 » en dur).
+- Image 2 : le Grand Nuage s'enfuit vers la droite EN DESCENDANT (il passait au-dessus). Numéro « n/3 » :
+  dans le bandeau du bas, à droite (il se lisait mal sur le ciel saumon de l'image 3).
+- Site et doc : `web/index.html` (meta, og, texte sr-only : dix niveaux, bonus, épilogue, l'histoire, le
+  final, secrets, carte, défis, boutique) ; `README.md` (dix niveaux + bonus + épilogue, le niveau 10,
+  l'histoire, secrets, carte/défis/médailles/boutique, l'icône du son à la place de la ligne SON).
+
+### Preuves
+
+- `./docker-cargo.sh test -p game --no-default-features ecrans` 24 ok, `... contenu` 9 ok, `... histoire`
+  7 ok (un filtre par commande) ; `test -p core` 377 ok (2 ignorés) ; tests adaptés : pluie par thème
+  (12 valeurs), titre de 4 lignes avant une partie finie (`la_ligne_histoire_du_titre...`), clic et survol
+  du titre (disposition à 4 lignes), largeur du compteur de gouttes du HUD, phrase de fin.
+- Suite complète `test -p game --no-default-features` : 352 ok, 27 ignorés, 1 échec
+  `sauvegarde::tests::la_migration_v2_range_chaque_niveau_sous_sa_cle`, DÉJÀ en échec sur main (021ba92,
+  extraction `git archive` : même échec) : écrit par 7.9 avant 8.2, il insérait un faux `poursuite` avant
+  l'arc-en-ciel alors que la vraie table l'a maintenant (le faux, derrière le vrai jamais fini, était
+  verrouillé). Adapté : il vérifie le VRAI niveau `poursuite` (vide, ouvert ; arc-en-ciel et descente
+  gardent leur progression) ; `... sauvegarde` 2 ok.
+- `./docker-cargo.sh lint` : LINT-OK. `./build.sh` : game.wasm 588 088 octets (gzip 236 883) ; dans
+  `dist/`, aucun `/home` ni nom propre, seule URL `http://www.w3.org/2000/svg`.
+- Captures `docs/qa/86-*.png` (build de QA servi sur 127.0.0.1, Chromium 1208 sans tête par CDP,
+  `node docs/capture-integration.mjs PORT docs/qa SCRIPT 20100 21160 215`, SCRIPT : le `script.txt` du robot
+  de la carte 7.9, dont la descente est inchangée) : `86-titre-sans-histoire` (4 lignes),
+  `86-titre-avec-histoire` (5 lignes, `parties_finies=1`), `86-histoire-1` à `-3`,
+  `86-histoire-puis-titre`, `86-accueil-poursuite` (NIVEAU 10/10), `86-poursuite-en-jeu` (ciel clair,
+  pluie seulement dans le front), `86-fin-de-retour` (descente rejouée par le robot : « DE RETOUR ! »,
+  « Plus de pluie : Pépin replie son parapluie. », gouttes « 1/33 »). Regardées ; `mesure-capture.py` : 0
+  pixel hors palette, 0 flou. Crochet audio : titre Orage (9,60 s), niveau 1 Toits de nuit (11,52 s),
+  niveau 9 la valse (10,56 s), niveau 10 une autre boucle (11,52 s, empreinte différente de Toits de
+  nuit) : Poursuite. 0 erreur de console.
+
+### Ce qui n'est PAS testé
+
+- Vrai téléphone ; personne n'a lu les textes à la main à 640x360 ; partie complète du robot (ignorée,
+  ~10 min) non relancée pour cette retouche.

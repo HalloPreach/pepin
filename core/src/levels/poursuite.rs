@@ -28,7 +28,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 10,
     cle: "poursuite",
     nom: "Le retour du Grand Nuage",
-    theme: Theme::Altitude,
+    theme: Theme::Poursuite,
     genre: GenreNiveau::Normal,
     intro: "Le Grand Nuage remonte de la mer : il veut garder le soleil endormi.",
     mecanique: "Poursuite : le front d'orage du Grand Nuage avance et fait défiler l'écran ; \

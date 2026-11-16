@@ -132,21 +132,16 @@ impl Musique {
 /// change pas la musique des autres. Un thème qui n'est rangé dans aucune zone
 /// (par exemple un thème tout neuf) retombe sur la boucle d'origine, Orage.
 ///
-/// Le niveau final « Le retour du Grand Nuage » (carte 8.2, développée en parallèle)
-/// n'existe pas encore dans cette branche : sa musique, Poursuite, n'est donc encore
-/// choisie par aucun niveau. À la fusion :
-/// - s'il a un thème À LUI, ajouter au `match` la ligne en commentaire ci-dessous ;
-/// - s'il garde le thème `Cyclone`, le thème ne suffit plus à le distinguer du boss :
-///   il faudra un autre critère (son genre, ou un champ « musique » dans ses
-///   `InfosNiveau`), jamais son numéro.
+/// Le niveau final « Le retour du Grand Nuage » a son thème à lui, `Poursuite` (le
+/// décor d'altitude, carte 8.11) : il reçoit donc sa propre musique, Poursuite.
 pub fn musique_du_niveau(niveau: &InfosNiveau) -> Musique {
     match niveau.theme {
         // La ville la nuit : les toits, les gouttières, le marché couvert.
         Theme::Toits | Theme::Gouttieres | Theme::Marche => Musique::ToitsDeNuit,
         // Le boss : le Grand Nuage, dans l'œil du cyclone.
         Theme::Cyclone => Musique::Cyclone,
-        // Le retour du Grand Nuage (carte 8.2), s'il a son propre thème :
-        // Theme::<thème du retour du Grand Nuage> => Musique::Poursuite,
+        // Le retour du Grand Nuage (carte 8.2) : son thème à lui (carte 8.11).
+        Theme::Poursuite => Musique::Poursuite,
         // L'altitude : les vents, la mer de nuages, au-dessus des nuages (dont le
         // thème s'appelle « Soleil » : le soleil doré du ciel, pas encore la fin).
         Theme::Altitude | Theme::Mer | Theme::Soleil => Musique::ValseDesNuages,
@@ -1014,7 +1009,7 @@ mod tests {
         use pepin_core::levels::NIVEAUX;
         use Musique::*;
         // Dans l'ordre de la table : la ville, l'orage, le boss, l'altitude, le retour
-        // du Grand Nuage (carte 8.2 ; son thème `Poursuite` arrive avec la carte 8.11),
+        // du Grand Nuage (carte 8.2 ; son thème `Poursuite` : carte 8.11),
         // puis le bonus et l'épilogue.
         let attendu = [
             ToitsDeNuit,    // les toits

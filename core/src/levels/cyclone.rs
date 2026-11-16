@@ -33,7 +33,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     nom: "L'œil du cyclone",
     theme: Theme::Cyclone,
     genre: GenreNiveau::Normal,
-    intro: "Le Grand Nuage ne veut pas te laisser passer.",
+    intro: "C'est lui qui cache le soleil : le Grand Nuage ne veut pas te laisser passer.",
     mecanique: "Le Grand Nuage (boss) : éviter ses éclairs, monter dans son courant quand il \
                 s'essouffle, lui sauter sur la tête trois fois.",
     duree_cible_s: 40,

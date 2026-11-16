@@ -1,9 +1,10 @@
 //! Niveau 12 (épilogue) : « La descente ».
 //!
-//! « Maintenant, on rentre. » Le dernier niveau, joué après le neuvième (ou après
-//! le bonus) ; l'écran de fin le suit. C'est le niveau VERTICAL À L'ENVERS : le
-//! clocher se gravissait, celui-ci se descend. Départ tout en haut, au soleil, sur
-//! un petit nuage ; arrivée tout en bas, la nuit, sur le toit du premier niveau
+//! « Le soleil est réveillé : on redescend lui montrer la ville. » Le dernier
+//! niveau, joué après le sommet (ou après le bonus) ; l'écran de fin le suit. C'est
+//! le niveau VERTICAL À L'ENVERS : le clocher se gravissait, celui-ci se descend.
+//! Départ tout en haut, au soleil, sur un petit nuage ; arrivée tout en bas, la
+//! nuit, sur le toit du premier niveau
 //! (mêmes tuiles, une cheminée, une antenne et un bloc de briques avant le
 //! drapeau). 32 tuiles de large, 45 de haut (quatre écrans) : la caméra suit
 //! Pépin en hauteur (carte 5.2).
@@ -51,7 +52,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     nom: "La descente",
     theme: Theme::Descente,
     genre: GenreNiveau::Epilogue,
-    intro: "Maintenant, on rentre.",
+    intro: "Le soleil est réveillé : on redescend lui montrer la ville.",
     mecanique: "Épilogue : le niveau vertical à l'envers ; on descend du soleil jusqu'aux \
                 toits, en tombant ou en planant, entre les pigeons, un corbeau et la grêle.",
     // Le plus court des onze : une descente tranquille (la mesure de difficulté la

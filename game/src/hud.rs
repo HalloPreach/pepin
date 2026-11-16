@@ -22,7 +22,7 @@ const ECART_PV: i32 = 3;
 const X_GOUTTES: f32 = 17.0;
 /// Abscisse de l'icône des vies (10 px de large) et du chiffre qui la suit. Fixe :
 /// le compteur ne bouge pas quand le nombre de gouttes passe de 9 à 10. Le texte des
-/// gouttes le plus large, « 30/30 », finit en x = 46 (test
+/// gouttes le plus large (« 33/33 » : 11 niveaux du parcours), finit en x = 46 (test
 /// `les_vies_ne_chevauchent_ni_les_gouttes_ni_le_nuage`).
 const X_ICONE_VIE: f32 = 53.0;
 const X_CHIFFRE_VIE: f32 = 65.0;
@@ -194,12 +194,13 @@ mod tests {
     }
 
     /// Le compteur de vies (carte 6.2) tient entre le compteur de gouttes le plus
-    /// large (« 30/30 », et « 3/3 » dans le bonus) et les points de vie du Grand
+    /// large (tout le parcours, et « 3/3 » dans le bonus) et les points de vie du Grand
     /// Nuage, « +1 » compris, avec au moins 4 px d'écart (ombres comprises), et ne
     /// bouge pas d'un pixel quand les gouttes changent.
     #[test]
     fn les_vies_ne_chevauchent_ni_les_gouttes_ni_le_nuage() {
-        let fin_gouttes = X_GOUTTES + largeur_texte("30/30", 1) as f32 + 1.0;
+        let total = gouttes_du_parcours(NIVEAUX);
+        let fin_gouttes = X_GOUTTES + largeur_texte(&format!("{total}/{total}"), 1) as f32 + 1.0;
         assert!(X_ICONE_VIE >= fin_gouttes + 4.0, "{fin_gouttes}");
         let debut_nuage = points_de_vie(3)[0].1 as f32;
         for n in 0..=pepin_core::vies::VIES_MAX {

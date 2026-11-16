@@ -50,13 +50,18 @@ pub enum Theme {
     /// (en bas), selon la hauteur ; en bas, la ville du premier niveau. Pas de
     /// pluie : l'orage est fini.
     Descente,
+    /// Le retour du Grand Nuage (le niveau final, carte 8.2) : le décor et le ciel
+    /// d'altitude, clairs devant le front d'orage, sans pluie de thème (il ne pleut
+    /// que DANS le front d'orage). Un thème à lui pour sa musique (`Poursuite`).
+    /// Déclaré en dernier : les indices des autres thèmes ne bougent pas.
+    Poursuite,
 }
 
 impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 11] = [
+    pub const TOUS: [Theme; 12] = [
         Theme::Toits,
         Theme::Gouttieres,
         Theme::Marche,
@@ -68,6 +73,7 @@ impl Theme {
         Theme::Soleil,
         Theme::ArcEnCiel,
         Theme::Descente,
+        Theme::Poursuite,
     ];
 
     /// Place du thème dans `Theme::TOUS` (son rang de déclaration).
@@ -92,16 +98,19 @@ impl Theme {
             Theme::ArcEnCiel => 2,
             // La descente va du soleil (4) à la nuit (0) : la moyenne.
             Theme::Descente => 2,
+            // Le retour du Grand Nuage : le ciel d'altitude.
+            Theme::Poursuite => 3,
         }
     }
 
     /// Pleut-il dans ce thème ? Ni au soleil, ni au-dessus de la mer de nuages
     /// (seule la grêle y tombe, en colonnes), ni sous l'arc-en-ciel (la pluie
-    /// vient de s'arrêter), ni pendant la descente (l'orage est fini : on rentre).
+    /// vient de s'arrêter), ni pendant la descente (l'orage est fini : on rentre), ni
+    /// devant le front d'orage du Grand Nuage (il ne pleut que dedans).
     pub fn pluie(self) -> bool {
         !matches!(
             self,
-            Theme::Soleil | Theme::Mer | Theme::ArcEnCiel | Theme::Descente
+            Theme::Soleil | Theme::Mer | Theme::ArcEnCiel | Theme::Descente | Theme::Poursuite
         )
     }
 }

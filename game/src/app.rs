@@ -97,6 +97,7 @@ pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
 
 /// Les lignes du menu d'un écran, dans l'ordre. Le son n'a plus de ligne depuis la
 /// carte 7.8b : c'est une icône en bas à gauche du titre et de la pause (clic ou M).
+/// Le titre perd HISTOIRE tant qu'aucune partie n'est finie (`Application::ouvrir`).
 pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
     match ecran {
         Ecran::Titre => vec![
@@ -235,6 +236,11 @@ impl Application {
         self.ecran = ecran;
         self.anim = 0;
         self.choix = choix_pour(ecran);
+        // HISTOIRE n'apparaît au titre qu'une fois le jeu fini (carte 8.11) : avant,
+        // ses images se découvrent en jouant. Pas de ligne grisée ni de cadenas.
+        if self.sauvegarde.parties_finies == 0 {
+            self.choix.retain(|&c| c != Choix::Histoire);
+        }
         // Pause d'un niveau joué seul : on quitte vers la carte des niveaux.
         if self.niveau_seul {
             for c in self
@@ -469,8 +475,8 @@ impl Application {
             self.menu.descendre();
         }
         let mut valider = nav.valider;
-        if let Some(d) = ecrans::disposition(self.ecran) {
-            let nb = self.choix.len();
+        let nb = self.choix.len();
+        if let Some(d) = ecrans::disposition_menu(self.ecran, nb) {
             if let Some((x, y)) = nav.survol {
                 if let Some(i) = d.ligne_sous(nb, x, y) {
                     self.menu.choisir(i);
@@ -807,7 +813,8 @@ impl Application {
         // sinon l'interpolation ferait trembler les sprites sur place.
         let alpha = if self.en_jeu() { alpha } else { 1.0 };
         let libelles: Vec<&str> = self.choix.iter().map(|&c| contenu::libelle(c)).collect();
-        let dispo = ecrans::disposition(self.ecran).unwrap_or(Disposition { y0: 0.0, pas: 20.0 });
+        let dispo = ecrans::disposition_menu(self.ecran, self.choix.len())
+            .unwrap_or(Disposition { y0: 0.0, pas: 20.0 });
         match self.ecran {
             Ecran::Titre => {
                 titre::dessiner(banque, self.skin, self.anim, &libelles, &self.menu, &dispo);
@@ -1134,7 +1141,7 @@ mod tests {
     #[test]
     fn un_clic_sur_une_ligne_la_valide() {
         let mut app = Application::new(true);
-        let d = ecrans::disposition(Ecran::Titre).unwrap();
+        let d = ecrans::disposition_menu(Ecran::Titre, app.choix.len()).unwrap();
         let ligne = app.choix.iter().position(|&c| c == Choix::Aide).unwrap();
         let (x, y, _, h) = d.rect_ligne(ligne);
         let clic = Navigation {
@@ -1164,7 +1171,7 @@ mod tests {
     #[test]
     fn le_survol_deplace_le_curseur_sans_valider() {
         let mut app = Application::new(true);
-        let d = ecrans::disposition(Ecran::Titre).unwrap();
+        let d = ecrans::disposition_menu(Ecran::Titre, app.choix.len()).unwrap();
         let (x, y, _, h) = d.rect_ligne(1);
         let survol = Navigation {
             survol: Some((x + 10.0, y + h / 2.0)),
@@ -2232,6 +2239,11 @@ mod tests {
     #[test]
     fn la_ligne_histoire_du_titre_montre_les_trois_images() {
         let mut app = Application::new(true);
+        // Pas de ligne HISTOIRE avant une partie finie (carte 8.11) : 4 lignes.
+        assert!(!app.choix.contains(&Choix::Histoire));
+        assert_eq!(app.choix.len(), 4);
+        app.sauvegarde.parties_finies = 1;
+        app.ouvrir(Ecran::Titre);
         let ligne = app
             .choix
             .iter()

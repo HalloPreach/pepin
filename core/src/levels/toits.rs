@@ -26,7 +26,8 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     nom: "Les toits",
     theme: Theme::Toits,
     genre: GenreNiveau::Normal,
-    intro: "La pluie tambourine sur les toits. Pépin ouvre son parapluie et part vers le haut.",
+    intro:
+        "La pluie tambourine sur les toits. Pépin ouvre son parapluie : en route vers le soleil !",
     mecanique: "Course, saut, planer (maintenir SAUT en l'air), premières flaques à écraser.",
     duree_cible_s: 50,
     ascii: ASCII,
