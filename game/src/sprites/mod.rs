@@ -13,7 +13,7 @@
 //! `char` fautif comme erreur, itérateurs, `HashMap`, tests unitaires.
 
 // Les dessins sont des grilles de texte : rustfmt les tasserait sur une seule
-// ligne et les rendrait illisibles, donc on l'exclut de ces cinq fichiers.
+// ligne et les rendrait illisibles, donc on l'exclut de ces six fichiers.
 #[rustfmt::skip]
 pub mod ennemis;
 #[rustfmt::skip]
@@ -22,6 +22,8 @@ pub mod objets;
 pub mod objets_decor;
 #[rustfmt::skip]
 pub mod pepin;
+#[rustfmt::skip]
+pub mod pepinette;
 #[cfg(test)]
 mod planche;
 #[rustfmt::skip]
@@ -37,6 +39,7 @@ use pepin_core::zones::Theme;
 
 use crate::decor::ambiance;
 use crate::rendu::couleur_mq;
+use crate::skins::Skin;
 
 /// Un dessin : une liste de lignes de texte, toutes de même longueur.
 pub type Image = &'static [&'static str];
@@ -64,6 +67,44 @@ pub fn hauteur(image: Image) -> usize {
     image.len()
 }
 
+/// Le jeu d'images d'un personnage (un skin, voir `crate::skins`) : les NOMS de ses
+/// sprites, rangés par animation. Le rendu (`scene`, `hud`) ne connaît que ces champs :
+/// changer de skin = changer de jeu d'images, la logique d'animation reste la même.
+pub struct JeuImages {
+    /// Repos au sol (respiration, 2 images).
+    pub repos: [&'static str; 2],
+    /// Course (4 images en boucle).
+    pub course: [&'static str; 4],
+    /// Montée d'un saut.
+    pub saut: &'static str,
+    /// Chute.
+    pub chute: &'static str,
+    /// Attente après 2 s immobile : cligner, regarder le ciel, tapoter le sol.
+    pub attente: [&'static str; 3],
+    /// Parapluie ouvert (20x20, les franges oscillent).
+    pub planer: [&'static str; 2],
+    /// Réapparition après une mort (étincelles qui se rassemblent).
+    pub reapparition: [&'static str; 3],
+    /// Icône des vies du HUD (10x10).
+    pub vie: &'static str,
+}
+
+impl JeuImages {
+    #[cfg(test)]
+    /// Tous les noms du jeu (16 images du personnage, puis l'icône des vies).
+    pub fn noms(&self) -> Vec<&'static str> {
+        let mut noms = Vec::new();
+        noms.extend(self.repos);
+        noms.extend(self.course);
+        noms.extend([self.saut, self.chute]);
+        noms.extend(self.attente);
+        noms.extend(self.planer);
+        noms.extend(self.reapparition);
+        noms.push(self.vie);
+        noms
+    }
+}
+
 #[cfg(test)]
 /// Vérifie qu'un dessin est rectangulaire et n'utilise que des caractères permis.
 pub fn verifier(nom: &str, image: Image) -> Result<(), String> {
@@ -85,14 +126,25 @@ pub fn verifier(nom: &str, image: Image) -> Result<(), String> {
 #[cfg(test)]
 /// Tous les sprites du jeu (nom, dessin), tous fichiers confondus.
 pub fn tous() -> Vec<(&'static str, Image)> {
-    [
-        pepin::SPRITES,
-        ennemis::SPRITES,
-        objets::SPRITES,
-        objets_decor::SPRITES,
-        tuiles::SPRITES,
-    ]
-    .concat()
+    let mut liste = personnages();
+    liste.extend(
+        [
+            ennemis::SPRITES,
+            objets::SPRITES,
+            objets_decor::SPRITES,
+            tuiles::SPRITES,
+        ]
+        .concat(),
+    );
+    liste
+}
+
+/// Les sprites de tous les skins du catalogue (Pépin, Pépinette…), dans son ordre.
+fn personnages() -> Vec<(&'static str, Image)> {
+    Skin::TOUS
+        .iter()
+        .flat_map(|s| s.sprites().iter().copied())
+        .collect()
 }
 
 /// Table de substitution de couleurs d'un thème : les tuiles s'éclaircissent
@@ -140,16 +192,11 @@ pub struct Banque {
 impl Banque {
     /// Génère toutes les textures. À appeler une seule fois, après l'ouverture de la fenêtre.
     pub fn charger() -> Self {
-        let sprites = [
-            pepin::SPRITES,
-            ennemis::SPRITES,
-            objets::SPRITES,
-            objets_decor::SPRITES,
-        ]
-        .concat()
-        .into_iter()
-        .map(|(nom, dessin)| (nom, texture(dessin, None)))
-        .collect();
+        let sprites = personnages()
+            .into_iter()
+            .chain([ennemis::SPRITES, objets::SPRITES, objets_decor::SPRITES].concat())
+            .map(|(nom, dessin)| (nom, texture(dessin, None)))
+            .collect();
         let tuiles = Theme::TOUS
             .iter()
             .map(|&t| {

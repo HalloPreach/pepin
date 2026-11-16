@@ -5622,3 +5622,59 @@ débloqué → « pepin ». Méthodes `ajouter_gouttes`, `depenser(prix) -> bool
 - Deux onglets ouverts en même temps : le dernier qui écrit gagne (pas de fusion).
 - La boutique (dépenser des gouttes, choisir un skin) : carte 7.3.
 - Pas de suite complète (`test --workspace`) : seulement les commandes de la carte ci-dessus.
+
+## Skins : Pépinette, la version fille de Pépin (carte 7.1)
+
+Catalogue `game/src/skins.rs` : `enum Skin { Pepin, Pepinette }`, avec pour chacun un nom affiché
+(« PÉPIN », « PÉPINETTE »), un prix en gouttes (0 et 0 : Pépinette est débloquée dès le départ) et son
+jeu d'images (`sprites::JeuImages` : repos, course, saut, chute, attente, plané, réapparition, icône des
+vies). Ajouter un skin = un fichier dans `sprites/` + une variante (le compilateur signale chaque `match`
+oublié). Le skin actif est un paramètre du rendu (`scene::dessiner`, `hud::dessiner`, champ
+`Application::skin`, Pépin par défaut) : `dessiner_pepin` et `image_attente` prennent leurs noms dans le
+jeu d'images, la logique d'animation est la même pour tous. Rien dans core/ (physique, boîte 10 x 14).
+Build de QA seulement : la touche K passe au skin suivant (`entrees::skin_suivant_demande`, faux sans
+`debug_niveaux`, donc inerte en production).
+
+Pépinette (`sprites/pepinette.rs`) : les 16 images de Pépin, une à une, mêmes tailles, même silhouette,
+mêmes pieds, parapluie au même endroit, plus l'icône des vies (10 x 10, sa tête). Différences : un nœud
+corail à gauche sur la tête, des cils (un pixel sombre en haut, à l'extérieur de chaque œil), une petite
+robe corail (les rangées d'ombre sous le corps), un parapluie cyan de la pluie (`D`, plis `6`) au lieu du
+corail. Joues roses gardées ; étincelles de la réapparition (`mort2`) reprises de Pépin.
+
+Un seul test ajouté (nouvelle mécanique) : `chaque_skin_fournit_toutes_les_images_aux_tailles_de_pepin`
+(17 noms par skin, tous présents dans ses sprites, valides, à la taille de l'image de Pépin qu'ils
+remplacent, aucun nom partagé entre deux skins, Pépinette à 0 goutte). Les tests d'attente de `scene.rs`
+passent le jeu d'images de Pépin (`&pepin::IMAGES`), sans autre changement. `docs/planche-sprites.png`
+régénérée (Pépinette après Pépin).
+
+### Preuves
+
+Extraction propre (`git archive carte-7.1`, commit 95428a0) :
+
+- `./docker-cargo.sh test -p game --no-default-features sprites` : 54 verts ; `... skins` : 1 vert ;
+- `./docker-cargo.sh test -p game --no-default-features bot_qa` : 19 verts, 19 ignorés ;
+- jeu par défaut identique : `ecrire_script_navigateur` donne la même empreinte qu'à la carte 6.9
+  (71df3e47c4844537 : 21 422 images, 0 mort, 14 gouttes, chrono 18 878 pas) ;
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK ; `./build.sh` : `dist/` produit, aucun `/home`, aucune
+  adresse, seule URL `http://www.w3.org/2000/svg`.
+
+Captures (build de QA `./build.sh --qa` servi sur 127.0.0.1, Chromium 1208 sans tête par CDP,
+`docs/capture-visibilite.mjs`, 960 x 540, x3), parcours du robot (`target/qa/script.txt`) avec la touche K
+à l'image 5 (`TOUCHES=5:KeyK`) :
+
+- `docs/qa/71-planche-pepin-pepinette.png` : les 17 images, Pépin en haut, Pépinette dessous (écrite par
+  `python3 docs/planche-skins.py`, qui lit les grilles des deux fichiers de sprites ; x8) ;
+- `71-toits-plane.png` (image 1183) et `71-toits-course.png` (1419) : niveau 1, ciel de nuit ;
+- `71-mer-course.png` (16 747) et `71-mer-plane.png` (17 043) : niveau 8, ciel de couchant.
+
+`docs/mesure-capture.py` : 0 pixel hors palette, 0 bloc flou sur les quatre captures ; planche : 0 pixel
+hors palette. Regardées : Pépinette se lit comme « Pépin fille » (nœud et robe corail, cils, parapluie
+cyan bien distinct du corail de Pépin), l'icône des vies du HUD porte le nœud.
+
+### Ce qui n'est PAS testé
+
+- Personne n'a joué avec Pépinette à la main ; le choix du skin à l'écran (7.3) et sa sauvegarde (7.2)
+  ne sont pas faits ici.
+- Sur le ciel de couchant (corail), le nœud et la robe corail se détachent surtout par leur contour
+  sombre : lisible sur la capture, à rejuger sur un écran délavé.
+- Pas de suite complète (consigne vitesse).

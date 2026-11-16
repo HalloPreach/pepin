@@ -33,6 +33,7 @@ use crate::particules::Particules;
 use crate::sauvegarde::Sauvegarde;
 use crate::scene;
 use crate::secousse::Secousse;
+use crate::skins::Skin;
 use crate::sprites::Banque;
 use crate::transition::Transition;
 use pepin_core::entities::contacts::Contact;
@@ -121,6 +122,9 @@ pub struct Application {
     pub sauvegarde: Sauvegarde,
     /// La partie qui vient de finir a battu le record de score (écran de fin).
     nouveau_record: bool,
+    /// Tenue de Pépin (carte 7.1) : Pépin par défaut. Seule la touche de mise au point
+    /// du build de QA la change pour l'instant (`changer_skin`).
+    pub skin: Skin,
 }
 
 impl Application {
@@ -149,6 +153,7 @@ impl Application {
             eclat_vie: 0,
             sauvegarde: Sauvegarde::charger(),
             nouveau_record: false,
+            skin: Skin::default(),
         };
         app.ouvrir(Ecran::Titre);
         app
@@ -545,6 +550,7 @@ impl Application {
                     &self.monde,
                     banque,
                     &self.particules,
+                    self.skin,
                     alpha,
                     cx + sx,
                     cy + sy,
@@ -560,6 +566,7 @@ impl Application {
                     let vies = hud::vies(self.monde.etat.vies.restantes(), self.eclat_vie);
                     hud::dessiner(
                         banque,
+                        self.skin,
                         compteur,
                         &vies,
                         self.pas_partie,

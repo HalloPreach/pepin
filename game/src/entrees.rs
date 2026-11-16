@@ -285,6 +285,16 @@ pub fn raccourci_niveau() -> Option<RaccourciNiveau> {
     niveau_demande(RACCOURCIS_NIVEAUX, is_key_pressed)
 }
 
+/// Touche de mise au point « skin suivant » (carte 7.1) : K, libre dans les deux
+/// dispositions de clavier. Build de QA seulement (avec les raccourcis de niveau).
+const TOUCHE_SKIN: KeyCode = KeyCode::K;
+
+/// Le skin suivant est-il demandé ? Toujours faux sans `debug_niveaux` : la touche K
+/// est inerte en production.
+pub fn skin_suivant_demande() -> bool {
+    RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_SKIN)
+}
+
 /// Plantage volontaire (touche F9) : n'existe que dans le build de QA, fonctionnalité
 /// Cargo `qa_plantage`. Il sert à vérifier dans un vrai navigateur qu'un plantage en
 /// cours de partie (panique Rust, devenue « RuntimeError: unreachable » en wasm)

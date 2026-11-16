@@ -10,6 +10,7 @@ use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, OR};
 use pepin_core::LARGEUR_LOGIQUE;
 
 use crate::chrono;
+use crate::skins::Skin;
 use crate::sprites::Banque;
 use crate::texte::{self, Style};
 
@@ -105,9 +106,11 @@ pub fn compteur(
 
 /// Dessine le HUD. `(gouttes, total)` : le compteur de gouttes d'or (`compteur`) ;
 /// `vies` : le compteur de vies (`vies`) ; `pas` : durée de la partie en pas ;
-/// `pv_nuage` : points de vie du Grand Nuage s'il y en a un dans le niveau.
+/// `pv_nuage` : points de vie du Grand Nuage s'il y en a un dans le niveau ; `skin` : la
+/// tenue de Pépin, dont l'icône des vies montre le visage.
 pub fn dessiner(
     banque: &Banque,
+    skin: Skin,
     (gouttes, total): (u32, u32),
     vies: &AffichageVies,
     pas: u32,
@@ -117,7 +120,7 @@ pub fn dessiner(
     // Sprite 10x10 (contour de 2 px) : décalé d'un pixel pour garder la goutte à la même place.
     banque.dessiner("goutte0", 5.0, 4.0, false);
     texte::dessiner(&format!("{gouttes}/{total}"), X_GOUTTES, 6.0, style);
-    banque.dessiner("vie", X_ICONE_VIE, 4.0, false);
+    banque.dessiner(skin.images().vie, X_ICONE_VIE, 4.0, false);
     texte::dessiner(
         &vies.chiffre,
         X_CHIFFRE_VIE,
