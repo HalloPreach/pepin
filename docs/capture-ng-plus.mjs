@@ -1,8 +1,9 @@
 // Pilote CDP de la carte 8.8 (nouvelle partie +) sur le build de QA, avec l'horloge virtuelle de
 // docs/pilote-qa.js :
 // 1. une partie déjà finie (`parties_finies=1`) : le titre à six lignes (NOUVELLE PARTIE+) ;
-// 2. JOUER : image 1 de l'histoire, niveau 1, puis « suivant » (N) jusqu'aux niveaux 2, 3 et 5 ;
-//    à chacun, la même attente après la carte de présentation, puis une capture ;
+// 2. JOUER : image 1 de l'histoire, niveau 1, puis « suivant » (N) jusqu'aux niveaux 2 et 3 ; à
+//    chacun, la même attente après la carte de présentation, puis une capture (au niveau 1, Pépin
+//    court d'abord jusque sur la marche des toits, mêmes touches dans les deux modes) ;
 // 3. retour au titre (pause, QUITTER AU TITRE), NOUVELLE PARTIE+ : les mêmes niveaux, les mêmes
 //    attentes, les mêmes captures (ennemis déplacés, pluie forte, « + » dans le HUD) ;
 // 4. les records : la sauvegarde relue après la nouvelle partie + (rien de fini : aucun record).
@@ -85,13 +86,22 @@ await touche('ArrowDown', 30);
 await capture('88-titre-ng-plus');
 await touche('ArrowUp', 10);
 
-// Niveaux photographiés : (numéro, nom) ; la même attente partout après la carte.
-const NIVEAUX = [[2, 'gouttieres'], [3, 'marche'], [5, 'clocher']];
+// Niveaux photographiés : (numéro, nom, touches tenues) ; la même attente partout après la
+// carte. Touches : { n images, m masque } (2 gauche, 4 droite, 8 saut).
+const NIVEAUX = [
+  // Les toits : courir jusqu'à la marche (colonne 16), sauter dessus, s'y arrêter : la
+  // flaque ajoutée (colonne 25) est dans le champ.
+  [1, 'toits', [{ n: 120, m: 4 }, { n: 15, m: 12 }, { n: 30, m: 4 }, { n: 20, m: 0 }]],
+  [2, 'gouttieres', []],
+  [3, 'marche', []],
+];
 const ATTENTE = 240; // volets (48) + carte de présentation (180) + un peu de jeu
 async function parcourir(mode) {
   let niveau = 1;
-  for (const [n, nom] of NIVEAUX) {
+  for (const [n, nom, tenues] of NIVEAUX) {
     while (niveau < n) { await touche('KeyN', ATTENTE); niveau++; }
+    for (const t of tenues) await evalue(`window.__P.file.push(${JSON.stringify(t)}); 1`);
+    await vide();
     await capture(`88-${nom}-${mode}`);
   }
 }

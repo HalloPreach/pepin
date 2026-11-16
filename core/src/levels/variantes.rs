@@ -62,7 +62,8 @@ pub struct Variante {
 
 /// Les variantes, niveau par niveau. L'arène du Grand Nuage (son motif suffit) et
 /// l'arc-en-ciel (le bonus reste « sans ennemi ») n'en ont pas. Les pigeons sur un
-/// perchoir d'une case et les ennemis gardiens d'un secret restent à leur place.
+/// perchoir d'une case, les ennemis gardiens d'un secret et le chat du clocher
+/// restent à leur place.
 pub const VARIANTES: &[Variante] = &[
     Variante {
         cle: "toits",
@@ -100,10 +101,14 @@ pub const VARIANTES: &[Variante] = &[
         deplaces: &[((36, 5), (42, 5)), ((154, 7), (184, 7))],
         ajouts: &[('f', (105, 7))],
     },
+    // Le clocher : le chat de la galerie reste deux tuiles avant le ventilateur (sa
+    // place va avec le souffle, carte 6.4a) ; le corbeau passe au bout de la
+    // corniche F4 ; une flaque garde la corniche F2, où l'on saute en sortant du
+    // courant du ventilateur.
     Variante {
         cle: "clocher",
-        deplaces: &[((26, 18), (21, 18)), ((28, 36), (14, 36))],
-        ajouts: &[('f', (26, 19))],
+        deplaces: &[((26, 18), (29, 18))],
+        ajouts: &[('f', (28, 25))],
     },
     Variante {
         cle: "vents",
