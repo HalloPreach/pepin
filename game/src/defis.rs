@@ -134,9 +134,9 @@ pub fn noter_niveau(
     let mut gain = ramassees;
     s.noter_niveau_atteint(indice);
     if let Some(p) = s.niveaux.get_mut(indice) {
-        for i in 0..3 {
+        for (i, &reussi) in reussis.iter().enumerate() {
             p.gouttes[i] |= t.gouttes[i];
-            if reussis[i] && !p.defis[i] {
+            if reussi && !p.defis[i] {
                 p.defis[i] = true;
                 gain += GAIN_DEFI;
             }
