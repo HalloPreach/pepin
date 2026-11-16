@@ -57,15 +57,18 @@ au premier toucher.
 Les neuf niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
 `core/src/levels/*.rs`) :
 
-1. Les toits : course, saut, planer.
-2. Gouttières et cheminées : flaques à écraser, champignons-trampolines.
+1. Les toits : course, saut, planer ; les deux premières flaques à écraser.
+2. Gouttières et cheminées : flaques à écraser, champignons-trampolines, deux
+   corbeaux qui volent au-dessus des toits.
 3. Le marché couvert : auvents qui relancent en diagonale (six à la suite au-dessus
-   du vide), chats endormis à écraser pendant leur sommeil ; réveillés, ils
-   bondissent sur Pépin s'il est trop près.
-4. Le grand orage : éclairs annoncés, plateformes mobiles et friables.
+   du vide), cinq chats endormis à écraser pendant leur sommeil (dont un sur le
+   mur de la goutte cachée) ; réveillés, ils bondissent sur Pépin s'il est trop
+   près.
+4. Le grand orage : éclairs annoncés, plateformes mobiles et friables, deux
+   corbeaux.
 5. Le clocher : niveau vertical (quatre écrans de haut) ; escargots-tremplins,
-   ventilateur, pigeons sur les corniches, et la cage de l'horloge dont les
-   aiguilles emportent Pépin.
+   ventilateur gardé par un chat, pigeons sur les corniches, un corbeau sous la
+   porte de la cage, et la cage de l'horloge dont les aiguilles emportent Pépin.
 6. L'œil du cyclone : le boss. Une arène d'un écran ; le Grand Nuage lance trois
    motifs d'éclairs de plus en plus serrés, puis s'essouffle et laisse échapper un
    courant : on y monte et on lui saute sur la tête. Trois fois, et le ciel se
@@ -305,9 +308,9 @@ Tests :
     ./docker-cargo.sh test -p core
     ./docker-cargo.sh test -p game --no-default-features
 
-Mesure à la dernière vérification de ce README (carte 6.3, les chats qui bondissent) :
+Mesure à la dernière vérification de ce README (carte 6.4a, plus d'ennemis aux niveaux 1 à 5) :
 **374 tests réussis** dans `core` (plus 1 test ignoré volontairement : il régénère
-l'image `docs/police-test.png`) et **336 tests réussis** dans `game` (plus 20 tests
+l'image `docs/police-test.png`) et **336 tests réussis** dans `game` (plus 21 tests
 ignorés : ils écrivent les scripts du robot de QA, la mesure de difficulté ou des
 diagnostics, voir `QA.md`). Les tests de `game` prennent une dizaine de minutes :
 le robot de QA joue réellement les onze niveaux, et la courbe de difficulté est
@@ -643,11 +646,11 @@ Mesure du dossier `dist/` produit par `./build.sh` (relevée sur les fichiers,
     fichier              octets     gzip
     index.html            14 693    5 617
     mq_js_bundle.js       36 148    9 839
-    game.wasm            497 647  200 154
+    game.wasm            497 695  200 215
 
-(mesure de la carte 6.3, les chats qui bondissent ; 494 519 octets à la carte 6.2,
-491 619 à la carte 6.1, 491 395 à la carte 5.18 ; avec cinq niveaux, le wasm
-faisait 422 556 octets.) Le wasm pèse donc environ 0,50 Mo, soit 200 Ko transférés par
+(mesure de la carte 6.4a, plus d'ennemis aux niveaux 1 à 5 ; 497 647 octets à la carte
+6.3, 494 519 à la carte 6.2, 491 619 à la carte 6.1, 491 395 à la carte 5.18 ; avec cinq
+niveaux, le wasm faisait 422 556 octets.) Le wasm pèse donc environ 0,50 Mo, soit 200 Ko transférés par
 un serveur qui compresse.
 Le budget de `build.sh` est : avertissement au-delà de 1,2 Mo, échec au-delà de
 2,5 Mo. Ces chiffres dépendent du code et de la version du compilateur ; ils

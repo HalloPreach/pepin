@@ -4595,3 +4595,273 @@ navigateur), d65c9dc (sommeil 100 pas, mesure), a59ef9b (captures), cette sectio
   vrai téléphone, ni Safari, ni Firefox.
 - Le chat ne bondit que sur son toit (même rangée de sol) : un Pépin au-dessus d'un trou, ou sur un autre
   toit, est vu mais pas atteint (voulu : il ne tombe jamais dans le vide).
+
+## Plus d'ennemis dans les niveaux 1 à 5 (carte 6.4a)
+
+Demande d'AGA : « tu peux rajouter des ennemis sur les niveau, il y a beaucoup de niveaux avec peu
+d'ennemis ». Le but est un CHALLENGE. Cette carte traite les niveaux 1 à 5 (la 6.4b fera 7, 8, 9 et 11) ;
+le boss (6), le bonus (10), les mécaniques et la physique ne changent pas. Types existants seulement
+(flaque `f`, corbeau `c`, pigeon `p`, chat `z`), aucune lettre nouvelle.
+
+### Inventaire avant / après
+
+| Niveau                        | Avant         | Après                 | Ajouts (colonne, rangée de la lettre)                       |
+| ----------------------------- | ------------- | --------------------- | ----------------------------------------------------------- |
+| 1. Les toits (176 col.)       | aucun         | 2 flaques             | flaques (76, 7) et (118, 7)                                 |
+| 2. Gouttières (190 col.)      | 9 flaques     | 9 flaques, 2 corbeaux | corbeaux (50, 5) et (106, 5)                                |
+| 3. Le marché couvert (153)    | 2 f + 4 chats | 2 f + 5 chats         | chat (68, 4), sur le mur de la goutte cachée                |
+| 4. Le grand orage (200)       | 1 f + 1 c     | 1 f + 2 corbeaux      | corbeau (36, 5), au-dessus des pointes du deuxième toit     |
+| 5. Le clocher (34 x 45)       | 2 pigeons     | 2 p + 1 chat + 1 c    | chat (28, 36) sur la galerie, corbeau (26, 18) sous la porte |
+
+Soit 19 ennemis avant, 27 après (+ 8). Une retouche de niveau = un commit avec sa mesure (700b5f3
+clocher, e1752dc grand orage, 2c87bf3 marché couvert, c1c9266 gouttières, fc0a97c toits, dans cet ordre :
+du sommet vers le début, pour que chaque niveau soit réglé sous le suivant déjà retouché).
+
+- Les toits : les deux premières flaques du jeu, APRÈS le dernier panneau (planer, colonne 55). Chacune
+  garde un bout de toit FERMÉ, sans lanterne ni décor sur sa patrouille : le creux entre les deux
+  cheminées de briques (colonnes 74 à 79 : on lui tombe dessus, ou on saute d'une cheminée à l'autre en
+  planant) et le petit toit du pied de l'immeuble (colonnes 116 à 120, juste avant le trou de deux
+  tuiles : on lui tombe dessus depuis le grand toit, ou on plane par-dessus). L'antenne qui était au fond
+  du creux (colonne 77) passe à la colonne 68, sur le toit d'arrivée du grand plané : aucune patrouille
+  ne passe devant un objet de décor (test `aucun_decor_devant_un_danger_ni_un_objet`). Les autres toits
+  plats portent une lanterne (une flaque y passerait sur Pépin réapparu), le départ, ou des objets de
+  décor (le dernier toit : antenne et cheminée). Texte de mécanique : « …, premières flaques à écraser. »
+  (l'aide dit déjà « Écrase les flaques en leur sautant dessus »).
+- Gouttières : deux corbeaux DEUX rangées au-dessus des toits (rangée 5, `PORTEE_CORBEAU` de 5 tuiles de
+  chaque côté) : on passe dessous en marchant, on saute une flaque d'un petit bond, mais un grand saut au
+  mauvais moment s'y cogne (on peut aussi les écraser par le dessus : le robot de QA le fait). Le premier
+  vole au-dessus des deux flaques du milieu (colonnes 45 à 55, hors du rebond du champignon 57) ; le
+  second au-dessus de la lanterne 104 et de la flaque 108 (de la cheminée haute 100-101, où il fait
+  demi-tour, à la colonne 111, hors du rebond du champignon 112). Pépin réapparu debout à la lanterne
+  passe dessous : la liste des lanternes sur le trajet d'un danger ne change pas.
+- Le marché couvert : un cinquième chat, sur le mur de la goutte cachée (colonne 68, dessus du mur en
+  rangée 5), sur le passage OBLIGÉ du chemin principal (bloc de boutique, puis mur). Avec la règle du
+  bond (carte 6.3) : posé sur le bloc, Pépin est hors d'atteinte (le bond ne quitte pas le mur, et le
+  coin du mur coupe la ligne de vue) ; il guette le sommeil, saute sur le mur et écrase le chat (ou le
+  saute). Posé à côté de lui sur le mur, on est à portée. Rien au-dessus des six auvents du moment fort.
+  Pas de pigeon : le test
+  `les_pigeons_sont_dans_le_clocher_vents_nuages_et_descente_loin_des_oiseaux_de_decor` les réserve à
+  quatre niveaux, et un seul chat suffisait à la courbe (voir plus bas). Ce chat est le premier dans
+  l'ordre de lecture : il prend le premier sommeil non raccourci, et les quatre autres chats changent de
+  décalage (ils sont décalés de 0, 30, 60 ou 90 pas selon leur rang : colonne 12 : 0 -> 30, 54 : 30 ->
+  60, 114 : 60 -> 90, 64 : 90 -> 0). Le script des captures de la carte 6.3 (`ecrire_script_chats`) suit
+  désormais le chat de la colonne 12 par sa place, et non « le premier chat du niveau ».
+- Le grand orage : un second corbeau en plein ciel, rangée 5 (colonnes 31 à 41), au-dessus des deux
+  pointes du deuxième toit : on saute les pointes d'un bond court, ou après son passage. Pas de flaque :
+  chaque toit libre du niveau porte une lanterne, un objet de décor (paratonnerres), des pointes, ou
+  finit sur l'ascenseur (en bas, sa plateforme est au ras du toit : une flaque pourrait y monter) ; le
+  dernier toit a déjà sa flaque, qui passe sur la lanterne 145 (une seconde y passerait aussi). Un second
+  corbeau de plus a été essayé et retiré (voir « Réglage »).
+- Le clocher : un chat sur la galerie, deux tuiles avant le ventilateur (colonne 28) : on y attend le
+  souffle (2 s de souffle, 2 s d'arrêt) à portée de son bond, il faut donc l'écraser pendant son sommeil
+  ou monter dès que le ventilateur souffle ; à 8 tuiles de la lanterne 20, hors de portée. Et un corbeau
+  sous la porte de la cage (rangée 18, colonnes 21 à 31), juste au-dessus de la tête de Pépin debout sur
+  la dernière corniche du zigzag : on saute vers la porte quand il est passé.
+
+### Réglage : ce qui a été essayé, et pourquoi c'est réduit
+
+Chaque essai mesuré niveau par niveau (`mesure_d_un_niveau`, mêmes graines et mêmes essais que la mesure
+officielle ; Habitué, morts moyennes ; avant la carte : toits 0,12, gouttières 0,50, marché 0,54, orage
+0,65, clocher 0,69, boss 1,19). Le juge de la courbe (`ecarts_de_la_courbe`) n'a pas été touché.
+
+| Essai                                                      | Habitué | Verdict                                         |
+| ---------------------------------------------------------- | ------- | ----------------------------------------------- |
+| Clocher : chat de la galerie seul                          | 0,71    | trop peu                                        |
+| Clocher : chat + corbeau entre F3 et F4 (rangée 21)        | 0,69    | trop peu                                        |
+| Clocher : chat + corbeau sous la porte (rangée 18)         | 0,79    | RETENU                                          |
+| Clocher : chat + les deux corbeaux                         | 0,79    | pas mieux                                       |
+| Clocher : + une flaque sur une corniche du zigzag (F1, F3 ou F4) | 0,52 à 0,71 | moins de morts (la flaque change l'itinéraire) |
+| Clocher : + un chat au sol de la cage (colonne 6)          | 0,50    | moins de morts                                  |
+| Clocher : + un pigeon sur un perchoir ajouté (19, 32)      | 0,71 à 0,85 | Débutant 14 à 15/48 game over (29 à 31 %) : écarté |
+| Orage : corbeaux en 36 ET 166 (au-dessus des pointes 164-165) | 0,83 | au-dessus du clocher (0,79) : juge rouge        |
+| Orage : corbeau en 166 seul                                | 0,81    | au-dessus du clocher : juge rouge               |
+| Orage : corbeau en 36 seul                                 | 0,75    | RETENU                                          |
+| Marché : chats en 79 (toit D) et 146 (toit d'arrivée)      | 0,31    | sous les gouttières : juge rouge                |
+| Marché : chat en 79 seul / en 146 seul                     | 0,25 / 0,50 | sous les gouttières                         |
+| Marché : chats en 17 et 146 / chat en 17 seul              | 0,56 / 0,62 | possible, mais 17 est sur le toit de départ, à 5 tuiles du chat 12 |
+| Marché : chats en 61 (bloc de boutique) et 146             | 0,75    | piège la sortie de la cachette : faisabilité rouge (`niveau_3_on_ressort_de_la_cachette_du_chat`) |
+| Marché : chats en 68 (mur) et 146                          | 0,81    | au-dessus de l'orage (0,75) : juge rouge        |
+| Marché : chat en 68 (mur) seul                             | 0,67    | RETENU                                          |
+| Gouttières : corbeau en 50 seul / en 106 seul              | 0,46 / 0,42 | sous la valeur d'avant                      |
+| Gouttières : corbeaux en 50 et 106                         | 0,56    | RETENU                                          |
+| Toits : flaques en 76 et 118                               | 0,19    | RETENU (bande des toits : sous 0,3)             |
+
+Cibles de la carte, donc : toits 2 flaques (cible 2-3) ; gouttières 2 corbeaux (1-2) ; marché 1 chat (1-2
+chats et/ou un pigeon) ; grand orage 1 corbeau, aucune flaque (cible 2-3 flaques et 1-2 corbeaux :
+RÉDUIT, voir plus haut) ; clocher 1 chat et 1 corbeau (cible : 1 pigeon et/ou 1 chat). La courbe est
+serrée : l'Habitué ne doit jamais redescendre de 1 à 6, et le boss reste le sommet ; chaque niveau ne
+peut donc monter que jusqu'au niveau suivant. Un ennemi ajouté ne fait pas toujours monter la mesure : le
+joueur simulé a une intention parfaite (il attend le chat hors de portée, le corbeau qui passe), et
+l'ennemi change son itinéraire, donc l'heure où il arrive aux passages difficiles (aiguilles, auvents) et
+les tirages de ses erreurs ; au marché, les chats en 79 et 146 FONT BAISSER les morts aux auvents du
+moment fort (colonnes 87 et 104 : 21 morts de l'Habitué avant, 6 avec eux).
+
+### Mesure de difficulté : avant / après
+
+Commande officielle (`mesure_de_difficulte`), graine 20261113, 48 essais. Avant : 5ebbc78 (fin de la
+carte 6.3) ; après : fc0a97c. Centièmes : `mesure_d_un_niveau` (mêmes chiffres que la mesure officielle,
+qui arrondit au dixième). Les niveaux 6 à 11 sont identiques ligne à ligne dans
+`docs/mesure-difficulte.txt` (morts, détail, lieux de mort, game over) ; seules changent, en plus des
+lignes des niveaux 1 à 5, celles qui les additionnent (Total, partie enchaînée, liste « À SIGNALER »).
+
+| Morts moyennes        | Débutant      | Habitué       | Expert        |
+| --------------------- | ------------- | ------------- | ------------- |
+| 1. Les toits          | 0,42 -> 0,54  | 0,12 -> 0,19  | 0,04 -> 0,06  |
+| 2. Gouttières         | 1,52 -> 1,50  | 0,50 -> 0,56  | 0,19 -> 0,15  |
+| 3. Le marché couvert  | 1,06 -> 1,27  | 0,54 -> 0,67  | 0,08 -> 0,08  |
+| 4. Le grand orage     | 3,04 -> 3,48  | 0,65 -> 0,75  | 0,35 -> 0,40  |
+| 5. Le clocher         | 2,83 -> 2,58  | 0,69 -> 0,79  | 0,10 -> 0,15  |
+| 6. L'œil du cyclone   | 4,06 (inchangé) | 1,19 (inchangé) | 0,38 (inchangé) |
+
+| Game over (niveau commencé avec 5 vies) | Débutant        | Habitué       | Expert   |
+| --------------------------------------- | --------------- | ------------- | -------- |
+| 1. Les toits                            | 0/48 -> 0/48    | 0 -> 0        | 0 -> 0   |
+| 2. Gouttières                           | 3/48 -> 2/48    | 0 -> 0        | 0 -> 0   |
+| 3. Le marché couvert                    | 3/48 -> 2/48    | 0 -> 0        | 0 -> 0   |
+| 4. Le grand orage                       | 12/48 -> 13/48  | 0 -> 1/48     | 0 -> 0   |
+| 5. Le clocher                           | 13/48 -> 8/48   | 0 -> 0        | 0 -> 0   |
+
+Pire essai (morts) avant -> après : toits 4 -> 4, 1 -> 2, 1 -> 2 ; gouttières 5 -> 7, 3 -> 3, 2 -> 2 ;
+marché 7 -> 6, 3 -> 3, 2 -> 1 ; orage 11 -> 16, 4 -> 5, 3 -> 3 ; clocher 11 -> 8, 4 -> 4, 1 -> 1. Durée
+moyenne d'un essai : toits 38 -> 39 s, gouttières 55 -> 57 s, marché 33 -> 36 s, orage 67 -> 70 s,
+clocher 78 -> 79 s pour le Débutant ; l'Expert met 44 -> 56 s au clocher (56 s dès le chat seul, sans le
+corbeau : il attend son sommeil au pied du ventilateur). Total des morts : Débutant 25,1 -> 25,6, Habitué
+5,9 -> 6,3, Expert 1,7 -> 1,7. Partie enchaînée : Débutant 47/48 parties avec au moins un game over
+(inchangé), 2,6 en moyenne (inchangé), 7 au plus (5 avant) ; Habitué 13/48 -> 17/48, 0,3 -> 0,4 en
+moyenne.
+
+Le juge de la courbe est vert (`courbe_de_difficulte_dans_les_bandes`, et la mesure officielle
+elle-même) : Habitué 0,19 / 0,56 / 0,67 / 0,75 / 0,79 / 1,19 du niveau 1 au boss, chaque niveau dans sa
+bande (`BANDES_HABITUE`). Le marché couvert passe nettement au-dessus des gouttières (0,67 contre 0,56),
+ce que la carte 6.3 signalait comme fragile (0,54 contre 0,50).
+
+Le clocher BAISSE pour le Débutant (2,83 -> 2,58 morts, game over 13/48 -> 8/48) : ses morts aux pointes
+de la cage passent de 107 à 89 (et les morts « ennemi » de 1 à 17). Explication probable, non prouvée :
+le chat et le corbeau changent l'heure à laquelle il arrive dans la cage, donc la place des aiguilles
+qu'il y trouve, et les tirages de ses erreurs. Ce n'est pas voulu, et la baisse se retrouve sur six
+graines (2,60 -> 2,37, voir ci-dessous). Le clocher reste au-dessus de 10 % de game over pour le Débutant
+(17 %), comme le grand orage (27 %) et le boss (33 %) : déjà signalés à la carte 6.2, toujours sans
+retouche.
+
+#### Bruit de la mesure : six graines
+
+Le juge ne regarde que la graine officielle. Sur six graines (20261113 à 20261118, 48 essais chacune,
+test `bruit_de_la_mesure` avec `GRAINES=...` ; la seule retouche, dans une copie jetable de 5ebbc78 et de
+fc0a97c, rien de commité : la ligne par graine affichée au centième au lieu du dixième), morts moyennes :
+
+| Moyenne de 6 graines  | Débutant      | Habitué       | Expert        | Habitué, graine par graine (après)  |
+| --------------------- | ------------- | ------------- | ------------- | ----------------------------------- |
+| 1. Les toits          | 0,45 -> 0,68  | 0,11 -> 0,17  | 0,02 -> 0,03  | 0,19 0,10 0,08 0,15 0,33 0,19       |
+| 2. Gouttières         | 1,36 -> 1,54  | 0,53 -> 0,55  | 0,14 -> 0,15  | 0,56 0,75 0,21 0,38 0,67 0,71       |
+| 3. Le marché couvert  | 0,99 -> 1,11  | 0,37 -> 0,34  | 0,06 -> 0,10  | 0,67 0,31 0,27 0,27 0,33 0,19       |
+| 4. Le grand orage     | 3,09 -> 2,99  | 0,81 -> 0,91  | 0,29 -> 0,30  | 0,75 1,10 1,17 0,77 0,79 0,88       |
+| 5. Le clocher         | 2,60 -> 2,37  | 0,86 -> 0,81  | 0,11 -> 0,25  | 0,79 0,83 0,94 0,56 0,98 0,73       |
+| 6. L'œil du cyclone   | 4,06          | 1,18          | 0,33          | 1,19 1,29 1,21 0,92 1,15 1,29       |
+
+Ce qu'il faut en retenir (À SIGNALER au coordinateur) :
+- la graine officielle est la seule des six où l'Habitué monte sans jamais redescendre du niveau 1 au
+  boss ; c'était déjà le cas avant cette carte (cinq graines sur six non monotones avant comme après) ;
+- en moyenne, le marché couvert reste SOUS les gouttières pour l'Habitué (0,34 contre 0,55 ; 0,37 contre
+  0,53 avant) : le chat du mur ne lui ajoute rien en moyenne (il ajoute des morts au Débutant et à
+  l'Expert) ; sa hausse sur la graine officielle (0,54 -> 0,67) est en partie de la chance ;
+- en moyenne, le grand orage passe AU-DESSUS du clocher pour l'Habitué (0,91 contre 0,81 ; 0,81 contre
+  0,86 avant) : c'est nouveau. Retirer le corbeau de l'orage ne règle rien (sur la graine officielle, le
+  marché, 0,67, passerait au-dessus de l'orage, 0,65 : juge rouge) ; le juge à une graine et ce bruit (un
+  niveau bouge de 0,2 mort d'une graine à l'autre pour l'Habitué) ne permettent pas de régler plus fin
+  niveau par niveau. Une piste, hors de cette carte : juger la courbe sur la moyenne de plusieurs
+  graines ;
+- le Débutant meurt plus aux toits, aux gouttières et au marché, un peu moins à l'orage et au clocher ;
+  l'Expert, plus au marché et au clocher (0,11 -> 0,25).
+
+### Robots et tests
+
+- Robot de faisabilité : vert sur les cinq niveaux, depuis le départ et depuis chaque lanterne, robot
+  précis et maladroit (il ignore les flaques et les corbeaux, évitables en attendant ou en écrasant ; il
+  connaît le chat et son bond depuis la carte 6.3 : le chat du mur et celui de la galerie sont gardés
+  endormis, et le robot ne s'arrête jamais là où ils bondiraient). Tests propres aux niveaux inchangés et
+  verts (`niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee`,
+  `niveau_3_on_ressort_de_la_cachette_du_chat`, `le_clocher_exige_le_ventilateur`, etc.).
+- Robot de QA (vraie simulation : flaques, corbeaux et chats y sont joués tels quels, un plan qui meurt
+  est écarté) : les deux parties finissent les onze niveaux sans mourir
+  (`le_robot_finit_tous_les_niveaux_sans_mourir`, `la_partie_complete_joue_le_bonus`) ;
+  `au_clocher_le_parcours_allume_les_trois_lanternes` vert. Partie du robot
+  (`ecrire_script_navigateur`) : 21 348 images, 0 mort, 16 gouttes, empreinte `9139f4114520258f`. Aucun
+  changement de robot nécessaire : aucune mécanique nouvelle.
+- Lanternes sur le trajet d'un danger (`lanternes_sur_le_trajet_d_un_danger`) : liste INCHANGÉE, (2, 66,
+  flaque), (2, 104, flaque), (3, 50, bond de chat), (3, 110, bond de chat), (4, 145, flaque) ; aucun
+  nouvel ennemi ne passe sur Pépin réapparu, aucun chat ajouté ne bondit sur une lanterne.
+- Pigeons : aucun ajouté ; décor : aucun objet sur une patrouille
+  (`aucun_decor_devant_un_danger_ni_un_objet`).
+- Premier défi visible dès le premier écran, durées plausibles, lint de grille (lanternes posées, aucune
+  poche de vide close) : verts.
+
+### Captures `docs/qa/64-*` (11 images)
+
+Build de QA d'une extraction propre de fc0a97c (`./build.sh --qa`), servi en local sur 127.0.0.1 (port
+libre, serveur arrêté à la fin), Chromium 1208 (Chrome for Testing 145) sans tête piloté par CDP
+(`docs/capture-visibilite.mjs`, onglet au premier plan et canvas focalisé), 960 x 540 (x3). Un script par
+niveau, écrit par le test ignoré `ecrire_script_ennemis` (`SCRIPT=target/qa/script-64-N.txt`,
+`TOUCHES=target/qa/touches-64-N.txt` : touche N à l'image 229 du pilote, aucune au niveau 1) : le
+parcours du robot dans le niveau, joué jusqu'au drapeau ; numéros d'image de `trace-64-N.csv`, qui suit
+chaque ennemi ajouté.
+
+- `64-toits-creux-saut` (1175) : Pépin plane au-dessus du creux entre les cheminées, la flaque au fond ;
+- `64-toits-pied-chute` (1650) : Pépin saute du grand toit vers le petit toit du pied de l'immeuble, la
+  flaque dessus, le trou de deux tuiles plus loin ;
+- `64-gouttieres-corbeau-1` (975) : Pépin sur une cheminée, le premier corbeau devant lui, deux rangées
+  au-dessus du toit, une flaque dessous ;
+- `64-gouttieres-corbeau-2-lanterne` (1725) : le second corbeau au-dessus de la lanterne 104 et de la
+  flaque 108, Pépin sur la cheminée haute ;
+- `64-marche-chat-mur-eveille` (1075) : Pépin sur le bloc de boutique, hors d'atteinte ; le chat du mur
+  ÉVEILLÉ (assis) ne bondit pas ; le chat de la fente éveillé aussi, la goutte cachée au fond du passage,
+  le chat de la colonne 54 endormi à gauche ;
+- `64-marche-chat-mur-saut` (1175) : le chat du mur rendormi (« z »), Pépin lui tombe dessus ;
+- `64-orage-corbeau-pointes` (875) et `64-orage-corbeau-passe` (950) : le corbeau au-dessus des pointes,
+  Pépin les saute, puis le corbeau passé derrière lui ;
+- `64-clocher-chat-pret` (810) : sur la galerie, le chat de la colonne 28 « prêt à bondir » (« ! », queue
+  dressée), Pépin à portée, le ventilateur derrière le chat, le pigeon de la corniche en plein vol ;
+- `64-clocher-chat-bond` (850) : le chat en plein bond (pattes tendues) vers l'endroit où se tenait
+  Pépin, qui lui a sauté par-dessus, vers le ventilateur ;
+- `64-clocher-corbeau-tete` (1425) : le corbeau juste devant et au-dessus de la tête de Pépin, debout sur
+  la dernière corniche ; en haut à gauche, le sol de la porte de la cage.
+
+Le robot écrase les deux corbeaux des gouttières (ils sont écrasables, comme celui du grand orage) ; les
+captures montrent donc chaque corbeau avant. Chaque capture regardée ;
+`docs/mesure-capture.py <capture> 3` : 0 pixel hors palette, 0 bloc flou, sur les 11 (et sur les 5 autres
+prises et non gardées).
+
+### Vérification sur une extraction propre de 62af160 (dernier commit de code et des captures)
+
+`git archive`, nouveau dossier daté sous `$TMPDIR` :
+
+- `./docker-cargo.sh test --workspace --no-default-features` : 374 (core) et 336 (game) tests, tous verts
+  (1 + 21 ignorés : `ecrire_script_ennemis` s'ajoute aux tests ignorés), dont les tests de faisabilité
+  des onze niveaux, `lanternes_sur_le_trajet_d_un_danger`, `aucun_decor_devant_un_danger_ni_un_objet`,
+  `courbe_de_difficulte_dans_les_bandes` et les deux parties du robot ;
+- `./docker-cargo.sh lint` : `FMT-OK`, `LINT-OK` ;
+- `./build.sh` : `dist/` produit, wasm 497 695 octets (497 647 à la carte 6.3 : + 48), 0 occurrence des
+  noms interdits, seule URL `http://www.w3.org/2000/svg`, « Essai chat » absent de `dist/` ;
+  `./build.sh --qa` (build des captures, extraction de fc0a97c) : `dist-qa/` produit.
+- Mesure de difficulté (`mesure_de_difficulte`) : verte sur chacun des cinq états intermédiaires (un par
+  commit de niveau : extraction de 5ebbc78 plus les grilles des niveaux déjà retouchés) ; le fichier
+  `docs/mesure-difficulte.txt` de chaque commit est celui de son état. Relancée sur l'extraction propre
+  de 62af160 : verte, et le fichier qu'elle écrit est identique à l'octet à celui du dépôt.
+- `ecrire_script_chats` (script des captures 6.3, retouché) : vert, Pépin échappe toujours au bond (926
+  images au lieu de 956 : le chat de la colonne 12 a maintenant un premier sommeil raccourci de 30 pas).
+
+Commits : 700b5f3 (clocher), e1752dc (grand orage), 2c87bf3 (marché couvert, et script 6.3), c1c9266
+(gouttières), fc0a97c (toits), a31e835 (script du navigateur), 62af160 (captures), cette section et le
+README.
+
+### Ce qui n'est PAS testé
+
+- Aucun humain n'a joué ces niveaux : l'emplacement des ennemis est jugé sur la mesure (joueur simulé à
+  intention parfaite, qui ne rate que des gestes) et sur les captures fixes, pas en mouvement.
+- Le grand orage n'a pas ses flaques (cible de la carte) : aucun toit libre sans lanterne, décor, pointes
+  ou ascenseur ; en ajouter demandait de déplacer une lanterne ou un décor, hors du périmètre choisi.
+- La courbe est serrée (chaque niveau entre ses voisins pour l'Habitué) et la mesure est bruitée : le
+  juge passe sur la graine officielle seulement ; sur six graines, le marché reste sous les gouttières et
+  l'orage passe au-dessus du clocher (voir « Bruit de la mesure »). Un réglage de plus sur un niveau 1 à
+  5 risque de retourner la graine officielle.
+- Pas de son propre aux nouveaux ennemis (aucun son ajouté) ; captures dans Chromium seulement, à 960 x
+  540 ; pas de vrai téléphone, ni Safari, ni Firefox.
