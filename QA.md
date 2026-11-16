@@ -6405,3 +6405,10 @@ comparable ». Rien dans `core/` ; le monde (physique, collisions, score) n'est 
 - L'abandon du fantôme n'est pas montré dans le navigateur (il faudrait un niveau modifié) : il
   repose sur `verdict` (`course/mod.rs`) ; recommencer ou « plus de vies » relance aussi le fantôme.
 - Pas de vrai téléphone (bouton COURSE au toucher non essayé), pas de son à l'oreille.
+
+## Carte 7.6b : palettes de couleurs retirées (AGA : « c'est moche »)
+
+- Retirés : catalogue et shader des palettes, onglet de la boutique (4 onglets, centrés), touche O de QA, `palette:origine` de départ ; une sauvegarde qui avait acheté une palette est remboursée de 20 gouttes par palette, une fois (`normaliser`, puis réenregistrée), et ses entrées `palette:*` effacées.
+- Preuves : tests `boutique`, `cosmetiques`, `sauvegarde`, `sprites` verts, `lint` vert, robot `le_robot_finit_tous_les_niveaux_sans_mourir` vert ; `./build.sh` : game.wasm 630 543 octets contre 634 540 sur main 5b06ad8 (-3 997).
+- Chromium sans tête, build de PRODUCTION, CDP : sauvegarde v3 à 10 gouttes avec `palette:sepia` équipée, 30 gouttes au chargement et plus aucune entrée `palette` ; rechargée : toujours 30 ; 0 erreur console, 0 pixel hors palette. Captures regardées `docs/qa/76b-boutique-quatre-onglets.png`, `76b-jeu-couleurs-normales.png`.
+- Pas testé : vrai téléphone, Safari ; le pilote de la preuve (sauvegarde avec palette) est resté hors dépôt.

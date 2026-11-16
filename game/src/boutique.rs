@@ -4,8 +4,9 @@
 //!
 //! Organisation à ONGLETS : un onglet = une `Categorie`, avec sa liste d'`Objet`s
 //! (identifiant, nom, prix, aperçu ; débloqué ? équipé ? se lisent dans la sauvegarde).
-//! Cinq onglets : SKINS (carte 7.1), puis TRAÎNÉES, PARAPLUIES (motifs), PALETTES et
-//! MUSIQUES (carte 7.6, catalogues et prix dans `cosmetiques`). Chaque catégorie a
+//! Quatre onglets : SKINS (carte 7.1), puis TRAÎNÉES, PARAPLUIES (motifs) et MUSIQUES
+//! (carte 7.6, catalogues et prix dans `cosmetiques` ; l'onglet du choix de
+//! palette a été retiré à la carte 7.6b). Chaque catégorie a
 //! son préfixe dans l'inventaire de la sauvegarde (« trainee:bulles »…) ; ajouter une
 //! catégorie = une variante de `Categorie`, sa ligne dans `TOUTES` et dans chaque
 //! `match`. Un onglet sans objet n'est pas affiché (`onglets`).
@@ -17,7 +18,7 @@
 //! `#[cfg(feature = ...)]` sur une variante et sur un élément de liste (objet factice
 //! présent seulement dans le build de QA), `Option::take`.
 
-use crate::cosmetiques::{self as cosm, Motif, Palette, Trainee};
+use crate::cosmetiques::{self as cosm, Motif, Trainee};
 use crate::menu::Menu;
 use crate::musiques::Musique;
 use crate::navigation::Navigation;
@@ -30,17 +31,15 @@ pub enum Categorie {
     Skins,
     Trainees,
     Motifs,
-    Palettes,
     Musiques,
 }
 
 impl Categorie {
     /// Toutes les catégories, dans l'ordre des onglets.
-    pub const TOUTES: [Categorie; 5] = [
+    pub const TOUTES: [Categorie; 4] = [
         Categorie::Skins,
         Categorie::Trainees,
         Categorie::Motifs,
-        Categorie::Palettes,
         Categorie::Musiques,
     ];
 
@@ -50,7 +49,6 @@ impl Categorie {
             Categorie::Skins => "SKINS",
             Categorie::Trainees => "TRAÎNÉES",
             Categorie::Motifs => "PARAPLUIES",
-            Categorie::Palettes => "PALETTES",
             Categorie::Musiques => "MUSIQUES",
         }
     }
@@ -61,7 +59,6 @@ impl Categorie {
             Categorie::Skins => "skin",
             Categorie::Trainees => "trainee",
             Categorie::Motifs => "motif",
-            Categorie::Palettes => "palette",
             Categorie::Musiques => "musique",
         }
     }
@@ -114,19 +111,6 @@ impl Categorie {
                 }));
                 v
             }
-            Categorie::Palettes => {
-                let mut v =
-                    vec![self.objet(cosm::SANS_PALETTE, "ORIGINALE", 0, Apercu::Palette(None))];
-                v.extend(Palette::TOUTES.map(|p| {
-                    self.objet(
-                        p.id(),
-                        p.nom(),
-                        cosm::PRIX_PALETTE,
-                        Apercu::Palette(Some(p)),
-                    )
-                }));
-                v
-            }
             Categorie::Musiques => {
                 let mut v =
                     vec![self.objet(cosm::MUSIQUE_PAR_ZONE, "PAR ZONE", 0, Apercu::Musique(None))];
@@ -167,8 +151,6 @@ pub enum Apercu {
     Trainee(Option<Trainee>),
     /// Le parapluie ouvert avec ce motif (`None` : uni).
     Motif(Option<Motif>),
-    /// Quelques couleurs de la palette (`None` : l'originale).
-    Palette(Option<Palette>),
     /// Une note de musique (`None` : la musique de chaque zone).
     Musique(Option<Musique>),
     /// L'objet factice du build de QA : une goutte d'or, rien à équiper.
@@ -458,11 +440,7 @@ mod tests {
         let droite = nav(|n| n.droite = true);
         let mut s = Sauvegarde::default();
         let mut e = EtatBoutique::new();
-        assert_eq!(
-            e.onglets.len(),
-            5,
-            "skins, traînées, parapluies, palettes, musiques"
-        );
+        assert_eq!(e.onglets.len(), 4, "skins, traînées, parapluies, musiques");
         assert_eq!(e.objets.len(), 3, "Pépin, Pépinette, factice (tests)");
         // Pépinette : gratuite, équipée d'un appui.
         e.reagir(&bas, &mut s, &SansZones);

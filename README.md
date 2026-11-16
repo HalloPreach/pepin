@@ -132,9 +132,8 @@ GOUTTES », et un « CHRONO ») ; la médaille compte ceux réussis dans une mê
 tentative (bronze, argent, or). Gouttes d'or, défis et médailles rapportent des
 gouttes, chacune une seule fois, à dépenser dans la BOUTIQUE, uniquement pour
 l'apparence (le score reste comparable) : les tenues de Pépin (Pépinette y est
-offerte dès le départ), une traînée derrière lui, un motif sur son parapluie, une
-autre palette de couleurs pour tout le jeu, et une musique qui remplace celle des
-zones.
+offerte dès le départ), une traînée derrière lui, un motif sur son parapluie et une
+musique qui remplace celle des zones.
 
 Sur la carte, le bouton COURSE (à droite de JOUER) lance une course contre le
 robot : un fantôme de Pépin, tramé, court le niveau en même temps, sans rien
