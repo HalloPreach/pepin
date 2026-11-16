@@ -5735,7 +5735,8 @@ Demande d'AGA : un niveau de poursuite, un mur de pluie qui avance et fait défi
   battante dedans (traits ardoise claire et cyan sombre), frange de gouttes cyan devant, un éclair
   blanc toutes les 1,6 s ; le soleil qui perce grandit en haut à droite, rayons pointillés qui
   s'allongent, et la pluie du thème s'arrête.
-- Niveau 10 « Le mur de pluie » (`core/src/levels/poursuite.rs`, 200 x 11 tuiles, thème Altitude),
+- Niveau 10 « Le mur de pluie » (renommé « Le retour du Grand Nuage » en 8.2b ;
+  `core/src/levels/poursuite.rs`, 200 x 11 tuiles, thème Altitude),
   inséré après « Au-dessus des nuages » : pont friable, vent arrière, courant ascendant devant une
   falaise de nuages, deux colonnes de grêle, second pont friable sous un corbeau, long toit final au
   soleil. 3 gouttes (colonnes 19, 98, 160), 3 lanternes (54, 102, 134). Le bonus devient le 11e, la
@@ -5775,3 +5776,20 @@ Demande d'AGA : un niveau de poursuite, un mur de pluie qui avance et fait défi
 - Faisabilité du cœur : le robot de `core/src/faisabilite.rs` ignore le mur (comme les ennemis) ;
   c'est le robot QA du jeu, dans la vraie simulation, qui prouve qu'on finit devant lui.
 - Téléphone, Safari, son (aucun son propre au mur : la pluie et l'orage du thème suffisent).
+
+## Le retour du Grand Nuage (carte 8.2b)
+
+- Cohérence (AGA) : le Grand Nuage n'est plus détruit au niveau 6, il s'enfuit ; au niveau 10, renommé « Le
+  retour du Grand Nuage », il remonte de la mer de nuages et poursuit Pépin. Mécanique inchangée (vitesse,
+  contact qui tue, caméra) : rien que le dessin (`game/src/mur_pluie.rs`) et les textes.
+- Dessin : front d'orage ardoise de nuit et cœur ardoise d'ombre, liseré violet d'orage en volutes qui roulent,
+  pluie et éclair DEDANS seulement ; visage du boss (sprites `nuage_colere`, `nuage_essouffle` après la percée)
+  collé au bord qui avance. Plus de pluie du thème dans ce niveau : le ciel reste clair devant Pépin.
+- Textes : accueil « Le Grand Nuage remonte de la mer : il veut garder le soleil endormi. », conseil « Ne
+  t'arrête pas : il avance ! » ; Vents d'altitude « Le Grand Nuage s'est enfui. » ; Au-dessus des nuages
+  « l'orage est resté en bas » ; README (niveau 6 : il s'enfuit). Aucun nouveau test.
+- Preuves : `test -p core` 376 verts (dont `poursuite`, `faisabilite`) ; `test -p game --no-default-features`
+  `contenu`, `carte`, `scene` verts ; `lint` FMT-OK, LINT-OK ; `./build.sh` : 0 nom interdit dans `dist/`, seule
+  URL celle du SVG ; captures (build de QA, Chromium 1208 par CDP, script du robot, 960 x 540) regardées, 0 pixel
+  hors palette, 0 bloc flou : `docs/qa/82b-1-carte.png`, `82b-2-front.png`, `82b-3-course.png`,
+  `82b-4-talonne.png` (Pépin immobile, le front à quelques tuiles), `82b-5-soleil.png`. Robot complet non relancé.
