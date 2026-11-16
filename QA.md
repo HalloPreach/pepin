@@ -5175,7 +5175,13 @@ jeu, aucun autre test touché ; aucune capture (rien ne change à l'écran).
   (`mesure_de_difficulte`, `bruit_de_la_mesure`, tous deux déjà ignorés), le juge (`ecarts_de_la_courbe`,
   `BANDES_HABITUE`) et son test synthétique `la_forme_de_la_courbe_est_jugee` (mesures inventées,
   instantané), qui reste dans la suite normale.
-- `docs/mesure-difficulte.txt` : non régénéré, il garde la mesure de la carte 6.4b.
+- `docs/mesure-difficulte.txt` : non régénéré, il garde la mesure de la carte 6.4b ; une ligne en tête le
+  dit (« Dernière mesure faite à la carte 6.4b, plus mise à jour automatiquement »). Relancer la mesure à
+  la main réécrit le fichier entier, sans cette ligne : c'est alors la nouvelle mesure.
+- Autres tests cherchés : seuls `mesure_de_difficulte`, `bruit_de_la_mesure` (déjà ignorés) et le juge
+  appellent `mesurer` (la mesure complète), et aucun test ne lit `docs/mesure-difficulte.txt`. Les tests
+  restés actifs de `difficulte.rs` sont courts : hasard, profils, rejeu des vies, game over, niveau 1 sans
+  erreur, regroupement des lieux de mort, juge sur des courbes fabriquées.
 - Ce fichier, section « Mesure de difficulté » : statut facultatif, commande du juge à la main, « quand AGA
   demande un tableau avant/après » au lieu de « pour chaque carte ». README : nombre de tests, durée.
 
@@ -5224,12 +5230,17 @@ faible (202 s) mais reste net. Le test le plus long de la suite reste le robot d
 
 - `./docker-cargo.sh test --workspace --no-default-features` : vert, trois fois (tableau ci-dessus) ;
 - `./docker-cargo.sh lint` : `LINT-OK` ;
-- `./build.sh` : `dist/` produit, wasm 497 743 octets (identique à la carte 6.4b : les tests ne vont pas dans
-  le wasm), 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg`.
+- `./build.sh` : `dist/` produit, 0 occurrence des noms interdits, seule URL `http://www.w3.org/2000/svg` ;
+  `dist/` identique à l'octet à celui de c185e24, construit de la même façon (`cmp` des trois fichiers :
+  `index.html`, `mq_js_bundle.js`, `game.wasm` de 497 743 octets) : aucun changement de jeu ;
+- robot de QA, les deux parties à 0 mort : `le_robot_finit_tous_les_niveaux_sans_mourir` et
+  `la_partie_complete_joue_le_bonus` (`assert_eq!(partie.morts, 0)`), verts à chaque passe.
 
-Le commit de cette section ne touche que `QA.md` et `README.md`.
+Les commits de cette section ne touchent que `QA.md`, `README.md` et la ligne d'en-tête de
+`docs/mesure-difficulte.txt` (lus par aucun test ni par le build).
 
-Commits : 09f28de (le juge de la courbe ignoré, commentaires), cette section et le README.
+Commits : 09f28de (le juge de la courbe ignoré, commentaires), 7c76c90 (cette section et le README), puis
+l'en-tête de `docs/mesure-difficulte.txt` avec les compléments de cette section.
 
 ### Ce qui n'est PAS testé
 

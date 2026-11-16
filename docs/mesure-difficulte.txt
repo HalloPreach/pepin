@@ -1,3 +1,5 @@
+Dernière mesure faite à la carte 6.4b, plus mise à jour automatiquement (mesure facultative depuis la carte 6.5 : voir QA.md, « Mesure de difficulté »).
+
 Morts moyennes par niveau (graine 20261113, 48 essais par profil et par niveau) ; entre parenthèses : sans les morts en série (moins d'1 s après la précédente, voir le détail).
 
 | Niveau                      | Débutant     | Habitué      | Expert       |
