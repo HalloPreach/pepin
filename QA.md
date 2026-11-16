@@ -5423,3 +5423,66 @@ fusion.
 - L'annonce reste l'image la moins nette (ailes dressées, corps aplati) ; elle n'a pas été comparée à
   l'ancienne en mouvement.
 - Chromium sans tête seulement, à 960 x 540 : ni vrai téléphone, ni Safari, ni Firefox.
+
+## Mer de nuages : première goutte prenable (carte 6.7)
+
+Retour d'AGA en jouant : « dans la mer de nuage la première goutte est trop haute et donc impossible à
+avoir ».
+
+### Ce qui a été fait
+
+- `core/src/levels/mer.rs` seulement : la goutte passe de (17, 3) à (16, 4), une rangée plus bas et une
+  colonne plus près du bord du départ ; le vent `>` du départ perd sa ligne 4 (lignes 5 à 7, colonnes
+  14 à 26, inchangées) pour lui laisser la place. Doc du niveau mise à jour. Rien d'autre dans `core/`,
+  ni dans la physique, ni dans le robot.
+- Aucun nouveau test (consigne d'AGA) ; aucun test existant n'a cassé. Le parcours du robot de QA n'est
+  pas enregistré dans le dépôt (il est recalculé à chaque partie) : rien à régénérer.
+
+### Pourquoi « faisable » n'était pas « prenable »
+
+Mesuré avec une sonde jetable (Pépin court vers la droite, saute près du bord en tenant la touche N
+images, puis rouvre le parapluie en redescendant ; vraie physique, image par image ; sonde retirée,
+non versionnée). Un saut complet monte de 54 px (57 px pour la formule v²/2g).
+
+- Ancienne place (17, 3) : seul un saut complet, parti des 6 derniers pixels du bord, la touchait. Le
+  robot de faisabilité, qui essaie tout à l'image près, la trouvait ; un humain, non.
+- Nouvelle place (16, 4) : un saut à 79 % de la hauteur maximale (touche tenue 9 images) la prend depuis
+  n'importe où dans les 33 derniers pixels avant le bord (2 tuiles) ; un saut complet, depuis les 57
+  derniers. Le bas de la goutte (y = 76) est 16 px sous le sommet d'un saut complet depuis le départ.
+  Un sautillement (touche tenue 6 images ou moins) passe dessous : il faut un vrai saut.
+
+Les deux autres gouttes, revues avec la même sonde, ne sont pas limites en hauteur, donc pas déplacées :
+
+- (84, 2), entre les deux rideaux de grêle : 48 px sous le sommet d'un saut depuis l'étage. Sa
+  difficulté est la distance (100 px au-delà du bord, en planant sous la grêle) : un saut tenu, parapluie
+  ouvert, la prend depuis les 35 derniers pixels du bord ; un saut à 79 %, depuis les 11 derniers
+  seulement. C'est le défi prévu ; à surveiller si AGA la trouve trop dure.
+- (112, 1), au-dessus du moment fort : 32 px sous le sommet d'un saut depuis la tour ; prise depuis les
+  74 derniers pixels du bord (saut complet) et 83 (saut à 79 %).
+
+### Preuves
+
+Lancées dans le worktree, avec le contenu exact du commit eb1ad2d :
+
+- `./docker-cargo.sh test -p core levels::mer` : 6 verts ; `-p core zones` : 54 verts (tous les niveaux
+  se chargent, 3 gouttes, robot maladroit compris) ; `-p core faisabilite` : 25 verts ;
+- `./docker-cargo.sh test -p game --no-default-features le_robot_finit_tous_les_niveaux_sans_mourir` :
+  vert (0 mort, fin atteinte) ;
+- `./build.sh` : `dist/` produit, 0 nom interdit, seule URL `http://www.w3.org/2000/svg`.
+
+Capture `docs/qa/67-mer-goutte.png` : build de QA (`./build.sh --qa`) servi sur 127.0.0.1 (port libre,
+serveur arrêté à la fin), Chromium 1208 sans tête par CDP (`docs/capture-visibilite.mjs`, onglet au
+premier plan, canvas focalisé), 960 x 540 (x3). Script : Entrée au titre, touche 8 du build de QA à
+l'image 229, puis 300 images sans rien (`touche:67-mer-goutte=229:Digit8:300`), capture à l'image 530 :
+Pépin au départ du niveau 8, la goutte au-dessus des traînées du vent, juste après la manche à air du
+bord. `docs/mesure-capture.py`, K = 3 : 0 pixel hors palette, 0 semi-transparent, 0 bloc flou.
+Regardée.
+
+### Ce qui n'est PAS testé
+
+- Personne n'a repris la goutte en jouant : « un vrai saut depuis le bord la prend » vient de la sonde,
+  pas d'une main humaine (AGA rejugera).
+- Seuls les cinq contrôles de la retouche d'un niveau ont tourné (consigne allégée) : ni la suite
+  complète, ni le lint, ni la partie complète du robot (`la_partie_complete_joue_le_bonus`, qui ramasse
+  toutes les gouttes) ; `zones` vérifie seulement que le robot du cœur atteint les trois gouttes.
+- Chromium sans tête seulement : ni vrai téléphone, ni Safari, ni Firefox.
