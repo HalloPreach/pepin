@@ -165,8 +165,10 @@ pub fn musique_du_niveau(niveau: &InfosNiveau) -> Musique {
 /// deux niveaux de la même zone, la boucle continue sans coupure.
 pub fn musique_de_l_ecran(ecran: Ecran, niveau: &InfosNiveau) -> Musique {
     match ecran {
-        Ecran::Titre | Ecran::Aide | Ecran::Boutique => Musique::Orage,
-        Ecran::Carte(_) | Ecran::Jeu | Ecran::Pause | Ecran::PlusDeVies(_) => {
+        // La carte des niveaux (`Plan`, carte 7.4) se range avec les menus.
+        Ecran::Titre | Ecran::Aide | Ecran::Boutique | Ecran::Plan => Musique::Orage,
+        // Le bilan d'un niveau joué seul garde la musique du niveau.
+        Ecran::Carte(_) | Ecran::Jeu | Ecran::Pause | Ecran::PlusDeVies(_) | Ecran::BilanNiveau => {
             musique_du_niveau(niveau)
         }
         Ecran::Fin => Musique::Soleil,
