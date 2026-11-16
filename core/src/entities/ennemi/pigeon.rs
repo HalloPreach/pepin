@@ -131,8 +131,12 @@ impl Ennemi {
     /// Le pigeon regarde Pépin : s'il est perché (ni en vol, ni au repos), actif,
     /// et que Pépin est dans son cône, il commence son annonce. Le sens de la
     /// plongée est celui où il regarde : fixé ici, il ne suivra pas Pépin.
-    /// Sans effet pour les autres ennemis.
+    /// Le chat, lui, retient la boîte de Pépin (`guetter_chat`) : il en a besoin
+    /// pour décider de bondir. Sans effet pour les autres ennemis.
     pub fn guetter(&mut self, joueur: &Aabb) {
+        if self.type_ennemi == TypeEnnemi::Chat {
+            self.guetter_chat(joueur);
+        }
         if self.type_ennemi == TypeEnnemi::Pigeon
             && self.etat == EtatEnnemi::Actif
             && self.phase == PhasePigeon::Perche

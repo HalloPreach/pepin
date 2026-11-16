@@ -1,7 +1,8 @@
 //! Les ennemis : « flaques » qui patrouillent au sol, corbeaux qui volent en ligne
 //! droite et font demi-tour au bout de leur portée (ou contre un mur), pigeons
 //! perchés qui plongent sur Pépin quand il passe dessous (sous-module `pigeon`),
-//! chats endormis qui se réveillent brièvement, en cycle (sous-module `chat`).
+//! chats endormis qui se réveillent brièvement, en cycle, et bondissent sur Pépin
+//! s'il est à portée à la fin de l'annonce (sous-module `chat`).
 //!
 //! Notions Rust : un `enum` pour le TYPE (`TypeEnnemi`) et un autre pour l'ÉTAT
 //! (`EtatEnnemi`) ; l'état `Ecrase(u8)` PORTE une donnée (les pas d'animation restants) ;
@@ -11,8 +12,9 @@ mod chat;
 mod pigeon;
 
 pub use chat::{
-    pas_du_cycle, phase_chat_suivante, PhaseChat, DORT_PAS, EVEILLE_PAS, PERIODE_CHAT_PAS,
-    REVEIL_PAS,
+    decalage_bond, decalage_chat, pas_du_cycle, phase_chat_suivante, PhaseChat, BOND_PAS, DORT_PAS,
+    EVEILLE_PAS, PERIODE_CHAT_PAS, PORTEE_BOND_X, PORTEE_BOND_Y, POSE_BOND_PAS, REVEIL_PAS,
+    VITESSE_BOND_Y,
 };
 pub use pigeon::{
     decalage_vol, phase_suivante, PhasePigeon, ANNONCE_PIGEON_PAS, MARGE_CONE, PLONGEE_PAS,
@@ -120,6 +122,15 @@ pub struct Ennemi {
     phase: PhasePigeon,
     /// Cycle de sommeil du chat (toujours `Dort(DORT_PAS)` pour les autres).
     sommeil: PhaseChat,
+    /// Chat : la boîte de Pépin vue au dernier pas (`guetter`) ; `None` avant
+    /// le premier pas, et toujours pour les autres ennemis.
+    proie: Option<Aabb>,
+    /// Chat : pendant l'annonce, voit-il Pépin à portée de bond ? (Posture
+    /// « prêt à bondir ».) Toujours faux pour les autres.
+    pret: bool,
+    /// Chat : longueur (px) du bond en cours pendant l'éveil, `None` s'il se
+    /// réveille sur place. Toujours `None` pour les autres.
+    bond: Option<f32>,
 }
 
 impl Ennemi {
@@ -139,6 +150,9 @@ impl Ennemi {
             portee: type_ennemi.portee(),
             phase: PhasePigeon::Perche,
             sommeil: PhaseChat::Dort(DORT_PAS),
+            proie: None,
+            pret: false,
+            bond: None,
         }
     }
 
@@ -229,8 +243,9 @@ impl Actualisable for Ennemi {
                 TypeEnnemi::Corbeau => self.voler(env),
                 // Le pigeon vole sans regarder les tuiles : `env` ne lui sert pas.
                 TypeEnnemi::Pigeon => self.voler_pigeon(),
-                // Le chat ne bouge pas (pas de gravité : il dort sur son toit).
-                TypeEnnemi::Chat => self.dormir(),
+                // Le chat ne tombe pas (pas de gravité : il dort sur son toit) ;
+                // il ne bouge que pour bondir, sur une trajectoire calculée.
+                TypeEnnemi::Chat => self.dormir(env),
             },
             EtatEnnemi::Ecrase(restant) => {
                 self.etat = if restant <= 1 {

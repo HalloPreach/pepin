@@ -164,7 +164,9 @@ fn porter_sur_aiguille(joueur: &mut Joueur, p: &PlateformeMobile, env: &Environn
 ///
 /// C'est aussi ici que les pigeons regardent Pépin (`Ennemi::guetter`) : un
 /// pigeon perché qui le voit passer dessous commence son annonce, et plongera
-/// aux pas suivants (`Entite::actualiser`). Tous les jeux de simulation qui
+/// aux pas suivants (`Entite::actualiser`). Les chats aussi : ils retiennent où
+/// est Pépin, pour décider au pas suivant s'ils lui bondissent dessus (carte
+/// 6.3, voir `ennemi::chat`). Tous les jeux de simulation qui
 /// appellent cette fonction (le jeu, le robot de QA, la mesure de difficulté)
 /// ont donc les mêmes pigeons, sans rien ajouter.
 pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Contact> {

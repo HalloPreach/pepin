@@ -321,8 +321,9 @@ pub(super) fn analyser(
     // bord haut de la carte) : on doit toujours pouvoir lui sauter dessus pendant
     // son sommeil. Il regarde à gauche (vers le départ), sauf si un solide le
     // borde à gauche et que la droite est libre. Les premiers sommeils sont
-    // raccourcis de 0, 40, 80 ou 120 pas : deux chats ne se réveillent pas
-    // ensemble (comme les éclairs et les ventilateurs).
+    // raccourcis de 0, 30, 60 ou 90 pas (le sommeil dure 120 pas depuis la carte
+    // 6.3) : deux chats ne se réveillent pas ensemble (comme les éclairs et les
+    // ventilateurs).
     for (k, &(tx, ty)) in chats.iter().enumerate() {
         let appui = ty + 1 < hauteur && solide(tx, ty + 1);
         let place = ty > 0 && !solide(tx, ty - 1);
@@ -335,7 +336,7 @@ pub(super) fn analyser(
         let mur_gauche = tx > 0 && solide(tx - 1, ty);
         let libre_droite = tx + 1 < largeur && !solide(tx + 1, ty);
         let (x, y) = px((tx, ty));
-        let decalage = 40 * (k as u16 % 4);
+        let decalage = 30 * (k as u16 % 4);
         let mut chat = Ennemi::chat(x + 1.0, y + 8.0, decalage);
         chat.vers_la_droite = mur_gauche && libre_droite;
         entites.push(Entite::Ennemi(chat));

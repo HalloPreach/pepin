@@ -23,9 +23,12 @@
 //!      perchoir s'arrête (à droite seulement si le perchoir continue à gauche
 //!      et s'arrête à droite ; sinon à gauche, vers le départ)
 //!   z  chat endormi, couché sur le solide du dessous, la case du dessus libre ;
-//!      immobile, il dort 4 s, se réveille (annonce de 0,8 s), reste éveillé
-//!      1,2 s, se rendort ; endormi on l'écrase en lui sautant dessus, éveillé
-//!      le toucher tue (même par le dessus)
+//!      il dort 2 s, se réveille (annonce de 0,8 s), reste éveillé 1,2 s, se
+//!      rendort ; si Pépin est à portée à la fin de l'annonce (5 tuiles en x,
+//!      2 en hauteur, sans mur entre eux), il lui bondit dessus pendant son
+//!      éveil (sans quitter son toit), puis revient à sa place ; endormi on
+//!      l'écrase en lui sautant dessus, éveillé le toucher tue (même par le
+//!      dessus, même en plein bond)
 //!   F  plateforme friable      e  éclair (colonne du 1er solide dessus, ou du
 //!                                 haut de la carte, au 1er solide dessous)
 //!   g  grêle : colonne de grêlons qui tombe EN CONTINU, de la case `g` au 1er

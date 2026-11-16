@@ -601,14 +601,14 @@ fn chat_couche_sur_son_toit_et_tourne_vers_le_depart() {
         );
         assert_eq!(c.vers_la_droite, droite, "chat de la colonne {colonne}");
     }
-    // Ils dorment tous au départ, avec des sommeils décalés (0, 40, 80 pas).
+    // Ils dorment tous au départ, avec des sommeils décalés (0, 30, 60 pas).
     let phases: Vec<PhaseChat> = chats.iter().map(|c| c.phase_chat()).collect();
     assert_eq!(
         phases,
         vec![
             PhaseChat::Dort(DORT_PAS),
-            PhaseChat::Dort(DORT_PAS - 40),
-            PhaseChat::Dort(DORT_PAS - 80)
+            PhaseChat::Dort(DORT_PAS - 30),
+            PhaseChat::Dort(DORT_PAS - 60)
         ]
     );
 }

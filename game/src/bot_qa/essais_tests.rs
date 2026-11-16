@@ -399,15 +399,20 @@ fn le_robot_finit_le_niveau_d_essai_chat() {
         "le robot passe sous le mur avant d'avoir écrasé le chat"
     );
     assert!(essai[k..].iter().any(|i| i.trame.x > 432.0));
-    // Il est arrivé sur le bloc (dessus à y = 112) pendant l'éveil du chat, et
-    // l'y a attendu : posé là-haut, chat réveillé.
+    // Il est passé par le bloc (dessus à y = 112) et s'est laissé tomber de là
+    // dans la fente. Depuis la carte 6.3, le chat dort 2 s au lieu de 4 : le
+    // robot arrive sur le bloc pendant son 2e sommeil (après 4 s de jeu) et
+    // saute dans le même sommeil, sans réveil entre les deux (avant la carte
+    // 6.3, il arrivait pendant l'éveil et devait l'attendre).
+    let sur_le_bloc = essai[..k]
+        .iter()
+        .rposition(|i| i.au_sol && (i.trame.y - 98.0).abs() < 1.0)
+        .expect("le robot n'est pas passé par le bloc");
     assert!(
-        essai[..k].iter().any(|i| {
-            i.au_sol
-                && (i.trame.y - 98.0).abs() < 1.0
-                && matches!(i.chat, Some((PhaseChat::Eveille(_), false)))
-        }),
-        "le robot n'a pas attendu le chat sur le bloc"
+        essai[sur_le_bloc..k]
+            .iter()
+            .all(|i| matches!(i.chat, Some((PhaseChat::Dort(_), false)))),
+        "le chat s'est réveillé entre le bloc et l'écrasement"
     );
     // Le chat s'est-il réveillé pendant que le robot l'approchait ?
     let eveils = essai[..k]
