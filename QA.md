@@ -6038,3 +6038,12 @@ faux mur sur une patrouille de flaque, ni sur le passage obligé.
   Safari, Firefox ; molette d'un vrai pavé tactile (défilement par crans).
 - Sur téléphone, le bouton de pause cache la fin du chrono (défaut antérieur, déjà noté à la carte
   6.2) : avec le temps cible, c'est « /0:55 » qui passe dessous (640 x 360).
+
+## Sauvegarde v3 par clé de niveau, chaque récompense créditée une fois (carte 7.9)
+
+- Clé stable `InfosNiveau::cle` (nom du module : `toits`… `arc`, `descente`), unique et vérifiée à la compilation ; sauvegarde v3 `niveau.<cle>=atteint:1 gouttes:… defis:… medaille:… temps:…` (plus aucun indice) ; v1/v2 relues par la table FIGÉE `ORDRE_V2` (11 clés), porte-monnaie gardé, progression v2 = déjà créditée, « FIN » crédité si une partie a été finie. À la fusion de 8.2 : ajouter `cle: "poursuite"` (le compilateur l'exige).
+- Règle : goutte (clé + numéro), défi, amélioration de médaille (différence de valeur ; seul l'or vaut 5) et chaque bonus de fin (`bonus_credites`) ne rapportent qu'UNE fois. Bilan et bande : gain réel (+0 possible), « N GOUTTES DÉJÀ COMPTÉES », bonus déjà eu « +0 » en brume.
+- Tests (2 ajoutés) : `la_migration_v2_range_chaque_niveau_sous_sa_cle` (niveau.10/11 → `arc`/`descente`, juste avec `poursuite` inséré avant), `rejouer_un_niveau_ne_recredite_pas` ; ciblés `sauvegarde`, `defis`, `boutique`, `carte`, `plan`, `rejouer`, `bilan`, core `levels`/`zones` verts ; `lint` LINT-OK ; `./build.sh` et `--qa` OK, `dist/` sans `/home`.
+- Navigateur (build de PRODUCTION, Chromium 1208 CDP, `node docs/capture-migration.mjs PORT docs/qa target/qa/script.txt 20100 21160 215`) : v2 réaliste relue → carte : descente MEILLEUR 0:18,3 OR, arc-en-ciel 0:55,0 ARGENT (`79-carte-*.png`) ; descente rejouée (robot) → « ARGENT, +0 GOUTTE », -0,9 s nouveau meilleur temps, « 1 GOUTTE DÉJÀ COMPTÉE », poche 57 → 57, sauvegarde réécrite en `version=3` par clés ; 0 erreur console ; 6 captures, 0 pixel hors palette.
+- Économie (maximum total, une fois) : par niveau 3 gouttes + 3 défis × 3 + or 5 = 17 ; 11 niveaux = 187 + bonus de fin 20 = 207 ; avec la poursuite (8.2) 12 × 17 + 20 = 224. Prix : musiques payantes 5 × 25 = 125 (main), skins payants : aucun aujourd'hui (factice QA 60). 125 + un skin à 60 = 185 ≤ 207 : boutique accessible. Proposition (non appliquée) : au-delà d'un skin payant, skins à 40 ou musiques à 20, pour que tout reste achetable (224 ≥ 5 × 20 + 3 × 40 = 220).
+- Pas testé : un joueur v1 n'avait pas de progression : ses gouttes de niveau d'avant la carte 7.3 seront créditées une fois de plus (une seule fois).
