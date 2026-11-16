@@ -76,7 +76,7 @@ use tactile::Tactile;
 /// déjà entre pixels physiques et logiques avec `screen_dpi_scale()`.
 fn conf() -> Conf {
     Conf {
-        window_title: "PÉPIN : un jeu de plateformes".to_owned(),
+        window_title: "PÉPIN".to_owned(),
         window_width: (LARGEUR_LOGIQUE * 4) as i32,
         window_height: (HAUTEUR_LOGIQUE * 4) as i32,
         high_dpi: true,
