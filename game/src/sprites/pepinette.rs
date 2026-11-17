@@ -326,30 +326,26 @@ pub const VIE_PEPINETTE: Image = &[
     "..000000..",
 ];
 
-/// Parapluie RETOURNÉ de Pépinette (carte 9.2b) : comme celui de Pépin, les rangées
-/// 0 à 7 de `PEPINETTE_PLANE0` dans l'ordre inverse (la toile cyan en bol), le manche,
-/// le nœud et le corps du plané dessous.
+/// Parapluie RETOURNÉ de Pépinette (carte 9.2b), SOUS elle (carte 9.2c) : comme
+/// celui de Pépin, debout dans la coque de `PEPINETTE_BARQUE` (toile cyan, bord et
+/// baleines en 6, crosse dessous), son nœud corail et sa robe au-dessus. 16x16.
 pub const PEPINETTE_RETOURNE: Image = &[
-    ".0..0..0..0..0..0..0",
-    "0D00D00D00D00D00D00D",
-    "06666606DD0DD0DDDDD0",
-    ".0666606DD0DD0DDDD0.",
-    "..066606DD0DD0DDD0..",
-    "...066666DDDDDDD0...",
-    "....06666DDDDDD0....",
-    "......00000000......",
-    ".........00.........",
-    "...000.0000.........",
-    "...08808800000......",
-    "....00707777070.....",
-    ".....0770770770.....",
-    ".....0770770770.....",
-    ".....0797797550.....",
-    ".....0777777550.....",
-    "......08888880......",
-    ".......000000.......",
-    "....................",
-    ".......00..00.......",
+    ".000.0000.......",
+    ".08808800000....",
+    "..00707777070...",
+    "...0770770770...",
+    "...0770770770...",
+    "...0797797550...",
+    "...0888888880...",
+    ".00088888888000.",
+    "0666066666606660",
+    "0DDDDDDDDDDDDDD0",
+    ".0DD6DDDDDD6DD0.",
+    "..0DD6DDDD6DD0..",
+    "...00DD66DD00...",
+    ".....000A000....",
+    ".......0A0......",
+    "......0AA0......",
 ];
 
 /// Barque de Pépinette (carte 9.2) : la même coque que celle de Pépin, dans la toile

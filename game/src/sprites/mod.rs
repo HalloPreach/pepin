@@ -93,8 +93,8 @@ pub struct JeuImages {
     pub attente: [&'static str; 3],
     /// Parapluie ouvert (20x20, les franges oscillent).
     pub planer: [&'static str; 2],
-    /// Parapluie retourné tenu à bout de bras (carte 9.2b, BAS tenu ; 20x20, comme
-    /// le plané).
+    /// Parapluie retourné SOUS le personnage, debout dans la coque de la barque
+    /// (carte 9.2b, BAS tenu ; dessin sous les pieds depuis la 9.2c ; 16x16).
     pub retourne: &'static str,
     /// Barque (carte 9.2) : le parapluie retourné avec le personnage assis dedans.
     pub barque: &'static str,
