@@ -360,6 +360,28 @@ pub fn parcours_essai_ennemis_eau() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours au niveau d'essai ennemis d'eau")
 }
 
+/// Joue l'arène de la Pieuvre du port (touche L du build de QA, carte 9.12a), voir
+/// `jouer_essai`.
+pub fn jouer_essai_pieuvre(parcours: &[Entrees]) -> PartieEssai {
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_PIEUVRE,
+        RaccourciNiveau::Essai14,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans l'arène de la Pieuvre (maladroit, puis précis), sur la
+/// VRAIE simulation, comme pour le Grand Nuage : le temps de la pieuvre est dans la
+/// case (`nuage_de_la_case`), le robot attend donc qu'un tentacule redescende, quitte
+/// la colonne annoncée, puis saute sur la tête sortie, trois fois, après avoir pris
+/// les trois gouttes (`gouttes_avant_la_victoire`).
+pub fn parcours_essai_pieuvre() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_PIEUVRE;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours dans l'arène de la Pieuvre")
+}
+
 /// Joue le niveau d'essai « grêle » (touche F2 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_grele(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_GRELE, RaccourciNiveau::Essai3, parcours)

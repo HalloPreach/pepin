@@ -30,6 +30,7 @@ mod decor;
 mod defis;
 mod demo;
 mod dessin_eau;
+mod dessin_pieuvre;
 // La mesure de difficulté décrit la courbe du MONDE 1 (tableaux de
 // `NB_NIVEAUX_MONDE_1` cases, carte 9.6) : elle ne dépend pas du Monde 2.
 #[cfg(test)]

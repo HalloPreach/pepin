@@ -140,7 +140,7 @@ pub fn effets(
             Contact::Ecrase => particules.eclabousser(x, y, 10, PLUIE, 2.0),
             // Coup sur la tête du Grand Nuage : gerbe de pluie, étincelles d'or et
             // l'écran qui tremble.
-            Contact::Nuage => {
+            Contact::Nuage | Contact::Pieuvre => {
                 particules.eclabousser(x, y, 12, PLUIE, 2.4);
                 particules.etincelles(x, y, 10, OR_PALE);
                 secousse.declencher(2, 10);

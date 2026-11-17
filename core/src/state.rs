@@ -195,7 +195,8 @@ impl EtatJeu {
                 // La lettre ne change ni le score ni la vie : la sauvegarde la garde (carte 8.6).
                 Contact::Lettre => {}
                 Contact::Ecrase => self.score += POINTS_ECRASEMENT,
-                Contact::Nuage => self.score += POINTS_NUAGE,
+                // Un coup sur la tête d'un boss : Grand Nuage ou Pieuvre (carte 9.12a).
+                Contact::Nuage | Contact::Pieuvre => self.score += POINTS_NUAGE,
                 Contact::Rebond => {}
                 Contact::Auvent => {}
                 Contact::Mort(_) => {

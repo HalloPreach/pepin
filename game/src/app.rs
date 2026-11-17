@@ -1349,6 +1349,7 @@ impl Application {
                         cible,
                         self.monde.points_nuage(),
                         self.monde.ng_plus,
+                        self.monde.boss_pieuvre(),
                     );
                     // Course (carte 8.7) : l'état du fantôme sous le chrono.
                     if let Some(f) = &self.fantome {

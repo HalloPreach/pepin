@@ -50,7 +50,7 @@ pub fn effets_du_pas(evenements: &Evenements, contacts: &[Contact]) -> Vec<Effet
             Contact::Lettre => v.push(Effet::Secret),
             Contact::Lanterne(..) => v.push(Effet::Lanterne),
             // Un coup sur la tête du Grand Nuage sonne comme un ennemi écrasé.
-            Contact::Ecrase | Contact::Nuage => v.push(Effet::Ecrase),
+            Contact::Ecrase | Contact::Nuage | Contact::Pieuvre => v.push(Effet::Ecrase),
             // L'auvent fait le même « boing » que le champignon.
             Contact::Rebond | Contact::Auvent => v.push(Effet::Rebond),
             // (Le tonnerre d'un éclair est déjà déclenché par `Detecteur`.)

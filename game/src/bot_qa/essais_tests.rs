@@ -776,6 +776,77 @@ fn le_robot_finit_le_niveau_d_essai_ennemis_eau() {
     );
 }
 
+/// Le robot bat la Pieuvre du port dans son arène d'essai (carte 9.12a, touche L du
+/// build de QA) sans mourir, après avoir pris les trois gouttes : l'arène n'a pas de
+/// drapeau, la fin n'est atteinte que si elle est vaincue.
+#[test]
+fn le_robot_bat_la_pieuvre_sans_mourir() {
+    let parcours = parcours_essai_pieuvre();
+    let partie = jouer_essai_pieuvre(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(partie.gouttes, 3);
+    assert_eq!(
+        partie.images.iter().filter(|i| i.touche_essai).count(),
+        1,
+        "la touche L, une seule fois"
+    );
+    println!(
+        "essai pieuvre : {} images de jeu",
+        partie.images.iter().filter(|i| i.en_essai).count()
+    );
+}
+
+/// Écrit le parcours du robot dans l'arène de la Pieuvre pour les captures de la carte
+/// 9.12a (`docs/capture-912.mjs`) : `target/qa/script-912-pieuvre.txt` (un chiffre
+/// hexadécimal par pas, comme `ecrire_script_essai_ennemis_eau_94`), le décalage entre
+/// l'appui sur L et la première image de jeu (`decalage-912.txt`), et la chronologie de
+/// la pieuvre (pour choisir les pas). Ignoré : on le lance à la main.
+#[test]
+#[ignore]
+fn ecrire_script_essai_pieuvre_912() {
+    use pepin_core::player::Direction;
+    let parcours = parcours_essai_pieuvre();
+    let script: String = parcours
+        .iter()
+        .map(|e| {
+            let direction = match e.direction {
+                Direction::Gauche => 2,
+                Direction::Droite => 4,
+                Direction::Immobile => 0,
+            };
+            let masque = direction + if e.saut { 8 } else { 0 };
+            std::char::from_digit(masque, 16)
+                .unwrap()
+                .to_ascii_uppercase()
+        })
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-912-pieuvre.txt", &script).unwrap();
+    let partie = jouer_essai_pieuvre(&parcours);
+    let appui = partie.images.iter().position(|i| i.touche_essai).unwrap();
+    let debut = partie.images.iter().position(|i| i.en_essai).unwrap();
+    std::fs::write("../target/qa/decalage-912.txt", (debut - appui).to_string()).unwrap();
+    println!(
+        "script : {} pas, décalage : {} images",
+        script.len(),
+        debut - appui
+    );
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_PIEUVRE, false);
+    let mut avant = None;
+    for (k, e) in parcours.iter().enumerate() {
+        m.avancer(e);
+        let etat = m.entites.iter().find_map(|x| match x {
+            pepin_core::entities::Entite::Pieuvre(p) => Some((p.phase(), p.pv())),
+            _ => None,
+        });
+        if etat != avant {
+            println!("pas {k} : Pépin x = {:.0} : {etat:?}", m.joueur.boite.x);
+            avant = etat;
+        }
+    }
+}
+
 /// Écrit le parcours du robot dans le niveau d'essai « ennemis d'eau » pour les captures
 /// de la carte 9.4 (`docs/capture-94.mjs`) : `target/qa/script-94-ennemis.txt`, un chiffre
 /// hexadécimal par pas (2 gauche, 4 droite, 8 saut). Ignoré : on le lance à la main

@@ -117,7 +117,8 @@ pub fn compteur(
 /// `pv_nuage` : points de vie du Grand Nuage et son maximum, `(pv, max)`, s'il y en a
 /// un dans le niveau ; `skin` : la tenue de Pépin, dont l'icône des vies montre le
 /// visage ; `ng_plus` : une nouvelle partie + (carte 8.8), marquée d'un « + » en or
-/// devant le chrono.
+/// devant le chrono ; `pieuvre` : le boss est la Pieuvre du port (carte 9.12a), ses
+/// points de vie sont de petites pieuvres au lieu de petits nuages.
 #[allow(clippy::too_many_arguments)]
 pub fn dessiner(
     banque: &Banque,
@@ -128,6 +129,7 @@ pub fn dessiner(
     cible: Option<u32>,
     pv_nuage: Option<(u8, u8)>,
     ng_plus: bool,
+    pieuvre: bool,
 ) {
     let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
     // Sprite 10x10 (contour de 2 px) : décalé d'un pixel pour garder la goutte à la même place.
@@ -166,6 +168,11 @@ pub fn dessiner(
     }
     if let Some((pv, max)) = pv_nuage {
         for (nom, x) in points_de_vie(pv, max) {
+            let nom = match (pieuvre, nom) {
+                (true, "pv_nuage") => "pv_pieuvre",
+                (true, _) => "pv_pieuvre_perdu",
+                (false, _) => nom,
+            };
             banque.dessiner(nom, x as f32, 6.0, false);
         }
     }

@@ -41,6 +41,15 @@ pub enum ErreurNiveau {
     /// cases au-dessus doivent être libres, dans la carte, et ses 17 colonnes
     /// d'éclairs (8 de chaque côté de `O`) dans la carte.
     NuageSansPlace { ligne: usize, colonne: usize },
+    /// L'arène de la Pieuvre du port (`8`, carte 9.12a) n'a pas de drapeau `X` :
+    /// la vaincre finit le niveau.
+    ArriveeEtPieuvre,
+    /// Un seul boss par niveau (Grand Nuage `O` ou Pieuvre `8`).
+    BossMultiple { nombre: usize },
+    /// La Pieuvre (`8`) n'a pas sa place : le `8` est dans l'eau, et ce rang d'eau
+    /// doit couvrir ses 9 colonnes (de 8 cases à gauche du `8` à 9 à droite) ; ses
+    /// 3 places de tête (48 x 32 au-dessus de l'eau) ne touchent aucun solide.
+    PieuvreSansPlace { ligne: usize, colonne: usize },
     /// Un niveau contient exactement 3 gouttes d'or.
     NombreDeGouttes { trouve: usize },
     /// Une plateforme mobile (chiffre 1-9) doit apparaître exactement deux fois
@@ -132,6 +141,18 @@ impl fmt::Display for ErreurNiveau {
                 f,
                 "ligne {ligne}, colonne {colonne} : le Grand Nuage « O » n'a pas sa place \
                  (3 x 2 cases libres et les 3 du dessus, 8 colonnes de chaque côté)"
+            ),
+            ErreurNiveau::ArriveeEtPieuvre => write!(
+                f,
+                "arrivée « X » dans l'arène de la Pieuvre « 8 » (la vaincre finit le niveau)"
+            ),
+            ErreurNiveau::BossMultiple { nombre } => {
+                write!(f, "{nombre} boss (« O » ou « 8 ») : un seul permis")
+            }
+            ErreurNiveau::PieuvreSansPlace { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : la Pieuvre « 8 » n'a pas sa place \
+                 (de l'eau sur 18 cases, 8 à gauche et 9 à droite ; ses têtes hors des solides)"
             ),
             ErreurNiveau::NombreDeGouttes { trouve } => {
                 write!(f, "{trouve} gouttes d'or « o » au lieu de 3")

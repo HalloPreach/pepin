@@ -35,6 +35,9 @@ pub enum CauseMort {
     Pluie,
     /// Entré dans l'eau parapluie fermé (carte 9.2, la mécanique de la barque).
     Noyade,
+    /// Un tentacule dressé, ou la tête sortie touchée autrement qu'en tombant
+    /// dessus : la Pieuvre du port (carte 9.12a). Le jeu assombrit l'écran (l'encre).
+    Pieuvre,
 }
 
 /// Ce qui s'est passé pendant ce pas de simulation.
@@ -55,6 +58,9 @@ pub enum Contact {
     /// Pépin vient de sauter sur la tête du Grand Nuage essoufflé : un point de
     /// vie en moins pour lui (`GrandNuage::toucher`).
     Nuage,
+    /// Pépin vient de sauter sur la tête sortie de la Pieuvre du port (carte
+    /// 9.12a) : un point de vie en moins pour elle (`Pieuvre::toucher`).
+    Pieuvre,
     /// Le joueur est mort.
     Mort(CauseMort),
 }
@@ -164,7 +170,7 @@ fn porter_sur_aiguille(joueur: &mut Joueur, p: &PlateformeMobile, env: &Environn
 /// Protection de réapparition (`Joueur::est_protege`) : aucun danger ne tue
 /// (ennemi touché de côté, pointe, éclair, grêle, éclair du Grand Nuage) ; tout le
 /// reste continue (gouttes, lanternes, champignons, escargots, auvents, écrasement d'un
-/// ennemi par le dessus, saut sur la tête du Grand Nuage). Tout NOUVEAU
+/// ennemi par le dessus, saut sur la tête du Grand Nuage ou de la Pieuvre). Tout NOUVEAU
 /// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
 /// pas traitée ici (`verifier_vide`) : elle reste mortelle.
 ///
@@ -307,6 +313,18 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                     contacts.push(Contact::Nuage);
                 } else if !protege && n.foudroie(&joueur.boite) {
                     mort.get_or_insert(CauseMort::Eclair);
+                }
+            }
+            Entite::Pieuvre(p) => {
+                // Même règle que le nuage : lui tomber sur la tête sortie, un point
+                // de moins et Pépin rebondit ; mais toucher la tête autrement (ou un
+                // tentacule dressé) est mortel.
+                if p.recoit(joueur) {
+                    p.toucher();
+                    joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
+                    contacts.push(Contact::Pieuvre);
+                } else if !protege && p.blesse(&joueur.boite) {
+                    mort.get_or_insert(CauseMort::Pieuvre);
                 }
             }
         }

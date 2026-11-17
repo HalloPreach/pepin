@@ -1,0 +1,160 @@
+//! Rendu de la Pieuvre du port, boss du Monde 2 (carte 9.12a) : ses tentacules
+//! (annonce, dressés, qui redescendent), sa tête (qui remonte, sortie, touchée,
+//! qui replonge en lâchant une clé) et l'encre quand elle a eu Pépin.
+//!
+//! La règle du jeu est visible : AUCUN tentacule ne se dresse sans son annonce. La
+//! 1re moitié de l'annonce (0,4 s) : l'ombre de la pieuvre sous la surface et des
+//! remous sur toute la largeur de la colonne ; la 2e moitié : le bout du tentacule
+//! pointe hors de l'eau. Tout est en sprites de la palette (`sprites::pieuvre`).
+
+use pepin_core::entities::pieuvre::{
+    EtatTentacule, PhasePieuvre, Pieuvre, LARGEUR_COLONNE, MARGE_TENTACULE, NB_COLONNES,
+};
+use pepin_core::palette::ARDOISE_OMBRE;
+
+use crate::monde::{Monde, ENCRE_PAS};
+use crate::rendu::couleur_mq;
+use crate::sprites::Banque;
+use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
+
+/// Hauteur (px) d'un tronçon de tentacule (`tentacule0`).
+const TRONCON: f32 = 8.0;
+/// Hauteur (px) du bout recourbé (`tentacule_bout`).
+const BOUT: f32 = 16.0;
+
+/// Image d'une animation à deux images de `duree` pas chacune.
+fn image(anim: [&'static str; 2], pas: u32, duree: u32) -> &'static str {
+    anim[(pas / duree) as usize % 2]
+}
+
+/// Hauteur (px) du tentacule hors de l'eau, de 0 à `pleine` : rien au calme ni
+/// pendant l'annonce (le bout qui pointe a son sprite), tout dressé, puis il
+/// redescend en 12 pas. Pure.
+fn hauteur_tentacule(etat: EtatTentacule, pleine: f32) -> f32 {
+    match etat {
+        EtatTentacule::Dresse => pleine,
+        EtatTentacule::Redescente(p) => (pleine * (1.0 - p)).round(),
+        EtatTentacule::Calme | EtatTentacule::Annonce(_) => 0.0,
+    }
+}
+
+/// Dessine la pieuvre `p` (caméra `cx`, `cy`), au pas `pas` du monde.
+pub fn dessiner(p: &Pieuvre, banque: &Banque, pas: u32, cx: i32, cy: i32) {
+    let (cx, cy) = (cx as f32, cy as f32);
+    for i in 0..NB_COLONNES {
+        let corps = p.colonnes[i];
+        let surface = corps.bas() - cy;
+        let gauche = corps.x - MARGE_TENTACULE - cx;
+        match p.etat_tentacule(i) {
+            EtatTentacule::Calme => {}
+            EtatTentacule::Annonce(a) => {
+                banque.dessiner("ombre_pieuvre", gauche, surface + 1.0, false);
+                banque.dessiner(
+                    image(["remous_pieuvre0", "remous_pieuvre1"], pas, 6),
+                    gauche,
+                    surface - 5.0,
+                    false,
+                );
+                if a >= 0.5 {
+                    let nom = image(["tentacule_pointe0", "tentacule_pointe1"], pas, 8);
+                    banque.dessiner(nom, corps.x - cx, surface - 11.0, false);
+                }
+            }
+            etat => {
+                let h = hauteur_tentacule(etat, corps.h);
+                dessiner_tentacule(banque, corps.x - cx, surface, h, pas);
+                banque.dessiner(
+                    image(["remous_pieuvre0", "remous_pieuvre1"], pas, 6),
+                    gauche,
+                    surface - 5.0,
+                    false,
+                );
+            }
+        }
+    }
+    dessiner_tete(p, banque, pas, cx, cy);
+}
+
+/// Un tentacule de `h` px dressé au-dessus de `surface` (à l'écran) : des tronçons
+/// empilés depuis l'eau, puis le bout recourbé en haut (dessiné en dernier, il couvre
+/// le tronçon qui dépasse).
+fn dessiner_tentacule(banque: &Banque, x: f32, surface: f32, h: f32, pas: u32) {
+    if h <= 0.0 {
+        return;
+    }
+    if h < BOUT {
+        // Il finit de replonger : seul le haut du bout dépasse encore.
+        banque.dessiner_haut("tentacule_bout", x, surface - h, h);
+        return;
+    }
+    let haut = surface - h;
+    let n = ((h - BOUT) / TRONCON).ceil() as u32;
+    for k in 1..=n {
+        // Les ventouses glissent d'un tronçon à l'autre : le tentacule ondule.
+        let nom = image(["tentacule0", "tentacule1"], pas / 4 + k, 1);
+        banque.dessiner(nom, x, surface - TRONCON * k as f32, false);
+    }
+    banque.dessiner("tentacule_bout", x, haut, false);
+}
+
+/// La tête : remous à sa place quand elle remonte, puis la tête posée sur l'eau ;
+/// touchée, elle clignote ; vaincue, elle replonge et la clé monte de l'eau.
+fn dessiner_tete(p: &Pieuvre, banque: &Banque, pas: u32, cx: f32, cy: f32) {
+    let Some(tete) = p.tete() else {
+        return;
+    };
+    let (x, y) = (tete.x - cx, tete.y - cy);
+    let surface = tete.bas() - cy;
+    let remous = image(["remous_pieuvre0", "remous_pieuvre1"], pas, 6);
+    match p.phase() {
+        PhasePieuvre::Remous => {
+            banque.dessiner("ombre_pieuvre", x + 8.0, surface + 1.0, false);
+            for dx in [0.0, LARGEUR_COLONNE / 2.0] {
+                banque.dessiner(remous, x + dx, surface - 5.0, false);
+            }
+        }
+        PhasePieuvre::Tete => {
+            let nom = image(["pieuvre_colere0", "pieuvre_colere1"], pas, 20);
+            if p.est_facile() {
+                banque.dessiner_pale(nom, x, y);
+            } else {
+                banque.dessiner(nom, x, y, false);
+            }
+        }
+        // Touchée : 4 images visibles, 4 cachées, comme le Grand Nuage.
+        PhasePieuvre::Touchee if (p.ecoule() / 4).is_multiple_of(2) => {
+            banque.dessiner("pieuvre_touchee", x, y, false);
+        }
+        PhasePieuvre::Plongee => {
+            let k = p.progression_plongee();
+            let descente = (tete.h * k).round();
+            banque.dessiner_haut("pieuvre_vaincue", x, y + descente, tete.h - descente);
+            for dx in [0.0, LARGEUR_COLONNE / 2.0] {
+                banque.dessiner(remous, x + dx, surface - 5.0, false);
+            }
+            // La clé sort de l'eau et monte de 40 px au-dessus d'elle.
+            let montee = (40.0 * (k * 2.0).min(1.0)).round();
+            banque.dessiner("cle_pieuvre", x + 17.0, surface - 8.0 - montee, false);
+        }
+        _ => {}
+    }
+}
+
+/// L'encre de la Pieuvre (carte 9.12a) : l'écran s'assombrit brièvement quand elle a
+/// eu Pépin. Sans transparence (palette fixe) : des rangées d'ardoise sombre, une
+/// sur quatre au début et à la fin, une sur deux au milieu.
+pub fn dessiner_encre(monde: &Monde) {
+    if monde.encre == 0 {
+        return;
+    }
+    let ecoule = ENCRE_PAS - monde.encre;
+    let pas_rangee = if ecoule < ENCRE_PAS / 3 || monde.encre < ENCRE_PAS / 3 {
+        4
+    } else {
+        2
+    };
+    let c = couleur_mq(ARDOISE_OMBRE);
+    for y in (0..HAUTEUR_LOGIQUE).step_by(pas_rangee) {
+        macroquad::prelude::draw_rectangle(0.0, y as f32, LARGEUR_LOGIQUE as f32, 1.0, c);
+    }
+}
