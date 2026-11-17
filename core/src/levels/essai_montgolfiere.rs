@@ -16,6 +16,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
+    monde: 1,
     numero: 0,
     cle: "essai_montgolfiere",
     sans_planer: false,

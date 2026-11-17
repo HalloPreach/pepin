@@ -118,7 +118,14 @@ impl Theme {
 /// Description d'un niveau : tout sauf le niveau chargé.
 #[derive(Debug, Clone, Copy)]
 pub struct InfosNiveau {
-    /// Place dans la table `NIVEAUX`, à partir de 1 (vérifié par `verifier_ordre`).
+    /// Monde du niveau (carte 9.1) : `1` pour le Monde 1 ; les mondes suivants
+    /// (le Monde 2, « Là où va la pluie ») s'ajoutent à la FIN de la table, chacun
+    /// en un seul bloc contigu, dans l'ordre des numéros (vérifié par
+    /// `verifier_ordre`). La numérotation est PAR MONDE : le premier niveau d'un
+    /// monde est le « NIVEAU 1 ». Les indices du Monde 1 ne bougent jamais : la
+    /// démo, la course et la sauvegarde par clé le supposent.
+    pub monde: u8,
+    /// Place dans le MONDE, à partir de 1 (vérifié par `verifier_ordre`).
     pub numero: u8,
     /// CLÉ STABLE du niveau (carte 7.9) : un identifiant court (`toits`, `arc`…), le
     /// nom de son module. La sauvegarde range la progression par cette clé, jamais par
@@ -179,9 +186,22 @@ mod tests {
 
     #[test]
     fn les_niveaux_sont_numerotes_dans_l_ordre() {
-        for (i, n) in NIVEAUX.iter().enumerate() {
-            assert_eq!(n.numero as usize, i + 1);
+        // La numérotation est PAR MONDE (carte 9.1) : le premier niveau de chaque
+        // monde est le « 1 ». Les mondes sont des blocs contigus, dans l'ordre.
+        let mut par_monde: Vec<(u8, u32)> = Vec::new();
+        for n in NIVEAUX {
+            if !par_monde.iter().any(|(m, _)| *m == n.monde) {
+                par_monde.push((n.monde, 0));
+            }
+            let p = par_monde.iter_mut().find(|(m, _)| *m == n.monde).unwrap();
+            p.1 += 1;
+            assert_eq!(n.numero, p.1 as u8, "{}", n.nom);
             assert!(!n.nom.is_empty() && !n.intro.is_empty() && !n.mecanique.is_empty());
+        }
+        let mut dernier = 0u8;
+        for n in NIVEAUX {
+            assert!(n.monde == dernier || n.monde == dernier + 1, "{}", n.nom);
+            dernier = n.monde;
         }
         assert_eq!(niveau(0).unwrap().nom, "Les toits");
         assert!(niveau(NB_NIVEAUX).is_none());
