@@ -114,6 +114,11 @@ pub fn charger_mode(indice: usize, garder: Option<EtatJeu>, ng_plus: bool) -> (M
     (monde, camera)
 }
 
+/// NOUVELLE PARTIE + (carte 8.8) ouverte aux joueurs ? Désactivée pour l'instant à la
+/// demande d'AGA : la ligne disparaît du titre, même une fois le jeu fini. Le code, les
+/// variantes et les records restent en place ; repasser à `true` suffit pour la rouvrir.
+pub const NOUVELLE_PARTIE_PLUS_OUVERTE: bool = false;
+
 /// Les lignes du menu d'un écran, dans l'ordre. Le son n'a plus de ligne depuis la
 /// carte 7.8b : c'est une icône en bas à gauche du titre et de la pause (clic ou M).
 /// Le titre perd HISTOIRE tant qu'aucune partie n'est finie (`Application::ouvrir`).
@@ -243,6 +248,9 @@ pub struct Application {
     /// La partie en cours est une NOUVELLE PARTIE + (carte 8.8) : chaque niveau est
     /// chargé avec sa variante ; ses records sont à part (`Sauvegarde::ng_plus`).
     pub ng_plus: bool,
+    /// Robot de QA (carte 8.8) : rouvre la NOUVELLE PARTIE + même quand
+    /// `NOUVELLE_PARTIE_PLUS_OUVERTE` est faux, pour continuer à la vérifier.
+    ng_plus_qa: bool,
 }
 
 impl Application {
@@ -293,6 +301,7 @@ impl Application {
             resultat_course: None,
             temps_course: TempsCourse::default(),
             ng_plus: false,
+            ng_plus_qa: false,
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -310,6 +319,10 @@ impl Application {
         if self.sauvegarde.parties_finies == 0 {
             self.choix
                 .retain(|&c| c != Choix::Histoire && c != Choix::NouvellePartiePlus);
+        }
+        // NOUVELLE PARTIE + désactivée pour l'instant (AGA), sauf pour le robot de QA.
+        if !NOUVELLE_PARTIE_PLUS_OUVERTE && !self.ng_plus_qa {
+            self.choix.retain(|&c| c != Choix::NouvellePartiePlus);
         }
         // Course (carte 8.7) : seulement les forces qui ont une partie pour ce niveau.
         let indice = self.plan.selection;
@@ -378,6 +391,7 @@ impl Application {
     #[cfg(test)]
     pub fn debloquer_ng_plus_qa(&mut self) {
         self.sauvegarde.parties_finies = 1;
+        self.ng_plus_qa = true;
         self.ouvrir(Ecran::Titre);
     }
 
@@ -2685,6 +2699,11 @@ mod tests {
         assert_eq!(app.choix.len(), 4);
         app.sauvegarde.parties_finies = 1;
         app.ouvrir(Ecran::Titre);
+        // NOUVELLE PARTIE + désactivée pour l'instant (AGA) : absente même jeu fini.
+        assert_eq!(
+            app.choix.contains(&Choix::NouvellePartiePlus),
+            NOUVELLE_PARTIE_PLUS_OUVERTE
+        );
         let ligne = app
             .choix
             .iter()
