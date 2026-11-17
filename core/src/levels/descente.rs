@@ -193,6 +193,7 @@ mod tests {
                     solides: &solides,
                     courants: &n.courants,
                     vents: &n.vents,
+                    eaux: &[],
                 };
                 for e in entites.iter_mut() {
                     e.actualiser(&env);

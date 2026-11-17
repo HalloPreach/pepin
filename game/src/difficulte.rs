@@ -314,7 +314,7 @@ impl Itineraires {
                 let duree = entrees.len() as u32;
                 match fin {
                     Fin::Arrivee => aretes.push((k, plan, None, duree)),
-                    Fin::Pose | Fin::Lance => {
+                    Fin::Pose | Fin::Lance | Fin::Barque => {
                         let k2 = cle(&apres);
                         if k2 == k {
                             continue; // sur place : inutile
@@ -457,7 +457,7 @@ impl Itineraires {
             let (fin, apres, _) = simuler(monde, plan);
             let ok = match fin {
                 Fin::Arrivee => true,
-                Fin::Pose | Fin::Lance => {
+                Fin::Pose | Fin::Lance | Fin::Barque => {
                     progresse(&apres) && (!self.nuage || self.chaine_sure(&apres))
                 }
                 Fin::Mort | Fin::Abandon => false,
@@ -510,7 +510,9 @@ impl Itineraires {
                 let (fin, apres, _) = simuler(&m, plan);
                 match fin {
                     Fin::Arrivee => Some(None),
-                    Fin::Pose | Fin::Lance if self.progresse(&apres, seuil) => Some(Some(apres)),
+                    Fin::Pose | Fin::Lance | Fin::Barque if self.progresse(&apres, seuil) => {
+                        Some(Some(apres))
+                    }
                     _ => None,
                 }
             });
@@ -624,6 +626,7 @@ fn nom_cause(c: CauseMort) -> &'static str {
         CauseMort::Eclair => "éclair",
         CauseMort::Grele => "grêle",
         CauseMort::Pluie => "Grand Nuage",
+        CauseMort::Noyade => "noyade",
     }
 }
 

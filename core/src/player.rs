@@ -68,6 +68,9 @@ pub enum EtatJoueur {
     Montee,
     Chute,
     Plane,
+    /// Barque (carte 9.2) : pépin flottant sur l'eau, parapluie retourné
+    /// sous lui.
+    Barque,
 }
 
 /// Ce qui s'est passé pendant un pas : le jeu s'en sert pour les particules et le son.
@@ -107,6 +110,13 @@ pub struct Joueur {
     /// Il s'éteint en ligne droite (`BAISSE_ELAN_AUVENT` par pas) et tombe à 0 dès
     /// que Pépin touche un mur ou se pose. Voir `lancer_par_auvent`.
     elan_auvent: f32,
+    /// Barque (carte 9.2) : Pépin flotte sur l'eau, parapluie retourné sous
+    /// lui. Il en sort d'un SAUT (comme du sol) ; il en entre en PLANANT.
+    en_barque: bool,
+    /// Noyade (carte 9.2) : Pépin est entré dans l'eau SANS planer, pieds sous
+    /// la surface, et non protégé. Signalée une fois à `resoudre_contacts`
+    /// (`CauseMort::Noyade`), remise à zéro à chaque `placer` (respawn).
+    noyade: bool,
 }
 
 impl Joueur {
@@ -124,6 +134,8 @@ impl Joueur {
             monte_par_saut: false,
             protection: 0,
             elan_auvent: 0.0,
+            en_barque: false,
+            noyade: false,
         }
     }
 
@@ -152,7 +164,9 @@ impl Joueur {
 
     /// Phase de mouvement courante, déduite des champs.
     pub fn etat(&self) -> EtatJoueur {
-        if self.au_sol {
+        if self.en_barque {
+            EtatJoueur::Barque
+        } else if self.au_sol {
             EtatJoueur::Sol
         } else if self.plane {
             EtatJoueur::Plane
@@ -161,6 +175,28 @@ impl Joueur {
         } else {
             EtatJoueur::Chute
         }
+    }
+
+    /// Pépin est-il entré dans l'eau sans planer (carte 9.2) ? Vrai jusqu'au
+    /// prochain `placer` : `resoudre_contacts` en tire la mort par noyade.
+    pub fn est_noye(&self) -> bool {
+        self.noyade
+    }
+
+    /// Barque (carte 9.2) ? Flottant à la surface, parapluie retourné sous lui.
+    pub fn en_barque(&self) -> bool {
+        self.en_barque
+    }
+
+    /// Met Pépin À BORD de la barque (carte 9.2) : flottant à la surface,
+    /// parapluie retourné sous lui. Les robots le reconstituent depuis un
+    /// état (leur noeud ne garde que la position) ; le jeu lui l'obtient
+    /// tout seul en PLANANT dans l'eau (`actualiser`).
+    pub fn entrer_en_barque(&mut self) {
+        self.en_barque = true;
+        self.plane = false;
+        self.au_sol = false;
+        self.vitesse.y = 0.0;
     }
 
     /// Rebond forcé (trampoline, écrasement d'ennemi) : propulse vers le haut
@@ -220,9 +256,12 @@ impl Joueur {
         };
 
         // --- 2. Saut --------------------------------------------------------
-        if self.tampon > 0 && (self.au_sol || self.coyote > 0) {
+        // Depuis la barque (carte 9.2), le saut est un SAUT NORMAL qui sort
+        // Pépin de l'eau, comme depuis le sol.
+        if self.tampon > 0 && (self.au_sol || self.coyote > 0 || self.en_barque) {
             self.vitesse.y = -VITESSE_SAUT;
             self.au_sol = false;
+            self.en_barque = false;
             self.monte_par_saut = true;
             self.tampon = 0;
             self.coyote = 0;
@@ -243,6 +282,69 @@ impl Joueur {
         self.plane = !self.au_sol && entrees.saut && self.vitesse.y >= 0.0;
         if self.plane && !etait_plane {
             ev.debut_plane = true;
+        }
+
+        // --- 3bis. Barque (carte 9.2) : le parapluie retourné flotte --------
+        // Ramer est LENT (40 % de la course, `VITESSE_RAME`) ; le courant
+        // d'eau (`VITESSE_COURANT_EAU`) pousse la barque en DÉPLACEMENT, comme
+        // le vent latéral (la vitesse propre de Pépin n'y mêle pas). La barque
+        // reste posée sur la surface de l'étendue d'eau qui passe sous son
+        // CENTRE, et quitte l'eau quand ce centre en sort (le reste du pas
+        // reprend alors : chute, atterrissage sur le quai...).
+        if self.en_barque {
+            // Le parapluie est retourné sous la barque, pas ouvert pour planer.
+            self.plane = false;
+            let cible = match entrees.direction {
+                Direction::Droite => VITESSE_RAME,
+                Direction::Gauche => -VITESSE_RAME,
+                Direction::Immobile => 0.0,
+            };
+            if cible != 0.0 {
+                self.regarde_droite = cible > 0.0;
+            }
+            let pas_rame = if cible != 0.0 {
+                ACCEL_RAME
+            } else {
+                FRICTION_RAME
+            };
+            self.vitesse.x = approcher(self.vitesse.x, cible, pas_rame * DT);
+            // Le courant d'eau ne pousse QUE la barque : un Pépin qui plane au-
+            // dessus de l'eau n'est pas touché (à la différence du vent).
+            let poussee_eau: f32 = env
+                .eaux
+                .iter()
+                .filter(|e| e.courant != 0 && e.zone.chevauche(&self.boite))
+                .map(|e| e.courant as f32 * VITESSE_COURANT_EAU)
+                .sum();
+            let contacts = deplacer(
+                &mut self.boite,
+                self.vitesse.x * DT + poussee_eau * DT,
+                0.0,
+                env.grille,
+                env.solides,
+            );
+            if contacts.mur() {
+                // La barque s'arrête au bord (le quai) ; la rame ne la pousse
+                // pas plus loin.
+                self.vitesse.x = 0.0;
+            }
+            // La surface de l'étendue d'eau sous le CENTRE de la barque (les
+            // étendues sont rangées du plus haut au plus bas par le parseur).
+            let cx = self.boite.x + self.boite.w / 2.0;
+            match surface_eau(cx, env.eaux) {
+                Some(surface) => {
+                    // La barque reste flottante : les pieds de Pépin restent
+                    // `ENFONCEMENT_BARQUE` sous la surface.
+                    self.boite.y = surface - JOUEUR_H + ENFONCEMENT_BARQUE;
+                    self.vitesse.y = 0.0;
+                }
+                None => {
+                    // Le centre est sorti de l'étendue : la barque quitte
+                    // l'eau et retombe comme n'importe quel joueur.
+                    self.en_barque = false;
+                }
+            }
+            return ev;
         }
 
         // --- 4. Mouvement horizontal ---------------------------------------
@@ -352,6 +454,42 @@ impl Joueur {
             }
         } else {
             self.au_sol = false;
+        }
+
+        // --- 8. Eau (carte 9.2) : planant dans l'eau = barque, sinon noyade --
+        // L'étendue est un VRAI obstacle : sous les pieds, dans sa zone, les
+        // pieds SOUS la surface (que l'on marche au sol ou que l'on saute),
+        // c'est la noyade ; planant, c'est la barque. Au ras de la surface
+        // (marcher au bord du bassin, les pieds AU NIVEAU de l'eau, `bas() ==
+        // surface`), rien ne se passe : le `>` strict fait la différence. La
+        // barque, elle, est flottante (les pieds restent 3 px sous la
+        // surface) : c'est l'état normal de l'eau, pas une noyade.
+        if !self.en_barque {
+            let cx = self.boite.x + self.boite.w / 2.0;
+            if let Some(surface) = surface_eau(cx, env.eaux) {
+                if self.boite.bas() > surface {
+                    if self.plane || self.est_protege() {
+                        // En PLANANT : Pépin devient une barque, le parapluie
+                        // retourné flotte à la surface. Il la garde sans rien
+                        // tenir (voir le pas 3bis). PROTÉGÉ (il vient de
+                        // réapparaître), il ne peut pas couler : l'eau le
+                        // recueille aussi en barque. C'est ce qui garde
+                        // jouable une lanterne posée sur l'eau : sans cela, la
+                        // réapparition au-dessus de l'eau finirait noyée dès
+                        // la fin de la protection.
+                        self.en_barque = true;
+                        self.plane = false;
+                        self.vitesse.y = 0.0;
+                        self.boite.y = surface - JOUEUR_H + ENFONCEMENT_BARQUE;
+                    } else {
+                        // Parapluie FERMÉ (comme la grêle, `Grele::blesse`) :
+                        // il coule, une vie perdue. Marcher AU-DESSOUS de la
+                        // surface compte : l'eau est un obstacle, pas une fosse
+                        // contournable.
+                        self.noyade = true;
+                    }
+                }
+            }
         }
         ev
     }
@@ -703,6 +841,7 @@ mod tests {
             solides: &[],
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         let mut j = au_sol(&g, 56.0);
         let depart = j.boite.y;
@@ -730,6 +869,7 @@ mod tests {
             solides: &[],
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         let mut j = Joueur::new(56.0, 120.0);
         for _ in 0..90 {
@@ -755,6 +895,7 @@ mod tests {
             solides: &[],
             courants: &[],
             vents: &vents,
+            eaux: &[],
         };
         let mut j = au_sol(&g, 56.0);
         for _ in 0..60 {
@@ -776,6 +917,7 @@ mod tests {
             solides: &[],
             courants: &[],
             vents: &vents,
+            eaux: &[],
         };
         let mut j = au_sol(&g, 100.0);
         for _ in 0..60 {
@@ -793,6 +935,7 @@ mod tests {
             solides: &[],
             courants: &[],
             vents: &vents,
+            eaux: &[],
         };
         // En l'air, SAUT maintenu : le parapluie plane dès le premier pas
         // (vitesse verticale nulle au départ, donc `plane` est vrai).
@@ -814,6 +957,7 @@ mod tests {
             solides: &[],
             courants: &[],
             vents: &vents,
+            eaux: &[],
         };
         let mut ferme = Joueur::new(56.0, 100.0);
         let mut ouvert = Joueur::new(56.0, 100.0);
@@ -841,6 +985,7 @@ mod tests {
             solides: &[],
             courants: &[],
             vents: &[droit, gauche],
+            eaux: &[],
         };
         let mut j = au_sol(&g, 56.0);
         for _ in 0..30 {
@@ -858,6 +1003,7 @@ mod tests {
             solides: &[],
             courants: &[],
             vents: &vent,
+            eaux: &[],
         };
         let sans = Environnement::simple(&g);
         // Vent de face (vers la gauche) ; on court à DROITE dans les deux cas.
@@ -961,5 +1107,95 @@ mod tests {
             (j.boite, j.vitesse)
         };
         assert_eq!(scenario(500), scenario(500));
+    }
+
+    // --- Eau et barque (carte 9.2) : LE test de la mécanique centrale --------
+
+    /// Salle avec un bassin calme : la surface de l'eau est à 32 px au-dessus
+    /// du sol (y = 144), du haut de la colonne 6 à la colonne 9 (x 96 à 144).
+    fn bassin() -> (GrilleTuiles, Eau) {
+        let g = salle();
+        let eau = Eau {
+            zone: Aabb::new(96.0, 144.0, 48.0, 32.0),
+            courant: 0,
+        };
+        (g, eau)
+    }
+
+    /// Le mécanisme : PLANER dans l'eau donne la barque (on flotte, on rame, on
+    /// saut hors de l'eau) ; entrer SANS planer noie Pépin.
+    #[test]
+    fn planer_dans_leau_donne_la_barque_sinon_noyade() {
+        let (g, eau) = bassin();
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &[],
+            eaux: std::slice::from_ref(&eau),
+        };
+
+        // 1. Planant : Pépin devient une barque et flotte à la surface. Le
+        // parapluie s'ouvre en GARDANT le saut en l'air (`plane` est recalculé
+        // à chaque pas depuis les entrées) ; un Pépin né en l'air n'a ni sol
+        // ni coyote, l'appui ne fait donc pas sauter. Le tampon de saut (6
+        // pas) est épuisé bien avant l'entrée dans l'eau (~10 px à 36 px/s).
+        let mut j = Joueur::new(110.0, 120.0); // juste au-dessus de la surface (144)
+        for _ in 0..60 {
+            j.actualiser(&SAUT, &env);
+            if j.en_barque() {
+                break;
+            }
+        }
+        assert!(
+            j.en_barque(),
+            "planant dans l'eau : la barque se tient sans rien tenir"
+        );
+        assert_eq!(j.etat(), EtatJoueur::Barque);
+        assert_eq!(
+            j.boite.bas(),
+            eau.surface() + ENFONCEMENT_BARQUE,
+            "les pieds flottent juste sous la surface"
+        );
+
+        // La rame est LENTE (40 % de la course) et le courant n'existe pas ici.
+        // 20 pas : la vitesse de rame est atteinte (~10 pas à 240 px/s²) et la
+        // barque (~10 px parcourus) reste dans ce bassin étroit de 48 px ; plus
+        // loin, son centre sortirait de l'eau et elle retomberait au sol.
+        for _ in 0..20 {
+            j.actualiser(&droite(), &env);
+        }
+        assert!(j.boite.x > 110.0, "ramer pousse la barque");
+        assert!(j.vitesse.x <= VITESSE_RAME + 1e-3, "la rame est lente");
+        assert!(j.en_barque(), "la barque reste dans l'eau");
+
+        // Le saut sort Pépin de l'eau (comme un saut au sol).
+        j.actualiser(&SAUT, &env);
+        assert!(!j.en_barque(), "saut depuis la barque : Pépin quitte l'eau");
+        assert!(j.vitesse.y < 0.0, "le saut repousse vers le haut");
+
+        // 2. Sans planer : même chute, mais Pépin COULE (la noyade est marquée).
+        let mut j = Joueur::new(110.0, 120.0); // parapluie FERMÉ, mêmes 11 px à tomber
+        for _ in 0..60 {
+            j.actualiser(&AUCUNE, &env);
+        }
+        assert!(
+            j.est_noye(),
+            "entrer dans l'eau sans planer : une vie perdue (mort par noyade)"
+        );
+
+        // 3. Même chute parapluie fermé, mais PROTÉGÉ (il vient de réapparaître,
+        // par exemple à une lanterne posée sur l'eau) : il ne coule pas, l'eau
+        // le recueille en barque.
+        let mut j = Joueur::new(110.0, 120.0);
+        j.proteger();
+        for _ in 0..60 {
+            j.actualiser(&AUCUNE, &env);
+        }
+        assert!(!j.est_noye(), "protégé, Pépin ne coule pas");
+        assert!(
+            j.en_barque(),
+            "réapparu au-dessus de l'eau : la barque le recueille"
+        );
     }
 }

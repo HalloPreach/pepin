@@ -20,7 +20,7 @@ use crate::entities::{
     Grele, Lanterne, Lettre, Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi,
     Ventilateur,
 };
-use crate::physics::{CourantAscendant, Environnement, VentLateral, JOUEUR_H};
+use crate::physics::{CourantAscendant, Eau, Environnement, VentLateral, JOUEUR_H};
 
 /// Vitesse (px/s) des plateformes mobiles.
 pub(super) const VITESSE_MOBILE: f32 = 36.0;
@@ -81,6 +81,10 @@ pub(super) fn analyser(
     let mut vent = vec![false; largeur * hauteur];
     // Vents latéraux : `<` pousse vers la gauche (-1), `>` vers la droite (+1).
     let mut vents: Vec<(Case, i8)> = Vec::new();
+    // Eau (carte 9.2) : `~` eau calme (courant 0), `{` courant vers la gauche
+    // (-1), `}` vers la droite (+1). L'eau n'est PAS une tuile solide : elle ne
+    // sert qu'au dessin et à la mécanique de la barque (zones dans `Niveau::eaux`).
+    let mut eaux_cases: Vec<(Case, i8)> = Vec::new();
     let mut mobiles: BTreeMap<char, Vec<Case>> = BTreeMap::new();
     // Pigeons : il faut la grille entière pour trouver leur perchoir.
     let mut pigeons: Vec<Case> = Vec::new();
@@ -163,6 +167,22 @@ pub(super) fn analyser(
                 'h' => pivots.push(case),
                 'O' => nuages.push(case),
                 'P' => murs.push(case),
+                // Eau (carte 9.2) : `~` calme, `{` courant vers la gauche, `}`
+                // vers la droite. La tuile n'est PAS solide : le moteur de
+                // collision ne la voit pas, seule la surface compte (le haut de
+                // l'étendue, assemblée dans `Niveau::eaux`).
+                '~' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, 0));
+                }
+                '{' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, -1));
+                }
+                '}' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, 1));
+                }
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -398,6 +418,38 @@ pub(super) fn analyser(
     }
 
     let courants = fusionner_courants(&vent, largeur, hauteur);
+
+    // Eau (carte 9.2) : les cases d'un même courant forment des rectangles
+    // (comme les vents latéraux, par sens). La surface de l'eau, c'est le HAUT
+    // du rectangle : `Niveau::surface_eau` la cherche par abscisse, du plus haut
+    // rectangle au plus bas (c'est pour cela que l'ordre du vecteur est
+    // par surface croissante).
+    let grille_eau = |courant: i8| {
+        let mut grille = vec![false; largeur * hauteur];
+        for ((tx, ty), c) in &eaux_cases {
+            if *c == courant {
+                grille[*ty * largeur + *tx] = true;
+            }
+        }
+        grille
+    };
+    let mut eaux: Vec<Eau> = Vec::new();
+    for sens in [0i8, -1, 1] {
+        for (g, d, h, b) in fusionner_zones(&grille_eau(sens), largeur, hauteur) {
+            eaux.push(Eau {
+                zone: Aabb::new(
+                    g as f32 * TAILLE_TUILE,
+                    h as f32 * TAILLE_TUILE,
+                    (d - g + 1) as f32 * TAILLE_TUILE,
+                    (b - h + 1) as f32 * TAILLE_TUILE,
+                ),
+                courant: sens,
+            });
+        }
+    }
+    // Du plus haut au plus bas : `surface_eau` (la 1re zone sous l'abscisse)
+    // renvoie alors la surface de l'étendue.
+    eaux.sort_by(|a, b| a.surface().total_cmp(&b.surface()));
     // Décor : posé sur la tuile du dessous, qui doit être solide (la dernière
     // ligne n'a pas de dessous : le décor y serait au-dessus du vide).
     let mut objets_decor = Vec::with_capacity(decors.len());
@@ -432,6 +484,7 @@ pub(super) fn analyser(
         entites,
         courants,
         vents: vents_laterales,
+        eaux,
         panneaux,
         decors: objets_decor,
         caches,

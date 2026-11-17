@@ -681,3 +681,72 @@ fn pepin_attend_sur_la_casette_puis_le_souffle_le_porte() {
     );
     assert_eq!(partie.morts, 0);
 }
+
+/// Le robot finit le niveau d'essai « eau » (carte 9.2, touche F11 du build de QA)
+/// sans mourir : le bassin ne se traverse qu'en BARQUE (y marcher noie, il est trop
+/// large pour un saut planant depuis le sol), donc le parcours passe par l'eau
+/// (planer pour flotter, laisser le courant porter, sauter hors de l'eau). Les
+/// trois gouttes sont ramassées, aucune mort.
+#[test]
+fn le_robot_finit_le_niveau_d_essai_eau() {
+    let parcours = parcours_essai_eau();
+    let partie = jouer_essai_eau(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(partie.gouttes, 3, "les trois gouttes du niveau d'essai eau");
+    assert_eq!(
+        partie.images.iter().filter(|i| i.touche_essai).count(),
+        1,
+        "la touche F11, une seule fois"
+    );
+    let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+    assert!(essai.len() > 100, "{} images de jeu", essai.len());
+    // La barque flotte : les pieds de Pépin restent `ENFONCEMENT_BARQUE` (3 px)
+    // sous la surface (144, au ras du sol), le haut de sa boîte (`trame.y`) est
+    // donc à 144 - 14 + 3 = 133 : ni au sol (130), ni sur le quai (114), ni en
+    // vol (il traverserait cette hauteur en une image ou deux). Il a bel et bien
+    // traversé l'eau en barque.
+    let y_barque = 144.0 - pepin_core::physics::JOUEUR_H + pepin_core::physics::ENFONCEMENT_BARQUE;
+    let en_barque = essai
+        .iter()
+        .filter(|i| !i.au_sol && (i.trame.y - y_barque).abs() < 0.01)
+        .count();
+    assert!(en_barque > 10, "{en_barque} images à bord de la barque");
+    let dernier = essai.last().unwrap();
+    assert!(dernier.trame.x > 500.0, "arrivée à x = {}", dernier.trame.x);
+    println!(
+        "essai eau : {} images de jeu, {} en barque, gouttes {}, fin à x = {:.1}",
+        essai.len(),
+        en_barque,
+        partie.gouttes,
+        dernier.trame.x
+    );
+}
+
+/// Écrit le parcours du robot dans le niveau d'essai « eau » pour les captures de la carte
+/// 9.2 (`docs/capture-92.mjs`) : `target/qa/script-92-eau.txt`, un chiffre hexadécimal par
+/// pas (2 gauche, 4 droite, 8 saut), comme les autres scripts du navigateur. Ignoré : on le
+/// lance à la main (`--ignored ecrire_script_essai_eau_92`).
+#[test]
+#[ignore]
+fn ecrire_script_essai_eau_92() {
+    use pepin_core::player::Direction;
+    let parcours = parcours_essai_eau();
+    let script: String = parcours
+        .iter()
+        .map(|e| {
+            let direction = match e.direction {
+                Direction::Gauche => 2,
+                Direction::Droite => 4,
+                Direction::Immobile => 0,
+            };
+            let masque = direction + if e.saut { 8 } else { 0 };
+            std::char::from_digit(masque, 16)
+                .unwrap()
+                .to_ascii_uppercase()
+        })
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-92-eau.txt", &script).unwrap();
+    println!("script-92-eau.txt : {} pas", script.len());
+}

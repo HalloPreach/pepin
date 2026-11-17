@@ -123,13 +123,18 @@ pub const INDICE_ESSAI_HORLOGE: usize = pepin_core::levels::NB_NIVEAUX + 8;
 /// après celui de l'horloge (touche F10 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_NUAGE: usize = pepin_core::levels::NB_NIVEAUX + 9;
+/// Niveau d'essai « eau » (carte 9.2 : la mécanique de la barque, le Monde 2),
+/// tests et build de QA seulement.
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_EAU: usize = pepin_core::levels::NB_NIVEAUX + 10;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les dix niveaux
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les onze niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
 /// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
-/// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage), tests
+/// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage,
+/// `INDICE_ESSAI_EAU` eau), tests
 /// et build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
@@ -157,6 +162,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_horloge::INFOS)
     } else if indice == INDICE_ESSAI_NUAGE {
         Some(&pepin_core::levels::essai_nuage::INFOS)
+    } else if indice == INDICE_ESSAI_EAU {
+        Some(&pepin_core::levels::essai_eau::INFOS)
     } else {
         None
     }
@@ -243,6 +250,7 @@ impl Monde {
                 solides: &solides,
                 courants: &self.niveau.courants,
                 vents: &self.niveau.vents,
+                eaux: &[],
             };
             for e in &mut self.entites {
                 e.actualiser(&env);
@@ -269,6 +277,10 @@ impl Monde {
             solides: &solides,
             courants: &courants,
             vents: &self.niveau.vents,
+            // L'eau (carte 9.2) : la barque flotte, la noyade tue. Seuls le
+            // joueur et ses états (barque/noyade) en sont affectés : les
+            // entités (plateformes, ennemis) ne s'y baignent pas.
+            eaux: &self.niveau.eaux,
         };
         porter_par_plateformes(&mut self.joueur, &self.entites, &env);
         // 3. Le joueur bouge.
