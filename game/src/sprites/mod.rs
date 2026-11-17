@@ -19,6 +19,8 @@ pub mod ennemis;
 #[rustfmt::skip]
 pub mod ennemis_eau;
 #[rustfmt::skip]
+pub mod jetee;
+#[rustfmt::skip]
 pub mod objets;
 #[rustfmt::skip]
 pub mod objets_decor;
@@ -153,6 +155,7 @@ pub fn tous() -> Vec<(&'static str, Image)> {
             objets_decor::SPRITES,
             objets_eau::SPRITES,
             tuiles::SPRITES,
+            jetee::SPRITES,
         ]
         .concat(),
     );
@@ -247,6 +250,7 @@ impl Banque {
                     objets::SPRITES,
                     objets_decor::SPRITES,
                     objets_eau::SPRITES,
+                    jetee::SPRITES,
                 ]
                 .concat(),
             )
