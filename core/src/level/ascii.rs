@@ -225,6 +225,7 @@ pub(super) fn analyser(
                 'G' => panneau(GenrePanneau::Planer),
                 'C' => panneau(GenrePanneau::Champignon),
                 'W' => panneau(GenrePanneau::Vent),
+                'Z' => panneau(GenrePanneau::Barque),
                 '1'..='9' => mobiles.entry(c).or_default().push(case),
                 // Le reste : une lettre de décor, ou un caractère hors légende.
                 _ => match GenreDecor::depuis_lettre(c) {

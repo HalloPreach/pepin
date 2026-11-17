@@ -790,9 +790,10 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             socle: true,
             fenetres: None,
             ilots: None,
-            // Les quais sont en planches et béton : les tuiles claires.
+            // Les quais ont leur jeu de tuiles (carte 9.6c) : la teinte ne touche
+            // plus que l'eau, gardée sombre et lisible comme au caniveau.
             tuiles: TeinteTuiles {
-                eclaircissement: 3,
+                eclaircissement: 1,
                 briques_orangees: false,
                 briques_mouillees: true,
             },
@@ -1875,7 +1876,7 @@ mod tests {
             Theme::Cascade => (2, false, false, false),
             Theme::Grotte => (0, false, false, false),
             Theme::Riviere => (2, false, false, false),
-            Theme::Port => (3, false, true, false),
+            Theme::Port => (1, false, true, false),
             Theme::Maree => (2, false, false, false),
         };
         for t in Theme::TOUS {

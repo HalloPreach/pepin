@@ -7,6 +7,7 @@
 //    caniveau ; une capture aux images données en argument.
 // Compte les erreurs de la console et mesure chaque capture (couleurs hors palette, flou).
 // Usage : node capture-96.mjs PORT_HTTP DOSSIER_SORTIE SCRIPT nom:image [nom:image...]
+// (SCRIPT `-` : pilotage à la main, voir plus bas, carte 9.6c.)
 // Carte 9.6b (variables d'environnement) : MONDE1=1 rejoue un script du MONDE 1 (sauvegarde
 // vide, aucune touche BAS à l'image 0, pas de passage par la carte des niveaux) : avec le
 // script du test ignoré `ecrire_script_navigateur`, les images avant et après une carte de
@@ -91,6 +92,27 @@ await cdp('Runtime.enable');
 await cdp('Log.enable');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
 fs.mkdirSync(sortie, { recursive: true });
+
+// Carte 9.6c : SCRIPT `-` = pilotage à la main du build de QA (toute la carte des
+// niveaux y est ouverte), sans le robot. Commandes : `t:Code:n` tape une touche puis
+// attend n images ; `m:masque:n` tient le masque n images (1 Entrée, 2 gauche,
+// 4 droite, 8 saut, 16 bas) ; `w:n` attend n images ; `c:nom` capture `nom.png`.
+if (fichierScript === '-') {
+  console.log('démarré :', await ouvrir());
+  for (const d of demandes) {
+    const [k, a, b] = d.split(':');
+    if (k === 't') await touche(a, Number(b || 20));
+    else if (k === 'm') { await evalue(`window.__P.file.push({ n: ${Number(b)}, m: ${Number(a)} }); 1`); await vide(); }
+    else if (k === 'w') await attendre(Number(a));
+    else if (k === 'c') await capture(a);
+  }
+  console.log('erreurs du pilote :', JSON.stringify(await evalue('window.__P.erreurs')));
+  console.log('erreurs console :', erreurs.length, JSON.stringify(erreurs));
+  ws.close(); chrome.kill('SIGKILL');
+  await dormir(300);
+  fs.rmSync(profil, { recursive: true, force: true });
+  process.exit(0);
+}
 
 // 1. La carte des niveaux du Monde 2 (pas avec MONDE1).
 if (!MONDE1) {

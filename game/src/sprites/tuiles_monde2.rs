@@ -8,8 +8,25 @@
 //! choisies pour lui. Règles de la palette : contour sombre, deux niveaux d'ombre
 //! au plus, aucun dégradé ; le cyan (D, E) reste à l'eau et à la pluie, l'or (B, C)
 //! aux gouttes.
+//!
+//! Carte 9.6c : les jeux des égouts, de la cascade, de la grotte et du port sont
+//! dans les sous-modules du même nom ; `JEUX` les rassemble tous.
 
 use super::Image;
+
+pub mod cascade;
+pub mod egouts;
+pub mod grotte;
+pub mod port;
+
+/// Tous les jeux de tuiles du Monde 2, un par thème (le caniveau, puis carte 9.6c).
+pub const JEUX: [&[(&str, Image)]; 5] = [
+    SPRITES,
+    egouts::SPRITES,
+    cascade::SPRITES,
+    grotte::SPRITES,
+    port::SPRITES,
+];
 
 // --- Le caniveau ---------------------------------------------------------------
 // La rue sous l'averse : des pavés gris-bleu en surface, la bordure du trottoir au

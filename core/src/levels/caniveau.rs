@@ -9,7 +9,8 @@
 //!    l'on marche ; une flaque y patrouille, la 1re goutte flotte au-dessus d'elle
 //!    (rangée 6) : on la prend d'un saut, en écrasant la flaque ou en l'évitant ;
 //! 2. le PREMIER FILET D'EAU (colonnes 33 à 46), une tuile de fond, sans aucun
-//!    danger : le panneau « planer » (colonne 28) le précède. Trop large pour un
+//!    danger : le panneau BAS (colonne 28, `Z` : la flèche plonge dans le parapluie
+//!    retourné) le précède. Trop large pour un
 //!    saut planant (14 tuiles), on y entre parapluie retourné (BAS, carte
 //!    9.2b) : il devient une barque (eau calme `~`, puis un courant `}` qui la pousse). La
 //!    2e goutte est posée sur l'eau (colonne 44) ; la BORDURE (colonnes 47 à 49,
@@ -61,7 +62,7 @@ const ASCII: &str = r"
 .............................................................#.................o.............#..................................
 .............................................................B~~~}}}}}}}}}}}}}}}}}}}}}}}}}}}}B..................................
 ....................o......................................##BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..................................
-..@..D.U..................I.G.L.............o..###..L.E..##BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBJ....L...............###.E..X.....
+..@..D.U..................I.Z.L.............o..###..L.E..##BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBJ....L...............###.E..X.....
 #########.......f........########~~~}}}}}}}}}}}BBB#####################################################~~}}}}}}}}}}BBB##########
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB

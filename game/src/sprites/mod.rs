@@ -153,10 +153,10 @@ pub fn tous() -> Vec<(&'static str, Image)> {
             objets_decor::SPRITES,
             objets_eau::SPRITES,
             tuiles::SPRITES,
-            tuiles_monde2::SPRITES,
         ]
         .concat(),
     );
+    liste.extend(tuiles_monde2::JEUX.concat());
     liste
 }
 
@@ -261,8 +261,9 @@ impl Banque {
                     let monde_1 = tuiles::SPRITES
                         .iter()
                         .map(|&(nom, dessin)| (nom, texture_tramee(dessin, Some(t), trame)));
-                    let monde_2 = tuiles_monde2::SPRITES
+                    let monde_2 = tuiles_monde2::JEUX
                         .iter()
+                        .flat_map(|jeu| jeu.iter())
                         .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, trame)));
                     monde_1.chain(monde_2).collect()
                 })
