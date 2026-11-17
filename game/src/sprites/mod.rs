@@ -34,6 +34,8 @@ pub mod pieuvre;
 mod planche;
 #[rustfmt::skip]
 pub mod tuiles;
+#[rustfmt::skip]
+pub mod tuiles_monde2;
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -147,6 +149,7 @@ pub fn tous() -> Vec<(&'static str, Image)> {
             objets_decor::SPRITES,
             objets_eau::SPRITES,
             tuiles::SPRITES,
+            tuiles_monde2::SPRITES,
         ]
         .concat(),
     );
@@ -249,10 +252,15 @@ impl Banque {
             Theme::TOUS
                 .iter()
                 .map(|&t| {
-                    tuiles::SPRITES
+                    // Les tuiles du Monde 1 prennent la teinte du thème ; celles d'un
+                    // jeu du Monde 2 (carte 9.6b) se dessinent telles quelles.
+                    let monde_1 = tuiles::SPRITES
                         .iter()
-                        .map(|&(nom, dessin)| (nom, texture_tramee(dessin, Some(t), trame)))
-                        .collect()
+                        .map(|&(nom, dessin)| (nom, texture_tramee(dessin, Some(t), trame)));
+                    let monde_2 = tuiles_monde2::SPRITES
+                        .iter()
+                        .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, trame)));
+                    monde_1.chain(monde_2).collect()
                 })
                 .collect()
         };

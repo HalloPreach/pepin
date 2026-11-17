@@ -27,8 +27,10 @@ mod contenu;
 mod cosmetiques;
 mod course;
 mod decor;
+mod decor_rue;
 mod defis;
 mod demo;
+mod dessin_courant;
 mod dessin_eau;
 mod dessin_pieuvre;
 // La mesure de difficulté décrit la courbe du MONDE 1 (tableaux de
@@ -60,6 +62,7 @@ mod sprites;
 mod tactile;
 mod texte;
 mod transition;
+mod tuiles_theme;
 
 use macroquad::prelude::*;
 use pepin_core::sons::Effet;

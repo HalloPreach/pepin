@@ -341,192 +341,90 @@ pub const OMBRE_TOIT: Image = &[
     "1111111111111111",
 ];
 
-// --- Eau (carte 9.2) ---
-// Deux couleurs seulement, comme le demande l'étape 9 : D = PLUIE (la surface, les reflets, les
-// chevrons du courant), E = PLUIE_SOMBRE (l'eau en profondeur). Chaque matière d'eau a trois
-// dessins : « haut » (le dessus de l'étendue : la ligne claire de la surface), « vague » (le même,
-// 1 px plus bas : `nom_tuile` alterne les deux pour que la surface ondule d'un pixel) et « plein »
-// (l'intérieur). Les chevrons des courants pointent dans le sens où l'eau pousse la barque.
+// --- Eau (carte 9.2, redessinée à la carte 9.6b) ---
+// Trois bandes nettes, sans dégradé : la LIGNE de surface claire (D, 1 px), la BANDE
+// sous la surface (E, 6 px, quelques reflets D) et le FOND plus sombre (2, l'ardoise,
+// quelques traits E) : l'eau tranche sur le sol, même quand il est sombre. Chaque
+// matière d'eau a trois dessins : « haut » (le dessus de l'étendue), « vague » (le
+// même, 1 px plus bas : `nom_tuile` alterne les deux pour que la surface ondule d'un
+// pixel) et « plein » (l'intérieur). Le SENS d'un courant ne se dessine plus dans la
+// tuile (les anciens chevrons « > » se lisaient comme du texte) : de courtes stries
+// défilent par-dessus, dans le sens du courant (`crate::dessin_courant`).
 
-/// Eau calme, dessus de l'étendue : la ligne claire de la surface (D) sur le cyan sombre (E).
+/// Eau, dessus de l'étendue : la ligne claire, la bande, le fond.
 pub const EAU_CALME_HAUT: Image = &[
     "DDDDDDDDDDDDDDDD",
-    "EEDDDEEEEEEDDDEE",
     "EEEEEEEEEEEEEEEE",
+    "EEEDDDEEEEEEEEEE",
+    "EEEEEEEEEEEDDDEE",
     "EEEEEEEEEEEEEEEE",
+    "EEEEEEEDDEEEEEEE",
     "EEEEEEEEEEEEEEEE",
-    "EEEEEEDDEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
+    "2222222222222222",
+    "2222222222222222",
+    "22222222EE222222",
+    "2222222222222222",
+    "2EE2222222222222",
+    "2222222222222222",
+    "2222222222EE2222",
+    "2222222222222222",
+    "2222222222222222",
 ];
 
-/// Eau calme, dessus, l'autre temps de la vague : la même surface 1 px plus bas.
+/// Eau, dessus, l'autre temps de la vague : la même surface 1 px plus bas.
 pub const EAU_CALME_VAGUE: Image = &[
     "................",
     "DDDDDDDDDDDDDDDD",
-    "EEDDDEEEEEEDDDEE",
     "EEEEEEEEEEEEEEEE",
+    "EEEDDDEEEEEEEEEE",
+    "EEEEEEEEEEEDDDEE",
     "EEEEEEEEEEEEEEEE",
+    "EEEEEEEDDEEEEEEE",
     "EEEEEEEEEEEEEEEE",
-    "EEEEEEDDEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
+    "2222222222222222",
+    "2222222222222222",
+    "22222222EE222222",
+    "2222222222222222",
+    "2EE2222222222222",
+    "2222222222222222",
+    "2222222222EE2222",
+    "2222222222222222",
 ];
 
-/// Eau calme, intérieur de l'étendue : cyan sombre, reflets épars.
+/// Eau, intérieur de l'étendue : le fond sombre, quelques traits de reflet.
 pub const EAU_CALME_PLEIN: Image = &[
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEDDEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEDDEEEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEDDEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEDDEEEEEEDDEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEDDEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
+    "2222222222222222",
+    "222222EE22222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222EE2",
+    "2222222222222222",
+    "2222222222222222",
+    "2EE2222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "222222222EE22222",
+    "2222222222222222",
+    "2222222222222222",
+    "22222EE222222222",
+    "2222222222222222",
+    "2222222222222222",
 ];
 
-/// Courant vers la GAUCHE (`{`), dessus : la surface et des chevrons qui pointent à gauche.
-pub const EAU_COURANT_G_HAUT: Image = &[
-    "DDDDDDDDDDDDDDDD",
-    "EEDDDEEEEEEDDDEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEDDEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEDDEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-];
-
-/// Courant vers la gauche, dessus, l'autre temps de la vague (1 px plus bas).
-pub const EAU_COURANT_G_VAGUE: Image = &[
-    "................",
-    "DDDDDDDDDDDDDDDD",
-    "EEDDDEEEEEEDDDEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEDDEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEDDEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-];
-
-/// Courant vers la gauche, intérieur : chevrons dans le cyan sombre.
-pub const EAU_COURANT_G_PLEIN: Image = &[
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEDDEEEEEEEEE",
-    "EEEEDDEEEEEEEEEE",
-    "EEEEEDDEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEDDEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEEEDDEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-];
-
-/// Courant vers la DROITE (`}`), dessus : la surface et des chevrons qui pointent à droite.
-pub const EAU_COURANT_D_HAUT: Image = &[
-    "DDDDDDDDDDDDDDDD",
-    "EEDDDEEEEEEDDDEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEDDEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-];
-
-/// Courant vers la droite, dessus, l'autre temps de la vague (1 px plus bas).
-pub const EAU_COURANT_D_VAGUE: Image = &[
-    "................",
-    "DDDDDDDDDDDDDDDD",
-    "EEDDDEEEEEEDDDEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEDDEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEDDEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-];
-
-/// Courant vers la droite, intérieur : chevrons dans le cyan sombre.
-pub const EAU_COURANT_D_PLEIN: Image = &[
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEDDEEEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEDDEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEDDEEEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEDDEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-];
+// Les courants ont les mêmes dessins que l'eau calme (les stries animées disent le
+// sens) ; leurs noms restent, pour que le choix de `nom_tuile` ne change pas.
+/// Courant vers la gauche (`{`), dessus.
+pub const EAU_COURANT_G_HAUT: Image = EAU_CALME_HAUT;
+/// Courant vers la gauche, dessus, l'autre temps de la vague.
+pub const EAU_COURANT_G_VAGUE: Image = EAU_CALME_VAGUE;
+/// Courant vers la gauche, intérieur.
+pub const EAU_COURANT_G_PLEIN: Image = EAU_CALME_PLEIN;
+/// Courant vers la droite (`}`), dessus.
+pub const EAU_COURANT_D_HAUT: Image = EAU_CALME_HAUT;
+/// Courant vers la droite, dessus, l'autre temps de la vague.
+pub const EAU_COURANT_D_VAGUE: Image = EAU_CALME_VAGUE;
+/// Courant vers la droite, intérieur.
+pub const EAU_COURANT_D_PLEIN: Image = EAU_CALME_PLEIN;
 
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[

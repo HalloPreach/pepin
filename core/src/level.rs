@@ -62,6 +62,8 @@
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
 //!              antenne, paratonnerre, manche à air, oiseau posé
+//!   E I U J    décor de rue du Monde 2 (carte 9.6b), sans collision lui aussi :
+//!              bouche d'égout, borne, poubelle, descente de gouttière
 //!   m  faux mur (carte 8.5) : case LIBRE dessinée comme le solide qu'elle
 //!      prolonge (voir `ZoneCachee`) ; Pépin y entre et la zone se révèle
 //!   x  sortie secrète : un second drapeau, qui finit le niveau comme `X`
@@ -214,16 +216,29 @@ pub enum GenreDecor {
     MancheAAir,
     /// `K` : oiseau posé (au-dessus des nuages).
     Oiseau,
+    /// `E` : bouche d'égout à grille (la rue du Monde 2, carte 9.6b).
+    BoucheEgout,
+    /// `I` : borne de trottoir (sa silhouette est celle de la lettre).
+    Borne,
+    /// `U` : poubelle de rue (sa silhouette est celle de la lettre).
+    Poubelle,
+    /// `J` : descente de gouttière qui déverse de l'eau dans la rue (le tuyau
+    /// et son coude en J).
+    Gouttiere,
 }
 
 impl GenreDecor {
     /// Tous les genres, dans l'ordre de la légende.
-    pub const TOUS: [GenreDecor; 5] = [
+    pub const TOUS: [GenreDecor; 9] = [
         GenreDecor::Cheminee,
         GenreDecor::Antenne,
         GenreDecor::Paratonnerre,
         GenreDecor::MancheAAir,
         GenreDecor::Oiseau,
+        GenreDecor::BoucheEgout,
+        GenreDecor::Borne,
+        GenreDecor::Poubelle,
+        GenreDecor::Gouttiere,
     ];
 
     /// Lettre de la grille ASCII.
@@ -234,6 +249,10 @@ impl GenreDecor {
             GenreDecor::Paratonnerre => 'R',
             GenreDecor::MancheAAir => 'Q',
             GenreDecor::Oiseau => 'K',
+            GenreDecor::BoucheEgout => 'E',
+            GenreDecor::Borne => 'I',
+            GenreDecor::Poubelle => 'U',
+            GenreDecor::Gouttiere => 'J',
         }
     }
 
