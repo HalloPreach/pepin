@@ -753,6 +753,8 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     .est_solide((g.zone.x / t) as i32, (g.zone.bas() / t) as i32);
                 let morceaux = grele::disposer(g.zone, pas, sol, parapluie);
                 grele::dessiner(&morceaux, banque, cx, cy);
+                // Le petit nuage gris d'où elle tombe (carte 8.18), par-dessus.
+                grele::dessiner_nuage(g.zone, pas, banque, cx, cy);
             }
             Entite::Eclair(e) => dessiner_eclair(
                 &e.zone,
