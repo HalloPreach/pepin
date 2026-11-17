@@ -424,6 +424,75 @@ pub const STORE_D: Image = &[
     "................",
 ];
 
+// --- La bouche d'égout (carte 9.20a) ---------------------------------------------
+// La sortie du caniveau : la bordure du trottoir qui arrête le dernier courant (deux
+// tuiles de fond) est ouverte. Trois cases l'une sous l'autre : la bordure et sa
+// grille (le drapeau y est planté), la gueule où l'eau de surface s'engouffre, la
+// gorge où l'eau du fond tombe dans le noir. L'eau garde ses couleurs (bande cyan,
+// fond ardoise) jusque dans la gueule.
+
+/// La bordure au-dessus de la bouche : sur le dessus, la grille (fentes sombres) ;
+/// dessous, le linteau puis le haut de la gueule, noir.
+pub const EGOUT_GRILLE: Image = &[
+    "0000000000000000",
+    "0666666666666662",
+    "0606060606060602",
+    "0505050505050502",
+    "0000000000000002",
+    "0444444444444432",
+    "0444443444444432",
+    "0434444444434432",
+    "0444444444444432",
+    "0333333333333332",
+    "0222222222222222",
+    "0000000000000000",
+    "0000000000000444",
+    "0000000000000333",
+    "0000000000000333",
+    "0000000000000323",
+];
+
+/// La gueule de la bouche, à la surface de l'eau : la bande d'eau entre par la
+/// gauche et plonge dans le noir ; à droite, le granit de la bordure.
+pub const EGOUT_BOUCHE: Image = &[
+    "DDDD770000000333",
+    "EEEEED7000000333",
+    "EEEEEED700000222",
+    "EEEEEEED00000111",
+    "EEEEEEEED0000444",
+    "EEEEEEEED0000333",
+    "EEEEEEEEED000323",
+    "22222EEEED000333",
+    "222222EEED000333",
+    "2222222EED000333",
+    "22222222ED000222",
+    "222222222E000111",
+    "222222222E000444",
+    "2222222222E00333",
+    "2222222222E00333",
+    "2222222222E00323",
+];
+
+/// La gorge, sous la gueule : l'eau du fond se dérobe en biais et tombe dans le noir.
+pub const EGOUT_GORGE: Image = &[
+    "2222222222E00333",
+    "222E222222E00333",
+    "222222222E000222",
+    "22222222E0000111",
+    "2222222E00000444",
+    "222222E000000333",
+    "22222E0000000323",
+    "2222E00000000333",
+    "222E000000000333",
+    "22E0000000000333",
+    "2E00000000000222",
+    "E000000000000111",
+    "0000000000000444",
+    "0000000000000333",
+    "0000000000000222",
+    "0000000000000111",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin). Préfixe du nom = le thème
 /// (`can_` : le caniveau).
 pub const SPRITES: &[(&str, Image)] = &[
@@ -446,4 +515,7 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("can_store_g", STORE_G),
     ("can_store_m", STORE_M),
     ("can_store_d", STORE_D),
+    ("can_egout_grille", EGOUT_GRILLE),
+    ("can_egout_bouche", EGOUT_BOUCHE),
+    ("can_egout_gorge", EGOUT_GORGE),
 ];

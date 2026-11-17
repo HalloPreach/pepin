@@ -73,6 +73,12 @@ pub(crate) fn nom_du_theme(
     if !tuile.est_solide() {
         return None;
     }
+    // Carte 9.20a : la bouche d'égout, au bout du dernier courant du caniveau.
+    if theme == Theme::Caniveau {
+        if let Some(nom) = bouche_d_egout(tx, ty, &vue, rangee_de_la_rue(depart)) {
+            return Some(nom);
+        }
+    }
     Some(choix(&Voisinage {
         tx,
         ty,
@@ -89,6 +95,29 @@ pub(crate) fn nom_du_theme(
 /// Une case est « ouverte » de ce côté si rien de solide n'y est (du vide ou de l'eau).
 fn ouvert(t: Tuile) -> bool {
     !t.est_solide()
+}
+
+/// La bouche d'égout du caniveau (carte 9.20a) : la bordure qui arrête un courant
+/// PROFOND (de l'eau dans la rangée de la rue et dans celle du dessous, à gauche de
+/// la bordure) est ouverte, de haut en bas : la grille sur le trottoir, la gueule à
+/// la surface, la gorge au fond. Les autres bordures (eau d'une tuile de fond)
+/// restent pleines. `rue` : la rangée de la rue.
+fn bouche_d_egout(
+    tx: i32,
+    ty: i32,
+    vue: &impl Fn(i32, i32) -> Tuile,
+    rue: i32,
+) -> Option<&'static str> {
+    let profonde = vue(tx - 1, rue) == Tuile::Eau && vue(tx - 1, rue + 1) == Tuile::Eau;
+    if !profonde {
+        return None;
+    }
+    match ty - rue {
+        -1 if ouvert(vue(tx - 1, ty)) => Some("can_egout_grille"),
+        0 => Some("can_egout_bouche"),
+        1 => Some("can_egout_gorge"),
+        _ => None,
+    }
 }
 
 /// Le caniveau : la rue, la terre dessous, et ce qui est bâti au-dessus de la rue.
@@ -299,4 +328,66 @@ pub(crate) fn objet_pose(nom_tuile: &str) -> Option<&'static str> {
         "por_quai_g" | "por_quai_d" | "por_ponton_g" | "por_ponton_d"
     )
     .then_some("por_bitte")
+}
+
+#[cfg(test)]
+mod tests_bouche_d_egout {
+    use super::*;
+    use pepin_core::levels::caniveau;
+
+    /// Carte 9.20a : dans le caniveau, la bordure au bout du dernier courant (deux
+    /// tuiles de fond) est la bouche d'égout, et le drapeau est planté sur sa grille ;
+    /// les bordures des deux premiers bassins (une tuile de fond) restent pleines.
+    /// Chaque nom choisi pour le niveau a son dessin.
+    #[test]
+    fn la_sortie_du_caniveau_est_la_bouche_d_egout() {
+        let niveau = caniveau::INFOS.charger().expect("caniveau");
+        let bas = niveau.hauteur() as i32;
+        let vue = |x: i32, y: i32| {
+            if y >= bas {
+                Tuile::Brique
+            } else {
+                niveau.tuile_decor(x, y)
+            }
+        };
+        let nom = |tx: i32, ty: i32| {
+            let t = vue(tx, ty);
+            nom_du_theme(Theme::Caniveau, (tx, ty, t), vue, niveau.depart, 0)
+        };
+        let rue = rangee_de_la_rue(niveau.depart);
+        let mut bouches = Vec::new();
+        for ty in 0..bas {
+            for tx in 0..niveau.largeur() as i32 {
+                if let Some(n) = nom(tx, ty) {
+                    assert!(
+                        crate::sprites::tuiles_monde2::SPRITES
+                            .iter()
+                            .any(|(dessin, _)| *dessin == n),
+                        "{n} ({tx}, {ty}) n'a pas de dessin"
+                    );
+                    if n.starts_with("can_egout") {
+                        bouches.push((tx, ty, n));
+                    }
+                }
+            }
+        }
+        let x = bouches.first().expect("une bouche d'égout").0;
+        assert_eq!(
+            bouches,
+            vec![
+                (x, rue - 1, "can_egout_grille"),
+                (x, rue, "can_egout_bouche"),
+                (x, rue + 1, "can_egout_gorge"),
+            ]
+        );
+        // Le drapeau est sur la grille.
+        let drapeau = niveau.arrivee.expect("drapeau");
+        assert_eq!(
+            (
+                (drapeau.x / TAILLE_TUILE) as i32,
+                ((drapeau.y + drapeau.h) / TAILLE_TUILE).ceil() as i32
+            ),
+            (x, rue - 1)
+        );
+    }
 }

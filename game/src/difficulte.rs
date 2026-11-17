@@ -1922,6 +1922,65 @@ mod tests {
         println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
     }
 
+    /// Mesure d'UN niveau du Monde 2 (carte 9.20a), pour comparer avant et après une
+    /// retouche de son parcours : mêmes profils, graine officielle et nombre d'essais
+    /// que la mesure complète. Le niveau : sa clé, variable d'environnement CLE
+    /// (`docker-cargo.sh` ne la transmet pas : par défaut le caniveau). Rang de graine :
+    /// celui qui suit `RANGS_DE_GRAINE`, plus sa place dans le Monde 2. N'écrit aucun
+    /// fichier.
+    /// `./docker-cargo.sh test -p game --no-default-features mesure_d_un_niveau_du_monde_2 -- --ignored --nocapture`
+    #[test]
+    #[ignore = "mesure de difficulté facultative (décision d'AGA, carte 6.5) : se lance à la main"]
+    fn mesure_d_un_niveau_du_monde_2() {
+        use pepin_core::levels::NIVEAUX as TOUTE_LA_TABLE;
+        let cle = std::env::var("CLE").unwrap_or_else(|_| "caniveau".to_string());
+        let n = TOUTE_LA_TABLE
+            .iter()
+            .position(|niveau| niveau.cle == cle)
+            .unwrap_or_else(|| panic!("« {cle} » n'est pas dans la table"));
+        assert!(n >= NB_NIVEAUX, "« {cle} » n'est pas un niveau du Monde 2");
+        let rang = RANGS_DE_GRAINE.len() + (n - NB_NIVEAUX);
+        let debut = std::time::Instant::now();
+        let itineraires = Itineraires::calculer(n);
+        let itineraires = &itineraires;
+        let cases: Vec<Case> = std::thread::scope(|s| {
+            let fils: Vec<_> = PROFILS
+                .iter()
+                .enumerate()
+                .map(|(p, profil)| {
+                    s.spawn(move || {
+                        let liste: Vec<Essai> = (0..ESSAIS)
+                            .map(|e| {
+                                jouer_essai(itineraires, profil, graine_essai(GRAINE, p, rang, e))
+                            })
+                            .collect();
+                        bilan(&liste, TOUTE_LA_TABLE[n].genre)
+                    })
+                })
+                .collect();
+            fils.into_iter()
+                .map(|f| f.join().expect("essais"))
+                .collect()
+        });
+        println!("{} ({}) :", TOUTE_LA_TABLE[n].nom, TOUTE_LA_TABLE[n].cle);
+        for (profil, c) in PROFILS.iter().zip(&cases) {
+            let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
+            println!(
+                "- {} : {} morts, {}/{} finis, {} s, max {}, game over {}/{} ; {}",
+                profil.nom,
+                centiemes(c.morts_moyennes),
+                c.finis,
+                c.essais,
+                decimal(c.duree_s),
+                c.morts_max,
+                c.game_over,
+                c.essais,
+                lieux.join(" · ")
+            );
+        }
+        println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
+    }
+
     /// Une mesure inventée : morts moyennes du Débutant et de l'Habitué par
     /// niveau (l'Expert ne compte pas pour la forme de la courbe).
     fn fausse_mesure(debutant: [f32; NB_NIVEAUX], habitue: [f32; NB_NIVEAUX]) -> Vec<Vec<Case>> {
