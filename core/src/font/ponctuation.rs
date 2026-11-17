@@ -1,6 +1,6 @@
 //! Espace, ponctuation ASCII et signes typographiques français
 //! (guillemets « », apostrophe typographique, points de suspension,
-//! tirets, espaces insécables, degré, euro).
+//! tirets, espaces insécables, point médian, degré, euro).
 
 use super::outil::{g, Entree};
 
@@ -53,6 +53,8 @@ pub static PONCTUATION: &[Entree] = &[
     ('«', g([".....", "..#.#", ".#.#.", "#.#..", ".#.#.", "..#.#", "....."])),
     ('»', g([".....", "#.#..", ".#.#.", "..#.#", ".#.#.", "#.#..", "....."])),
     ('…', g([".....", ".....", ".....", ".....", ".....", ".....", "#.#.#"])),
+    // Point médian (carte 9.1) : sépare le monde du niveau, « MONDE 2 · NIVEAU 3/7 ».
+    ('·', g([".....", ".....", ".....", ".##..", ".##..", ".....", "....."])),
     ('°', g([".##..", "#..#.", ".##..", ".....", ".....", ".....", "....."])),
     ('€', g(["..##.", ".#..#", "####.", ".#...", "####.", ".#..#", "..##."])),
 ];

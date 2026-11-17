@@ -29,7 +29,10 @@ mod course;
 mod decor;
 mod defis;
 mod demo;
-#[cfg(test)]
+// La mesure de difficulté décrit la courbe du MONDE 1 (tableaux de `NB_NIVEAUX`
+// cases) : elle ne se compile pas avec le faux Monde 2 du build de QA (carte 9.1,
+// `debug_niveaux` agrandit la table). Les tests normaux l'ont toujours.
+#[cfg(all(test, not(feature = "debug_niveaux")))]
 mod difficulte;
 mod ecrans;
 mod effets;

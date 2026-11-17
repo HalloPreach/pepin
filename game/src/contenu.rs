@@ -10,7 +10,7 @@
 //! vérifiée par le compilateur, `struct` de données, tests qui parcourent les
 //! données.
 
-use pepin_core::levels::{GenreNiveau, NB_NIVEAUX};
+use pepin_core::levels::{nb_normaux, niveaux_du_monde, GenreNiveau, NB_NIVEAUX, NIVEAUX};
 use pepin_core::zones::InfosNiveau;
 
 use crate::menu::Choix;
@@ -28,6 +28,8 @@ pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
 // --- Libellés de menus -----------------------------------------------------
 
 pub const JOUER: &str = "JOUER";
+/// La partie complète du Monde 2 (carte 9.1), sous JOUER au titre.
+pub const MONDE_2: &str = "MONDE 2";
 /// Carte 8.8 : 16 caractères, la plus longue ligne de menu (190 px sur 192).
 pub const NOUVELLE_PARTIE_PLUS: &str = "NOUVELLE PARTIE+";
 /// Le repère de la nouvelle partie + dans le HUD.
@@ -49,6 +51,7 @@ pub const RETOUR_TITRE: &str = "TITRE";
 pub fn libelle(choix: Choix) -> &'static str {
     match choix {
         Choix::Jouer => JOUER,
+        Choix::Monde2 => MONDE_2,
         Choix::NouvellePartiePlus => NOUVELLE_PARTIE_PLUS,
         Choix::Boutique => BOUTIQUE,
         Choix::Carte => CARTE,
@@ -208,6 +211,13 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         texte: "Le soleil est réveillé : on redescend lui montrer la ville.",
         astuce: "Parapluie ouvert, la grêle ne te touche pas.",
     },
+    // Build de QA seulement (carte 9.1) : le faux Monde 2, copie des toits, à la fin
+    // de la table (`levels::TOITS_MONDE2`). La production n'a pas cette intro.
+    #[cfg(feature = "debug_niveaux")]
+    Intro {
+        texte: "Monde 2 : un faux niveau d'essai, la copie des toits.",
+        astuce: "Les vrais niveaux du Monde 2 viendront ici.",
+    },
 ];
 
 /// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
@@ -340,13 +350,29 @@ pub const INTRO_ESSAI_NUAGE: Intro = Intro {
 /// normal (`nb_normaux` : nombre de niveaux normaux du jeu ; le bonus et l'épilogue ne
 /// comptent pas), « NIVEAU BONUS » ou « ÉPILOGUE » pour les deux autres genres. Le
 /// numéro 0 est celui d'un niveau hors de la table (le niveau d'essai du build de QA).
+///
+/// Hors du Monde 1 (carte 9.1), le monde vient devant : « MONDE 2 · NIVEAU 3/7 »
+/// (`nb_normaux` est alors le nombre de niveaux normaux DU MONDE). Le Monde 1 garde
+/// exactement ses libellés d'avant.
 pub fn etiquette_niveau(infos: &InfosNiveau, nb_normaux: usize) -> String {
-    match infos.genre {
+    let base = match infos.genre {
         GenreNiveau::Normal if infos.numero == 0 => "NIVEAU D'ESSAI".to_string(),
         GenreNiveau::Normal => format!("NIVEAU {}/{nb_normaux}", infos.numero),
         GenreNiveau::Bonus => "NIVEAU BONUS".to_string(),
         GenreNiveau::Epilogue => "ÉPILOGUE".to_string(),
+    };
+    if infos.monde > 1 {
+        format!("{} · {base}", libelle_monde(infos.monde))
+    } else {
+        base
     }
+}
+
+/// `etiquette_niveau` avec le nombre de niveaux normaux DU MONDE du niveau, compté
+/// dans la vraie table (carte 9.1) : ce qu'affichent la carte de titre et la carte des
+/// niveaux.
+pub fn etiquette(infos: &InfosNiveau) -> String {
+    etiquette_niveau(infos, nb_normaux(niveaux_du_monde(NIVEAUX, infos.monde)))
 }
 
 // --- Pause -----------------------------------------------------------------
@@ -416,6 +442,11 @@ pub const AIDE_BOUTIQUE: &str = "Entrée : choisir   Échap : retour";
 // --- Carte des niveaux (carte 7.4) ----------------------------------------------
 
 pub const TITRE_PLAN: &str = "CARTE DES NIVEAUX";
+/// La carte affiche un MONDE à la fois (carte 9.1) : son libellé (« MONDE 1 »,
+/// « MONDE 2 »...), aussi celui du bouton qui mène à l'autre monde.
+pub fn libelle_monde(monde: u8) -> String {
+    format!("MONDE {monde}")
+}
 /// Rappel des touches en bas de la carte (Gauche/Droite : bouton JOUER ou COURSE,
 /// carte 8.7).
 pub const AIDE_PLAN: &str = "Haut/Bas : niveau  Gauche/Droite : mode";
@@ -577,6 +608,7 @@ pub(crate) mod tests {
             CARTE,
             TITRE_PLAN,
             AIDE_PLAN,
+            MONDE_2,
             NIVEAU_SECRET,
             INDICE_SECRET,
             VERROUILLE,
@@ -729,13 +761,14 @@ pub(crate) mod tests {
 
     #[test]
     fn etiquette_de_niveau() {
-        use pepin_core::levels::{nb_normaux, NIVEAUX};
+        use pepin_core::levels::{nb_normaux, niveaux_du_monde, NIVEAUX};
         // Les dix niveaux normaux (le marché couvert inséré en 3e place, carte 5.12 ;
         // le clocher en 5e, carte 5.13 ; l'œil du cyclone en 6e, carte 5.14 ; la mer
         // de nuages en 8e, carte 5.15 ; le retour du Grand Nuage en 10e, 8.2), puis le
         // bonus (carte 5.16) et l'épilogue (carte 5.17).
+        // Compté PAR MONDE (carte 9.1) : les normaux du Monde 1.
         assert_eq!(
-            etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
+            etiquette_niveau(&NIVEAUX[1], nb_normaux(niveaux_du_monde(NIVEAUX, 1))),
             "NIVEAU 2/10"
         );
         assert_eq!(etiquette_niveau(&NIVEAUX[10], 10), "NIVEAU BONUS");
@@ -754,9 +787,23 @@ pub(crate) mod tests {
         assert_eq!(essai.numero, 0);
         assert_eq!(etiquette_niveau(&essai, 5), "NIVEAU D'ESSAI");
         assert_eq!(intro(crate::monde::INDICE_ESSAI).texte, INTRO_ESSAI.texte);
+        // Monde 2 (carte 9.1) : le monde devant, compté PAR MONDE ; le Monde 1 inchangé
+        // (`etiquette` compte les normaux du monde dans la vraie table).
+        let m2 = pepin_core::levels::TOITS_MONDE2;
+        assert_eq!(etiquette_niveau(&m2, 7), "MONDE 2 · NIVEAU 1/7");
+        let mut bonus_m2 = m2;
+        bonus_m2.genre = GenreNiveau::Bonus;
+        assert_eq!(etiquette_niveau(&bonus_m2, 7), "MONDE 2 · NIVEAU BONUS");
+        assert_eq!(etiquette(&NIVEAUX[1]), "NIVEAU 2/10");
+        assert_eq!(etiquette(&NIVEAUX[11]), "ÉPILOGUE");
+        assert!(
+            pepin_core::font::largeur_texte("MONDE 2 · NIVEAU BONUS", 1) <= 132,
+            "tient dans le panneau de la carte des niveaux"
+        );
         // Chaque caractère existe dans la police.
         for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10", "NIVEAU D'ESSAI"]
             .into_iter()
+            .chain(["MONDE 2 · NIVEAU 3/7"])
             .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
             .chain([INTRO_ESSAI_CHAT.texte, INTRO_ESSAI_CHAT.astuce])
             .chain([INTRO_ESSAI_HORLOGE.texte, INTRO_ESSAI_HORLOGE.astuce])

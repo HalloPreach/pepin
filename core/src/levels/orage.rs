@@ -32,6 +32,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
+    monde: 1,
     numero: 4,
     cle: "orage",
     sans_planer: true,

@@ -17,6 +17,7 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     // Hors de la table : 0 (la carte de présentation affiche « NIVEAU D'ESSAI »).
+    monde: 1,
     numero: 0,
     cle: "essai_vertical",
     sans_planer: false,

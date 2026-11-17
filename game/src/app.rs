@@ -121,6 +121,7 @@ pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
     match ecran {
         Ecran::Titre => vec![
             Choix::Jouer,
+            Choix::Monde2,
             Choix::NouvellePartiePlus,
             Choix::Carte,
             Choix::Boutique,
@@ -310,6 +311,12 @@ impl Application {
         if self.sauvegarde.parties_finies == 0 {
             self.choix
                 .retain(|&c| c != Choix::Histoire && c != Choix::NouvellePartiePlus);
+        }
+        // MONDE 2 (carte 9.1) : seulement quand le Monde 2 est ouvert (le niveau
+        // « poursuite » fini) ET qu'il a au moins un niveau. Sans niveau du Monde 2
+        // (la production d'aujourd'hui), le titre reste exactement le même.
+        if !plan::monde_jouable(NIVEAUX, &self.sauvegarde, 2) {
+            self.choix.retain(|&c| c != Choix::Monde2);
         }
         // Course (carte 8.7) : seulement les forces qui ont une partie pour ce niveau.
         let indice = self.plan.selection;
@@ -657,15 +664,22 @@ impl Application {
             // REJOUER garde le mode de la partie finie ; JOUER : une partie normale ;
             // NOUVELLE PARTIE + : la même, variantes et pluie forte (carte 8.8), sans
             // les images de l'histoire (déjà vues).
-            Choix::Jouer | Choix::Rejouer | Choix::NouvellePartiePlus => {
+            // MONDE 2 (carte 9.1) : la partie complète du Monde 2, sans variante ni
+            // image de l'histoire ; REJOUER garde le monde de la partie finie.
+            Choix::Jouer | Choix::Rejouer | Choix::NouvellePartiePlus | Choix::Monde2 => {
                 self.partie_racontee = choix == Choix::Jouer;
                 match choix {
-                    Choix::Jouer => self.ng_plus = false,
+                    Choix::Jouer | Choix::Monde2 => self.ng_plus = false,
                     Choix::NouvellePartiePlus => self.ng_plus = true,
                     _ => {}
                 }
+                let monde = match choix {
+                    Choix::Monde2 => 2,
+                    Choix::Rejouer => self.monde.infos.monde,
+                    _ => 1,
+                };
                 self.lancer(Suite::Niveau {
-                    indice: 0,
+                    indice: levels::debut_monde(NIVEAUX, monde).unwrap_or(0),
                     etat: None,
                 });
             }
@@ -1032,6 +1046,8 @@ impl Application {
                 self.ouvrir(Ecran::Titre)
             }
             Suite::Fin => {
+                // Le monde de la partie (carte 9.1) : celui de son dernier niveau.
+                let monde = self.monde.infos.monde;
                 let e = &self.monde.etat;
                 self.bilan = Bilan {
                     pas: self.pas_partie,
@@ -1042,11 +1058,18 @@ impl Application {
                     score: e.score,
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
-                    lettres: Some(self.sauvegarde.lettres()),
+                    // Les lettres cachées sont celles du Monde 1 (carte 8.6).
+                    lettres: (monde == 1).then(|| self.sauvegarde.lettres()),
+                    monde,
                 };
                 // Un boss vaincu en facile (carte 8.14) : partie finie, mais pas de record ;
                 // une nouvelle partie + (carte 8.8) a ses records à part.
-                self.nouveau_record = if self.ng_plus {
+                // Une partie du Monde 2 (carte 9.1) a ses records à part : `partie.monde2`.
+                self.nouveau_record = if monde > 1 {
+                    self.sauvegarde
+                        .partie_monde2
+                        .noter_partie(e.score, self.pas_partie)
+                } else if self.ng_plus {
                     self.sauvegarde
                         .ng_plus
                         .noter_partie(e.score, self.pas_partie)
@@ -1060,8 +1083,10 @@ impl Application {
                 };
                 // Bonus de fin de partie (carte 7.3) : chaque ligne n'est créditée que
                 // la première fois qu'elle est gagnée (carte 7.9).
-                let toutes = self.bilan.gouttes >= levels::gouttes_du_parcours(NIVEAUX);
-                self.bonus_fin = defis::bonus_fin(!self.game_over_partie, toutes);
+                let parcours =
+                    levels::gouttes_du_parcours(levels::niveaux_du_monde(NIVEAUX, monde));
+                let toutes = self.bilan.gouttes >= parcours;
+                self.bonus_fin = defis::bonus_fin_du_monde(monde, !self.game_over_partie, toutes);
                 defis::crediter_bonus_fin(&mut self.sauvegarde, &mut self.bonus_fin);
                 self.sauvegarde.enregistrer();
                 // Les cinq lettres réunies (carte 8.6) : la 4e image, puis la fin secrète.
@@ -1276,6 +1301,7 @@ impl Application {
                 if self.ecran == Ecran::Jeu {
                     // Niveau joué seul (carte 7.4) : les gouttes de CE niveau, sur 3.
                     let compteur = hud::compteur(
+                        self.monde.infos.monde,
                         self.niveau_seul || self.monde.infos.genre == GenreNiveau::Bonus,
                         self.monde.etat.gouttes,
                         self.gouttes_bonus,
@@ -1424,12 +1450,41 @@ mod tests {
         app
     }
 
+    /// Carte 9.1 : la ligne MONDE 2 n'apparaît au titre (sous JOUER) que si le Monde 2
+    /// est ouvert ET non vide. Avec la vraie table (aucun niveau du Monde 2), même
+    /// `poursuite` fini et une partie finie, le titre garde exactement ses lignes
+    /// d'avant ; avec le faux Monde 2 du build de QA, la ligne est là.
+    #[test]
+    fn la_ligne_monde_2_suit_le_monde_2_de_la_table() {
+        let mut app = Application::new(true);
+        app.sauvegarde =
+            Sauvegarde::depuis_texte("version=3\nparties_finies=1\nniveau.poursuite=medaille:1");
+        app.ouvrir(Ecran::Titre);
+        let mut attendu = vec![
+            Choix::Jouer,
+            Choix::NouvellePartiePlus,
+            Choix::Carte,
+            Choix::Boutique,
+            Choix::Histoire,
+            Choix::Aide,
+        ];
+        if cfg!(feature = "debug_niveaux") {
+            attendu.insert(1, Choix::Monde2);
+        }
+        assert_eq!(app.choix, attendu);
+        // Porte fermée (`poursuite` pas fini) : jamais de ligne MONDE 2.
+        app.sauvegarde = Sauvegarde::depuis_texte("version=3\nparties_finies=1");
+        app.ouvrir(Ecran::Titre);
+        assert!(!app.choix.contains(&Choix::Monde2));
+    }
+
     #[test]
     fn les_menus_ont_les_bonnes_lignes() {
         assert_eq!(
             choix_pour(Ecran::Titre),
             vec![
                 Choix::Jouer,
+                Choix::Monde2,
                 Choix::NouvellePartiePlus,
                 Choix::Carte,
                 Choix::Boutique,
@@ -1675,6 +1730,7 @@ mod tests {
                 gouttes_bonus: None,
                 epilogue: true,
                 lettres: Some([false; 5]),
+                monde: 1,
             }
         );
         assert_eq!(app.choix, vec![Choix::Rejouer, Choix::RetourTitre]);

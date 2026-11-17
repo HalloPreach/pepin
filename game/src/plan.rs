@@ -17,7 +17,9 @@
 //! `rev`), `f32::clamp`, trait pour les zones cliquables (`Zones`) que l'écran
 //! fournit (la logique ne connaît pas la mise en page exacte).
 
-use pepin_core::levels::{gouttes_pour_le_bonus, GenreNiveau};
+use pepin_core::levels::{
+    debut_monde, gouttes_pour_le_bonus, indice_de_cle, niveaux_du_monde, GenreNiveau,
+};
 use pepin_core::zones::InfosNiveau;
 
 use crate::navigation::Navigation;
@@ -54,10 +56,38 @@ fn fini(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
     progres(niveaux, s, i).fini()
 }
 
-/// Le joueur est-il déjà allé AU-DELÀ du niveau `i` (carte 8.13) ? Oui s'il a fini
-/// une partie, ou si un niveau du chemin plus loin (normal ou épilogue, pas le
-/// bonus) est déjà atteint ou fini. Un niveau inséré dans la table après coup
-/// (`poursuite`, carte 8.2) ne reste ainsi pas cadenassé pour qui l'a dépassé.
+/// La clé du niveau qui ouvre les mondes suivants (carte 9.1) : « Le retour du
+/// Grand Nuage » (`poursuite`), terminé au moins une fois. Tant qu'il n'est pas fini,
+/// la carte des niveaux ne montre que le Monde 1 et une partie ne peut pas s'y lancer.
+pub const CLE_ACCES_MONDES_SUIVANTS: &str = "poursuite";
+
+/// Le Monde 2 (et les mondes suivants) est-il ouvert ? Le niveau de clé
+/// `CLE_ACCES_MONDES_SUIVANTS` est terminé au moins une fois (la règle du Monde 2,
+/// carte 9.1). Pure (la sauvegarde est en lecture).
+pub fn mondes_suivants_ouverts(niveaux: &[InfosNiveau], s: &Sauvegarde) -> bool {
+    let Some(n) = indice_de_cle(niveaux, CLE_ACCES_MONDES_SUIVANTS).and_then(|i| niveaux.get(i))
+    else {
+        return false;
+    };
+    s.progres(n.cle).fini()
+}
+
+/// Le monde `monde` peut-il se jouer (carte 9.1) ? Le Monde 1 toujours ; un monde
+/// suivant seulement s'il a au moins un niveau dans `niveaux` ET que la porte est
+/// ouverte (`mondes_suivants_ouverts`). C'est la règle de la carte des niveaux (le
+/// monde y apparaît) et du titre (la ligne MONDE 2). Pure.
+pub fn monde_jouable(niveaux: &[InfosNiveau], s: &Sauvegarde, monde: u8) -> bool {
+    monde == 1
+        || (!niveaux_du_monde(niveaux, monde).is_empty() && mondes_suivants_ouverts(niveaux, s))
+}
+
+/// Le joueur est-il déjà allé AU-DELÀ de l'étape `i` de la tranche `niveaux`
+/// (carte 8.13) ? Oui s'il a fini une partie, ou si une étape de la tranche plus
+/// loin (normal ou épilogue, pas le bonus) est déjà atteinte ou finie. Un niveau
+/// inséré dans la table après coup (`poursuite`, carte 8.2) ne reste ainsi pas
+/// cadenassé pour qui l'a dépassé. La recherche reste dans la tranche (le MONDE) :
+/// un niveau du Monde 2 ne compte pas comme « dépassé » pour le Monde 1, et
+/// réciproquement.
 fn deja_depasse(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
     s.parties_finies > 0
         || niveaux.iter().enumerate().skip(i + 1).any(|(j, n)| {
@@ -65,7 +95,9 @@ fn deja_depasse(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
         })
 }
 
-/// Gouttes TROUVÉES (au cumul de la sauvegarde) dans les niveaux normaux.
+/// Gouttes TROUVÉES (au cumul de la sauvegarde) dans les niveaux normaux DE LA
+/// TRANCHE passée : la règle du bonus s'applique PAR MONDE (carte 9.1), on passe donc
+/// la tranche du monde (`niveaux_du_monde`).
 pub fn gouttes_trouvees_normales(niveaux: &[InfosNiveau], s: &Sauvegarde) -> u32 {
     niveaux
         .iter()
@@ -74,18 +106,18 @@ pub fn gouttes_trouvees_normales(niveaux: &[InfosNiveau], s: &Sauvegarde) -> u32
         .sum()
 }
 
-/// État de l'étape `i` de `niveaux` d'après la sauvegarde :
-/// - le premier niveau est toujours ouvert ;
-/// - un niveau normal ou l'épilogue est ouvert s'il a été atteint
-///   (`ProgresNiveau::atteint`) ou si le niveau qui le précède sur le chemin (bonus
-///   sauté) a été fini : l'épilogue s'ouvre donc une fois le dernier niveau normal
-///   fini ;
-/// - un niveau normal est aussi ouvert si le joueur l'a déjà dépassé
-///   (`deja_depasse` : une partie finie, ou un niveau plus loin atteint ou fini) ;
-/// - le bonus se révèle avec toutes les gouttes des niveaux normaux TROUVÉES (au
-///   cumul de la sauvegarde, la règle de `levels::bonus_debloque`), ou s'il a déjà
-///   été fini ; sinon il reste caché.
-pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtape {
+/// État de l'étape `local` de la tranche `niveaux` (UN monde, indices locaux) :
+/// - la première étape est toujours ouverte ;
+/// - une étape normale ou l'épilogue est ouverte si elle a été atteinte
+///   (`ProgresNiveau::atteint`) ou si l'étape qui la précède sur le chemin (bonus
+///   sauté) a été finie : l'épilogue s'ouvre donc une fois la dernière étape normale
+///   du monde finie ;
+/// - une étape normale est aussi ouverte si le joueur l'a déjà dépassée
+///   (`deja_depasse`, restreint au monde) ;
+/// - le bonus se révèle avec TOUTES les gouttes des étapes normales DU MONDE
+///   trouvées (au cumul de la sauvegarde, la règle de `levels::bonus_debloque`), ou
+///   s'il a déjà été fini ; sinon il reste caché.
+fn etat_etape_monde(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtape {
     let Some(n) = niveaux.get(i) else {
         return EtatEtape::Verrouillee;
     };
@@ -112,6 +144,25 @@ pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtap
         (true, false) => EtatEtape::Ouverte,
         (false, false) => EtatEtape::Verrouillee,
     }
+}
+
+/// État de l'étape `i` de la table `niveaux` (indice TABLE) d'après la sauvegarde :
+/// la règle du MONDE de l'étape (les indices sont convertis en indices locaux de la
+/// tranche du monde), et, pour tout monde autre que le Monde 1, la PORTE
+/// (`mondes_suivants_ouverts`) : tant que le niveau « poursuite » n'est pas fini,
+/// toute la tranche du monde est verrouillée (carte 9.1).
+pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtape {
+    let Some(n) = niveaux.get(i) else {
+        return EtatEtape::Verrouillee;
+    };
+    if n.monde > 1 && !mondes_suivants_ouverts(niveaux, s) {
+        return EtatEtape::Verrouillee;
+    }
+    let Some(debut) = debut_monde(niveaux, n.monde) else {
+        return EtatEtape::Verrouillee;
+    };
+    let tranche = niveaux_du_monde(niveaux, n.monde);
+    etat_etape_monde(tranche, s, i - debut)
 }
 
 /// Progression de mise au point (touche U du build de QA, carte 7.4) : premier appui,
@@ -204,8 +255,17 @@ impl Geometrie {
                     (X_DESCENTE, Y_SOMMET + (e + 1) as f32 * ECART)
                 }
             })
-            .collect();
-        Self { etapes, hauteur }
+            .collect::<Vec<_>>();
+        // Une carte plus basse que la vue (un monde de peu de niveaux, comme le faux
+        // Monde 2 de QA, carte 9.1) laisserait le bas de la vue sans dessin : tout
+        // descend pour la remplir (le soleil reste en haut, les toits en bas). Le Monde 1,
+        // bien plus haut que la vue, ne bouge pas.
+        let decalage = (H_VUE - hauteur).max(0.0);
+        let etapes = etapes.into_iter().map(|(x, y)| (x, y + decalage)).collect();
+        Self {
+            etapes,
+            hauteur: hauteur + decalage,
+        }
     }
 }
 
@@ -226,6 +286,12 @@ pub trait Zones {
     fn sur_course(&self, x: f32, y: f32) -> bool;
     /// Le bouton RETOUR contient-il le point ?
     fn sur_retour(&self, x: f32, y: f32) -> bool;
+    /// Le bouton du monde voisin (« MONDE 2 » sur le Monde 1, « MONDE 1 » sur le
+    /// Monde 2 ; carte 9.1) contient-il le point ? Il n'est là que si ce monde voisin
+    /// est jouable (`EtatPlan::monde_voisin`).
+    fn sur_bouton_monde(&self, _x: f32, _y: f32) -> bool {
+        false
+    }
 }
 
 /// Ce que l'application doit faire après un appui.
@@ -246,7 +312,9 @@ pub fn course_possible(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> boo
     etat_etape(niveaux, s, i).jouable() && crate::course::disponible(i)
 }
 
-/// L'écran de la carte : étape choisie et défilement.
+/// L'écran de la carte : étape choisie et défilement. La carte affiche UN MONDE à
+/// la fois (carte 9.1) : `monde` est celui affiché, `geometrie` est celle de sa
+/// tranche, et `selection` reste un indice DANS LA TABLE (pour charger le niveau).
 #[derive(Debug, Clone, PartialEq)]
 pub struct EtatPlan {
     pub geometrie: Geometrie,
@@ -254,17 +322,27 @@ pub struct EtatPlan {
     pub course: bool,
     /// Indice (dans la table) de l'étape choisie.
     pub selection: usize,
+    /// Monde affiché (1 = Monde 1, 2 = Monde 2...).
+    pub monde: u8,
+    /// Début (dans la table) de la tranche du monde affiché.
+    pub debut_monde: usize,
     /// Ordonnée de la carte en haut de la vue.
     pub defil: f32,
 }
 
 impl EtatPlan {
-    /// Ouvre la carte sur `selection` (bornée), la vue centrée dessus.
+    /// Ouvre la carte sur `selection` (bornée), dans le MONDE de cette étape, la vue
+    /// centrée dessus.
     pub fn new(niveaux: &[InfosNiveau], selection: usize) -> Self {
+        let selection = selection.min(niveaux.len().saturating_sub(1));
+        let monde = niveaux.get(selection).map(|n| n.monde).unwrap_or(1);
+        let debut_monde = debut_monde(niveaux, monde).unwrap_or(0);
         let mut e = Self {
-            geometrie: Geometrie::new(niveaux),
+            geometrie: Geometrie::new(niveaux_du_monde(niveaux, monde)),
             course: false,
-            selection: selection.min(niveaux.len().saturating_sub(1)),
+            selection,
+            monde,
+            debut_monde,
             defil: 0.0,
         };
         e.centrer();
@@ -272,7 +350,21 @@ impl EtatPlan {
     }
 
     /// Le niveau où l'on en est : le plus loin des niveaux jouables du chemin (le
-    /// bonus n'y compte pas).
+    /// bonus n'y compte pas), DANS LE MONDE `monde`.
+    pub fn ou_on_en_est_du_monde(niveaux: &[InfosNiveau], s: &Sauvegarde, monde: u8) -> usize {
+        let debut = debut_monde(niveaux, monde).unwrap_or(0);
+        let tranche = niveaux_du_monde(niveaux, monde);
+        (0..tranche.len())
+            .rev()
+            .find(|&loc| {
+                let i = debut + loc;
+                niveaux[i].genre != GenreNiveau::Bonus && etat_etape(niveaux, s, i).jouable()
+            })
+            .map_or(debut, |loc| debut + loc)
+    }
+
+    /// Le niveau où l'on en est (tout monde confondu) : le plus loin des niveaux
+    /// jouables du chemin (le bonus n'y compte pas).
     pub fn ou_on_en_est(niveaux: &[InfosNiveau], s: &Sauvegarde) -> usize {
         (0..niveaux.len())
             .rev()
@@ -280,6 +372,37 @@ impl EtatPlan {
                 niveaux[i].genre != GenreNiveau::Bonus && etat_etape(niveaux, s, i).jouable()
             })
             .unwrap_or(0)
+    }
+
+    /// Le monde où mène le bouton de la carte (carte 9.1) : le Monde 2 depuis le Monde
+    /// 1, le Monde 1 depuis un autre monde ; `None` (pas de bouton) si ce monde n'est
+    /// pas jouable (`monde_jouable`). Sans niveau du Monde 2, jamais de bouton.
+    pub fn monde_voisin(&self, niveaux: &[InfosNiveau], s: &Sauvegarde) -> Option<u8> {
+        let voisin = if self.monde == 1 { 2 } else { 1 };
+        monde_jouable(niveaux, s, voisin).then_some(voisin)
+    }
+
+    /// Change de MONDE affiché (bouton du monde voisin ou touches Gauche/Droite,
+    /// carte 9.1) : la géométrie se reconstruit sur la tranche du monde, l'étape
+    /// choisie est la plus avancée jouable de ce monde, et la vue est recentrée.
+    /// `course` : le bouton (JOUER ou COURSE) dans ce monde. Un monde qui n'est pas
+    /// jouable ne s'ouvre pas.
+    pub fn aller_monde(
+        &mut self,
+        monde: u8,
+        course: bool,
+        niveaux: &[InfosNiveau],
+        s: &Sauvegarde,
+    ) {
+        if !monde_jouable(niveaux, s, monde) {
+            return;
+        }
+        self.monde = monde;
+        self.debut_monde = debut_monde(niveaux, monde).unwrap_or(0);
+        self.geometrie = Geometrie::new(niveaux_du_monde(niveaux, monde));
+        self.course = course;
+        self.selection = Self::ou_on_en_est_du_monde(niveaux, s, monde);
+        self.centrer();
     }
 
     fn defil_max(&self) -> f32 {
@@ -290,18 +413,22 @@ impl EtatPlan {
         self.defil = self.defil.clamp(0.0, self.defil_max()).round();
     }
 
-    /// Centre la vue sur l'étape choisie.
+    /// Centre la vue sur l'étape choisie (indice local dans la tranche du monde).
     pub fn centrer(&mut self) {
-        if let Some(&(_, y)) = self.geometrie.etapes.get(self.selection) {
+        let local = self.selection.saturating_sub(self.debut_monde);
+        if let Some(&(_, y)) = self.geometrie.etapes.get(local) {
             self.defil = y - H_VUE / 2.0;
         }
         self.borner();
     }
 
-    /// Un appui (une image) : haut / bas parcourent les étapes dans l'ordre du chemin ;
-    /// gauche / droite choisissent le bouton JOUER ou COURSE (carte 8.7) ; Entrée, JOUER
-    /// ou COURSE lance l'étape choisie si elle est jouable ; toucher une étape la
-    /// choisit ; molette et glisser font défiler ; Échap ou RETOUR revient au titre.
+    /// Un appui (une image) : haut / bas parcourent les étapes DU MONDE affiché, dans
+    /// l'ordre du chemin ; Gauche/Droite se déplacent entre JOUER/COURSE et d'un
+    /// monde vers l'autre (Droite avance : de JOUER à COURSE, puis vers le monde
+    /// suivant ; Gauche revient, carte 9.1) ; Entrée, JOUER ou COURSE lance l'étape
+    /// choisie si elle est jouable ; le bouton du monde voisin y mène ; toucher une
+    /// étape la choisit ; molette et glisser font défiler ; Échap ou RETOUR revient
+    /// au titre. Sans Monde 2 jouable, tout se passe exactement comme avant.
     pub fn reagir(
         &mut self,
         nav: &Navigation,
@@ -312,10 +439,11 @@ impl EtatPlan {
         if nav.retour {
             return ActionPlan::Quitter;
         }
-        let nb = niveaux.len();
-        if nb == 0 {
+        if niveaux.is_empty() {
             return ActionPlan::Rien;
         }
+        let nb = self.geometrie.etapes.len();
+        let local = self.selection.saturating_sub(self.debut_monde);
         let jouer = |sel: usize| {
             if etat_etape(niveaux, s, sel).jouable() {
                 ActionPlan::Jouer(sel)
@@ -330,19 +458,31 @@ impl EtatPlan {
                 ActionPlan::Rien
             }
         };
-        if nav.haut && self.selection + 1 < nb {
+        // Haut/Bas : parcourent les étapes du MONDE affiché (sans le traverser).
+        if nav.haut && local + 1 < nb {
             self.selection += 1;
             self.centrer();
         }
-        if nav.bas && self.selection > 0 {
+        if nav.bas && local > 0 {
             self.selection -= 1;
             self.centrer();
         }
+        // Droite : JOUER → COURSE, puis (en COURSE) vers le monde suivant.
         if nav.droite {
-            self.course = true;
+            if !self.course {
+                self.course = true;
+            } else {
+                self.aller_monde(self.monde + 1, false, niveaux, s);
+            }
         }
+        // Gauche : COURSE → JOUER, puis (en JOUER, hors du Monde 1) vers le monde
+        // précédent (en COURSE).
         if nav.gauche {
-            self.course = false;
+            if self.course {
+                self.course = false;
+            } else if self.monde > 1 {
+                self.aller_monde(self.monde - 1, true, niveaux, s);
+            }
         }
         if nav.molette != 0.0 {
             self.defil -= nav.molette * PAS_MOLETTE;
@@ -356,6 +496,13 @@ impl EtatPlan {
             if z.sur_retour(x, y) {
                 return ActionPlan::Quitter;
             }
+            // Le bouton du monde voisin (carte 9.1), seulement s'il est affiché.
+            if let Some(voisin) = self.monde_voisin(niveaux, s) {
+                if z.sur_bouton_monde(x, y) {
+                    self.aller_monde(voisin, false, niveaux, s);
+                    return ActionPlan::Rien;
+                }
+            }
             if z.sur_jouer(x, y) {
                 self.course = false;
                 return jouer(self.selection);
@@ -366,8 +513,9 @@ impl EtatPlan {
             }
             if let Some(i) = z.etape_sous(&self.geometrie, self.defil, x, y) {
                 // Toucher choisit seulement (un glisser commence aussi par un appui) :
-                // on lance avec JOUER ou Entrée.
-                self.selection = i;
+                // on lance avec JOUER ou Entrée. L'étape est un indice LOCAL de la
+                // tranche du monde : on la ramène à un indice de table.
+                self.selection = self.debut_monde + i;
             }
         }
         if nav.valider {
@@ -378,5 +526,140 @@ impl EtatPlan {
             };
         }
         ActionPlan::Rien
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::navigation::Navigation;
+    use crate::sauvegarde::Sauvegarde;
+    use pepin_core::levels::{NIVEAUX, TOITS_MONDE2};
+    use pepin_core::zones::InfosNiveau;
+
+    /// Table de test : le Monde 1 de la vraie table, puis le faux Monde 2 du build de
+    /// QA (`TOITS_MONDE2`, la copie des toits).
+    fn table_deux_mondes() -> Vec<InfosNiveau> {
+        let mut t: Vec<InfosNiveau> = NIVEAUX.iter().filter(|n| n.monde == 1).copied().collect();
+        t.push(TOITS_MONDE2);
+        t
+    }
+
+    /// Sauvegarde où « Le retour du Grand Nuage » est fini : la porte du Monde 2.
+    fn poursuite_finie() -> Sauvegarde {
+        Sauvegarde::depuis_texte("version=3\nniveau.poursuite=atteint:1 medaille:1")
+    }
+
+    /// Des zones où seul le bouton du monde voisin répond.
+    struct BoutonMonde;
+    impl Zones for BoutonMonde {
+        fn etape_sous(&self, _: &Geometrie, _: f32, _: f32, _: f32) -> Option<usize> {
+            None
+        }
+        fn sur_jouer(&self, _: f32, _: f32) -> bool {
+            false
+        }
+        fn sur_course(&self, _: f32, _: f32) -> bool {
+            false
+        }
+        fn sur_retour(&self, _: f32, _: f32) -> bool {
+            false
+        }
+        fn sur_bouton_monde(&self, _: f32, _: f32) -> bool {
+            true
+        }
+    }
+
+    /// Une carte d'un seul niveau (le faux Monde 2) remplit quand même la vue ; la carte
+    /// du Monde 1, plus haute, garde sa géométrie d'avant.
+    #[test]
+    fn une_carte_courte_remplit_la_vue() {
+        let g = Geometrie::new(&[TOITS_MONDE2]);
+        assert_eq!(g.hauteur, H_VUE);
+        assert_eq!(g.etapes[0].1, g.hauteur - SOUS_PREMIERE - H_TOITS);
+        let m1 = Geometrie::new(niveaux_du_monde(NIVEAUX, 1));
+        assert_eq!(m1.hauteur, Y_SOMMET + 9.0 * ECART + SOUS_PREMIERE + H_TOITS);
+        assert_eq!(m1.etapes[0].1, Y_SOMMET + 9.0 * ECART);
+    }
+
+    /// La porte du Monde 2 : fermée tant que « poursuite » n'est pas fini ; le
+    /// Monde 2 n'a alors ni étape ouverte, ni bouton, ni Droite pour y aller.
+    #[test]
+    fn la_porte_du_monde_2_est_fermee_sans_poursuite_finie() {
+        let t = table_deux_mondes();
+        let idx = t.len() - 1;
+        let vide = Sauvegarde::default();
+        assert!(!mondes_suivants_ouverts(&t, &vide));
+        assert!(!monde_jouable(&t, &vide, 2));
+        assert_eq!(etat_etape(&t, &vide, idx), EtatEtape::Verrouillee);
+        let mut e = EtatPlan::new(&t, 0);
+        assert_eq!(e.monde_voisin(&t, &vide), None, "pas de bouton");
+        let droite = Navigation {
+            droite: true,
+            ..Navigation::default()
+        };
+        e.reagir(&droite, &t, &vide, &BoutonMonde);
+        e.reagir(&droite, &t, &vide, &BoutonMonde);
+        assert_eq!((e.monde, e.course), (1, true), "Droite s'arrête sur COURSE");
+        // Sans niveau du Monde 2 (la vraie table d'aujourd'hui) : jamais de Monde 2,
+        // même porte ouverte ; le faux Monde 2 du build de QA, lui, s'ouvre.
+        let qa = cfg!(feature = "debug_niveaux");
+        assert_eq!(monde_jouable(NIVEAUX, &poursuite_finie(), 2), qa);
+        assert_eq!(
+            EtatPlan::new(NIVEAUX, 0).monde_voisin(NIVEAUX, &poursuite_finie()),
+            qa.then_some(2)
+        );
+    }
+
+    /// « poursuite » fini : le Monde 2 s'ouvre ; on y va par le bouton « MONDE 2 » ou
+    /// par Droite (après COURSE), on en revient par le bouton « MONDE 1 » ou Gauche.
+    #[test]
+    fn le_monde_2_s_ouvre_quand_poursuite_est_finie() {
+        let t = table_deux_mondes();
+        let idx = t.len() - 1;
+        let s = poursuite_finie();
+        assert!(mondes_suivants_ouverts(&t, &s) && monde_jouable(&t, &s, 2));
+        // La première étape du Monde 2 est ouverte, le Monde 1 n'a pas bougé.
+        assert_eq!(etat_etape(&t, &s, idx), EtatEtape::Ouverte);
+        assert_eq!(etat_etape(&t, &s, 0), EtatEtape::Ouverte);
+        // Le bouton du Monde 1 mène au Monde 2, sa géométrie est celle de sa tranche.
+        let mut e = EtatPlan::new(&t, 0);
+        assert_eq!(e.monde_voisin(&t, &s), Some(2));
+        let clic = Navigation {
+            clic: Some((1.0, 1.0)),
+            ..Navigation::default()
+        };
+        assert_eq!(e.reagir(&clic, &t, &s, &BoutonMonde), ActionPlan::Rien);
+        assert_eq!((e.monde, e.debut_monde, e.selection), (2, idx, idx));
+        assert_eq!(e.geometrie.etapes.len(), 1);
+        // JOUER lance l'étape du Monde 2 par son indice DANS LA TABLE.
+        let valider = Navigation {
+            valider: true,
+            ..Navigation::default()
+        };
+        assert_eq!(
+            e.reagir(&valider, &t, &s, &BoutonMonde),
+            ActionPlan::Jouer(idx)
+        );
+        // Le bouton « MONDE 1 » ramène au Monde 1 ; Droite (JOUER → COURSE → monde
+        // suivant) puis Gauche (au Monde 2 : retour au Monde 1, sur COURSE).
+        assert_eq!(e.monde_voisin(&t, &s), Some(1));
+        e.reagir(&clic, &t, &s, &BoutonMonde);
+        assert_eq!(e.monde, 1);
+        let droite = Navigation {
+            droite: true,
+            ..Navigation::default()
+        };
+        e.reagir(&droite, &t, &s, &BoutonMonde);
+        e.reagir(&droite, &t, &s, &BoutonMonde);
+        assert_eq!((e.monde, e.course), (2, false));
+        let gauche = Navigation {
+            gauche: true,
+            ..Navigation::default()
+        };
+        e.reagir(&gauche, &t, &s, &BoutonMonde);
+        assert_eq!((e.monde, e.course), (1, true));
+        // La carte rouverte sur une étape du Monde 2 montre le Monde 2.
+        assert_eq!(EtatPlan::new(&t, idx).monde, 2);
     }
 }
