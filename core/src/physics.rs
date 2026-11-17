@@ -167,6 +167,26 @@ pub const ELAN_AUVENT: f32 = 192.0;
 /// Baisse de l'élan d'auvent à chaque pas (px/s) : il atteint 0 en `VOL_AUVENT_PAS`.
 pub const BAISSE_ELAN_AUVENT: f32 = ELAN_AUVENT / VOL_AUVENT_PAS as f32;
 
+/// Vitesse (px/s) de la barque (carte 9.2), à la rame : 40 % de la course
+/// (`VITESSE_COURSE` = 96 px/s, donc 38,4 px/s). La barque est LENTE : elle
+/// sert à traverser l'eau, pas à rivaliser avec la course.
+pub const VITESSE_RAME: f32 = 0.4 * VITESSE_COURSE;
+/// Accélération (px/s²) de la barque à la rame, et freinage quand on lâche la rame.
+pub const ACCEL_RAME: f32 = 240.0;
+pub const FRICTION_RAME: f32 = 120.0;
+/// Vitesse (px/s) d'un courant d'eau (lettres `{` et `}` de la grille) : il
+/// pousse la BARQUE (pas un Pépin qui plane au-dessus de l'eau). Le courant
+/// est PLUS LENT que la rame (`VITESSE_RAME`, 38,4 px/s), comme le veut la
+/// demande : « la barque peut ramer contre, mais lentement ». Contre le
+/// courant, la barque remonte à 38,4 - 24 = 14,4 px/s ; avec lui, elle file à
+/// 38,4 + 24 = 62,4 px/s. (Les 60 px/s cités en exemple dépassaient la rame :
+/// ramer contre aurait fait reculer la barque.) Vérifié à la compilation plus
+/// bas (`assert!`).
+pub const VITESSE_COURANT_EAU: f32 = 24.0;
+/// Profondeur (px) dont la barque déborde la surface : les pieds de Pépin
+/// restent 3 px sous l'eau, sa tête et le parapluie retourné émergent.
+pub const ENFONCEMENT_BARQUE: f32 = 3.0;
+
 /// Zone rectangulaire où souffle un vent LATERAL (lettre `<` ou `>` de la
 /// grille). Le vent pousse Pépin à `VENT_LAT` (parapluie fermé), et deux fois
 /// plus fort s'il plane (`VENT_LAT_PLANE`) : voir `player::actualiser`.
@@ -202,6 +222,39 @@ impl VentLateral {
     }
 }
 
+/// Étendue d'eau (carte 9.2) : sa zone, et le sens du courant d'eau qui la
+/// traverse si elle n'est pas calme.
+///
+/// L'eau n'est PAS un solide : le moteur de collision ne la voit pas, et sa
+/// seule règle, c'est sa surface (le haut de la zone). Un Pépin qui y entre
+/// en PLANANT devient une barque ; sans planer, il coule (voir
+/// `player::actualiser`).
+#[derive(Debug, Clone, Copy)]
+pub struct Eau {
+    /// Zone rectangle : la surface est le haut (`zone.y`), le fond le bas.
+    pub zone: Aabb,
+    /// Sens du courant d'eau (lettre de la grille) : 1 vers la droite (`}`),
+    /// -1 vers la gauche (`{`), 0 pour l'eau calme (`~`).
+    pub courant: i8,
+}
+
+impl Eau {
+    /// Ordonnée (px) de la surface de l'eau.
+    pub fn surface(&self) -> f32 {
+        self.zone.y
+    }
+}
+
+/// La surface (px) de l'eau sous l'abscisse `cx`, s'il y en a : le haut de la
+/// zone dont l'étendue (en abscisse) contient `cx`. Les étendues sont rangées
+/// du plus haut au plus bas par le parseur (`Niveau::eaux`) : la 1re sous
+/// `cx` est donc la surface de l'eau qui est sous elle.
+pub fn surface_eau(cx: f32, eaux: &[Eau]) -> Option<f32> {
+    eaux.iter()
+        .find(|e| e.zone.x < cx && cx < e.zone.x + e.zone.w)
+        .map(|e| e.surface())
+}
+
 /// Tout ce que le joueur « voit » du monde pendant un pas : un simple PRÊT
 /// de données. Les trois champs sont des emprunts en lecture seule ; la durée
 /// de vie `'a` garantit que le niveau reste vivant tant que l'`Environnement`
@@ -216,6 +269,10 @@ pub struct Environnement<'a> {
     pub courants: &'a [CourantAscendant],
     /// Zones de vent latéral.
     pub vents: &'a [VentLateral],
+    /// Étendues d'eau avec leur surface et leur courant d'eau (carte 9.2).
+    /// Vide dans tous les niveaux existants : la mécanique ne change rien au
+    /// Monde 1.
+    pub eaux: &'a [Eau],
 }
 
 impl<'a> Environnement<'a> {
@@ -226,6 +283,7 @@ impl<'a> Environnement<'a> {
             solides: &[],
             courants: &[],
             vents: &[],
+            eaux: &[],
         }
     }
 }
@@ -279,6 +337,8 @@ mod tests {
     // Le vent latéral en planant pousse deux fois plus fort que fermé.
     const _: () = assert!(VENT_LAT_PLANE == 2.0 * VENT_LAT);
     const _: () = assert!(VENT_LAT == 60.0);
+    // Eau (carte 9.2) : la barque peut ramer CONTRE le courant (lentement).
+    const _: () = assert!(VITESSE_COURANT_EAU < VITESSE_RAME);
 
     /// Auvent : le vol dure bien `VOL_AUVENT_PAS` (montée + descente à la même
     /// hauteur), et l'élan seul fait avancer de 4 tuiles pendant ce vol.

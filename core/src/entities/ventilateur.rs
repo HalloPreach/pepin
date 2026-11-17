@@ -262,6 +262,7 @@ mod tests {
             solides: &[],
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         let y0 = j.boite.y;
         for _ in 0..30 {
@@ -298,6 +299,7 @@ mod tests {
             solides: &[],
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         for _ in 0..SOUFFLE_PAS {
             j.actualiser(&Entrees::default(), &env);
@@ -316,6 +318,7 @@ mod tests {
             solides: &[],
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         for _ in 0..30 {
             j.actualiser(&Entrees::default(), &env);
@@ -347,6 +350,7 @@ mod tests {
             solides: &[],
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         let x0 = j.boite.x;
         for _ in 0..30 {

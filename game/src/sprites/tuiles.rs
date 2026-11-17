@@ -341,6 +341,193 @@ pub const OMBRE_TOIT: Image = &[
     "1111111111111111",
 ];
 
+// --- Eau (carte 9.2) ---
+// Deux couleurs seulement, comme le demande l'étape 9 : D = PLUIE (la surface, les reflets, les
+// chevrons du courant), E = PLUIE_SOMBRE (l'eau en profondeur). Chaque matière d'eau a trois
+// dessins : « haut » (le dessus de l'étendue : la ligne claire de la surface), « vague » (le même,
+// 1 px plus bas : `nom_tuile` alterne les deux pour que la surface ondule d'un pixel) et « plein »
+// (l'intérieur). Les chevrons des courants pointent dans le sens où l'eau pousse la barque.
+
+/// Eau calme, dessus de l'étendue : la ligne claire de la surface (D) sur le cyan sombre (E).
+pub const EAU_CALME_HAUT: Image = &[
+    "DDDDDDDDDDDDDDDD",
+    "EEDDDEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEDDEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Eau calme, dessus, l'autre temps de la vague : la même surface 1 px plus bas.
+pub const EAU_CALME_VAGUE: Image = &[
+    "................",
+    "DDDDDDDDDDDDDDDD",
+    "EEDDDEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEDDEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Eau calme, intérieur de l'étendue : cyan sombre, reflets épars.
+pub const EAU_CALME_PLEIN: Image = &[
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEDDEEEDDEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEDDEEEEEDDEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEDDEEEDDEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEDDEEEEEEDDEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEDDEEEDDEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Courant vers la GAUCHE (`{`), dessus : la surface et des chevrons qui pointent à gauche.
+pub const EAU_COURANT_G_HAUT: Image = &[
+    "DDDDDDDDDDDDDDDD",
+    "EEDDDEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEDDEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEDDEEEEEEEEEE",
+    "EEEDDEEEEEEEEEEE",
+    "EEEEDDEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Courant vers la gauche, dessus, l'autre temps de la vague (1 px plus bas).
+pub const EAU_COURANT_G_VAGUE: Image = &[
+    "................",
+    "DDDDDDDDDDDDDDDD",
+    "EEDDDEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEDDEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEDDEEEEEEEEEE",
+    "EEEDDEEEEEEEEEEE",
+    "EEEEDDEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Courant vers la gauche, intérieur : chevrons dans le cyan sombre.
+pub const EAU_COURANT_G_PLEIN: Image = &[
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEDDEEEEEEEEE",
+    "EEEEDDEEEEEEEEEE",
+    "EEEEEDDEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEDDEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEEEDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Courant vers la DROITE (`}`), dessus : la surface et des chevrons qui pointent à droite.
+pub const EAU_COURANT_D_HAUT: Image = &[
+    "DDDDDDDDDDDDDDDD",
+    "EEDDDEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEDDEEEEEEEEEEE",
+    "EEEEDDEEEEEEEEEE",
+    "EEEDDEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEDDEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEDDEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Courant vers la droite, dessus, l'autre temps de la vague (1 px plus bas).
+pub const EAU_COURANT_D_VAGUE: Image = &[
+    "................",
+    "DDDDDDDDDDDDDDDD",
+    "EEDDDEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEDDEEEEEEEEEEE",
+    "EEEEDDEEEEEEEEEE",
+    "EEEDDEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEDDEEEE",
+    "EEEEEEEEEEEDDEEE",
+    "EEEEEEEEEEDDEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
+/// Courant vers la droite, intérieur : chevrons dans le cyan sombre.
+pub const EAU_COURANT_D_PLEIN: Image = &[
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEDDEEEEE",
+    "EEEEEEEEEEDDEEEE",
+    "EEEEEEEEEDDEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEDDEEEEEEEEEEEE",
+    "EEEDDEEEEEEEEEEE",
+    "EEDDEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("toit_haut", TOIT_HAUT),
@@ -360,4 +547,13 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("brique_saillie_g", BRIQUE_SAILLIE_G),
     ("brique_saillie_d", BRIQUE_SAILLIE_D),
     ("ombre_toit", OMBRE_TOIT),
+    ("eau_calme_haut", EAU_CALME_HAUT),
+    ("eau_calme_vague", EAU_CALME_VAGUE),
+    ("eau_calme_plein", EAU_CALME_PLEIN),
+    ("eau_courant_g_haut", EAU_COURANT_G_HAUT),
+    ("eau_courant_g_vague", EAU_COURANT_G_VAGUE),
+    ("eau_courant_g_plein", EAU_COURANT_G_PLEIN),
+    ("eau_courant_d_haut", EAU_COURANT_D_HAUT),
+    ("eau_courant_d_vague", EAU_COURANT_D_VAGUE),
+    ("eau_courant_d_plein", EAU_COURANT_D_PLEIN),
 ];

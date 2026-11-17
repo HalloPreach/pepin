@@ -53,16 +53,17 @@ use crate::app::Application;
 use crate::ecrans::Ecran;
 use crate::entrees::{Commandes, RaccourciNiveau};
 use crate::monde::{
-    Monde, INDICE_ESSAI, INDICE_ESSAI_AUVENT, INDICE_ESSAI_CHAT, INDICE_ESSAI_ESCARGOT,
-    INDICE_ESSAI_GRELE, INDICE_ESSAI_HORLOGE, INDICE_ESSAI_MONTGOLFIERE, INDICE_ESSAI_NUAGE,
-    INDICE_ESSAI_VENT, INDICE_ESSAI_VENTILATEUR,
+    Monde, INDICE_ESSAI, INDICE_ESSAI_AUVENT, INDICE_ESSAI_CHAT, INDICE_ESSAI_EAU,
+    INDICE_ESSAI_ESCARGOT, INDICE_ESSAI_GRELE, INDICE_ESSAI_HORLOGE, INDICE_ESSAI_MONTGOLFIERE,
+    INDICE_ESSAI_NUAGE, INDICE_ESSAI_VENT, INDICE_ESSAI_VENTILATEUR,
 };
 use crate::navigation::Navigation;
 
 use super::nom_ecran;
 use super::Trame;
 use crate::bot_qa::parcours::{
-    aiguille_sous_pepin, chercher, depart_pose, est_lance, plans, trouver_parcours, Etape,
+    aiguille_sous_pepin, chercher, depart_pose, est_lance, plans, trouver_parcours,
+    trouver_parcours_complet, Etape,
 };
 
 // --- Niveau d'essai vertical (carte 5.2) -------------------------------------------
@@ -304,6 +305,24 @@ pub fn parcours_essai_vent() -> Vec<Entrees> {
     trouver_parcours(i, false)
         .or_else(|| trouver_parcours(i, true))
         .expect("le robot ne trouve aucun parcours au niveau d'essai vent")
+}
+
+/// Joue le niveau d'essai « eau » (touche F11 du build de QA), voir `jouer_essai`.
+pub fn jouer_essai_eau(parcours: &[Entrees]) -> PartieEssai {
+    jouer_essai(INDICE_ESSAI_EAU, RaccourciNiveau::Essai11, parcours)
+}
+
+/// Parcours du robot dans le niveau d'essai « eau » (maladroit, puis précis,
+/// carte 9.2). C'est le parcours COMPLET (les trois gouttes avant l'arrivée,
+/// `trouver_parcours_complet`) : la goutte posée sur l'eau ne se prend qu'en
+/// barque, et le parcours le plus court n'a aucune raison de passer dessus.
+/// La recherche traite `Fin::Barque` comme un point de décision (ramer ou
+/// dériver, puis sauter hors de l'eau sur le quai).
+pub fn parcours_essai_eau() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_EAU;
+    trouver_parcours_complet(i, false)
+        .or_else(|| trouver_parcours_complet(i, true))
+        .expect("le robot ne trouve aucun parcours complet au niveau d'essai eau")
 }
 
 /// Joue le niveau d'essai « grêle » (touche F2 du build de QA), voir `jouer_essai`.

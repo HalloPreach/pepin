@@ -144,6 +144,7 @@ mod tests {
                 solides: &solides,
                 courants: &niv.courants,
                 vents: &niv.vents,
+                eaux: &[],
             };
             let entrees = pilote(&j);
             j.actualiser(&entrees, &env);

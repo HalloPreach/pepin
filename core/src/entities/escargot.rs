@@ -207,6 +207,7 @@ mod tests {
                 solides: &solides,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             for e in &mut self.entites {
                 e.actualiser(&env);

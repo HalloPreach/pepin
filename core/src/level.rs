@@ -98,7 +98,7 @@ pub const TAILLE_AIGUILLE: (f32, f32) = ascii::TAILLE_AIGUILLE;
 
 use crate::aabb::{self, Aabb, Grille, TAILLE_TUILE};
 use crate::entities::Entite;
-use crate::physics::{CourantAscendant, VentLateral};
+use crate::physics::{CourantAscendant, Eau, VentLateral};
 
 /// Réglage d'une aiguille d'horloge (pivot `h`). Le fichier de niveau en donne
 /// une petite table (`InfosNiveau::aiguilles`) : la 1re ligne règle le 1er `h`
@@ -125,20 +125,27 @@ pub struct ReglageAiguille {
 /// Nombre de gouttes d'or dans chaque niveau.
 pub const GOUTTES_PAR_NIVEAU: usize = 3;
 
-/// Nature d'une tuile du décor. Tout sauf `Vide` est solide ; la variante ne
-/// sert qu'à choisir le dessin (toit en tuiles, brique de cheminée, nuage).
+/// Nature d'une tuile du décor. Tout sauf `Vide` et `Eau` est solide ; la
+/// variante ne sert qu'à choisir le dessin (toit en tuiles, brique de
+/// cheminée, nuage, eau). `Eau` (carte 9.2) n'est PAS solide : le moteur de
+/// collision ne la voit pas, elle n'existe que pour le dessin et la
+/// mécanique de la barque (les étendues d'eau sont assemblées en zones dans
+/// `Niveau::eaux`, voir `level::ascii`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tuile {
     Vide,
     Toit,
     Brique,
     Nuage,
+    /// Eau (lettres `~`, `{`, `}` de la grille) : non solide, surface = le haut
+    /// de l'étendue (voir `Niveau::eaux`).
+    Eau,
 }
 
 impl Tuile {
-    /// La tuile bloque-t-elle le joueur ?
+    /// La tuile bloque-t-elle le joueur ? L'eau ne bloque rien.
     pub fn est_solide(self) -> bool {
-        !matches!(self, Tuile::Vide)
+        !matches!(self, Tuile::Vide | Tuile::Eau)
     }
 }
 
@@ -230,6 +237,10 @@ pub struct Niveau {
     pub courants: Vec<CourantAscendant>,
     /// Zones de vent latéral (`<` vers la gauche, `>` vers la droite).
     pub vents: Vec<VentLateral>,
+    /// Étendues d'eau (`~`, `{`, `}` de la grille, carte 9.2) : leur surface
+    /// (le haut de la zone) est la seule règle de l'eau pour la mécanique de
+    /// la barque. Vide dans tous les niveaux du Monde 1.
+    pub eaux: Vec<Eau>,
     /// Panneaux du tutoriel.
     pub panneaux: Vec<Panneau>,
     /// Objets de décor (dessin seulement).
@@ -331,6 +342,28 @@ impl Niveau {
             .iter()
             .filter(|e| matches!(e, Entite::Lanterne(_)))
             .count()
+    }
+
+    /// La surface (px) de l'eau sous l'abscisse `cx`, s'il y en a (carte 9.2)
+    /// : le haut de l'étendue d'eau qui passe sous elle (`physics::surface_eau`).
+    pub fn surface_eau(&self, cx: f32) -> Option<f32> {
+        crate::physics::surface_eau(cx, &self.eaux)
+    }
+
+    /// Le courant de l'étendue d'eau qui couvre la case `(tx, ty)` (carte 9.2)
+    /// : 0 calme, -1 vers la gauche, +1 vers la droite. Sert AUSSIT au décor
+    /// (`nom_tuile` en `scene.rs`) ; hors étendue d'eau, renvoie 0.
+    pub fn courant_eau(&self, tx: i32, ty: i32) -> i8 {
+        let case = Aabb::new(
+            tx as f32 * TAILLE_TUILE,
+            ty as f32 * TAILLE_TUILE,
+            TAILLE_TUILE,
+            TAILLE_TUILE,
+        );
+        self.eaux
+            .iter()
+            .find(|e| e.zone.chevauche(&case))
+            .map_or(0, |e| e.courant)
     }
 }
 

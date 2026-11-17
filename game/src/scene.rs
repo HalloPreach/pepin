@@ -140,6 +140,10 @@ fn case_d_indice(monde: &Monde, tx: i32, ty: i32) -> bool {
         .any(|z| z.indice == Some((tx, ty)))
 }
 
+/// Pas (1/60 s) entre deux temps de la vague de l'eau (carte 9.2) : la surface
+/// monte et descend d'un pixel toutes les 0,4 s.
+const PAS_VAGUE: u32 = 24;
+
 /// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus ; un nuage dont la
 /// case voisine est vide (à gauche et/ou à droite) prend un bord arrondi. Dessin seulement :
 /// la collision reste celle de la case. Les faux murs comptent comme le solide qu'ils imitent
@@ -167,6 +171,33 @@ fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
         (Tuile::Brique, false) => variante_brique(tx, ty).unwrap_or("brique_plein"),
         (Tuile::Nuage, true) => "nuage_haut",
         (Tuile::Nuage, false) => "nuage_plein",
+        // Eau (carte 9.2) : la version « haut » (la surface) est posée quand la
+        // case au-dessus est vide ; le sens du courant donne les chevrons. La
+        // surface ONDULE d'un pixel : « haut » et « vague » (le même dessin 1 px
+        // plus bas) alternent tous les `PAS_VAGUE` pas, à contretemps d'une
+        // colonne à sa voisine. `rem_euclid` garde un reste positif même pour
+        // une colonne négative.
+        (Tuile::Eau, _) => {
+            let vague = (monde.pas / PAS_VAGUE) as i32 + tx;
+            let (surface, creux, plein) = match monde.niveau.courant_eau(tx, ty) {
+                -1 => (
+                    "eau_courant_g_haut",
+                    "eau_courant_g_vague",
+                    "eau_courant_g_plein",
+                ),
+                1 => (
+                    "eau_courant_d_haut",
+                    "eau_courant_d_vague",
+                    "eau_courant_d_plein",
+                ),
+                _ => ("eau_calme_haut", "eau_calme_vague", "eau_calme_plein"),
+            };
+            match (haut, vague.rem_euclid(2) == 1) {
+                (false, _) => plein,
+                (true, false) => surface,
+                (true, true) => creux,
+            }
+        }
         (Tuile::Vide, _) => "",
     }
 }
@@ -1125,6 +1156,17 @@ fn poser_pepin(
         EtatJoueur::Plane => {
             let nom = image(&images.planer, pas, 8);
             poser(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
+        }
+        // Barque (carte 9.2) : le parapluie retourné avec Pépin assis dedans,
+        // flottant à la surface (les pieds 3 px sous l'eau). Posée comme une
+        // image 16x16, comme le corps (la crosse finit à hauteur des pieds).
+        EtatJoueur::Barque => {
+            poser(
+                images.barque,
+                (milieu - 8) as f32,
+                (bas - 16) as f32,
+                miroir,
+            );
         }
         etat => {
             let nom = match etat {

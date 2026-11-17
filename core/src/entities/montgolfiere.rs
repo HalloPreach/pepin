@@ -298,6 +298,7 @@ mod tests {
                     solides: &solides,
                     courants: &[],
                     vents: &[],
+                    eaux: &[],
                 };
                 for e in &mut self.entites {
                     e.actualiser(&env);
@@ -309,6 +310,7 @@ mod tests {
                 solides: &solides,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             porter_par_plateformes(&mut self.joueur, &self.entites, &env);
             self.joueur.actualiser(entrees, &env);

@@ -187,6 +187,9 @@ enum Fin {
     /// Relancé par un auvent en `(x, y)` : un nouveau choix commence en l'air
     /// (voir `Noeud::lance`).
     Lance(f32, f32),
+    /// Entré dans l'eau en planant : BARQUE en `(x, y)` (carte 9.2). Un
+    /// nouveau choix commence à bord (ramer, ou sauter hors de l'eau).
+    Barque(f32, f32),
     /// Temps écoulé ou état instable : on abandonne ce plan.
     Abandon,
 }
@@ -208,16 +211,20 @@ struct Noeud {
     x: f32,
     y: f32,
     lance: bool,
+    /// Barque (carte 9.2) : le noeud est À BORD d'une barque (l'eau calme ou le
+    /// courant l'y ont porté). L'état du joueur ne dépend que de la position :
+    /// la barque est à la surface, pieds à `ENFONCEMENT_BARQUE` sous l'eau.
+    barque: bool,
     chats: u32,
 }
 
 /// Clé de fusion d'un noeud (voir `Noeud::cle`).
-type CleNoeud = (i32, i32, bool, u32);
+type CleNoeud = (i32, i32, bool, bool, u32);
 
-/// Entrée de la file de priorité : `(coût en pas, x, y, lancé, chats écrasés)`.
-/// `x` et `y` sont rangés en bits (`f32::to_bits`) : un `f32` n'est pas `Ord`,
-/// ses bits si (et ils redonnent exactement le même `f32`).
-type EntreeTas = (u32, u32, u32, bool, u32);
+/// Entrée de la file de priorité : `(coût en pas, x, y, lancé, barque, chats
+/// écrasés)` ; `x` et `y` sont rangés en bits (`f32::to_bits`) : un `f32` n'est
+/// pas `Ord`, ses bits si (et ils redonnent exactement le même `f32`).
+type EntreeTas = (u32, u32, u32, bool, bool, u32);
 
 impl Noeud {
     fn pose(x: f32, y: f32, chats: u32) -> Self {
@@ -225,6 +232,7 @@ impl Noeud {
             x,
             y,
             lance: false,
+            barque: false,
             chats,
         }
     }
@@ -233,7 +241,7 @@ impl Noeud {
     /// les chats écrasés.
     fn cle(self) -> CleNoeud {
         let (kx, ky) = cle((self.x, self.y));
-        (kx, ky, self.lance, self.chats)
+        (kx, ky, self.lance, self.barque, self.chats)
     }
 }
 
@@ -366,6 +374,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                     solides: &fixes,
                     courants: &[],
                     vents: &[],
+                    eaux: &[],
                 };
                 entites.push(Entite::Escargot(s.etendu_au_trajet(&env)));
             }
@@ -423,11 +432,14 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     } else {
         Vec::new()
     };
+    // L'eau (carte 9.2) avec la VRAIE physique aussi : planer dedans donne la
+    // barque (un point de décision, `Fin::Barque`), y entrer autrement noie.
     let env = Environnement {
         grille: niveau,
         solides: &solides,
         courants: &courants,
         vents: &vents,
+        eaux: &niveau.eaux,
     };
 
     let mut rapport = Rapport {
@@ -445,13 +457,24 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // transforme le tas max en tas min).
     let mut meilleur: HashMap<CleNoeud, u32> = HashMap::new();
     let mut tas: BinaryHeap<Reverse<EntreeTas>> = BinaryHeap::new();
-    let n0 = Noeud::pose(depart.0, depart.1, 0);
+    // Un départ au ras de l'eau (une lanterne posée sur l'eau, carte 9.2) part
+    // À BORD : dans le jeu, Pépin y réapparaît protégé, et l'eau recueille en
+    // barque un Pépin protégé au lieu de le noyer (`Joueur::actualiser`).
+    let cx = depart.0 + JOUEUR_L / 2.0;
+    let sur_l_eau = niveau
+        .surface_eau(cx)
+        .is_some_and(|surface| depart.1 + JOUEUR_H >= surface - 0.5);
+    let n0 = Noeud {
+        barque: sur_l_eau,
+        ..Noeud::pose(depart.0, depart.1, 0)
+    };
     meilleur.insert(n0.cle(), 0);
     tas.push(Reverse((
         0,
         depart.0.to_bits(),
         depart.1.to_bits(),
         false,
+        sur_l_eau,
         0,
     )));
     let tous_les_plans: Vec<Plan> = plans(options).collect();
@@ -459,11 +482,12 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // ont un sens (ni élan au sol ni saut).
     let plans_lance: Vec<Plan> = plans_en_vol(options).collect();
 
-    while let Some(Reverse((cout, bx, by, lance, ecrases))) = tas.pop() {
+    while let Some(Reverse((cout, bx, by, lance, barque, ecrases))) = tas.pop() {
         let noeud = Noeud {
             x: f32::from_bits(bx),
             y: f32::from_bits(by),
             lance,
+            barque,
             chats: ecrases,
         };
         let etat = (noeud.x, noeud.y);
@@ -514,7 +538,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             let mut ajouter = |arrive: Noeud, cout: u32| {
                 // Posé là où un chat vivant bondirait sur lui : pas un lieu
                 // d'attente (voir l'en-tête). Lancé par un auvent, il est en l'air.
-                if !arrive.lance && chat_bondirait(niveau, env.solides, &ents, (arrive.x, arrive.y))
+                if !arrive.lance
+                    && !arrive.barque
+                    && chat_bondirait(niveau, env.solides, &ents, (arrive.x, arrive.y))
                 {
                     return;
                 }
@@ -526,6 +552,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         arrive.x.to_bits(),
                         arrive.y.to_bits(),
                         arrive.lance,
+                        arrive.barque,
                         arrive.chats,
                     )));
                 }
@@ -543,6 +570,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         x,
                         y,
                         lance: true,
+                        barque: false,
                         chats: ecrases,
                     },
                     cout_plan,
@@ -604,6 +632,18 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                             }
                         }
                     }
+                }
+                Fin::Barque(x, y) => {
+                    // Barque (carte 9.2) : le prochain choix se fait À BORD
+                    // (ramer, ou sauter hors de l'eau).
+                    let noeud = Noeud {
+                        x,
+                        y,
+                        lance: false,
+                        barque: true,
+                        chats: ecrases,
+                    };
+                    ajouter(noeud, cout_plan);
                 }
                 _ => {}
             }
@@ -711,6 +751,11 @@ fn simuler(
     if depart.lance {
         // Exactement l'état laissé par l'auvent : seule la position compte.
         j.lancer_par_auvent();
+    } else if depart.barque {
+        // Exactement l'état d'une barque posée à la surface (carte 9.2) : la
+        // vitesse et la planée repartent de zéro, seule la position compte.
+        j.vitesse.x = 0.0;
+        j.entrer_en_barque();
     } else {
         // Un pas à vide pour que `au_sol` soit vrai dès le début.
         j.actualiser(&Entrees::default(), env);
@@ -722,6 +767,10 @@ fn simuler(
     let mut a_decolle = depart.lance;
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
+    // Barque : compteur de pas sans avancer (la barque est bloquée), et la
+    // position du pas précédent pour la détecter.
+    let mut repos_barque: u16 = 0;
+    let mut x_barque_prec: Option<f32> = None;
 
     for pas in 0..pas_max {
         let mut entrees = Entrees::default();
@@ -771,6 +820,29 @@ fn simuler(
         }
         if relance {
             return (Fin::Lance(j.boite.x, j.boite.y), pas + 1);
+        }
+        // Barque (carte 9.2) : le plan s'arrête quand Pépin entre dans l'eau
+        // (planant) : à bord est un point de décision, comme un atterrissage.
+        // Un plan qui DÉMARRAIT à bord s'arrête aussi quand la barque est à
+        // REPOS (10 pas sans avancer : bloquée au quai, sans courant) : le
+        // prochain choix (sauter) part de cet état immobile.
+        if j.en_barque() {
+            if !depart.barque {
+                return (Fin::Barque(j.boite.x, j.boite.y), pas + 1);
+            }
+            // À bord depuis le départ : la barque est à REPOS quand elle ne
+            // bouge plus (bloquée au quai, sans courant) : 10 pas immobiles
+            // et le plan s'arrête, le prochain choix (sauter) part de là.
+            let x = j.boite.x;
+            match x_barque_prec {
+                Some(xp) if (x - xp).abs() < 0.001 => repos_barque += 1,
+                Some(_) => repos_barque = 0,
+                None => {}
+            }
+            x_barque_prec = Some(x);
+            if repos_barque >= 10 {
+                return (Fin::Barque(j.boite.x, j.boite.y), pas + 1);
+            }
         }
 
         if !j.au_sol {
@@ -1381,6 +1453,7 @@ mod tests {
                 solides: &solides,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             let mut ents = n.entites.clone();
             for e in &mut ents {

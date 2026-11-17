@@ -103,6 +103,9 @@ pub(crate) enum Fin {
     /// Un auvent vient de relancer Pépin : nouveau point de décision, en l'air
     /// (voir `est_lance`).
     Lance,
+    /// Entré dans l'eau en planant : BARQUE (carte 9.2), nouveau point de
+    /// décision à bord (ramer, ou sauter hors de l'eau).
+    Barque,
     Abandon,
 }
 
@@ -247,7 +250,9 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
                 return (Fin::Arrivee, m, script);
             }
         }
-        let fin = if m.joueur.au_sol {
+        let fin = if m.joueur.en_barque() {
+            Fin::Barque
+        } else if m.joueur.au_sol {
             Fin::Pose
         } else {
             Fin::Abandon
@@ -302,6 +307,11 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
         }
         if m.contacts.contains(&Contact::Auvent) {
             return (Fin::Lance, m, script);
+        }
+        // Barque (carte 9.2) : le plan s'arrête quand Pépin entre dans l'eau
+        // (planant) : à bord est un point de décision, comme un atterrissage.
+        if m.joueur.en_barque() {
+            return (Fin::Barque, m, script);
         }
         if !m.joueur.au_sol {
             a_decolle = true;
@@ -489,7 +499,9 @@ fn rejouer(depart: &Monde, entrees: &[Entrees]) -> (Fin, Monde) {
             return (Fin::Arrivee, m);
         }
     }
-    let fin = if m.joueur.au_sol {
+    let fin = if m.joueur.en_barque() {
+        Fin::Barque
+    } else if m.joueur.au_sol {
         Fin::Pose
     } else {
         Fin::Abandon
@@ -535,6 +547,10 @@ pub(crate) struct CaseParcours {
     pub(crate) y: i32,
     /// Lancé par un auvent : on n'essaie que des plans « en vol ».
     pub(crate) lance: bool,
+    /// Barque (carte 9.2) : à bord de l'eau, le prochain choix se fait en
+    /// ramant ou en sautant hors de l'eau : un état distinct de « posé » au
+    /// même endroit (là où on peut marcher ou planer sans noyade).
+    pub(crate) barque: bool,
     /// Escargot proche, résumé en entier (`escargot_proche`) ; 0 s'il n'y en a pas.
     pub(crate) escargot: i32,
     /// Chats du niveau, résumés en entier (`chats_de_la_case`) ; 0 sans chat.
@@ -555,6 +571,7 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         x: (m.joueur.boite.x / 8.0).floor() as i32,
         y: m.joueur.boite.y.round() as i32,
         lance: est_lance(m),
+        barque: m.joueur.en_barque(),
         escargot: escargot_proche(m),
         chats: chats_de_la_case(m),
         aiguille: aiguille_proche(m),
@@ -865,12 +882,12 @@ pub(crate) fn chercher_avec(
                         arrivee = Some((cout_plan, i, etape));
                     }
                 }
-                Fin::Pose | Fin::Lance if est_cible(&monde) => {
+                Fin::Pose | Fin::Lance | Fin::Barque if est_cible(&monde) => {
                     if arrivee.as_ref().is_none_or(|(c, _, _)| cout_plan < *c) {
                         arrivee = Some((cout_plan, i, etape));
                     }
                 }
-                Fin::Pose | Fin::Lance => {
+                Fin::Pose | Fin::Lance | Fin::Barque => {
                     let k = etape.cle;
                     if meilleur.get(&k).is_none_or(|&c| cout_plan < c) {
                         meilleur.insert(k, cout_plan);

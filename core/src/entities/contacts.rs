@@ -33,6 +33,8 @@ pub enum CauseMort {
     Vide,
     /// Rattrapé par le mur de pluie (carte 8.2, `crate::poursuite`).
     Pluie,
+    /// Entré dans l'eau parapluie fermé (carte 9.2, la mécanique de la barque).
+    Noyade,
 }
 
 /// Ce qui s'est passé pendant ce pas de simulation.
@@ -179,6 +181,14 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
     let mut lanterne_allumee: Option<usize> = None;
     // Pépin vient-il de réapparaître ? Alors les dangers ci-dessous l'ignorent.
     let protege = joueur.est_protege();
+
+    // Noyade (carte 9.2) : Pépin est entré dans l'eau SANS planer (les pieds
+    // sous la surface, `Joueur::actualiser`). Comme les autres dangers, la
+    // protection de réapparition l'absorbe ; c'est le seul danger que le
+    // Joueur porte lui-même (l'eau n'est pas une entité de la liste).
+    if joueur.est_noye() && !protege {
+        mort.get_or_insert(CauseMort::Noyade);
+    }
 
     for (i, entite) in entites.iter_mut().enumerate() {
         match entite {
@@ -678,6 +688,7 @@ mod tests {
                 solides: &s,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             porter_par_plateformes(&mut j, &e, &env);
         }
@@ -706,6 +717,7 @@ mod tests {
                 solides: &s,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             porter_par_plateformes(&mut j, &e, &env);
         }
@@ -912,6 +924,7 @@ mod tests {
             solides: &s,
             courants: &[],
             vents: &[],
+            eaux: &[],
         };
         porter_par_plateformes(j, e, &env);
         j.actualiser(entrees, &env);
@@ -1074,6 +1087,7 @@ mod tests {
             solides: &s,
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         porter_par_plateformes(j, e, &env);
         j.actualiser(entrees, &env);

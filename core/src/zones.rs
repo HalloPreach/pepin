@@ -173,8 +173,8 @@ mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
     use crate::levels::{
-        essai_auvent, essai_chat, essai_escargot, essai_grele, essai_horloge, essai_montgolfiere,
-        essai_nuage, essai_vent, essai_ventilateur, essai_vertical,
+        essai_auvent, essai_chat, essai_eau, essai_escargot, essai_grele, essai_horloge,
+        essai_montgolfiere, essai_nuage, essai_vent, essai_ventilateur, essai_vertical,
     };
 
     #[test]
@@ -212,6 +212,7 @@ mod tests {
             &essai_chat::INFOS,
             &essai_horloge::INFOS,
             &essai_nuage::INFOS,
+            &essai_eau::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -243,6 +244,7 @@ mod tests {
             &essai_escargot::INFOS,
             &essai_chat::INFOS,
             &essai_nuage::INFOS,
+            &essai_eau::INFOS,
         ])
     }
 
@@ -967,7 +969,9 @@ mod tests {
     }
 
     /// Une lanterne (point de reprise) ne flotte jamais : la case juste en
-    /// dessous est un solide (`#`, `B` ou `N`).
+    /// dessous est un solide (`#`, `B` ou `N`), ou de l'eau (carte 9.2 : posée
+    /// sur l'eau comme une goutte, Pépin y réapparaît protégé et l'eau le
+    /// recueille en barque, voir `Joueur::actualiser`).
     #[test]
     fn aucune_lanterne_ne_flotte() {
         for infos in niveaux_et_essai() {
@@ -976,10 +980,11 @@ mod tests {
             for (y, ligne) in g.iter().enumerate() {
                 for (x, &c) in ligne.iter().enumerate() {
                     if c == 'L' {
+                        let sur_l_eau = y + 1 < g.len() && matches!(g[y + 1][x], '~' | '{' | '}');
                         assert!(
-                            plein(&g, x as i32, y as i32 + 1) && y + 1 < g.len(),
+                            (plein(&g, x as i32, y as i32 + 1) || sur_l_eau) && y + 1 < g.len(),
                             "niveau {} : la lanterne de la colonne {x}, rangée {y} flotte \
-                             (la case en dessous n'est pas un solide)",
+                             (la case en dessous n'est ni un solide ni de l'eau)",
                             infos.numero
                         );
                     }
@@ -1067,6 +1072,7 @@ mod tests {
                     solides: &solides,
                     courants: &niv.courants,
                     vents: &niv.vents,
+                    eaux: &[],
                 };
                 for e in entites.iter_mut() {
                     e.actualiser(&env);
@@ -1385,6 +1391,7 @@ mod tests {
                     solides: &solides,
                     courants: &niv.courants,
                     vents: &niv.vents,
+                    eaux: &[],
                 };
                 for e in entites.iter_mut() {
                     e.actualiser(&env);

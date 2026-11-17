@@ -340,6 +340,31 @@ pub const PEPIN_PLANE1: Image = &[
     ".......00..00.......",
 ];
 
+/// Barque (carte 9.2) : le parapluie corail RETOURNÉ devient une coque, et Pépin
+/// s'assied dedans : la tête (yeux, joues) dépasse du bord, le bord clair (9) est
+/// festonné comme le bord de la toile, deux baleines (9) descendent vers le fond,
+/// et la crosse (A) sort dessous comme une quille. Posée comme une image 16x16, le
+/// coin haut-gauche à (milieu-8, bas-16) : le bas de la coque est à la surface de
+/// l'eau, la crosse dessous, à hauteur des pieds (3 px sous la surface).
+pub const PEPIN_BARQUE: Image = &[
+    "................",
+    "................",
+    ".....000000.....",
+    "....07777770....",
+    "...0777777770...",
+    "...0770770770...",
+    "...0797777970...",
+    ".00077777777000.",
+    "0999099999909990",
+    "0888888888888880",
+    ".08898888889880.",
+    "..088988889880..",
+    "...0088998800...",
+    ".....000A000....",
+    ".......0A0......",
+    "......0AA0......",
+];
+
 /// Icône des vies dans le HUD (10x10, carte 6.2) : la tête de Pépin, corps blanc,
 /// yeux, joues corail et ombre de brume, comme le vrai, cernée de sombre pour se lire
 /// sur tous les ciels.
@@ -374,6 +399,7 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pepin_mort2", PEPIN_MORT2),
     ("pepin_plane0", PEPIN_PLANE0),
     ("pepin_plane1", PEPIN_PLANE1),
+    ("pepin_barque", PEPIN_BARQUE),
     ("vie", VIE),
 ];
 
@@ -396,6 +422,7 @@ pub const IMAGES: JeuImages = JeuImages {
     chute: "pepin_chute",
     attente: ATTENTE,
     planer: PLANER,
+    barque: "pepin_barque",
     reapparition: REAPPARITION,
     vie: "vie",
 };
