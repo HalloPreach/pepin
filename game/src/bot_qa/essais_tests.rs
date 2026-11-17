@@ -929,7 +929,7 @@ fn ecrire_scenarios_94() {
                     break;
                 }
                 match phase(&m, TypeEnnemi::Rat) {
-                    Some(PhaseEau::Annonce(n)) if n == 12 => {
+                    Some(PhaseEau::Annonce(12)) => {
                         // Pépin assez loin : la course se voit avant de l'atteindre.
                         let rat = m.entites.iter().find_map(|e| match e {
                             Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Rat => Some(c.boite),
