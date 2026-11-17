@@ -1041,6 +1041,7 @@ mod tests {
         let saut = crate::player::Entrees {
             direction: crate::player::Direction::Immobile,
             saut: true,
+            bas: false,
         };
         for _ in 0..5 {
             pas_du_jeu(&n, &mut e, &mut j, &crate::player::Entrees::default());
@@ -1156,6 +1157,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         let mut coups = 0;
         for _ in 0..90 {

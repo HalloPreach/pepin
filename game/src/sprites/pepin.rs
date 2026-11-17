@@ -340,6 +340,35 @@ pub const PEPIN_PLANE1: Image = &[
     ".......00..00.......",
 ];
 
+/// Parapluie RETOURNÉ (carte 9.2b, BAS tenu) : la toile corail du plané, à
+/// l'envers. Les rangées 0 à 7 sont celles de `PEPIN_PLANE0` dans l'ordre inverse
+/// (les pointes des baleines en haut, la toile en bol, le fond plat en bas), le
+/// manche et le corps (rangées 8 à 19) sont ceux du plané. C'est déjà la coque de la
+/// barque : posé sur l'eau, ce bol porte Pépin. Même place que le plané (20x20, coin
+/// à `(milieu-10, bas-20)`).
+pub const PEPIN_RETOURNE: Image = &[
+    ".0..0..0..0..0..0..0",
+    "08008008008008008008",
+    "09999909880880888880",
+    ".099990988088088880.",
+    "..0999098808808880..",
+    "...09999988888880...",
+    "....099998888880....",
+    "......00000000......",
+    ".........00.........",
+    ".........00.........",
+    "......00000000......",
+    ".....0777777770.....",
+    ".....0770770770.....",
+    ".....0770770770.....",
+    ".....0797797550.....",
+    ".....0777777550.....",
+    "......05555550......",
+    ".......000000.......",
+    "....................",
+    ".......00..00.......",
+];
+
 /// Barque (carte 9.2) : le parapluie corail RETOURNÉ devient une coque, et Pépin
 /// s'assied dedans : la tête (yeux, joues) dépasse du bord, le bord clair (9) est
 /// festonné comme le bord de la toile, deux baleines (9) descendent vers le fond,
@@ -399,6 +428,7 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pepin_mort2", PEPIN_MORT2),
     ("pepin_plane0", PEPIN_PLANE0),
     ("pepin_plane1", PEPIN_PLANE1),
+    ("pepin_retourne", PEPIN_RETOURNE),
     ("pepin_barque", PEPIN_BARQUE),
     ("vie", VIE),
 ];
@@ -422,6 +452,7 @@ pub const IMAGES: JeuImages = JeuImages {
     chute: "pepin_chute",
     attente: ATTENTE,
     planer: PLANER,
+    retourne: "pepin_retourne",
     barque: "pepin_barque",
     reapparition: REAPPARITION,
     vie: "vie",

@@ -10,8 +10,8 @@
 //!    (rangée 6) : on la prend d'un saut, en écrasant la flaque ou en l'évitant ;
 //! 2. le PREMIER FILET D'EAU (colonnes 33 à 46), une tuile de fond, sans aucun
 //!    danger : le panneau « planer » (colonne 28) le précède. Trop large pour un
-//!    saut planant (14 tuiles), on y entre en planant : le parapluie retourné
-//!    devient une barque (eau calme `~`, puis un courant `}` qui la pousse). La
+//!    saut planant (14 tuiles), on y entre parapluie retourné (BAS, carte
+//!    9.2b) : il devient une barque (eau calme `~`, puis un courant `}` qui la pousse). La
 //!    2e goutte est posée sur l'eau (colonne 44) ; la BORDURE (colonnes 47 à 49,
 //!    une tuile plus haut que la rue) arrête la barque : on en sort d'un saut ;
 //! 3. la GOUTTIÈRE (colonnes 61 à 93) : deux marches, puis le rebord gauche
@@ -42,7 +42,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     theme: Theme::Caniveau,
     genre: GenreNiveau::Normal,
     intro: "La pluie descend des toits et file dans le caniveau. Pépin la suit.",
-    mecanique: "La barque : planer dans l'eau pour flotter (parapluie fermé, on coule), se laisser porter par le courant, sauter pour sortir de l'eau.",
+    mecanique: "La barque : BAS retourne le parapluie, qui flotte en touchant l'eau (sans lui, planer compris, on coule) ; se laisser porter par le courant, sauter pour sortir de l'eau.",
     duree_cible_s: 50,
     ascii: ASCII,
     aiguilles: &[],

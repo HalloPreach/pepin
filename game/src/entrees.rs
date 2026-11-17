@@ -19,6 +19,9 @@ pub struct Commandes {
     pub droite: bool,
     /// Saut MAINTENU (en l'air, maintenir ouvre le parapluie).
     pub saut: bool,
+    /// Bas MAINTENU (carte 9.2b) : le parapluie retourné, qui devient une
+    /// barque en touchant l'eau.
+    pub bas: bool,
     /// Demande de pause : vrai seulement à l'image de l'appui (front montant).
     pub pause: bool,
 }
@@ -38,6 +41,7 @@ impl Commandes {
         Entrees {
             direction: self.direction(),
             saut: self.saut,
+            bas: self.bas,
         }
     }
 
@@ -48,6 +52,7 @@ impl Commandes {
             gauche: self.gauche || autre.gauche,
             droite: self.droite || autre.droite,
             saut: self.saut || autre.saut,
+            bas: self.bas || autre.bas,
             pause: self.pause || autre.pause,
         }
     }
@@ -88,14 +93,15 @@ pub const TOUCHES_SON: [KeyCode; 2] = [KeyCode::M, KeyCode::Semicolon];
 
 /// Menus : monter, comme pour le saut (flèche, W, Z).
 pub const TOUCHES_HAUT: [KeyCode; 3] = [KeyCode::Up, KeyCode::W, KeyCode::Z];
-/// Menus : descendre (flèche et S, même position sur les deux dispositions).
+/// Menus : descendre (flèche et S, même position sur les deux dispositions). En jeu,
+/// les mêmes touches retournent le parapluie (carte 9.2b, `Commandes::bas`).
 pub const TOUCHES_BAS: [KeyCode; 2] = [KeyCode::Down, KeyCode::S];
 /// Menus : valider.
 pub const TOUCHES_VALIDER: [KeyCode; 3] = [KeyCode::Enter, KeyCode::KpEnter, KeyCode::Space];
 /// Menus : retour.
 pub const TOUCHES_RETOUR: [KeyCode; 2] = [KeyCode::Escape, KeyCode::Backspace];
 
-/// Le clavier : flèches, Q/A/D (WASD et ZQSD), Espace, Haut, W, Z, Échap, P.
+/// Le clavier : flèches, Q/A/D (WASD et ZQSD), Espace, Haut, W, Z, Bas, S, Échap, P.
 pub struct Clavier;
 
 /// Une touche de la liste est-elle enfoncée ?
@@ -111,6 +117,9 @@ impl SourceEntrees for Clavier {
             gauche: une_enfoncee(&TOUCHES_GAUCHE),
             droite: une_enfoncee(&TOUCHES_DROITE),
             saut,
+            // Les touches du « bas » des menus (flèche et S) : en jeu, elles
+            // retournent le parapluie (carte 9.2b).
+            bas: une_enfoncee(&TOUCHES_BAS),
             pause: TOUCHES_PAUSE.iter().any(|&t| is_key_pressed(t)),
         }
     }
@@ -428,6 +437,14 @@ mod tests {
         let e = c.vers_entrees();
         assert_eq!(e.direction, Direction::Droite);
         assert!(e.saut);
+        assert!(!e.bas);
+        // Carte 9.2b : BAS passe aussi jusqu'à la simulation.
+        let bas = Commandes {
+            bas: true,
+            ..Commandes::default()
+        };
+        assert!(bas.vers_entrees().bas);
+        assert!(gauche().fusionner(bas).bas, "la fusion garde BAS");
     }
 
     #[test]
@@ -474,6 +491,7 @@ mod tests {
             ("gauche", &TOUCHES_GAUCHE),
             ("droite", &TOUCHES_DROITE),
             ("saut", &TOUCHES_SAUT),
+            ("bas", &TOUCHES_BAS),
             ("pause", &TOUCHES_PAUSE),
             ("son", &TOUCHES_SON),
         ]);

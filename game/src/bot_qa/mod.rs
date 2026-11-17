@@ -94,22 +94,35 @@ pub struct Trame {
 }
 
 impl Trame {
-    /// Un chiffre hexadécimal : 1 = Entrée, 2 = gauche, 4 = droite, 8 = saut.
+    /// Le code de l'image (voir `code_entrees`), Entrée comprise.
     pub fn code(&self) -> char {
-        let mut v = 0u32;
-        if self.valider {
-            v |= 1;
-        }
-        match self.entrees.direction {
-            Direction::Gauche => v |= 2,
-            Direction::Droite => v |= 4,
-            Direction::Immobile => {}
-        }
-        if self.entrees.saut {
-            v |= 8;
-        }
-        char::from_digit(v, 16).unwrap()
+        code_entrees(&self.entrees, self.valider)
     }
+}
+
+/// Le code d'un pas pour les scripts du navigateur : 1 = Entrée, 2 = gauche,
+/// 4 = droite, 8 = saut, et 16 = BAS (carte 9.2b, le parapluie retourné ; les
+/// quatre premiers bits étaient tous pris). Écrit comme un chiffre en BASE 32
+/// (`0`-`9` puis `a`-`v`) : sans BAS, c'est exactement le chiffre hexadécimal
+/// d'avant (les scripts du Monde 1 ne changent pas) ; avec BAS, une lettre de
+/// `g` à `v`. Les pilotes le lisent par `parseInt(c, 32)` (`docs/pilote-qa.js`).
+pub fn code_entrees(e: &Entrees, valider: bool) -> char {
+    let mut v = 0u32;
+    if valider {
+        v |= 1;
+    }
+    match e.direction {
+        Direction::Gauche => v |= 2,
+        Direction::Droite => v |= 4,
+        Direction::Immobile => {}
+    }
+    if e.saut {
+        v |= 8;
+    }
+    if e.bas {
+        v |= 16;
+    }
+    char::from_digit(v, 32).unwrap()
 }
 
 /// Nom court d'un état de pigeon, pour la trace (`ecrase` : écrasé, quelle que soit

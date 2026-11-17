@@ -705,13 +705,15 @@ fn le_robot_finit_le_niveau_d_essai_eau() {
     // sous la surface (144, au ras du sol), le haut de sa boîte (`trame.y`) est
     // donc à 144 - 14 + 3 = 133 : ni au sol (130), ni sur le quai (114), ni en
     // vol (il traverserait cette hauteur en une image ou deux). Il a bel et bien
-    // traversé l'eau en barque.
+    // traversé l'eau en barque. Depuis la carte 9.2b (BAS fait la barque), le
+    // robot « ricoche » plus court : quelques images à bord suffisent (5 au
+    // dernier passage, plus de 10 avant).
     let y_barque = 144.0 - pepin_core::physics::JOUEUR_H + pepin_core::physics::ENFONCEMENT_BARQUE;
     let en_barque = essai
         .iter()
         .filter(|i| !i.au_sol && (i.trame.y - y_barque).abs() < 0.01)
         .count();
-    assert!(en_barque > 10, "{en_barque} images à bord de la barque");
+    assert!(en_barque >= 3, "{en_barque} images à bord de la barque");
     let dernier = essai.last().unwrap();
     assert!(dernier.trame.x > 500.0, "arrivée à x = {}", dernier.trame.x);
     println!(
@@ -730,21 +732,10 @@ fn le_robot_finit_le_niveau_d_essai_eau() {
 #[test]
 #[ignore]
 fn ecrire_script_essai_eau_92() {
-    use pepin_core::player::Direction;
     let parcours = parcours_essai_eau();
     let script: String = parcours
         .iter()
-        .map(|e| {
-            let direction = match e.direction {
-                Direction::Gauche => 2,
-                Direction::Droite => 4,
-                Direction::Immobile => 0,
-            };
-            let masque = direction + if e.saut { 8 } else { 0 };
-            std::char::from_digit(masque, 16)
-                .unwrap()
-                .to_ascii_uppercase()
-        })
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
         .collect();
     std::fs::create_dir_all("../target/qa").unwrap();
     std::fs::write("../target/qa/script-92-eau.txt", &script).unwrap();
@@ -805,21 +796,10 @@ fn le_robot_bat_la_pieuvre_sans_mourir() {
 #[test]
 #[ignore]
 fn ecrire_script_essai_pieuvre_912() {
-    use pepin_core::player::Direction;
     let parcours = parcours_essai_pieuvre();
     let script: String = parcours
         .iter()
-        .map(|e| {
-            let direction = match e.direction {
-                Direction::Gauche => 2,
-                Direction::Droite => 4,
-                Direction::Immobile => 0,
-            };
-            let masque = direction + if e.saut { 8 } else { 0 };
-            std::char::from_digit(masque, 16)
-                .unwrap()
-                .to_ascii_uppercase()
-        })
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
         .collect();
     std::fs::create_dir_all("../target/qa").unwrap();
     std::fs::write("../target/qa/script-912-pieuvre.txt", &script).unwrap();
@@ -854,21 +834,10 @@ fn ecrire_script_essai_pieuvre_912() {
 #[test]
 #[ignore]
 fn ecrire_script_essai_ennemis_eau_94() {
-    use pepin_core::player::Direction;
     let parcours = parcours_essai_ennemis_eau();
     let script: String = parcours
         .iter()
-        .map(|e| {
-            let direction = match e.direction {
-                Direction::Gauche => 2,
-                Direction::Droite => 4,
-                Direction::Immobile => 0,
-            };
-            let masque = direction + if e.saut { 8 } else { 0 };
-            std::char::from_digit(masque, 16)
-                .unwrap()
-                .to_ascii_uppercase()
-        })
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
         .collect();
     std::fs::create_dir_all("../target/qa").unwrap();
     std::fs::write("../target/qa/script-94-ennemis.txt", &script).unwrap();
@@ -929,16 +898,7 @@ fn ecrire_scenarios_94() {
     let i = crate::monde::INDICE_ESSAI_ENNEMIS_EAU;
     let encoder = |p: &[Entrees]| -> String {
         p.iter()
-            .map(|e| {
-                let d = match e.direction {
-                    Direction::Gauche => 2,
-                    Direction::Droite => 4,
-                    Direction::Immobile => 0,
-                };
-                std::char::from_digit(d + if e.saut { 8 } else { 0 }, 16)
-                    .unwrap()
-                    .to_ascii_uppercase()
-            })
+            .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
             .collect()
     };
     let phase = |m: &Monde, t: TypeEnnemi| {
@@ -950,6 +910,7 @@ fn ecrire_scenarios_94() {
     let droite = |saut| Entrees {
         direction: Direction::Droite,
         saut,
+        bas: false,
     };
     std::fs::create_dir_all("../target/qa").unwrap();
     // 1. Le crabe : attendre, courir à droite, sauter ; un rebond sur la carapace.
@@ -1053,21 +1014,10 @@ fn le_robot_finit_le_niveau_d_essai_eau2() {
 #[test]
 #[ignore]
 fn ecrire_script_essai_eau2_93() {
-    use pepin_core::player::Direction;
     let parcours = parcours_essai_eau2();
     let script: String = parcours
         .iter()
-        .map(|e| {
-            let direction = match e.direction {
-                Direction::Gauche => 2,
-                Direction::Droite => 4,
-                Direction::Immobile => 0,
-            };
-            let masque = direction + if e.saut { 8 } else { 0 };
-            std::char::from_digit(masque, 16)
-                .unwrap()
-                .to_ascii_uppercase()
-        })
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
         .collect();
     std::fs::create_dir_all("../target/qa").unwrap();
     std::fs::write("../target/qa/script-93-eau2.txt", &script).unwrap();
@@ -1156,16 +1106,7 @@ fn ecrire_script_essai_eau2_93() {
     feuille.extend(vec![Entrees::default(); 120]);
     let texte: String = feuille
         .iter()
-        .map(|e| {
-            let d = match e.direction {
-                Direction::Gauche => 2,
-                Direction::Droite => 4,
-                Direction::Immobile => 0,
-            };
-            std::char::from_digit(d + if e.saut { 8 } else { 0 }, 16)
-                .unwrap()
-                .to_ascii_uppercase()
-        })
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
         .collect();
     std::fs::write("../target/qa/script-93-nenuphar.txt", &texte).unwrap();
     println!(

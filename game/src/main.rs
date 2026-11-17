@@ -129,6 +129,8 @@ async fn main() {
     let mut planche_pas: u32 = 0;
 
     loop {
+        // Le bouton tactile BAS (carte 9.2b) : en jeu, dans un niveau qui a de l'eau.
+        tactile.montrer_bas(matches!(app.ecran, Ecran::Jeu) && app.monde.a_de_l_eau());
         let commandes = sources.lire();
         let nav = navigation.lire();
         // Focus perdu en pleine partie : la pause s'ouvre AVANT tout pas de simulation.

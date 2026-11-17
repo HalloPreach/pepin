@@ -10,7 +10,8 @@
 //!   fond solide dessous (ligne 10). On marche au BORD sans rien toucher ; un
 //!   pas de plus, les pieds passent sous la surface : Pépin COULE
 //!   (`CauseMort::Noyade`), une vie perdue ;
-//! - on y saute en PLANANT : Pépin devient une BARQUE (eau calme `~`,
+//! - on y entre parapluie RETOURNÉ (BAS tenu, carte 9.2b ; en planant, on
+//!   coule) : Pépin devient une BARQUE (eau calme `~`,
 //!   colonnes 6 à 8), puis le courant d'eau `}` (colonnes 9 à 25) l'emporte
 //!   vers la droite, jusqu'au QUAI (colonnes 26 à 35, une tuile plus haut que
 //!   le sol) ; on en sort d'un SAUT depuis la barque ;
@@ -39,8 +40,8 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     // Décor du caniveau (carte 9.5) : le premier niveau du Monde 2 y apprendra la barque.
     theme: Theme::Caniveau,
     genre: GenreNiveau::Normal,
-    intro: "Tombé dans l'eau parapluie ouvert, Pépin flotte : le parapluie retourné est une barque. Parapluie fermé, il coule. Le courant d'eau l'emporte vers le quai.",
-    mecanique: "Planer dans l'eau pour tenir la barque ; ramer (lentement) et laisser le courant porter ; sauter sur le quai depuis la barque.",
+    intro: "BAS retourne le parapluie : tombé ainsi dans l'eau, Pépin flotte dans une barque. Parapluie fermé ou ouvert, il coule. Le courant d'eau l'emporte vers le quai.",
+    mecanique: "Tenir BAS en entrant dans l'eau pour tenir la barque ; ramer (lentement) et laisser le courant porter ; sauter sur le quai depuis la barque.",
     duree_cible_s: 45,
     ascii: ASCII,
     aiguilles: &[],
@@ -55,15 +56,16 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   à 25 (24 px/s, plus lent que la rame : on peut ramer contre).
 /// - Sur l'eau (ligne 8) : une lanterne (colonne 14) et une goutte (colonne
 ///   21, x de 340 à 348, au ras de l'eau) qu'on n'atteint QU'EN PASSANT PAR
-///   LA BARQUE : à bord, ou en planant après un saut depuis la barque. Un saut
+///   LA BARQUE : à bord, ou en planant après un saut depuis la barque (puis
+///   BAS avant de retoucher l'eau, carte 9.2b). Un saut
 ///   planant depuis le sol retombe dans l'eau vers x = 200, et depuis le quai
 ///   on la survole bien trop haut.
 /// - Quai : colonnes 26 à 35, lignes 8 et 9 (le dessus à y = 128, 16 px
 ///   au-dessus de l'eau). La barque bute contre son mur ; le saut depuis la
 ///   barque (pieds à 147, sommet vers 90) passe largement par-dessus. Ce saut
 ///   vaut un saut du sol (il part 3 px plus bas) : le robot de QA s'en sert
-///   pour « ricocher » (toucher l'eau en planant, ressauter aussitôt de la
-///   barque, planer de nouveau).
+///   pour « ricocher » (toucher l'eau parapluie retourné, ressauter aussitôt de
+///   la barque, planer de nouveau).
 /// - Sur le quai : la 3e goutte (colonne 30) et le drapeau (colonne 33).
 const ASCII: &str = r#"
 ....................................

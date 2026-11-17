@@ -439,6 +439,7 @@ mod tests {
         let gauche = Entrees {
             direction: Direction::Gauche,
             saut: false,
+            bas: false,
         };
         for _ in 0..6 {
             banc.pas(&gauche);
@@ -494,6 +495,7 @@ mod tests {
         let saut = Entrees {
             direction: Direction::Immobile,
             saut: true,
+            bas: false,
         };
         banc.pas(&saut);
         banc.pas(&saut);

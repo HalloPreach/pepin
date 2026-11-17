@@ -223,6 +223,7 @@ mod tests {
             let e = Entrees {
                 direction,
                 saut: false,
+                bas: false,
             };
             let mut elans = vec![j.elan_auvent()];
             loop {
@@ -341,6 +342,7 @@ mod tests {
             let e = Entrees {
                 direction,
                 saut: false,
+                bas: false,
             };
             if let Some(i) = pas_de_jeu(&mut j, &mut entites, &env, &e) {
                 decalages.push(j.boite.x - (COLONNE0 + i * pas) as f32 * TAILLE_TUILE);

@@ -342,6 +342,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         let mut traverse = false;
         for _ in 0..60 {
