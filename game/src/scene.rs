@@ -34,6 +34,7 @@ use crate::rendu::couleur_mq;
 use crate::skins::Skin;
 use crate::sprites::{ennemis, hauteur, largeur, objets, objets_decor, Banque, JeuImages};
 use crate::texte::{self, Style};
+use crate::tuiles_theme;
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
@@ -149,6 +150,14 @@ pub(crate) const PAS_VAGUE: u32 = 24;
 /// la collision reste celle de la case. Les faux murs comptent comme le solide qu'ils imitent
 /// (`tuile_vue`) ; la case d'indice d'une zone cachée est une brique décalée.
 pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
+    // Monde 2 (carte 9.6b) : un thème qui a son propre jeu de tuiles choisit d'abord.
+    let vue = |x, y| tuile_vue(monde, x, y);
+    let (theme, depart) = (monde.infos.theme, monde.niveau.depart);
+    if let Some(nom) =
+        tuiles_theme::nom_du_theme(theme, (tx, ty, t), vue, depart, hachage_case(tx, ty))
+    {
+        return nom;
+    }
     let haut = tuile_vue(monde, tx, ty - 1) == Tuile::Vide;
     if t == Tuile::Nuage && haut {
         let (gauche, droite) = (
@@ -245,7 +254,9 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                     banque.dessiner_tuile(monde.infos.theme, saillie, x + dx as f32, y);
                 }
                 // Bande d'ombre du rebord, par-dessus le haut de la brique.
-                if ombre_sous_toit(t, tuile_vue(monde, tx, ty - 1)) {
+                if ombre_sous_toit(t, tuile_vue(monde, tx, ty - 1))
+                    && !tuiles_theme::a_son_jeu(monde.infos.theme)
+                {
                     poser("ombre_toit");
                 }
             }
@@ -396,6 +407,11 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                 oiseaux += 1;
                 (image_oiseau(monde.pas, oiseaux - 1), false)
             }
+            // La rue du Monde 2 (carte 9.6b).
+            GenreDecor::BoucheEgout => ("bouche_egout", false),
+            GenreDecor::Borne => ("borne", false),
+            GenreDecor::Poubelle => ("poubelle", false),
+            GenreDecor::Gouttiere => (image(&objets_decor::GOUTTIERE, monde.pas, 10), false),
         };
         let Some(dessin) = objets_decor::SPRITES
             .iter()
@@ -1362,6 +1378,8 @@ pub fn dessiner(
     // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
     crate::eau::dessiner_marees(monde, banque, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
+    // Les stries du courant (carte 9.6b), sur l'eau qui coule.
+    crate::dessin_courant::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);
@@ -1855,14 +1873,26 @@ mod tests {
         assert_eq!(coin_decor(48.0, 112.0, 12, 20), (50, 108));
         assert_eq!(coin_decor(48.0, 112.0, 16, 22), (48, 106));
         assert_eq!(coin_decor(48.0, 112.0, 7, 24), (52, 104));
-        let noms = ["cheminee", "antenne", "paratonnerre", "manche_a_air"];
-        for nom in noms.iter().chain(objets_decor::OISEAU.iter()) {
+        let noms = [
+            "cheminee",
+            "antenne",
+            "paratonnerre",
+            "manche_a_air",
+            "bouche_egout",
+            "borne",
+            "poubelle",
+        ];
+        let animes = objets_decor::OISEAU
+            .iter()
+            .chain(objets_decor::GOUTTIERE.iter());
+        for nom in noms.iter().chain(animes) {
             assert!(
                 objets_decor::SPRITES.iter().any(|(n, _)| n == nom),
                 "{nom} : pas de dessin"
             );
         }
-        assert_eq!(GenreDecor::TOUS.len(), noms.len() + 1);
+        // Les genres animés (l'oiseau, la gouttière) ont un jeu d'images chacun.
+        assert_eq!(GenreDecor::TOUS.len(), noms.len() + 2);
     }
 
     // --- Attente de Pépin (carte 4.3) ---

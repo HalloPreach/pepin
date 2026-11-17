@@ -341,9 +341,9 @@ fn panneaux_et_tuiles_decor() {
 #[test]
 fn objets_de_decor_lus_et_poses_sur_leur_appui() {
     let avec = "
-.o.o.o.......
-.@.HTRQK..X..
-#####B#N#####
+.o.o.o...........
+.@.HTRQKEIUJ..X..
+#####B#N#########
 ";
     let n = Niveau::depuis_ascii(avec).unwrap();
     let genres: Vec<GenreDecor> = n.decors.iter().map(|d| d.genre).collect();

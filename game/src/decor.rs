@@ -154,12 +154,12 @@ pub struct TeinteTuiles {
 /// selon le groupe).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Detail {
-    /// Pieds de lampadaires de la rue (le caniveau) : trois mâts sombres, une
-    /// lueur orangée au sommet, un socle évasé.
+    /// Les lampadaires de la rue (le caniveau, carte 9.6b) : mât de fonte, lanterne
+    /// orange et son halo (`decor_rue`).
     Lampadaires,
-    /// La gouttière pleine du caniveau : une bande d'eau sombre au pied de
-    /// l'écran, ses reflets, et les bouches d'égout (câbles et anneaux).
-    Egout,
+    /// Les maisons de la rue du caniveau (carte 9.6b) : façades, fenêtres
+    /// allumées, vitrines sous leur store, descentes de gouttière (`decor_rue`).
+    Facades,
     /// Les égouts : deux tuyaux qui traversent le tunnel et leurs colliers.
     Tuyaux,
     /// La lueur cyan des égouts : une bande d'eau sombre au sol, ses reflets.
@@ -599,21 +599,24 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // La palette tient déjà : les deux cyans (`PLUIE`, `PLUIE_SOMBRE`) font
         // l'eau, les silhouettes et les cristaux.
         //
-        // Le caniveau : rue sous l'averse, au ras du trottoir ; immeubles de fond
-        // bleu sombre, rue noire devant ; la gouttière pleine et ses bouches d'égout
-        // au pied, trois lampadaires à la lueur orange.
+        // Le caniveau (refait à la carte 9.6b) : la rue sous une forte averse, vue
+        // du trottoir. Au loin, les immeubles de la ville (ardoise d'ombre, quelques
+        // fenêtres orange) sur un ciel de nuit ; devant eux, une rangée de maisons
+        // (`Detail::Facades` : façades violettes ou d'ardoise, fenêtres, vitrines
+        // sous leur store, descentes de gouttière) ; devant, les lampadaires et leur
+        // halo. La couche proche reste sous la rue (cachée par les pavés).
         Theme::Caniveau => Ambiance {
-            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE, ARDOISE],
-            lointain: ARDOISE_NUIT,
+            ciel: [ARDOISE_NUIT, ARDOISE_NUIT, ARDOISE, ARDOISE],
+            lointain: ARDOISE_OMBRE,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
             etoiles: None,
-            gouttes: 48,
+            gouttes: 56,
             descente: DESCENTE_IMMEUBLES,
             plafond: None,
             soleil: false,
             forme: Forme::Immeubles,
-            relief: 0,
+            relief: 30,
             socle: true,
             fenetres: Some((ORANGE_SOLEIL, ORANGE_SOLEIL)),
             ilots: None,
@@ -627,7 +630,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 1.0,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Lampadaires), Some(Detail::Egout), None, None],
+            details: [Some(Detail::Facades), Some(Detail::Lampadaires), None, None],
             vent: VENT_NUIT,
         },
         // Les égouts : tunnel de briques sombres entre deux parois (masses de
@@ -1537,7 +1540,7 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
 fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let (facteur, vert) = match d {
         Detail::Mouettes | Detail::Bulles => (0.0, 0),
-        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur => {
+        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => {
             (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige))
         }
         _ => (FACTEUR_PROCHE, enfoncement(cam_y, VERT_PROCHE * a.vertige)),
@@ -1547,31 +1550,10 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     // verticale du groupe (nulle en bas d'un niveau d'un écran).
     let pied = H + vert;
     match d {
-        Detail::Lampadaires => {
-            // Trois lampadaires au ras du trottoir : mât sombre, socle évasé,
-            // lanterne orangée (l'or reste réservé aux gouttes et aux éclairs).
-            for lx in [40i32, 150, 260] {
-                let x = (lx - dec).rem_euclid(L);
-                rect(x - 2, pied - 6, 5, 4, ARDOISE_OMBRE);
-                rect(x, pied - 22, 1, 16, ARDOISE_OMBRE);
-                rect(x - 1, pied - 26, 3, 4, ORANGE_SOLEIL);
-            }
-        }
-        Detail::Egout => {
-            // La gouttière pleine au pied de la rue, ses reflets, et les bouches
-            // d'égout (un cadre sombre, la grille, une lueur cyan au fond).
-            rect(0, pied - 6, L, 6, PLUIE_SOMBRE);
-            for k in 0..5 {
-                let x = (k * 67 + pas as i32 / 4).rem_euclid(L);
-                rect(x, pied - 5 + (k % 2), 4, 1, PLUIE);
-            }
-            for lx in [70i32, 165, 258] {
-                let x = (lx - dec).rem_euclid(L);
-                rect(x, pied - 12, 10, 6, ARDOISE_OMBRE);
-                rect(x + 2, pied - 10, 6, 2, PLUIE_SOMBRE);
-                rect(x + 4, pied - 9, 1, 1, PLUIE);
-            }
-        }
+        // La rue du caniveau (carte 9.6b) : posée sur la ligne du sol (48 px
+        // au-dessus du bas de l'écran, juste sous le dessus des pavés).
+        Detail::Lampadaires => crate::decor_rue::dessiner_lampadaires(dec, pied - 48),
+        Detail::Facades => crate::decor_rue::dessiner_facades(dec, pied - 48),
         Detail::Tuyaux => {
             // Deux tuyaux qui traversent le tunnel (segments en parallaxe),
             // leurs colliers, et une grille d'évacuation au fond.
@@ -1741,7 +1723,7 @@ fn dessiner_details(a: &Ambiance, groupe: u8, cam_x: i32, cam_y: i32, pas: u32) 
     for d in a.details.iter().copied().flatten() {
         let g = match d {
             Detail::Mouettes | Detail::Bulles | Detail::Phare => 0,
-            Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur => 1,
+            Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => 1,
             _ => 2,
         };
         if g == groupe {
@@ -2403,7 +2385,7 @@ mod tests {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
         assert_eq!(
             n,
-            [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0, 0, 48, 8, 24, 0, 24, 16, 40]
+            [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0, 0, 56, 8, 24, 0, 24, 16, 40]
         );
         for t in Theme::TOUS {
             let a = ambiance(t);
