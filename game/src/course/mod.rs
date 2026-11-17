@@ -323,8 +323,13 @@ fn entrees_de(p: &PartieFantome) -> Vec<pepin_core::player::Entrees> {
 mod tests {
     use super::*;
     use crate::demo::compresser;
+    // Le générateur des parties (test ignoré d'en bas) se sert de `difficulte`, absente
+    // du build de QA (carte 9.1) : ses imports aussi.
+    #[cfg(not(feature = "debug_niveaux"))]
     use pepin_core::physics::HZ;
+    #[cfg(not(feature = "debug_niveaux"))]
     use pepin_core::player::Entrees;
+    #[cfg(not(feature = "debug_niveaux"))]
     use pepin_core::zones::NIVEAUX;
 
     /// Chaque partie embarquée, rejouée dans la vraie simulation comme le fait le jeu,
@@ -375,6 +380,7 @@ mod tests {
     }
 
     /// Une partie trouvée par le générateur : force, numéro de l'essai, morts, entrées.
+    #[cfg(not(feature = "debug_niveaux"))]
     type PartieTrouvee = (Force, u32, u32, Vec<Entrees>);
 
     /// Régénère `src/course/parties.rs` avec le joueur simulé de la mesure de difficulté
@@ -383,6 +389,7 @@ mod tests {
     /// `./docker-cargo.sh test -p game --no-default-features -- --ignored --exact course::tests::ecrire_parties_des_fantomes`
     #[test]
     #[ignore]
+    #[cfg(not(feature = "debug_niveaux"))] // `difficulte` : Monde 1 seulement (carte 9.1).
     fn ecrire_parties_des_fantomes() {
         use crate::difficulte::{partie_du_fantome, Itineraires};
         let mut source = String::from(

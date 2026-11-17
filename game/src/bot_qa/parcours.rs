@@ -751,6 +751,8 @@ pub(crate) fn escargot_proche(m: &Monde) -> i32 {
 /// et la case (`cle`) où Pépin s'est posé, a été relancé, ou a touché l'arrivée.
 #[derive(Clone)]
 pub(crate) struct Etape {
+    // Lu par la mesure de difficulté, absente du build de QA (carte 9.1).
+    #[cfg_attr(feature = "debug_niveaux", allow(dead_code))]
     pub(crate) plan: Plan,
     pub(crate) entrees: Vec<Entrees>,
     pub(crate) cle: CaseParcours,

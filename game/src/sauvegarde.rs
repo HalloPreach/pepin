@@ -195,6 +195,59 @@ impl RecordsNgPlus {
     }
 }
 
+/// Records de partie d'un MONDE autre que le Monde 1 (carte 9.1) : parties finies,
+/// meilleur score et meilleur temps d'une partie complète de ce monde. Texte :
+/// `partie.monde2=parties:1 score:900 temps:5000`, écrit seulement quand une partie du
+/// monde a été finie. Le Monde 1 garde ses lignes d'avant (`meilleur_score`,
+/// `parties_finies`, `meilleur_temps`) : sa sauvegarde ne change pas d'un octet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RecordsPartie {
+    pub parties_finies: u32,
+    pub meilleur_score: u32,
+    pub meilleur_temps: Option<u32>,
+}
+
+/// Clé de sauvegarde des records de partie du Monde 2 (carte 9.1).
+pub const CLE_PARTIE_MONDE2: &str = "partie.monde2";
+
+impl RecordsPartie {
+    /// Une partie du monde finie : `true` si c'est un record de score (ou la première).
+    pub fn noter_partie(&mut self, score: u32, temps: u32) -> bool {
+        let record = self.parties_finies == 0 || score > self.meilleur_score;
+        self.parties_finies = self.parties_finies.saturating_add(1);
+        self.meilleur_score = self.meilleur_score.max(score);
+        self.meilleur_temps = Some(self.meilleur_temps.map_or(temps, |t| t.min(temps)));
+        record
+    }
+
+    /// La ligne `cle=parties:… score:… temps:…` (rien tant qu'aucune partie n'est finie).
+    fn vers_texte(&self, cle: &str, t: &mut String) {
+        if *self == Self::default() {
+            return;
+        }
+        t.push_str(&format!(
+            "{cle}=parties:{} score:{}",
+            self.parties_finies, self.meilleur_score
+        ));
+        if let Some(temps) = self.meilleur_temps {
+            t.push_str(&format!(" temps:{temps}"));
+        }
+        t.push('\n');
+    }
+
+    /// Relit la valeur d'une ligne `partie.mondeN`. Tolérante, comme le reste.
+    fn lire(&mut self, valeur: &str) {
+        for (nom, v) in valeur.split_whitespace().filter_map(|c| c.split_once(':')) {
+            match nom {
+                "parties" => self.parties_finies = v.parse().unwrap_or(0),
+                "score" => self.meilleur_score = v.parse().unwrap_or(0),
+                "temps" => self.meilleur_temps = v.parse().ok(),
+                _ => {}
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sauvegarde {
     /// Porte-monnaie : gouttes d'or à dépenser.
@@ -226,6 +279,8 @@ pub struct Sauvegarde {
     pub courses: BTreeMap<String, [Option<i32>; 3]>,
     /// Records de la nouvelle partie + (carte 8.8).
     pub ng_plus: RecordsNgPlus,
+    /// Records des parties complètes du Monde 2 (carte 9.1), à part du Monde 1.
+    pub partie_monde2: RecordsPartie,
 }
 
 impl Default for Sauvegarde {
@@ -247,6 +302,7 @@ impl Default for Sauvegarde {
                 .collect(),
             courses: BTreeMap::new(),
             ng_plus: RecordsNgPlus::default(),
+            partie_monde2: RecordsPartie::default(),
         }
     }
 }
@@ -517,6 +573,7 @@ impl Sauvegarde {
             }
         }
         s.ng_plus.vers_texte(&mut t);
+        s.partie_monde2.vers_texte(CLE_PARTIE_MONDE2, &mut t);
         t
     }
 
@@ -589,6 +646,8 @@ impl Sauvegarde {
                 }
                 // Carte 8.8 : les records de la nouvelle partie +.
                 _ if cle.starts_with("ng_plus") => s.ng_plus.lire(cle, valeur),
+                // Carte 9.1 : les records de partie du Monde 2.
+                CLE_PARTIE_MONDE2 => s.partie_monde2.lire(valeur),
                 _ => {
                     // Courses (carte 8.7) : un champ de plus en v3, ignoré par les
                     // versions d'avant (pas de changement de version).
@@ -918,6 +977,33 @@ mod tests {
         assert_eq!(progres(NIVEAUX, &lu, i + 1), arc);
         assert_eq!(progres(NIVEAUX, &lu, i + 2), descente);
         assert_eq!(etat_etape(NIVEAUX, &lu, i + 2), EtatEtape::Finie);
+    }
+
+    /// Carte 9.1 : les records de partie du Monde 2 vivent sous `partie.monde2`, à part
+    /// de ceux du Monde 1 ; une sauvegarde sans partie du Monde 2 n'a pas la ligne
+    /// (le texte du Monde 1 ne change pas d'un octet).
+    #[test]
+    fn les_records_du_monde_2_sont_a_part() {
+        let mut s = Sauvegarde::default();
+        assert!(!s.vers_texte().contains(CLE_PARTIE_MONDE2));
+        assert!(s.partie_monde2.noter_partie(500, 4000));
+        assert!(!s.partie_monde2.noter_partie(300, 3000));
+        assert_eq!(
+            s.partie_monde2,
+            RecordsPartie {
+                parties_finies: 2,
+                meilleur_score: 500,
+                meilleur_temps: Some(3000)
+            }
+        );
+        assert_eq!(
+            (s.parties_finies, s.meilleur_score),
+            (0, 0),
+            "Monde 1 intact"
+        );
+        let texte = s.vers_texte();
+        assert!(texte.contains("partie.monde2=parties:2 score:500 temps:3000\n"));
+        assert_eq!(Sauvegarde::depuis_texte(&texte), s);
     }
 
     /// Carte 8.13 : un niveau v2 avec une médaille ou un défi, mais SANS temps, est

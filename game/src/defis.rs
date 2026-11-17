@@ -210,6 +210,11 @@ pub fn noter_niveau(s: &mut Sauvegarde, infos: &InfosNiveau, t: &Tentative) -> R
 pub const BONUS_FIN: &str = "fin";
 pub const BONUS_SANS_GAME_OVER: &str = "sans_game_over";
 pub const BONUS_TOUTES_LES_GOUTTES: &str = "toutes_les_gouttes";
+/// Les mêmes pour une partie du Monde 2 (carte 9.1) : chaque monde a ses bonus de fin,
+/// crédités une seule fois chacun.
+pub const BONUS_FIN_MONDE2: &str = "monde2_fin";
+pub const BONUS_SANS_GAME_OVER_MONDE2: &str = "monde2_sans_game_over";
+pub const BONUS_TOUTES_LES_GOUTTES_MONDE2: &str = "monde2_toutes_les_gouttes";
 
 /// Une ligne du bonus de fin de partie.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -250,6 +255,28 @@ pub fn bonus_fin(sans_game_over: bool, toutes_les_gouttes: bool) -> [LigneBonus;
             toutes_les_gouttes,
         ),
     ]
+}
+
+/// Le bonus de fin d'une partie du monde `monde` (carte 9.1) : celui du Monde 1
+/// (`bonus_fin`, mêmes identifiants qu'avant), ou les mêmes lignes sous les
+/// identifiants du Monde 2.
+pub fn bonus_fin_du_monde(
+    monde: u8,
+    sans_game_over: bool,
+    toutes_les_gouttes: bool,
+) -> [LigneBonus; 3] {
+    let mut lignes = bonus_fin(sans_game_over, toutes_les_gouttes);
+    if monde > 1 {
+        let ids = [
+            BONUS_FIN_MONDE2,
+            BONUS_SANS_GAME_OVER_MONDE2,
+            BONUS_TOUTES_LES_GOUTTES_MONDE2,
+        ];
+        for (l, id) in lignes.iter_mut().zip(ids) {
+            l.id = id;
+        }
+    }
+    lignes
 }
 
 /// Crédite le bonus de fin : chaque ligne gagnée pour la PREMIÈRE fois rapporte (et
@@ -339,6 +366,16 @@ mod tests {
         assert!(b[0].deja && !b[1].deja && !b[2].deja);
         assert_eq!(crediter_bonus_fin(&mut s, &mut bonus_fin(true, true)), 0);
         assert_eq!(total_bonus(&bonus_fin(true, true)), 20);
+        // Carte 9.1 : le Monde 1 garde ses identifiants ; le Monde 2 a les siens, donc
+        // ses bonus de fin se gagnent une fois de plus, une seule fois.
+        assert_eq!(bonus_fin_du_monde(1, true, true), bonus_fin(true, true));
+        let mut b2 = bonus_fin_du_monde(2, true, true);
+        assert_eq!(b2[0].id, BONUS_FIN_MONDE2);
+        assert_eq!(crediter_bonus_fin(&mut s, &mut b2), 20);
+        assert_eq!(
+            crediter_bonus_fin(&mut s, &mut bonus_fin_du_monde(2, true, true)),
+            0
+        );
         // Les bandes d'affichage tiennent dans l'écran, pour chaque niveau.
         for n in NIVEAUX {
             let r = noter_niveau(&mut Sauvegarde::default(), n, &lente);

@@ -19,7 +19,7 @@ use pepin_core::palette::{
     ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE, BRUME, CORAIL_CLAIR,
     OR, OR_PALE, PLUIE,
 };
-use pepin_core::zones::Theme;
+use pepin_core::zones::{InfosNiveau, Theme};
 
 use super::{dessiner_menu, panneau, Disposition};
 use crate::chrono;
@@ -55,6 +55,14 @@ pub struct Bilan {
     /// Les lettres cachées trouvées (carte 8.6, toutes parties confondues), dans
     /// l'ordre du mot ; `None` : pas de ligne (un bilan sans lettres, tests).
     pub lettres: Option<[bool; NB_LETTRES]>,
+    /// Le monde de la partie (carte 9.1) : les totaux de gouttes sont ceux de CE monde.
+    /// 0 (la valeur par défaut des tests) compte comme le Monde 1.
+    pub monde: u8,
+}
+
+/// Les niveaux du monde de la partie (carte 9.1) : avec le seul Monde 1, toute la table.
+fn niveaux_de_la_partie(bilan: &Bilan) -> &'static [InfosNiveau] {
+    levels::niveaux_du_monde(NIVEAUX, bilan.monde.max(1))
 }
 
 impl Bilan {
@@ -88,10 +96,11 @@ pub struct MiseEnPage {
 
 /// Le bonus du jeu, vu de l'écran de fin.
 fn bonus_fin(bilan: &Bilan) -> BonusFin {
-    let total = levels::gouttes_du_bonus(NIVEAUX);
+    let niveaux = niveaux_de_la_partie(bilan);
+    let total = levels::gouttes_du_bonus(niveaux);
     match bilan.gouttes_bonus {
         Some(gouttes) => BonusFin::Joue { gouttes, total },
-        None if NIVEAUX.iter().any(|n| n.genre == GenreNiveau::Bonus) => BonusFin::Manque,
+        None if niveaux.iter().any(|n| n.genre == GenreNiveau::Bonus) => BonusFin::Manque,
         None => BonusFin::Absent,
     }
 }
@@ -126,7 +135,7 @@ const PAS_LIGNES_MIN: f32 = 10.0;
 /// se resserrent d'un pixel à la fois (jusqu'à 10 px), puis le bloc remonte de 2 px
 /// avec 2 px seulement avant le mot. Les cinq lettres réunies : « FIN SECRÈTE ».
 pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
-    let total = levels::gouttes_du_parcours(NIVEAUX);
+    let total = levels::gouttes_du_parcours(niveaux_de_la_partie(bilan));
     let mut lignes = vec![
         (contenu::LIBELLE_TEMPS, chrono::temps_precis(bilan.pas)),
         (
@@ -135,7 +144,7 @@ pub fn mise_en_page(bilan: &Bilan) -> MiseEnPage {
         ),
     ];
     if let Some(b) = bilan.gouttes_bonus {
-        let total_bonus = levels::gouttes_du_bonus(NIVEAUX);
+        let total_bonus = levels::gouttes_du_bonus(niveaux_de_la_partie(bilan));
         lignes.push((contenu::LIBELLE_BONUS, format!("{b}/{total_bonus}")));
     }
     // Les lettres cachées : leur place dans les lignes, dessinées à part (`lettres`).
@@ -318,6 +327,7 @@ mod tests {
                         Some([true; 5]),
                     ] {
                         v.push(Bilan {
+                            monde: 1,
                             pas: 3600,
                             gouttes,
                             morts: 2,
@@ -388,6 +398,7 @@ mod tests {
     #[test]
     fn sans_epilogue_l_ecran_de_fin_reste_le_soleil() {
         let m = mise_en_page(&Bilan {
+            monde: 1,
             pas: 3600,
             gouttes: 9,
             morts: 2,
@@ -412,6 +423,7 @@ mod tests {
     #[test]
     fn apres_l_epilogue_pepin_est_de_retour_la_nuit() {
         let m = mise_en_page(&Bilan {
+            monde: 1,
             gouttes: 33,
             epilogue: true,
             ..Bilan::default()
@@ -429,6 +441,7 @@ mod tests {
     #[test]
     fn les_gouttes_du_parcours_et_du_bonus_sont_comptees_a_part() {
         let joue = mise_en_page(&Bilan {
+            monde: 1,
             gouttes: 33,
             gouttes_bonus: Some(2),
             epilogue: true,
@@ -442,6 +455,7 @@ mod tests {
         assert_eq!(joue.lignes[1].1, "33/33");
         assert_eq!(joue.lignes[2].1, "2/3");
         let manque = mise_en_page(&Bilan {
+            monde: 1,
             gouttes: 20,
             epilogue: true,
             ..Bilan::default()
@@ -488,6 +502,7 @@ mod tests {
         let noms =
             |b: &Bilan| -> Vec<&str> { mise_en_page(b).lignes.iter().map(|l| l.0).collect() };
         let base = Bilan {
+            monde: 1,
             pas: 3600,
             gouttes: 20,
             morts: 7,
@@ -504,6 +519,7 @@ mod tests {
         );
         assert_eq!(mise_en_page(&base).lignes[3].1, "3");
         let complet = Bilan {
+            monde: 1,
             gouttes: 33,
             gouttes_bonus: Some(3),
             ..base
@@ -527,6 +543,7 @@ mod tests {
         );
         assert_eq!(mise_en_page(&base).pas_lignes, 11.0, "à l'écart habituel");
         let incomplet = Bilan {
+            monde: 1,
             gouttes: 33,
             gouttes_bonus: Some(1),
             ..base

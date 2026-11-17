@@ -145,6 +145,14 @@ pub const TITRE_SIX_LIGNES: Disposition = Disposition {
     pas: 17.0,
 };
 
+/// Titre à SEPT lignes (carte 9.1 : la ligne MONDE 2 en plus des six, quand le
+/// Monde 2 est ouvert et non vide) : même départ sous le grand titre, au pas de 14 px,
+/// pour finir encore au-dessus des toits (y = 151).
+pub const TITRE_SEPT_LIGNES: Disposition = Disposition {
+    y0: 53.0,
+    pas: 14.0,
+};
+
 /// Mise en page d'un menu de `nb` lignes. Le titre n'a HISTOIRE qu'après une partie
 /// finie (carte 8.11) : ses 4 lignes d'avant sont centrées dans la place des 5, au
 /// même pas de 18 px ; avec la NOUVELLE PARTIE + (6 lignes) : `TITRE_SIX_LIGNES`.
@@ -152,6 +160,9 @@ pub const TITRE_SIX_LIGNES: Disposition = Disposition {
 pub fn disposition_menu(ecran: Ecran, nb: usize) -> Option<Disposition> {
     let mut d = disposition(ecran)?;
     if ecran == Ecran::Titre {
+        if nb > LIGNES_TITRE_MAX + 1 {
+            return Some(TITRE_SEPT_LIGNES);
+        }
         if nb > LIGNES_TITRE_MAX {
             return Some(TITRE_SIX_LIGNES);
         }
@@ -379,6 +390,14 @@ mod tests {
         assert!(
             y + h <= titre::SOL && d.y0 >= titre::FIN_TITRE,
             "titre : 6 lignes"
+        );
+        // Sept lignes (carte 9.1, MONDE 2) : toujours entre le grand titre et le sol,
+        // des lignes plus hautes qu'une ligne de texte avec son ombre.
+        let d = disposition_menu(Ecran::Titre, 7).unwrap();
+        let (_, y, _, h) = d.rect_ligne(6);
+        assert!(
+            y + h <= titre::SOL && d.y0 >= titre::FIN_TITRE && d.pas >= 12.0,
+            "titre : 7 lignes"
         );
     }
 

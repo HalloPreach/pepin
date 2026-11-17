@@ -10,7 +10,7 @@
 //! bandeaux et le panneau : rien ne déborde (pas de découpage à faire).
 
 use pepin_core::font::largeur_texte;
-use pepin_core::levels::{nb_normaux, GenreNiveau, NIVEAUX};
+use pepin_core::levels::{niveaux_du_monde, GenreNiveau, NIVEAUX};
 use pepin_core::palette::{
     Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE,
     BRUME, CORAIL, CORAIL_CLAIR, NUAGE, OR, ORANGE_SOLEIL, OR_PALE, PLUIE, VIOLET_ORAGE,
@@ -44,6 +44,10 @@ const BOUTON_JOUER: (f32, f32, f32, f32) = (184.0, 140.0, 63.0, 20.0);
 const BOUTON_COURSE: (f32, f32, f32, f32) = (249.0, 140.0, 63.0, 20.0);
 /// Bouton RETOUR, dans le bandeau du bas.
 const BOUTON_RETOUR: (f32, f32, f32, f32) = (4.0, 166.0, 62.0, 13.0);
+/// Bouton du monde voisin (carte 9.1, « MONDE 2 » ou « MONDE 1 »), à droite de RETOUR
+/// dans le bandeau du bas, à la place du rappel des touches. Seulement quand ce monde
+/// est jouable (`EtatPlan::monde_voisin`) : sans Monde 2, la carte ne change pas.
+const BOUTON_MONDE: (f32, f32, f32, f32) = (70.0, 166.0, 58.0, 13.0);
 /// Demi-côté d'une étape, et demi-côté de sa zone de toucher (plus large).
 const DEMI: f32 = 7.0;
 const DEMI_TOUCHER: f32 = 11.0;
@@ -105,6 +109,10 @@ impl Zones for MiseEnPage {
     fn sur_retour(&self, x: f32, y: f32) -> bool {
         dedans(BOUTON_RETOUR, x, y)
     }
+
+    fn sur_bouton_monde(&self, x: f32, y: f32) -> bool {
+        dedans(BOUTON_MONDE, x, y)
+    }
 }
 
 /// Dessine la carte des niveaux. `anim` : pas écoulés depuis son ouverture.
@@ -122,12 +130,13 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
         banque.dessiner_tuile(Theme::Toits, "toit_haut", x, y_toits);
         banque.dessiner_tuile(Theme::Toits, "toit_plein", x, y_toits + 16.0);
     }
-    dessiner_chemins(g, s, &ecran);
-    for (i, &(x, y)) in g.etapes.iter().enumerate() {
+    dessiner_chemins(e, s, &ecran);
+    for (k, &(x, y)) in g.etapes.iter().enumerate() {
+        let i = e.debut_monde + k; // Indice DANS LA TABLE (l'étape est un indice local du monde).
         dessiner_etape(i, x, ecran(y), s, i == e.selection, anim);
     }
-    // Pépin (skin actif) debout sur l'étape choisie.
-    if let Some(&(x, y)) = g.etapes.get(e.selection) {
+    // Pépin (skin actif) debout sur l'étape choisie (indice local de la tranche).
+    if let Some(&(x, y)) = g.etapes.get(e.selection.saturating_sub(e.debut_monde)) {
         let pepin = image(&skin.images().repos, anim, 30);
         banque.dessiner(pepin, x - 8.0, ecran(y) - DEMI - 16.0, false);
     }
@@ -138,7 +147,26 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
     rect(0.0, Y_VUE + H_VUE, l, 180.0 - Y_VUE - H_VUE, ARDOISE_OMBRE);
     rect(L_CARTE, Y_VUE, l - L_CARTE, H_VUE, ARDOISE_OMBRE);
     let ombre = |c| Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
-    texte::dessiner_centre(contenu::TITRE_PLAN, 4.0, ombre(OR_PALE));
+    // Plusieurs mondes jouables (carte 9.1) : le MONDE affiché titre la carte (à gauche)
+    // et le nom de l'écran titre le panneau (à droite). Sinon (la production tant que le
+    // Monde 2 est vide), le bandeau reste exactement celui d'avant.
+    let voisin = e.monde_voisin(NIVEAUX, s);
+    if e.monde == 1 && voisin.is_none() {
+        texte::dessiner_centre(contenu::TITRE_PLAN, 4.0, ombre(OR_PALE));
+    } else {
+        texte::dessiner_centre_sur(
+            &contenu::libelle_monde(e.monde),
+            L_CARTE / 2.0,
+            4.0,
+            ombre(OR_PALE),
+        );
+        texte::dessiner_centre_sur(
+            contenu::TITRE_PLAN,
+            (L_CARTE + l) / 2.0,
+            4.0,
+            ombre(OR_PALE),
+        );
+    }
     banque.dessiner("goutte0", 4.0, 2.0, false);
     texte::dessiner(
         &s.gouttes_en_poche.to_string(),
@@ -150,12 +178,25 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
     let (x, y, w, h) = BOUTON_RETOUR;
     panneau(x, y, w, h, ARDOISE_NUIT, BRUME);
     texte::dessiner_centre_sur(contenu::RETOUR, x + w / 2.0, y + 3.0, ombre(BRUME));
-    texte::dessiner(
-        contenu::AIDE_PLAN,
-        x + w + 8.0,
-        y + 3.0,
-        Style::simple(BRUME, 1),
-    );
+    if let Some(voisin) = voisin {
+        // Le bouton du monde voisin (carte 9.1) : il prend la place du rappel des
+        // touches en bas à droite.
+        let (bx, by, bw, bh) = BOUTON_MONDE;
+        panneau(bx, by, bw, bh, ARDOISE_NUIT, OR_PALE);
+        texte::dessiner_centre_sur(
+            &contenu::libelle_monde(voisin),
+            bx + bw / 2.0,
+            by + 3.0,
+            ombre(OR_PALE),
+        );
+    } else {
+        texte::dessiner(
+            contenu::AIDE_PLAN,
+            x + w + 8.0,
+            y + 3.0,
+            Style::simple(BRUME, 1),
+        );
+    }
 }
 
 /// Le ciel en bandes, du soleil (haut) à l'orage (bas), avec un damier entre deux
@@ -241,15 +282,24 @@ fn pointilles((x0, y0): (f32, f32), (x1, y1): (f32, f32), c: Couleur) {
 }
 
 /// Le chemin qui monte (niveaux normaux), la branche secrète du bonus (une fois
-/// révélé) et la descente de l'épilogue jusqu'aux toits.
-fn dessiner_chemins(g: &Geometrie, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) {
-    let pos = |i: usize| (g.etapes[i].0, ecran(g.etapes[i].1));
+/// révélé) et la descente de l'épilogue jusqu'aux toits. Dessine le MONDE affiché :
+/// les indices de `g.etapes` sont locaux à sa tranche, ceux de `etat_etape` sont des
+/// indices de table (`debut_monde + k`).
+fn dessiner_chemins(e: &EtatPlan, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) {
+    let g = &e.geometrie;
+    let debut = e.debut_monde;
+    let tranche = niveaux_du_monde(NIVEAUX, e.monde);
+    let pos = |k: usize| (g.etapes[k].0, ecran(g.etapes[k].1));
     let couleur = |i: usize| match etat_etape(NIVEAUX, s, i) {
         EtatEtape::Ouverte | EtatEtape::Finie => OR_PALE,
         _ => ARDOISE_PALE,
     };
-    let normaux: Vec<usize> = (0..NIVEAUX.len())
-        .filter(|&i| NIVEAUX[i].genre == GenreNiveau::Normal)
+    // Indices LOCAUX de la tranche du monde (l'étape `k` est `debut + k` en table).
+    let normaux: Vec<usize> = tranche
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| n.genre == GenreNiveau::Normal)
+        .map(|(k, _)| k)
         .collect();
     // Des toits jusqu'au premier niveau.
     if let Some(&premier) = normaux.first() {
@@ -257,19 +307,20 @@ fn dessiner_chemins(g: &Geometrie, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) 
         pointilles((x, ecran(g.hauteur - H_TOITS)), (x, y), OR_PALE);
     }
     for w in normaux.windows(2) {
-        pointilles(pos(w[0]), pos(w[1]), couleur(w[1]));
+        pointilles(pos(w[0]), pos(w[1]), couleur(debut + w[1]));
     }
     let Some(&sommet) = normaux.last() else {
         return;
     };
-    for (i, n) in NIVEAUX.iter().enumerate() {
+    for (k, n) in tranche.iter().enumerate() {
+        let i = debut + k;
         match n.genre {
             GenreNiveau::Bonus if etat_etape(NIVEAUX, s, i) != EtatEtape::Cachee => {
-                pointilles(pos(sommet), pos(i), couleur(i));
+                pointilles(pos(sommet), pos(k), couleur(i));
             }
             // La descente part du sommet vers la droite, puis redescend.
             GenreNiveau::Epilogue => {
-                let (x, y) = pos(i);
+                let (x, y) = pos(k);
                 let coude = (x, pos(sommet).1);
                 pointilles(pos(sommet), coude, couleur(i));
                 pointilles(coude, (x, y), couleur(i));
@@ -371,11 +422,12 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
             texte::dessiner_centre_sur(&ligne, centre, y, ombre(BLANC_CASSE));
             y += 10.0;
         }
-        // Où on en est : gouttes des niveaux normaux trouvées, sur le total.
+        // Où on en est : gouttes des niveaux normaux DU MONDE trouvées, sur le total du monde.
+        let tranche = niveaux_du_monde(NIVEAUX, e.monde);
         let compte = format!(
             "{}/{}",
-            gouttes_trouvees_normales(NIVEAUX, s),
-            gouttes_pour_le_bonus(NIVEAUX)
+            gouttes_trouvees_normales(tranche, s),
+            gouttes_pour_le_bonus(tranche)
         );
         let lc = largeur_texte(&compte, 1) as f32 + 12.0;
         let gx = (centre - lc / 2.0).round();
@@ -385,7 +437,8 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
         return;
     }
     texte::dessiner_centre_sur(
-        &contenu::etiquette_niveau(infos, nb_normaux(NIVEAUX)),
+        // Le numéro est PAR MONDE (carte 9.1) : « MONDE 2 · NIVEAU 1/7 ».
+        &contenu::etiquette(infos),
         centre,
         y,
         ombre(BRUME),
