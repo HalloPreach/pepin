@@ -58,8 +58,9 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// - Quai : colonnes 26 à 35, lignes 8 et 9 (le dessus à y = 128, 16 px
 ///   au-dessus de l'eau). La barque bute contre son mur ; le saut depuis la
 ///   barque (pieds à 147, sommet vers 90) passe largement par-dessus. Ce saut
-///   part plus haut qu'un saut du sol : le robot de QA s'en sert pour
-///   « ricocher » (toucher l'eau en planant, ressauter aussitôt de la barque).
+///   vaut un saut du sol (il part 3 px plus bas) : le robot de QA s'en sert
+///   pour « ricocher » (toucher l'eau en planant, ressauter aussitôt de la
+///   barque, planer de nouveau).
 /// - Sur le quai : la 3e goutte (colonne 30) et le drapeau (colonne 33).
 const ASCII: &str = r#"
 ....................................

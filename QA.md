@@ -6588,3 +6588,49 @@ jeu, pour débloquer une fin différente. »
 - Vitesse du mur : `VITESSE_MUR` 64 px/s (2/3 de la course) avant, 76,8 px/s après (80 %, la limite vérifiée à la compilation) ; NG+ inchangé (même constante, aucune variante touchée).
 - `RETARD_MAX` 128 px (2 s) avant, 96 px (1,25 s) après ; `RECUL_REAPPARITION` 112 px ramené à 96 px (au-delà, le mur était de toute façon tiré à `RETARD_MAX` au pas suivant). Grille inchangée.
 - Temps du robot sur le niveau : 1 902 pas (31,7 s) avant, 1 902 pas après (même parcours, 0 mort ; traces `ecrire_script_navigateur`). Mur rejoué sur la trace : marge mini 41,7 px (2,6 tuiles) au départ, 75 px ou plus ensuite (88 px aux grêles), contre 83 px avant ; toujours plus d'une demi-tuile. Preuves : `test -p core poursuite` (test du mur adapté aux constantes), `faisabilite` (25), `zones` (55), robot `le_robot_finit_tous_les_niveaux_sans_mourir` et `le_robot_finit_la_nouvelle_partie_plus_sans_mourir` verts, lint, `./build.sh`. Non testé : un humain au clavier ou au toucher (1,25 s d'hésitation suffit à se faire prendre), vrai téléphone. Remarque : le niveau 4 a pris 13 pas de plus au robot entre les deux traces sans lien avec cette carte (aucun mur au niveau 4).
+
+## Carte 9.2 : eau et barque (tuile d'eau, flotter/couler, courants d'eau, rendu, niveau d'essai)
+
+- Mécanique (core) : tuiles `~` (eau calme), `{` et `}` (courant vers la gauche / la droite), NON
+  solides, assemblées en étendues (`Niveau::eaux`, surface = haut de l'étendue). Planer dans l'eau :
+  Pépin devient une BARQUE et la garde sans tenir la touche ; il rame à 40 % de la course
+  (`VITESSE_RAME` 38,4 px/s), le courant pousse la barque à 24 px/s (`VITESSE_COURANT_EAU`, plus
+  lent que la rame, vérifié à la compilation : on peut ramer contre) ; le SAUT l'en fait sortir
+  (un saut normal, les pieds partant 3 px sous la surface). Pieds sous la surface sans planer (en tombant OU en marchant
+  dedans) : noyade, `CauseMort::Noyade`, une vie. Protégé (réapparition) : recueilli en barque.
+- Recherche : `Fin::Barque` est un point de décision dans la faisabilité et dans le robot de QA ;
+  un départ au ras de l'eau (lanterne posée sur l'eau) part à bord. Règle de grille : une lanterne
+  peut être posée sur l'eau (`aucune_lanterne_ne_flotte`).
+- Rendu : 9 tuiles d'eau (calme, courant gauche, courant droite x dessus, dessus 1 px plus bas,
+  intérieur), deux couleurs seulement (`PLUIE`, `PLUIE_SOMBRE`), la surface ondule d'un pixel
+  (alternance toutes les 24 images, à contretemps d'une colonne à l'autre) ; barques 16x16 de
+  Pépin (coque corail) et de Pépinette (coque cyan, nœud corail). Planches :
+  `docs/qa/92-planche-eau.png`, `docs/qa/92-planche-skins-barque.png` (`docs/planche-skins.py`).
+- Niveau d'essai « eau » (`core/src/levels/essai_eau.rs`, touche F11 du build de QA) : bassin creusé
+  de 320 px (trop large pour un saut planant depuis le sol), courant vers un quai, une lanterne et
+  une goutte posées sur l'eau. Le robot (parcours complet) : 3 gouttes, 0 mort, 23 images en barque.
+- Tests ajoutés : `planer_dans_leau_donne_la_barque_sinon_noyade` (core, la mécanique : barque,
+  rame, saut, noyade, réapparition protégée) et `le_robot_finit_le_niveau_d_essai_eau` (game) ;
+  test ignoré `ecrire_script_essai_eau_92` (script des captures).
+- Preuves, sur une extraction propre de 913f1fc : `test --workspace --no-default-features` : core
+  381 ok ; game 358 ok, 1 ROUGE, `chaque_partie_des_fantomes_rejoue_sans_divergence` (« Le grand
+  orage » Debutant : divergence pas 1933) : échec PRÉEXISTANT, identique à l'octet sur une extraction
+  propre de d09c84f (main avant 9.2), dû à 8.15 ; carte de suivi t_18b1afea. `lint` LINT-OK.
+  `./build.sh` : game.wasm 655 764 octets (646 931 sur d09c84f), `dist/` : 0 nom interdit, aucun
+  `/home`, seule URL `http://www.w3.org/2000/svg`. Monde 1 inchangé : les trois parties du robot
+  ont l'empreinte IDENTIQUE à celle de d09c84f : normale (`ecrire_script_navigateur`) 23 703
+  images, 0 mort, 13 gouttes, score 2400, `41a73ef4a0866536` ; complète 28 995 images,
+  `c070c4ae5c42223d` ; nouvelle partie + 24 472 images, `d95fc98f74c6d8ed`.
+- Captures (build de QA `./build.sh --qa` sur 127.0.0.1, Chromium 1208 sans tête par CDP,
+  `node docs/capture-92.mjs PORT docs/qa target/qa/script-92-eau.txt`) : `92-eau-depart`,
+  `92-eau-plane`, `92-eau-barque-pepin`, `92-eau-saut-vers-le-quai`, `92-eau-quai`, les mêmes pour
+  Pépinette (`-pepinette`), `92-eau-noyade-1`, `-2`, `-reapparition`, `92-eau-noyade-pepinette`.
+  Toutes regardées ; 0 pixel hors palette, 0 flou, 0 erreur de console.
+
+### Ce qui n'est PAS testé
+
+- Un joueur humain au clavier ou au tactile ; vrai téléphone, Safari ; le son (aucun son ajouté).
+- F11 dans un navigateur de bureau fenêtré : le jeu reçoit la touche (pilote CDP), mais le
+  navigateur peut AUSSI passer en plein écran (Échap ou F11 pour en sortir).
+- Le courant vers la gauche `{` n'est dans aucun niveau : vu sur la planche seulement.
+- Aucun niveau du Monde 2 n'utilise encore l'eau (cartes 9.6 et suivantes).
