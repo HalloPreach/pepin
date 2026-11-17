@@ -51,6 +51,7 @@ pub mod mobile;
 pub mod montgolfiere;
 pub mod nenuphar;
 pub mod nuage;
+pub mod pieuvre;
 pub mod pointe;
 pub mod stalactite;
 pub mod ventilateur;
@@ -73,6 +74,7 @@ pub use mobile::PlateformeMobile;
 pub use montgolfiere::Montgolfiere;
 pub use nenuphar::Nenuphar;
 pub use nuage::GrandNuage;
+pub use pieuvre::Pieuvre;
 pub use pointe::Pointe;
 pub use stalactite::Stalactite;
 pub use ventilateur::Ventilateur;
@@ -125,6 +127,9 @@ pub enum Entite {
     Stalactite(Stalactite),
     /// Chute d'eau qui pousse vers le bas (carte 9.3, `|`).
     Chute(Chute),
+    /// La Pieuvre du port, boss du Monde 2 (carte 9.12a, `8`) : dans une `Box`,
+    /// comme le Grand Nuage (ses 9 colonnes et ses 3 places de tête).
+    Pieuvre(Box<Pieuvre>),
 }
 
 /// `Entite` implémente le trait en DÉLÉGUANT à la variante réelle.
@@ -145,6 +150,7 @@ impl Actualisable for Entite {
             Entite::Auvent(e) => e.actualiser(env),
             Entite::Ventilateur(e) => e.actualiser(env),
             Entite::Nuage(e) => e.actualiser(env),
+            Entite::Pieuvre(e) => e.actualiser(env),
             Entite::Goutte(e) => e.actualiser(env),
             Entite::Lanterne(e) => e.actualiser(env),
             Entite::Lettre(e) => e.actualiser(env),
@@ -173,6 +179,8 @@ impl Entite {
             Entite::Auvent(e) => e.boite,
             Entite::Ventilateur(e) => e.boite,
             Entite::Nuage(e) => e.boite,
+            // La place de la tête en cours (elle ne bouge qu'en changeant de phase).
+            Entite::Pieuvre(e) => e.tete().unwrap_or(e.places[0]),
             Entite::Goutte(e) => e.boite,
             Entite::Lanterne(e) => e.boite,
             Entite::Lettre(e) => e.boite,
@@ -243,6 +251,58 @@ pub fn eaux_des_entites(statiques: &[Eau], entites: &[Entite]) -> Vec<Eau> {
     eaux
 }
 
+/// Le BOSS du niveau, vu sans savoir lequel (carte 9.12a) : le Grand Nuage (Monde 1)
+/// ou la Pieuvre du port (Monde 2). Le jeu (points de vie du HUD, fin du niveau, mode
+/// facile) et le robot de QA (son horloge dans la case) passent par ces méthodes :
+/// un `match` à deux bras ici, plutôt qu'un dans chaque fichier qui s'en sert.
+impl Entite {
+    /// Points de vie du boss et son maximum, `(pv, pv_max)` ; `None` si ce n'est
+    /// pas un boss.
+    pub fn points_du_boss(&self) -> Option<(u8, u8)> {
+        match self {
+            Entite::Nuage(g) => Some((g.pv(), g.pv_max())),
+            Entite::Pieuvre(p) => Some((p.pv(), p.pv_max())),
+            _ => None,
+        }
+    }
+
+    /// Le boss est-il vaincu (le niveau est fini) ?
+    pub fn boss_vaincu(&self) -> bool {
+        match self {
+            Entite::Nuage(g) => g.est_vaincu(),
+            Entite::Pieuvre(p) => p.est_vaincue(),
+            _ => false,
+        }
+    }
+
+    /// Mode facile du boss (carte 8.14) : deux points de vie au lieu de trois.
+    pub fn passer_boss_en_facile(&mut self) {
+        match self {
+            Entite::Nuage(g) => g.passer_en_facile(),
+            Entite::Pieuvre(p) => p.passer_en_facile(),
+            _ => {}
+        }
+    }
+
+    /// L'horloge du boss : `(rang de sa phase, pas écoulés dans la phase)`.
+    pub fn horloge_du_boss(&self) -> Option<(u8, u16)> {
+        match self {
+            Entite::Nuage(g) => Some((g.phase() as u8, g.ecoule())),
+            Entite::Pieuvre(p) => Some((p.phase() as u8, p.ecoule())),
+            _ => None,
+        }
+    }
+
+    /// Décale le boss de `pas` pas dans le temps (robot de QA) ; rien sinon.
+    pub fn decaler_boss(&mut self, pas: i32) {
+        match self {
+            Entite::Nuage(g) => g.decaler(pas),
+            Entite::Pieuvre(p) => p.decaler(pas),
+            _ => {}
+        }
+    }
+}
+
 /// Pépin vient de mourir : chaque Grand Nuage reprend au début de son combat
 /// (prélude), mais GARDE ses points de vie perdus (`GrandNuage::reprendre`) ; et
 /// chaque plateforme friable se reforme tout de suite (`PlateformeFriable::reformer`,
@@ -258,6 +318,7 @@ pub fn reprendre_apres_une_mort(entites: &mut [Entite], occupant: &Aabb) {
     for e in entites {
         match e {
             Entite::Nuage(n) => n.reprendre(),
+            Entite::Pieuvre(p) => p.reprendre(),
             Entite::Friable(f) => f.reformer(occupant),
             // Carte 9.3 : le nénuphar remonte, la stalactite est raccrochée.
             Entite::Nenuphar(n) => n.remettre(),

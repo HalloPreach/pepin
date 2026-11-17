@@ -58,6 +58,11 @@
 //!   coup se refait trois fois de la même façon, Pépin retombant chaque fois dans
 //!   l'arène. Les tests du niveau d'essai vérifient la tête depuis CHACUN des deux
 //!   courants (ils changent de côté d'un motif à l'autre) ;
+//! - la Pieuvre du port (boss du Monde 2, carte 9.12a) est remplacée par TROIS
+//!   pieuvres à la tête toujours sortie, une à chacune de ses places (un joueur
+//!   patient attend la fin d'un motif de tentacules) ; ses tentacules sont donc
+//!   ignorés, comme les éclairs. Toucher la tête de côté reste mortel ; un plan qui
+//!   lui retombe dessus « arrive » (`Fin::Arrivee`), comme sur le Grand Nuage ;
 //! - un escargot est remplacé par un tremplin IMMOBILE qui couvre tout son
 //!   trajet (`Escargot::etendu_au_trajet`) : partout où il peut passer, un
 //!   joueur patient qui l'attend au bon endroit lui tombe dessus et rebondit.
@@ -440,6 +445,15 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 let mut essouffle = n.clone();
                 essouffle.essouffler();
                 entites.push(Entite::Nuage(essouffle));
+            }
+            // La Pieuvre du port (carte 9.12a) : sa tête TOUJOURS sortie, à ses trois
+            // places à la fois (trois copies), sans tentacule. Voir l'en-tête.
+            Entite::Pieuvre(p) => {
+                for place in 0..p.places.len() {
+                    let mut sortie = p.clone();
+                    sortie.sortir_la_tete(place);
+                    entites.push(Entite::Pieuvre(sortie));
+                }
             }
             Entite::Escargot(s) => {
                 // Son trajet sur la grille et les solides immobiles du niveau.
@@ -951,7 +965,8 @@ fn simuler(
                 Contact::Mort(_) => return (Fin::Mort, pas),
                 Contact::Auvent => relance = true,
                 // Un saut sur la tête du Grand Nuage : le combat se gagne ainsi.
-                Contact::Nuage => return (Fin::Arrivee, pas),
+                // Ou sur la tête sortie de la Pieuvre du port (carte 9.12a).
+                Contact::Nuage | Contact::Pieuvre => return (Fin::Arrivee, pas),
                 autre => touches.push(autre),
             }
         }

@@ -34,7 +34,7 @@
 //!   g  grêle : colonne de grêlons qui tombe EN CONTINU, de la case `g` au 1er
 //!      solide dessous (ou au bas de la carte) ; elle tue parapluie fermé, on la
 //!      traverse en planant dessous
-//!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
+//!   v  courant ascendant       1-7, 9 extrémités d'une plateforme mobile (2 par chiffre)
 //!   w  ventilateur : hélice posée sur le solide du dessous ; son courant
 //!      ascendant (du dessus du socle au 1er solide au-dessus, ou au haut de
 //!      la carte) souffle 2 s puis s'arrête 2 s ; la reprise est annoncée
@@ -97,6 +97,13 @@
 //!      Pépin passe dessous, puis tombe (mortelle) et se brise au sol
 //!   |  chute d'eau (carte 9.3) : colonne qui pousse vers le BAS (lente
 //!      parapluie ouvert, rapide parapluie fermé)
+//!   8  la Pieuvre du port, boss du Monde 2 (carte 9.12a, un boss au plus) : le
+//!      `8` est dans l'eau de son bassin (case d'eau calme), qui couvre 8 cases à
+//!      sa gauche et 9 à sa droite ; 9 colonnes de 2 cases (la colonne 0 : le `8`
+//!      et sa voisine) où ses tentacules, annoncés 0,8 s, se dressent jusqu'en
+//!      haut de la carte (mortels 0,5 s) ; entre deux motifs, sa tête (3 x 2 cases)
+//!      sort sur l'eau au milieu (colonne 0), à gauche (-3) ou à droite (3) : on lui
+//!      saute dessus, trois coups. Pas de drapeau `X` : la vaincre finit le niveau
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune

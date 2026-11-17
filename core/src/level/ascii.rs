@@ -16,9 +16,10 @@ use crate::aabb::{touche_un_obstacle, Aabb, TAILLE_TUILE};
 use crate::entities::ennemi::SOUS_L_EAU_PAS;
 use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::nuage::{NB_COLONNES, PORTEE_COLONNES, TAILLE_NUAGE};
+use crate::entities::pieuvre::{self, MARGE_TENTACULE, PLACES_TETE, TAILLE_TETE};
 use crate::entities::{
     Actualisable, Auvent, Bulles, Champignon, Chute, Eclair, Ennemi, Entite, Escargot, GoutteDor,
-    GrandNuage, Grele, Lanterne, Lettre, Maree, Montgolfiere, Nenuphar, PlateformeFriable,
+    GrandNuage, Grele, Lanterne, Lettre, Maree, Montgolfiere, Nenuphar, Pieuvre, PlateformeFriable,
     PlateformeMobile, Pointe, Stalactite, TypeEnnemi, Ventilateur,
 };
 use crate::physics::{CourantAscendant, Eau, Environnement, VentLateral, JOUEUR_H};
@@ -105,6 +106,8 @@ pub(super) fn analyser(
     // Grand Nuage (au plus un) : il faut la grille entière (sa place, ses colonnes
     // d'éclairs jusqu'au sol, ses courants).
     let mut nuages: Vec<Case> = Vec::new();
+    // Pieuvre du port (carte 9.12a, au plus un boss en tout) : son bassin entier.
+    let mut pieuvres: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
     let mut lettres = 0usize;
     // Secrets (carte 8.5) : faux murs `m` et sortie secrète `x`.
@@ -209,6 +212,14 @@ pub(super) fn analyser(
                     tuiles[ty * largeur + tx] = Tuile::Eau;
                     eaux_cases.push((case, 1));
                 }
+                // La Pieuvre (carte 9.12a) : sa case est de l'eau calme, elle vit
+                // dessous. Avant `'1'..='9'` : le chiffre 8 n'est plus une
+                // plateforme mobile (aucun niveau ne s'en servait).
+                '8' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, 0));
+                    pieuvres.push(case);
+                }
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -247,10 +258,16 @@ pub(super) fn analyser(
             nombre: nuages.len(),
         });
     }
-    let arrivee_case = match (arrivees.as_slice(), nuages.is_empty()) {
+    if !pieuvres.is_empty() && nuages.len() + pieuvres.len() > 1 {
+        return Err(ErreurNiveau::BossMultiple {
+            nombre: nuages.len() + pieuvres.len(),
+        });
+    }
+    let arrivee_case = match (arrivees.as_slice(), nuages.is_empty() && pieuvres.is_empty()) {
         ([], true) => return Err(ErreurNiveau::ArriveeManquante),
         ([], false) => None,
         ([a], true) => Some(*a),
+        ([_], false) if nuages.is_empty() => return Err(ErreurNiveau::ArriveeEtPieuvre),
         ([_], false) => return Err(ErreurNiveau::ArriveeEtNuage),
         (autres, _) => {
             return Err(ErreurNiveau::ArriveeMultiple {
@@ -456,6 +473,11 @@ pub(super) fn analyser(
     for &case in &nuages {
         let nuage = poser_nuage(&tuiles, largeur, hauteur, case)?;
         entites.push(Entite::Nuage(Box::new(nuage)));
+    }
+    // Pieuvre du port : voir `poser_pieuvre`.
+    for &case in &pieuvres {
+        let p = poser_pieuvre(&tuiles, largeur, case)?;
+        entites.push(Entite::Pieuvre(Box::new(p)));
     }
 
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même
@@ -700,6 +722,63 @@ fn poser_nuage(
         colonnes,
         [courant(tx - 4), courant(tx + 3)],
     ))
+}
+
+/// La Pieuvre du port de la case `8` (`tx`, `ty`), carte 9.12a :
+/// - la rangée `ty` est la surface de son bassin : de 8 cases à gauche du `8` à 9
+///   à droite, toutes d'eau (18 cases, dans la carte) ;
+/// - ses 9 colonnes de tentacules font deux cases de large (la colonne 0 : le `8`
+///   et sa voisine de droite) ; chaque tentacule (24 px, `MARGE_TENTACULE` de
+///   chaque côté) va de la surface jusqu'en haut de la carte, « de toute la
+///   hauteur » : il traverse les pontons et les caisses ;
+/// - ses 3 places de tête (`PLACES_TETE` : milieu, gauche, droite), 48 x 32,
+///   centrées sur leur colonne et posées sur l'eau, ne touchent aucun solide.
+fn poser_pieuvre(
+    tuiles: &[Tuile],
+    largeur: usize,
+    (tx, ty): Case,
+) -> Result<Pieuvre, ErreurNiveau> {
+    let erreur = ErreurNiveau::PieuvreSansPlace {
+        ligne: ty + 1,
+        colonne: tx + 1,
+    };
+    let portee = 2 * pieuvre::PORTEE_COLONNES as usize;
+    if ty < 2 || tx < portee || tx + portee + 1 >= largeur {
+        return Err(erreur);
+    }
+    if (tx - portee..=tx + portee + 1).any(|x| tuiles[ty * largeur + x] != Tuile::Eau) {
+        return Err(erreur);
+    }
+    let t = TAILLE_TUILE;
+    let surface = ty as f32 * t;
+    // Abscisse (px) du bord gauche de la colonne `k` (de -4 à 4).
+    let gauche = |k: i8| (tx as f32 + 2.0 * f32::from(k)) * t;
+    let colonnes: [Aabb; pieuvre::NB_COLONNES] = std::array::from_fn(|i| {
+        let k = i as i8 - pieuvre::PORTEE_COLONNES;
+        Aabb::new(
+            gauche(k) + MARGE_TENTACULE,
+            0.0,
+            pieuvre::LARGEUR_COLONNE - 2.0 * MARGE_TENTACULE,
+            surface,
+        )
+    });
+    let places = PLACES_TETE.map(|k| {
+        let milieu = gauche(k) + pieuvre::LARGEUR_COLONNE / 2.0;
+        Aabb::new(
+            milieu - TAILLE_TETE.0 / 2.0,
+            surface - TAILLE_TETE.1,
+            TAILLE_TETE.0,
+            TAILLE_TETE.1,
+        )
+    });
+    for tete in &places {
+        let (x0, x1) = ((tete.x / t) as usize, ((tete.droite() - 1.0) / t) as usize);
+        let solide = (ty - 2..ty).any(|y| (x0..=x1).any(|x| tuiles[y * largeur + x].est_solide()));
+        if solide {
+            return Err(erreur);
+        }
+    }
+    Ok(Pieuvre::new(colonnes, places))
 }
 
 /// Pose une aiguille d'horloge sur chaque pivot `h` (dans l'ordre de lecture),

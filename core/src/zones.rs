@@ -221,8 +221,8 @@ mod tests {
     use crate::faisabilite::{analyser, Options};
     use crate::levels::{
         essai_auvent, essai_chat, essai_eau, essai_eau2, essai_ennemis_eau, essai_escargot,
-        essai_grele, essai_horloge, essai_montgolfiere, essai_nuage, essai_vent, essai_ventilateur,
-        essai_vertical,
+        essai_grele, essai_horloge, essai_montgolfiere, essai_nuage, essai_pieuvre, essai_vent,
+        essai_ventilateur, essai_vertical,
     };
 
     #[test]
@@ -276,6 +276,7 @@ mod tests {
             &essai_eau::INFOS,
             &essai_eau2::INFOS,
             &essai_ennemis_eau::INFOS,
+            &essai_pieuvre::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -310,6 +311,7 @@ mod tests {
             &essai_eau::INFOS,
             &essai_eau2::INFOS,
             &essai_ennemis_eau::INFOS,
+            &essai_pieuvre::INFOS,
         ])
     }
 
