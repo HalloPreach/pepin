@@ -11,9 +11,6 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Choix {
     Jouer,
-    /// La partie complète du Monde 2 (carte 9.1), sous JOUER : seulement quand le
-    /// Monde 2 est ouvert et qu'il a au moins un niveau (`Application::ouvrir`).
-    Monde2,
     /// La carte des niveaux (carte 7.4) depuis le titre ; depuis la pause ou le bilan
     /// d'un niveau joué seul, le retour à cette carte.
     Carte,

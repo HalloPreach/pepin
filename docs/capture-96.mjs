@@ -1,10 +1,10 @@
 // Pilote CDP de la carte 9.6 (« Le caniveau », 1er niveau du Monde 2) sur le build de QA, avec
 // l'horloge virtuelle de `pilote-qa.js`. La sauvegarde du navigateur ouvre le Monde 2 (« Le retour
 // du Grand Nuage » fini, `SAUVEGARDE_MONDE_2_OUVERT` du robot de QA) :
-// 1. la carte des niveaux : CARTE au titre (2 lignes sous JOUER), puis Droite jusqu'au Monde 2 ;
+// 1. la carte des niveaux : CARTE au titre (1 ligne sous JOUER), puis Droite jusqu'au Monde 2 ;
 // 2. la partie du Monde 2 du robot de QA (`ecrire_script_monde_2_96`, `--ignored`) rejouée image
-//    par image : BAS au titre à l'image 0 (le script ne code pas cette touche), Entrée à l'image 1
-//    (ligne MONDE 2), puis le caniveau ; une capture aux images données en argument.
+//    par image : Entrée sur JOUER à l'image 0 (carte 9.1b : JOUER reprend au Monde 2), puis le
+//    caniveau ; une capture aux images données en argument.
 // Compte les erreurs de la console et mesure chaque capture (couleurs hors palette, flou).
 // Usage : node capture-96.mjs PORT_HTTP DOSSIER_SORTIE SCRIPT nom:image [nom:image...]
 import { spawn } from 'node:child_process';
@@ -90,7 +90,6 @@ fs.mkdirSync(sortie, { recursive: true });
 console.log('démarré :', await ouvrir());
 await capture('96-titre');
 await touche('ArrowDown', 10);
-await touche('ArrowDown', 10);
 await touche('Enter', 120);
 for (let k = 0; k < 4; k++) await touche('ArrowRight', 40);
 await attendre(60);
@@ -99,7 +98,6 @@ await capture('96-carte-monde-2');
 // 2. La partie du Monde 2 du robot.
 const script = fs.readFileSync(fichierScript, 'utf8').trim();
 console.log('démarré :', await ouvrir());
-await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
 let pos = 0;
 const etapes = demandes.map((d) => { const [nom, n] = d.split(':'); return [Number(n), nom]; }).sort((a, b) => a[0] - b[0]);
 for (const [a, nom] of etapes) {
