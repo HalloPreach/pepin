@@ -423,7 +423,10 @@ mod tests {
             assert!(b.y > s.y + s.h, "{l}x{h} : BAS sous le saut");
             assert!((centre(&b).0 - centre(&s).0).abs() < 1e-3, "{l}x{h}");
             assert!(b.l >= s.l * 0.8, "{l}x{h} : BAS presque aussi gros");
-            assert!(b.x > avec.droite.x + avec.droite.l, "{l}x{h} : BAS à droite");
+            assert!(
+                b.x > avec.droite.x + avec.droite.l,
+                "{l}x{h} : BAS à droite"
+            );
         }
     }
 
