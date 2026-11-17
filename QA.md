@@ -6660,3 +6660,11 @@ jeu, pour débloquer une fin différente. »
   navigateur peut AUSSI passer en plein écran (Échap ou F11 pour en sortir).
 - Le courant vers la gauche `{` n'est dans aucun niveau : vu sur la planche seulement.
 - Aucun niveau du Monde 2 n'utilise encore l'eau (cartes 9.6 et suivantes).
+
+## Carte 9.3 : mécaniques d'eau (bulles `Y`, nénuphar `n`, marée `=`, stalactite `V`, chute d'eau `|`)
+
+- Fait : 5 entités (`core/src/entities/{bulles,nenuphar,maree,stalactite,chute}.rs`, un test de règle chacune), grille et `EauMalPosee`, contacts, faisabilité (bulles et chutes = courants, marée basse/pleine dans l'état du robot, aucun état posé sous une stalactite), rendu `game/src/eau.rs` + sprites `objets_eau.rs` (PLUIE/PLUIE_SOMBRE), essai « eau 2 » (F12, `essai_eau2.rs`). `H` étant la cheminée, la marée prend `=`.
+- Preuves (extraction propre de 47f6092) : suite complète verte (core 388, game 365), `lint` LINT-OK, `./build.sh` : 0 nom interdit, seule URL `http://www.w3.org/2000/svg`. Monde 1 identique : normale 23 703 images, 0 mort, `41a73ef4a0866536` ; complète `c070c4ae5c42223d` ; nouvelle partie + `d95fc98f74c6d8ed`.
+- Robot : `le_robot_finit_le_niveau_d_essai_eau2` (3 gouttes, 0 mort, barque montée par la marée) ; `reprise_depuis_chaque_lanterne` passe par la marée haute.
+- Captures `docs/qa/93-*.png` (`node docs/capture-93.mjs PORT docs/qa target/qa/script-93-eau2.txt target/qa/script-93-nenuphar.txt`, scripts du test ignoré `ecrire_script_essai_eau2_93`) : stalactite (tremble, chute), barque, bulles, marée (basse, annonce, barque qui monte, saut), chute d'eau, nénuphar (posé, enfoncé, noyade). Toutes regardées ; 0 hors palette, 0 flou, 0 erreur de console.
+- PAS testé : joueur humain, tactile, vrai téléphone, Safari ; F12 dans un navigateur de bureau (ouvre aussi les outils de développement) ; le robot traverse le bassin en barque (le nénuphar n'est prouvé que par le test et les captures) ; aucun niveau du Monde 2 ne les utilise encore (9.6 et suivantes).
