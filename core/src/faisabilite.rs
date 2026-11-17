@@ -466,10 +466,11 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // Un départ au ras de l'eau (une lanterne posée sur l'eau, carte 9.2) part
     // À BORD : dans le jeu, Pépin y réapparaît protégé, et l'eau recueille en
     // barque un Pépin protégé au lieu de le noyer (`Joueur::actualiser`).
-    let cx = depart.0 + JOUEUR_L / 2.0;
-    let sur_l_eau = niveau
-        .surface_eau(cx)
-        .is_some_and(|surface| depart.1 + JOUEUR_H >= surface - 0.5);
+    // La boîte de départ, allongée d'un demi-pixel vers le bas : posée au ras
+    // de l'eau, elle la touche ; posée sur un sol SOUS un bassin suspendu, non
+    // (`eau_touchee` regarde aussi la hauteur, correctif d'AGA).
+    let boite_depart = Aabb::new(depart.0, depart.1, JOUEUR_L, JOUEUR_H + 0.5);
+    let sur_l_eau = niveau.eau_touchee(&boite_depart).is_some();
     let n0 = Noeud {
         barque: sur_l_eau,
         ..Noeud::pose(depart.0, depart.1, 0)

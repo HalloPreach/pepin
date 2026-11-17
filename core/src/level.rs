@@ -358,10 +358,10 @@ impl Niveau {
             .count()
     }
 
-    /// La surface (px) de l'eau sous l'abscisse `cx`, s'il y en a (carte 9.2)
-    /// : le haut de l'étendue d'eau qui passe sous elle (`physics::surface_eau`).
-    pub fn surface_eau(&self, cx: f32) -> Option<f32> {
-        crate::physics::surface_eau(cx, &self.eaux)
+    /// L'étendue d'eau où la `boite` est vraiment (carte 9.2), voir
+    /// `physics::eau_touchee` : en abscisse ET en hauteur.
+    pub fn eau_touchee(&self, boite: &Aabb) -> Option<&crate::physics::Eau> {
+        crate::physics::eau_touchee(boite, &self.eaux)
     }
 
     /// Le courant de l'étendue d'eau qui couvre la case `(tx, ty)` (carte 9.2)

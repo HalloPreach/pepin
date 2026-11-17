@@ -28,7 +28,7 @@
 
 use super::{Ennemi, EtatEnnemi, TypeEnnemi};
 use crate::aabb::{deplacer, Aabb, TAILLE_TUILE};
-use crate::physics::{surface_eau, Environnement, DT, GRAVITE, HZ, VITESSE_MAX_CHUTE};
+use crate::physics::{Environnement, DT, GRAVITE, HZ, VITESSE_MAX_CHUTE};
 
 /// Phase d'un ennemi d'eau (toujours `Guet` pour les ennemis du Monde 1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -238,8 +238,17 @@ impl Ennemi {
             self.vitesse_y = 0.0;
         }
         if !self.au_sol && self.vitesse_y > 0.0 {
-            let surface = surface_eau(self.boite.centre().0, env.eaux);
-            if let Some(s) = surface.filter(|&s| bas_avant <= s + 0.01 && self.boite.bas() >= s) {
+            // La surface que la grenouille vient de FRANCHIR en tombant, sous
+            // son centre (pas celle d'un bassin plus haut, correctif d'AGA).
+            let cx = self.boite.centre().0;
+            let bas = self.boite.bas();
+            let surface = env
+                .eaux
+                .iter()
+                .map(|e| (e, e.surface()))
+                .find(|&(e, s)| e.couvre_x(cx) && bas_avant <= s + 0.01 && bas >= s)
+                .map(|(_, s)| s);
+            if let Some(s) = surface {
                 self.boite.y = s - self.boite.h;
                 self.vitesse_y = 0.0;
                 self.au_sol = true;

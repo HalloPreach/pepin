@@ -243,16 +243,30 @@ impl Eau {
     pub fn surface(&self) -> f32 {
         self.zone.y
     }
+
+    /// L'abscisse `cx` est-elle au-dessus (ou au-dessous) de l'étendue ?
+    pub fn couvre_x(&self, cx: f32) -> bool {
+        self.zone.x < cx && cx < self.zone.droite()
+    }
 }
 
-/// La surface (px) de l'eau sous l'abscisse `cx`, s'il y en a : le haut de la
-/// zone dont l'étendue (en abscisse) contient `cx`. Les étendues sont rangées
-/// du plus haut au plus bas par le parseur (`Niveau::eaux`) : la 1re sous
-/// `cx` est donc la surface de l'eau qui est sous elle.
-pub fn surface_eau(cx: f32, eaux: &[Eau]) -> Option<f32> {
+/// L'étendue d'eau où la `boite` est VRAIMENT (correctif d'AGA) : son centre
+/// est au-dessus de l'étendue en abscisse ET la boîte chevauche l'étendue en
+/// HAUTEUR (pieds sous la surface, tête au-dessus du fond). Chercher par
+/// colonne seulement était faux dès que deux étendues s'empilent (égouts,
+/// cascade) : Pépin au sol cinq rangées sous un bassin suspendu s'y noyait, et
+/// une barque qui passait dessous y était téléportée. C'est la même règle que
+/// le courant d'eau, qui ne pousse que les étendues qui chevauchent la boîte.
+///
+/// Les étendues sont rangées du plus haut au plus bas par le parseur
+/// (`Niveau::eaux`) : si la boîte en touche deux, c'est la plus haute.
+///
+/// Durées de vie : le résultat emprunte `eaux` (`'e`), pas la boîte ; on le dit
+/// au compilateur, qui ne peut pas le deviner avec deux références en entrée.
+pub fn eau_touchee<'e>(boite: &Aabb, eaux: &'e [Eau]) -> Option<&'e Eau> {
+    let cx = boite.x + boite.w / 2.0;
     eaux.iter()
-        .find(|e| e.zone.x < cx && cx < e.zone.x + e.zone.w)
-        .map(|e| e.surface())
+        .find(|e| e.couvre_x(cx) && e.zone.y < boite.bas() && boite.y < e.zone.bas())
 }
 
 /// Tout ce que le joueur « voit » du monde pendant un pas : un simple PRÊT

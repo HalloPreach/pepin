@@ -328,10 +328,10 @@ impl Joueur {
                 // pas plus loin.
                 self.vitesse.x = 0.0;
             }
-            // La surface de l'étendue d'eau sous le CENTRE de la barque (les
-            // étendues sont rangées du plus haut au plus bas par le parseur).
-            let cx = self.boite.x + self.boite.w / 2.0;
-            match surface_eau(cx, env.eaux) {
+            // La surface de l'étendue d'eau où flotte VRAIMENT la barque : sous
+            // son centre ET à sa hauteur (`eau_touchee`). Un bassin suspendu
+            // au-dessus ne la happe pas (correctif d'AGA).
+            match eau_touchee(&self.boite, env.eaux).map(Eau::surface) {
                 Some(surface) => {
                     // La barque reste flottante : les pieds de Pépin restent
                     // `ENFONCEMENT_BARQUE` sous la surface.
@@ -464,9 +464,12 @@ impl Joueur {
         // surface`), rien ne se passe : le `>` strict fait la différence. La
         // barque, elle, est flottante (les pieds restent 3 px sous la
         // surface) : c'est l'état normal de l'eau, pas une noyade.
+        // Seule compte l'étendue que Pépin chevauche VRAIMENT (`eau_touchee` :
+        // pieds sous la surface, tête au-dessus du fond) : marcher au sol sous
+        // un bassin suspendu ne noie pas (correctif d'AGA).
         if !self.en_barque {
-            let cx = self.boite.x + self.boite.w / 2.0;
-            if let Some(surface) = surface_eau(cx, env.eaux) {
+            if let Some(surface) = eau_touchee(&self.boite, env.eaux).map(Eau::surface) {
+                // Toujours vrai ici (`eau_touchee` l'exige) ; gardé pour la lecture.
                 if self.boite.bas() > surface {
                     if self.plane || self.est_protege() {
                         // En PLANANT : Pépin devient une barque, le parapluie
@@ -1196,6 +1199,68 @@ mod tests {
         assert!(
             j.en_barque(),
             "réapparu au-dessus de l'eau : la barque le recueille"
+        );
+    }
+
+    /// Correctif d'AGA : l'eau compte À LA HAUTEUR de Pépin, pas seulement dans
+    /// sa colonne. Deux étendues empilées (égouts, cascade) : un bassin
+    /// suspendu (y 48 à 80, x 120 à 160) au-dessus d'un bassin bas (y 144 à 176).
+    #[test]
+    fn l_eau_ne_compte_qu_a_la_hauteur_de_pepin() {
+        let g = salle();
+        let suspendu = Eau {
+            zone: Aabb::new(120.0, 48.0, 40.0, 32.0),
+            courant: 0,
+        };
+        let bas = Eau {
+            zone: Aabb::new(40.0, 144.0, 200.0, 32.0),
+            courant: 0,
+        };
+        // Rangées comme le parseur : du plus haut au plus bas.
+        let eaux = [suspendu, bas];
+
+        // 1. Marcher au sol SOUS le bassin suspendu (rien d'autre) : pas de
+        // noyade. Avant le correctif, Pépin mourait en passant dessous.
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &[],
+            eaux: std::slice::from_ref(&suspendu),
+        };
+        let mut j = Joueur::new(40.0, SOL_Y - JOUEUR_H);
+        for _ in 0..240 {
+            j.actualiser(&droite(), &env);
+            assert!(
+                !j.est_noye(),
+                "au sol, cinq rangées sous l'eau : pas de noyade"
+            );
+        }
+        assert!(j.boite.x > 170.0, "Pépin est bien passé sous le bassin");
+
+        // 2. Une barque sur le bassin bas passe sous le bassin suspendu : elle
+        // reste sur SA surface. Avant le correctif, elle était téléportée en haut.
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &[],
+            eaux: &eaux,
+        };
+        let mut j = Joueur::new(60.0, bas.surface() - JOUEUR_H + ENFONCEMENT_BARQUE);
+        j.entrer_en_barque();
+        for _ in 0..220 {
+            j.actualiser(&droite(), &env);
+            assert!(j.en_barque(), "la barque reste dans l'eau");
+            assert_eq!(
+                j.boite.bas(),
+                bas.surface() + ENFONCEMENT_BARQUE,
+                "la barque reste sur la surface du bassin bas"
+            );
+        }
+        assert!(
+            j.boite.x > 160.0,
+            "la barque est bien passée sous le bassin"
         );
     }
 }

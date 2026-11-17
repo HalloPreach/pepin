@@ -467,9 +467,9 @@ pub(super) fn analyser(
 
     // Eau (carte 9.2) : les cases d'un même courant forment des rectangles
     // (comme les vents latéraux, par sens). La surface de l'eau, c'est le HAUT
-    // du rectangle : `Niveau::surface_eau` la cherche par abscisse, du plus haut
-    // rectangle au plus bas (c'est pour cela que l'ordre du vecteur est
-    // par surface croissante).
+    // du rectangle : `physics::eau_touchee` cherche le rectangle que Pépin
+    // chevauche en abscisse ET en hauteur, du plus haut au plus bas (c'est pour
+    // cela que l'ordre du vecteur est par surface croissante).
     let grille_eau = |courant: i8| {
         let mut grille = vec![false; largeur * hauteur];
         for ((tx, ty), c) in &eaux_cases {
@@ -493,8 +493,8 @@ pub(super) fn analyser(
             });
         }
     }
-    // Du plus haut au plus bas : `surface_eau` (la 1re zone sous l'abscisse)
-    // renvoie alors la surface de l'étendue.
+    // Du plus haut au plus bas : si une boîte touche deux étendues empilées,
+    // `eau_touchee` retient la plus haute.
     eaux.sort_by(|a, b| a.surface().total_cmp(&b.surface()));
     // Décor : posé sur la tuile du dessous, qui doit être solide (la dernière
     // ligne n'a pas de dessous : le décor y serait au-dessus du vide).
