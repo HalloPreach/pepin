@@ -49,6 +49,7 @@ pub mod essai_vent;
 pub mod essai_ventilateur;
 pub mod essai_vertical;
 pub mod gouttieres;
+pub mod grotte;
 pub mod marche;
 pub mod mer;
 pub mod nuages;
@@ -91,6 +92,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     // indices du Monde 1 ne bougent pas. Recette : `pepin-notes/ETAPE-9.md`.
     caniveau::INFOS,
     cascade::INFOS,
+    grotte::INFOS,
 ];
 
 /// Nombre de niveaux du jeu (bonus et épilogue compris, tous mondes).

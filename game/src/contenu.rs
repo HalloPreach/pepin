@@ -231,6 +231,10 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
         Intro {
             texte: "L'eau ressort au bord de la falaise et tombe de bassin en bassin.",
             astuce: "Dans une chute, plane pour aller doucement.",
+        "grotte",
+        Intro {
+            texte: "Sous la ville, la pluie a creusé une grotte. Les bulles montent : Pépin aussi.",
+            astuce: "Une stalactite tremble : ne t'arrête pas dessous.",
         },
     ),
 ];
