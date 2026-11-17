@@ -278,6 +278,19 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
             // La casette du ventilateur est un SOLIDE (on s'y pose), géré par
             // `solides_des_entites` : aucun contact ni danger ici.
             Entite::Ventilateur(_) => {}
+            // Carte 9.3. Le nénuphar s'enfonce tant que Pépin est posé dessus
+            // (comme la friable qui s'effrite) ; la stalactite guette Pépin
+            // sous elle et ne tue qu'en tombant (une pointe). Bulles, chutes
+            // d'eau et marée agissent par la physique (courants et eau), pas
+            // par contact.
+            Entite::Nenuphar(n) => n.porter(pose_sur(joueur, &n.boite)),
+            Entite::Stalactite(s) => {
+                s.guetter(&joueur.boite);
+                if !protege && s.tombe() && joueur.boite.chevauche(&s.boite) {
+                    mort.get_or_insert(CauseMort::Pointe);
+                }
+            }
+            Entite::Bulles(_) | Entite::Chute(_) | Entite::Maree(_) => {}
             Entite::Nuage(n) => {
                 // Sa tête, pendant l'essoufflement : un point de moins, et Pépin
                 // rebondit comme sur un ennemi écrasé. Son corps ne blesse pas :

@@ -79,6 +79,14 @@ pub enum ErreurNiveau {
     MurMultiple { nombre: usize },
     /// Une lettre cachée `*` au plus par niveau (carte 8.6).
     LettreMultiple { nombre: usize },
+    /// Une mécanique d'eau (carte 9.3) mal posée : un nénuphar `n` sans eau
+    /// juste dessous, une stalactite `V` sans solide juste au-dessus, une zone
+    /// de marée `=` qui ne repose pas sur un solide ou sur de l'eau.
+    EauMalPosee {
+        ligne: usize,
+        colonne: usize,
+        caractere: char,
+    },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -133,6 +141,15 @@ impl fmt::Display for ErreurNiveau {
                 f,
                 "ligne {ligne}, colonne {colonne} : le décor « {caractere} » n'est pas posé \
                  sur un solide"
+            ),
+            ErreurNiveau::EauMalPosee {
+                ligne,
+                colonne,
+                caractere,
+            } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : « {caractere} » mal posé (nénuphar sur l'eau, \
+                 stalactite sous un solide, marée sur un solide ou sur l'eau)"
             ),
             ErreurNiveau::PigeonSansPerchoir { ligne, colonne } => write!(
                 f,
