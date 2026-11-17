@@ -1081,17 +1081,67 @@ pub fn trouver_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Opti
     let (depart, mut entrees) = depart_pose_mode(indice, ng_plus);
     let sans_secret =
         |m: &Monde| gouttes_avant_la_victoire(m) && !m.caches_reveles.iter().any(|&r| r);
-    let etapes = chercher_avec(
+    let Some(etapes) = chercher_avec(
         &depart,
         &plans(precis),
         &|_| false,
         &sans_secret,
         usize::MAX,
-    )?;
+    ) else {
+        // Repli au DERNIER essai (`precis`), dans l'arène d'un boss seulement.
+        return if precis && depart.pv_nuage().is_some() {
+            parcours_du_boss_par_points(depart, entrees, &sans_secret)
+        } else {
+            None
+        };
+    };
     for e in etapes {
         entrees.extend(e.entrees);
     }
     Some(entrees)
+}
+
+/// Arène d'un boss (carte 9.12c, la Pieuvre du port sur son platelage) : le parcours
+/// cherché POINT PAR POINT, quand la recherche d'un seul tenant échoue. Une case
+/// (`cle`) résume le boss à 15 pas près : dans la recherche d'un seul tenant, un
+/// monde arrivé le premier sur une case la garde, même si les salves serrées ne lui
+/// laissent plus d'issue, alors qu'un autre, quelques pas plus tard, en avait une.
+/// Par étapes, chaque recherche repart d'un monde exact, jusqu'au point suivant (un
+/// atterrissage où le boss a un point de moins), toujours sans mourir (`chercher`
+/// écarte les morts). Après le dernier coup, Pépin attend sans rien toucher que la
+/// plongée finisse le niveau : rien n'y est dangereux, mais un plan « attendre » n'y
+/// tiendrait pas au décalage du boss (`tient_au_decalage` rejoue les seules touches
+/// du plan, qui s'arrêtent à la fin ; le coup, lui, remet l'horloge du boss à zéro).
+/// Repli seulement : là où la recherche d'un seul tenant réussit (tout le Monde 1,
+/// le Grand Nuage compris), rien ne change.
+fn parcours_du_boss_par_points(
+    mut monde: Monde,
+    mut entrees: Vec<Entrees>,
+    arrivee_admise: &dyn Fn(&Monde) -> bool,
+) -> Option<Vec<Entrees>> {
+    let tous = plans(true);
+    while let Some(pv) = monde.pv_nuage().filter(|&pv| pv > 0) {
+        let point = |m: &Monde| m.pv_nuage().is_some_and(|p| p < pv);
+        for e in chercher_avec(&monde, &tous, &point, arrivee_admise, usize::MAX)? {
+            for x in &e.entrees {
+                monde.avancer(x);
+            }
+            entrees.extend(e.entrees);
+        }
+    }
+    // La plongée (120 pas) : au plus 600 pas (10 s) d'attente.
+    for _ in 0..600 {
+        if monde.termine {
+            break;
+        }
+        let e = entrees_du_pas(&monde);
+        monde.avancer(&e);
+        entrees.push(e);
+        if est_mort(&monde) {
+            return None;
+        }
+    }
+    (monde.termine && arrivee_admise(&monde)).then_some(entrees)
 }
 
 /// Nombre de gouttes d'or du niveau déjà prises dans `m`.

@@ -36,21 +36,26 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   de tentacules (2 cases chacune) couvrent tout le bassin, de la surface au haut
 ///   de la carte : aucun coin à l'abri.
 /// - Ses têtes (48 x 32, posées sur l'eau) : au milieu (x de 136 à 184), à gauche
-///   (40 à 88) et à droite (232 à 280). Les pontons (ligne 8) sont entre elles :
-///   colonne 1 (le départ, la lanterne), colonnes 6-7 et 12-13 (avec une caisse
-///   chacun, ligne 7), colonne 18. De chaque ponton, une tête est à un saut.
-/// - Gouttes : au-dessus de l'eau à gauche (colonne 3), au-dessus de la tête du
-///   milieu (colonne 10, ligne 6) et sur le ponton de droite (colonne 18) : on les
-///   prend en planant (la barque, BAS tenu, rattrape une chute dans l'eau).
+///   (40 à 88) et à droite (232 à 280).
+/// - Carte 9.12c (arène moins noyante) : un PLATELAGE continu (ligne 6, sur des
+///   piliers aux colonnes 1, 6-7, 12-13 et 18), percé de quatre trous d'une case
+///   (colonnes 5, 8, 11 et 14) : chaque trou est au bord d'une tête, qui y dépasse
+///   d'une demi-case. On esquive en courant, en sautant un trou d'une case ; on
+///   tombe dans un trou pour atterrir sur la tête sortie. Sous le platelage,
+///   l'eau (la barque, BAS tenu, rattrape une chute).
+/// - Gouttes : en colonne sous le départ (colonne 1, lignes 1 à 3) : Pépin les
+///   prend en tombant au début, avant la colère. Sinon chaque goutte prise ou non
+///   multiplie les cas que la recherche du robot et la mesure de difficulté
+///   explorent (8 fois plus) : sur ce platelage, la recherche n'aboutissait pas.
 const ASCII: &str = r"
+B@.................B
+Bo.................B
+Bo.................B
+Bo.................B
 B..................B
-B..................B
-B..................B
-B..................B
-B..................B
-B..................B
-B@........o........B
-BL.o...#....#.....oB
+B.L................B
+B####.##.##.##.####B
+B#....##....##....#B
 B#....##....##....#B
 B~~~~~~~~8~~~~~~~~~B
 BBBBBBBBBBBBBBBBBBBB
