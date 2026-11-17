@@ -1482,6 +1482,10 @@ mod tests {
             Choix::Histoire,
             Choix::Aide,
         ];
+        // NOUVELLE PARTIE + désactivée pour l'instant (AGA) : absente du titre.
+        if !NOUVELLE_PARTIE_PLUS_OUVERTE {
+            attendu.retain(|&c| c != Choix::NouvellePartiePlus);
+        }
         if cfg!(feature = "debug_niveaux") {
             attendu.insert(1, Choix::Monde2);
         }
