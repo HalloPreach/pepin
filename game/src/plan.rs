@@ -255,8 +255,17 @@ impl Geometrie {
                     (X_DESCENTE, Y_SOMMET + (e + 1) as f32 * ECART)
                 }
             })
-            .collect();
-        Self { etapes, hauteur }
+            .collect::<Vec<_>>();
+        // Une carte plus basse que la vue (un monde de peu de niveaux, comme le faux
+        // Monde 2 de QA, carte 9.1) laisserait le bas de la vue sans dessin : tout
+        // descend pour la remplir (le soleil reste en haut, les toits en bas). Le Monde 1,
+        // bien plus haut que la vue, ne bouge pas.
+        let decalage = (H_VUE - hauteur).max(0.0);
+        let etapes = etapes.into_iter().map(|(x, y)| (x, y + decalage)).collect();
+        Self {
+            etapes,
+            hauteur: hauteur + decalage,
+        }
     }
 }
 
@@ -559,6 +568,18 @@ mod tests {
         fn sur_bouton_monde(&self, _: f32, _: f32) -> bool {
             true
         }
+    }
+
+    /// Une carte d'un seul niveau (le faux Monde 2) remplit quand même la vue ; la carte
+    /// du Monde 1, plus haute, garde sa géométrie d'avant.
+    #[test]
+    fn une_carte_courte_remplit_la_vue() {
+        let g = Geometrie::new(&[TOITS_MONDE2]);
+        assert_eq!(g.hauteur, H_VUE);
+        assert_eq!(g.etapes[0].1, g.hauteur - SOUS_PREMIERE - H_TOITS);
+        let m1 = Geometrie::new(niveaux_du_monde(NIVEAUX, 1));
+        assert_eq!(m1.hauteur, Y_SOMMET + 9.0 * ECART + SOUS_PREMIERE + H_TOITS);
+        assert_eq!(m1.etapes[0].1, Y_SOMMET + 9.0 * ECART);
     }
 
     /// La porte du Monde 2 : fermée tant que « poursuite » n'est pas fini ; le
