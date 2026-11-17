@@ -64,7 +64,13 @@
 //!   Le temps n'existe pas pour le robot : il ne sait pas qu'il faut attendre,
 //!   ni qu'en sautant au-dessus de ce trajet on peut aussi retomber à côté de
 //!   l'escargot (il rebondit toujours). Le robot de QA, sur la vraie
-//!   simulation, attend vraiment l'escargot.
+//!   simulation, attend vraiment l'escargot ;
+//! - les ennemis d'eau du Monde 2 (carte 9.4 : grenouille, poisson, crabe, rat,
+//!   mouette) sont ignorés comme la flaque et le pigeon : chacun s'évite en
+//!   attendant (le poisson saute à heure fixe sur sa colonne, comme un éclair),
+//!   en sautant par-dessus ou en l'écrasant (le crabe fait même rebondir). Le
+//!   robot de QA, sur la vraie simulation, les évite pour de bon : il attend
+//!   (leur phase est dans sa case) et écarte tout plan qui meurt.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;

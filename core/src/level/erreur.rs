@@ -56,6 +56,13 @@ pub enum ErreurNiveau {
     /// Un pigeon (`p`) doit être perché sur une tuile solide : c'est là qu'il
     /// revient se poser après chaque plongée.
     PigeonSansPerchoir { ligne: usize, colonne: usize },
+    /// Un ennemi d'eau mal placé (carte 9.4) : une mouette (`u`) doit être
+    /// perchée sur un solide, un poisson (`i`) doit avoir de l'eau juste dessous.
+    EnnemiDEauMalPlace {
+        ligne: usize,
+        colonne: usize,
+        caractere: char,
+    },
     /// Un ventilateur (`w`) doit être posé sur une tuile solide : sa casette
     /// (le socle de l'hélice) repose dessus.
     VentilateurSansAppui { ligne: usize, colonne: usize },
@@ -133,6 +140,15 @@ impl fmt::Display for ErreurNiveau {
                 f,
                 "ligne {ligne}, colonne {colonne} : le décor « {caractere} » n'est pas posé \
                  sur un solide"
+            ),
+            ErreurNiveau::EnnemiDEauMalPlace {
+                ligne,
+                colonne,
+                caractere,
+            } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : « {caractere} » mal placé (une mouette \
+                 se perche sur un solide, un poisson a de l'eau juste dessous)"
             ),
             ErreurNiveau::PigeonSansPerchoir { ligne, colonne } => write!(
                 f,

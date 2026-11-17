@@ -832,6 +832,12 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                             e.vers_la_droite == retourne,
                         );
                     }
+                    // Les ennemis d'eau du Monde 2 (carte 9.4) : `dessin_eau`.
+                    TypeEnnemi::Grenouille
+                    | TypeEnnemi::Poisson
+                    | TypeEnnemi::Crabe
+                    | TypeEnnemi::Rat
+                    | TypeEnnemi::Mouette => crate::dessin_eau::dessiner(e, banque, pas, sx, sy),
                     TypeEnnemi::Chat => {
                         // Le chat du dessin regarde à gauche. Sprite 16x14 posé sur le
                         // bas de la boîte 14x8, centré (1 px de chaque côté). Il se

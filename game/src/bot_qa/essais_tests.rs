@@ -750,3 +750,209 @@ fn ecrire_script_essai_eau_92() {
     std::fs::write("../target/qa/script-92-eau.txt", &script).unwrap();
     println!("script-92-eau.txt : {} pas", script.len());
 }
+
+/// Le robot finit le niveau d'essai « ennemis d'eau » (carte 9.4, touche J du build
+/// de QA) sans mourir : il passe le crabe, la grenouille, le bassin du poisson, le
+/// tunnel du rat et la grue de la mouette.
+#[test]
+fn le_robot_finit_le_niveau_d_essai_ennemis_eau() {
+    let parcours = parcours_essai_ennemis_eau();
+    let partie = jouer_essai_ennemis_eau(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(
+        partie.images.iter().filter(|i| i.touche_essai).count(),
+        1,
+        "la touche J, une seule fois"
+    );
+    let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+    let dernier = essai.last().unwrap();
+    assert!(dernier.trame.x > 900.0, "arrivée à x = {}", dernier.trame.x);
+    println!(
+        "essai ennemis d'eau : {} images de jeu, gouttes {}, fin à x = {:.1}",
+        essai.len(),
+        partie.gouttes,
+        dernier.trame.x
+    );
+}
+
+/// Écrit le parcours du robot dans le niveau d'essai « ennemis d'eau » pour les captures
+/// de la carte 9.4 (`docs/capture-94.mjs`) : `target/qa/script-94-ennemis.txt`, un chiffre
+/// hexadécimal par pas (2 gauche, 4 droite, 8 saut). Ignoré : on le lance à la main
+/// (`--ignored ecrire_script_essai_ennemis_eau_94`).
+#[test]
+#[ignore]
+fn ecrire_script_essai_ennemis_eau_94() {
+    use pepin_core::player::Direction;
+    let parcours = parcours_essai_ennemis_eau();
+    let script: String = parcours
+        .iter()
+        .map(|e| {
+            let direction = match e.direction {
+                Direction::Gauche => 2,
+                Direction::Droite => 4,
+                Direction::Immobile => 0,
+            };
+            let masque = direction + if e.saut { 8 } else { 0 };
+            std::char::from_digit(masque, 16)
+                .unwrap()
+                .to_ascii_uppercase()
+        })
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-94-ennemis.txt", &script).unwrap();
+    println!("script-94-ennemis.txt : {} pas", script.len());
+    // Images entre l'appui sur J et la première image de jeu du niveau d'essai (la
+    // carte du niveau) : le pilote du navigateur appuie sur J au début du script et
+    // rejoue ce nombre d'images immobiles avant le parcours, pour que le monde (le
+    // poisson, le crabe, qui vivent sans Pépin) soit exactement celui du robot.
+    let partie = jouer_essai_ennemis_eau(&parcours);
+    let appui = partie.images.iter().position(|i| i.touche_essai).unwrap();
+    let debut = partie.images.iter().position(|i| i.en_essai).unwrap();
+    std::fs::write("../target/qa/decalage-94.txt", (debut - appui).to_string()).unwrap();
+    println!("décalage : {} images", debut - appui);
+    // Chronologie des phases des ennemis le long du parcours (pour choisir les pas des
+    // captures) : une ligne à chaque changement de phase.
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_ENNEMIS_EAU, false);
+    let mut avant: Vec<String> = Vec::new();
+    for (k, e) in parcours.iter().enumerate() {
+        m.avancer(e);
+        let phases: Vec<String> = m
+            .entites
+            .iter()
+            .filter_map(|x| match x {
+                pepin_core::entities::Entite::Ennemi(c) => Some(format!(
+                    "{:?}:{:?}/{:?}/{:?}@{:.0}",
+                    c.type_ennemi,
+                    c.etat,
+                    c.phase_eau(),
+                    c.phase(),
+                    c.boite.x
+                )),
+                _ => None,
+            })
+            .collect();
+        for (i, p) in phases.iter().enumerate() {
+            let court = |s: &str| s.split('@').next().unwrap().to_string();
+            if avant.get(i).map(|a| court(a)) != Some(court(p)) {
+                println!("pas {k} : Pépin x = {:.0} : {p}", m.joueur.boite.x);
+            }
+        }
+        avant = phases;
+    }
+}
+
+/// Scénarios des captures de la carte 9.4 que le parcours du robot ne montre pas :
+/// Pépin qui REBONDIT sur le crabe (ses pinces claquent), et le rat qui le voit, se
+/// dresse puis FONCE (le robot, lui, l'écrase sans lui laisser le temps). Cherchés par
+/// force brute sur la vraie simulation, écrits dans `target/qa/script-94-crabe.txt` et
+/// `script-94-rat.txt` (même format que le parcours), avec les pas à capturer.
+/// Ignoré : on le lance à la main (`--ignored ecrire_scenarios_94`).
+#[test]
+#[ignore]
+fn ecrire_scenarios_94() {
+    use pepin_core::entities::contacts::Contact;
+    use pepin_core::entities::ennemi::PhaseEau;
+    use pepin_core::entities::{Entite, TypeEnnemi};
+    use pepin_core::player::Direction;
+    let i = crate::monde::INDICE_ESSAI_ENNEMIS_EAU;
+    let encoder = |p: &[Entrees]| -> String {
+        p.iter()
+            .map(|e| {
+                let d = match e.direction {
+                    Direction::Gauche => 2,
+                    Direction::Droite => 4,
+                    Direction::Immobile => 0,
+                };
+                std::char::from_digit(d + if e.saut { 8 } else { 0 }, 16)
+                    .unwrap()
+                    .to_ascii_uppercase()
+            })
+            .collect()
+    };
+    let phase = |m: &Monde, t: TypeEnnemi| {
+        m.entites.iter().find_map(|e| match e {
+            Entite::Ennemi(c) if c.type_ennemi == t && c.est_visible() => Some(c.phase_eau()),
+            _ => None,
+        })
+    };
+    let droite = |saut| Entrees {
+        direction: Direction::Droite,
+        saut,
+    };
+    std::fs::create_dir_all("../target/qa").unwrap();
+    // 1. Le crabe : attendre, courir à droite, sauter ; un rebond sur la carapace.
+    let mut trouve = false;
+    'crabe: for attente in (0..120).step_by(10) {
+        for saut_a in (0..40).step_by(2) {
+            for duree in [4, 8, 12, 16] {
+                let mut p = vec![Entrees::default(); 40 + attente];
+                for k in 0..120 {
+                    p.push(droite(k >= saut_a && k < saut_a + duree));
+                }
+                let mut m = Monde::charger(i, false);
+                for (k, e) in p.iter().enumerate() {
+                    m.avancer(e);
+                    if m.derniere_mort.is_some() {
+                        break;
+                    }
+                    if matches!(phase(&m, TypeEnnemi::Crabe), Some(PhaseEau::Attaque(_)))
+                        && m.contacts.contains(&Contact::Rebond)
+                    {
+                        let script = encoder(&p[..k + 1 + 30]);
+                        std::fs::write("../target/qa/script-94-crabe.txt", &script).unwrap();
+                        println!("crabe : rebond au pas {k}, capture au pas {}", k + 4);
+                        trouve = true;
+                        break 'crabe;
+                    }
+                }
+            }
+        }
+    }
+    assert!(trouve, "aucun rebond sur le crabe");
+    // 2. Le rat : le parcours du robot jusqu'avant le tunnel, attendre que le rat
+    // s'éloigne, puis courir à droite et s'arrêter dans le tunnel ; le rat se dresse
+    // puis fonce.
+    let parcours = parcours_essai_ennemis_eau();
+    let mut trouve = false;
+    'rat: for attente in (0..400).step_by(20) {
+        for course in (10..60).step_by(4) {
+            let mut p = parcours[..380].to_vec();
+            p.extend(std::iter::repeat_n(Entrees::default(), attente));
+            p.extend((0..course).map(|_| droite(false)));
+            p.extend(std::iter::repeat_n(Entrees::default(), 150));
+            let mut m = Monde::charger(i, false);
+            let (mut annonce, mut fonce) = (None, None);
+            for (k, e) in p.iter().enumerate() {
+                m.avancer(e);
+                if m.derniere_mort.is_some() {
+                    break;
+                }
+                match phase(&m, TypeEnnemi::Rat) {
+                    Some(PhaseEau::Annonce(12)) => {
+                        // Pépin assez loin : la course se voit avant de l'atteindre.
+                        let rat = m.entites.iter().find_map(|e| match e {
+                            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Rat => Some(c.boite),
+                            _ => None,
+                        });
+                        if rat.is_some_and(|r| (r.x - m.joueur.boite.x).abs() > 56.0) {
+                            annonce = Some(k);
+                        }
+                    }
+                    Some(PhaseEau::Attaque(6)) => fonce = Some(k),
+                    _ => {}
+                }
+                if fonce.is_some() {
+                    break;
+                }
+            }
+            if let (Some(a), Some(f)) = (annonce, fonce) {
+                std::fs::write("../target/qa/script-94-rat.txt", encoder(&p[..f + 60])).unwrap();
+                println!("rat : annonce au pas {a}, fonce au pas {f}");
+                trouve = true;
+                break 'rat;
+            }
+        }
+    }
+    assert!(trouve, "le rat ne fonce jamais");
+}

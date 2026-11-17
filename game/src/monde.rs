@@ -128,13 +128,19 @@ pub const INDICE_ESSAI_NUAGE: usize = pepin_core::levels::NB_NIVEAUX + 9;
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_EAU: usize = pepin_core::levels::NB_NIVEAUX + 10;
 
+/// Niveau d'essai « ennemis d'eau » (carte 9.4 : grenouille, poisson, crabe, rat,
+/// mouette ; touche J), tests et build de QA seulement. L'indice `+ 11` est celui
+/// de l'essai de la carte 9.3 (touche F12).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_ENNEMIS_EAU: usize = pepin_core::levels::NB_NIVEAUX + 12;
+
 /// Infos du niveau `indice` : la table `NIVEAUX`, puis les onze niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
 /// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
 /// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage,
-/// `INDICE_ESSAI_EAU` eau), tests
+/// `INDICE_ESSAI_EAU` eau, `INDICE_ESSAI_ENNEMIS_EAU` ennemis d'eau), tests
 /// et build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
@@ -164,6 +170,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_nuage::INFOS)
     } else if indice == INDICE_ESSAI_EAU {
         Some(&pepin_core::levels::essai_eau::INFOS)
+    } else if indice == INDICE_ESSAI_ENNEMIS_EAU {
+        Some(&pepin_core::levels::essai_ennemis_eau::INFOS)
     } else {
         None
     }

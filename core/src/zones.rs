@@ -220,8 +220,9 @@ mod tests {
     use super::*;
     use crate::faisabilite::{analyser, Options};
     use crate::levels::{
-        essai_auvent, essai_chat, essai_eau, essai_escargot, essai_grele, essai_horloge,
-        essai_montgolfiere, essai_nuage, essai_vent, essai_ventilateur, essai_vertical,
+        essai_auvent, essai_chat, essai_eau, essai_ennemis_eau, essai_escargot, essai_grele,
+        essai_horloge, essai_montgolfiere, essai_nuage, essai_vent, essai_ventilateur,
+        essai_vertical,
     };
 
     #[test]
@@ -273,6 +274,7 @@ mod tests {
             &essai_horloge::INFOS,
             &essai_nuage::INFOS,
             &essai_eau::INFOS,
+            &essai_ennemis_eau::INFOS,
         ]) {
             let niv = n
                 .charger()
@@ -305,6 +307,7 @@ mod tests {
             &essai_chat::INFOS,
             &essai_nuage::INFOS,
             &essai_eau::INFOS,
+            &essai_ennemis_eau::INFOS,
         ])
     }
 
@@ -1144,6 +1147,11 @@ mod tests {
                             TypeEnnemi::Corbeau => (en.boite, "corbeau"),
                             TypeEnnemi::Pigeon => (en.boite, "pigeon"),
                             TypeEnnemi::Chat => (en.boite, "chat"),
+                            TypeEnnemi::Grenouille => (en.boite, "grenouille"),
+                            TypeEnnemi::Poisson => (en.boite, "poisson"),
+                            TypeEnnemi::Crabe => (en.boite, "crabe"),
+                            TypeEnnemi::Rat => (en.boite, "rat"),
+                            TypeEnnemi::Mouette => (en.boite, "mouette"),
                         },
                         Entite::Pointe(p) => (p.zone_danger(), "pointe"),
                         Entite::Eclair(ec) if ec.frappe() => (ec.zone, "éclair"),

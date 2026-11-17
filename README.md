@@ -43,7 +43,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
 | Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou l'icône du haut-parleur en bas à gauche du titre et de la pause |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
-| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral, de la grêle, des auvents, du ventilateur, des montgolfières, des escargots, du chat endormi et des aiguilles d'horloge : F1, F2, F3, F4, F5, F6, F7 et F8, arène du Grand Nuage : F10, eau et barque : F11 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
+| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral, de la grêle, des auvents, du ventilateur, des montgolfières, des escargots, du chat endormi et des aiguilles d'horloge : F1, F2, F3, F4, F5, F6, F7 et F8, arène du Grand Nuage : F10, eau et barque : F11, ennemis d'eau : J ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
 Les touches sont lues par leur POSITION physique (le « code » du navigateur), pas
 par la lettre imprimée : sur un clavier AZERTY, A et Q (QWERTY) sont à la place de Q
@@ -385,6 +385,7 @@ Page précédente / B pour le niveau suivant ou précédent, 0 pour le niveau d'
 vertical de la caméra, F1, F2, F3, F4, F5, F6, F7 et F8 pour les niveaux d'essai du vent latéral, de
 la grêle, des auvents, du ventilateur, des montgolfières, des escargots, du chat endormi et des
 aiguilles d'horloge, F10 pour l'arène du Grand Nuage (le boss), F11 pour l'eau et la barque,
+J pour les ennemis d'eau du Monde 2,
 F9 pour provoquer un vrai
 plantage et vérifier le message de la
 page ; sert aux captures et à la QA, jamais à publier) :

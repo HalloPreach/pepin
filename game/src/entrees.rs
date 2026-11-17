@@ -178,6 +178,8 @@ pub enum RaccourciNiveau {
     Essai10,
     /// Niveau d'essai « eau » (touche F11), hors de la table : carte 9.2.
     Essai11,
+    /// Niveau d'essai « ennemis d'eau » (touche J), hors de la table : carte 9.4.
+    Essai13,
 }
 
 /// Touches de saut direct, dans l'ordre des niveaux 1 à 9. Une touche au-delà du
@@ -221,6 +223,9 @@ const TOUCHES_ESSAI9: [KeyCode; 1] = [KeyCode::F8];
 const TOUCHES_ESSAI10: [KeyCode; 1] = [KeyCode::F10];
 /// Niveau d'essai « eau » : F11, à côté de F10 (même raison).
 const TOUCHES_ESSAI11: [KeyCode; 1] = [KeyCode::F11];
+/// Niveau d'essai « ennemis d'eau » (carte 9.4) : J, libre dans les deux
+/// dispositions de clavier (les touches de fonction sont toutes prises).
+const TOUCHES_ESSAI13: [KeyCode; 1] = [KeyCode::J];
 
 /// Raccourci demandé d'après les touches appuyées cette image (saut direct d'abord).
 /// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
@@ -257,6 +262,8 @@ pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<
         Some(RaccourciNiveau::Essai10)
     } else if TOUCHES_ESSAI11.iter().any(|&k| appuyee(k)) {
         Some(RaccourciNiveau::Essai11)
+    } else if TOUCHES_ESSAI13.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai13)
     } else {
         None
     }
@@ -282,6 +289,7 @@ pub fn cible_raccourci(r: RaccourciNiveau, courant: usize, nb: usize) -> Option<
         RaccourciNiveau::Essai9 => return Some(nb + 8),
         RaccourciNiveau::Essai10 => return Some(nb + 9),
         RaccourciNiveau::Essai11 => return Some(nb + 10),
+        RaccourciNiveau::Essai13 => return Some(nb + 12),
     };
     cible.filter(|&i| i < nb)
 }
