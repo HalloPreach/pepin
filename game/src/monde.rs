@@ -27,6 +27,9 @@ use pepin_core::zones::{self, InfosNiveau};
 
 /// Durée (pas) de l'animation de réapparition de Pépin.
 pub const REAPPARITION_PAS: u16 = 18;
+/// Durée (pas) de l'encre de la Pieuvre (carte 9.12a) : l'écran s'assombrit 0,75 s
+/// quand elle a eu Pépin. Un effet visuel, rien de plus.
+pub const ENCRE_PAS: u16 = 45;
 
 #[derive(Clone)]
 pub struct Monde {
@@ -47,6 +50,8 @@ pub struct Monde {
     pub derniere_mort: Option<CauseMort>,
     /// Pas restants de l'animation de réapparition (0 = aucune).
     pub reapparition: u16,
+    /// Pas restants de l'encre de la Pieuvre (0 = aucune, voir `ENCRE_PAS`).
+    pub encre: u16,
     /// Où Pépin est mort (coin haut-gauche), pour jouer l'animation de mort.
     pub pos_mort: (f32, f32),
     /// Le joueur a-t-il touché le drapeau d'arrivée ?
@@ -139,13 +144,19 @@ pub const INDICE_ESSAI_EAU2: usize = pepin_core::levels::NB_NIVEAUX + 11;
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_ENNEMIS_EAU: usize = pepin_core::levels::NB_NIVEAUX + 12;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les treize niveaux
+/// Niveau d'essai « pieuvre » (carte 9.12a : l'arène de la Pieuvre du port, boss du
+/// Monde 2 ; touche L), tests et build de QA seulement.
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_PIEUVRE: usize = pepin_core::levels::NB_NIVEAUX + 13;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les quatorze niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
 /// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
 /// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage,
-/// `INDICE_ESSAI_EAU` eau, `INDICE_ESSAI_EAU2` eau 2, `INDICE_ESSAI_ENNEMIS_EAU` ennemis d'eau), tests
+/// `INDICE_ESSAI_EAU` eau, `INDICE_ESSAI_EAU2` eau 2, `INDICE_ESSAI_ENNEMIS_EAU` ennemis d'eau,
+/// `INDICE_ESSAI_PIEUVRE` arène de la Pieuvre), tests
 /// et build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
@@ -179,6 +190,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_eau2::INFOS)
     } else if indice == INDICE_ESSAI_ENNEMIS_EAU {
         Some(&pepin_core::levels::essai_ennemis_eau::INFOS)
+    } else if indice == INDICE_ESSAI_PIEUVRE {
+        Some(&pepin_core::levels::essai_pieuvre::INFOS)
     } else {
         None
     }
@@ -233,6 +246,7 @@ impl Monde {
             contacts: Vec::new(),
             derniere_mort: None,
             reapparition: 0,
+            encre: 0,
             pos_mort: (0.0, 0.0),
             termine: false,
             gouttes_niveau: [false; 3],
@@ -351,6 +365,10 @@ impl Monde {
                     }
                     self.derniere_mort = Some(cause);
                     self.reapparition = REAPPARITION_PAS;
+                    // La Pieuvre a eu Pépin : l'encre (carte 9.12a).
+                    if cause == CauseMort::Pieuvre {
+                        self.encre = ENCRE_PAS;
+                    }
                     // Mort dans le vide : on garde l'animation visible, au bas du niveau.
                     self.pos_mort = (
                         avant_mort.0,
@@ -364,11 +382,12 @@ impl Monde {
         }
         self.contacts = contacts;
         self.reapparition = self.reapparition.saturating_sub(1);
+        self.encre = self.encre.saturating_sub(1);
         // Après la réapparition éventuelle : un Pépin replacé n'est pas encore au sol.
         self.immobile = compter_immobile(self.immobile, &self.joueur, entrees);
 
-        // Fin du niveau : le drapeau touché, ou le Grand Nuage vaincu (le ciel s'est
-        // déchiré : son arène n'a pas de drapeau).
+        // Fin du niveau : le drapeau touché, ou le boss vaincu (le ciel s'est
+        // déchiré, ou la Pieuvre a replongé : leur arène n'a pas de drapeau).
         let drapeau = self
             .niveau
             .arrivee
@@ -376,7 +395,7 @@ impl Monde {
         let nuage_vaincu = self
             .entites
             .iter()
-            .any(|e| matches!(e, Entite::Nuage(n) if n.est_vaincu()));
+            .any(Entite::boss_vaincu);
         // Secrets (carte 8.5) : une zone cachée que Pépin touche se révèle pour de
         // bon ; la sortie secrète finit le niveau comme le drapeau.
         self.secret_revele = false;
@@ -397,31 +416,30 @@ impl Monde {
         self.pas += 1;
     }
 
-    /// Points de vie du Grand Nuage du niveau (`None` s'il n'y en a pas) : le HUD les
-    /// affiche.
+    /// Points de vie du boss du niveau (`None` s'il n'y en a pas) : le HUD les
+    /// affiche. Le boss : le Grand Nuage, ou la Pieuvre du port (carte 9.12a,
+    /// `Entite::points_du_boss`) ; le nom est resté celui du premier boss.
     pub fn pv_nuage(&self) -> Option<u8> {
-        self.entites.iter().find_map(|e| match e {
-            Entite::Nuage(g) => Some(g.pv()),
-            _ => None,
-        })
+        self.points_nuage().map(|(pv, _)| pv)
     }
 
-    /// Points de vie du Grand Nuage et son maximum, `(pv, pv_max)` : le HUD montre
+    /// Points de vie du boss et son maximum, `(pv, pv_max)` : le HUD montre
     /// `pv_max` cases (2 en mode facile, carte 8.14).
     pub fn points_nuage(&self) -> Option<(u8, u8)> {
-        self.entites.iter().find_map(|e| match e {
-            Entite::Nuage(g) => Some((g.pv(), g.pv_max())),
-            _ => None,
-        })
+        self.entites.iter().find_map(Entite::points_du_boss)
     }
 
-    /// Mode facile du boss (carte 8.14) : chaque Grand Nuage du niveau passe à
-    /// `PV_NUAGE_FACILE` points de vie. Sans nuage, rien.
+    /// La Pieuvre du port (carte 9.12a) est-elle le boss du niveau ? (Le HUD dessine
+    /// alors ses points de vie en petites pieuvres.)
+    pub fn boss_pieuvre(&self) -> bool {
+        self.entites.iter().any(|e| matches!(e, Entite::Pieuvre(_)))
+    }
+
+    /// Mode facile du boss (carte 8.14) : le boss du niveau (Grand Nuage ou Pieuvre)
+    /// passe à deux points de vie. Sans boss, rien.
     pub fn passer_nuage_en_facile(&mut self) {
         for e in &mut self.entites {
-            if let Entite::Nuage(g) = e {
-                g.passer_en_facile();
-            }
+            e.passer_boss_en_facile();
         }
     }
 

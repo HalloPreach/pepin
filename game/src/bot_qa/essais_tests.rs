@@ -776,6 +776,27 @@ fn le_robot_finit_le_niveau_d_essai_ennemis_eau() {
     );
 }
 
+/// Le robot bat la Pieuvre du port dans son arène d'essai (carte 9.12a, touche L du
+/// build de QA) sans mourir, après avoir pris les trois gouttes : l'arène n'a pas de
+/// drapeau, la fin n'est atteinte que si elle est vaincue.
+#[test]
+fn le_robot_bat_la_pieuvre_sans_mourir() {
+    let parcours = parcours_essai_pieuvre();
+    let partie = jouer_essai_pieuvre(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(partie.gouttes, 3);
+    assert_eq!(
+        partie.images.iter().filter(|i| i.touche_essai).count(),
+        1,
+        "la touche L, une seule fois"
+    );
+    println!(
+        "essai pieuvre : {} images de jeu",
+        partie.images.iter().filter(|i| i.en_essai).count()
+    );
+}
+
 /// Écrit le parcours du robot dans le niveau d'essai « ennemis d'eau » pour les captures
 /// de la carte 9.4 (`docs/capture-94.mjs`) : `target/qa/script-94-ennemis.txt`, un chiffre
 /// hexadécimal par pas (2 gauche, 4 droite, 8 saut). Ignoré : on le lance à la main

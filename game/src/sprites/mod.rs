@@ -13,7 +13,7 @@
 //! `char` fautif comme erreur, itérateurs, `HashMap`, tests unitaires.
 
 // Les dessins sont des grilles de texte : rustfmt les tasserait sur une seule
-// ligne et les rendrait illisibles, donc on l'exclut de ces sept fichiers.
+// ligne et les rendrait illisibles, donc on l'exclut de ces fichiers.
 #[rustfmt::skip]
 pub mod ennemis;
 #[rustfmt::skip]
@@ -28,6 +28,8 @@ pub mod objets_eau;
 pub mod pepin;
 #[rustfmt::skip]
 pub mod pepinette;
+#[rustfmt::skip]
+pub mod pieuvre;
 #[cfg(test)]
 mod planche;
 #[rustfmt::skip]
@@ -140,6 +142,7 @@ pub fn tous() -> Vec<(&'static str, Image)> {
         [
             ennemis::SPRITES,
             ennemis_eau::SPRITES,
+            pieuvre::SPRITES,
             objets::SPRITES,
             objets_decor::SPRITES,
             objets_eau::SPRITES,
@@ -233,6 +236,7 @@ impl Banque {
                 [
                     ennemis::SPRITES,
                     ennemis_eau::SPRITES,
+                    pieuvre::SPRITES,
                     objets::SPRITES,
                     objets_decor::SPRITES,
                     objets_eau::SPRITES,
@@ -262,9 +266,11 @@ impl Banque {
                 }
             }
         }
-        let nuages_trames = ennemis::SPRITES
+        // Le boss du mode facile, plus pâle : le Grand Nuage et la tête de la Pieuvre.
+        let nuages_trames = [ennemis::SPRITES, pieuvre::SPRITES]
+            .concat()
             .iter()
-            .filter(|(nom, _)| nom.starts_with("nuage_"))
+            .filter(|(nom, _)| nom.starts_with("nuage_") || nom.starts_with("pieuvre_"))
             .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
             .collect();
         let personnages_trames = personnages()
@@ -332,6 +338,29 @@ impl Banque {
         if let Some(t) = self.personnages_trames.get(nom) {
             Self::poser(t, x, y, miroir);
         }
+    }
+
+    /// Dessine seulement les `hauteur` premières rangées du sprite `nom` (le reste est
+    /// sous l'eau) : la tête de la Pieuvre qui replonge, un tentacule qui redescend
+    /// (carte 9.12a). Un découpage de l'image, pas une mise à l'échelle.
+    pub fn dessiner_haut(&self, nom: &str, x: f32, y: f32, hauteur: f32) {
+        let Some(t) = self.sprites.get(nom) else {
+            return;
+        };
+        let h = hauteur.round().clamp(0.0, t.height());
+        if h <= 0.0 {
+            return;
+        }
+        macroquad::prelude::draw_texture_ex(
+            t,
+            x.round(),
+            y.round(),
+            WHITE,
+            DrawTextureParams {
+                source: Some(macroquad::prelude::Rect::new(0.0, 0.0, t.width(), h)),
+                ..Default::default()
+            },
+        );
     }
 
     fn poser(t: &Texture2D, x: f32, y: f32, miroir: bool) {

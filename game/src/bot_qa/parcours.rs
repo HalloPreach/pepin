@@ -56,7 +56,6 @@ use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::ennemi::{
     pas_du_cycle, EtatEnnemi, ANIMATION_ECRASE_PAS, DORT_PAS, REVEIL_PAS,
 };
-use pepin_core::entities::nuage::PhaseNuage;
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::faisabilite::pas_max_plan;
 use pepin_core::player::{Direction, Entrees};
@@ -344,8 +343,9 @@ pub(crate) fn aiguilles_decalees(m: &Monde, pas: i32) -> Monde {
     let mut d = m.clone();
     let mut k = 0;
     for e in &mut d.entites {
-        if let Entite::Nuage(g) = e {
-            g.decaler(pas);
+        // Le boss (Grand Nuage, ou Pieuvre du port : carte 9.12a) a son horloge.
+        if e.horloge_du_boss().is_some() {
+            e.decaler_boss(pas);
             continue;
         }
         // La marée (carte 9.3) a son horloge, elle aussi.
@@ -441,13 +441,14 @@ pub(crate) fn tient_au_decalage(
         Entite::Mobile(a) => a.cercle().is_some(),
         // La marée (carte 9.3) : une barque qui monte à l'image près, un fond
         // de fosse touché juste quand l'eau s'en va ne laissent aucune marge.
-        Entite::Nuage(_) | Entite::Maree(_) => true,
+        Entite::Nuage(_) | Entite::Pieuvre(_) | Entite::Maree(_) => true,
         _ => false,
     });
     if !a_des_aiguilles {
         return true;
     }
-    let nuage = depart.entites.iter().any(|e| matches!(e, Entite::Nuage(_)));
+    // Un boss (le Grand Nuage, ou la Pieuvre du port : carte 9.12a) : mêmes règles.
+    let nuage = depart.pv_nuage().is_some();
     let (decalages, ecart): (&[i32], f32) = if nuage {
         (&DECALAGES_NUAGE, ECART_DECALAGE_NUAGE)
     } else {
@@ -525,12 +526,10 @@ pub(crate) fn gouttes_avant_la_victoire(m: &Monde) -> bool {
     !m.sortie_secrete && (m.pv_nuage().is_none() || m.gouttes_niveau.iter().all(|&g| g))
 }
 
-/// La phase du Grand Nuage et le temps passé dans cette phase (`None` sans nuage).
-fn horloge_du_nuage(m: &Monde) -> Option<(PhaseNuage, u16)> {
-    m.entites.iter().find_map(|e| match e {
-        Entite::Nuage(g) => Some((g.phase(), g.ecoule())),
-        _ => None,
-    })
+/// La phase du boss (Grand Nuage ou Pieuvre) et le temps passé dans cette phase
+/// (`None` sans boss).
+fn horloge_du_nuage(m: &Monde) -> Option<(u8, u16)> {
+    m.entites.iter().find_map(Entite::horloge_du_boss)
 }
 
 /// Une case du niveau où Pépin choisit son prochain plan : case de 8 px en x, y
@@ -628,28 +627,22 @@ const TRANCHE_NUAGE_PAS: u16 = 15;
 /// gouttes : le dernier coup finit le niveau, le robot doit donc les prendre AVANT
 /// (`gouttes_avant_la_victoire`) ; sans elles dans la case, le même endroit avec et
 /// sans une goutte fusionnerait.
+///
+/// La Pieuvre du port (carte 9.12a) se résume de la même façon : sa phase (le rang
+/// de `PhasePieuvre`, de 0 à 6), son temps, ses points de vie (`Entite::horloge_du_boss`).
 pub(crate) fn nuage_de_la_case(m: &Monde) -> i32 {
     m.entites
         .iter()
-        .find_map(|e| match e {
-            Entite::Nuage(g) => {
-                let phase = match g.phase() {
-                    PhaseNuage::Prelude => 0,
-                    PhaseNuage::Colere => 1,
-                    PhaseNuage::Essouffle => 2,
-                    PhaseNuage::Touche => 3,
-                    PhaseNuage::Dechirure => 4,
-                    PhaseNuage::Vaincu => 5,
-                };
-                let tranche = i32::from(g.ecoule() / TRANCHE_NUAGE_PAS).min(63);
-                let gouttes = m
-                    .gouttes_niveau
-                    .iter()
-                    .enumerate()
-                    .fold(0, |b, (k, &g)| b | (i32::from(g) << k));
-                Some(1 + tranche + 64 * (phase + 8 * i32::from(g.pv())) + 2048 * gouttes)
-            }
-            _ => None,
+        .find_map(|e| {
+            let (phase, ecoule) = e.horloge_du_boss()?;
+            let (pv, _) = e.points_du_boss()?;
+            let tranche = i32::from(ecoule / TRANCHE_NUAGE_PAS).min(63);
+            let gouttes = m
+                .gouttes_niveau
+                .iter()
+                .enumerate()
+                .fold(0, |b, (k, &g)| b | (i32::from(g) << k));
+            Some(1 + tranche + 64 * (i32::from(phase) + 8 * i32::from(pv)) + 2048 * gouttes)
         })
         .unwrap_or(0)
 }

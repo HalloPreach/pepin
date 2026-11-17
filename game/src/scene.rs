@@ -778,6 +778,8 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
             // Le Grand Nuage et ses éclairs (son courant : des brins, `effets` ; la
             // déchirure du ciel : `dessiner_dechirure`, derrière les tuiles).
             Entite::Nuage(g) => dessiner_nuage(g, banque, pas, sx, sy, cx, cy),
+            // La Pieuvre du port (carte 9.12a) : `dessin_pieuvre.rs`.
+            Entite::Pieuvre(p) => crate::dessin_pieuvre::dessiner(p, banque, pas, cx, cy),
             // Les mécaniques d'eau du Monde 2 (carte 9.3) : `eau.rs`.
             Entite::Bulles(_)
             | Entite::Chute(_)
@@ -1294,6 +1296,8 @@ pub fn dessiner(
         decor::dessiner_avant(monde.infos.theme, monde.pas, monde.ng_plus);
     }
     dessiner_repere_pepin(monde, alpha, cx, cy);
+    // L'encre de la Pieuvre (carte 9.12a), devant tout.
+    crate::dessin_pieuvre::dessiner_encre(monde);
 }
 
 #[cfg(test)]

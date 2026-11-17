@@ -627,6 +627,7 @@ fn nom_cause(c: CauseMort) -> &'static str {
         CauseMort::Grele => "grêle",
         CauseMort::Pluie => "Grand Nuage",
         CauseMort::Noyade => "noyade",
+        CauseMort::Pieuvre => "Pieuvre",
     }
 }
 
