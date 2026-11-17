@@ -6,8 +6,9 @@
 //    Pépinette (touche K) en l'air.
 // 2. Pépin saute vers l'eau en tenant BAS : juste avant l'eau (debout dans la coque), puis
 //    dans la barque (la même coque, au même endroit).
-// 3. Les boutons tactiles dans le caniveau (Monde 2, niveau 1), en 844x390 (téléphone couché)
-//    puis en 667x375 (petit téléphone) : un doigt au milieu (rien n'y répond) active le tactile, puis le
+// 3. Les boutons tactiles dans le caniveau (Monde 2, niveau 1), en 844x390 (téléphone couché),
+//    667x375 et 390x844 (debout : « Tourne ton téléphone », pas de boutons) : un doigt au
+//    milieu (rien n'y répond) active le tactile, puis le
 //    doigt tenu sur BAS (son centre, calculé comme `tactile::Disposition::calculer_avec_bas`) :
 //    le bouton enfoncé, Pépin parapluie retourné.
 // Écrit aussi la grille logique (320x180) de chaque capture dans DOSSIER_GRILLES ; compte les
@@ -160,9 +161,9 @@ await attendre(2, DROITE | BAS);
 await capture('92c-a-l-eau');
 }
 
-// 3. Les boutons tactiles dans le caniveau, BAS à droite sous le saut : téléphone couché (844x390)
-//    et petit téléphone couché (667x375 ; debout, le jeu demande de tourner le téléphone).
-for (const [l, h] of [[844, 390], [667, 375]]) {
+// 3. Les boutons tactiles dans le caniveau, BAS à droite sous le saut : téléphone couché (844x390),
+//    petit téléphone couché (667x375), debout (390x844 : le jeu demande de tourner le téléphone).
+for (const [l, h] of [[844, 390], [667, 375], [390, 844]]) {
   await partieCaniveau(l, h);
   await capture(`92c-caniveau-avant-tactile-${l}x${h}`);
   await doigt('touchStart', l / 2, h / 4);

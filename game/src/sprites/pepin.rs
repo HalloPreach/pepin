@@ -341,7 +341,7 @@ pub const PEPIN_PLANE1: Image = &[
 ];
 
 /// Parapluie RETOURNÉ (carte 9.2b, BAS tenu), dessiné SOUS Pépin (carte 9.2c, AGA :
-/// « que le parapluie se mette sous Pépin et pas au-dessus ») : Pépin debout dans
+/// « que le parapluie se mette sous pépin et pas au dessus ») : Pépin debout dans
 /// la coque, la même que celle de `PEPIN_BARQUE` (bord clair festonné, toile
 /// corail, baleines, crosse en quille dessous). C'est la barque prête à toucher
 /// l'eau : posé dessus, Pépin s'y assied (3 px plus bas). Image 16x16, comme la
