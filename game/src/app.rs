@@ -23,6 +23,8 @@
 //! d'écran).
 
 use pepin_core::lettres;
+#[cfg(test)]
+use pepin_core::levels::NB_NIVEAUX_MONDE_1;
 use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
 use pepin_core::physics::HZ;
 use pepin_core::player::Entrees;
@@ -399,6 +401,14 @@ impl Application {
     pub fn debloquer_ng_plus_qa(&mut self) {
         self.sauvegarde.parties_finies = 1;
         self.ng_plus_qa = true;
+        self.ouvrir(Ecran::Titre);
+    }
+
+    /// Robot de QA (carte 9.6) : la sauvegarde `texte` remplace celle du jeu et le
+    /// titre est rouvert (avec la ligne MONDE 2 si « poursuite » y est fini).
+    #[cfg(test)]
+    pub fn charger_sauvegarde_qa(&mut self, texte: &str) {
+        self.sauvegarde = Sauvegarde::depuis_texte(texte);
         self.ouvrir(Ecran::Titre);
     }
 
@@ -1465,9 +1475,8 @@ mod tests {
     }
 
     /// Carte 9.1 : la ligne MONDE 2 n'apparaît au titre (sous JOUER) que si le Monde 2
-    /// est ouvert ET non vide. Avec la vraie table (aucun niveau du Monde 2), même
-    /// `poursuite` fini et une partie finie, le titre garde exactement ses lignes
-    /// d'avant ; avec le faux Monde 2 du build de QA, la ligne est là.
+    /// est ouvert ET non vide. Depuis la carte 9.6, la vraie table a un Monde 2 (le
+    /// caniveau) : `poursuite` fini, la ligne est là, avec ou sans le build de QA.
     #[test]
     fn la_ligne_monde_2_suit_le_monde_2_de_la_table() {
         let mut app = Application::new(true);
@@ -1476,6 +1485,7 @@ mod tests {
         app.ouvrir(Ecran::Titre);
         let mut attendu = vec![
             Choix::Jouer,
+            Choix::Monde2,
             Choix::NouvellePartiePlus,
             Choix::Carte,
             Choix::Boutique,
@@ -1485,9 +1495,6 @@ mod tests {
         // NOUVELLE PARTIE + désactivée pour l'instant (AGA) : absente du titre.
         if !NOUVELLE_PARTIE_PLUS_OUVERTE {
             attendu.retain(|&c| c != Choix::NouvellePartiePlus);
-        }
-        if cfg!(feature = "debug_niveaux") {
-            attendu.insert(1, Choix::Monde2);
         }
         assert_eq!(app.choix, attendu);
         // Porte fermée (`poursuite` pas fini) : jamais de ligne MONDE 2.
@@ -1723,10 +1730,12 @@ mod tests {
         assert_eq!(app.monde.etat.gouttes, 4);
     }
 
+    /// Le dernier niveau DU MONDE 1 (l'épilogue ; carte 9.6 : la table continue avec
+    /// le Monde 2) mène à l'écran de fin, avec le bilan de la partie.
     #[test]
     fn finir_le_dernier_niveau_ouvre_l_ecran_de_fin_avec_le_bilan() {
         let mut app = en_jeu();
-        let (monde, camera) = charger(NB_NIVEAUX - 1, None);
+        let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
         app.monde = monde;
         app.camera = camera;
         app.monde.etat.gouttes = 9;
@@ -2265,7 +2274,7 @@ mod tests {
     #[test]
     fn focus_perdu_en_allant_vers_la_fin_aucune_pause_plus_tard() {
         let mut app = en_jeu();
-        let (monde, camera) = charger(NB_NIVEAUX - 1, None);
+        let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
         app.monde = monde;
         app.camera = camera;
         app.monde.termine = true;
@@ -2622,7 +2631,7 @@ mod tests {
     fn le_bilan_garde_les_vies_restantes() {
         let mut app = en_jeu();
         let etat = app.monde.etat.clone();
-        aller_au_niveau(&mut app, NB_NIVEAUX - 1, etat);
+        aller_au_niveau(&mut app, NB_NIVEAUX_MONDE_1 - 1, etat);
         tomber(&mut app);
         app.monde.termine = true;
         avancer(&mut app, 1);
@@ -2684,7 +2693,9 @@ mod tests {
     /// ne bougent pas en les passant.
     #[test]
     fn une_partie_montre_les_trois_images_une_fois_chacune() {
-        for gouttes in [0, levels::gouttes_pour_le_bonus(NIVEAUX)] {
+        // Toutes les gouttes du MONDE 1 (carte 9.6 : pas celles de toute la table).
+        let toutes = levels::gouttes_pour_le_bonus(levels::NIVEAUX_MONDE_1);
+        for gouttes in [0, toutes] {
             let mut app = Application::new(true);
             app.reagir(&valider(), &Commandes::default(), None);
             let mut vues = Vec::new();
@@ -2721,7 +2732,7 @@ mod tests {
                 vec![
                     (Chapitre::Depart, 0),
                     (Chapitre::Lueur, indice_de_la_suite_du_boss),
-                    (Chapitre::Soleil, NB_NIVEAUX - 1),
+                    (Chapitre::Soleil, NB_NIVEAUX_MONDE_1 - 1),
                 ],
                 "gouttes : {gouttes}"
             );
@@ -2739,7 +2750,7 @@ mod tests {
         app.reagir(&valider(), &Commandes::default(), None);
         assert_eq!(image_suivante(&mut app), None, "REJOUER");
         let mut app = en_jeu();
-        let descente = NB_NIVEAUX - 1;
+        let descente = NB_NIVEAUX_MONDE_1 - 1;
         app.reagir(
             &rien(),
             &Commandes::default(),

@@ -534,14 +534,15 @@ mod tests {
     use super::*;
     use crate::navigation::Navigation;
     use crate::sauvegarde::Sauvegarde;
-    use pepin_core::levels::{NIVEAUX, TOITS_MONDE2};
+    use pepin_core::levels::{caniveau, NIVEAUX_MONDE_1};
     use pepin_core::zones::InfosNiveau;
 
-    /// Table de test : le Monde 1 de la vraie table, puis le faux Monde 2 du build de
-    /// QA (`TOITS_MONDE2`, la copie des toits).
+    /// Table de test : le Monde 1 de la vraie table, puis UN niveau du Monde 2 (le
+    /// caniveau, son 1er niveau). Une table à part : le vrai Monde 2 grandit avec
+    /// chaque carte (9.6 à 9.13), ces tests ne doivent pas en dépendre.
     fn table_deux_mondes() -> Vec<InfosNiveau> {
-        let mut t: Vec<InfosNiveau> = NIVEAUX.iter().filter(|n| n.monde == 1).copied().collect();
-        t.push(TOITS_MONDE2);
+        let mut t: Vec<InfosNiveau> = NIVEAUX_MONDE_1.to_vec();
+        t.push(caniveau::INFOS);
         t
     }
 
@@ -570,14 +571,14 @@ mod tests {
         }
     }
 
-    /// Une carte d'un seul niveau (le faux Monde 2) remplit quand même la vue ; la carte
-    /// du Monde 1, plus haute, garde sa géométrie d'avant.
+    /// Une carte d'un seul niveau (le Monde 2 réduit au caniveau) remplit quand même la
+    /// vue ; la carte du Monde 1, plus haute, garde sa géométrie d'avant.
     #[test]
     fn une_carte_courte_remplit_la_vue() {
-        let g = Geometrie::new(&[TOITS_MONDE2]);
+        let g = Geometrie::new(&[caniveau::INFOS]);
         assert_eq!(g.hauteur, H_VUE);
         assert_eq!(g.etapes[0].1, g.hauteur - SOUS_PREMIERE - H_TOITS);
-        let m1 = Geometrie::new(niveaux_du_monde(NIVEAUX, 1));
+        let m1 = Geometrie::new(NIVEAUX_MONDE_1);
         assert_eq!(m1.hauteur, Y_SOMMET + 9.0 * ECART + SOUS_PREMIERE + H_TOITS);
         assert_eq!(m1.etapes[0].1, Y_SOMMET + 9.0 * ECART);
     }
@@ -601,13 +602,13 @@ mod tests {
         e.reagir(&droite, &t, &vide, &BoutonMonde);
         e.reagir(&droite, &t, &vide, &BoutonMonde);
         assert_eq!((e.monde, e.course), (1, true), "Droite s'arrête sur COURSE");
-        // Sans niveau du Monde 2 (la vraie table d'aujourd'hui) : jamais de Monde 2,
-        // même porte ouverte ; le faux Monde 2 du build de QA, lui, s'ouvre.
-        let qa = cfg!(feature = "debug_niveaux");
-        assert_eq!(monde_jouable(NIVEAUX, &poursuite_finie(), 2), qa);
+        // La vraie table a un Monde 2 depuis la carte 9.6 (le caniveau) : porte
+        // ouverte, il est jouable, avec ou sans le build de QA.
+        use pepin_core::levels::NIVEAUX;
+        assert!(monde_jouable(NIVEAUX, &poursuite_finie(), 2));
         assert_eq!(
             EtatPlan::new(NIVEAUX, 0).monde_voisin(NIVEAUX, &poursuite_finie()),
-            qa.then_some(2)
+            Some(2)
         );
     }
 

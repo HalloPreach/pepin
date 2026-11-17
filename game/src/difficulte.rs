@@ -47,7 +47,10 @@ use pepin_core::levels::{
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::vies::{Vies, VIES_DEPART};
-use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
+// La mesure décrit la courbe du MONDE 1 seulement (carte 9.6) : `NIVEAUX` et
+// `NB_NIVEAUX` y désignent ses niveaux (le début de la table, mêmes indices). Le
+// Monde 2 se juge à la main, AGA en jouant : pas de mesure ni de juge de courbe.
+use pepin_core::levels::{NB_NIVEAUX_MONDE_1 as NB_NIVEAUX, NIVEAUX_MONDE_1 as NIVEAUX};
 
 use crate::bot_qa::{
     chercher, cle, depart_pose, plans, plans_en_vol, simuler, CaseParcours, Fin, Plan, PAS_DEPART,

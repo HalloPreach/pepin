@@ -1056,8 +1056,17 @@ mod tests {
             Soleil,         // l'arc-en-ciel (bonus)
             Soleil,         // la descente (épilogue)
         ];
-        let obtenu: Vec<Musique> = NIVEAUX.iter().map(musique_du_niveau).collect();
+        let obtenu: Vec<Musique> = pepin_core::levels::NIVEAUX_MONDE_1
+            .iter()
+            .map(musique_du_niveau)
+            .collect();
         assert_eq!(obtenu, attendu);
+        // Monde 2 (carte 9.6) : le caniveau garde la musique de repli de son thème
+        // (`ToitsDeNuit`) ; ses vraies musiques viendront avec la carte 9.14.
+        assert_eq!(
+            musique_du_niveau(&pepin_core::levels::caniveau::INFOS),
+            ToitsDeNuit
+        );
         // Le boss a une musique à lui seul.
         assert_eq!(obtenu.iter().filter(|&&m| m == Cyclone).count(), 1);
         let cyclone = &NIVEAUX[5];

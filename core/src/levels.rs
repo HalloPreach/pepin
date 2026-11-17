@@ -29,6 +29,7 @@
 
 // Niveaux d'essai : HORS de la table `NIVEAUX` (tests et build de QA seulement).
 pub mod arc;
+pub mod caniveau;
 pub mod clocher;
 pub mod cyclone;
 pub mod descente;
@@ -83,26 +84,39 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     poursuite::INFOS,
     arc::INFOS,
     descente::INFOS,
-    // Build de QA seulement (carte 9.1) : le faux Monde 2, à la FIN de la table.
-    #[cfg(feature = "monde2_qa")]
-    TOITS_MONDE2,
+    // MONDE 2, « Là où va la pluie » (étape 9) : ses niveaux s'ajoutent ICI, à la FIN
+    // de la table, dans l'ordre du parcours (`monde: 2`, `numero` 1, 2, 3...). Les
+    // indices du Monde 1 ne bougent pas. Recette : `pepin-notes/ETAPE-9.md`.
+    caniveau::INFOS,
 ];
 
-/// Faux Monde 2 du build de QA (carte 9.1) : une COPIE du niveau des toits rangée en
-/// Monde 2 (son « NIVEAU 1 »), sous sa propre clé et son propre nom. Elle n'entre dans
-/// `NIVEAUX` qu'avec la fonctionnalité `monde2_qa` (activée par le `debug_niveaux` du
-/// jeu) : la production n'en a aucune trace. Les vrais niveaux du Monde 2 (cartes 9.6
-/// à 9.13) la remplaceront. La syntaxe `..toits::INFOS` copie tous les autres champs.
-pub const TOITS_MONDE2: InfosNiveau = InfosNiveau {
-    monde: 2,
-    numero: 1,
-    cle: "toits_monde2",
-    nom: "Les toits du Monde 2",
-    ..toits::INFOS
-};
-
-/// Nombre de niveaux du jeu (bonus et épilogue compris).
+/// Nombre de niveaux du jeu (bonus et épilogue compris, tous mondes).
 pub const NB_NIVEAUX: usize = NIVEAUX.len();
+
+/// Nombre de niveaux du MONDE 1 (carte 9.6) : le premier bloc de la table, indices
+/// `0..NB_NIVEAUX_MONDE_1`. Ce qui ne décrit QUE le Monde 1 (la mesure de
+/// difficulté et sa courbe, le robot de la partie normale, la course, la nouvelle
+/// partie +) se dimensionne avec lui : ajouter un niveau du Monde 2 n'y change rien.
+pub const NB_NIVEAUX_MONDE_1: usize = compter_monde(NIVEAUX, 1);
+
+/// Les niveaux du Monde 1 : le début de `NIVEAUX` (la même chose que
+/// `niveaux_du_monde(NIVEAUX, 1)`, mais `const`, donc utilisable partout).
+pub const NIVEAUX_MONDE_1: &[InfosNiveau] = NIVEAUX.split_at(NB_NIVEAUX_MONDE_1).0;
+
+/// Nombre de niveaux du monde `monde` dans `niveaux`. Fonction `const` (boucle
+/// `while`, les itérateurs n'étant pas permis en `const`) : elle sert de taille de
+/// tableau.
+pub const fn compter_monde(niveaux: &[InfosNiveau], monde: u8) -> usize {
+    let mut n = 0;
+    let mut i = 0;
+    while i < niveaux.len() {
+        if niveaux[i].monde == monde {
+            n += 1;
+        }
+        i += 1;
+    }
+    n
+}
 
 // Les CLÉS de la table (carte 7.9) sont vérifiées À LA COMPILATION : chacune est un
 // identifiant (minuscules, chiffres, `_`) et aucune n'est en double. Une clé fautive
@@ -404,22 +418,25 @@ mod tests {
         assert_eq!(NB_NIVEAUX, NIVEAUX.len());
     }
 
-    /// Le faux Monde 2 du build de QA (carte 9.1) : la table du Monde 1 suivie de la
-    /// copie des toits reste bien rangée, les indices du Monde 1 ne bougent pas, et
-    /// aucune partie ne passe d'un monde à l'autre.
+    /// Le Monde 2 (carte 9.6, qui remplace le faux Monde 2 de la carte 9.1) : à la
+    /// FIN de la table, après tout le Monde 1, dont les indices ne bougent pas ; son
+    /// premier niveau est le caniveau ; aucune partie ne passe d'un monde à l'autre.
     #[test]
-    fn le_faux_monde_2_de_qa_suit_le_monde_1() {
-        let mut t: Vec<InfosNiveau> = NIVEAUX.iter().filter(|n| n.monde == 1).copied().collect();
-        let fin_monde_1 = t.len();
-        t.push(TOITS_MONDE2);
-        assert_eq!(verifier_ordre(&t), Ok(()));
-        assert_eq!(debut_monde(&t, 2), Some(fin_monde_1));
+    fn le_monde_2_suit_le_monde_1() {
         let cles = |l: &[InfosNiveau]| l.iter().map(|n| n.cle).collect::<Vec<_>>();
-        assert_eq!(cles(niveaux_du_monde(&t, 1)), cles(&NIVEAUX[..fin_monde_1]));
-        assert_eq!(apres(&t, fin_monde_1 - 1, 36), Apres::Fin);
-        assert_eq!(apres(&t, fin_monde_1, 3), Apres::Fin);
-        assert_eq!(TOITS_MONDE2.ascii, toits::INFOS.ascii);
-        assert!(cles_valides(&t));
+        assert_eq!(cles(niveaux_du_monde(NIVEAUX, 1)), cles(NIVEAUX_MONDE_1));
+        assert_eq!(NB_NIVEAUX_MONDE_1, 12);
+        assert_eq!(NIVEAUX_MONDE_1.last().unwrap().cle, "descente");
+        assert_eq!(debut_monde(NIVEAUX, 2), Some(NB_NIVEAUX_MONDE_1));
+        assert_eq!(NIVEAUX[NB_NIVEAUX_MONDE_1].cle, caniveau::INFOS.cle);
+        assert_eq!(
+            NB_NIVEAUX_MONDE_1 + compter_monde(NIVEAUX, 2),
+            NB_NIVEAUX,
+            "deux mondes seulement"
+        );
+        // L'épilogue du Monde 1 finit la partie ; le dernier niveau du Monde 2 aussi.
+        assert_eq!(apres(NIVEAUX, NB_NIVEAUX_MONDE_1 - 1, 36), Apres::Fin);
+        assert_eq!(apres(NIVEAUX, NB_NIVEAUX - 1, 99), Apres::Fin);
     }
 
     /// La vraie table depuis la carte 8.2 : dix niveaux normaux (le 10e, « Le mur de
@@ -430,9 +447,11 @@ mod tests {
     /// la fin. Avant le 10e, les gouttes ne changent rien.
     #[test]
     fn la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_finit_par_l_epilogue() {
-        let normaux = NB_NIVEAUX - 2;
+        // Le Monde 1 : le début de la table (carte 9.6 : le Monde 2 vient après).
+        const NIVEAUX: &[InfosNiveau] = NIVEAUX_MONDE_1;
+        let normaux = NB_NIVEAUX_MONDE_1 - 2;
         assert_eq!(normaux, 10);
-        assert_eq!(NB_NIVEAUX, 12);
+        assert_eq!(NB_NIVEAUX_MONDE_1, 12);
         assert!(NIVEAUX[..normaux].iter().all(|n| n.genre == Normal));
         assert_eq!(NIVEAUX[normaux].genre, Bonus);
         assert_eq!(NIVEAUX[normaux].nom, arc::INFOS.nom);
@@ -502,16 +521,21 @@ mod tests {
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (12, 3));
         let t = table(&[Normal, Normal]);
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (6, 0));
-        // La vraie table : 10 normaux et l'épilogue (33), le bonus (3) ; en tout, les
-        // 36 gouttes du jeu.
+        // Le Monde 1 : 10 normaux et l'épilogue (33), le bonus (3) ; en tout, ses 36
+        // gouttes. Le jeu entier : la somme de chaque monde.
         assert_eq!(
-            (gouttes_du_parcours(NIVEAUX), gouttes_du_bonus(NIVEAUX)),
+            (
+                gouttes_du_parcours(NIVEAUX_MONDE_1),
+                gouttes_du_bonus(NIVEAUX_MONDE_1)
+            ),
             (33, 3)
         );
-        assert_eq!(
-            (gouttes_du_parcours(NIVEAUX) + gouttes_du_bonus(NIVEAUX)) as usize,
-            crate::zones::GOUTTES_TOTAL
-        );
+        let total: u32 = [1, 2]
+            .map(|m| niveaux_du_monde(NIVEAUX, m))
+            .iter()
+            .map(|t| gouttes_du_parcours(t) + gouttes_du_bonus(t))
+            .sum();
+        assert_eq!(total as usize, crate::zones::GOUTTES_TOTAL);
     }
 
     #[test]

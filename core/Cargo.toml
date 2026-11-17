@@ -7,12 +7,6 @@ description = "Logique pure du jeu PÉPIN"
 
 [dependencies]
 
-[features]
-# Faux Monde 2 du build de QA (carte 9.1) : une copie des toits rangée en Monde 2,
-# ajoutée à la FIN de `NIVEAUX`. Activée seulement par la fonctionnalité
-# `debug_niveaux` du jeu (`./build.sh --qa`) : JAMAIS dans la production.
-monde2_qa = []
-
 # Nom de lib distinct pour éviter toute collision avec le crate `core` de la std.
 [lib]
 name = "pepin_core"
