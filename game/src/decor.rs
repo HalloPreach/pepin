@@ -1557,14 +1557,16 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
         Detail::Facades => crate::decor_rue::dessiner_facades(dec, pied - 48),
         Detail::Tuyaux => {
             // Deux tuyaux qui traversent le tunnel (segments en parallaxe),
-            // leurs colliers, et une grille d'évacuation au fond.
+            // leurs colliers, et une grille d'évacuation au fond. Carte 9.20b :
+            // tuyaux sombres (ardoise, plus d'arête claire), pour qu'aucun ne se
+            // lise comme une plate-forme.
             for (y, gy) in [(H / 3, 21), (2 * H / 3, 29)] {
                 for seg in 0..3 {
                     let x0 = (seg * 120 + gy - dec).rem_euclid(L);
-                    rect(x0, y, 80, 3, ARDOISE_CLAIRE);
+                    rect(x0, y, 80, 3, ARDOISE);
                     rect(x0, y + 3, 80, 1, ARDOISE_OMBRE);
-                    rect(x0 + 20, y - 1, 4, 5, ARDOISE);
-                    rect(x0 + 60, y - 1, 4, 5, ARDOISE);
+                    rect(x0 + 20, y - 1, 4, 5, ARDOISE_NUIT);
+                    rect(x0 + 60, y - 1, 4, 5, ARDOISE_NUIT);
                 }
             }
             let gx = (200i32 - dec).rem_euclid(L);

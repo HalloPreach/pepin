@@ -9,13 +9,15 @@
 //!    une marche plus bas que l'entrée ; le rat y patrouille. Pépin sur sa
 //!    ligne, il se dresse puis fonce : on lui saute dessus ou par-dessus. Les
 //!    marches des deux bouts le gardent dans son couloir ;
-//! 2. le BASSIN À MARÉE de la goutte (colonnes 34 à 41, 3 tuiles de fond) :
-//!    on le saute sans peine, mais la 1re goutte attend au FOND, dans une niche
-//!    du mur de droite (colonne 42, rangée 9). On y descend à marée basse et on
-//!    remonte avant que l'eau ne revienne (annoncée par le repère qui clignote) ;
+//! 2. le BASSIN de la goutte (colonnes 34 à 41, 3 tuiles de fond), qu'un gros
+//!    tuyau remplit et qui se vide (la mécanique `=` de la carte 9.3) : on le
+//!    saute sans peine, mais la 1re goutte attend au FOND, dans une niche du mur
+//!    de droite (colonne 42, rangée 9). On y descend quand il est vide et on
+//!    remonte avant que le tuyau ne crache (annoncé par le repère qui clignote et
+//!    le tuyau qui gargouille) ;
 //! 3. le BASSIN DU COLLECTEUR (colonnes 53 à 62), sous une voûte basse : pas
-//!    de place pour planer par-dessus. On le traverse à pied à marée basse (vite :
-//!    l'eau qui monte noie), ou en barque à marée haute ;
+//!    de place pour planer par-dessus. On le traverse à pied quand il est vide
+//!    (vite : l'eau qui monte noie), ou en barque quand il est plein ;
 //! 4. le CANAL (colonnes 76 à 95) : un courant `}` qui pousse à droite. Une
 //!    voûte descend jusqu'à une tuile de l'eau (colonnes 84 à 90) : impossible
 //!    de la survoler, on y passe EN BARQUE, et la 2e goutte (colonne 87) attend
@@ -31,6 +33,13 @@
 //! marches arrêtent leur patrouille). Aucune eau suspendue au-dessus d'un
 //! passage à pied. Décor : deux souches d'aération (`H`, au départ et à
 //! l'arrivée) ; les tuyaux et la grille du fond viennent du thème.
+//!
+//! Habillage (carte 9.20b, `game/src/decor_egouts.rs`, rendu seulement) : on
+//! arrive en tombant par la GRILLE de la bouche d'égout (au plafond au-dessus du
+//! départ, le rai du lampadaire et la pluie qui passent) ; d'autres grilles au
+//! plafond et leur filet de pluie ; les gros tuyaux des bassins, qui se vident
+//! par à-coups quand l'eau monte ; la sortie au bout d'un GRAND TUYAU qui
+//! débouche sur la nuit, en haut d'une falaise : la cascade est en face.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -44,7 +53,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     theme: Theme::Egouts,
     genre: GenreNiveau::Normal,
     intro: "Sous la rue, l'eau de pluie file dans les tunnels. Les rats aussi.",
-    mecanique: "Sauter par-dessus les rats qui foncent (ou les écraser) ; traverser les bassins à marée basse à pied, ou à marée haute en barque ; passer sous la voûte du canal en barque.",
+    mecanique: "Sauter par-dessus les rats qui foncent (ou les écraser) ; traverser les bassins à pied quand ils sont vides, ou en barque quand les tuyaux les ont remplis ; passer sous la voûte du canal en barque.",
     duree_cible_s: 55,
     ascii: ASCII,
     aiguilles: &[],
