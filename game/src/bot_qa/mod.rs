@@ -45,6 +45,8 @@
 //! partie sans la jouer), `char` comme code de commande, et un hachage FNV-1a
 //! maison (empreinte reproductible du jeu, pour comparer deux builds).
 
+#[cfg(test)]
+mod captures_99;
 mod essais;
 mod essais_tests;
 mod parcours;
