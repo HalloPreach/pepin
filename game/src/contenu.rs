@@ -221,13 +221,22 @@ pub const INTROS: [Intro; NB_NIVEAUX_MONDE_1] = [
 /// sa ligne sans se soucier de l'ordre des autres. Un niveau du Monde 2 sans sa
 /// ligne ici empêche le jeu de COMPILER (`intros_du_monde_2_completes`), comme le
 /// tableau du Monde 1.
-pub const INTROS_MONDE_2: &[(&str, Intro)] = &[(
-    "caniveau",
-    Intro {
-        texte: "La pluie descend des toits et file dans le caniveau. Pépin la suit.",
-        astuce: "Parapluie ouvert, l'eau te porte. Fermé, elle t'avale.",
-    },
-)];
+pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
+    (
+        "caniveau",
+        Intro {
+            texte: "La pluie descend des toits et file dans le caniveau. Pépin la suit.",
+            astuce: "Parapluie ouvert, l'eau te porte. Fermé, elle t'avale.",
+        },
+    ),
+    (
+        "egouts",
+        Intro {
+            texte: "Sous la rue, l'eau de pluie file dans les tunnels. Les rats aussi.",
+            astuce: "Un rat qui se dresse va foncer : saute-lui dessus ou par-dessus.",
+        },
+    ),
+];
 
 // Vérifié À LA COMPILATION : chaque niveau du Monde 2 de la table a son intro.
 const _: () = assert!(
