@@ -337,6 +337,7 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
 /// une aiguille la suit (pieds posés pile sur son dessus), comme s'il avait été
 /// porté. Le Grand Nuage aussi a `pas` pas d'avance ou de retard
 /// (`GrandNuage::decaler`) : ses éclairs et son essoufflement arrivent plus tôt ou
+/// plus tard. Et la marée (`Maree::decaler`, carte 9.3) : l'eau monte plus tôt ou
 /// plus tard.
 pub(crate) fn aiguilles_decalees(m: &Monde, pas: i32) -> Monde {
     let sous = aiguille_sous_pepin(m);
@@ -345,6 +346,11 @@ pub(crate) fn aiguilles_decalees(m: &Monde, pas: i32) -> Monde {
     for e in &mut d.entites {
         if let Entite::Nuage(g) = e {
             g.decaler(pas);
+            continue;
+        }
+        // La marée (carte 9.3) a son horloge, elle aussi.
+        if let Entite::Maree(r) = e {
+            r.decaler(pas);
             continue;
         }
         let Entite::Mobile(a) = e else {
@@ -433,7 +439,9 @@ pub(crate) fn tient_au_decalage(
 ) -> bool {
     let a_des_aiguilles = depart.entites.iter().any(|e| match e {
         Entite::Mobile(a) => a.cercle().is_some(),
-        Entite::Nuage(_) => true,
+        // La marée (carte 9.3) : une barque qui monte à l'image près, un fond
+        // de fosse touché juste quand l'eau s'en va ne laissent aucune marge.
+        Entite::Nuage(_) | Entite::Maree(_) => true,
         _ => false,
     });
     if !a_des_aiguilles {

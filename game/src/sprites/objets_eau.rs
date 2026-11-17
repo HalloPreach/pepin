@@ -116,13 +116,18 @@ pub const ECUME1: Image = &[
     "DEDDDEDDDEDDDEDD",
 ];
 
-/// Nénuphar (lettre `n`) : une feuille 16x4 vue de profil, échancrée, cernée de
-/// sombre (cyan clair et cyan sombre : la palette n'a pas de vert). Seules ses
-/// rangées au-dessus de l'eau se voient (la surface est redessinée par-dessus).
+/// Nénuphar (lettre `n`), 16x8 : une fleur corail posée sur une feuille vue de
+/// profil (cyan clair et cyan sombre : la palette n'a pas de vert), cernées de
+/// sombre. La feuille (rangées 4 à 7) est la boîte solide ; seules ses rangées
+/// au-dessus de l'eau se voient (la surface est redessinée par-dessus).
 pub const NENUPHAR: Image = &[
-    ".000000..000000.",
-    "0DDDDDD00DDDEDD0",
-    "0EDDDEDDDDDDDDE0",
+    "......0990......",
+    ".....098890.....",
+    "....09888890....",
+    ".....000000.....",
+    ".00000000000000.",
+    "0DDDEDDDDDDEDDD0",
+    "0EEEEEEEEEEEEEE0",
     ".00000000000000.",
 ];
 

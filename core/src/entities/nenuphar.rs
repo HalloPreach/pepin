@@ -11,19 +11,19 @@
 //!
 //! La lettre `n` se place dans la case JUSTE AU-DESSUS de l'eau (comme une
 //! goutte posée sur l'eau) : la feuille (16 x 4) dépasse la surface de
-//! `HAUT_NENUPHAR` px et y plonge d'un pixel.
+//! `HAUT_NENUPHAR` px (toute son épaisseur).
 
 use super::Actualisable;
 use crate::aabb::Aabb;
 use crate::physics::{Environnement, DT};
 
 /// Hauteur (px) dont la feuille dépasse la surface au repos.
-pub const HAUT_NENUPHAR: f32 = 3.0;
+pub const HAUT_NENUPHAR: f32 = 4.0;
 /// Épaisseur (px) de la feuille (sa boîte solide).
 pub const EPAISSEUR_NENUPHAR: f32 = 4.0;
 /// Vitesse (px/s) à laquelle la feuille s'enfonce sous Pépin : elle met
-/// `HAUT_NENUPHAR` / 3 = 1 s à amener ses pieds au ras de l'eau.
-pub const VITESSE_ENFONCEMENT: f32 = 3.0;
+/// `HAUT_NENUPHAR` / 4 = 1 s à amener ses pieds au ras de l'eau.
+pub const VITESSE_ENFONCEMENT: f32 = 4.0;
 /// Profondeur (px) maximale sous la position de repos.
 pub const PROFONDEUR_NENUPHAR: f32 = 8.0;
 /// Vitesse (px/s) à laquelle la feuille remonte quand personne n'est dessus.

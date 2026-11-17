@@ -130,7 +130,8 @@ pub fn dessiner(
             }
         }
         Entite::Nenuphar(n) => {
-            banque.dessiner("nenuphar", sx, sy, false);
+            // La fleur (4 rangées) dépasse au-dessus de la feuille.
+            banque.dessiner("nenuphar", sx, sy - 4.0, false);
             // La partie sous l'eau disparaît : on redessine par-dessus la case
             // d'eau qui est sous la feuille (sa surface coupe la feuille).
             let tx = (n.boite.x / TAILLE_TUILE) as i32;
@@ -164,7 +165,7 @@ pub fn dessiner(
         },
         Entite::Maree(m) => {
             // La flèche : fixe pendant le mouvement, clignotante pendant
-            // l'annonce, rien sinon. Juste au-dessus de l'eau, au bord gauche.
+            // l'annonce, rien sinon. Juste au-dessus de l'eau, aux deux bords.
             let fleche = match (m.phase(), m.annonce()) {
                 (PhaseMaree::Montee, _) => Some(true),
                 (PhaseMaree::Descente, _) => Some(false),
@@ -177,13 +178,10 @@ pub fn dessiner(
                 } else {
                     "maree_descend"
                 };
-                let y = m.surface().round() as i32 - 9;
-                banque.dessiner(
-                    nom,
-                    (m.zone.x as i32 + 5 - cx) as f32,
-                    (y - cy) as f32,
-                    false,
-                );
+                let y = (m.surface().round() as i32 - 9 - cy) as f32;
+                for x in [m.zone.x as i32 + 5, m.zone.droite() as i32 - 12] {
+                    banque.dessiner(nom, (x - cx) as f32, y, false);
+                }
             }
         }
         _ => {}

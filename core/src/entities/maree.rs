@@ -25,7 +25,7 @@
 
 use super::Actualisable;
 use crate::aabb::Aabb;
-use crate::physics::{Eau, Environnement};
+use crate::physics::{Eau, Environnement, ENFONCEMENT_BARQUE};
 
 /// Basse mer : 3 s.
 pub const BASSE_MER_PAS: u32 = 180;
@@ -68,6 +68,13 @@ impl Maree {
         self.pas
     }
 
+    /// Avance (ou recule, `pas` négatif) la marée de `pas` images : le robot de
+    /// QA vérifie ainsi qu'un parcours tient si le niveau démarre une image plus
+    /// tôt ou plus tard (le rejeu dans le navigateur).
+    pub fn decaler(&mut self, pas: i32) {
+        self.pas = (self.pas as i32 + pas).rem_euclid(PERIODE_MAREE as i32) as u32;
+    }
+
     /// Phase et pas écoulés dans cette phase, au pas `t` du cycle.
     fn phase_a(t: u32) -> (PhaseMaree, u32) {
         let t = t % PERIODE_MAREE;
@@ -106,10 +113,12 @@ impl Maree {
     }
 
     /// L'eau de la zone en ce moment, de la surface au bas de la zone ; `None`
-    /// à basse mer (la zone est sèche).
+    /// à basse mer (la zone est sèche), et tant qu'elle a moins de
+    /// `ENFONCEMENT_BARQUE` px de fond : une barque s'y enfoncerait dans le sol
+    /// (ses pieds sont 3 px sous la surface). Elle s'échoue alors sur le fond.
     pub fn eau(&self) -> Option<Eau> {
         let s = self.surface();
-        (s < self.zone.bas()).then(|| Eau {
+        (s < self.zone.bas() - ENFONCEMENT_BARQUE).then(|| Eau {
             zone: Aabb::new(self.zone.x, s, self.zone.w, self.zone.bas() - s),
             courant: 0,
         })
