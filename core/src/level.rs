@@ -71,6 +71,20 @@
 //!   P  mur de pluie (un au plus, carte 8.2) : son front part du bord droit de
 //!      la case `P` et avance vers la droite ; il tue au contact (voir
 //!      `crate::poursuite`). Hors de ce repère, la case est vide
+//!   Ennemis d'eau du Monde 2 (carte 9.4, `entities::ennemi`, sous-module `eau`) :
+//!   j  grenouille, posée sur ce qui est dessous (berge, nénuphar ou eau) ;
+//!      Pépin à portée, elle se ramasse 0,5 s puis bondit en arc vers lui ;
+//!      écrasable
+//!   i  poisson : la case d'AIR juste au-dessus de l'eau (l'eau est dessous,
+//!      obligatoire) ; remous 0,7 s, puis il saute à la verticale (3,5 tuiles) ;
+//!      mortel hors de l'eau, jamais écrasable
+//!   k  crabe : patrouille comme la flaque ; lui sauter dessus fait REBONDIR
+//!      Pépin sans le blesser (carapace dure) ; de côté, il tue
+//!   r  rat : patrouille ; Pépin sur sa ligne (pieds à la même hauteur, moins de
+//!      6 tuiles, sans mur entre eux), il se dresse 0,5 s puis fonce jusqu'au
+//!      mur ; écrasable
+//!   u  mouette, perchée sur le solide du dessous (mât, grue) : un pigeon du
+//!      port, même annonce, même piqué
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune

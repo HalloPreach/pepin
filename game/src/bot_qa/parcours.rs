@@ -559,6 +559,9 @@ pub(crate) struct CaseParcours {
     pub(crate) aiguille: i32,
     /// Le Grand Nuage, résumé en entier (`nuage_de_la_case`) ; 0 sans nuage.
     pub(crate) nuage: i32,
+    /// Ennemis d'eau du Monde 2 (carte 9.4), résumés en entier
+    /// (`ennemis_d_eau_de_la_case`) ; 0 sans eux.
+    pub(crate) eau: i64,
     /// Un secret déjà révélé (carte 8.5) : le même endroit atteint par un raccourci
     /// ne remplace pas celui du chemin normal (`trouver_parcours` refuse l'arrivée
     /// après un secret).
@@ -576,6 +579,7 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         chats: chats_de_la_case(m),
         aiguille: aiguille_proche(m),
         nuage: nuage_de_la_case(m),
+        eau: ennemis_d_eau_de_la_case(m),
         secret: m.caches_reveles.iter().any(|&r| r),
     }
 }
@@ -762,6 +766,71 @@ pub(crate) fn escargot_proche(m: &Monde) -> i32 {
         .map_or(0, |(_, s)| {
             1 + 2 * (s.boite.x / 16.0).floor() as i32 + i32::from(s.vers_la_droite)
         })
+}
+
+/// Portée (px) à laquelle un ennemi d'eau compte dans la case de Pépin : 7 tuiles
+/// en x (entre les centres), 5 tuiles en y (entre les pieds).
+const PORTEE_EAU: (f32, f32) = (112.0, 80.0);
+/// Tranche du temps d'une phase d'ennemi d'eau (pas) retenue dans la case : 1/4 s.
+const TRANCHE_EAU_PAS: u16 = 15;
+
+/// Les ennemis d'eau du Monde 2 (carte 9.4 : grenouille, poisson, crabe, rat,
+/// mouette), résumés en un entier : un bit par ennemi déjà écrasé, puis, pour le
+/// plus proche dans `PORTEE_EAU` encore vivant, son espèce, sa phase, le temps
+/// de sa phase (tranches de `TRANCHE_EAU_PAS`) et sa case de 16 px en x. 0 dans
+/// un niveau sans eux : la case est alors exactement celle d'avant la carte 9.4.
+///
+/// Pourquoi : comme le chat, ces ennemis s'ATTENDENT (le poisson saute à heure
+/// fixe, le rat fonce puis reste étourdi, la mouette pique puis remonte, le
+/// crabe passe). Sans leur moment dans la case, attendre sur place ramènerait à
+/// une case déjà connue et le plan « attendre » serait jeté.
+pub(crate) fn ennemis_d_eau_de_la_case(m: &Monde) -> i64 {
+    use pepin_core::entities::ennemi::{PhaseEau, PhasePigeon};
+    let j = &m.joueur.boite;
+    let centre = j.x + j.w / 2.0;
+    let mut ecrases = 0i64;
+    let mut proche: Option<(f32, i64)> = None;
+    let ennemis = m.entites.iter().filter_map(|e| match e {
+        Entite::Ennemi(c) if c.type_ennemi.est_d_eau() || c.type_ennemi == TypeEnnemi::Mouette => {
+            Some(c)
+        }
+        _ => None,
+    });
+    for (k, c) in ennemis.enumerate() {
+        assert!(k < 24, "trop d'ennemis d'eau pour la case du robot");
+        if c.etat != EtatEnnemi::Actif {
+            ecrases |= 1 << k;
+            continue;
+        }
+        let dx = (c.boite.x + c.boite.w / 2.0 - centre).abs();
+        let dy = (c.boite.bas() - j.bas()).abs();
+        if dx > PORTEE_EAU.0 || dy > PORTEE_EAU.1 || proche.is_some_and(|(d, _)| dx >= d) {
+            continue;
+        }
+        let (code, n) = if c.type_ennemi == TypeEnnemi::Mouette {
+            match c.phase() {
+                PhasePigeon::Perche => (0, 0),
+                PhasePigeon::Annonce(n) => (1, u16::from(n)),
+                PhasePigeon::Plongee(n) => (2, n),
+                PhasePigeon::Remontee(n) => (3, n),
+                PhasePigeon::Repos(n) => (4, n),
+            }
+        } else {
+            match c.phase_eau() {
+                PhaseEau::Guet => (0, 0),
+                PhaseEau::Annonce(n) => (1, n),
+                PhaseEau::Attaque(n) => (2, n),
+                PhaseEau::Repos(n) => (3, n),
+            }
+        };
+        let espece = c.type_ennemi as i64;
+        let tranche = i64::from((n / TRANCHE_EAU_PAS).min(31));
+        let case_x = (c.boite.x / 16.0).floor() as i64;
+        let resume = 1 + espece + 16 * (code + 8 * (tranche + 32 * (case_x + 1)));
+        proche = Some((dx, resume));
+    }
+    let resume = proche.map_or(0, |(_, r)| r);
+    resume + (ecrases << 40)
 }
 
 /// Un morceau de parcours : le plan joué, les entrées exactes qu'il a produites

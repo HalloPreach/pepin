@@ -325,6 +325,26 @@ pub fn parcours_essai_eau() -> Vec<Entrees> {
         .expect("le robot ne trouve aucun parcours complet au niveau d'essai eau")
 }
 
+/// Joue le niveau d'essai « ennemis d'eau » (touche J du build de QA, carte 9.4),
+/// voir `jouer_essai`.
+pub fn jouer_essai_ennemis_eau(parcours: &[Entrees]) -> PartieEssai {
+    jouer_essai(
+        crate::monde::INDICE_ESSAI_ENNEMIS_EAU,
+        RaccourciNiveau::Essai13,
+        parcours,
+    )
+}
+
+/// Parcours du robot dans le niveau d'essai « ennemis d'eau » (maladroit, puis
+/// précis) : la phase de chaque ennemi d'eau proche est dans la case
+/// (`ennemis_d_eau_de_la_case`), le robot peut donc attendre le bon moment.
+pub fn parcours_essai_ennemis_eau() -> Vec<Entrees> {
+    let i = crate::monde::INDICE_ESSAI_ENNEMIS_EAU;
+    trouver_parcours(i, false)
+        .or_else(|| trouver_parcours(i, true))
+        .expect("le robot ne trouve aucun parcours au niveau d'essai ennemis d'eau")
+}
+
 /// Joue le niveau d'essai « grêle » (touche F2 du build de QA), voir `jouer_essai`.
 pub fn jouer_essai_grele(parcours: &[Entrees]) -> PartieEssai {
     jouer_essai(INDICE_ESSAI_GRELE, RaccourciNiveau::Essai3, parcours)

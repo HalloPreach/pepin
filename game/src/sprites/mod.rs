@@ -17,6 +17,8 @@
 #[rustfmt::skip]
 pub mod ennemis;
 #[rustfmt::skip]
+pub mod ennemis_eau;
+#[rustfmt::skip]
 pub mod objets;
 #[rustfmt::skip]
 pub mod objets_decor;
@@ -135,6 +137,7 @@ pub fn tous() -> Vec<(&'static str, Image)> {
     liste.extend(
         [
             ennemis::SPRITES,
+            ennemis_eau::SPRITES,
             objets::SPRITES,
             objets_decor::SPRITES,
             tuiles::SPRITES,
@@ -223,7 +226,15 @@ impl Banque {
     pub fn charger() -> Self {
         let sprites = personnages()
             .into_iter()
-            .chain([ennemis::SPRITES, objets::SPRITES, objets_decor::SPRITES].concat())
+            .chain(
+                [
+                    ennemis::SPRITES,
+                    ennemis_eau::SPRITES,
+                    objets::SPRITES,
+                    objets_decor::SPRITES,
+                ]
+                .concat(),
+            )
             .map(|(nom, dessin)| (nom, texture(dessin, None)))
             .collect();
         let jeu = |trame: bool| -> Vec<HashMap<&'static str, Texture2D>> {

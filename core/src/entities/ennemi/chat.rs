@@ -188,9 +188,12 @@ impl Ennemi {
     }
 
     /// Peut-on l'écraser en lui tombant dessus ? Un ennemi actif, sauf un chat
-    /// réveillé (sur place ou en plein bond).
+    /// réveillé (sur place ou en plein bond), le poisson (trop vite dans l'air)
+    /// et le crabe (carapace dure, voir `a_une_carapace`).
     pub fn est_ecrasable(&self) -> bool {
-        self.etat == EtatEnnemi::Actif && !self.est_eveille()
+        self.etat == EtatEnnemi::Actif
+            && !self.est_eveille()
+            && !matches!(self.type_ennemi, TypeEnnemi::Poisson | TypeEnnemi::Crabe)
     }
 
     /// Pendant l'annonce, le chat voit-il Pépin à portée de bond ? (La posture

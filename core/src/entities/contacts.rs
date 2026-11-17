@@ -216,7 +216,13 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                         && joueur.boite.bas() - e.boite.y <= MARGE_ECRASEMENT;
                     // Un chat réveillé ne s'écrase pas : même par le dessus, le
                     // toucher tue (`est_ecrasable` est vrai pour tous les autres).
-                    if par_le_dessus && e.est_ecrasable() {
+                    if par_le_dessus && e.a_une_carapace() {
+                        // Le crabe (carte 9.4) : carapace dure, Pépin rebondit
+                        // comme sur un ennemi écrasé, le crabe reste entier.
+                        e.claquer();
+                        joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
+                        contacts.push(Contact::Rebond);
+                    } else if par_le_dessus && e.est_ecrasable() {
                         e.ecraser();
                         joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
                         contacts.push(Contact::Ecrase);

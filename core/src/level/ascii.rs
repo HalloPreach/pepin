@@ -13,6 +13,7 @@ use super::{
     GOUTTES_PAR_NIVEAU,
 };
 use crate::aabb::{touche_un_obstacle, Aabb, TAILLE_TUILE};
+use crate::entities::ennemi::SOUS_L_EAU_PAS;
 use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::nuage::{NB_COLONNES, PORTEE_COLONNES, TAILLE_NUAGE};
 use crate::entities::{
@@ -88,6 +89,10 @@ pub(super) fn analyser(
     let mut mobiles: BTreeMap<char, Vec<Case>> = BTreeMap::new();
     // Pigeons : il faut la grille entière pour trouver leur perchoir.
     let mut pigeons: Vec<Case> = Vec::new();
+    // Ennemis d'eau à placer d'après la grille (carte 9.4) : mouettes (perchées
+    // comme les pigeons), poissons (sur l'eau du dessous).
+    let mut mouettes: Vec<Case> = Vec::new();
+    let mut poissons: Vec<Case> = Vec::new();
     // Ventilateurs : il faut la grille entière (appui en dessous, plafond au-dessus).
     let mut ventilateurs: Vec<Case> = Vec::new();
     // Montgolfières : il faut la grille entière (place du ballon, plafond au-dessus).
@@ -153,6 +158,14 @@ pub(super) fn analyser(
                     y + 3.0,
                 ))),
                 'p' => pigeons.push(case),
+                // Ennemis d'eau (carte 9.4) : grenouille et crabe tombent sur ce
+                // qui est dessous (la grenouille se pose aussi sur l'eau), le rat
+                // de même ; la mouette et le poisson se placent après la lecture.
+                'j' => entites.push(Entite::Ennemi(Ennemi::grenouille(x, y))),
+                'k' => entites.push(Entite::Ennemi(Ennemi::crabe(x, y))),
+                'r' => entites.push(Entite::Ennemi(Ennemi::rat(x, y))),
+                'u' => mouettes.push(case),
+                'i' => poissons.push(case),
                 'F' => entites.push(Entite::Friable(PlateformeFriable::new(Aabb::new(
                     x, y, 16.0, 8.0,
                 )))),
@@ -310,6 +323,39 @@ pub(super) fn analyser(
             y + 6.0,
             gauche && !droite,
         )));
+    }
+
+    // Mouettes (carte 9.4) : perchées et tournées comme les pigeons ; poissons :
+    // la case `i` est la case d'air juste au-dessus de la surface, l'eau est
+    // dessous (obligatoire). Deux poissons voisins ne sautent pas ensemble.
+    for (tx, ty) in mouettes {
+        if ty + 1 >= hauteur || !solide(tx, ty + 1) {
+            return Err(ErreurNiveau::EnnemiDEauMalPlace {
+                ligne: ty + 1,
+                colonne: tx + 1,
+                caractere: 'u',
+            });
+        }
+        let gauche = tx > 0 && solide(tx - 1, ty + 1);
+        let droite = tx + 1 < largeur && solide(tx + 1, ty + 1);
+        let (x, y) = px((tx, ty));
+        entites.push(Entite::Ennemi(Ennemi::mouette(
+            x + 2.0,
+            y + 6.0,
+            gauche && !droite,
+        )));
+    }
+    for (k, &(tx, ty)) in poissons.iter().enumerate() {
+        if ty + 1 >= hauteur || tuiles[(ty + 1) * largeur + tx] != Tuile::Eau {
+            return Err(ErreurNiveau::EnnemiDEauMalPlace {
+                ligne: ty + 1,
+                colonne: tx + 1,
+                caractere: 'i',
+            });
+        }
+        let (x, y) = px((tx, ty + 1));
+        let decalage = (40 * k as u16) % SOUS_L_EAU_PAS;
+        entites.push(Entite::Ennemi(Ennemi::poisson(x, y, decalage)));
     }
 
     // Ventilateurs : hélice posée sur le solide du dessous (le socle repose
