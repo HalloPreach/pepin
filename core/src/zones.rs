@@ -57,22 +57,19 @@ pub enum Theme {
     // Monde 2, « Là où va la pluie » (carte 9.5) : sept thèmes, ajoutés À LA FIN de
     // l'enum : les indices du Monde 1 ne bougent pas (démo, course, robot,
     // sauvegarde par clé intacts). Le parapluie retourné devient une barque.
-    /// Le caniveau (niveau 1 du Monde 2) : la rue sous l'averse au ras du trottoir,
-    /// bouches d'égout et pieds de lampadaires, la gouttière pleine au pied.
+    /// Le caniveau : la rue sous l'averse au ras du trottoir, bouches d'égout, lampadaires.
     Caniveau,
     /// Les égouts : tunnels de briques sombres, grilles, tuyaux, lueur cyan.
     Egouts,
     /// La grande cascade (niveau vertical) : falaises, chutes d'eau et brume.
     Cascade,
-    /// La grotte aux bulles : nuit bleue, stalactites, bulles qui montent,
-    /// cristaux cyan au pied de l'écran.
+    /// La grotte (sèche) : nuit bleue, stalactites, bulles qui montent, cristaux cyan.
     Grotte,
     /// La rivière : berges et roseaux, ciel grisé qui s'éclaircit, reflets.
     Riviere,
-    /// Le port : quais, coques de bateaux, grues et mouettes, l'eau sombre au pied.
+    /// Le port : quais, coques de bateaux, grues, phare au loin et mouettes.
     Port,
-    /// La marée (bonus) : mur de blocs du port, eau sombre au bas de l'écran,
-    /// ciel d'aube qui s'empourpre vers l'horizon.
+    /// La marée (niveau vertical) : mur du port, eau sombre en bas, ciel d'aube.
     Maree,
 }
 
@@ -143,11 +140,17 @@ impl Theme {
     /// Pleut-il dans ce thème ? Ni au soleil, ni au-dessus de la mer de nuages
     /// (seule la grêle y tombe, en colonnes), ni sous l'arc-en-ciel (la pluie
     /// vient de s'arrêter), ni pendant la descente (l'orage est fini : on rentre), ni
-    /// devant le front d'orage du Grand Nuage (il ne pleut que dedans).
+    /// devant le front d'orage du Grand Nuage (il ne pleut que dedans), ni dans la
+    /// grotte du Monde 2 (carte 9.5 : la pluie est restée dehors).
     pub fn pluie(self) -> bool {
         !matches!(
             self,
-            Theme::Soleil | Theme::Mer | Theme::ArcEnCiel | Theme::Descente | Theme::Poursuite
+            Theme::Soleil
+                | Theme::Mer
+                | Theme::ArcEnCiel
+                | Theme::Descente
+                | Theme::Poursuite
+                | Theme::Grotte
         )
     }
 }

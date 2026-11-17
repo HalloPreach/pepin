@@ -707,9 +707,9 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             ciel: [ARDOISE_OMBRE, ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE_NUIT],
             lointain: ARDOISE,
             proche: ARDOISE_OMBRE,
-            // La grotte est sèche (la pluie est restée dehors) : la densité de
-            // gouttes vaut 0, donc la pluie du premier plan ne dessine rien et les
-            // deux couleurs sont restées inutilisées (`Theme::pluie` est vrai).
+            // La grotte est sèche (la pluie est restée dehors) : `Theme::pluie` est
+            // faux et la densité vaut 0. Couleurs jamais dessinées, mais visibles
+            // sur chaque bande si un jour il pleuvait.
             pluie: (PLUIE_SOMBRE, PLUIE),
             etoiles: None,
             gouttes: 0,
