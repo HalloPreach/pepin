@@ -6,7 +6,7 @@
 //! de la case `P` (voir la légende de `crate::level`).
 //!
 //! Les règles, toutes ici (le jeu ne fait que les appeler à chaque pas) :
-//! - le front avance de `VITESSE_MUR` px/s (au plus 80 % de la course de Pépin) ;
+//! - le front avance de `VITESSE_MUR` px/s (au plus 95 % de la course de Pépin) ;
 //! - il ne reste jamais plus de `RETARD_MAX` px derrière Pépin : si Pépin le distance,
 //!   le mur est tiré derrière lui (rattrapage). Ainsi il est toujours à l'écran, la
 //!   caméra défile avec lui (`game/src/camera.rs`) et la pression ne retombe jamais ;
@@ -26,13 +26,14 @@ use crate::aabb::Aabb;
 use crate::level::Niveau;
 use crate::physics::{DT, VITESSE_COURSE};
 
-/// Vitesse du front (px/s) : 80 % de la course de Pépin (96 px/s), soit 4,8 tuiles
-/// par seconde (carte 8.16 : 64 avant, « accélère la poursuite »). Pépin le distance
-/// en courant, pas en s'arrêtant.
-pub const VITESSE_MUR: f32 = 76.8;
-/// La vitesse du mur ne dépasse pas 80 % de celle de la course (vérifié à la
+/// Vitesse du front (px/s) : 95 % de la course de Pépin (96 px/s), soit 91,2 px/s
+/// ou 5,7 tuiles par seconde (carte 8.16 : 76,8 ; carte 8.17, AGA : « le boss à
+/// 95 % de la vitesse de Pépin »). Pépin ne le distance que de 4,8 px/s en courant :
+/// toute hésitation se paie.
+pub const VITESSE_MUR: f32 = 0.95 * VITESSE_COURSE;
+/// La vitesse du mur ne dépasse pas 95 % de celle de la course (vérifié à la
 /// compilation : changer `VITESSE_MUR` au-delà fait échouer le build).
-const _: () = assert!(VITESSE_MUR <= 0.8 * VITESSE_COURSE);
+const _: () = assert!(VITESSE_MUR <= 0.95 * VITESSE_COURSE);
 /// Distance maximale (px) entre le front et Pépin (son bord gauche) : 6 tuiles,
 /// 1,25 s d'avance au plus (carte 8.16 : 128 px avant, la pression se sent). Pépin
 /// courant au centre de l'écran, le front reste visible au bord gauche (la caméra
