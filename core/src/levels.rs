@@ -30,6 +30,7 @@
 // Niveaux d'essai : HORS de la table `NIVEAUX` (tests et build de QA seulement).
 pub mod arc;
 pub mod caniveau;
+pub mod cascade;
 pub mod clocher;
 pub mod cyclone;
 pub mod descente;
@@ -88,6 +89,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     // de la table, dans l'ordre du parcours (`monde: 2`, `numero` 1, 2, 3...). Les
     // indices du Monde 1 ne bougent pas. Recette : `pepin-notes/ETAPE-9.md`.
     caniveau::INFOS,
+    cascade::INFOS,
 ];
 
 /// Nombre de niveaux du jeu (bonus et épilogue compris, tous mondes).
