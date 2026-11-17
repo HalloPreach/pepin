@@ -60,6 +60,7 @@
 //!      (`ReglageAiguille`, une ligne par `h` dans l'ordre de lecture) ; son
 //!      cercle ne doit toucher aucun solide, ni Pépin debout dessus
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
+//!   Z  panneau « barque » (carte 9.6c) : la flèche du BAS vers le parapluie retourné
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
 //!              antenne, paratonnerre, manche à air, oiseau posé
 //!   E I U J    décor de rue du Monde 2 (carte 9.6b), sans collision lui aussi :
@@ -192,6 +193,8 @@ pub enum GenrePanneau {
     Planer,
     Champignon,
     Vent,
+    /// La barque (carte 9.6c) : BAS retourne le parapluie sur l'eau.
+    Barque,
 }
 
 /// Panneau décoratif ; `(x, y)` est le coin haut-gauche de sa tuile.

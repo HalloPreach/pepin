@@ -113,6 +113,19 @@ fn tuile_vue(monde: &Monde, tx: i32, ty: i32) -> Tuile {
     }
 }
 
+/// La case `(tx, ty)` est-elle libre pour un objet de décor posé (carte 9.6c) : ni
+/// tuile, ni entité du niveau (lanterne, goutte, ennemi...) qui la touche ?
+fn case_libre(monde: &Monde, tx: i32, ty: i32) -> bool {
+    let t = TAILLE_TUILE;
+    let case = Aabb::new(tx as f32 * t, ty as f32 * t, t, t);
+    tuile_vue(monde, tx, ty) == Tuile::Vide
+        && !monde
+            .niveau
+            .entites
+            .iter()
+            .any(|e| e.boite().chevauche(&case))
+}
+
 /// La case `(tx, ty)` est-elle dans une zone cachée PAS ENCORE révélée (carte 8.5) ?
 fn case_cachee(monde: &Monde, tx: i32, ty: i32) -> bool {
     monde
@@ -151,7 +164,16 @@ pub(crate) const PAS_VAGUE: u32 = 24;
 /// (`tuile_vue`) ; la case d'indice d'une zone cachée est une brique décalée.
 pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
     // Monde 2 (carte 9.6b) : un thème qui a son propre jeu de tuiles choisit d'abord.
-    let vue = |x, y| tuile_vue(monde, x, y);
+    // Sous la dernière rangée, le jeu voit du solide (le sol continue hors carte) :
+    // la rangée du bas n'est ni un plafond ni une voûte (carte 9.6c).
+    let bas = monde.niveau.hauteur() as i32;
+    let vue = |x, y| {
+        if y >= bas {
+            Tuile::Brique
+        } else {
+            tuile_vue(monde, x, y)
+        }
+    };
     let (theme, depart) = (monde.infos.theme, monde.niveau.depart);
     if let Some(nom) =
         tuiles_theme::nom_du_theme(theme, (tx, ty, t), vue, depart, hachage_case(tx, ty))
@@ -244,6 +266,13 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                     }
                 };
                 poser(nom);
+                // Carte 9.6c : un objet posé sur la tuile (la bitte d'amarrage du
+                // port), dans la case du dessus quand elle est libre.
+                if let Some(objet) = tuiles_theme::objet_pose(nom) {
+                    if !revele && case_libre(monde, tx, ty - 1) {
+                        banque.dessiner_tuile(monde.infos.theme, objet, x, y - taille as f32);
+                    }
+                }
                 // L'indice de brique d'une zone cachée (carte 8.5) dépasse sur la case libre.
                 if nom == "brique_decalee" && !revele {
                     let (saillie, dx) = if tuile_vue(monde, tx - 1, ty) == Tuile::Vide {
@@ -334,6 +363,7 @@ fn dessiner_panneaux(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             GenrePanneau::Planer => "panneau_planer",
             GenrePanneau::Champignon => "panneau_champignon",
             GenrePanneau::Vent => "panneau_vent",
+            GenrePanneau::Barque => "panneau_barque",
         };
         banque.dessiner(nom, p.x.round() - cx as f32, p.y.round() - cy as f32, false);
     }

@@ -22,6 +22,8 @@ struct Voisinage {
     /// Colonne et rangée de la case.
     tx: i32,
     ty: i32,
+    /// La tuile de la case (le port distingue le bois `#` de la pierre `B`).
+    tuile: Tuile,
     /// Les tuiles voisines : au-dessus, en dessous, à gauche, à droite.
     dessus: Tuile,
     dessous: Tuile,
@@ -37,7 +39,10 @@ struct Voisinage {
 /// Le thème a-t-il son propre jeu de tuiles ? (La bande d'ombre sous les toits du
 /// Monde 1 ne s'y pose pas.)
 pub(crate) fn a_son_jeu(theme: Theme) -> bool {
-    matches!(theme, Theme::Caniveau)
+    matches!(
+        theme,
+        Theme::Caniveau | Theme::Egouts | Theme::Cascade | Theme::Grotte | Theme::Port
+    )
 }
 
 /// La rangée de la rue : celle de la case solide sous les pieds de Pépin au départ
@@ -58,6 +63,11 @@ pub(crate) fn nom_du_theme(
 ) -> Option<&'static str> {
     let choix: fn(&Voisinage) -> &'static str = match theme {
         Theme::Caniveau => caniveau,
+        Theme::Egouts => egouts,
+        Theme::Cascade => cascade,
+        Theme::Grotte => grotte,
+        Theme::Port => port,
+        // La rivière et la marée : leurs niveaux viendront avec leur jeu.
         _ => return None,
     };
     if !tuile.est_solide() {
@@ -66,6 +76,7 @@ pub(crate) fn nom_du_theme(
     Some(choix(&Voisinage {
         tx,
         ty,
+        tuile,
         dessus: vue(tx, ty - 1),
         dessous: vue(tx, ty + 1),
         gauche: vue(tx - 1, ty),
@@ -140,4 +151,152 @@ fn caniveau(v: &Voisinage) -> &'static str {
         return "can_plaque";
     }
     "can_facade"
+}
+
+/// La case a-t-elle l'air libre au-dessus (un dessus où l'on marche) ? La rangée 0
+/// n'en a jamais : hors carte, le haut est « ouvert », mais la voûte des égouts et
+/// le plafond de la grotte sont des plafonds, pas des sols.
+fn sol(v: &Voisinage) -> bool {
+    v.ty > 0 && v.dessus == Tuile::Vide
+}
+
+/// Variante d'un dessus selon ses bords ouverts (`seul`, `g`, `d`, plein).
+fn dessus_borde(v: &Voisinage, noms: [&'static str; 4]) -> &'static str {
+    let [seul, g, d, plein] = noms;
+    match (ouvert(v.gauche), ouvert(v.droite)) {
+        (true, true) => seul,
+        (true, false) => g,
+        (false, true) => d,
+        (false, false) => plein,
+    }
+}
+
+/// Les égouts (carte 9.6c) : des briques gris-bleu sombre partout, un quai de pierre
+/// claire sur chaque passage, des voûtes en arches aveugles sous les plafonds. Le
+/// cyan reste à l'eau.
+fn egouts(v: &Voisinage) -> &'static str {
+    let (g, d) = (ouvert(v.gauche), ouvert(v.droite));
+    if sol(v) {
+        return dessus_borde(v, ["ego_quai_seul", "ego_quai_g", "ego_quai_d", "ego_quai"]);
+    }
+    if v.dessus == Tuile::Eau {
+        return "ego_fond";
+    }
+    if v.dessous == Tuile::Vide {
+        // Sous un plafond : la voûte, une arche de deux cases (colonne paire, puis
+        // impaire) ; aux bouts, l'angle du mur.
+        return match (g, d) {
+            (true, _) => "ego_angle_g",
+            (false, true) => "ego_angle_d",
+            _ if v.tx.rem_euclid(2) == 0 => "ego_voute_g",
+            _ => "ego_voute_d",
+        };
+    }
+    match (g, d) {
+        (true, _) => "ego_mur_g",
+        (false, true) => "ego_mur_d",
+        _ if v.hachage.is_multiple_of(4) => "ego_brique_sombre",
+        _ => "ego_brique",
+    }
+}
+
+/// La cascade (carte 9.6c) : la roche grise en strates (une rangée brune sur
+/// trois), la mousse sur les dessus, la margelle de pierre au bord des bassins, des
+/// galets au fond de l'eau.
+fn cascade(v: &Voisinage) -> &'static str {
+    let (eau_g, eau_d) = (v.gauche == Tuile::Eau, v.droite == Tuile::Eau);
+    if sol(v) {
+        // Au bord d'un bassin : la margelle de pierre (pas de mousse au bord de l'eau).
+        return match (eau_g, eau_d) {
+            (true, _) => "cas_margelle_g",
+            (false, true) => "cas_margelle_d",
+            _ => dessus_borde(
+                v,
+                [
+                    "cas_mousse_seul",
+                    "cas_mousse_g",
+                    "cas_mousse_d",
+                    "cas_mousse",
+                ],
+            ),
+        };
+    }
+    if v.dessus == Tuile::Eau {
+        return "cas_galets";
+    }
+    if eau_g || eau_d {
+        return "cas_pierre";
+    }
+    if v.dessous == Tuile::Vide {
+        return "cas_plafond";
+    }
+    if v.ty.rem_euclid(3) == 1 {
+        "cas_brune"
+    } else {
+        "cas_roche"
+    }
+}
+
+/// La grotte (carte 9.6c) : la roche bleu nuit, un rebord éclairé sur chaque sol, et
+/// des cristaux cyan pâles sur les PAROIS (une case de paroi sur trois), jamais sur
+/// un dessus où l'on marche.
+fn grotte(v: &Voisinage) -> &'static str {
+    let (g, d) = (ouvert(v.gauche), ouvert(v.droite));
+    if sol(v) {
+        return dessus_borde(v, ["gro_sol_seul", "gro_sol_g", "gro_sol_d", "gro_sol"]);
+    }
+    if v.dessus == Tuile::Eau {
+        return "gro_fond";
+    }
+    if v.dessous == Tuile::Vide {
+        return "gro_plafond";
+    }
+    let cristal = v.hachage.is_multiple_of(3) && v.dessous.est_solide();
+    match (g, d) {
+        (true, false) if cristal => "gro_cristal_g",
+        (false, true) if cristal => "gro_cristal_d",
+        _ if v.hachage.is_multiple_of(2) => "gro_roche_b",
+        _ => "gro_roche",
+    }
+}
+
+/// Le port (carte 9.6c) : le bois (`#`) fait des pontons en planches sur leurs
+/// pieux, ou une caisse quand il est posé sur un solide ; la pierre (`B`) fait le
+/// quai (dalles claires sur le dessus, anneaux d'amarrage aux parois, fond noyé).
+fn port(v: &Voisinage) -> &'static str {
+    if v.tuile == Tuile::Toit {
+        if v.dessous.est_solide() {
+            return "por_caisse";
+        }
+        return dessus_borde(
+            v,
+            [
+                "por_ponton_seul",
+                "por_ponton_g",
+                "por_ponton_d",
+                "por_ponton",
+            ],
+        );
+    }
+    if sol(v) {
+        return dessus_borde(v, ["por_quai_seul", "por_quai_g", "por_quai_d", "por_quai"]);
+    }
+    if v.dessus == Tuile::Eau {
+        return "por_fond";
+    }
+    if (ouvert(v.gauche) || ouvert(v.droite)) && v.hachage.is_multiple_of(5) {
+        return "por_anneau";
+    }
+    "por_pierre"
+}
+
+/// Objet de décor posé SUR une tuile (dessiné dans la case du dessus, sans
+/// collision) : la bitte d'amarrage au bout d'un quai ou d'un ponton du port. La
+/// scène ne le pose que si la case du dessus est libre (ni tuile ni entité).
+pub(crate) fn objet_pose(nom_tuile: &str) -> Option<&'static str> {
+    matches!(
+        nom_tuile,
+        "por_quai_g" | "por_quai_d" | "por_ponton_g" | "por_ponton_d"
+    )
+    .then_some("por_bitte")
 }
