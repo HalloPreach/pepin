@@ -201,21 +201,22 @@ pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
 }
 
 /// Sauvegarde où « Le retour du Grand Nuage » (clé `poursuite`) est fini : la porte
-/// du Monde 2 est ouverte (carte 9.1), la ligne MONDE 2 est au titre, sous JOUER.
+/// du Monde 2 est ouverte (carte 9.1), JOUER au titre y mène (carte 9.1b).
 pub const SAUVEGARDE_MONDE_2_OUVERT: &str = "version=3\nniveau.poursuite=atteint:1 medaille:1";
 
 /// La partie du MONDE 2 (carte 9.6), depuis le titre : la sauvegarde ouvre le
-/// Monde 2 et le robot choisit la ligne MONDE 2 (image 0, une ligne plus bas ;
-/// image 1, Entrée). `parcours[k]` : le parcours du niveau numéro `k + 1` du Monde 2.
+/// Monde 2 et le robot appuie sur JOUER (image 0, Entrée), qui reprend là où on en
+/// est : le Monde 2 (carte 9.1b, plus de ligne MONDE 2). `parcours[k]` : le
+/// parcours du niveau numéro `k + 1` du Monde 2.
 pub fn jouer_monde_2(parcours: &[Vec<Entrees>]) -> Partie {
     let mut app = Application::new(true);
     app.charger_sauvegarde_qa(SAUVEGARDE_MONDE_2_OUVERT);
-    jouer_depuis_le_titre(app, parcours, true)
+    jouer_depuis_le_titre(app, parcours, false)
 }
 
 /// Joue la partie depuis le titre de `app` : Entrée sur la 1re ligne, ou sur la 2e
-/// si `deuxieme_ligne` (NOUVELLE PARTIE + ou MONDE 2). `parcours` est rangé par
-/// NUMÉRO de niveau dans son monde (la numérotation est par monde, carte 9.1).
+/// si `deuxieme_ligne` (NOUVELLE PARTIE +). `parcours` est rangé par NUMÉRO de
+/// niveau dans son monde (la numérotation est par monde, carte 9.1).
 fn jouer_depuis_le_titre(
     mut app: Application,
     parcours: &[Vec<Entrees>],
@@ -438,7 +439,8 @@ mod tests {
     }
 
     /// La partie du MONDE 2 (carte 9.6), depuis le titre, avec une sauvegarde où
-    /// « poursuite » est fini : le robot choisit MONDE 2 et joue chaque niveau du
+    /// « poursuite » est fini : le robot appuie sur JOUER (qui reprend au Monde 2,
+    /// carte 9.1b) et joue chaque niveau du
     /// Monde 2 dans l'ordre, sans mourir, jusqu'à l'écran de fin. Elle grandit avec
     /// chaque niveau ajouté au Monde 2 (cartes 9.7 à 9.13), sans rien changer ici.
     #[test]
@@ -636,9 +638,8 @@ mod tests {
     /// Écrit le script de la partie COMPLÈTE du MONDE 2 (carte 9.6 : les trois gouttes
     /// de chaque niveau, dont celle de la gouttière du caniveau, qu'on n'a qu'en
     /// barque) : `target/qa/script-96.txt` et `target/qa/trace-96.csv`. L'image 0 est
-    /// la flèche BAS au titre (le script ne la code pas : le pilote
-    /// `docs/capture-96.mjs` l'appuie), l'image 1 Entrée sur MONDE 2. La sauvegarde du
-    /// navigateur doit ouvrir le Monde 2 (`SAUVEGARDE_MONDE_2_OUVERT`).
+    /// Entrée sur JOUER au titre (carte 9.1b : JOUER reprend au Monde 2). La sauvegarde
+    /// du navigateur doit ouvrir le Monde 2 (`SAUVEGARDE_MONDE_2_OUVERT`).
     /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_monde_2
     #[test]
     #[ignore]

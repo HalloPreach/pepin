@@ -128,7 +128,6 @@ pub fn choix_pour(ecran: Ecran) -> Vec<Choix> {
     match ecran {
         Ecran::Titre => vec![
             Choix::Jouer,
-            Choix::Monde2,
             Choix::NouvellePartiePlus,
             Choix::Carte,
             Choix::Boutique,
@@ -323,12 +322,8 @@ impl Application {
             self.choix
                 .retain(|&c| c != Choix::Histoire && c != Choix::NouvellePartiePlus);
         }
-        // MONDE 2 (carte 9.1) : seulement quand le Monde 2 est ouvert (le niveau
-        // « poursuite » fini) ET qu'il a au moins un niveau. Sans niveau du Monde 2
-        // (la production d'aujourd'hui), le titre reste exactement le même.
-        if !plan::monde_jouable(NIVEAUX, &self.sauvegarde, 2) {
-            self.choix.retain(|&c| c != Choix::Monde2);
-        }
+        // Pas de ligne MONDE 2 (carte 9.1b, AGA : « c'est juste la suite du jeu ») :
+        // JOUER reprend là où on en est (`monde_de_jouer`).
         // NOUVELLE PARTIE + désactivée pour l'instant (AGA), sauf pour le robot de QA.
         if !NOUVELLE_PARTIE_PLUS_OUVERTE && !self.ng_plus_qa {
             self.choix.retain(|&c| c != Choix::NouvellePartiePlus);
@@ -381,6 +376,18 @@ impl Application {
         self.cosmetiques = cosmetiques::Choix::depuis(&self.sauvegarde);
     }
 
+    /// Le monde que lance JOUER au titre (carte 9.1b, AGA : « c'est juste la suite du
+    /// jeu ») : le Monde 2 dès que sa porte est ouverte (« poursuite » fini, règle
+    /// `plan::monde_jouable`), le Monde 1 sinon, exactement comme avant. Tout fini,
+    /// JOUER relance donc le Monde 2. Aucune ligne de menu de plus.
+    fn monde_de_jouer(&self) -> u8 {
+        if plan::monde_jouable(NIVEAUX, &self.sauvegarde, 2) {
+            2
+        } else {
+            1
+        }
+    }
+
     /// Revient au titre, curseur sur la ligne `choix` (retour de l'aide, de la boutique).
     fn retour_titre_sur(&mut self, choix: Choix) {
         self.ouvrir(Ecran::Titre);
@@ -405,7 +412,7 @@ impl Application {
     }
 
     /// Robot de QA (carte 9.6) : la sauvegarde `texte` remplace celle du jeu et le
-    /// titre est rouvert (avec la ligne MONDE 2 si « poursuite » y est fini).
+    /// titre est rouvert (JOUER y lance le Monde 2 si « poursuite » y est fini).
     #[cfg(test)]
     pub fn charger_sauvegarde_qa(&mut self, texte: &str) {
         self.sauvegarde = Sauvegarde::depuis_texte(texte);
@@ -688,20 +695,22 @@ impl Application {
             // REJOUER garde le mode de la partie finie ; JOUER : une partie normale ;
             // NOUVELLE PARTIE + : la même, variantes et pluie forte (carte 8.8), sans
             // les images de l'histoire (déjà vues).
-            // MONDE 2 (carte 9.1) : la partie complète du Monde 2, sans variante ni
-            // image de l'histoire ; REJOUER garde le monde de la partie finie.
-            Choix::Jouer | Choix::Rejouer | Choix::NouvellePartiePlus | Choix::Monde2 => {
-                self.partie_racontee = choix == Choix::Jouer;
-                match choix {
-                    Choix::Jouer | Choix::Monde2 => self.ng_plus = false,
-                    Choix::NouvellePartiePlus => self.ng_plus = true,
-                    _ => {}
-                }
+            // JOUER reprend LÀ OÙ ON EN EST (carte 9.1b, `monde_de_jouer`) : le Monde 1
+            // tant que sa porte est fermée, puis le Monde 2 (sans variante ni image de
+            // l'histoire du Monde 1) ; REJOUER garde le monde de la partie finie.
+            Choix::Jouer | Choix::Rejouer | Choix::NouvellePartiePlus => {
                 let monde = match choix {
-                    Choix::Monde2 => 2,
+                    Choix::Jouer => self.monde_de_jouer(),
                     Choix::Rejouer => self.monde.infos.monde,
                     _ => 1,
                 };
+                // Les images de l'histoire racontent le Monde 1 : seulement là.
+                self.partie_racontee = choix == Choix::Jouer && monde == 1;
+                match choix {
+                    Choix::Jouer => self.ng_plus = false,
+                    Choix::NouvellePartiePlus => self.ng_plus = true,
+                    _ => {}
+                }
                 self.lancer(Suite::Niveau {
                     indice: levels::debut_monde(NIVEAUX, monde).unwrap_or(0),
                     etat: None,
@@ -1475,18 +1484,17 @@ mod tests {
         app
     }
 
-    /// Carte 9.1 : la ligne MONDE 2 n'apparaît au titre (sous JOUER) que si le Monde 2
-    /// est ouvert ET non vide. Depuis la carte 9.6, la vraie table a un Monde 2 (le
-    /// caniveau) : `poursuite` fini, la ligne est là, avec ou sans le build de QA.
+    /// Carte 9.1b (AGA : « c'est juste la suite du jeu ») : jamais de ligne MONDE 2 au
+    /// titre ; JOUER reprend là où on en est : le Monde 1 tant que `poursuite` n'est
+    /// pas fini, le Monde 2 ensuite (aussi quand tout est fini).
     #[test]
-    fn la_ligne_monde_2_suit_le_monde_2_de_la_table() {
+    fn jouer_reprend_la_ou_on_en_est() {
         let mut app = Application::new(true);
         app.sauvegarde =
             Sauvegarde::depuis_texte("version=3\nparties_finies=1\nniveau.poursuite=medaille:1");
         app.ouvrir(Ecran::Titre);
         let mut attendu = vec![
             Choix::Jouer,
-            Choix::Monde2,
             Choix::NouvellePartiePlus,
             Choix::Carte,
             Choix::Boutique,
@@ -1498,10 +1506,14 @@ mod tests {
             attendu.retain(|&c| c != Choix::NouvellePartiePlus);
         }
         assert_eq!(app.choix, attendu);
-        // Porte fermée (`poursuite` pas fini) : jamais de ligne MONDE 2.
+        // Porte ouverte : JOUER (1re ligne) lance la 1re étape du Monde 2.
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.infos.monde, 2);
+        assert_eq!(Some(app.monde.indice), levels::debut_monde(NIVEAUX, 2));
+        // Porte fermée (`poursuite` pas fini) : JOUER lance le Monde 1, comme avant.
         app.sauvegarde = Sauvegarde::depuis_texte("version=3\nparties_finies=1");
-        app.ouvrir(Ecran::Titre);
-        assert!(!app.choix.contains(&Choix::Monde2));
+        assert_eq!(app.monde_de_jouer(), 1);
     }
 
     #[test]
@@ -1510,7 +1522,6 @@ mod tests {
             choix_pour(Ecran::Titre),
             vec![
                 Choix::Jouer,
-                Choix::Monde2,
                 Choix::NouvellePartiePlus,
                 Choix::Carte,
                 Choix::Boutique,

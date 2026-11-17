@@ -49,7 +49,7 @@ pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32, lettres: &[bool; 
     panneau(12.0, 34.0, l - 24.0, 112.0, ARDOISE_NUIT, ARDOISE_CLAIRE);
     let ombre = |c| Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
 
-    // « NIVEAU 3/10 » ; hors du Monde 1 (carte 9.1) : « MONDE 2 · NIVEAU 1/7 ».
+    // « NIVEAU 3/10 » ; hors du Monde 1 (carte 9.1b) : « CHAPITRE 2 · NIVEAU 1/8 ».
     let etiquette = contenu::etiquette(infos);
     texte::dessiner_centre(&etiquette, 44.0, ombre(BRUME));
     super::fin::dessiner_lettres(lettres, rang_du_niveau(infos.cle), l - 20.0, 44.0);

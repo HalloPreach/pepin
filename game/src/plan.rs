@@ -109,7 +109,7 @@ pub fn mondes_suivants_ouverts(niveaux: &[InfosNiveau], s: &Sauvegarde) -> bool 
 /// Le monde `monde` peut-il se jouer (carte 9.1) ? Le Monde 1 toujours ; un monde
 /// suivant seulement s'il a au moins un niveau dans `niveaux` ET que la porte est
 /// ouverte (`mondes_suivants_ouverts`). C'est la règle de la carte des niveaux (le
-/// monde y apparaît) et du titre (la ligne MONDE 2). Pure.
+/// monde y apparaît) et de JOUER au titre (carte 9.1b : il reprend au Monde 2). Pure.
 pub fn monde_jouable(niveaux: &[InfosNiveau], s: &Sauvegarde, monde: u8) -> bool {
     monde == 1
         || (!niveaux_du_monde(niveaux, monde).is_empty() && mondes_suivants_ouverts(niveaux, s))
@@ -328,12 +328,6 @@ pub trait Zones {
     fn sur_course(&self, x: f32, y: f32) -> bool;
     /// Le bouton RETOUR contient-il le point ?
     fn sur_retour(&self, x: f32, y: f32) -> bool;
-    /// Le bouton du monde voisin (« MONDE 2 » sur le Monde 1, « MONDE 1 » sur le
-    /// Monde 2 ; carte 9.1) contient-il le point ? Il n'est là que si ce monde voisin
-    /// est jouable (`EtatPlan::monde_voisin`).
-    fn sur_bouton_monde(&self, _x: f32, _y: f32) -> bool {
-        false
-    }
 }
 
 /// Ce que l'application doit faire après un appui.
@@ -416,28 +410,21 @@ impl EtatPlan {
             .unwrap_or(0)
     }
 
-    /// Le monde où mène le bouton de la carte (carte 9.1) : le Monde 2 depuis le Monde
-    /// 1, le Monde 1 depuis un autre monde ; `None` (pas de bouton) si ce monde n'est
-    /// pas jouable (`monde_jouable`). Sans niveau du Monde 2, jamais de bouton.
-    pub fn monde_voisin(&self, niveaux: &[InfosNiveau], s: &Sauvegarde) -> Option<u8> {
-        let voisin = if self.monde == 1 { 2 } else { 1 };
-        monde_jouable(niveaux, s, voisin).then_some(voisin)
-    }
-
-    /// Change de MONDE affiché (bouton du monde voisin ou touches Gauche/Droite,
-    /// carte 9.1) : la géométrie se reconstruit sur la tranche du monde, l'étape
-    /// choisie est la plus avancée jouable de ce monde, et la vue est recentrée.
-    /// `course` : le bouton (JOUER ou COURSE) dans ce monde. Un monde qui n'est pas
-    /// jouable ne s'ouvre pas.
+    /// Change de MONDE affiché (touches Gauche/Droite, ou Haut/Bas au bout du chemin ;
+    /// cartes 9.1 et 9.1b : la carte est UNE SEULE SUITE de chapitres, sans bouton) :
+    /// la géométrie se reconstruit sur la tranche du monde, l'étape choisie est la
+    /// plus avancée jouable de ce monde, et la vue est recentrée. `course` : le bouton
+    /// (JOUER ou COURSE) dans ce monde. Un monde qui n'est pas jouable ne s'ouvre pas
+    /// (renvoie `false`).
     pub fn aller_monde(
         &mut self,
         monde: u8,
         course: bool,
         niveaux: &[InfosNiveau],
         s: &Sauvegarde,
-    ) {
+    ) -> bool {
         if !monde_jouable(niveaux, s, monde) {
-            return;
+            return false;
         }
         self.monde = monde;
         self.debut_monde = debut_monde(niveaux, monde).unwrap_or(0);
@@ -445,6 +432,7 @@ impl EtatPlan {
         self.course = course;
         self.selection = Self::ou_on_en_est_du_monde(niveaux, s, monde);
         self.centrer();
+        true
     }
 
     fn defil_max(&self) -> f32 {
@@ -464,13 +452,15 @@ impl EtatPlan {
         self.borner();
     }
 
-    /// Un appui (une image) : haut / bas parcourent les étapes DU MONDE affiché, dans
-    /// l'ordre du chemin ; Gauche/Droite se déplacent entre JOUER/COURSE et d'un
-    /// monde vers l'autre (Droite avance : de JOUER à COURSE, puis vers le monde
-    /// suivant ; Gauche revient, carte 9.1) ; Entrée, JOUER ou COURSE lance l'étape
-    /// choisie si elle est jouable ; le bouton du monde voisin y mène ; toucher une
-    /// étape la choisit ; molette et glisser font défiler ; Échap ou RETOUR revient
-    /// au titre. Sans Monde 2 jouable, tout se passe exactement comme avant.
+    /// Un appui (une image) : haut / bas parcourent les étapes dans l'ordre du chemin,
+    /// et la carte est UNE SEULE SUITE de chapitres (carte 9.1b, sans bouton de
+    /// monde) : Haut sur la dernière étape d'un chapitre passe à la première du
+    /// suivant, Bas sur la première revient à la dernière du précédent ; Gauche/Droite
+    /// se déplacent entre JOUER/COURSE puis d'un chapitre à l'autre (Droite avance :
+    /// de JOUER à COURSE, puis vers le chapitre suivant ; Gauche revient) ; Entrée,
+    /// JOUER ou COURSE lance l'étape choisie si elle est jouable ; toucher une étape
+    /// la choisit ; molette et glisser font défiler ; Échap ou RETOUR revient au
+    /// titre. Sans Monde 2 jouable, tout se passe exactement comme avant.
     pub fn reagir(
         &mut self,
         nav: &Navigation,
@@ -500,14 +490,25 @@ impl EtatPlan {
                 ActionPlan::Rien
             }
         };
-        // Haut/Bas : parcourent les étapes du MONDE affiché (sans le traverser).
-        if nav.haut && local + 1 < nb {
-            self.selection += 1;
-            self.centrer();
+        // Haut/Bas : parcourent les étapes du MONDE affiché ; au bout du chemin, on
+        // passe au chapitre voisin (s'il est jouable), sur son étape la plus proche.
+        if nav.haut {
+            if local + 1 < nb {
+                self.selection += 1;
+                self.centrer();
+            } else if self.aller_monde(self.monde + 1, self.course, niveaux, s) {
+                self.selection = self.debut_monde;
+                self.centrer();
+            }
         }
-        if nav.bas && local > 0 {
-            self.selection -= 1;
-            self.centrer();
+        if nav.bas {
+            if local > 0 {
+                self.selection -= 1;
+                self.centrer();
+            } else if self.monde > 1 && self.aller_monde(self.monde - 1, self.course, niveaux, s) {
+                self.selection = self.debut_monde + self.geometrie.etapes.len() - 1;
+                self.centrer();
+            }
         }
         // Droite : JOUER → COURSE, puis (en COURSE) vers le monde suivant.
         if nav.droite {
@@ -537,13 +538,6 @@ impl EtatPlan {
         if let Some((x, y)) = nav.clic {
             if z.sur_retour(x, y) {
                 return ActionPlan::Quitter;
-            }
-            // Le bouton du monde voisin (carte 9.1), seulement s'il est affiché.
-            if let Some(voisin) = self.monde_voisin(niveaux, s) {
-                if z.sur_bouton_monde(x, y) {
-                    self.aller_monde(voisin, false, niveaux, s);
-                    return ActionPlan::Rien;
-                }
             }
             if z.sur_jouer(x, y) {
                 self.course = false;
@@ -593,9 +587,9 @@ mod tests {
         Sauvegarde::depuis_texte("version=3\nniveau.poursuite=atteint:1 medaille:1")
     }
 
-    /// Des zones où seul le bouton du monde voisin répond.
-    struct BoutonMonde;
-    impl Zones for BoutonMonde {
+    /// Des zones où rien ne répond (la carte n'a plus de bouton de monde, 9.1b).
+    struct SansZone;
+    impl Zones for SansZone {
         fn etape_sous(&self, _: &Geometrie, _: f32, _: f32, _: f32) -> Option<usize> {
             None
         }
@@ -607,9 +601,6 @@ mod tests {
         }
         fn sur_retour(&self, _: f32, _: f32) -> bool {
             false
-        }
-        fn sur_bouton_monde(&self, _: f32, _: f32) -> bool {
-            true
         }
     }
 
@@ -626,7 +617,7 @@ mod tests {
     }
 
     /// La porte du Monde 2 : fermée tant que « poursuite » n'est pas fini ; le
-    /// Monde 2 n'a alors ni étape ouverte, ni bouton, ni Droite pour y aller.
+    /// Monde 2 n'a alors ni étape ouverte, ni Droite ni Haut pour y aller.
     #[test]
     fn la_porte_du_monde_2_est_fermee_sans_poursuite_finie() {
         let t = table_deux_mondes();
@@ -635,27 +626,25 @@ mod tests {
         assert!(!mondes_suivants_ouverts(&t, &vide));
         assert!(!monde_jouable(&t, &vide, 2));
         assert_eq!(etat_etape(&t, &vide, idx), EtatEtape::Verrouillee);
-        let mut e = EtatPlan::new(&t, 0);
-        assert_eq!(e.monde_voisin(&t, &vide), None, "pas de bouton");
+        let mut e = EtatPlan::new(&t, idx - 1);
         let droite = Navigation {
             droite: true,
+            haut: true,
             ..Navigation::default()
         };
-        e.reagir(&droite, &t, &vide, &BoutonMonde);
-        e.reagir(&droite, &t, &vide, &BoutonMonde);
+        e.reagir(&droite, &t, &vide, &SansZone);
+        e.reagir(&droite, &t, &vide, &SansZone);
         assert_eq!((e.monde, e.course), (1, true), "Droite s'arrête sur COURSE");
+        assert_eq!(e.selection, idx - 1, "Haut s'arrête au bout du Monde 1");
         // La vraie table a un Monde 2 depuis la carte 9.6 (le caniveau) : porte
         // ouverte, il est jouable, avec ou sans le build de QA.
         use pepin_core::levels::NIVEAUX;
         assert!(monde_jouable(NIVEAUX, &poursuite_finie(), 2));
-        assert_eq!(
-            EtatPlan::new(NIVEAUX, 0).monde_voisin(NIVEAUX, &poursuite_finie()),
-            Some(2)
-        );
     }
 
-    /// « poursuite » fini : le Monde 2 s'ouvre ; on y va par le bouton « MONDE 2 » ou
-    /// par Droite (après COURSE), on en revient par le bouton « MONDE 1 » ou Gauche.
+    /// « poursuite » fini : le Monde 2 s'ouvre ; la carte est une seule suite (carte
+    /// 9.1b) : on y va par Droite (après COURSE) ou Haut au bout du Monde 1, on en
+    /// revient par Gauche ou Bas.
     #[test]
     fn le_monde_2_s_ouvre_quand_poursuite_est_finie() {
         let t = table_deux_mondes();
@@ -665,14 +654,14 @@ mod tests {
         // La première étape du Monde 2 est ouverte, le Monde 1 n'a pas bougé.
         assert_eq!(etat_etape(&t, &s, idx), EtatEtape::Ouverte);
         assert_eq!(etat_etape(&t, &s, 0), EtatEtape::Ouverte);
-        // Le bouton du Monde 1 mène au Monde 2, sa géométrie est celle de sa tranche.
-        let mut e = EtatPlan::new(&t, 0);
-        assert_eq!(e.monde_voisin(&t, &s), Some(2));
-        let clic = Navigation {
-            clic: Some((1.0, 1.0)),
+        // Haut sur la dernière étape du Monde 1 : la première du Monde 2, avec la
+        // géométrie de sa tranche.
+        let mut e = EtatPlan::new(&t, idx - 1);
+        let haut = Navigation {
+            haut: true,
             ..Navigation::default()
         };
-        assert_eq!(e.reagir(&clic, &t, &s, &BoutonMonde), ActionPlan::Rien);
+        assert_eq!(e.reagir(&haut, &t, &s, &SansZone), ActionPlan::Rien);
         assert_eq!((e.monde, e.debut_monde, e.selection), (2, idx, idx));
         assert_eq!(e.geometrie.etapes.len(), 1);
         // JOUER lance l'étape du Monde 2 par son indice DANS LA TABLE.
@@ -681,26 +670,30 @@ mod tests {
             ..Navigation::default()
         };
         assert_eq!(
-            e.reagir(&valider, &t, &s, &BoutonMonde),
+            e.reagir(&valider, &t, &s, &SansZone),
             ActionPlan::Jouer(idx)
         );
-        // Le bouton « MONDE 1 » ramène au Monde 1 ; Droite (JOUER → COURSE → monde
-        // suivant) puis Gauche (au Monde 2 : retour au Monde 1, sur COURSE).
-        assert_eq!(e.monde_voisin(&t, &s), Some(1));
-        e.reagir(&clic, &t, &s, &BoutonMonde);
-        assert_eq!(e.monde, 1);
+        // Bas sur la première étape du Monde 2 : retour à la dernière du Monde 1.
+        let bas = Navigation {
+            bas: true,
+            ..Navigation::default()
+        };
+        e.reagir(&bas, &t, &s, &SansZone);
+        assert_eq!((e.monde, e.selection), (1, idx - 1));
+        // Droite (JOUER → COURSE → chapitre suivant) puis Gauche (au Monde 2 : retour
+        // au Monde 1, sur COURSE).
         let droite = Navigation {
             droite: true,
             ..Navigation::default()
         };
-        e.reagir(&droite, &t, &s, &BoutonMonde);
-        e.reagir(&droite, &t, &s, &BoutonMonde);
+        e.reagir(&droite, &t, &s, &SansZone);
+        e.reagir(&droite, &t, &s, &SansZone);
         assert_eq!((e.monde, e.course), (2, false));
         let gauche = Navigation {
             gauche: true,
             ..Navigation::default()
         };
-        e.reagir(&gauche, &t, &s, &BoutonMonde);
+        e.reagir(&gauche, &t, &s, &SansZone);
         assert_eq!((e.monde, e.course), (1, true));
         // La carte rouverte sur une étape du Monde 2 montre le Monde 2.
         assert_eq!(EtatPlan::new(&t, idx).monde, 2);

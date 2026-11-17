@@ -30,8 +30,6 @@ pub const AIDE_MENU: &str = "Haut/Bas : choisir   Entrée : valider";
 // --- Libellés de menus -----------------------------------------------------
 
 pub const JOUER: &str = "JOUER";
-/// La partie complète du Monde 2 (carte 9.1), sous JOUER au titre.
-pub const MONDE_2: &str = "MONDE 2";
 /// Carte 8.8 : 16 caractères, la plus longue ligne de menu (190 px sur 192).
 pub const NOUVELLE_PARTIE_PLUS: &str = "NOUVELLE PARTIE+";
 /// Le repère de la nouvelle partie + dans le HUD.
@@ -53,7 +51,6 @@ pub const RETOUR_TITRE: &str = "TITRE";
 pub fn libelle(choix: Choix) -> &'static str {
     match choix {
         Choix::Jouer => JOUER,
-        Choix::Monde2 => MONDE_2,
         Choix::NouvellePartiePlus => NOUVELLE_PARTIE_PLUS,
         Choix::Boutique => BOUTIQUE,
         Choix::Carte => CARTE,
@@ -417,28 +414,42 @@ pub const INTRO_ESSAI_NUAGE: Intro = Intro {
 /// comptent pas), « NIVEAU BONUS » ou « ÉPILOGUE » pour les deux autres genres. Le
 /// numéro 0 est celui d'un niveau hors de la table (le niveau d'essai du build de QA).
 ///
-/// Hors du Monde 1 (carte 9.1), le monde vient devant : « MONDE 2 · NIVEAU 3/7 »
-/// (`nb_normaux` est alors le nombre de niveaux normaux DU MONDE). Le Monde 1 garde
-/// exactement ses libellés d'avant.
+/// Hors du Monde 1, le chapitre vient devant : « CHAPITRE 2 · NIVEAU 3/8 » (carte
+/// 9.1b : le Monde 2 est la suite du jeu, son 2e chapitre ; `nb_normaux` est alors le
+/// nombre de niveaux normaux DU MONDE). Le Monde 1 garde exactement ses libellés
+/// d'avant, sans le mot chapitre.
 pub fn etiquette_niveau(infos: &InfosNiveau, nb_normaux: usize) -> String {
-    let base = match infos.genre {
-        GenreNiveau::Normal if infos.numero == 0 => "NIVEAU D'ESSAI".to_string(),
-        GenreNiveau::Normal => format!("NIVEAU {}/{nb_normaux}", infos.numero),
-        GenreNiveau::Bonus => "NIVEAU BONUS".to_string(),
-        GenreNiveau::Epilogue => "ÉPILOGUE".to_string(),
-    };
+    let base = etiquette_dans_le_chapitre(infos, nb_normaux);
     if infos.monde > 1 {
-        format!("{} · {base}", libelle_monde(infos.monde))
+        format!("{} · {base}", libelle_chapitre(infos.monde))
     } else {
         base
     }
 }
 
+/// `etiquette_niveau` SANS le chapitre devant (« NIVEAU 1/8 », « NIVEAU BONUS ») :
+/// pour le panneau de la carte des niveaux (carte 9.1b), trop étroit pour
+/// « CHAPITRE 2 · NIVEAU BONUS », et dont le bandeau du haut nomme déjà le chapitre.
+pub fn etiquette_dans_le_chapitre(infos: &InfosNiveau, nb_normaux: usize) -> String {
+    match infos.genre {
+        GenreNiveau::Normal if infos.numero == 0 => "NIVEAU D'ESSAI".to_string(),
+        GenreNiveau::Normal => format!("NIVEAU {}/{nb_normaux}", infos.numero),
+        GenreNiveau::Bonus => "NIVEAU BONUS".to_string(),
+        GenreNiveau::Epilogue => "ÉPILOGUE".to_string(),
+    }
+}
+
 /// `etiquette_niveau` avec le nombre de niveaux normaux DU MONDE du niveau, compté
-/// dans la vraie table (carte 9.1) : ce qu'affichent la carte de titre et la carte des
-/// niveaux.
+/// dans la vraie table (carte 9.1) : ce qu'affiche la carte de titre du niveau
+/// (« CHAPITRE 2 · NIVEAU 1/8 » au Monde 2).
 pub fn etiquette(infos: &InfosNiveau) -> String {
     etiquette_niveau(infos, nb_normaux(niveaux_du_monde(NIVEAUX, infos.monde)))
+}
+
+/// `etiquette_dans_le_chapitre` comptée dans la vraie table : le panneau de la carte
+/// des niveaux (carte 9.1b).
+pub fn etiquette_courte(infos: &InfosNiveau) -> String {
+    etiquette_dans_le_chapitre(infos, nb_normaux(niveaux_du_monde(NIVEAUX, infos.monde)))
 }
 
 // --- Pause -----------------------------------------------------------------
@@ -508,10 +519,22 @@ pub const AIDE_BOUTIQUE: &str = "Entrée : choisir   Échap : retour";
 // --- Carte des niveaux (carte 7.4) ----------------------------------------------
 
 pub const TITRE_PLAN: &str = "CARTE DES NIVEAUX";
-/// La carte affiche un MONDE à la fois (carte 9.1) : son libellé (« MONDE 1 »,
-/// « MONDE 2 »...), aussi celui du bouton qui mène à l'autre monde.
-pub fn libelle_monde(monde: u8) -> String {
-    format!("MONDE {monde}")
+/// Le libellé d'un monde vu par le joueur (carte 9.1b) : un CHAPITRE de la même
+/// histoire (« CHAPITRE 2 »), pas un monde à part. Le code garde le mot `monde`.
+pub fn libelle_chapitre(monde: u8) -> String {
+    format!("CHAPITRE {monde}")
+}
+/// Le titre du chapitre 2 (« Là où va la pluie », étape 9).
+pub const TITRE_CHAPITRE_2: &str = "CHAPITRE 2 : LÀ OÙ VA LA PLUIE";
+/// Titre de la carte des niveaux d'un chapitre (carte 9.1b), dans son bandeau du
+/// haut : le Monde 1 n'en a pas (son bandeau reste « CARTE DES NIVEAUX ») ; le
+/// Monde 2 porte le nom de son chapitre. Il tient dans le bandeau (test
+/// `etiquette_de_niveau`).
+pub fn titre_chapitre(monde: u8) -> Option<&'static str> {
+    match monde {
+        2 => Some(TITRE_CHAPITRE_2),
+        _ => None,
+    }
 }
 /// Rappel des touches en bas de la carte (Gauche/Droite : bouton JOUER ou COURSE,
 /// carte 8.7).
@@ -674,7 +697,7 @@ pub(crate) mod tests {
             CARTE,
             TITRE_PLAN,
             AIDE_PLAN,
-            MONDE_2,
+            TITRE_CHAPITRE_2,
             NIVEAU_SECRET,
             INDICE_SECRET,
             VERROUILLE,
@@ -861,23 +884,31 @@ pub(crate) mod tests {
         assert_eq!(essai.numero, 0);
         assert_eq!(etiquette_niveau(&essai, 5), "NIVEAU D'ESSAI");
         assert_eq!(intro(crate::monde::INDICE_ESSAI).texte, INTRO_ESSAI.texte);
-        // Monde 2 (carte 9.1) : le monde devant, compté PAR MONDE ; le Monde 1 inchangé
-        // (`etiquette` compte les normaux du monde dans la vraie table).
+        // Monde 2 (cartes 9.1 et 9.1b) : le CHAPITRE devant, compté PAR MONDE ; le
+        // Monde 1 inchangé (`etiquette` compte les normaux du monde dans la vraie table).
         let m2 = pepin_core::levels::caniveau::INFOS;
-        assert_eq!(etiquette_niveau(&m2, 7), "MONDE 2 · NIVEAU 1/7");
+        assert_eq!(etiquette_niveau(&m2, 8), "CHAPITRE 2 · NIVEAU 1/8");
         let mut bonus_m2 = m2;
         bonus_m2.genre = GenreNiveau::Bonus;
-        assert_eq!(etiquette_niveau(&bonus_m2, 7), "MONDE 2 · NIVEAU BONUS");
+        assert_eq!(etiquette_niveau(&bonus_m2, 8), "CHAPITRE 2 · NIVEAU BONUS");
         assert_eq!(etiquette(&NIVEAUX[1]), "NIVEAU 2/10");
         assert_eq!(etiquette(&NIVEAUX[11]), "ÉPILOGUE");
-        assert!(
-            pepin_core::font::largeur_texte("MONDE 2 · NIVEAU BONUS", 1) <= 132,
-            "tient dans le panneau de la carte des niveaux"
+        // Le panneau de la carte des niveaux (128 px de texte) : sans le chapitre ; la
+        // carte de titre du niveau (296 px de large) a la place pour le chapitre.
+        assert_eq!(etiquette_dans_le_chapitre(&bonus_m2, 8), "NIVEAU BONUS");
+        assert!(pepin_core::font::largeur_texte("CHAPITRE 2 · NIVEAU BONUS", 1) <= 280);
+        // Le titre du chapitre 2 tient dans le bandeau de la carte des niveaux : centré
+        // sur l'écran (320 px), à droite du compteur de gouttes (x < 48), soit 224 px.
+        assert!(pepin_core::font::largeur_texte(TITRE_CHAPITRE_2, 1) <= 224);
+        assert_eq!(
+            titre_chapitre(1),
+            None,
+            "le Monde 1 n'a pas de titre de chapitre"
         );
         // Chaque caractère existe dans la police.
         for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10", "NIVEAU D'ESSAI"]
             .into_iter()
-            .chain(["MONDE 2 · NIVEAU 3/7"])
+            .chain(["CHAPITRE 2 · NIVEAU 3/8", TITRE_CHAPITRE_2])
             .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
             .chain([INTRO_ESSAI_CHAT.texte, INTRO_ESSAI_CHAT.astuce])
             .chain([INTRO_ESSAI_HORLOGE.texte, INTRO_ESSAI_HORLOGE.astuce])
