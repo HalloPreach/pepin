@@ -1443,7 +1443,17 @@ mod tests {
                 Theme::Soleil | Theme::Cyclone | Theme::Mer | Theme::ArcEnCiel => {
                     assert_eq!(ombres, 0, "{}", infos.nom)
                 }
-                Theme::Altitude | Theme::Poursuite => {}
+                // L'altitude, le retour du Grand Nuage et le Monde 2 (carte 9.5,
+                // niveaux à venir) n'ont pas encore de contrôle d'ombre propre.
+                Theme::Altitude
+                | Theme::Poursuite
+                | Theme::Caniveau
+                | Theme::Egouts
+                | Theme::Cascade
+                | Theme::Grotte
+                | Theme::Riviere
+                | Theme::Port
+                | Theme::Maree => {}
             }
         }
         let part = variantes as f32 / pleines as f32;
