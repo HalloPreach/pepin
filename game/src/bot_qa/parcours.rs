@@ -337,6 +337,7 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
 /// une aiguille la suit (pieds posés pile sur son dessus), comme s'il avait été
 /// porté. Le Grand Nuage aussi a `pas` pas d'avance ou de retard
 /// (`GrandNuage::decaler`) : ses éclairs et son essoufflement arrivent plus tôt ou
+/// plus tard. Et la marée (`Maree::decaler`, carte 9.3) : l'eau monte plus tôt ou
 /// plus tard.
 pub(crate) fn aiguilles_decalees(m: &Monde, pas: i32) -> Monde {
     let sous = aiguille_sous_pepin(m);
@@ -345,6 +346,11 @@ pub(crate) fn aiguilles_decalees(m: &Monde, pas: i32) -> Monde {
     for e in &mut d.entites {
         if let Entite::Nuage(g) = e {
             g.decaler(pas);
+            continue;
+        }
+        // La marée (carte 9.3) a son horloge, elle aussi.
+        if let Entite::Maree(r) = e {
+            r.decaler(pas);
             continue;
         }
         let Entite::Mobile(a) = e else {
@@ -433,7 +439,9 @@ pub(crate) fn tient_au_decalage(
 ) -> bool {
     let a_des_aiguilles = depart.entites.iter().any(|e| match e {
         Entite::Mobile(a) => a.cercle().is_some(),
-        Entite::Nuage(_) => true,
+        // La marée (carte 9.3) : une barque qui monte à l'image près, un fond
+        // de fosse touché juste quand l'eau s'en va ne laissent aucune marge.
+        Entite::Nuage(_) | Entite::Maree(_) => true,
         _ => false,
     });
     if !a_des_aiguilles {
@@ -559,6 +567,8 @@ pub(crate) struct CaseParcours {
     pub(crate) aiguille: i32,
     /// Le Grand Nuage, résumé en entier (`nuage_de_la_case`) ; 0 sans nuage.
     pub(crate) nuage: i32,
+    /// L'heure de la marée (`maree_de_la_case`, carte 9.3) ; 0 sans marée.
+    pub(crate) maree: i32,
     /// Ennemis d'eau du Monde 2 (carte 9.4), résumés en entier
     /// (`ennemis_d_eau_de_la_case`) ; 0 sans eux.
     pub(crate) eau: i64,
@@ -579,9 +589,27 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         chats: chats_de_la_case(m),
         aiguille: aiguille_proche(m),
         nuage: nuage_de_la_case(m),
+        maree: maree_de_la_case(m),
         eau: ennemis_d_eau_de_la_case(m),
         secret: m.caches_reveles.iter().any(|&r| r),
     }
+}
+
+/// Tranche du temps de la marée (pas) retenue dans la case : 30 pas (1/2 s).
+const TRANCHE_MAREE_PAS: u32 = 30;
+
+/// L'heure de la marée (carte 9.3), résumée en un entier : `1 + tranche`, où
+/// `tranche` est le temps écoulé dans son cycle par tranches de
+/// `TRANCHE_MAREE_PAS` ; 0 sans marée. Comme le nuage, la marée s'ATTEND : sans
+/// son heure dans la case, attendre au bord ramènerait à une case déjà connue.
+pub(crate) fn maree_de_la_case(m: &Monde) -> i32 {
+    m.entites
+        .iter()
+        .find_map(|e| match e {
+            Entite::Maree(r) => Some(1 + (r.pas() / TRANCHE_MAREE_PAS) as i32),
+            _ => None,
+        })
+        .unwrap_or(0)
 }
 
 /// Tranche du temps du Grand Nuage (pas) retenue dans la case : 15 pas (1/4 s).

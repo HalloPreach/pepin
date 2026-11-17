@@ -35,6 +35,7 @@ mod dessin_eau;
 // `debug_niveaux` agrandit la table). Les tests normaux l'ont toujours.
 #[cfg(all(test, not(feature = "debug_niveaux")))]
 mod difficulte;
+mod eau;
 mod ecrans;
 mod effets;
 mod entrees;

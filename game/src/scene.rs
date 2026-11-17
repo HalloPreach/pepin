@@ -142,13 +142,13 @@ fn case_d_indice(monde: &Monde, tx: i32, ty: i32) -> bool {
 
 /// Pas (1/60 s) entre deux temps de la vague de l'eau (carte 9.2) : la surface
 /// monte et descend d'un pixel toutes les 0,4 s.
-const PAS_VAGUE: u32 = 24;
+pub(crate) const PAS_VAGUE: u32 = 24;
 
 /// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus ; un nuage dont la
 /// case voisine est vide (à gauche et/ou à droite) prend un bord arrondi. Dessin seulement :
 /// la collision reste celle de la case. Les faux murs comptent comme le solide qu'ils imitent
 /// (`tuile_vue`) ; la case d'indice d'une zone cachée est une brique décalée.
-fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
+pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
     let haut = tuile_vue(monde, tx, ty - 1) == Tuile::Vide;
     if t == Tuile::Nuage && haut {
         let (gauche, droite) = (
@@ -178,6 +178,8 @@ fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
         // colonne à sa voisine. `rem_euclid` garde un reste positif même pour
         // une colonne négative.
         (Tuile::Eau, _) => {
+            // Sous l'eau d'une marée montée (carte 9.3), ce n'est plus la surface.
+            let haut = haut && !crate::eau::sous_une_maree(monde, tx, ty);
             let vague = (monde.pas / PAS_VAGUE) as i32 + tx;
             let (surface, creux, plein) = match monde.niveau.courant_eau(tx, ty) {
                 -1 => (
@@ -410,7 +412,7 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
 /// Annonce de l'éclair : le pointillé est-il allumé à cet instant ? `progression` va de 0.0
 /// (début de l'annonce) à 1.0 (frappe imminente) : le clignotement ACCÉLÈRE, de 2,5 Hz au début
 /// à 15 Hz à la fin (7 clignotements en 0,8 s). Fonction pure, testable.
-fn annonce_allumee(progression: f32) -> bool {
+pub(crate) fn annonce_allumee(progression: f32) -> bool {
     let p = progression.clamp(0.0, 1.0);
     let phase = 2.0 * p + 5.0 * p * p; // nombre de cycles écoulés
     phase.fract() < 0.5
@@ -776,6 +778,12 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
             // Le Grand Nuage et ses éclairs (son courant : des brins, `effets` ; la
             // déchirure du ciel : `dessiner_dechirure`, derrière les tuiles).
             Entite::Nuage(g) => dessiner_nuage(g, banque, pas, sx, sy, cx, cy),
+            // Les mécaniques d'eau du Monde 2 (carte 9.3) : `eau.rs`.
+            Entite::Bulles(_)
+            | Entite::Chute(_)
+            | Entite::Nenuphar(_)
+            | Entite::Stalactite(_)
+            | Entite::Maree(_) => crate::eau::dessiner(monde, banque, entite, (sx, sy), cx, cy),
             Entite::Grele(g) => {
                 // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
                 let t = TAILLE_TUILE;
@@ -1267,6 +1275,8 @@ pub fn dessiner(
     mur_pluie::dessiner_soleil(monde);
     dessiner_dechirure(monde, cx);
     dessiner_facades(monde, banque, cx, cy);
+    // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
+    crate::eau::dessiner_marees(monde, banque, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);

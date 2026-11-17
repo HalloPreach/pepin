@@ -71,6 +71,18 @@
 //!   en sautant par-dessus ou en l'écrasant (le crabe fait même rebondir). Le
 //!   robot de QA, sur la vraie simulation, les évite pour de bon : il attend
 //!   (leur phase est dans sa case) et écarte tout plan qui meurt.
+//! - mécaniques d'eau (carte 9.3) : les bulles et les chutes d'eau sont des
+//!   courants (vers le haut, vers le bas) toujours actifs, avec la vraie
+//!   physique ; un nénuphar reste solide à sa place (comme la friable : on
+//!   peut toujours en repartir avant d'être mis à l'eau) ; une stalactite ne
+//!   tombe jamais (on passe dessous sans s'arrêter), mais le robot ne s'arrête
+//!   jamais dans sa colonne (aucun état posé dessous), comme sous un chat ;
+//! - la marée (carte 9.3) : chaque état sait si la mer est BASSE (l'eau du
+//!   niveau seule) ou PLEINE (chaque zone de marée remplie, `Noeud::haute`).
+//!   Un joueur patient attend la marée qu'il lui faut : depuis un état stable,
+//!   on passe à l'autre marée (une demi-période de coût) si l'on n'y est pas
+//!   noyé ; la barque monte et descend avec l'eau (posée au fond de la zone si
+//!   l'eau s'en va). Un plan se joue tout entier dans la même marée.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -82,11 +94,13 @@ use std::collections::{BinaryHeap, HashMap};
 
 use crate::aabb::{touche_un_obstacle, Aabb};
 use crate::entities::contacts::{resoudre_contacts, verifier_vide, Contact};
+use crate::entities::maree::PERIODE_MAREE;
 use crate::entities::montgolfiere::VITESSE_MONTEE;
 use crate::entities::{solides_des_entites, Entite, TypeEnnemi};
 use crate::level::{Niveau, VITESSE_PLATEFORMES};
 use crate::physics::{
-    CourantAscendant, Environnement, VentLateral, HZ, JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
+    eau_touchee, CourantAscendant, Eau, Environnement, VentLateral, ENFONCEMENT_BARQUE, HZ,
+    JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
 };
 use crate::player::{Direction, Entrees, Joueur};
 
@@ -222,15 +236,18 @@ struct Noeud {
     /// la barque est à la surface, pieds à `ENFONCEMENT_BARQUE` sous l'eau.
     barque: bool,
     chats: u32,
+    /// Marée (carte 9.3) : la mer est PLEINE (chaque zone `=` remplie) ; faux
+    /// à basse mer, et toujours faux dans un niveau sans marée.
+    haute: bool,
 }
 
 /// Clé de fusion d'un noeud (voir `Noeud::cle`).
-type CleNoeud = (i32, i32, bool, bool, u32);
+type CleNoeud = (i32, i32, bool, bool, u32, bool);
 
 /// Entrée de la file de priorité : `(coût en pas, x, y, lancé, barque, chats
-/// écrasés)` ; `x` et `y` sont rangés en bits (`f32::to_bits`) : un `f32` n'est
-/// pas `Ord`, ses bits si (et ils redonnent exactement le même `f32`).
-type EntreeTas = (u32, u32, u32, bool, bool, u32);
+/// écrasés, mer pleine)` ; `x` et `y` sont rangés en bits (`f32::to_bits`) : un
+/// `f32` n'est pas `Ord`, ses bits si (et ils redonnent exactement le même `f32`).
+type EntreeTas = (u32, u32, u32, bool, bool, u32, bool);
 
 impl Noeud {
     fn pose(x: f32, y: f32, chats: u32) -> Self {
@@ -240,14 +257,66 @@ impl Noeud {
             lance: false,
             barque: false,
             chats,
+            haute: false,
         }
     }
 
-    /// Clé de fusion : une case de 8 px en x, y arrondi, le genre du noeud et
-    /// les chats écrasés.
+    /// Le même noeud, à la marée `haute` (un plan se joue dans une seule marée).
+    fn a_maree(self, haute: bool) -> Self {
+        Self { haute, ..self }
+    }
+
+    /// Clé de fusion : une case de 8 px en x, y arrondi, le genre du noeud, les
+    /// chats écrasés et la marée.
     fn cle(self) -> CleNoeud {
         let (kx, ky) = cle((self.x, self.y));
-        (kx, ky, self.lance, self.barque, self.chats)
+        (kx, ky, self.lance, self.barque, self.chats, self.haute)
+    }
+}
+
+/// Coût (pas) d'un changement de marée : une demi-période.
+const ATTENTE_MAREE: u32 = PERIODE_MAREE / 2;
+
+/// Les états où mène l'attente d'un changement de marée (carte 9.3), depuis le
+/// noeud stable `n` (posé ou à bord) : `eaux_apres` est l'eau de la marée
+/// d'arrivée, `marees` les zones de marée. Posé : il reste où il est, sauf si
+/// l'eau qui monte le noie. À bord : la barque reste à la surface sous son
+/// centre ; plus d'eau sous elle (la zone se vide), elle se pose au fond.
+fn changer_de_maree(n: Noeud, eaux_apres: &[Eau], marees: &[Aabb]) -> Option<Noeud> {
+    let cx = n.x + JOUEUR_L / 2.0;
+    let haute = !n.haute;
+    // L'eau compte À LA HAUTEUR de Pépin, pas seulement dans sa colonne
+    // (`eau_touchee`, correctif d'AGA) : un bassin suspendu au-dessus ne compte pas.
+    let boite = Aabb::new(n.x, n.y, JOUEUR_L, JOUEUR_H);
+    if !n.barque {
+        let noye = eau_touchee(&boite, eaux_apres).is_some();
+        return (!noye).then_some(n.a_maree(haute));
+    }
+    // À bord : la zone de marée où flotte la barque, puis son eau d'arrivée.
+    // Mer qui monte : la nouvelle eau recouvre la barque (`eau_touchee`). Mer
+    // qui descend : la surface est plus bas, dans la même zone de marée.
+    let zone = marees
+        .iter()
+        .find(|z| z.x < cx && cx < z.droite() && z.y < boite.bas() && boite.y < z.bas());
+    let eau = eau_touchee(&boite, eaux_apres).or_else(|| {
+        let z = zone?;
+        eaux_apres
+            .iter()
+            .find(|e| e.couvre_x(cx) && e.zone.y >= boite.bas() && e.zone.y < z.bas())
+    });
+    match eau.map(Eau::surface) {
+        Some(s) => Some(Noeud {
+            y: s - JOUEUR_H + ENFONCEMENT_BARQUE,
+            ..n.a_maree(haute)
+        }),
+        None => {
+            let fond = zone?.bas();
+            Some(Noeud {
+                y: fond - JOUEUR_H,
+                barque: false,
+                ..n.a_maree(haute)
+            })
+        }
     }
 }
 
@@ -425,6 +494,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 Entite::Nuage(n) => {
                     courants.extend(n.courants.iter().map(|&z| CourantAscendant::new(z)));
                 }
+                // Bulles et chutes d'eau (carte 9.3) : toujours actives.
+                Entite::Bulles(b) => courants.push(b.courant()),
+                Entite::Chute(c) => courants.push(c.courant()),
                 _ => {}
             }
         }
@@ -447,6 +519,32 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         vents: &vents,
         eaux: &niveau.eaux,
     };
+    // La marée (carte 9.3) : à basse mer, l'eau du niveau seule (`env`) ; en
+    // pleine mer, chaque zone `=` remplie (`env_haute`). Vide sans marée.
+    let marees: Vec<Aabb> = niveau
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Maree(m) => Some(m.zone),
+            _ => None,
+        })
+        .collect();
+    let mut eaux_hautes: Vec<Eau> = niveau.eaux.clone();
+    eaux_hautes.extend(marees.iter().map(|&zone| Eau { zone, courant: 0 }));
+    eaux_hautes.sort_by(|a, b| a.surface().total_cmp(&b.surface()));
+    let env_haute = Environnement {
+        eaux: &eaux_hautes,
+        ..env
+    };
+    // Les colonnes des stalactites (carte 9.3) : aucun état posé dedans.
+    let stalactites: Vec<Aabb> = niveau
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Stalactite(s) => Some(s.colonne),
+            _ => None,
+        })
+        .collect();
 
     let mut rapport = Rapport {
         arrivee: false,
@@ -483,20 +581,23 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         false,
         sur_l_eau,
         0,
+        false,
     )));
     let tous_les_plans: Vec<Plan> = plans(options).collect();
     // Après un rebond d'auvent, on est en l'air : seuls les choix « en vol »
     // ont un sens (ni élan au sol ni saut).
     let plans_lance: Vec<Plan> = plans_en_vol(options).collect();
 
-    while let Some(Reverse((cout, bx, by, lance, barque, ecrases))) = tas.pop() {
+    while let Some(Reverse((cout, bx, by, lance, barque, ecrases, haute))) = tas.pop() {
         let noeud = Noeud {
             x: f32::from_bits(bx),
             y: f32::from_bits(by),
             lance,
             barque,
             chats: ecrases,
+            haute,
         };
+        let env_noeud = if haute { &env_haute } else { &env };
         let etat = (noeud.x, noeud.y);
         if meilleur.get(&noeud.cle()).is_some_and(|&c| c < cout) {
             continue; // version périmée : un chemin plus court existe
@@ -518,7 +619,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
             }
             let mut touches: Vec<Contact> = Vec::new();
-            let (fin, duree) = simuler(niveau, &env, noeud, *plan, &mut ents, &mut touches);
+            let (fin, duree) = simuler(niveau, env_noeud, noeud, *plan, &mut ents, &mut touches);
             if matches!(fin, Fin::Mort | Fin::Abandon) {
                 continue;
             }
@@ -551,6 +652,14 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 {
                     return;
                 }
+                // Ni sous une stalactite (carte 9.3) : elle tomberait sur lui.
+                let boite = Aabb::new(arrive.x, arrive.y, JOUEUR_L, JOUEUR_H);
+                if !arrive.lance
+                    && !arrive.barque
+                    && stalactites.iter().any(|c| c.chevauche(&boite))
+                {
+                    return;
+                }
                 let k = arrive.cle();
                 if meilleur.get(&k).is_none_or(|&c| cout < c) {
                     meilleur.insert(k, cout);
@@ -561,6 +670,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         arrive.lance,
                         arrive.barque,
                         arrive.chats,
+                        arrive.haute,
                     )));
                 }
             };
@@ -579,11 +689,20 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         lance: true,
                         barque: false,
                         chats: ecrases,
+                        haute,
                     },
                     cout_plan,
                 ),
                 Fin::Pose(x, y) => {
-                    ajouter(Noeud::pose(x, y, ecrases), cout_plan);
+                    ajouter(Noeud::pose(x, y, ecrases).a_maree(haute), cout_plan);
+                    // Attendre l'autre marée (carte 9.3), si le niveau en a une.
+                    if !marees.is_empty() {
+                        let apres = if haute { &niveau.eaux } else { &eaux_hautes };
+                        let ici = Noeud::pose(x, y, ecrases).a_maree(haute);
+                        if let Some(n) = changer_de_maree(ici, apres, &marees) {
+                            ajouter(n, cout_plan + ATTENTE_MAREE);
+                        }
+                    }
                     // Debout sur un bout de plateforme mobile ? On peut attendre
                     // d'être emporté à l'autre bout : on ajoute cet état-là aussi,
                     // avec le temps de trajet comme coût.
@@ -596,7 +715,10 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                                 let (dx, dy) = (vers.0 - de.0, vers.1 - de.1);
                                 let trajet = (dx * dx + dy * dy).sqrt() / VITESSE_PLATEFORMES;
                                 let attente = (trajet * HZ as f32) as u32;
-                                ajouter(Noeud::pose(x + dx, y + dy, ecrases), cout_plan + attente);
+                                ajouter(
+                                    Noeud::pose(x + dx, y + dy, ecrases).a_maree(haute),
+                                    cout_plan + attente,
+                                );
                             }
                         }
                     }
@@ -615,7 +737,10 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         let balayage = Aabb::new(x, y + dy, JOUEUR_L, JOUEUR_H - dy);
                         if !touche_un_obstacle(&balayage, niveau, &[]) {
                             let attente = (-dy / VITESSE_MONTEE * HZ as f32).ceil() as u32;
-                            ajouter(Noeud::pose(x, y + dy, ecrases), cout_plan + attente);
+                            ajouter(
+                                Noeud::pose(x, y + dy, ecrases).a_maree(haute),
+                                cout_plan + attente,
+                            );
                         }
                     }
                     // Debout sur une place d'aiguille d'horloge ? On attend qu'elle
@@ -634,7 +759,10 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                                 if let Some(((ax, ay), attente)) =
                                     cadran.trajet(niveau, (x, y), heure, n)
                                 {
-                                    ajouter(Noeud::pose(ax, ay, ecrases), cout_plan + attente);
+                                    ajouter(
+                                        Noeud::pose(ax, ay, ecrases).a_maree(haute),
+                                        cout_plan + attente,
+                                    );
                                 }
                             }
                         }
@@ -649,8 +777,16 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         lance: false,
                         barque: true,
                         chats: ecrases,
+                        haute,
                     };
                     ajouter(noeud, cout_plan);
+                    // La barque monte (ou descend) avec la marée (carte 9.3).
+                    if !marees.is_empty() {
+                        let apres = if haute { &niveau.eaux } else { &eaux_hautes };
+                        if let Some(n) = changer_de_maree(noeud, apres, &marees) {
+                            ajouter(n, cout_plan + ATTENTE_MAREE);
+                        }
+                    }
                 }
                 _ => {}
             }

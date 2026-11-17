@@ -17,9 +17,9 @@ use crate::entities::ennemi::SOUS_L_EAU_PAS;
 use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::nuage::{NB_COLONNES, PORTEE_COLONNES, TAILLE_NUAGE};
 use crate::entities::{
-    Actualisable, Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, GrandNuage,
-    Grele, Lanterne, Lettre, Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi,
-    Ventilateur,
+    Actualisable, Auvent, Bulles, Champignon, Chute, Eclair, Ennemi, Entite, Escargot, GoutteDor,
+    GrandNuage, Grele, Lanterne, Lettre, Maree, Montgolfiere, Nenuphar, PlateformeFriable,
+    PlateformeMobile, Pointe, Stalactite, TypeEnnemi, Ventilateur,
 };
 use crate::physics::{CourantAscendant, Eau, Environnement, VentLateral, JOUEUR_H};
 
@@ -112,6 +112,14 @@ pub(super) fn analyser(
     let mut sorties_secretes: Vec<Case> = Vec::new();
     // Mur de pluie (au plus un, carte 8.2) : cases `P`.
     let mut murs: Vec<Case> = Vec::new();
+    // Mécaniques d'eau (carte 9.3) : il faut la grille entière (l'eau sous un
+    // nénuphar, le plafond d'une stalactite, l'appui d'une marée...). Bulles
+    // `Y`, chutes d'eau `|` et marées `=` forment des rectangles, comme le vent.
+    let mut bulles = vec![false; largeur * hauteur];
+    let mut chutes = vec![false; largeur * hauteur];
+    let mut marees = vec![false; largeur * hauteur];
+    let mut nenuphars: Vec<Case> = Vec::new();
+    let mut stalactites: Vec<Case> = Vec::new();
 
     for (ty, ligne) in lignes.iter().enumerate() {
         for (tx, c) in ligne.chars().enumerate() {
@@ -180,6 +188,11 @@ pub(super) fn analyser(
                 'h' => pivots.push(case),
                 'O' => nuages.push(case),
                 'P' => murs.push(case),
+                'Y' => bulles[ty * largeur + tx] = true,
+                '|' => chutes[ty * largeur + tx] = true,
+                '=' => marees[ty * largeur + tx] = true,
+                'n' => nenuphars.push(case),
+                'V' => stalactites.push(case),
                 // Eau (carte 9.2) : `~` calme, `{` courant vers la gauche, `}`
                 // vers la droite. La tuile n'est PAS solide : le moteur de
                 // collision ne la voit pas, seule la surface compte (le haut de
@@ -285,6 +298,15 @@ pub(super) fn analyser(
         let zone = Aabb::new(tx as f32 * TAILLE_TUILE + 2.0, haut, 12.0, bas - haut);
         entites.push(Entite::Grele(Grele::new(zone)));
     }
+    // Mécaniques d'eau (carte 9.3) : voir `poser_mecaniques_d_eau`.
+    poser_mecaniques_d_eau(
+        &tuiles,
+        largeur,
+        hauteur,
+        (&bulles, &chutes, &marees),
+        (&nenuphars, &stalactites),
+        &mut entites,
+    )?;
     // Plateformes mobiles : un chiffre = deux extrémités (ordre de lecture).
     for (marque, cases) in &mobiles {
         let [a, b] = cases.as_slice() else {
@@ -553,6 +575,74 @@ pub(super) fn analyser(
     // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).
     ajouter_aiguilles(&mut niveau, &pivots, reglages_aiguilles)?;
     Ok(niveau)
+}
+
+/// Les mécaniques d'eau de la carte 9.3, ajoutées aux entités :
+/// - colonnes de bulles `Y` (rectangles), PROLONGÉES vers le bas à travers
+///   l'eau qui est juste dessous : les bulles partent du fond du bassin ;
+/// - chutes d'eau `|` (rectangles, tels quels) ;
+/// - marées `=` (rectangles) : la rangée sous chacune est solide ou de l'eau
+///   (le bas de la carte compte comme un appui manquant) ;
+/// - nénuphars `n` : la case du dessous est de l'eau ;
+/// - stalactites `V` : la case du dessus est solide ; elles tombent jusqu'au
+///   premier solide ou à la première eau en dessous (le bas de la carte sinon).
+fn poser_mecaniques_d_eau(
+    tuiles: &[Tuile],
+    largeur: usize,
+    hauteur: usize,
+    (bulles, chutes, marees): (&[bool], &[bool], &[bool]),
+    (nenuphars, stalactites): (&[Case], &[Case]),
+    entites: &mut Vec<Entite>,
+) -> Result<(), ErreurNiveau> {
+    let t = TAILLE_TUILE;
+    let tuile = |x: usize, y: usize| tuiles[y * largeur + x];
+    let rect = |g: usize, d: usize, h: usize, b: usize| {
+        Aabb::new(
+            g as f32 * t,
+            h as f32 * t,
+            (d - g + 1) as f32 * t,
+            (b - h + 1) as f32 * t,
+        )
+    };
+    let mal_pose = |(tx, ty): Case, caractere| ErreurNiveau::EauMalPosee {
+        ligne: ty + 1,
+        colonne: tx + 1,
+        caractere,
+    };
+    for (g, d, h, mut b) in fusionner_zones(bulles, largeur, hauteur) {
+        while b + 1 < hauteur && (g..=d).all(|x| tuile(x, b + 1) == Tuile::Eau) {
+            b += 1;
+        }
+        entites.push(Entite::Bulles(Bulles::new(rect(g, d, h, b))));
+    }
+    for (g, d, h, b) in fusionner_zones(chutes, largeur, hauteur) {
+        entites.push(Entite::Chute(Chute::new(rect(g, d, h, b))));
+    }
+    for (g, d, h, b) in fusionner_zones(marees, largeur, hauteur) {
+        let appui = |x: usize| b + 1 < hauteur && tuile(x, b + 1) != Tuile::Vide;
+        if let Some(x) = (g..=d).find(|&x| !appui(x)) {
+            return Err(mal_pose((x, b), '='));
+        }
+        entites.push(Entite::Maree(Maree::new(rect(g, d, h, b))));
+    }
+    for &(tx, ty) in nenuphars {
+        if ty + 1 >= hauteur || tuile(tx, ty + 1) != Tuile::Eau {
+            return Err(mal_pose((tx, ty), 'n'));
+        }
+        let (x, y) = px((tx, ty));
+        entites.push(Entite::Nenuphar(Nenuphar::dans_la_case(x, y)));
+    }
+    for &(tx, ty) in stalactites {
+        if ty == 0 || !tuile(tx, ty - 1).est_solide() {
+            return Err(mal_pose((tx, ty), 'V'));
+        }
+        let sol = (ty + 1..hauteur)
+            .find(|&y| tuile(tx, y) != Tuile::Vide)
+            .unwrap_or(hauteur);
+        let (x, y) = px((tx, ty));
+        entites.push(Entite::Stalactite(Stalactite::new(x, y, sol as f32 * t)));
+    }
+    Ok(())
 }
 
 /// Le Grand Nuage de la case `O` (`tx`, `ty`) :

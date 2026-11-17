@@ -11,6 +11,10 @@
 //!   essoufflement et courant ascendant, trois points de vie) ;
 //! - `marche` : la marche au sol partagée par la flaque et l'escargot ;
 //! - `collectibles` : les gouttes d'or, les lettres cachées et les lanternes (checkpoints) ;
+//! - les mécaniques d'eau du Monde 2 (carte 9.3) : `bulles` (colonne qui
+//!   soulève), `nenuphar` (feuille qui s'enfonce), `maree` (niveau d'eau
+//!   cyclique), `stalactite` (pointe qui tombe du plafond), `chute` (chute
+//!   d'eau qui pousse vers le bas) ;
 //! - `contacts` : ce qui se passe quand le joueur touche une entité.
 //!
 //! Ordre conseillé pour UN pas de simulation (60 Hz), à respecter par le jeu :
@@ -31,7 +35,9 @@
 //!   pour parcourir une tranche sans en prendre possession.
 
 pub mod auvent;
+pub mod bulles;
 pub mod champignon;
+pub mod chute;
 pub mod collectibles;
 pub mod contacts;
 pub mod eclair;
@@ -40,27 +46,35 @@ pub mod escargot;
 pub mod friable;
 pub mod grele;
 mod marche;
+pub mod maree;
 pub mod mobile;
 pub mod montgolfiere;
+pub mod nenuphar;
 pub mod nuage;
 pub mod pointe;
+pub mod stalactite;
 pub mod ventilateur;
 
 use crate::aabb::Aabb;
-use crate::physics::{CourantAscendant, Environnement};
+use crate::physics::{CourantAscendant, Eau, Environnement};
 
 pub use auvent::Auvent;
+pub use bulles::Bulles;
 pub use champignon::Champignon;
+pub use chute::Chute;
 pub use collectibles::{GoutteDor, Lanterne, Lettre};
 pub use eclair::Eclair;
 pub use ennemi::{Ennemi, TypeEnnemi};
 pub use escargot::Escargot;
 pub use friable::PlateformeFriable;
 pub use grele::Grele;
+pub use maree::Maree;
 pub use mobile::PlateformeMobile;
 pub use montgolfiere::Montgolfiere;
+pub use nenuphar::Nenuphar;
 pub use nuage::GrandNuage;
 pub use pointe::Pointe;
+pub use stalactite::Stalactite;
 pub use ventilateur::Ventilateur;
 
 /// Contrat : « savoir avancer d'un pas de simulation fixe (1/60 s) ».
@@ -101,6 +115,16 @@ pub enum Entite {
     Lanterne(Lanterne),
     /// Lettre cachée (carte 8.6).
     Lettre(Lettre),
+    /// Colonne de bulles qui soulève (carte 9.3, `Y`).
+    Bulles(Bulles),
+    /// Nénuphar qui s'enfonce sous Pépin (carte 9.3, `n`).
+    Nenuphar(Nenuphar),
+    /// Niveau d'eau cyclique (carte 9.3, `=`).
+    Maree(Maree),
+    /// Stalactite qui tombe (carte 9.3, `V`).
+    Stalactite(Stalactite),
+    /// Chute d'eau qui pousse vers le bas (carte 9.3, `|`).
+    Chute(Chute),
 }
 
 /// `Entite` implémente le trait en DÉLÉGUANT à la variante réelle.
@@ -124,6 +148,11 @@ impl Actualisable for Entite {
             Entite::Goutte(e) => e.actualiser(env),
             Entite::Lanterne(e) => e.actualiser(env),
             Entite::Lettre(e) => e.actualiser(env),
+            Entite::Bulles(e) => e.actualiser(env),
+            Entite::Nenuphar(e) => e.actualiser(env),
+            Entite::Maree(e) => e.actualiser(env),
+            Entite::Stalactite(e) => e.actualiser(env),
+            Entite::Chute(e) => e.actualiser(env),
         }
     }
 }
@@ -147,6 +176,11 @@ impl Entite {
             Entite::Goutte(e) => e.boite,
             Entite::Lanterne(e) => e.boite,
             Entite::Lettre(e) => e.boite,
+            Entite::Bulles(e) => e.zone,
+            Entite::Nenuphar(e) => e.boite,
+            Entite::Maree(e) => e.zone,
+            Entite::Stalactite(e) => e.boite,
+            Entite::Chute(e) => e.zone,
         }
     }
 
@@ -159,6 +193,8 @@ impl Entite {
             // La nacelle seulement : le ballon au-dessus n'est qu'un dessin.
             Entite::Montgolfiere(m) => Some(m.boite),
             Entite::Ventilateur(v) => Some(v.boite),
+            // La feuille du nénuphar : on s'y pose (elle s'enfonce ensuite).
+            Entite::Nenuphar(n) => Some(n.boite),
             _ => None,
         }
     }
@@ -174,16 +210,37 @@ pub fn solides_des_entites(entites: &[Entite]) -> Vec<Aabb> {
 /// Rassemble les courants ascendants TEMPORAIRES des entités, actifs en ce
 /// moment, à ajouter aux courants du niveau (`niveau.courants`, statiques) :
 /// celui de chaque ventilateur qui SOUFFLE, et celui du Grand Nuage ESSOUFFLÉ.
-/// Hors de ces phases, ils n'existent pas.
+/// Hors de ces phases, ils n'existent pas. Les colonnes de bulles (vers le haut)
+/// et les chutes d'eau (vers le bas, accélération négative) de la carte 9.3, elles,
+/// soufflent toujours.
 pub fn courants_des_entites(entites: &[Entite]) -> Vec<CourantAscendant> {
     entites
         .iter()
         .filter_map(|e| match e {
             Entite::Ventilateur(v) => v.courant_actif(),
             Entite::Nuage(n) => n.courant_actif(),
+            Entite::Bulles(b) => Some(b.courant()),
+            Entite::Chute(c) => Some(c.courant()),
             _ => None,
         })
         .collect()
+}
+
+/// Les étendues d'eau du moment (carte 9.3) : celles du niveau (`statiques`),
+/// plus l'eau de chaque marée qui n'est pas à basse mer, rangées du plus haut
+/// au plus bas (l'ordre qu'attend `physics::eau_touchee`). Le jeu ne l'appelle
+/// que dans un niveau qui a une marée : ailleurs, l'eau du niveau sert telle quelle.
+pub fn eaux_des_entites(statiques: &[Eau], entites: &[Entite]) -> Vec<Eau> {
+    let mut eaux: Vec<Eau> = entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Maree(m) => m.eau(),
+            _ => None,
+        })
+        .chain(statiques.iter().copied())
+        .collect();
+    eaux.sort_by(|a, b| a.surface().total_cmp(&b.surface()));
+    eaux
 }
 
 /// Pépin vient de mourir : chaque Grand Nuage reprend au début de son combat
@@ -202,6 +259,9 @@ pub fn reprendre_apres_une_mort(entites: &mut [Entite], occupant: &Aabb) {
         match e {
             Entite::Nuage(n) => n.reprendre(),
             Entite::Friable(f) => f.reformer(occupant),
+            // Carte 9.3 : le nénuphar remonte, la stalactite est raccrochée.
+            Entite::Nenuphar(n) => n.remettre(),
+            Entite::Stalactite(s) => s.raccrocher(),
             _ => {}
         }
     }

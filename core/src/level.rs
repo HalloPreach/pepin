@@ -85,6 +85,18 @@
 //!      mur ; écrasable
 //!   u  mouette, perchée sur le solide du dessous (mât, grue) : un pigeon du
 //!      port, même annonce, même piqué
+//!   ~  {  }  eau calme, courant d'eau vers la gauche, vers la droite (carte
+//!            9.2) : planer dedans donne la barque, y entrer autrement noie
+//!   Y  bulles (carte 9.3) : colonne qui soulève comme un courant ascendant,
+//!      prolongée vers le bas à travers l'eau qui est juste dessous
+//!   n  nénuphar (carte 9.3), dans la case au-dessus de l'eau : une feuille sur
+//!      laquelle on se pose ; elle s'enfonce sous Pépin et le met à l'eau en 1 s
+//!   =  marée (carte 9.3) : zone où l'eau monte et descend par cycles
+//!      (`entities::maree`) ; elle repose sur un solide ou sur de l'eau
+//!   V  stalactite (carte 9.3), sous un solide : elle tremble 0,75 s quand
+//!      Pépin passe dessous, puis tombe (mortelle) et se brise au sol
+//!   |  chute d'eau (carte 9.3) : colonne qui pousse vers le BAS (lente
+//!      parapluie ouvert, rapide parapluie fermé)
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
