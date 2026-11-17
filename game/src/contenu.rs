@@ -247,6 +247,13 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
             astuce: "Elle frappe là où l'eau tremble.",
         },
     ),
+    (
+        "egouts",
+        Intro {
+            texte: "Sous la rue, l'eau de pluie file dans les tunnels. Les rats aussi.",
+            astuce: "Un rat qui se dresse va foncer : saute-lui dessus ou par-dessus.",
+        },
+    ),
 ];
 
 // Vérifié À LA COMPILATION : chaque niveau du Monde 2 de la table a son intro.

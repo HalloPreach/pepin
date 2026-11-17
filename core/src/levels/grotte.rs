@@ -42,7 +42,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     monde: 2,
     // Sa place dans le Monde 2 de SA branche (après le caniveau) : le coordinateur
     // la range à la 4e place à la fusion (recette, point 3).
-    numero: 3,
+    numero: 4,
     cle: "grotte",
     sans_planer: false,
     nom: "La grotte aux bulles",

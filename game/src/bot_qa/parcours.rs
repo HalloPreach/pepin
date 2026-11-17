@@ -52,11 +52,12 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
+use pepin_core::aabb::Aabb;
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::ennemi::{
     pas_du_cycle, EtatEnnemi, ANIMATION_ECRASE_PAS, DORT_PAS, REVEIL_PAS,
 };
-use pepin_core::entities::{Entite, TypeEnnemi};
+use pepin_core::entities::{Entite, Maree, TypeEnnemi};
 use pepin_core::faisabilite::pas_max_plan;
 use pepin_core::player::{Direction, Entrees};
 
@@ -437,11 +438,22 @@ pub(crate) fn tient_au_decalage(
     arrivee: &Monde,
     entrees: &[Entrees],
 ) -> bool {
+    // Le rectangle qui va du départ à l'arrivée du plan (pour la marée).
+    let (de, vers) = (&depart.joueur.boite, &arrivee.joueur.boite);
+    let (gauche, haut) = (de.x.min(vers.x), de.y.min(vers.y));
+    let trajet = Aabb::new(
+        gauche,
+        haut,
+        de.droite().max(vers.droite()) - gauche,
+        de.bas().max(vers.bas()) - haut,
+    );
     let a_des_aiguilles = depart.entites.iter().any(|e| match e {
         Entite::Mobile(a) => a.cercle().is_some(),
+        Entite::Nuage(_) | Entite::Pieuvre(_) => true,
         // La marée (carte 9.3) : une barque qui monte à l'image près, un fond
         // de fosse touché juste quand l'eau s'en va ne laissent aucune marge.
-        Entite::Nuage(_) | Entite::Pieuvre(_) | Entite::Maree(_) => true,
+        // Seulement si le plan passe PRÈS d'elle (carte 9.7, `pres_de_la_maree`).
+        Entite::Maree(r) => pres_de_la_maree(r, &trajet),
         _ => false,
     });
     if !a_des_aiguilles {
@@ -597,15 +609,36 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
 /// Tranche du temps de la marée (pas) retenue dans la case : 30 pas (1/2 s).
 const TRANCHE_MAREE_PAS: u32 = 30;
 
+/// Portée (px) de la marée pour le robot (carte 9.7) : 8 tuiles autour de sa zone.
+const PORTEE_MAREE: f32 = 128.0;
+
+/// `boite` est-elle à moins de `PORTEE_MAREE` px de la zone de la marée `r` (en
+/// x comme en y) ?
+///
+/// Pourquoi (carte 9.7, « Les égouts ») : l'heure de la marée multiplie par 20
+/// les cases du robot (`maree_de_la_case`) et `tient_au_decalage` rejoue chaque
+/// plan quatre fois de plus. Dans TOUT le niveau (146 tuiles), la recherche
+/// tournait encore après 75 minutes ; marée comptée seulement près de ses
+/// bassins, elle trouve en 17 minutes (machine chargée). Loin de toute marée,
+/// son heure ne change rien au plan ; arrivé près d'elle, le robot l'attend
+/// (plans « attendre ») comme avant.
+fn pres_de_la_maree(r: &Maree, boite: &Aabb) -> bool {
+    let (z, p) = (r.zone, PORTEE_MAREE);
+    Aabb::new(z.x - p, z.y - p, z.w + 2.0 * p, z.h + 2.0 * p).chevauche(boite)
+}
+
 /// L'heure de la marée (carte 9.3), résumée en un entier : `1 + tranche`, où
 /// `tranche` est le temps écoulé dans son cycle par tranches de
-/// `TRANCHE_MAREE_PAS` ; 0 sans marée. Comme le nuage, la marée s'ATTEND : sans
+/// `TRANCHE_MAREE_PAS` ; 0 sans marée, et 0 loin de toute marée
+/// (`pres_de_la_maree`, carte 9.7). Comme le nuage, la marée s'ATTEND : sans
 /// son heure dans la case, attendre au bord ramènerait à une case déjà connue.
 pub(crate) fn maree_de_la_case(m: &Monde) -> i32 {
     m.entites
         .iter()
         .find_map(|e| match e {
-            Entite::Maree(r) => Some(1 + (r.pas() / TRANCHE_MAREE_PAS) as i32),
+            Entite::Maree(r) if pres_de_la_maree(r, &m.joueur.boite) => {
+                Some(1 + (r.pas() / TRANCHE_MAREE_PAS) as i32)
+            }
             _ => None,
         })
         .unwrap_or(0)

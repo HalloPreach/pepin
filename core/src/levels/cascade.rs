@@ -51,7 +51,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     monde: 2,
     // 2 dans la branche de la carte 9.8 (seul le caniveau le précède) ; le
     // coordinateur le range 3e, après les égouts, à la fusion.
-    numero: 2,
+    numero: 3,
     cle: "cascade",
     sans_planer: false,
     nom: "La grande cascade",

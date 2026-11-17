@@ -34,6 +34,7 @@ pub mod cascade;
 pub mod clocher;
 pub mod cyclone;
 pub mod descente;
+pub mod egouts;
 pub mod essai_auvent;
 pub mod essai_chat;
 pub mod essai_eau;
@@ -92,6 +93,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     // de la table, dans l'ordre du parcours (`monde: 2`, `numero` 1, 2, 3...). Les
     // indices du Monde 1 ne bougent pas. Recette : `pepin-notes/ETAPE-9.md`.
     caniveau::INFOS,
+    egouts::INFOS,
     cascade::INFOS,
     grotte::INFOS,
     pieuvre::INFOS,
