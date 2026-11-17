@@ -1410,6 +1410,8 @@ pub fn dessiner(
     dessiner_tuiles(monde, banque, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
+    // L'habillage de la grotte (carte 9.20d) : rideau de la cascade, sources, jour.
+    crate::decor_grotte::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);

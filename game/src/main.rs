@@ -27,6 +27,7 @@ mod contenu;
 mod cosmetiques;
 mod course;
 mod decor;
+mod decor_grotte;
 mod decor_rue;
 mod defis;
 mod demo;

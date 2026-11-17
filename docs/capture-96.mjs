@@ -128,7 +128,9 @@ if (!MONDE1) {
 // 2. La partie du Monde 2 du robot.
 const script = fs.readFileSync(fichierScript, 'utf8').trim();
 console.log('démarré :', await ouvrir());
-if (!MONDE1) await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
+// Carte 9.20b : SANS_BAS=1 n'envoie pas la touche BAS à l'image 0 (le titre actuel :
+// JOUER, sur la 1re ligne, reprend au Monde 2 comme le robot `jouer_monde_2`).
+if (!MONDE1 && process.env.SANS_BAS !== '1') await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
 let pos = 0;
 const etapes = demandes.map((d) => { const [nom, n] = d.split(':'); return [Number(n), nom]; }).sort((a, b) => a[0] - b[0]);
 for (const [a, nom] of etapes) {

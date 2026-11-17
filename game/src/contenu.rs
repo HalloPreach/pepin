@@ -240,7 +240,8 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
     (
         "grotte",
         Intro {
-            texte: "Sous la ville, la pluie a creusé une grotte. Les bulles montent : Pépin aussi.",
+            texte:
+                "Derrière la cascade, une grotte. Des sources bouillonnent : les bulles te portent.",
             astuce: "Une stalactite tremble : ne t'arrête pas dessous.",
         },
     ),
