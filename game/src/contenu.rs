@@ -10,7 +10,9 @@
 //! vérifiée par le compilateur, `struct` de données, tests qui parcourent les
 //! données.
 
-use pepin_core::levels::{nb_normaux, niveaux_du_monde, GenreNiveau, NB_NIVEAUX, NIVEAUX};
+use pepin_core::levels::{
+    nb_normaux, niveaux_du_monde, GenreNiveau, NB_NIVEAUX, NB_NIVEAUX_MONDE_1, NIVEAUX,
+};
 use pepin_core::zones::InfosNiveau;
 
 use crate::menu::Choix;
@@ -156,9 +158,10 @@ pub struct Intro {
     pub astuce: &'static str,
 }
 
-/// Une intro par niveau, dans l'ordre. Le type `[Intro; NB_NIVEAUX]` fait
-/// échouer la compilation si on ajoute un niveau sans écrire son texte.
-pub const INTROS: [Intro; NB_NIVEAUX] = [
+/// Une intro par niveau du MONDE 1, dans l'ordre. Le type `[Intro; NB_NIVEAUX_MONDE_1]`
+/// fait échouer la compilation si on ajoute un niveau au Monde 1 sans écrire son
+/// texte. Le Monde 2 a sa propre liste, rangée par clé : `INTROS_MONDE_2`.
+pub const INTROS: [Intro; NB_NIVEAUX_MONDE_1] = [
     Intro {
         texte: "La pluie tambourine sur les toits. Pépin ouvre son parapluie : en route vers le soleil !",
         astuce: "Maintiens SAUT en l'air pour planer.",
@@ -211,14 +214,59 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
         texte: "Le soleil est réveillé : on redescend lui montrer la ville.",
         astuce: "Parapluie ouvert, la grêle ne te touche pas.",
     },
-    // Build de QA seulement (carte 9.1) : le faux Monde 2, copie des toits, à la fin
-    // de la table (`levels::TOITS_MONDE2`). La production n'a pas cette intro.
-    #[cfg(feature = "debug_niveaux")]
-    Intro {
-        texte: "Monde 2 : un faux niveau d'essai, la copie des toits.",
-        astuce: "Les vrais niveaux du Monde 2 viendront ici.",
-    },
 ];
+
+/// Les intros du MONDE 2 (carte 9.6), rangées par CLÉ de niveau et non par place :
+/// les niveaux du Monde 2 arrivent en parallèle (cartes 9.7 à 9.13), chacun ajoute
+/// sa ligne sans se soucier de l'ordre des autres. Un niveau du Monde 2 sans sa
+/// ligne ici empêche le jeu de COMPILER (`intros_du_monde_2_completes`), comme le
+/// tableau du Monde 1.
+pub const INTROS_MONDE_2: &[(&str, Intro)] = &[(
+    "caniveau",
+    Intro {
+        texte: "La pluie descend des toits et file dans le caniveau. Pépin la suit.",
+        astuce: "Parapluie ouvert, l'eau te porte. Fermé, elle t'avale.",
+    },
+)];
+
+// Vérifié À LA COMPILATION : chaque niveau du Monde 2 de la table a son intro.
+const _: () = assert!(
+    intros_du_monde_2_completes(),
+    "un niveau du Monde 2 n'a pas son intro dans INTROS_MONDE_2"
+);
+
+/// Chaque niveau hors du Monde 1 a-t-il sa ligne dans `INTROS_MONDE_2` ? Fonction
+/// `const` (boucles `while`, `==` sur `&str` n'étant pas permis en `const`).
+const fn intros_du_monde_2_completes() -> bool {
+    let mut i = NB_NIVEAUX_MONDE_1;
+    while i < NB_NIVEAUX {
+        let mut k = 0;
+        while k < INTROS_MONDE_2.len() && !meme_texte(INTROS_MONDE_2[k].0, NIVEAUX[i].cle) {
+            k += 1;
+        }
+        if k == INTROS_MONDE_2.len() {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+/// Deux textes identiques, octet par octet (utilisable en `const`).
+const fn meme_texte(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut k = 0;
+    while k < a.len() {
+        if a[k] != b[k] {
+            return false;
+        }
+        k += 1;
+    }
+    true
+}
 
 /// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
 /// sauf, dans les tests et le build de QA, ceux des niveaux d'essai (vertical, vent,
@@ -264,7 +312,16 @@ pub fn intro(indice: usize) -> &'static Intro {
     if indice == crate::monde::INDICE_ESSAI_NUAGE {
         return &INTRO_ESSAI_NUAGE;
     }
-    &INTROS[indice.min(NB_NIVEAUX - 1)]
+    // Le Monde 1 par sa place ; les autres mondes par la clé du niveau ; hors de la
+    // table, le dernier niveau.
+    let i = indice.min(NB_NIVEAUX - 1);
+    if i < NB_NIVEAUX_MONDE_1 {
+        return &INTROS[i];
+    }
+    INTROS_MONDE_2
+        .iter()
+        .find(|(cle, _)| *cle == NIVEAUX[i].cle)
+        .map_or(&INTROS[NB_NIVEAUX_MONDE_1 - 1], |(_, intro)| intro)
 }
 
 /// Intro du niveau d'essai vertical (build de QA seulement, voir `monde::INDICE_ESSAI`).
@@ -660,7 +717,7 @@ pub(crate) mod tests {
             t.push(effet);
         }
         t.extend(ASTUCES_AIDE);
-        for i in INTROS {
+        for i in INTROS.iter().chain(INTROS_MONDE_2.iter().map(|(_, i)| i)) {
             t.push(i.texte);
             t.push(i.astuce);
         }
@@ -720,8 +777,16 @@ pub(crate) mod tests {
 
     #[test]
     fn l_intro_hors_bornes_donne_le_dernier_niveau() {
-        assert_eq!(intro(99).texte, INTROS[NB_NIVEAUX - 1].texte);
+        assert_eq!(intro(99).texte, intro(NB_NIVEAUX - 1).texte);
         assert_eq!(intro(0).texte, INTROS[0].texte);
+        // Le Monde 2 (carte 9.6) : par la clé, quelle que soit sa place dans la table.
+        let caniveau = pepin_core::levels::indice_de_cle(NIVEAUX, "caniveau").unwrap();
+        assert_eq!(intro(caniveau).astuce, INTROS_MONDE_2[0].1.astuce);
+        // Chaque intro du Monde 2 désigne un niveau du Monde 2 de la table.
+        for (cle, _) in INTROS_MONDE_2 {
+            let i = pepin_core::levels::indice_de_cle(NIVEAUX, cle).expect(cle);
+            assert!(i >= NB_NIVEAUX_MONDE_1, "{cle}");
+        }
     }
 
     /// Tous les mots de fin possibles (chaque cas de `message_fin`).
@@ -789,7 +854,7 @@ pub(crate) mod tests {
         assert_eq!(intro(crate::monde::INDICE_ESSAI).texte, INTRO_ESSAI.texte);
         // Monde 2 (carte 9.1) : le monde devant, compté PAR MONDE ; le Monde 1 inchangé
         // (`etiquette` compte les normaux du monde dans la vraie table).
-        let m2 = pepin_core::levels::TOITS_MONDE2;
+        let m2 = pepin_core::levels::caniveau::INFOS;
         assert_eq!(etiquette_niveau(&m2, 7), "MONDE 2 · NIVEAU 1/7");
         let mut bonus_m2 = m2;
         bonus_m2.genre = GenreNiveau::Bonus;

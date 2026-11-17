@@ -30,10 +30,9 @@ mod decor;
 mod defis;
 mod demo;
 mod dessin_eau;
-// La mesure de difficulté décrit la courbe du MONDE 1 (tableaux de `NB_NIVEAUX`
-// cases) : elle ne se compile pas avec le faux Monde 2 du build de QA (carte 9.1,
-// `debug_niveaux` agrandit la table). Les tests normaux l'ont toujours.
-#[cfg(all(test, not(feature = "debug_niveaux")))]
+// La mesure de difficulté décrit la courbe du MONDE 1 (tableaux de
+// `NB_NIVEAUX_MONDE_1` cases, carte 9.6) : elle ne dépend pas du Monde 2.
+#[cfg(test)]
 mod difficulte;
 mod eau;
 mod ecrans;

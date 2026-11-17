@@ -19,8 +19,7 @@ son = ["macroquad/audio"]
 # d'essai vertical (score et chrono remis à zéro). JAMAIS dans la production : sur AZERTY ce sont les touches
 # & é " ' ( et un appui accidentel perdrait la partie. Activée seulement par
 # `./build.sh --qa` (dist-qa/) pour les captures et la QA.
-# Elle ajoute aussi le faux Monde 2 à la table des niveaux (carte 9.1, `monde2_qa`).
-debug_niveaux = ["pepin_core/monde2_qa"]
+debug_niveaux = []
 # Plantage volontaire (panique sur la touche F9), pour vérifier dans un navigateur que
 # la page affiche un message quand le jeu plante en cours de partie. JAMAIS dans la
 # production : activée seulement par `./build.sh --qa` (dist-qa/).

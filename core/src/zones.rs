@@ -705,17 +705,27 @@ mod tests {
     /// Un test de faisabilité PAR niveau (ils tournent en parallèle). La macro écrit
     /// les fonctions de test et la liste des indices couverts : un niveau ajouté sans
     /// sa ligne ici fait échouer `chaque_niveau_a_son_test_de_faisabilite`.
+    ///
+    /// Le Monde 2 (carte 9.6) a ses huit places RÉSERVÉES d'avance (ses huit clés
+    /// sont décidées, voir `pepin-notes/ETAPE-9.md`) : ajouter un niveau du Monde 2
+    /// n'oblige à rien toucher ici. Une place encore vide (pas encore de niveau à cet
+    /// indice) passe sans rien vérifier.
     macro_rules! tests_de_faisabilite {
         ($($nom:ident => $indice:expr),* $(,)?) => {
             $(
                 #[test]
                 fn $nom() {
-                    verifier($indice);
+                    if $indice < NB_NIVEAUX {
+                        verifier($indice);
+                    }
                 }
             )*
             const INDICES_VERIFIES: &[usize] = &[$($indice),*];
         };
     }
+
+    /// Indice dans la table du 1er niveau du Monde 2.
+    const M2: usize = crate::levels::NB_NIVEAUX_MONDE_1;
 
     tests_de_faisabilite! {
         niveau_1_faisable => 0,
@@ -730,13 +740,25 @@ mod tests {
         niveau_10_faisable => 9,
         niveau_11_faisable => 10,
         niveau_12_faisable => 11,
+        monde_2_niveau_1_faisable => M2,
+        monde_2_niveau_2_faisable => M2 + 1,
+        monde_2_niveau_3_faisable => M2 + 2,
+        monde_2_niveau_4_faisable => M2 + 3,
+        monde_2_niveau_5_faisable => M2 + 4,
+        monde_2_niveau_6_faisable => M2 + 5,
+        monde_2_niveau_7_faisable => M2 + 6,
+        monde_2_niveau_8_faisable => M2 + 7,
     }
 
     #[test]
     fn chaque_niveau_a_son_test_de_faisabilite() {
-        let mut v = INDICES_VERIFIES.to_vec();
-        v.sort_unstable();
-        assert_eq!(v, (0..NB_NIVEAUX).collect::<Vec<_>>());
+        for (i, n) in NIVEAUX.iter().enumerate() {
+            assert!(
+                INDICES_VERIFIES.contains(&i),
+                "niveau d'indice {i} ({}) : aucun test de faisabilité",
+                n.nom
+            );
+        }
     }
 
     #[test]
