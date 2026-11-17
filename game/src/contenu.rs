@@ -240,6 +240,13 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
             astuce: "Une stalactite tremble : ne t'arrête pas dessous.",
         },
     ),
+    (
+        "pieuvre",
+        Intro {
+            texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
+            astuce: "Elle frappe là où l'eau tremble.",
+        },
+    ),
 ];
 
 // Vérifié À LA COMPILATION : chaque niveau du Monde 2 de la table a son intro.

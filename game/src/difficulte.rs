@@ -1835,6 +1835,93 @@ mod tests {
         println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
     }
 
+    /// Mesure des DEUX boss (carte 9.12b, AGA : la Pieuvre « compliquée comme le
+    /// mini boss du premier monde ») : l'arène du Grand Nuage (« L'œil du cyclone »)
+    /// et celle de la Pieuvre du port, avec les mêmes profils, la même graine
+    /// officielle et le même nombre d'essais que la mesure complète. Le cyclone garde
+    /// son rang de graine (ses chiffres sont ceux de la mesure complète) ; la
+    /// pieuvre, hors de la table du Monde 1 (la courbe ne couvre pas le Monde 2),
+    /// prend le rang qui suit ceux de `RANGS_DE_GRAINE`. Un fil par arène et par
+    /// profil. N'écrit aucun fichier.
+    /// `./docker-cargo.sh test -p game --no-default-features mesure_des_deux_boss -- --ignored --nocapture`
+    #[test]
+    #[ignore = "mesure de difficulté facultative (décision d'AGA, carte 6.5) : se lance à la main"]
+    fn mesure_des_deux_boss() {
+        use pepin_core::levels::{cyclone, NIVEAUX as TOUTE_LA_TABLE};
+        let indice = |cle: &str| {
+            TOUTE_LA_TABLE
+                .iter()
+                .position(|n| n.cle == cle)
+                .unwrap_or_else(|| panic!("« {cle} » n'est pas dans la table"))
+        };
+        let cyclone = indice(cyclone::INFOS.cle);
+        // (indice dans la table, rang de graine)
+        let arenes = [
+            (cyclone, rang_de_graine(cyclone)),
+            (indice("pieuvre"), RANGS_DE_GRAINE.len()),
+        ];
+        let debut = std::time::Instant::now();
+        let itineraires: Vec<Itineraires> = std::thread::scope(|s| {
+            let fils: Vec<_> = arenes
+                .iter()
+                .map(|&(n, _)| s.spawn(move || Itineraires::calculer(n)))
+                .collect();
+            fils.into_iter()
+                .map(|f| f.join().expect("itinéraires"))
+                .collect()
+        });
+        let cases: Vec<Vec<Case>> = std::thread::scope(|s| {
+            let fils: Vec<Vec<_>> = arenes
+                .iter()
+                .zip(&itineraires)
+                .map(|(&(n, rang), itin)| {
+                    PROFILS
+                        .iter()
+                        .enumerate()
+                        .map(|(p, profil)| {
+                            s.spawn(move || {
+                                let liste: Vec<Essai> = (0..ESSAIS)
+                                    .map(|e| {
+                                        jouer_essai(itin, profil, graine_essai(GRAINE, p, rang, e))
+                                    })
+                                    .collect();
+                                bilan(&liste, TOUTE_LA_TABLE[n].genre)
+                            })
+                        })
+                        .collect()
+                })
+                .collect();
+            fils.into_iter()
+                .map(|l| l.into_iter().map(|f| f.join().expect("essais")).collect())
+                .collect()
+        });
+        println!("| Arène | Débutant | Habitué | Expert |");
+        println!("| --- | --- | --- | --- |");
+        for (&(n, _), c) in arenes.iter().zip(&cases) {
+            let morts: Vec<String> = c.iter().map(|c| centiemes(c.morts_moyennes)).collect();
+            println!("| {} | {} |", TOUTE_LA_TABLE[n].nom, morts.join(" | "));
+        }
+        for (&(n, _), c) in arenes.iter().zip(&cases) {
+            println!("{} :", TOUTE_LA_TABLE[n].nom);
+            for (profil, c) in PROFILS.iter().zip(c) {
+                let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
+                println!(
+                    "- {} : {} morts, {}/{} finis, {} s, max {}, game over {}/{} ; {}",
+                    profil.nom,
+                    centiemes(c.morts_moyennes),
+                    c.finis,
+                    c.essais,
+                    decimal(c.duree_s),
+                    c.morts_max,
+                    c.game_over,
+                    c.essais,
+                    lieux.join(" · ")
+                );
+            }
+        }
+        println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
+    }
+
     /// Une mesure inventée : morts moyennes du Débutant et de l'Habitué par
     /// niveau (l'Expert ne compte pas pour la forme de la courbe).
     fn fausse_mesure(debutant: [f32; NB_NIVEAUX], habitue: [f32; NB_NIVEAUX]) -> Vec<Vec<Case>> {

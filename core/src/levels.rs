@@ -54,6 +54,7 @@ pub mod marche;
 pub mod mer;
 pub mod nuages;
 pub mod orage;
+pub mod pieuvre;
 pub mod poursuite;
 pub mod toits;
 pub mod variantes;
@@ -93,6 +94,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     caniveau::INFOS,
     cascade::INFOS,
     grotte::INFOS,
+    pieuvre::INFOS,
 ];
 
 /// Nombre de niveaux du jeu (bonus et épilogue compris, tous mondes).

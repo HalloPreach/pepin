@@ -657,6 +657,71 @@ mod tests {
         ecrire_partie(&partie, "script-96.txt", "trace-96.csv");
     }
 
+    /// Captures de la carte 9.12b (la Pieuvre du port, niveau du boss du Monde 2) :
+    /// écrit la partie complète du Monde 2 (`script-912b.txt`, `trace-912b.csv`, pour
+    /// `docs/capture-96.mjs`), puis affiche les IMAGES à photographier : la carte de
+    /// titre du niveau de la pieuvre, et chaque frappe du motif 3 (la vague) avec la
+    /// place de Pépin. Le niveau commence à la première image de jeu de son numéro ;
+    /// le robot ne meurt jamais, le pas `k` du niveau est donc l'image `debut + k`.
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_pieuvre_912b
+    #[test]
+    #[ignore]
+    fn ecrire_script_pieuvre_912b() {
+        use pepin_core::entities::pieuvre::{EtatTentacule, PhasePieuvre, NB_COLONNES};
+        let parcours = tous_les_parcours_complets_du_monde(2);
+        let partie = jouer_monde_2(&parcours);
+        assert_eq!(partie.morts, 0);
+        ecrire_partie(&partie, "script-912b.txt", "trace-912b.csv");
+        let indice = NIVEAUX.iter().position(|n| n.cle == "pieuvre").unwrap();
+        let numero = NIVEAUX[indice].numero;
+        let debut = partie
+            .trames
+            .iter()
+            .position(|t| t.ecran == "jeu" && t.niveau == numero)
+            .unwrap();
+        // La carte de titre : les images « carte » juste avant la 1re image de jeu.
+        let fin_carte = (0..debut)
+            .rev()
+            .find(|&i| partie.trames[i].ecran == "carte");
+        let debut_carte = fin_carte.map(|f| {
+            (0..=f)
+                .rev()
+                .take_while(|&i| partie.trames[i].ecran == "carte")
+                .last()
+                .unwrap_or(f)
+        });
+        println!(
+            "pieuvre : numéro {numero}, carte de titre {debut_carte:?}..{fin_carte:?}, \
+             1re image de jeu {debut}"
+        );
+        let mut m = crate::monde::Monde::new(indice);
+        for (k, e) in parcours[numero as usize - 1].iter().enumerate() {
+            m.avancer(e);
+            let Some(p) = m.entites.iter().find_map(|x| match x {
+                Entite::Pieuvre(p) => Some(p),
+                _ => None,
+            }) else {
+                continue;
+            };
+            if p.phase() == PhasePieuvre::Colere && p.motif() == 2 && k % 6 == 0 {
+                let tentacules: String = (0..NB_COLONNES)
+                    .map(|i| match p.etat_tentacule(i) {
+                        EtatTentacule::Dresse => 'X',
+                        EtatTentacule::Annonce(_) => 'a',
+                        _ => '.',
+                    })
+                    .collect();
+                println!(
+                    "pas {k} (image {}) : {tentacules} ; Pépin x = {:.0}, y = {:.0}, vx = {:.0}",
+                    debut + k,
+                    m.joueur.boite.x,
+                    m.joueur.boite.y,
+                    m.joueur.vitesse.x
+                );
+            }
+        }
+    }
+
     /// Écrit le script (un chiffre hexadécimal par image) et la trace d'une partie
     /// dans `target/qa/`, puis affiche son bilan et son empreinte.
     fn ecrire_partie(partie: &Partie, fichier_script: &str, fichier_trace: &str) {

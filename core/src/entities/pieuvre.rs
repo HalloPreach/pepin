@@ -22,8 +22,9 @@
 //!   large chacune). Chaque tentacule est d'abord ANNONCÉ (48 pas, 0,8 s : remous
 //!   et ombre sur l'eau, puis le bout du tentacule qui pointe), sans danger ; puis
 //!   il se DRESSE de toute la hauteur (30 pas, 0,5 s) : mortel ; puis il redescend
-//!   (12 pas), sans danger. Une colonne, puis deux, puis trois en vague : un motif
-//!   par point perdu (`MOTIFS`), de plus en plus rapide.
+//!   (12 pas), sans danger. Un motif par point perdu (`MOTIFS`), de plus en plus
+//!   serré et rapide : 4 colonnes sur 9 par salve, puis 5, puis 6 en VAGUE qui
+//!   balaie le bassin, aller et retour (carte 9.12b : aussi dur que le Grand Nuage).
 //! - remous : la tête remonte (l'eau bouillonne à sa place), sans danger.
 //! - tête sortie : la tête est posée sur l'eau, au milieu ou d'un côté
 //!   (`PLACES_TETE`), 2 s. Lui tomber dessus la touche (`recoit`, même règle que
@@ -87,96 +88,113 @@ pub const MARGE_TENTACULE: f32 = 4.0;
 /// à gauche après le 2, à droite après le 3 (il faut traverser l'arène).
 pub const PLACES_TETE: [i8; 3] = [0, -3, 3];
 
-/// Les trois motifs, un par point perdu, de plus en plus rapides. Les bandes sont en
-/// COLONNES depuis celle du `8` (-4 tout à gauche, 4 tout à droite).
-/// - Motif 1 : une colonne à la fois, une salve toutes les 55 pas.
-/// - Motif 2 : deux colonnes à la fois, toutes les 45 pas.
-/// - Motif 3 : trois colonnes EN VAGUE (l'une 12 pas après l'autre), une vague
-///   toutes les 60 pas.
+/// Les trois motifs, un par point perdu, de plus en plus serrés et rapides. Les
+/// bandes sont en COLONNES depuis celle du `8` (-4 tout à gauche, 4 tout à droite).
+///
+/// Carte 9.12b (demande d'AGA : « compliqué comme le mini boss du premier monde ») :
+/// recalibrés sur le Grand Nuage (`super::nuage::MOTIFS`), motif par motif. Part du
+/// bassin frappée par salve : 44 %, 56 %, 67 % (le nuage : 43 %, 50 %, 47 % de son
+/// arène ; avant la 9.12b, la pieuvre : 11 %, 22 %, 11 %). Mêmes écarts entre
+/// salves que le nuage : 60, 40, puis 30 pas.
+/// - Motif 1 : 4 colonnes sur 9, une salve toutes les 60 pas. Les trous changent
+///   de côté : il faut passer d'un ponton à l'autre.
+/// - Motif 2 : 5 colonnes sur 9, toutes les 40 pas : les trous partent vers les
+///   bords (du ponton de gauche à celui de droite), puis reviennent.
+/// - Motif 3 : 6 colonnes sur 9, toutes les 30 pas (la frappe d'une salve suit
+///   celle de la précédente, sans répit) : un trou de 3 colonnes glisse d'une
+///   colonne par salve vers la droite, puis revient (une VAGUE aller et retour) ;
+///   il faut traverser le bassin deux fois en courant.
+///
+/// Toujours une issue : le test `chaque_motif_se_traverse` (le raisonnement du
+/// nuage, plus strict) vérifie qu'on peut toujours s'en sortir en courant.
 pub const MOTIFS: [&[Salve]; PV_PIEUVRE as usize] = [
     &[
+        // Toute la droite : on reste à gauche (la lanterne est au ponton de gauche).
         Salve {
             debut: 0,
-            bandes: &[(-1, -1)],
+            bandes: &[(1, 4)],
         },
+        // Le milieu gauche : au bord gauche, ou à droite.
         Salve {
-            debut: 55,
-            bandes: &[(1, 1)],
+            debut: 60,
+            bandes: &[(-3, 0)],
         },
+        // Le bord gauche et la droite.
         Salve {
-            debut: 110,
-            bandes: &[(-4, -4)],
+            debut: 120,
+            bandes: &[(-4, -4), (1, 3)],
         },
+        // Le milieu et le bord droit.
         Salve {
-            debut: 165,
-            bandes: &[(4, 4)],
+            debut: 180,
+            bandes: &[(-2, 0), (4, 4)],
         },
+        // Les deux côtés : au milieu (la tête y sort ensuite).
         Salve {
-            debut: 220,
-            bandes: &[(-2, -2)],
+            debut: 240,
+            bandes: &[(-4, -3), (2, 3)],
         },
     ],
     &[
+        // Les bords : au milieu (la tête y sortait).
         Salve {
             debut: 0,
-            bandes: &[(-2, -1)],
+            bandes: &[(-4, -2), (3, 4)],
         },
         Salve {
-            debut: 45,
-            bandes: &[(1, 2)],
+            debut: 40,
+            bandes: &[(-4, -3), (0, 1), (4, 4)],
         },
+        // Tout le milieu : sur un ponton du bord.
+        Salve {
+            debut: 80,
+            bandes: &[(-4, -4), (-1, 2)],
+        },
+        Salve {
+            debut: 120,
+            bandes: &[(-2, 2)],
+        },
+        Salve {
+            debut: 160,
+            bandes: &[(-4, -4), (-1, 1), (4, 4)],
+        },
+        // Les bords et le milieu : sur un ponton du milieu.
+        Salve {
+            debut: 200,
+            bandes: &[(-4, -3), (0, 0), (3, 4)],
+        },
+    ],
+    &[
+        // La vague : le trou (3 colonnes) part de la gauche...
+        Salve {
+            debut: 0,
+            bandes: &[(-4, -3), (1, 4)],
+        },
+        Salve {
+            debut: 30,
+            bandes: &[(-4, -2), (2, 4)],
+        },
+        Salve {
+            debut: 60,
+            bandes: &[(-4, -1), (3, 4)],
+        },
+        // ... va jusqu'à droite...
         Salve {
             debut: 90,
-            bandes: &[(-4, -4), (4, 4)],
+            bandes: &[(-4, 0), (4, 4)],
+        },
+        // ... et revient à gauche.
+        Salve {
+            debut: 120,
+            bandes: &[(-4, -1), (3, 4)],
         },
         Salve {
-            debut: 135,
-            bandes: &[(-1, 0)],
+            debut: 150,
+            bandes: &[(-4, -2), (2, 4)],
         },
         Salve {
             debut: 180,
-            bandes: &[(-3, -3), (2, 2)],
-        },
-    ],
-    &[
-        // Vague de gauche, vers la droite.
-        Salve {
-            debut: 0,
-            bandes: &[(-4, -4)],
-        },
-        Salve {
-            debut: 12,
-            bandes: &[(-3, -3)],
-        },
-        Salve {
-            debut: 24,
-            bandes: &[(-2, -2)],
-        },
-        // Vague de droite, vers la gauche.
-        Salve {
-            debut: 60,
-            bandes: &[(4, 4)],
-        },
-        Salve {
-            debut: 72,
-            bandes: &[(3, 3)],
-        },
-        Salve {
-            debut: 84,
-            bandes: &[(2, 2)],
-        },
-        // Vague du milieu.
-        Salve {
-            debut: 120,
-            bandes: &[(-1, -1)],
-        },
-        Salve {
-            debut: 132,
-            bandes: &[(0, 0)],
-        },
-        Salve {
-            debut: 144,
-            bandes: &[(1, 1)],
+            bandes: &[(-4, -3), (1, 4)],
         },
     ],
 ];
@@ -477,19 +495,20 @@ mod tests {
     #[test]
     fn la_tete_ne_se_touche_qu_en_lui_tombant_dessus() {
         let mut p = pieuvre();
-        // Prélude, puis le 1er motif : colonne -1 (corps de x = 116 à 140) annoncée
-        // 48 pas (sans danger), dressée 30 (mortelle), puis elle redescend.
-        let sur_la_colonne = Aabb::new(122.0, 114.0, 10.0, 14.0);
+        // Prélude, puis le 1er motif : sa 1re salve frappe la droite, dont la colonne
+        // 1 (corps de x = 180 à 204), annoncée 48 pas (sans danger), dressée 30
+        // (mortelle), puis elle redescend. La colonne -1 (x = 116 à 140) est libre.
+        let sur_la_colonne = Aabb::new(186.0, 114.0, 10.0, 14.0);
         pas(&mut p, PRELUDE_PAS as u32);
         assert_eq!(p.phase(), PhasePieuvre::Colere);
-        assert!(matches!(p.etat_tentacule(3), EtatTentacule::Annonce(_)));
+        assert!(matches!(p.etat_tentacule(5), EtatTentacule::Annonce(_)));
         assert!(!p.blesse(&sur_la_colonne));
         pas(&mut p, ANNONCE_PAS as u32);
-        assert_eq!(p.etat_tentacule(3), EtatTentacule::Dresse);
+        assert_eq!(p.etat_tentacule(5), EtatTentacule::Dresse);
         assert!(p.blesse(&sur_la_colonne));
-        assert!(!p.blesse(&Aabb::new(60.0, 114.0, 10.0, 14.0)));
+        assert!(!p.blesse(&Aabb::new(122.0, 114.0, 10.0, 14.0)));
         pas(&mut p, DRESSE_PAS as u32);
-        assert!(matches!(p.etat_tentacule(3), EtatTentacule::Redescente(_)));
+        assert!(matches!(p.etat_tentacule(5), EtatTentacule::Redescente(_)));
         assert!(!p.blesse(&sur_la_colonne));
         // Sous l'eau, la tête ne se touche pas.
         let mut j = Joueur::new(150.0, 100.0);
@@ -551,5 +570,123 @@ mod tests {
         let mut f = pieuvre();
         f.passer_en_facile();
         assert_eq!((f.pv(), f.pv_max(), f.motif()), (2, 2, 0));
+    }
+
+    /// Part des colonnes frappées par une salve, en moyenne sur le motif (de 0 à 1).
+    fn part_frappee(salves: &[Salve], nb_colonnes: usize, portee: i8) -> f32 {
+        let frappees: usize = salves
+            .iter()
+            .map(|s| (-portee..=portee).filter(|&d| s.couvre(d)).count())
+            .sum();
+        frappees as f32 / (salves.len() * nb_colonnes) as f32
+    }
+
+    /// Carte 9.12b (AGA : « compliqué comme le mini boss du premier monde ») : motif
+    /// par motif, la pieuvre frappe une part de son bassin AU MOINS égale à celle
+    /// que le Grand Nuage frappe de son arène, et ses salves se suivent au plus à
+    /// 60, 40, puis 30 pas (les écarts du nuage).
+    #[test]
+    fn aussi_dure_que_le_grand_nuage() {
+        use super::super::nuage;
+        for (m, ecart_max) in [60u16, 40, 30].into_iter().enumerate() {
+            let pieuvre = part_frappee(MOTIFS[m], NB_COLONNES, PORTEE_COLONNES);
+            let grand_nuage =
+                part_frappee(nuage::MOTIFS[m], nuage::NB_COLONNES, nuage::PORTEE_COLONNES);
+            println!(
+                "motif {} : pieuvre {:.0} %, Grand Nuage {:.0} %",
+                m + 1,
+                100.0 * pieuvre,
+                100.0 * grand_nuage
+            );
+            assert!(
+                pieuvre >= grand_nuage,
+                "motif {} : {pieuvre} < {grand_nuage}",
+                m + 1
+            );
+            for paire in MOTIFS[m].windows(2) {
+                assert!(
+                    paire[1].debut - paire[0].debut <= ecart_max,
+                    "motif {}",
+                    m + 1
+                );
+            }
+        }
+    }
+
+    /// Toujours une issue (le raisonnement du Grand Nuage, `nuage::tests::
+    /// chaque_motif_se_traverse`, en plus strict). Calcul à rebours : `sur[q]` dit
+    /// si, à la place `q` et au pas `t`, on peut tenir jusqu'à la fin du motif en se
+    /// déplaçant d'au plus 1,5 px par pas (un peu moins que la course, 1,6 px par
+    /// pas). Places au demi-pixel ; Pépin fait 10 px de large, chaque tentacule
+    /// 24 px au milieu de sa colonne de 32. Deux garanties :
+    /// - d'où qu'on parte au début du calme qui précède le motif (le plus court :
+    ///   « touchée », 60 pas), on s'en sort ;
+    /// - au DÉBUT de chaque frappe, de TOUTE place que cette frappe épargne, on
+    ///   tient jusqu'à la fin du motif : la salve suivante a toujours une colonne
+    ///   sûre qu'on atteint en courant (aucune impasse, salve après salve).
+    ///
+    /// Le modèle est celui du nuage (un sol plat où l'on court) ; dans le bassin, on
+    /// passe d'un ponton à l'autre d'un saut, à la même vitesse (1,6 px par pas en
+    /// l'air), mais pas en barque (lente). La preuve sur la vraie physique est le
+    /// robot de QA (`le_robot_bat_la_pieuvre_sans_mourir`), et la mesure de
+    /// difficulté (tous les profils finissent).
+    #[test]
+    fn chaque_motif_se_traverse() {
+        const DEMI: usize = 2;
+        let pepin = 10 * DEMI;
+        let largeur = LARGEUR_COLONNE as usize;
+        let marge = MARGE_TENTACULE as usize;
+        let corps = largeur - 2 * marge;
+        let places = NB_COLONNES * largeur * DEMI - pepin + 1;
+        let calme = TOUCHEE_PAS;
+        for (motif, salves) in MOTIFS.iter().enumerate() {
+            let debuts: Vec<u16> = salves
+                .iter()
+                .map(|s| calme + s.debut + ANNONCE_PAS)
+                .collect();
+            let mut sur = vec![true; places];
+            for t in (0..calme + duree_motif(motif)).rev() {
+                let precedent = sur.clone();
+                for (q, s) in sur.iter_mut().enumerate() {
+                    let (de, a) = (q.saturating_sub(3), (q + 3).min(places - 1));
+                    *s = precedent[de..=a].iter().any(|&p| p);
+                }
+                let mut frappee = vec![false; places];
+                if t >= calme {
+                    for i in 0..NB_COLONNES {
+                        let etat = etat_tentacule(motif, t - calme, i as i8 - PORTEE_COLONNES);
+                        if etat != EtatTentacule::Dresse {
+                            continue;
+                        }
+                        let gauche = (largeur * i + marge) * DEMI;
+                        let droite = gauche + corps * DEMI;
+                        // Pépin (de q à q + 10 px) chevauche le tentacule.
+                        for (q, s) in sur.iter_mut().enumerate() {
+                            if q < droite && q + pepin > gauche {
+                                *s = false;
+                                frappee[q] = true;
+                            }
+                        }
+                    }
+                }
+                if debuts.contains(&t) {
+                    if let Some(q) = (0..places).find(|&q| !frappee[q] && !sur[q]) {
+                        panic!(
+                            "motif {}, frappe au pas {} : impasse en x = {}",
+                            motif + 1,
+                            t - calme,
+                            q as f32 / DEMI as f32
+                        );
+                    }
+                }
+            }
+            if let Some(q) = sur.iter().position(|&s| !s) {
+                panic!(
+                    "motif {} : impossible de s'en sortir en partant de x = {}",
+                    motif + 1,
+                    q as f32 / DEMI as f32
+                );
+            }
+        }
     }
 }

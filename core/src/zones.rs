@@ -977,17 +977,34 @@ mod tests {
     /// et atteint sa tête en une seconde ; ce qui fait la durée, c'est le combat.
     /// On compte donc le combat le plus court (grondement, les trois motifs, deux
     /// fois « touché », la déchirure du ciel), sans même les montées dans le
-    /// courant.
+    /// courant. L'arène de la Pieuvre du port (carte 9.12b) : de même, avec SES
+    /// durées (prélude, les trois motifs, trois remontées de la tête, deux fois
+    /// « touchée », la plongée).
     #[test]
     fn durees_plausibles() {
         use crate::entities::nuage::{
             duree_motif, DECHIRURE_PAS, PRELUDE_PAS, PV_NUAGE, TOUCHE_PAS,
         };
+        use crate::entities::pieuvre;
         for infos in NIVEAUX {
             let niv = infos.charger().unwrap();
             let r = analyser(&niv, niv.depart, Options::default());
+            let a_une_pieuvre = niv
+                .entites
+                .iter()
+                .any(|e| matches!(e, crate::entities::Entite::Pieuvre(_)));
             let pas = if niv.arrivee.is_some() {
                 r.pas_arrivee.unwrap()
+            } else if a_une_pieuvre {
+                let pv = pieuvre::PV_PIEUVRE;
+                let motifs: u32 = (0..pv as usize)
+                    .map(|m| u32::from(pieuvre::duree_motif(m)))
+                    .sum();
+                u32::from(pieuvre::PRELUDE_PAS)
+                    + motifs
+                    + u32::from(pv) * u32::from(pieuvre::REMOUS_PAS)
+                    + u32::from(pv - 1) * u32::from(pieuvre::TOUCHEE_PAS)
+                    + u32::from(pieuvre::PLONGEE_PAS)
             } else {
                 let motifs: u32 = (0..PV_NUAGE as usize)
                     .map(|m| u32::from(duree_motif(m)))
