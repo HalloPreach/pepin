@@ -174,6 +174,11 @@ pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static s
             tuile_vue(monde, x, y)
         }
     };
+    // Carte 9.20e : la jetée de la Pieuvre dessine elle-même ses quais et son
+    // bassin (`dessin_port::dessiner_jetee`) ; ici, rien.
+    if crate::dessin_port::dessine_la_case(monde, tx, ty, t) {
+        return "";
+    }
     let (theme, depart) = (monde.infos.theme, monde.niveau.depart);
     if let Some(nom) =
         tuiles_theme::nom_du_theme(theme, (tx, ty, t), vue, depart, hachage_case(tx, ty))
@@ -1402,12 +1407,16 @@ pub fn dessiner(
     // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    // La Pieuvre du port (carte 9.20e) : la mer, le phare et les bateaux du port.
+    crate::dessin_port::dessiner_fond(monde, banque, cx, cy);
     mur_pluie::dessiner_soleil(monde);
     dessiner_dechirure(monde, cx);
     dessiner_facades(monde, banque, cx, cy);
     // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
     crate::eau::dessiner_marees(monde, banque, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
+    // La jetée de la Pieuvre (carte 9.20e) : bassin profond, quais, grue, caisses.
+    crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);

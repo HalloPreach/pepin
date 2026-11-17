@@ -22,6 +22,11 @@
 //! bassin, même place de la pieuvre, des pontons, des gouttes et de la
 //! lanterne. Seules changent les INFOS (un vrai niveau du Monde 2, pas un
 //! essai hors table).
+//!
+//! Le rendu (carte 9.20e, `game/src/dessin_port.rs`) en fait le BOUT D'UNE JETÉE
+//! au milieu du port : les murs `B` des bords se dessinent en quais (grue à
+//! gauche, pile de caisses à droite), le port au fond (mer, phare rayé, bateaux),
+//! le bassin en eau profonde. La grille n'a pas changé.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
