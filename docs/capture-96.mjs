@@ -7,6 +7,10 @@
 //    (ligne MONDE 2), puis le caniveau ; une capture aux images données en argument.
 // Compte les erreurs de la console et mesure chaque capture (couleurs hors palette, flou).
 // Usage : node capture-96.mjs PORT_HTTP DOSSIER_SORTIE SCRIPT nom:image [nom:image...]
+// Carte 9.6b (variables d'environnement) : MONDE1=1 rejoue un script du MONDE 1 (sauvegarde
+// vide, aucune touche BAS à l'image 0, pas de passage par la carte des niveaux) : avec le
+// script du test ignoré `ecrire_script_navigateur`, les images avant et après une carte de
+// rendu du Monde 2 doivent être identiques au pixel.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -60,11 +64,13 @@ const touche = async (code, n = 20) => {
 };
 const attendre = async (n, m = 0) => { await evalue(`window.__P.file.push({ n: ${n}, m: ${m} }); 1`); await vide(); };
 // La page rechargée avec une sauvegarde où le Monde 2 est ouvert.
-const SAUVEGARDE = 'version=3\\nniveau.poursuite=atteint:1 medaille:1\\n';
+const MONDE1 = process.env.MONDE1 === '1';
+const SAUVEGARDE = MONDE1 ? '' : 'version=3\\nniveau.poursuite=atteint:1 medaille:1\\n';
 const ouvrir = async () => {
   await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
   await dormir(1500);
-  await evalue(`localStorage.clear(); localStorage.setItem("pepin.sauvegarde", "${SAUVEGARDE}"); 1`);
+  await evalue(MONDE1 ? 'localStorage.clear(); 1'
+    : `localStorage.clear(); localStorage.setItem("pepin.sauvegarde", "${SAUVEGARDE}"); 1`);
   await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
   await dormir(4000);
   await cdp('Page.bringToFront');
@@ -86,20 +92,22 @@ await cdp('Log.enable');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
 fs.mkdirSync(sortie, { recursive: true });
 
-// 1. La carte des niveaux du Monde 2.
-console.log('démarré :', await ouvrir());
-await capture('96-titre');
-await touche('ArrowDown', 10);
-await touche('ArrowDown', 10);
-await touche('Enter', 120);
-for (let k = 0; k < 4; k++) await touche('ArrowRight', 40);
-await attendre(60);
-await capture('96-carte-monde-2');
+// 1. La carte des niveaux du Monde 2 (pas avec MONDE1).
+if (!MONDE1) {
+  console.log('démarré :', await ouvrir());
+  await capture('96-titre');
+  await touche('ArrowDown', 10);
+  await touche('ArrowDown', 10);
+  await touche('Enter', 120);
+  for (let k = 0; k < 4; k++) await touche('ArrowRight', 40);
+  await attendre(60);
+  await capture('96-carte-monde-2');
+}
 
 // 2. La partie du Monde 2 du robot.
 const script = fs.readFileSync(fichierScript, 'utf8').trim();
 console.log('démarré :', await ouvrir());
-await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
+if (!MONDE1) await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
 let pos = 0;
 const etapes = demandes.map((d) => { const [nom, n] = d.split(':'); return [Number(n), nom]; }).sort((a, b) => a[0] - b[0]);
 for (const [a, nom] of etapes) {
