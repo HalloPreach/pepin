@@ -118,7 +118,7 @@ const jusqua = async (image) => {
 // reprend à la première image de jeu, `delai` images après l'appui qui passe l'histoire
 // (`delai` lu dans la trace, comme pour `capture-integration.mjs`).
 const demarrer = async ({ script, touches, trace }) => {
-  const appuis = [...script].map((c, i) => [i, parseInt(c, 16) & 1]).filter(([, v]) => v).map(([i]) => i);
+  const appuis = [...script].map((c, i) => [i, parseInt(c, 32) & 1]).filter(([, v]) => v).map(([i]) => i);
   const histoire = appuis[1];
   const debut = trace.findIndex((r) => r.ecran === 'jeu');
   await evalue('window.__P.file.push({ n: 1, m: 0, taper: ["Enter"] }); 1');

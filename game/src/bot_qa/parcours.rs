@@ -57,8 +57,8 @@ use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::ennemi::{
     pas_du_cycle, EtatEnnemi, ANIMATION_ECRASE_PAS, DORT_PAS, REVEIL_PAS,
 };
-use pepin_core::entities::{Entite, Maree, TypeEnnemi};
-use pepin_core::faisabilite::pas_max_plan;
+use pepin_core::entities::{eaux_des_entites, Entite, Maree, TypeEnnemi};
+use pepin_core::faisabilite::{eau_sous_les_pieds, pas_max_plan, MARGE_BAS, MARGE_PLANE};
 use pepin_core::player::{Direction, Entrees};
 
 use crate::monde::Monde;
@@ -103,8 +103,8 @@ pub(crate) enum Fin {
     /// Un auvent vient de relancer Pépin : nouveau point de décision, en l'air
     /// (voir `est_lance`).
     Lance,
-    /// Entré dans l'eau en planant : BARQUE (carte 9.2), nouveau point de
-    /// décision à bord (ramer, ou sauter hors de l'eau).
+    /// Entré dans l'eau parapluie retourné (BAS, carte 9.2b) : BARQUE (carte
+    /// 9.2), nouveau point de décision à bord (ramer, ou sauter hors de l'eau).
     Barque,
     Abandon,
 }
@@ -232,6 +232,27 @@ pub(crate) fn chat_ecrase_de_justesse(m: &Monde) -> bool {
     })
 }
 
+/// L'eau est-elle à moins de `marge` px sous les pieds de Pépin (carte 9.2b) ?
+/// L'eau du moment : celle du niveau, plus les marées montées. Même règle que le
+/// robot du cœur (`faisabilite::eau_sous_les_pieds`) ; toujours faux sans eau.
+fn eau_proche(m: &Monde, marge: f32) -> bool {
+    if !m.a_de_l_eau() {
+        return false;
+    }
+    let eaux = eaux_des_entites(&m.niveau.eaux, &m.entites);
+    eau_sous_les_pieds(&m.joueur.boite, &eaux, marge)
+}
+
+/// Les entrées d'un pas avec BAS tenu à l'approche de l'eau (carte 9.2b) : le
+/// parapluie retourné, pour entrer dans l'eau en barque. BAS ne change rien
+/// d'autre au mouvement ; sans eau, jamais tenu (Monde 1 inchangé).
+fn entrees_du_pas(m: &Monde) -> Entrees {
+    Entrees {
+        bas: eau_proche(m, MARGE_BAS),
+        ..Entrees::default()
+    }
+}
+
 /// Simule `plan` depuis `depart` (copie). Renvoie la fin, le monde final et les
 /// entrées de chaque pas. Un chat écrasé de justesse compte comme une mort
 /// (`chat_ecrase_de_justesse`).
@@ -241,8 +262,9 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
 
     if plan.attente > 0 {
         for _ in 0..plan.attente {
-            m.avancer(&Entrees::default());
-            script.push(Entrees::default());
+            let e = entrees_du_pas(&m);
+            m.avancer(&e);
+            script.push(e);
             if est_mort(&m) || chat_ecrase_de_justesse(&m) {
                 return (Fin::Mort, m, script);
             }
@@ -270,7 +292,7 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
     // Durée maximale d'un plan : 10 s dans un niveau d'un écran, le temps d'un plané sur
     // toute la hauteur dans un niveau haut (même règle que le robot du cœur).
     for pas in 0..pas_max_plan(m.niveau.hauteur_px()) {
-        let mut e = Entrees::default();
+        let mut e = entrees_du_pas(&m);
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
         if !a_decolle && stable == 0 && !marche_finie {
             e.direction = plan.dir;
@@ -294,7 +316,9 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
                 saut_envoye += 1;
             } else if plan.planer && !montee && en_l_air >= DEBUT_PLANE && chute > plan.retard_plane
             {
-                e.saut = true;
+                // Au ras de l'eau, il lâche le saut : le parapluie se retourne
+                // (BAS est tenu) et Pépin entre en barque (carte 9.2b).
+                e.saut = !eau_proche(&m, MARGE_PLANE);
             }
         }
         m.avancer(&e);
@@ -309,7 +333,7 @@ pub(crate) fn simuler(depart: &Monde, plan: Plan) -> (Fin, Monde, Vec<Entrees>) 
             return (Fin::Lance, m, script);
         }
         // Barque (carte 9.2) : le plan s'arrête quand Pépin entre dans l'eau
-        // (planant) : à bord est un point de décision, comme un atterrissage.
+        // (parapluie retourné, carte 9.2b) : à bord est un point de décision, comme un atterrissage.
         if m.joueur.en_barque() {
             return (Fin::Barque, m, script);
         }

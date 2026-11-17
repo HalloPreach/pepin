@@ -88,6 +88,10 @@
 //!   on passe à l'autre marée (une demi-période de coût) si l'on n'y est pas
 //!   noyé ; la barque monte et descend avec l'eau (posée au fond de la zone si
 //!   l'eau s'en va). Un plan se joue tout entier dans la même marée.
+//! - la barque (cartes 9.2 et 9.2b) : à l'approche de l'eau (`MARGE_BAS`),
+//!   chaque plan tient BAS (parapluie retourné) ; il entre donc dans l'eau en
+//!   barque. Un plan « planer » lâche le saut au ras de l'eau (planer dedans
+//!   noierait). Sans eau, jamais de BAS : Monde 1 inchangé.
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -170,6 +174,26 @@ struct Plan {
     dir_descente: bool,
 }
 
+/// Carte 9.2b : à moins de `MARGE_BAS` px au-dessus de l'eau (pieds), le robot
+/// tient BAS (le parapluie retourné), comme un joueur qui voit l'eau venir. BAS
+/// ne change rien au mouvement (seule l'eau le remarque) : c'est sans risque, et
+/// sans eau dans le niveau, jamais tenu (Monde 1 inchangé). 16 px : plus que la
+/// chute d'un pas à pleine vitesse (`VITESSE_MAX_CHUTE`, 6 px).
+pub const MARGE_BAS: f32 = 16.0;
+/// À moins de `MARGE_PLANE` px au-dessus de l'eau, un plan « planer » lâche le
+/// saut : le parapluie se retourne et Pépin entre en barque (planer dedans
+/// noierait). Si près, cela revient au plané d'avant la carte 9.2b, qui donnait
+/// la barque au contact ; un plané qui rase l'eau plus haut n'est pas coupé.
+pub const MARGE_PLANE: f32 = 2.0;
+
+/// L'eau est-elle à moins de `marge` px sous les pieds de `boite` (carte 9.2b) ?
+/// Même règle que la noyade (`eau_touchee` : la colonne du centre ET la hauteur).
+/// Servi aux deux robots (celui-ci et celui de QA du jeu).
+pub fn eau_sous_les_pieds(boite: &Aabb, eaux: &[Eau], marge: f32) -> bool {
+    let sonde = Aabb::new(boite.x, boite.y, boite.w, boite.h + marge);
+    eau_touchee(&sonde, eaux).is_some()
+}
+
 const ELANS: [u16; 9] = [0, 4, 8, 14, 22, 32, 50, 80, 120];
 const SAUTS: [u16; 5] = [0, 5, 9, 13, 40];
 /// Choix grossiers du robot maladroit.
@@ -212,7 +236,7 @@ enum Fin {
     /// Relancé par un auvent en `(x, y)` : un nouveau choix commence en l'air
     /// (voir `Noeud::lance`).
     Lance(f32, f32),
-    /// Entré dans l'eau en planant : BARQUE en `(x, y)` (carte 9.2). Un
+    /// Entré dans l'eau parapluie retourné (carte 9.2b) : BARQUE en `(x, y)`. Un
     /// nouveau choix commence à bord (ramer, ou sauter hors de l'eau).
     Barque(f32, f32),
     /// Temps écoulé ou état instable : on abandonne ce plan.
@@ -524,8 +548,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     } else {
         Vec::new()
     };
-    // L'eau (carte 9.2) avec la VRAIE physique aussi : planer dedans donne la
-    // barque (un point de décision, `Fin::Barque`), y entrer autrement noie.
+    // L'eau (carte 9.2) avec la VRAIE physique aussi : y entrer parapluie
+    // retourné (BAS, carte 9.2b) donne la barque (un point de décision,
+    // `Fin::Barque`), y entrer autrement (planer compris) noie.
     let env = Environnement {
         grille: niveau,
         solides: &solides,
@@ -930,7 +955,11 @@ fn simuler(
     let mut x_barque_prec: Option<f32> = None;
 
     for pas in 0..pas_max {
-        let mut entrees = Entrees::default();
+        // BAS (carte 9.2b) : tenu à l'approche de l'eau (`MARGE_BAS`).
+        let mut entrees = Entrees {
+            bas: eau_sous_les_pieds(&j.boite, env.eaux, MARGE_BAS),
+            ..Entrees::default()
+        };
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
         if !a_decolle && stable == 0 && !marche_finie {
             // --- Au sol : élan, puis saut ---
@@ -952,7 +981,10 @@ fn simuler(
                 entrees.saut = true; // maintien du saut pendant la montée
                 saut_envoye += 1;
             } else if plan.planer && !montee && en_l_air >= 7 {
-                entrees.saut = true; // parapluie ouvert en descente
+                // Parapluie ouvert en descente. Au ras de l'eau, il le lâche :
+                // le parapluie se retourne (BAS est tenu) et Pépin entre dans
+                // l'eau en barque (carte 9.2b ; planer dedans le noierait).
+                entrees.saut = !eau_sous_les_pieds(&j.boite, env.eaux, MARGE_PLANE);
             }
         }
         // Après l'atterrissage : aucune entrée (on laisse la vitesse s'éteindre).
@@ -980,7 +1012,7 @@ fn simuler(
             return (Fin::Lance(j.boite.x, j.boite.y), pas + 1);
         }
         // Barque (carte 9.2) : le plan s'arrête quand Pépin entre dans l'eau
-        // (planant) : à bord est un point de décision, comme un atterrissage.
+        // (parapluie retourné, carte 9.2b) : à bord est un point de décision, comme un atterrissage.
         // Un plan qui DÉMARRAIT à bord s'arrête aussi quand la barque est à
         // REPOS (10 pas sans avancer : bloquée au quai, sans courant) : le
         // prochain choix (sauter) part de cet état immobile.

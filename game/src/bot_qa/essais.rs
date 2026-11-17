@@ -448,6 +448,7 @@ pub fn parcours_essai_ventilateur_caisse() -> Option<Vec<Entrees>> {
                     .map(|k| Entrees {
                         direction: Direction::Droite,
                         saut: k >= debut_saut && k < debut_saut + duree_saut,
+                        bas: false,
                     })
                     .collect();
                 let mut essai = depart.clone();

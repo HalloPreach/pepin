@@ -16,10 +16,10 @@ use pepin_core::entities::ennemi::{EtatEnnemi, PhaseChat, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::montgolfiere::{EtatMontgolfiere, HAUT_BALLON};
 use pepin_core::entities::nuage::{EtatColonne, GrandNuage, PhaseNuage, NB_COLONNES};
-use pepin_core::entities::{Entite, TypeEnnemi};
+use pepin_core::entities::{eaux_des_entites, Entite, TypeEnnemi};
 use pepin_core::level::{GenreDecor, GenrePanneau, Niveau, Tuile};
 use pepin_core::palette::*;
-use pepin_core::physics::{CourantAscendant, VentLateral, HZ};
+use pepin_core::physics::{CourantAscendant, VentLateral, ENFONCEMENT_BARQUE, HZ};
 use pepin_core::player::EtatJoueur;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
@@ -1173,16 +1173,28 @@ fn poser_pepin(
             let nom = image(&images.planer, pas, 8);
             poser(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
         }
-        // Barque (carte 9.2) : le parapluie retourné avec Pépin assis dedans,
-        // flottant à la surface (les pieds 3 px sous l'eau). Posée comme une
-        // image 16x16, comme le corps (la crosse finit à hauteur des pieds).
+        // Parapluie retourné (carte 9.2b, BAS tenu) : la toile en bol au-dessus
+        // de la tête, à la place du plané (même image 20x20, même coin).
+        EtatJoueur::Retourne => {
+            poser(
+                images.retourne,
+                (milieu - 10) as f32,
+                (bas - 20) as f32,
+                miroir,
+            );
+        }
+        // Barque (carte 9.2) : le parapluie retourné avec Pépin assis dedans.
+        // À MOITIÉ ENFONCÉE (carte 9.2b, AGA : « il flotte trop haut ») : un
+        // décalage de RENDU seulement (`ENFONCE_BARQUE_RENDU`, la physique ne
+        // bouge pas), puis une bande d'eau DEVANT la coque.
         EtatJoueur::Barque => {
             poser(
                 images.barque,
                 (milieu - 8) as f32,
-                (bas - 16) as f32,
+                (bas - 16 + ENFONCE_BARQUE_RENDU) as f32,
                 miroir,
             );
+            dessiner_eau_devant_barque(monde, (milieu, bas), (cx, cy));
         }
         etat => {
             let nom = match etat {
@@ -1242,6 +1254,76 @@ fn dessiner_fleche_fantome(x: i32, y: i32, bord: Bord) {
                 Bord::Haut => rect(x - k + dx, y + k + dy, l, 1, c),
                 Bord::Bas => rect(x - k + dx, y - 1 - k + dy, l, 1, c),
             }
+        }
+    }
+}
+
+/// Décalage de RENDU (px) de la barque vers le bas (carte 9.2b, AGA : « il flotte
+/// trop haut par rapport à l'eau ») : la coque (rangées 8 à 12 de l'image) passe à
+/// moitié sous la surface, et Pépin s'assied plus bas. La physique ne bouge pas
+/// (`ENFONCEMENT_BARQUE` reste 3 px) : sauts, robots et niveaux sont inchangés.
+const ENFONCE_BARQUE_RENDU: i32 = 3;
+
+/// Pas (1/60 s) d'un cran des rides autour de la barque (carte 9.2b).
+const PAS_RIDE: u32 = 10;
+
+/// L'eau DEVANT la barque (carte 9.2b) : de la surface jusqu'au bas de l'image de la
+/// barque, sur sa largeur, on redessine l'eau par-dessus la coque, pixel par pixel,
+/// avec les couleurs des tuiles d'eau voisines (vague comprise) : la moitié basse
+/// de la coque plonge dans l'eau. De part et d'autre, deux petites rides claires
+/// (2 px) s'éloignent sur la surface. `(milieu, bas)` : milieu et pieds de Pépin, en
+/// pixels d'écran ; `(cx, cy)` : la caméra. Dans le code de Pépin, pas dans
+/// `eau.rs` : le rendu de l'eau elle-même reste à la carte 9.6b.
+fn dessiner_eau_devant_barque(monde: &Monde, (milieu, bas): (i32, i32), (cx, cy): (i32, i32)) {
+    use crate::sprites::{pixel, tuiles};
+    let taille = TAILLE_TUILE as i32;
+    // La surface : les pieds de la barque sont `ENFONCEMENT_BARQUE` (3 px) dessous.
+    let surface = bas - ENFONCEMENT_BARQUE as i32;
+    // Bas de l'image de la barque (16 px de haut, posée à `bas - 16 + décalage`).
+    let fond = bas + ENFONCE_BARQUE_RENDU;
+    // Les étendues du moment (marées comprises, carte 9.3).
+    let eaux = eaux_des_entites(&monde.niveau.eaux, &monde.entites);
+    let dans_l_eau = |wx: i32, wy: i32| {
+        let (x, y) = (wx as f32 + 0.5, wy as f32 + 0.5);
+        eaux.iter()
+            .any(|e| e.zone.x < x && x < e.zone.droite() && e.zone.y < y && y < e.zone.bas())
+    };
+    // Couleur de l'eau au pixel du monde `(wx, wy)` : celle de la tuile d'eau qui
+    // est là (son dessin, vague comprise), sinon (marée) clair en surface, sombre
+    // dessous. `None` : pas d'eau (le quai, ou le creux d'une vague).
+    let couleur = |wx: i32, wy: i32| -> Option<Couleur> {
+        let (tx, ty) = (wx.div_euclid(taille), wy.div_euclid(taille));
+        let t = monde.niveau.tuile_decor(tx, ty);
+        if t == Tuile::Eau {
+            let nom = nom_tuile(monde, tx, ty, t);
+            let (_, dessin) = tuiles::SPRITES.iter().find(|(n, _)| *n == nom)?;
+            let ligne = dessin.get(wy.rem_euclid(taille) as usize)?;
+            let c = ligne.chars().nth(wx.rem_euclid(taille) as usize)?;
+            pixel(c).ok().flatten()
+        } else if dans_l_eau(wx, wy) {
+            Some(if wy == surface + cy {
+                PLUIE
+            } else {
+                PLUIE_SOMBRE
+            })
+        } else {
+            None
+        }
+    };
+    for x in milieu - 8..milieu + 8 {
+        for y in surface..fond {
+            if let Some(c) = couleur(x + cx, y + cy) {
+                rect(x, y, 1, 1, c);
+            }
+        }
+    }
+    // Les rides : deux traits clairs de 2 px, juste au-dessus de la surface, qui
+    // s'éloignent de la coque en 3 crans puis repartent de son bord.
+    let k = (monde.pas / PAS_RIDE % 3) as i32;
+    for x in [milieu - 10 - 2 * k, milieu + 8 + 2 * k] {
+        // Seulement au-dessus de l'eau (pas sur le quai).
+        if dans_l_eau(x + cx, surface + cy) && dans_l_eau(x + 1 + cx, surface + cy) {
+            rect(x, surface - 1, 2, 1, PLUIE);
         }
     }
 }
@@ -1891,6 +1973,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         immobile = compter_immobile(immobile, &m.joueur, &droite);
         assert_eq!(image_attente(&pepin::IMAGES, immobile), None);

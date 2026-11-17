@@ -440,6 +440,13 @@ impl Monde {
         }
     }
 
+    /// Le niveau a-t-il de l'eau (étendues, ou marée qui en apporte, cartes 9.2 et
+    /// 9.3) ? C'est là seulement que le bouton tactile BAS (retourner le parapluie,
+    /// carte 9.2b) est montré.
+    pub fn a_de_l_eau(&self) -> bool {
+        !self.niveau.eaux.is_empty() || self.entites.iter().any(|e| matches!(e, Entite::Maree(_)))
+    }
+
     /// Position interpolée de Pépin (coin haut-gauche), `alpha` entre 0 et 1.
     pub fn joueur_interpole(&self, alpha: f32) -> (f32, f32) {
         interpoler(
@@ -463,7 +470,7 @@ impl Monde {
 
 /// Minuterie de l'attente : nombre de pas que Pépin vient de passer immobile au sol.
 /// `avant` : la valeur du pas précédent. Elle repart de zéro au premier mouvement : une
-/// touche de direction ou de saut enfoncée (même contre un mur, où il ne bouge pas), une
+/// touche de direction, de saut ou BAS enfoncée (même contre un mur, où il ne bouge pas), une
 /// vitesse non nulle, ou les pieds qui quittent le sol (saut, chute, réapparition).
 /// Elle ne fait que LIRE le joueur (`&Joueur`) : aucun effet sur la physique. Porté par
 /// une plateforme mobile sans toucher à rien, Pépin est immobile (il attend, debout).
@@ -472,7 +479,9 @@ pub fn compter_immobile(avant: u32, joueur: &Joueur, entrees: &Entrees) -> u32 {
     let bouge = !joueur.au_sol
         || joueur.vitesse != Vec2::default()
         || entrees.direction != Direction::Immobile
-        || entrees.saut;
+        || entrees.saut
+        // BAS tenu (carte 9.2b) : il tient son parapluie retourné, il n'attend pas.
+        || entrees.bas;
     if bouge {
         0
     } else {
@@ -516,6 +525,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         for _ in 0..30 {
             m.avancer(&droite);
@@ -525,11 +535,13 @@ mod tests {
         m.avancer(&Entrees {
             direction: Direction::Droite,
             saut: true,
+            bas: false,
         });
         for _ in 0..5 {
             m.avancer(&Entrees {
                 direction: Direction::Droite,
                 saut: true,
+                bas: false,
             });
         }
         assert!(m.joueur.boite.y < y0 - 5.0, "le saut décolle");
@@ -597,10 +609,12 @@ mod tests {
     const DROITE: Entrees = Entrees {
         direction: Direction::Droite,
         saut: false,
+        bas: false,
     };
     const SAUT: Entrees = Entrees {
         direction: Direction::Immobile,
         saut: true,
+        bas: false,
     };
 
     /// Pépin posé, immobile (le vrai niveau 1 après 30 pas sans toucher à rien).

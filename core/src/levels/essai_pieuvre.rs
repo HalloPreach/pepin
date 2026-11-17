@@ -41,7 +41,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   chacun, ligne 7), colonne 18. De chaque ponton, une tête est à un saut.
 /// - Gouttes : au-dessus de l'eau à gauche (colonne 3), au-dessus de la tête du
 ///   milieu (colonne 10, ligne 6) et sur le ponton de droite (colonne 18) : on les
-///   prend en planant (la barque rattrape une chute dans l'eau).
+///   prend en planant (la barque, BAS tenu, rattrape une chute dans l'eau).
 const ASCII: &str = r"
 B..................B
 B..................B

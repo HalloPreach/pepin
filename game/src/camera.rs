@@ -529,7 +529,11 @@ mod tests {
             let duree_saut = tirer(70) as usize;
             for k in 0..duree {
                 let saut = (debut_saut..debut_saut + duree_saut).contains(&k);
-                v.push(Entrees { direction, saut });
+                v.push(Entrees {
+                    direction,
+                    saut,
+                    bas: false,
+                });
             }
         }
         v.truncate(n);
@@ -679,6 +683,7 @@ mod tests {
             let saut = Entrees {
                 direction: Direction::Immobile,
                 saut: pas < 30,
+                bas: false,
             };
             j.actualiser(&saut, &env);
             c.suivre(&j, L_TOUR, H_TOUR);
@@ -761,6 +766,7 @@ mod tests {
                     Direction::Immobile
                 },
                 saut: plane_des.is_some_and(|p| pas >= p),
+                bas: false,
             };
             let avant = c.y;
             j.actualiser(&e, &env);

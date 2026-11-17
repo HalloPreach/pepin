@@ -184,6 +184,7 @@ mod tests {
             let entrees = Entrees {
                 direction: sens,
                 saut: false,
+                bas: false,
             };
             let mut pose = None;
             for _ in 0..600 {

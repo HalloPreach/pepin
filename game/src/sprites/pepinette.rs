@@ -326,6 +326,32 @@ pub const VIE_PEPINETTE: Image = &[
     "..000000..",
 ];
 
+/// Parapluie RETOURNÉ de Pépinette (carte 9.2b) : comme celui de Pépin, les rangées
+/// 0 à 7 de `PEPINETTE_PLANE0` dans l'ordre inverse (la toile cyan en bol), le manche,
+/// le nœud et le corps du plané dessous.
+pub const PEPINETTE_RETOURNE: Image = &[
+    ".0..0..0..0..0..0..0",
+    "0D00D00D00D00D00D00D",
+    "06666606DD0DD0DDDDD0",
+    ".0666606DD0DD0DDDD0.",
+    "..066606DD0DD0DDD0..",
+    "...066666DDDDDDD0...",
+    "....06666DDDDDD0....",
+    "......00000000......",
+    ".........00.........",
+    "...000.0000.........",
+    "...08808800000......",
+    "....00707777070.....",
+    ".....0770770770.....",
+    ".....0770770770.....",
+    ".....0797797550.....",
+    ".....0777777550.....",
+    "......08888880......",
+    ".......000000.......",
+    "....................",
+    ".......00..00.......",
+];
+
 /// Barque de Pépinette (carte 9.2) : la même coque que celle de Pépin, dans la toile
 /// cyan de son parapluie (D, bord et baleines en 6), son nœud corail (8) sur la tête.
 /// Comme la barque de Pépin, la crosse (A) pointe vers le bas.
@@ -366,6 +392,7 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pepinette_mort2", PEPINETTE_MORT2),
     ("pepinette_plane0", PEPINETTE_PLANE0),
     ("pepinette_plane1", PEPINETTE_PLANE1),
+    ("pepinette_retourne", PEPINETTE_RETOURNE),
     ("pepinette_barque", PEPINETTE_BARQUE),
     ("vie_pepinette", VIE_PEPINETTE),
 ];
@@ -378,6 +405,7 @@ pub const IMAGES: JeuImages = JeuImages {
     chute: "pepinette_chute",
     attente: ["pepinette_cligne", "pepinette_ciel", "pepinette_tapote"],
     planer: ["pepinette_plane0", "pepinette_plane1"],
+    retourne: "pepinette_retourne",
     barque: "pepinette_barque",
     reapparition: ["pepinette_mort0", "pepinette_mort1", "pepinette_mort2"],
     vie: "vie_pepinette",

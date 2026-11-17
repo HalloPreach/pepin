@@ -71,6 +71,7 @@ mod tests {
             let e = Entrees {
                 direction: Direction::Immobile,
                 saut,
+                bas: false,
             };
             for _ in 0..120 {
                 j.actualiser(&e, &env);

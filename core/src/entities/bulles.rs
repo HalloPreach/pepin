@@ -61,6 +61,7 @@ mod tests {
         let planer = Entrees {
             direction: Direction::Immobile,
             saut: true,
+            bas: false,
         };
         for _ in 0..60 {
             j.actualiser(&planer, &env);
