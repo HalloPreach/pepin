@@ -6,10 +6,11 @@
 //! Le combat (voir `entities::pieuvre`) :
 //! 1. la pieuvre est calme (prélude), puis frappe par COLONNES de tentacules
 //!    (remous et ombre, annonce, puis le bout qui se dresse, mortel, puis
-//!    redescend) : on quitte la colonne annoncée, de ponton en caisse, ou en
-//!    barque ;
+//!    redescend) : on quitte la colonne annoncée en courant sur le platelage
+//!    (carte 9.12c), en sautant ses trous d'une case ;
 //! 2. après chaque série, elle sort la TÊTE sur l'eau (au milieu, puis à
-//!    gauche, puis à droite) : on lui saute dessus (un point) ;
+//!    gauche, puis à droite) : on tombe dans le trou qui la borde, sur elle (un
+//!    point) ;
 //! 3. trois motifs de plus en plus rapides, trois coups, elle replonge et
 //!    lâche la clé : le niveau est fini.
 //!
@@ -47,18 +48,18 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 
 /// 20 x 11 tuiles (un seul écran), thème Port. Géométrie du niveau d'essai
 /// « pieuvre » : bassin de toute l'arène, la pieuvre `8` (ses 9 colonnes de
-/// tentacules de 2 cases couvrent tout le bassin, aucun coin à l'abri), des
-/// pontons (une tête est à un saut de chacun), trois gouttes et la lanterne du
-/// départ.
+/// tentacules de 2 cases couvrent tout le bassin, aucun coin à l'abri), le
+/// platelage percé d'un trou d'une case au bord de chaque tête (carte 9.12c), les
+/// trois gouttes sous le départ (prises en tombant) et la lanterne.
 const ASCII: &str = r"
+B@.................B
+Bo.................B
+Bo.................B
+Bo.................B
 B..................B
-B..................B
-B..................B
-B..................B
-B..................B
-B..................B
-B@........o........B
-BL.o...#....#.....oB
+B.L................B
+B####.##.##.##.####B
+B#....##....##....#B
 B#....##....##....#B
 B~~~~~~~~8~~~~~~~~~B
 BBBBBBBBBBBBBBBBBBBB
