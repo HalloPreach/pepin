@@ -180,8 +180,8 @@ mod tests {
                 ..Environnement::simple(&g)
             };
             pieton.actualiser(&Entrees::default(), &env);
-            noye |= resoudre_contacts(&mut pieton, &mut [])
-                .contains(&Contact::Mort(CauseMort::Noyade));
+            noye |=
+                resoudre_contacts(&mut pieton, &mut []).contains(&Contact::Mort(CauseMort::Noyade));
             if let (None, Some(eau)) = (&barque, eaux.first()) {
                 let mut b = Joueur::new(100.0, eau.surface() - JOUEUR_H + ENFONCEMENT_BARQUE);
                 b.entrer_en_barque();

@@ -88,10 +88,10 @@ use std::collections::{BinaryHeap, HashMap};
 
 use crate::aabb::{touche_un_obstacle, Aabb};
 use crate::entities::contacts::{resoudre_contacts, verifier_vide, Contact};
+use crate::entities::maree::PERIODE_MAREE;
 use crate::entities::montgolfiere::VITESSE_MONTEE;
 use crate::entities::{solides_des_entites, Entite, TypeEnnemi};
 use crate::level::{Niveau, VITESSE_PLATEFORMES};
-use crate::entities::maree::PERIODE_MAREE;
 use crate::physics::{
     surface_eau, CourantAscendant, Eau, Environnement, VentLateral, ENFONCEMENT_BARQUE, HZ,
     JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
@@ -632,7 +632,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
                 // Ni sous une stalactite (carte 9.3) : elle tomberait sur lui.
                 let boite = Aabb::new(arrive.x, arrive.y, JOUEUR_L, JOUEUR_H);
-                if !arrive.lance && !arrive.barque && stalactites.iter().any(|c| c.chevauche(&boite))
+                if !arrive.lance
+                    && !arrive.barque
+                    && stalactites.iter().any(|c| c.chevauche(&boite))
                 {
                     return;
                 }

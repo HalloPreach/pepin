@@ -81,7 +81,10 @@ mod tests {
         };
         let ouvert = vitesse_finale(true);
         let ferme = vitesse_finale(false);
-        assert!(ouvert > VITESSE_PLANER_CHUTE && ouvert < 70.0, "ouvert : {ouvert}");
+        assert!(
+            ouvert > VITESSE_PLANER_CHUTE && ouvert < 70.0,
+            "ouvert : {ouvert}"
+        );
         assert!(ferme > VITESSE_MAX_CHUTE, "fermé : {ferme}");
     }
 }

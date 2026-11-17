@@ -83,7 +83,7 @@ impl Actualisable for Nenuphar {
 mod tests {
     use super::*;
     use crate::aabb::GrilleTuiles;
-    use crate::entities::contacts::{resoudre_contacts, Contact, CauseMort};
+    use crate::entities::contacts::{resoudre_contacts, CauseMort, Contact};
     use crate::entities::{solides_des_entites, Entite};
     use crate::physics::{Eau, JOUEUR_H};
     use crate::player::{Entrees, Joueur};
