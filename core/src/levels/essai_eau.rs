@@ -31,10 +31,13 @@ use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
     numero: 0,
+    // Essai hors table : le monde ne sert qu'aux règles de la table (champ ajouté par la carte 9.1).
+    monde: 1,
     cle: "essai_eau",
     sans_planer: false,
     nom: "Essai eau",
-    theme: Theme::Orage,
+    // Décor du caniveau (carte 9.5) : le premier niveau du Monde 2 y apprendra la barque.
+    theme: Theme::Caniveau,
     genre: GenreNiveau::Normal,
     intro: "Tombé dans l'eau parapluie ouvert, Pépin flotte : le parapluie retourné est une barque. Parapluie fermé, il coule. Le courant d'eau l'emporte vers le quai.",
     mecanique: "Planer dans l'eau pour tenir la barque ; ramer (lentement) et laisser le courant porter ; sauter sur le quai depuis la barque.",
