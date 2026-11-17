@@ -392,10 +392,7 @@ impl Monde {
             .niveau
             .arrivee
             .is_some_and(|a| self.joueur.boite.chevauche(&a));
-        let nuage_vaincu = self
-            .entites
-            .iter()
-            .any(Entite::boss_vaincu);
+        let nuage_vaincu = self.entites.iter().any(Entite::boss_vaincu);
         // Secrets (carte 8.5) : une zone cachée que Pépin touche se révèle pour de
         // bon ; la sortie secrète finit le niveau comme le drapeau.
         self.secret_revele = false;

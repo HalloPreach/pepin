@@ -263,7 +263,10 @@ pub(super) fn analyser(
             nombre: nuages.len() + pieuvres.len(),
         });
     }
-    let arrivee_case = match (arrivees.as_slice(), nuages.is_empty() && pieuvres.is_empty()) {
+    let arrivee_case = match (
+        arrivees.as_slice(),
+        nuages.is_empty() && pieuvres.is_empty(),
+    ) {
         ([], true) => return Err(ErreurNiveau::ArriveeManquante),
         ([], false) => None,
         ([a], true) => Some(*a),

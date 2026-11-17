@@ -827,7 +827,11 @@ fn ecrire_script_essai_pieuvre_912() {
     let appui = partie.images.iter().position(|i| i.touche_essai).unwrap();
     let debut = partie.images.iter().position(|i| i.en_essai).unwrap();
     std::fs::write("../target/qa/decalage-912.txt", (debut - appui).to_string()).unwrap();
-    println!("script : {} pas, décalage : {} images", script.len(), debut - appui);
+    println!(
+        "script : {} pas, décalage : {} images",
+        script.len(),
+        debut - appui
+    );
     let mut m = Monde::charger(crate::monde::INDICE_ESSAI_PIEUVRE, false);
     let mut avant = None;
     for (k, e) in parcours.iter().enumerate() {

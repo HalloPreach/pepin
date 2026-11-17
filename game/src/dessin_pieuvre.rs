@@ -14,8 +14,8 @@ use pepin_core::palette::ARDOISE_OMBRE;
 
 use crate::monde::{Monde, ENCRE_PAS};
 use crate::rendu::couleur_mq;
-use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 use crate::sprites::Banque;
+use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
 /// Hauteur (px) d'un tronçon de tentacule (`tentacule0`).
 const TRONCON: f32 = 8.0;

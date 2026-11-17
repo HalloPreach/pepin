@@ -497,7 +497,10 @@ mod tests {
         assert!(!p.recoit(&j));
         // Fin du motif : remous (sans danger), puis la tête sort au milieu.
         pas(&mut p, (duree_motif(0) - ANNONCE_PAS - DRESSE_PAS) as u32);
-        assert_eq!((p.phase(), p.tete()), (PhasePieuvre::Remous, Some(p.places[0])));
+        assert_eq!(
+            (p.phase(), p.tete()),
+            (PhasePieuvre::Remous, Some(p.places[0]))
+        );
         let tete = p.places[0];
         assert!(!p.blesse(&tete));
         pas(&mut p, REMOUS_PAS as u32);
@@ -518,7 +521,10 @@ mod tests {
         assert!(!p.blesse(&tombe.boite), "touchée, elle ne blesse plus");
         // Une mort de Pépin : elle reprend au prélude mais GARDE le point perdu.
         p.reprendre();
-        assert_eq!((p.phase(), p.pv(), p.motif()), (PhasePieuvre::Prelude, 2, 1));
+        assert_eq!(
+            (p.phase(), p.pv(), p.motif()),
+            (PhasePieuvre::Prelude, 2, 1)
+        );
         // Les deux derniers coups (la tête sort à gauche, puis à droite), puis la
         // plongée : vaincue, le niveau est fini.
         for (place, pv) in [(1, 1), (2, 0)] {
@@ -532,7 +538,11 @@ mod tests {
         }
         assert_eq!(p.phase(), PhasePieuvre::Plongee);
         p.reprendre();
-        assert_eq!(p.phase(), PhasePieuvre::Plongee, "la plongée ne s'annule pas");
+        assert_eq!(
+            p.phase(),
+            PhasePieuvre::Plongee,
+            "la plongée ne s'annule pas"
+        );
         pas(&mut p, PLONGEE_PAS as u32);
         assert!(p.est_vaincue());
         // Chaque coup la rend plus rapide : ses motifs raccourcissent.
