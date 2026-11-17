@@ -122,7 +122,7 @@ fn dessiner_tete(p: &Pieuvre, banque: &Banque, pas: u32, cx: f32, cy: f32) {
             }
         }
         // Touchée : 4 images visibles, 4 cachées, comme le Grand Nuage.
-        PhasePieuvre::Touchee if (p.ecoule() / 4) % 2 == 0 => {
+        PhasePieuvre::Touchee if (p.ecoule() / 4).is_multiple_of(2) => {
             banque.dessiner("pieuvre_touchee", x, y, false);
         }
         PhasePieuvre::Plongee => {
