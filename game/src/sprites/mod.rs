@@ -163,6 +163,8 @@ fn remplacer(c: char, theme: Theme) -> char {
         .unwrap_or(c),
         // Les briques violettes virent à l'orange sous le soleil.
         'F' if teinte.briques_orangees => 'A',
+        // Monde 2 (carte 9.5) : les briques mouillées virent au cyan sombre.
+        'F' if teinte.briques_mouillees => 'E',
         _ => c,
     }
 }
@@ -430,6 +432,11 @@ mod tests {
         // Le thème du soleil éclaircit l'ardoise : '2' devient '5'.
         assert_eq!(remplacer('2', Theme::Soleil), '5');
         assert_eq!(remplacer('2', Theme::Toits), '2');
+        // Monde 2 (carte 9.5) : les briques mouillées virent au cyan sombre ('F'
+        // devient 'E'), aux égouts et au port ; ailleurs elles restent violettes.
+        assert_eq!(remplacer('F', Theme::Egouts), 'E');
+        assert_eq!(remplacer('F', Theme::Port), 'E');
+        assert_eq!(remplacer('F', Theme::Toits), 'F');
     }
 
     // --- Corrections de lisibilité (audit des sprites) ---

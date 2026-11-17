@@ -324,6 +324,22 @@ pub fn progression_qa_demandee() -> bool {
     RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_PROGRESSION)
 }
 
+/// Touche de mise au point « défilé des fonds du Monde 2 » (carte 9.5) : V, même
+/// position en QWERTY et en AZERTY. Chaque appui fait défiler les 7 nouveaux fonds
+/// (`decor::planche_fonds_qa`), plein écran, pour les captures `docs/qa/95-*.png`.
+/// Build de QA seulement (`debug_niveaux`) : la définition n'existe que là, pour
+/// éviter un avertissement `dead_code` dans le build de production.
+#[cfg(feature = "debug_niveaux")]
+const TOUCHE_FONDS_QA: KeyCode = KeyCode::V;
+
+/// Le défilé des fonds du Monde 2 est-il demandé ? Ne compile que dans le build de
+/// QA (`debug_niveaux`), où seule `main` l'appelle ; la touche V est inerte en
+/// production.
+#[cfg(feature = "debug_niveaux")]
+pub fn fonds_qa_demande() -> bool {
+    RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_FONDS_QA)
+}
+
 /// Plantage volontaire (touche F9) : n'existe que dans le build de QA, fonctionnalité
 /// Cargo `qa_plantage`. Il sert à vérifier dans un vrai navigateur qu'un plantage en
 /// cours de partie (panique Rust, devenue « RuntimeError: unreachable » en wasm)

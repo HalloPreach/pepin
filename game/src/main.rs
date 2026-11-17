@@ -11,7 +11,8 @@
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
 //! (changer de niveau), K (skin suivant), T, Y (traînée, motif de parapluie
-//! suivants), G (100 gouttes en poche), F9 (plantage
+//! suivants), G (100 gouttes en poche), V (défilé des 7 fonds du Monde 2, carte 9.5),
+//! F9 (plantage
 //! volontaire) et F11 (force la musique suivante) : uniquement dans le build de mise au point
 //! (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
@@ -108,6 +109,15 @@ async fn main() {
     // Musique imposée par-dessus celle de la zone (`None` : la musique de la zone).
     // Aujourd'hui seule la touche F11 du build de QA la règle.
     let mut forcage: Option<musiques::Musique> = None;
+    // Build de QA seulement (carte 9.5) : la touche V défile les 7 nouveaux fonds
+    // du Monde 2, plein écran (captures `docs/qa/95-*.png`). `planche_pas` anime
+    // la pluie et les motifs du fond affiché, indépendamment de la simulation.
+    #[cfg(feature = "debug_niveaux")]
+    let mut fonds_qa: Option<usize> = None;
+    #[cfg(feature = "debug_niveaux")]
+    let mut fonds_v_appuyee = false;
+    #[cfg(feature = "debug_niveaux")]
+    let mut planche_pas: u32 = 0;
 
     loop {
         let commandes = sources.lire();
@@ -197,8 +207,32 @@ async fn main() {
         if a_tourner {
             orientation::dessiner(get_time());
         } else {
-            banque.choisir_motif(app.cosmetiques.motif);
-            app.dessiner(&banque, pas_fixe.alpha());
+            // Build de QA seulement (carte 9.5) : la touche V (appuyée, un appui
+            // = un fond) remplace le jeu par le défilé plein écran des 7 nouveaux
+            // fonds du Monde 2 ; sans V, le jeu se dessine comme d'habitude.
+            #[cfg(feature = "debug_niveaux")]
+            {
+                let v_appuyee = entrees::fonds_qa_demande();
+                if v_appuyee && !fonds_v_appuyee {
+                    fonds_qa = Some(match fonds_qa {
+                        None => 0,
+                        Some(k) => (k + 1) % 7,
+                    });
+                }
+                fonds_v_appuyee = v_appuyee;
+                if let Some(k) = fonds_qa {
+                    planche_pas = planche_pas.wrapping_add(1);
+                    decor::planche_fonds_qa(k, planche_pas);
+                } else {
+                    banque.choisir_motif(app.cosmetiques.motif);
+                    app.dessiner(&banque, pas_fixe.alpha());
+                }
+            }
+            #[cfg(not(feature = "debug_niveaux"))]
+            {
+                banque.choisir_motif(app.cosmetiques.motif);
+                app.dessiner(&banque, pas_fixe.alpha());
+            }
         }
         cible.afficher();
         if !a_tourner && matches!(app.ecran, Ecran::Jeu) {

@@ -53,15 +53,31 @@ pub enum Theme {
     /// Le retour du Grand Nuage (le niveau final, carte 8.2) : le décor et le ciel
     /// d'altitude, clairs devant le front d'orage, sans pluie de thème (il ne pleut
     /// que DANS le front d'orage). Un thème à lui pour sa musique (`Poursuite`).
-    /// Déclaré en dernier : les indices des autres thèmes ne bougent pas.
     Poursuite,
+    // Monde 2, « Là où va la pluie » (carte 9.5) : sept thèmes, ajoutés À LA FIN de
+    // l'enum : les indices du Monde 1 ne bougent pas (démo, course, robot,
+    // sauvegarde par clé intacts). Le parapluie retourné devient une barque.
+    /// Le caniveau : la rue sous l'averse au ras du trottoir, bouches d'égout, lampadaires.
+    Caniveau,
+    /// Les égouts : tunnels de briques sombres, grilles, tuyaux, lueur cyan.
+    Egouts,
+    /// La grande cascade (niveau vertical) : falaises, chutes d'eau et brume.
+    Cascade,
+    /// La grotte (sèche) : nuit bleue, stalactites, bulles qui montent, cristaux cyan.
+    Grotte,
+    /// La rivière : berges et roseaux, ciel grisé qui s'éclaircit, reflets.
+    Riviere,
+    /// Le port : quais, coques de bateaux, grues, phare au loin et mouettes.
+    Port,
+    /// La marée (niveau vertical) : mur du port, eau sombre en bas, ciel d'aube.
+    Maree,
 }
 
 impl Theme {
     /// Tous les thèmes, dans l'ordre de leur déclaration : le rendu y range un jeu
     /// de tuiles par thème (`Theme::indice`). Un nouveau thème s'ajoute ici ET dans
     /// l'`enum` (le test `tous_les_themes_dans_l_ordre` vérifie les deux).
-    pub const TOUS: [Theme; 12] = [
+    pub const TOUS: [Theme; 19] = [
         Theme::Toits,
         Theme::Gouttieres,
         Theme::Marche,
@@ -74,6 +90,14 @@ impl Theme {
         Theme::ArcEnCiel,
         Theme::Descente,
         Theme::Poursuite,
+        // Monde 2 (carte 9.5) : après le Monde 1, jamais inséré au milieu.
+        Theme::Caniveau,
+        Theme::Egouts,
+        Theme::Cascade,
+        Theme::Grotte,
+        Theme::Riviere,
+        Theme::Port,
+        Theme::Maree,
     ];
 
     /// Place du thème dans `Theme::TOUS` (son rang de déclaration).
@@ -100,17 +124,33 @@ impl Theme {
             Theme::Descente => 2,
             // Le retour du Grand Nuage : le ciel d'altitude.
             Theme::Poursuite => 3,
+            // Monde 2, « Là où va la pluie » (carte 9.5) : le monde de l'eau, après
+            // le soleil du Monde 1. L'avancement repart de la nuit humide (caniveau,
+            // égouts) vers l'aube du port et de la marée.
+            Theme::Caniveau => 1,
+            Theme::Egouts => 0,
+            Theme::Cascade => 1,
+            Theme::Grotte => 1,
+            Theme::Riviere => 2,
+            Theme::Port => 3,
+            Theme::Maree => 3,
         }
     }
 
     /// Pleut-il dans ce thème ? Ni au soleil, ni au-dessus de la mer de nuages
     /// (seule la grêle y tombe, en colonnes), ni sous l'arc-en-ciel (la pluie
     /// vient de s'arrêter), ni pendant la descente (l'orage est fini : on rentre), ni
-    /// devant le front d'orage du Grand Nuage (il ne pleut que dedans).
+    /// devant le front d'orage du Grand Nuage (il ne pleut que dedans), ni dans la
+    /// grotte du Monde 2 (carte 9.5 : la pluie est restée dehors).
     pub fn pluie(self) -> bool {
         !matches!(
             self,
-            Theme::Soleil | Theme::Mer | Theme::ArcEnCiel | Theme::Descente | Theme::Poursuite
+            Theme::Soleil
+                | Theme::Mer
+                | Theme::ArcEnCiel
+                | Theme::Descente
+                | Theme::Poursuite
+                | Theme::Grotte
         )
     }
 }
