@@ -750,3 +750,149 @@ fn ecrire_script_essai_eau_92() {
     std::fs::write("../target/qa/script-92-eau.txt", &script).unwrap();
     println!("script-92-eau.txt : {} pas", script.len());
 }
+
+/// Le robot finit le niveau d'essai « eau 2 » (carte 9.3, touche F12 du build de
+/// QA) sans mourir, les trois gouttes prises : il passe sous la stalactite, saute
+/// de nénuphar en nénuphar, monte dans les bulles, attend la marée en barque et
+/// descend la chute d'eau parapluie ouvert.
+#[test]
+fn le_robot_finit_le_niveau_d_essai_eau2() {
+    let parcours = parcours_essai_eau2();
+    let partie = jouer_essai_eau2(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(
+        partie.gouttes, 3,
+        "les trois gouttes du niveau d'essai eau 2"
+    );
+    let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+    println!("essai eau 2 : {} images de jeu", essai.len());
+}
+
+/// Écrit le parcours du robot dans le niveau d'essai « eau 2 » pour les captures
+/// de la carte 9.3 (`docs/capture-93.mjs`) : `target/qa/script-93-eau2.txt`, un
+/// chiffre hexadécimal par pas (2 gauche, 4 droite, 8 saut). Ignoré : on le
+/// lance à la main (`--ignored ecrire_script_essai_eau2_93`).
+#[test]
+#[ignore]
+fn ecrire_script_essai_eau2_93() {
+    use pepin_core::player::Direction;
+    let parcours = parcours_essai_eau2();
+    let script: String = parcours
+        .iter()
+        .map(|e| {
+            let direction = match e.direction {
+                Direction::Gauche => 2,
+                Direction::Droite => 4,
+                Direction::Immobile => 0,
+            };
+            let masque = direction + if e.saut { 8 } else { 0 };
+            std::char::from_digit(masque, 16)
+                .unwrap()
+                .to_ascii_uppercase()
+        })
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-93-eau2.txt", &script).unwrap();
+    // Images du navigateur entre l'appui sur F12 (compris) et le premier pas du
+    // niveau d'essai : le pilote les laisse passer avant de rejouer le script,
+    // pour que la marée soit à la même heure que dans ce test.
+    let images = jouer_essai_eau2(&parcours).images;
+    let appui = images.iter().position(|i| i.touche_essai).unwrap();
+    let jeu = images.iter().position(|i| i.en_essai).unwrap();
+    println!(
+        "script-93-eau2.txt : {} pas ; {} images de F12 au jeu",
+        script.len(),
+        jeu - appui
+    );
+    // Les moments du parcours à capturer (pas du script) : la première image de
+    // chaque mécanique en action, et l'heure de la marée.
+    use pepin_core::entities::stalactite::EtatStalactite;
+    use pepin_core::entities::Entite;
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_EAU2, false);
+    let mut vus: Vec<&str> = Vec::new();
+    for (pas, e) in parcours.iter().enumerate() {
+        m.avancer(e);
+        let j = &m.joueur;
+        let mut moment = |nom: &'static str, vrai: bool| {
+            if vrai && !vus.contains(&nom) {
+                vus.push(nom);
+                let maree = m.entites.iter().find_map(|e| match e {
+                    Entite::Maree(r) => Some((r.phase(), r.pas())),
+                    _ => None,
+                });
+                println!(
+                    "{nom} : pas {pas}, x {:.0}, y {:.0}, marée {maree:?}",
+                    j.boite.x, j.boite.y
+                );
+            }
+        };
+        let stal = m.entites.iter().find_map(|e| match e {
+            Entite::Stalactite(s) => Some(s.etat),
+            _ => None,
+        });
+        moment("tremble", matches!(stal, Some(EtatStalactite::Tremble(_))));
+        moment(
+            "chute_stalactite",
+            matches!(stal, Some(EtatStalactite::Chute(_))),
+        );
+        let sur_feuille = m.entites.iter().any(|e| {
+            matches!(e, Entite::Nenuphar(n) if j.au_sol && n.enfoncement() > 0.2
+                && (j.boite.bas() - n.boite.y).abs() < 0.5)
+        });
+        moment("nenuphar", sur_feuille);
+        moment(
+            "bulles",
+            (330.0..355.0).contains(&j.boite.x) && j.boite.y < 120.0,
+        );
+        moment(
+            "barque_maree",
+            j.en_barque() && (496.0..656.0).contains(&j.boite.x),
+        );
+        moment(
+            "chute_d_eau",
+            (778.0..812.0).contains(&j.boite.x) && j.boite.y > 120.0,
+        );
+        moment("arrivee", m.termine);
+    }
+    // Le nénuphar (le robot n'en a pas besoin : il traverse le bassin en barque) :
+    // le début du parcours, puis la recherche du robot jusqu'à une feuille, et
+    // Pépin y reste immobile : elle le met à l'eau. `script-93-nenuphar.txt`.
+    use crate::bot_qa::parcours::{chercher, plans};
+    let debut = 150;
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_EAU2, false);
+    for e in &parcours[..debut] {
+        m.avancer(e);
+    }
+    let sur_feuille = |m: &Monde| {
+        m.joueur.au_sol
+            && m.entites.iter().any(|e| {
+                matches!(e, Entite::Nenuphar(n) if (m.joueur.boite.bas() - n.boite.y).abs() < 0.5)
+            })
+    };
+    let etapes = chercher(&m, &plans(false), &sur_feuille, 50_000).expect("une feuille");
+    let mut feuille: Vec<Entrees> = parcours[..debut].to_vec();
+    for e in etapes {
+        feuille.extend(e.entrees);
+    }
+    let pose = feuille.len();
+    feuille.extend(vec![Entrees::default(); 120]);
+    let texte: String = feuille
+        .iter()
+        .map(|e| {
+            let d = match e.direction {
+                Direction::Gauche => 2,
+                Direction::Droite => 4,
+                Direction::Immobile => 0,
+            };
+            std::char::from_digit(d + if e.saut { 8 } else { 0 }, 16)
+                .unwrap()
+                .to_ascii_uppercase()
+        })
+        .collect();
+    std::fs::write("../target/qa/script-93-nenuphar.txt", &texte).unwrap();
+    println!(
+        "script-93-nenuphar.txt : {} pas, posé sur la feuille au pas {pose}",
+        texte.len()
+    );
+}

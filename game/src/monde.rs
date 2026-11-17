@@ -14,7 +14,8 @@ use pepin_core::entities::contacts::{
     porter_par_plateformes, resoudre_contacts, verifier_vide, CauseMort, Contact,
 };
 use pepin_core::entities::{
-    courants_des_entites, reprendre_apres_une_mort, solides_des_entites, Actualisable, Entite,
+    courants_des_entites, eaux_des_entites, reprendre_apres_une_mort, solides_des_entites,
+    Actualisable, Entite,
 };
 use pepin_core::level::Niveau;
 use pepin_core::levels::variantes;
@@ -127,14 +128,18 @@ pub const INDICE_ESSAI_NUAGE: usize = pepin_core::levels::NB_NIVEAUX + 9;
 /// tests et build de QA seulement.
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_EAU: usize = pepin_core::levels::NB_NIVEAUX + 10;
+/// Niveau d'essai « eau 2 » (carte 9.3 : bulles, nénuphars, marée, stalactites,
+/// chutes d'eau), tests et build de QA seulement (touche F12).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_EAU2: usize = pepin_core::levels::NB_NIVEAUX + 11;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les onze niveaux
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les douze niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
 /// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
 /// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage,
-/// `INDICE_ESSAI_EAU` eau), tests
+/// `INDICE_ESSAI_EAU` eau, `INDICE_ESSAI_EAU2` eau 2), tests
 /// et build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
@@ -164,6 +169,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_nuage::INFOS)
     } else if indice == INDICE_ESSAI_EAU {
         Some(&pepin_core::levels::essai_eau::INFOS)
+    } else if indice == INDICE_ESSAI_EAU2 {
+        Some(&pepin_core::levels::essai_eau2::INFOS)
     } else {
         None
     }
@@ -272,6 +279,15 @@ impl Monde {
             .cloned()
             .chain(courants_des_entites(&self.entites))
             .collect();
+        // La marée (carte 9.3) : son eau, qui monte et descend, s'ajoute à celle
+        // du niveau. Seulement dans un niveau qui en a une : ailleurs, l'eau du
+        // niveau sert telle quelle (rien ne change au Monde 1).
+        let a_une_maree = self.entites.iter().any(|e| matches!(e, Entite::Maree(_)));
+        let eaux_du_moment = if a_une_maree {
+            eaux_des_entites(&self.niveau.eaux, &self.entites)
+        } else {
+            Vec::new()
+        };
         let env = Environnement {
             grille: &self.niveau,
             solides: &solides,
@@ -280,7 +296,11 @@ impl Monde {
             // L'eau (carte 9.2) : la barque flotte, la noyade tue. Seuls le
             // joueur et ses états (barque/noyade) en sont affectés : les
             // entités (plateformes, ennemis) ne s'y baignent pas.
-            eaux: &self.niveau.eaux,
+            eaux: if a_une_maree {
+                &eaux_du_moment
+            } else {
+                &self.niveau.eaux
+            },
         };
         porter_par_plateformes(&mut self.joueur, &self.entites, &env);
         // 3. Le joueur bouge.

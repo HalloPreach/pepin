@@ -54,8 +54,8 @@ use crate::ecrans::Ecran;
 use crate::entrees::{Commandes, RaccourciNiveau};
 use crate::monde::{
     Monde, INDICE_ESSAI, INDICE_ESSAI_AUVENT, INDICE_ESSAI_CHAT, INDICE_ESSAI_EAU,
-    INDICE_ESSAI_ESCARGOT, INDICE_ESSAI_GRELE, INDICE_ESSAI_HORLOGE, INDICE_ESSAI_MONTGOLFIERE,
-    INDICE_ESSAI_NUAGE, INDICE_ESSAI_VENT, INDICE_ESSAI_VENTILATEUR,
+    INDICE_ESSAI_EAU2, INDICE_ESSAI_ESCARGOT, INDICE_ESSAI_GRELE, INDICE_ESSAI_HORLOGE,
+    INDICE_ESSAI_MONTGOLFIERE, INDICE_ESSAI_NUAGE, INDICE_ESSAI_VENT, INDICE_ESSAI_VENTILATEUR,
 };
 use crate::navigation::Navigation;
 
@@ -323,6 +323,21 @@ pub fn parcours_essai_eau() -> Vec<Entrees> {
     trouver_parcours_complet(i, false)
         .or_else(|| trouver_parcours_complet(i, true))
         .expect("le robot ne trouve aucun parcours complet au niveau d'essai eau")
+}
+
+/// Joue le niveau d'essai « eau 2 » (touche F12 du build de QA), voir `jouer_essai`.
+pub fn jouer_essai_eau2(parcours: &[Entrees]) -> PartieEssai {
+    jouer_essai(INDICE_ESSAI_EAU2, RaccourciNiveau::Essai12, parcours)
+}
+
+/// Parcours du robot dans le niveau d'essai « eau 2 » (carte 9.3), le parcours
+/// COMPLET (les trois gouttes avant l'arrivée) : la plateforme des bulles, le
+/// mur de la marée, le pied de la chute d'eau.
+pub fn parcours_essai_eau2() -> Vec<Entrees> {
+    let i = INDICE_ESSAI_EAU2;
+    trouver_parcours_complet(i, false)
+        .or_else(|| trouver_parcours_complet(i, true))
+        .expect("le robot ne trouve aucun parcours complet au niveau d'essai eau 2")
 }
 
 /// Joue le niveau d'essai « grêle » (touche F2 du build de QA), voir `jouer_essai`.

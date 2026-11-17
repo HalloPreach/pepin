@@ -13,13 +13,15 @@
 //! `char` fautif comme erreur, itérateurs, `HashMap`, tests unitaires.
 
 // Les dessins sont des grilles de texte : rustfmt les tasserait sur une seule
-// ligne et les rendrait illisibles, donc on l'exclut de ces six fichiers.
+// ligne et les rendrait illisibles, donc on l'exclut de ces sept fichiers.
 #[rustfmt::skip]
 pub mod ennemis;
 #[rustfmt::skip]
 pub mod objets;
 #[rustfmt::skip]
 pub mod objets_decor;
+#[rustfmt::skip]
+pub mod objets_eau;
 #[rustfmt::skip]
 pub mod pepin;
 #[rustfmt::skip]
@@ -137,6 +139,7 @@ pub fn tous() -> Vec<(&'static str, Image)> {
             ennemis::SPRITES,
             objets::SPRITES,
             objets_decor::SPRITES,
+            objets_eau::SPRITES,
             tuiles::SPRITES,
         ]
         .concat(),
@@ -223,7 +226,15 @@ impl Banque {
     pub fn charger() -> Self {
         let sprites = personnages()
             .into_iter()
-            .chain([ennemis::SPRITES, objets::SPRITES, objets_decor::SPRITES].concat())
+            .chain(
+                [
+                    ennemis::SPRITES,
+                    objets::SPRITES,
+                    objets_decor::SPRITES,
+                    objets_eau::SPRITES,
+                ]
+                .concat(),
+            )
             .map(|(nom, dessin)| (nom, texture(dessin, None)))
             .collect();
         let jeu = |trame: bool| -> Vec<HashMap<&'static str, Texture2D>> {

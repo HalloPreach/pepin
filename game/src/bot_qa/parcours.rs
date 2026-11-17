@@ -559,6 +559,8 @@ pub(crate) struct CaseParcours {
     pub(crate) aiguille: i32,
     /// Le Grand Nuage, résumé en entier (`nuage_de_la_case`) ; 0 sans nuage.
     pub(crate) nuage: i32,
+    /// L'heure de la marée (`maree_de_la_case`, carte 9.3) ; 0 sans marée.
+    pub(crate) maree: i32,
     /// Un secret déjà révélé (carte 8.5) : le même endroit atteint par un raccourci
     /// ne remplace pas celui du chemin normal (`trouver_parcours` refuse l'arrivée
     /// après un secret).
@@ -576,8 +578,26 @@ pub(crate) fn cle(m: &Monde) -> CaseParcours {
         chats: chats_de_la_case(m),
         aiguille: aiguille_proche(m),
         nuage: nuage_de_la_case(m),
+        maree: maree_de_la_case(m),
         secret: m.caches_reveles.iter().any(|&r| r),
     }
+}
+
+/// Tranche du temps de la marée (pas) retenue dans la case : 30 pas (1/2 s).
+const TRANCHE_MAREE_PAS: u32 = 30;
+
+/// L'heure de la marée (carte 9.3), résumée en un entier : `1 + tranche`, où
+/// `tranche` est le temps écoulé dans son cycle par tranches de
+/// `TRANCHE_MAREE_PAS` ; 0 sans marée. Comme le nuage, la marée s'ATTEND : sans
+/// son heure dans la case, attendre au bord ramènerait à une case déjà connue.
+pub(crate) fn maree_de_la_case(m: &Monde) -> i32 {
+    m.entites
+        .iter()
+        .find_map(|e| match e {
+            Entite::Maree(r) => Some(1 + (r.pas() / TRANCHE_MAREE_PAS) as i32),
+            _ => None,
+        })
+        .unwrap_or(0)
 }
 
 /// Tranche du temps du Grand Nuage (pas) retenue dans la case : 15 pas (1/4 s).
