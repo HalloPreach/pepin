@@ -110,6 +110,10 @@ async fn main() {
     // Sons fabriqués en mémoire. Désactivés tant que le joueur ne les demande pas
     // (et un navigateur n'autorise l'audio qu'après une première interaction).
     let mut audio = Audio::charger().await;
+    // Site de test (build de QA) : toute la carte des niveaux ouverte, Monde 2 compris
+    // (`plan::ouvrir_tout_qa`), AVANT de construire l'application et son titre.
+    #[cfg(feature = "debug_niveaux")]
+    plan::ouvrir_tout_qa();
     let mut app = Application::new(true);
     // Musique imposée par-dessus celle de la zone (`None` : la musique de la zone).
     // Aujourd'hui seule la touche F11 du build de QA la règle.

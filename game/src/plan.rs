@@ -56,6 +56,37 @@ fn fini(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
     progres(niveaux, s, i).fini()
 }
 
+/// Site de test (AGA : « que je puisse jouer le monde 2 facilement sur le site de test,
+/// que tous les niveaux soient débloqués ») : le build de QA ouvre TOUTE la carte des
+/// niveaux, Monde 2 compris, SANS rien écrire de faux dans la sauvegarde (records,
+/// gouttes et médailles restent les vrais). Le drapeau est levé par `main` au
+/// démarrage du navigateur seulement : les tests ne le lèvent jamais, ils gardent les
+/// vraies règles. En production, la fonctionnalité `debug_niveaux` est absente et
+/// `tout_ouvert_qa` vaut toujours faux (le compilateur retire le code).
+///
+/// `AtomicBool` : un booléen global qu'on peut lire et écrire sans `unsafe` (une
+/// `static mut` l'exigerait). `Relaxed` suffit : un seul fil d'exécution le lit.
+#[cfg(feature = "debug_niveaux")]
+static TOUT_OUVERT_QA: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Lève le drapeau « tout ouvert » du site de test (appelé par `main`, build de QA).
+#[cfg(feature = "debug_niveaux")]
+pub fn ouvrir_tout_qa() {
+    TOUT_OUVERT_QA.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Toute la carte est-elle ouverte (site de test) ? Toujours faux en production.
+fn tout_ouvert_qa() -> bool {
+    #[cfg(feature = "debug_niveaux")]
+    {
+        TOUT_OUVERT_QA.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    #[cfg(not(feature = "debug_niveaux"))]
+    {
+        false
+    }
+}
+
 /// La clé du niveau qui ouvre les mondes suivants (carte 9.1) : « Le retour du
 /// Grand Nuage » (`poursuite`), terminé au moins une fois. Tant qu'il n'est pas fini,
 /// la carte des niveaux ne montre que le Monde 1 et une partie ne peut pas s'y lancer.
@@ -65,6 +96,9 @@ pub const CLE_ACCES_MONDES_SUIVANTS: &str = "poursuite";
 /// `CLE_ACCES_MONDES_SUIVANTS` est terminé au moins une fois (la règle du Monde 2,
 /// carte 9.1). Pure (la sauvegarde est en lecture).
 pub fn mondes_suivants_ouverts(niveaux: &[InfosNiveau], s: &Sauvegarde) -> bool {
+    if tout_ouvert_qa() {
+        return true;
+    }
     let Some(n) = indice_de_cle(niveaux, CLE_ACCES_MONDES_SUIVANTS).and_then(|i| niveaux.get(i))
     else {
         return false;
@@ -121,6 +155,14 @@ fn etat_etape_monde(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEt
     let Some(n) = niveaux.get(i) else {
         return EtatEtape::Verrouillee;
     };
+    // Site de test : toutes les étapes ouvertes, bonus compris.
+    if tout_ouvert_qa() {
+        return if fini(niveaux, s, i) {
+            EtatEtape::Finie
+        } else {
+            EtatEtape::Ouverte
+        };
+    }
     let ouverte = match n.genre {
         GenreNiveau::Bonus => {
             let toutes = gouttes_trouvees_normales(niveaux, s) >= gouttes_pour_le_bonus(niveaux);
