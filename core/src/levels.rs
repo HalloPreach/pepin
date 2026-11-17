@@ -52,6 +52,7 @@ pub mod marche;
 pub mod mer;
 pub mod nuages;
 pub mod orage;
+pub mod pieuvre;
 pub mod poursuite;
 pub mod toits;
 pub mod variantes;
@@ -89,6 +90,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     // de la table, dans l'ordre du parcours (`monde: 2`, `numero` 1, 2, 3...). Les
     // indices du Monde 1 ne bougent pas. Recette : `pepin-notes/ETAPE-9.md`.
     caniveau::INFOS,
+    pieuvre::INFOS,
 ];
 
 /// Nombre de niveaux du jeu (bonus et épilogue compris, tous mondes).

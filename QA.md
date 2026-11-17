@@ -6695,3 +6695,18 @@ jeu, pour débloquer une fin différente. »
 - Monde 1 identique (`--exact`, release) : normale 23 703 `41a73ef4a0866536`, complète 28 995 `c070c4ae5c42223d`, nouvelle partie + 24 472 `d95fc98f74c6d8ed`.
 - Captures `docs/qa/912-*.png` (`node docs/capture-912.mjs PORT docs/qa target/qa/script-912-pieuvre.txt nom:pas...`, script du test ignoré `ecrire_script_essai_pieuvre_912`) : annonce, tentacule dressé, tête sortie, tête touchée, vague, victoire, encre (Pépin immobile). Toutes regardées ; 0 hors palette, 0 flou, 0 erreur de console.
 - PAS testé : joueur humain, tactile, vrai téléphone, Safari ; aucun son nouveau (coup = son d'écrasement) ; le vrai niveau du boss (9.12b) ; le mode facile n'est prouvé que par le test.
+
+## Carte 9.12b : la Pieuvre aussi dure que le Grand Nuage, et son niveau « La Pieuvre du port »
+
+- Recalibrage (`pieuvre.rs`, `MOTIFS`) : part du bassin frappée par salve 44 %, 56 %, 67 % (Grand Nuage 43, 50, 47 % ; 9.12a 11, 22, 11 %), une salve toutes les 60, 40, 30 pas ; motif 3 = un trou de 3 colonnes qui balaie le bassin aller et retour. Annonce 48, `TETE_PAS` 120, accélération : inchangés. Tests `aussi_dure_que_le_grand_nuage`, `chaque_motif_se_traverse` (le raisonnement du nuage, plus strict : aucune impasse au début de chaque frappe).
+- Mesure (`difficulte::tests::mesure_des_deux_boss`, ignoré : graine officielle, 48 essais, mêmes profils ; « avant » mesuré sur une copie aux motifs de d6d7e66), morts moyennes :
+
+| Arène | Débutant | Habitué | Expert |
+| --- | --- | --- | --- |
+| L'œil du cyclone (référence 5.18 retrouvée) | 4,06 | 1,19 | 0,38 |
+| Pieuvre, motifs 9.12a | 2,44 | 0,88 | 0,33 |
+| Pieuvre, motifs 9.12b | 5,31 | 1,27 | 0,38 |
+
+- Lecture : Habitué 1,27 ≥ 1,19, but atteint. Mais près des deux tiers des morts de l'Habitué à la pieuvre sont des NOYADES (39 sur 61 : sauts ratés entre pontons, que les tentacules imposent) ; tentacules seuls 0,46, contre 1,19 d'éclairs au nuage. Débutant : game over 23/48 (cyclone 16/48) ; le mode facile reste le filet. Tous les profils finissent 48/48.
+- Niveau `core/src/levels/pieuvre.rs` (clé `pieuvre`, `Theme::Port`, `Normal` comme le cyclone, arène de l'essai L, test d'identité de géométrie) ; `numero` 2 sur cette branche (`verifier_ordre` refuse 7 sans les niveaux 2 à 6 : au coordinateur de ranger) ; intro « La Pieuvre garde le port. Elle ne te laissera pas passer. », conseil « Elle frappe là où l'eau tremble. ». `durees_plausibles` compte le combat de la pieuvre avec SES durées ; `trouver_parcours_complet` : repli sur le parcours du robot dans une arène de boss sans lettre (dernier essai seulement).
+- Preuves : `test -p core` pieuvre, zones, levels, faisabilite ; robots `le_robot_bat_la_pieuvre_sans_mourir` (0 mort, 1 431 images) et `le_robot_finit_le_monde_2_sans_mourir` (niveaux [1, 2], 0 mort) ; Monde 1 identique (`--exact`) : normale 23 703 `41a73ef4a0866536`, complète 28 995 `c070c4ae5c42223d`, nouvelle partie + 24 472 `d95fc98f74c6d8ed` ; `lint` LINT-OK ; `./build.sh --qa` ok. Captures `docs/qa/912b-*.png` (`node docs/capture-912b.mjs PORT docs/qa target/qa/script-912b.txt nom:image...`, script du test ignoré `ecrire_script_pieuvre_912b`) : carte de titre, vague aller (Pépin plane dans le trou), plus loin, retour (Pépin attend sur la caisse) ; regardées, 0 hors palette, 0 flou, 0 erreur de console. PAS testé : joueur humain, tactile, vrai téléphone ; HUD encore « MONDE 2 · NIVEAU 2/2 » (9.1b).

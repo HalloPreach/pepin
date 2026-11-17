@@ -1063,7 +1063,29 @@ fn objets_du_niveau(m: &Monde) -> usize {
 /// trouvé par la recherche). Le parcours n'est pas forcément le plus court qui
 /// ramasse tout (on prend les gouttes dans l'ordre où elles sont les plus proches),
 /// mais il est sûr par construction, comme celui du robot.
+///
+/// Arène d'un boss sans lettre (carte 9.12b, la Pieuvre du port) : si cette recherche
+/// par étapes échoue (la goutte la plus proche, prise au mauvais moment, laisse Pépin
+/// là où les salves serrées ne pardonnent plus), le parcours du robot convient : il
+/// prend déjà les trois gouttes avant le dernier coup (`gouttes_avant_la_victoire`),
+/// c'est donc un parcours complet. Repli seulement, et au DERNIER essai (`precis` :
+/// les appelants essaient le maladroit, puis le précis) : là où la recherche par
+/// étapes réussit (tout le Monde 1, le Grand Nuage compris), rien ne change.
 pub fn trouver_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
+    parcours_complet_par_etapes(indice, precis).or_else(|| {
+        let (depart, _) = depart_pose(indice);
+        let boss_sans_lettre =
+            depart.pv_nuage().is_some() && objets_du_niveau(&depart) == depart.gouttes_niveau.len();
+        if precis && boss_sans_lettre {
+            trouver_parcours(indice, false).or_else(|| trouver_parcours(indice, true))
+        } else {
+            None
+        }
+    })
+}
+
+/// La recherche par étapes de `trouver_parcours_complet` (voir sa documentation).
+fn parcours_complet_par_etapes(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     let (mut monde, mut entrees) = depart_pose(indice);
     let tous = plans(precis);
     let total = objets_du_niveau(&monde);
