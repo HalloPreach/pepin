@@ -340,33 +340,29 @@ pub const PEPIN_PLANE1: Image = &[
     ".......00..00.......",
 ];
 
-/// Parapluie RETOURNÉ (carte 9.2b, BAS tenu) : la toile corail du plané, à
-/// l'envers. Les rangées 0 à 7 sont celles de `PEPIN_PLANE0` dans l'ordre inverse
-/// (les pointes des baleines en haut, la toile en bol, le fond plat en bas), le
-/// manche et le corps (rangées 8 à 19) sont ceux du plané. C'est déjà la coque de la
-/// barque : posé sur l'eau, ce bol porte Pépin. Même place que le plané (20x20, coin
-/// à `(milieu-10, bas-20)`).
+/// Parapluie RETOURNÉ (carte 9.2b, BAS tenu), dessiné SOUS Pépin (carte 9.2c, AGA :
+/// « que le parapluie se mette sous Pépin et pas au-dessus ») : Pépin debout dans
+/// la coque, la même que celle de `PEPIN_BARQUE` (bord clair festonné, toile
+/// corail, baleines, crosse en quille dessous). C'est la barque prête à toucher
+/// l'eau : posé dessus, Pépin s'y assied (3 px plus bas). Image 16x16, comme la
+/// barque ; la scène la pose sur les pieds au sol, à la place de la barque en l'air.
 pub const PEPIN_RETOURNE: Image = &[
-    ".0..0..0..0..0..0..0",
-    "08008008008008008008",
-    "09999909880880888880",
-    ".099990988088088880.",
-    "..0999098808808880..",
-    "...09999988888880...",
-    "....099998888880....",
-    "......00000000......",
-    ".........00.........",
-    ".........00.........",
-    "......00000000......",
-    ".....0777777770.....",
-    ".....0770770770.....",
-    ".....0770770770.....",
-    ".....0797797550.....",
-    ".....0777777550.....",
-    "......05555550......",
-    ".......000000.......",
-    "....................",
-    ".......00..00.......",
+    "....00000000....",
+    "...0777777770...",
+    "...0770770770...",
+    "...0770770770...",
+    "...0797797550...",
+    "...0777777550...",
+    "...0555555550...",
+    ".00055555555000.",
+    "0999099999909990",
+    "0888888888888880",
+    ".08898888889880.",
+    "..088988889880..",
+    "...0088998800...",
+    ".....000A000....",
+    ".......0A0......",
+    "......0AA0......",
 ];
 
 /// Barque (carte 9.2) : le parapluie corail RETOURNÉ devient une coque, et Pépin

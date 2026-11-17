@@ -1219,13 +1219,17 @@ fn poser_pepin(
             let nom = image(&images.planer, pas, 8);
             poser(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
         }
-        // Parapluie retourné (carte 9.2b, BAS tenu) : la toile en bol au-dessus
-        // de la tête, à la place du plané (même image 20x20, même coin).
+        // Parapluie retourné (carte 9.2b, BAS tenu), SOUS Pépin depuis la 9.2c :
+        // Pépin debout dans la coque de la barque (16x16). En l'air, posé comme la
+        // barque (`ENFONCE_BARQUE_RENDU` plus bas) : la coque est à la même place
+        // sous les pieds qu'en barque, Pépin s'y assied en touchant l'eau. Au sol,
+        // la crosse posée sur le sol (pas dedans).
         EtatJoueur::Retourne => {
+            let enfonce = if j.au_sol { 0 } else { ENFONCE_BARQUE_RENDU };
             poser(
                 images.retourne,
-                (milieu - 10) as f32,
-                (bas - 20) as f32,
+                (milieu - 8) as f32,
+                (bas - 16 + enfonce) as f32,
                 miroir,
             );
         }
