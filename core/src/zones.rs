@@ -63,7 +63,8 @@ pub enum Theme {
     Egouts,
     /// La grande cascade (niveau vertical) : falaises, chutes d'eau et brume.
     Cascade,
-    /// La grotte (sèche) : nuit bleue, stalactites, bulles qui montent, cristaux cyan.
+    /// La grotte derrière la cascade (sans pluie) : nuit bleue, stalactites, sources
+    /// d'où montent les bulles, cristaux cyan.
     Grotte,
     /// La rivière : berges et roseaux, ciel grisé qui s'éclaircit, reflets.
     Riviere,

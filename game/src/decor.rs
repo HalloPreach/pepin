@@ -169,8 +169,6 @@ pub enum Detail {
     Chutes,
     /// La brume de la cascade : deux nappes basses qui dérivent.
     Brume,
-    /// Les bulles de la grotte : des anneaux qui montent et s'éteignent.
-    Bulles,
     /// Les cristaux cyan de la grotte : des pointes au pied de l'écran.
     Cristaux,
     /// L'eau de la rivière : une bande de courant sombre, ses reflets.
@@ -704,8 +702,10 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vent: VENT_NUIT,
         },
         // La grotte aux bulles : nuit bleue profonde, stalactites au plafond (les
-        // seules, carte 9.5), des bulles qui montent et des cristaux cyan au pied.
-        // Niveau vertical (`vertige`) : l'ascension se fait en bulles.
+        // seules, carte 9.5) et des cristaux cyan au pied. Niveau vertical
+        // (`vertige`) : l'ascension se fait en bulles. Carte 9.20d : plus de
+        // bulles au fond, sorties de nulle part ; les vraies jaillissent de leurs
+        // sources, au premier plan (`decor_grotte`).
         Theme::Grotte => Ambiance {
             ciel: [ARDOISE_OMBRE, ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE_NUIT],
             lointain: ARDOISE,
@@ -738,7 +738,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 2.5,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Bulles), Some(Detail::Cristaux), None, None],
+            details: [Some(Detail::Cristaux), None, None, None],
             vent: VENT_NUIT,
         },
         // La rivière : berges de fond et roseaux devant, ciel grisé qui
@@ -1534,13 +1534,13 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
 
 /// Motif de décor du Monde 2 (carte 9.5) : le dessin d'un motif (`Detail`) pour
 /// une ambiance, en trois groupes de parallaxe : les motifs du fond (mouettes,
-/// bulles, phare) restent fixés à l'écran (« à l'infini »), les motifs du milieu
+/// phare) restent fixés à l'écran (« à l'infini »), les motifs du milieu
 /// (chutes, brume, tuyaux, lueur) suivent la couche des îlots, les motifs du
 /// premier plan (eau, lampadaires, grues, cristaux) suivent la couche proche.
 /// Pur : ne dépend que de `cam_x`, `cam_y` et `pas`.
 fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let (facteur, vert) = match d {
-        Detail::Mouettes | Detail::Bulles => (0.0, 0),
+        Detail::Mouettes => (0.0, 0),
         Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => {
             (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige))
         }
@@ -1613,24 +1613,6 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
                     rect(x0 + 8, y0 + 3, 18, 1, NUAGE);
                     rect(x0 + 30, y0 + 4, 22, 1, NUAGE);
                 }
-            }
-        }
-        Detail::Bulles => {
-            // Des bulles qui montent : de petits anneaux cyan qui s'élèvent et
-            // s'éteignent (elles soulèveront Pépin aux mécaniques, carte 9.3).
-            for k in 0..9u32 {
-                let p = (pas * 2 / 3 + k * 31).rem_euclid(400);
-                let y = (H - 20) - p as i32 / 2;
-                if !(4..=(H - 6)).contains(&y) {
-                    continue;
-                }
-                let x = ((k as i32 * 37 + 10).rem_euclid(L) + ((pas / 30 + k) % 2) as i32)
-                    .rem_euclid(L);
-                rect(x, y, 3, 1, PLUIE);
-                rect(x, y + 2, 3, 1, PLUIE);
-                rect(x, y + 1, 1, 1, PLUIE);
-                rect(x + 2, y + 1, 1, 1, PLUIE);
-                rect(x, y, 1, 1, BLANC_CASSE);
             }
         }
         Detail::Cristaux => {
@@ -1722,12 +1704,12 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
 
 /// Dessine les motifs du Monde 2 rangés dans `a.details`, groupe par groupe :
 /// `groupe` 0 = derrière les couches de silhouettes (le plus lointain : mouettes,
-/// bulles), `groupe` 1 = entre les deux couches (chutes, brume, tuyaux, lueur),
+/// phare), `groupe` 1 = entre les deux couches (chutes, brume, tuyaux, lueur),
 /// `groupe` 2 = devant la couche proche (eau, lampadaires, grues, cristaux).
 fn dessiner_details(a: &Ambiance, groupe: u8, cam_x: i32, cam_y: i32, pas: u32) {
     for d in a.details.iter().copied().flatten() {
         let g = match d {
-            Detail::Mouettes | Detail::Bulles | Detail::Phare => 0,
+            Detail::Mouettes | Detail::Phare => 0,
             Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => 1,
             _ => 2,
         };
@@ -1755,7 +1737,7 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     if a.arc {
         dessiner_arc(cam_x);
     }
-    // Motifs du Monde 2 (carte 9.5) : le groupe 0 (mouettes, bulles) est le plus
+    // Motifs du Monde 2 (carte 9.5) : le groupe 0 (mouettes, phare) est le plus
     // lointain, derrière le plafond et les deux couches de silhouettes.
     dessiner_details(&a, 0, cam_x, cam_y, pas);
     if let Some(p) = &a.plafond {

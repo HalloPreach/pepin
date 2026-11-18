@@ -1434,6 +1434,8 @@ pub fn dessiner(
     crate::dessin_courant::dessiner(monde, cx, cy);
     // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.
     crate::decor_egouts::dessiner(monde, cx, cy);
+    // L'habillage de la grotte (carte 9.20d) : rideau de la cascade, sources, jour.
+    crate::decor_grotte::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     // Le grand tuyau du départ et le bassin d'arrivée de la cascade (carte 9.20c).
     crate::decor_cascade::dessiner(monde, cx, cy);
