@@ -5,6 +5,8 @@
 #         ./docker-cargo.sh test -p game --no-default-features   (natif sans libasound : sans son réel)
 #         ./docker-cargo.sh fmt -p core         (applique rustfmt)
 #         ./docker-cargo.sh lint                (fmt --check + clippy -D warnings, core puis game wasm puis game tests)
+#         ./docker-cargo.sh carte <clé>         (tests d'une carte de niveau, < 3 min : voir tests-carte-lot.sh)
+#         ./docker-cargo.sh lot                 (suite complète du coordinateur, tests de lot compris, < 12 min)
 # Le conteneur est nommé puis supprimé avec `docker rm` (pas de --rm).
 set -u
 cd "$(dirname "$0")"
@@ -49,11 +51,15 @@ if [ "$1" = lint ]; then
   echo "LINT-OK"
   exit 0
 fi
+# Les deux commandes de tests (carte 9.23) : voir tests-carte-lot.sh.
+if [ "$1" = carte ] || [ "$1" = lot ]; then
+  exec bash tests-carte-lot.sh "$@"
+fi
 exec cargo "$@"
 '
 
 docker run --name "$NOM" --user "$(id -u):$(id -g)" \
-  -e CARGO_HOME=/cargohome -e HOME=/tmp -e CLE \
+  -e CARGO_HOME=/cargohome -e HOME=/tmp -e CLE -e RUSTC_BOOTSTRAP \
   -e RUSTUP_HOME_IMAGE=/usr/local/rustup \
   -v "$CARGO_HOME_HOTE":/cargohome \
   -v "$PWD":/work -w /work \
