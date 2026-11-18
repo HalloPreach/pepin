@@ -107,6 +107,16 @@
 //!      haut de la carte (mortels 0,5 s) ; entre deux motifs, sa tête (3 x 2 cases)
 //!      sort sur l'eau au milieu (colonne 0), à gauche (-3) ou à droite (3) : on lui
 //!      saute dessus, trois coups. Pas de drapeau `X` : la vaincre finit le niveau
+//!   Mobilier de rue du Monde 2 (carte 9.20f) : des cases SOLIDES (des toits
+//!   pour la collision) que le jeu dessine comme un seul objet par groupe de
+//!   cases voisines de la même lettre (`Mobilier`) :
+//!   q  voiture garée (4 x 2 cases : `.qq.` sur `qqqq`, le capot et le coffre
+//!      plus bas que le toit)
+//!   a  autobus garé (un rectangle ; ses roues sont dessinées sous lui)
+//!   t  toit d'abribus (une rangée ; ses montants et sa vitre, dessinés jusqu'au
+//!      sol, ne bloquent rien : on passe dessous)
+//!   d  poubelle de rue (1 case)
+//!   l  banc (une rangée)
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
@@ -266,6 +276,68 @@ impl GenreDecor {
     }
 }
 
+/// Mobilier de rue (carte 9.20f) : des cases solides dessinées comme un objet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenreMobilier {
+    /// `q` : voiture garée.
+    Voiture,
+    /// `a` : autobus garé.
+    Autobus,
+    /// `t` : toit d'abribus.
+    Abribus,
+    /// `d` : poubelle de rue.
+    Poubelle,
+    /// `l` : banc.
+    Banc,
+}
+
+impl GenreMobilier {
+    /// Tous les genres, dans l'ordre de la légende.
+    pub const TOUS: [GenreMobilier; 5] = [
+        GenreMobilier::Voiture,
+        GenreMobilier::Autobus,
+        GenreMobilier::Abribus,
+        GenreMobilier::Poubelle,
+        GenreMobilier::Banc,
+    ];
+
+    /// Lettre de la grille ASCII.
+    pub fn lettre(self) -> char {
+        match self {
+            GenreMobilier::Voiture => 'q',
+            GenreMobilier::Autobus => 'a',
+            GenreMobilier::Abribus => 't',
+            GenreMobilier::Poubelle => 'd',
+            GenreMobilier::Banc => 'l',
+        }
+    }
+
+    /// Genre désigné par une lettre de la grille, `None` si ce n'est pas du mobilier.
+    pub fn depuis_lettre(c: char) -> Option<GenreMobilier> {
+        GenreMobilier::TOUS.into_iter().find(|g| g.lettre() == c)
+    }
+}
+
+/// Un objet du mobilier de rue : un groupe de cases voisines de la même lettre.
+/// `(tx, ty)` : la case en haut à gauche du rectangle qui l'entoure, `(l, h)` :
+/// sa taille en cases. Seules les cases de la lettre sont solides (la voiture a
+/// deux coins libres en haut).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mobilier {
+    pub genre: GenreMobilier,
+    pub tx: i32,
+    pub ty: i32,
+    pub l: i32,
+    pub h: i32,
+}
+
+impl Mobilier {
+    /// La case `(tx, ty)` est-elle dans le rectangle de l'objet ?
+    pub fn couvre(&self, tx: i32, ty: i32) -> bool {
+        (self.tx..self.tx + self.l).contains(&tx) && (self.ty..self.ty + self.h).contains(&ty)
+    }
+}
+
 /// Objet de décor ; `(x, y)` est le coin haut-gauche de sa case. La case du
 /// dessous est toujours solide (le parseur le vérifie) : l'objet y est posé.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -300,6 +372,9 @@ pub struct Niveau {
     pub panneaux: Vec<Panneau>,
     /// Objets de décor (dessin seulement).
     pub decors: Vec<ObjetDecor>,
+    /// Mobilier de rue (carte 9.20f) : ses cases sont solides (des toits), le
+    /// jeu dessine chaque objet d'un seul tenant. Vide hors de la rue.
+    pub mobilier: Vec<Mobilier>,
     /// Zones cachées derrière des faux murs `m` (carte 8.5).
     pub caches: Vec<ZoneCachee>,
     /// Sortie secrète `x` (carte 8.5) : la toucher finit le niveau comme le drapeau.
@@ -419,6 +494,12 @@ impl Niveau {
             .iter()
             .find(|e| e.zone.chevauche(&case))
             .map_or(0, |e| e.courant)
+    }
+
+    /// La case `(tx, ty)` est-elle une case SOLIDE du mobilier de rue (carte
+    /// 9.20f) ? Le jeu ne la dessine pas comme une tuile : l'objet s'en charge.
+    pub fn est_mobilier(&self, tx: i32, ty: i32) -> bool {
+        self.tuile_decor(tx, ty).est_solide() && self.mobilier.iter().any(|m| m.couvre(tx, ty))
     }
 }
 
