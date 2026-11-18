@@ -19,13 +19,13 @@
 //! ```
 //!
 //! - colère : un MOTIF de tentacules sur les 9 colonnes du bassin (2 tuiles de
-//!   large chacune). Chaque tentacule est d'abord ANNONCÉ (48 pas, 0,8 s : remous
+//!   large chacune). Chaque tentacule est d'abord ANNONCÉ (72 pas, 1,2 s : remous
 //!   et ombre sur l'eau, puis le bout du tentacule qui pointe), sans danger ; puis
 //!   il se DRESSE de toute la hauteur (30 pas, 0,5 s) : mortel ; puis il redescend
 //!   (12 pas), sans danger. Un motif par point perdu (`MOTIFS`), de plus en plus
 //!   gros et rapide : 4 colonnes sur 9 par salve, puis 6, puis 7 en VAGUE qui
-//!   balaie le bassin, aller et retour (carte 9.12c : un peu moins dure que le
-//!   Grand Nuage, à la mesure).
+//!   balaie le bassin, aller, un souffle, puis retour (carte 9.12d : plus lente
+//!   et lisible pour un humain, nettement sous l'orage à la mesure).
 //! - remous : la tête remonte (l'eau bouillonne à sa place), sans danger.
 //! - tête sortie : la tête est posée sur l'eau, au milieu ou d'un côté
 //!   (`PLACES_TETE`), 2 s. Lui tomber dessus la touche (`recoit`, même règle que
@@ -55,8 +55,11 @@ pub const PV_PIEUVRE: u8 = 3;
 pub const PV_PIEUVRE_FACILE: u8 = 2;
 /// Prélude : 1,5 s de calme avant le premier motif (et après une mort).
 pub const PRELUDE_PAS: u16 = 90;
-/// Annonce d'un tentacule : 0,8 s (remous et ombre, puis le bout qui pointe).
-pub const ANNONCE_PAS: u16 = 48;
+/// Annonce d'un tentacule : 1,2 s (remous et ombre, puis le bout qui pointe).
+/// Carte 9.12d (AGA : « la pieuvre est trop rapide, c'est plus dur que l'orage
+/// pour un humain ») : 0,8 s auparavant, le robot réagit à l'image près, un humain
+/// non (voir `un_humain_a_le_temps_de_changer_de_colonne`).
+pub const ANNONCE_PAS: u16 = 72;
 /// Moitié de l'annonce : avant, remous et ombre ; après, le bout du tentacule pointe.
 pub const POINTE_PAS: u16 = ANNONCE_PAS / 2;
 /// Tentacule dressé de toute la hauteur : 0,5 s, mortel.
@@ -69,8 +72,9 @@ pub const SALVE_PAS: u16 = ANNONCE_PAS + DRESSE_PAS + REDESCENTE_PAS;
 pub const REMOUS_PAS: u16 = 36;
 /// La tête est sortie, posée sur l'eau : 2 s pour lui sauter dessus.
 pub const TETE_PAS: u16 = 120;
-/// Touchée : 1 s de grimace, sans danger.
-pub const TOUCHEE_PAS: u16 = 60;
+/// Touchée : 1,5 s de grimace, sans danger (carte 9.12d : un vrai souffle après
+/// chaque coup reçu, 1 s auparavant).
+pub const TOUCHEE_PAS: u16 = 90;
 /// Vaincue : elle replonge pendant 2 s, puis le niveau est fini.
 pub const PLONGEE_PAS: u16 = 120;
 /// Taille de la tête (px) : trois cases de large, deux de haut.
@@ -92,26 +96,28 @@ pub const PLACES_TETE: [i8; 3] = [0, -3, 3];
 /// Les trois motifs, un par point perdu, de plus en plus gros et rapides. Les
 /// bandes sont en COLONNES depuis celle du `8` (-4 tout à gauche, 4 tout à droite).
 ///
-/// Carte 9.12c (AGA : « un peu moins dure que le grand nuage mais sur le même
-/// principe, qui accélère au fur et à mesure qu'elle perd de la vie et qui fait des
-/// attaques plus grosses ») : réglés à la MESURE (`difficulte::tests::
-/// mesure_des_deux_boss`), l'Habitué y meurt à peu près 8 fois sur 10 de ce qu'il
-/// meurt au cyclone. Part du bassin frappée par salve : 44 %, 67 %, 74 % ; une salve
-/// toutes les 66, 48, puis 30 pas (le nuage : 43, 50, 47 % toutes les 60, 40, 30 :
-/// la part frappée seule ne dit pas la difficulté, il faut la mesurer). Aux
-/// motifs 1 et 2, chaque salve oblige à BOUGER : elle frappe toute la zone sûre de
-/// la précédente, sauf au plus une colonne.
-/// - Motif 1 : 4 colonnes sur 9, une salve toutes les 66 pas : les bords, puis le
+/// Carte 9.12d (AGA, après avoir joué : « la pieuvre est trop rapide, c'est plus
+/// dur que l'orage pour un humain ») : même principe que la 9.12c (« un peu moins
+/// dure que le grand nuage, qui accélère au fur et à mesure qu'elle perd de la
+/// vie et qui fait des attaques plus grosses »), mais partant de plus bas : une
+/// salve toutes les 100, 78, puis 60 pas (66, 48, 30 auparavant), annonce de
+/// 1,2 s, une salve de moins par motif, et un souffle de 140 pas entre l'aller et
+/// le retour de la vague. Part du bassin frappée par salve : 44 %, 67 %, 78 %.
+/// Réglés à la MESURE (`difficulte::tests::mesure_d_un_niveau_du_monde_2`,
+/// CLE=pieuvre) : l'Habitué y meurt nettement moins qu'à l'orage.
+/// - Motif 1 : 4 colonnes sur 9, une salve toutes les 100 pas : les bords, puis le
 ///   milieu, puis les bords... on fait la navette sur le platelage.
-/// - Motif 2 : 6 colonnes sur 9, toutes les 48 pas : deux ou trois bandes, les
-///   trous sautent d'un côté à l'autre.
-/// - Motif 3 : 7 colonnes sur 9 (5 et 6 au début), toutes les 30 pas : un trou qui
-///   rétrécit (4, 3, puis 2 colonnes) glisse d'une colonne par salve vers la
-///   droite, puis revient d'une colonne (la VAGUE de la carte 9.12b). Huit salves
-///   seulement : chaque motif reste plus court que le précédent.
+/// - Motif 2 : 6 colonnes sur 9, toutes les 78 pas : deux ou trois bandes, les
+///   trous sautent d'un côté à l'autre, d'une colonne à la fois.
+/// - Motif 3 : 7 colonnes sur 9, toutes les 60 pas : deux trous d'une colonne se
+///   rejoignent au milieu ; ce trou de 2 colonnes glisse d'une colonne par salve
+///   vers la droite (l'ALLER de la VAGUE), elle souffle, puis il revient vers la
+///   gauche (le RETOUR), et la tête sort à droite : on retraverse l'arène.
 ///
 /// Toujours une issue : le test `chaque_motif_se_traverse` (le raisonnement du
-/// nuage, plus strict) vérifie qu'on peut toujours s'en sortir en courant.
+/// nuage, plus strict) vérifie qu'on peut toujours s'en sortir en courant, et
+/// `un_humain_a_le_temps_de_changer_de_colonne` qu'un humain a le temps de voir
+/// l'annonce avant de partir.
 pub const MOTIFS: [&[Salve]; PV_PIEUVRE as usize] = [
     &[
         // Le bord gauche et deux colonnes à droite : au milieu.
@@ -121,86 +127,72 @@ pub const MOTIFS: [&[Salve]; PV_PIEUVRE as usize] = [
         },
         // Le milieu : sur un bord.
         Salve {
-            debut: 66,
+            debut: 100,
             bandes: &[(-2, 1)],
         },
         // Les bords : au milieu.
         Salve {
-            debut: 132,
+            debut: 200,
             bandes: &[(-4, -3), (3, 4)],
         },
+        // Le milieu : sur un bord (la tête sort ensuite au milieu).
         Salve {
-            debut: 198,
+            debut: 300,
             bandes: &[(-1, 2)],
-        },
-        // Les bords : au milieu (la tête y sort ensuite).
-        Salve {
-            debut: 264,
-            bandes: &[(-4, -3), (3, 4)],
         },
     ],
     &[
         Salve {
             debut: 0,
-            bandes: &[(-4, -4), (-2, 1), (4, 4)],
-        },
-        Salve {
-            debut: 48,
             bandes: &[(-4, -3), (0, 1), (3, 4)],
         },
         Salve {
-            debut: 96,
+            debut: 78,
             bandes: &[(-4, -2), (0, 2)],
         },
         Salve {
-            debut: 144,
+            debut: 156,
             bandes: &[(-4, -3), (-1, 1), (4, 4)],
         },
         Salve {
-            debut: 192,
+            debut: 234,
             bandes: &[(-4, -2), (1, 2), (4, 4)],
         },
         // La gauche et la droite : au milieu, puis à gauche (la tête y sort).
         Salve {
-            debut: 240,
+            debut: 312,
             bandes: &[(-4, -3), (0, 1), (3, 4)],
         },
     ],
     &[
-        // La vague : le trou (4 colonnes, puis 3, puis 2) part de la gauche...
+        // Deux trous d'une colonne, à 2 colonnes au plus de chaque tentacule...
         Salve {
             debut: 0,
-            bandes: &[(-4, -4), (1, 4)],
+            bandes: &[(-4, -3), (-1, 1), (3, 4)],
         },
+        // ... qui se rejoignent au milieu (100 pas : le temps d'y courir).
         Salve {
-            debut: 30,
-            bandes: &[(-4, -3), (1, 4)],
-        },
-        Salve {
-            debut: 60,
+            debut: 100,
             bandes: &[(-4, -2), (1, 4)],
         },
+        // L'aller : le trou glisse vers la droite, une colonne toutes les 60 pas...
         Salve {
-            debut: 90,
+            debut: 160,
             bandes: &[(-4, -1), (2, 4)],
         },
         Salve {
-            debut: 120,
+            debut: 220,
             bandes: &[(-4, 0), (3, 4)],
         },
+        // ... elle souffle (140 pas), puis le retour, vers la gauche (la tête sort
+        // ensuite à droite).
         Salve {
-            debut: 150,
-            bandes: &[(-4, 1), (4, 4)],
+            debut: 360,
+            bandes: &[(-4, -1), (2, 4)],
         },
-        // ... va jusqu'à droite...
         Salve {
-            debut: 180,
-            bandes: &[(-4, 2)],
-        },
-        // ... et revient d'une colonne (la tête sort ensuite à droite).
-        Salve {
-            debut: 210,
-            bandes: &[(-4, 1), (4, 4)],
+            debut: 420,
+            bandes: &[(-4, -2), (1, 4)],
         },
     ],
 ];
@@ -502,7 +494,7 @@ mod tests {
     fn la_tete_ne_se_touche_qu_en_lui_tombant_dessus() {
         let mut p = pieuvre();
         // Prélude, puis le 1er motif : sa 1re salve frappe le bord gauche et deux
-        // colonnes à droite, dont la colonne 2 (corps de x = 212 à 236), annoncée 48
+        // colonnes à droite, dont la colonne 2 (corps de x = 212 à 236), annoncée 72
         // pas (sans danger), dressée 30 (mortelle), puis elle redescend. La colonne
         // -1 (x = 116 à 140) est libre.
         let sur_la_colonne = Aabb::new(218.0, 114.0, 10.0, 14.0);
@@ -571,8 +563,9 @@ mod tests {
         );
         pas(&mut p, PLONGEE_PAS as u32);
         assert!(p.est_vaincue());
-        // Chaque coup la rend plus rapide : ses motifs raccourcissent.
-        assert!(duree_motif(0) > duree_motif(1) && duree_motif(1) > duree_motif(2));
+        // Chaque coup la rend plus rapide : `chaque_point_perdu_frappe_plus_gros_et_plus_vite`
+        // (depuis la carte 9.12d, le 3e motif dure plus longtemps : il a un souffle
+        // entre l'aller et le retour de la vague).
         // Mode facile : 2 points de vie, seulement les deux premiers motifs.
         let mut f = pieuvre();
         f.passer_en_facile();
@@ -593,7 +586,9 @@ mod tests {
     /// des attaques plus grosses ») : à chaque point perdu, la pieuvre frappe PLUS
     /// GROS (part du bassin frappée par salve) et PLUS VITE (écart entre salves).
     /// La difficulté elle-même se MESURE (`difficulte::tests::mesure_des_deux_boss`) :
-    /// la part frappée du nuage est affichée pour comparaison, pas imposée.
+    /// la part frappée du nuage est affichée pour comparaison, pas imposée. Le
+    /// rythme : l'écart le PLUS COURT entre deux salves (carte 9.12d : le souffle
+    /// entre l'aller et le retour de la vague du 3e motif n'est pas son rythme).
     #[test]
     fn chaque_point_perdu_frappe_plus_gros_et_plus_vite() {
         use super::super::nuage;
@@ -605,7 +600,7 @@ mod tests {
             let ecart = salves
                 .windows(2)
                 .map(|p| p[1].debut - p[0].debut)
-                .max()
+                .min()
                 .unwrap();
             println!(
                 "motif {} : pieuvre {:.0} % toutes les {ecart} pas, Grand Nuage {:.0} %",
@@ -628,7 +623,7 @@ mod tests {
     /// pas). Places au demi-pixel ; Pépin fait 10 px de large, chaque tentacule
     /// 24 px au milieu de sa colonne de 32. Deux garanties :
     /// - d'où qu'on parte au début du calme qui précède le motif (le plus court :
-    ///   « touchée », 60 pas), on s'en sort ;
+    ///   « touchée », 90 pas), on s'en sort ;
     /// - au DÉBUT de chaque frappe, de TOUTE place que cette frappe épargne, on
     ///   tient jusqu'à la fin du motif : la salve suivante a toujours une colonne
     ///   sûre qu'on atteint en courant (aucune impasse, salve après salve).
@@ -695,6 +690,61 @@ mod tests {
                     motif + 1,
                     q as f32 / DEMI as f32
                 );
+            }
+        }
+    }
+
+    /// Carte 9.12d (AGA : « la pieuvre est trop rapide, c'est plus dur que l'orage
+    /// pour un humain ») : le robot réagit à l'image près, un humain non. Aucune
+    /// salve n'oblige à partir moins de 0,6 s (36 pas) après le début de son
+    /// annonce. Pour chaque salve, Pépin est au milieu d'une colonne que la salve
+    /// d'avant épargnait (n'importe laquelle pour la première) ; si celle-ci la
+    /// frappe, il court (1,6 px par pas) vers une colonne qu'elle épargne : il part
+    /// au plus tôt au début de l'annonce, ou quand le dernier tentacule dressé sur
+    /// son chemin redescend ; il doit être sorti du tentacule (le bord de sa boîte
+    /// passe celui du corps, 15 px de moins que la distance des milieux) quand la
+    /// colonne tue. Le temps entre le départ possible et le dernier moment pour
+    /// partir est sa marge : au moins 36 pas, vers la meilleure colonne.
+    #[test]
+    fn un_humain_a_le_temps_de_changer_de_colonne() {
+        const REACTION_PAS: f32 = 36.0;
+        const COURSE: f32 = 1.6;
+        let colonnes = || -PORTEE_COLONNES..=PORTEE_COLONNES;
+        for (motif, salves) in MOTIFS.iter().enumerate() {
+            for (j, salve) in salves.iter().enumerate() {
+                let tue = salve.debut + ANNONCE_PAS;
+                let departs = colonnes().filter(|&c| j == 0 || !salves[j - 1].couvre(c));
+                for c in departs.filter(|&c| salve.couvre(c)) {
+                    let marge = colonnes()
+                        .filter(|&d| !salve.couvre(d))
+                        .map(|d| {
+                            // Le chemin, de la colonne voisine de `c` jusqu'à `d` : un
+                            // tentacule d'une autre salve dressé dessus pendant
+                            // l'annonce retarde le départ.
+                            let (de, a) = if d > c { (c + 1, d) } else { (d, c - 1) };
+                            let depart = salves
+                                .iter()
+                                .filter(|k| (de..=a).any(|e| k.couvre(e)))
+                                .map(|k| {
+                                    (k.debut + ANNONCE_PAS, k.debut + ANNONCE_PAS + DRESSE_PAS)
+                                })
+                                .filter(|&(dresse, fin)| dresse < tue && fin > salve.debut)
+                                .map(|(_, fin)| fin)
+                                .fold(salve.debut, u16::max);
+                            let trajet =
+                                (LARGEUR_COLONNE * f32::from((d - c).abs()) - 15.0) / COURSE;
+                            f32::from(tue) - trajet - f32::from(depart)
+                        })
+                        .fold(f32::MIN, f32::max);
+                    assert!(
+                        marge >= REACTION_PAS,
+                        "motif {}, salve {} (pas {}) : depuis la colonne {c}, {marge:.0} pas \
+                         pour réagir",
+                        motif + 1,
+                        j + 1,
+                        salve.debut
+                    );
+                }
             }
         }
     }
