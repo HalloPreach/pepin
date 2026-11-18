@@ -3,15 +3,18 @@
 //! PLUIE qui descend par des marches de trottoir. Le caniveau la longe : un mince
 //! filet d'abord, un vrai ruisseau à la fin, qui s'engouffre dans la bouche
 //! d'égout. On y APPREND LA BARQUE (BAS) en trois temps. Difficulté : celle des
-//! deux premiers niveaux du Monde 1, au plus (trois flaques, un rat hors du chemin
-//! de la barque, et l'eau qui noie sans BAS).
+//! deux premiers niveaux du Monde 1, au plus (quatre flaques, trois rats, tous hors
+//! du chemin de la barque, et l'eau qui noie sans BAS).
 //!
 //! Lecture du niveau (188 x 11 tuiles, un écran de haut), de gauche à droite.
 //! Le mobilier de rue (carte 9.20f, lettres `q a t d l`) est SOLIDE : on saute
 //! d'un toit de voiture à l'autre, sur une poubelle, un banc, un abribus.
 //! 1. la RUE EN HAUT (colonnes 0 à 29, pavés en rangée 6) : une poubelle, deux
 //!    voitures garées ; entre elles, une flaque patrouille sous la 1re goutte
-//!    (colonne 16, rangée 3), qu'on prend d'un saut ;
+//!    (colonne 16, rangée 3), qu'on prend d'un saut ; au bout, entre la 2e
+//!    voiture et la marche, un RAT longe le trottoir (colonne 26, carte 9.22a) :
+//!    on reste sur le toit de la voiture pour le voir se dresser, puis on le
+//!    saute ou on l'écrase ;
 //! 2. une marche plus bas (rangée 7), le panneau BAS (`Z`, colonne 31) et une
 //!    descente de gouttière (`J`) qui verse le premier FILET : 1er temps de la
 //!    barque, cinq cases d'eau calme à l'air libre (colonnes 35 à 39) ;
@@ -22,14 +25,17 @@
 //! 4. la sortie à l'ARRÊT DE BUS : l'abribus (toit en rangée 4, colonnes 52 à
 //!    55 ; on passe dessous), un banc. Du toit de l'abribus, un saut en arrière
 //!    mène au toit de l'autobus : la 3e goutte y est cachée (colonne 44, rangée
-//!    1) ;
+//!    1). Une flaque garde ce toit (colonne 53, carte 9.22a) : on l'écrase en
+//!    tombant dessus (le rebond aide à remonter) ou on attend son demi-tour ;
 //! 5. la RUE COMMERÇANTE (colonnes 62 à 133, toujours en rangée 7) : des voitures
 //!    garées, un second filet de cinq cases qu'on saute (colonnes 76 à 80), les
 //!    AUVENTS de trois boutiques (rangée 5, ils relancent Pépin comme au Monde 1)
 //!    au-dessus d'une flaque, un banc, puis un second autobus garé le long du
 //!    trottoir (colonnes 106 à 111, quatre cases de haut) : on y grimpe par la
 //!    poubelle d'à côté (une flaque patrouille sur son toit, sous la pluie), on
-//!    redescend de l'autre côté ;
+//!    redescend de l'autre côté ; entre les deux voitures suivantes, un RAT
+//!    garde le trottoir (colonne 120, carte 9.22a) : d'un toit à l'autre au bon
+//!    moment, ou un rebond sur lui ;
 //! 6. encore une marche (rangée 8) : un RAT patrouille entre la marche et une
 //!    poubelle (il annonce les égouts ; on l'écrase ou on le saute), loin de la
 //!    barque ; une dernière descente de gouttière ;
@@ -74,10 +80,10 @@ const ASCII: &str = r"
 ............................................................................................................................................................................................
 ............................................o...............................................................................................................................................
 .........................................aaaaaaa.............................................................f..............................................................................
-................o........................aaaaaaa..........................................................aaaaaa............................................................................
+................o........................aaaaaaa.....f....................................................aaaaaa............................................................................
 ..........qq........qq...................aaaaaaa....tttt..................................................aaaaaa............................................................................
-..@...d..qqqq..f...qqqq..I.U.............aaaaaaa...............qq......qq...........A...A...A.............aaaaaa...qq.......qq............................................#######...........
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.ZLJ.......................ll.L.qqqq....qqqqJ.......f...............ll.L..d.aaaaaa..qqqq.I.U.qqqq..L........................................#######.......X...
+..@...d..qqqq..f...qqqq..IrU.............aaaaaaa...............qq......qq...........A...A...A.............aaaaaa...qq.......qq............................................#######...........
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.ZLJ.......................ll.L.qqqq....qqqqJ.......f...............ll.L..d.aaaaaa..qqqq.IrU.qqqq..L........................................#######.......X...
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB~~~~~}}}}}}}}}}}BBBBBBBBBBBBBBBBBBBBBBBBB~~~~~BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..r.....d.J.............................o.........BBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBBB
@@ -206,8 +212,8 @@ mod tests {
     }
 
     /// Le niveau n'utilise que les lettres permises pour le premier niveau du
-    /// Monde 2 : eau, courants d'eau, un nénuphar au plus, un rat au plus (carte
-    /// 9.20f : il annonce les égouts), aucun autre ennemi d'eau.
+    /// Monde 2 : eau, courants d'eau, un nénuphar au plus, trois rats au plus
+    /// (cartes 9.20f et 9.22a : ils annoncent les égouts), aucun autre ennemi d'eau.
     #[test]
     fn seulement_les_mecaniques_du_premier_niveau() {
         let lettres: String = ASCII.chars().filter(|c| !c.is_whitespace()).collect();
@@ -215,7 +221,7 @@ mod tests {
             assert!(!lettres.contains(interdite), "{interdite}");
         }
         assert!(lettres.matches('n').count() <= 1);
-        assert!(lettres.matches('r').count() <= 1);
+        assert!(lettres.matches('r').count() <= 3);
         assert_eq!(lettres.matches('o').count(), 3);
         assert_eq!(lettres.matches('L').count(), 4);
     }
