@@ -2,9 +2,13 @@
 //! premier vrai niveau du Monde 2, « Là où va la pluie » : une RUE DE NUIT SOUS LA
 //! PLUIE qui descend par des marches de trottoir. Le caniveau la longe : un mince
 //! filet d'abord, un vrai ruisseau à la fin, qui s'engouffre dans la bouche
-//! d'égout. On y APPREND LA BARQUE (BAS) en trois temps. Difficulté : celle des
-//! deux premiers niveaux du Monde 1, au plus (quatre flaques, trois rats, tous hors
-//! du chemin de la barque, et l'eau qui noie sans BAS).
+//! d'égout. On y APPREND LA BARQUE (BAS) en trois temps. Difficulté (carte 9.22e,
+//! demande d'AGA : plus de 0,5 comme au Monde 1) : six flaques, six rats, deux
+//! pigeons, tous hors du passage de la barque sous l'autobus, qui reste calme.
+//! Ajouts de la 9.22e : un rat au bord du filet (col. 56, sortie de l'abribus),
+//! une flaque et un pigeon sur les toits des voitures 63-66 et 71-74 avec un rat
+//! dans le saut entre elles (col. 68), un rat avant les bancs (col. 95), une
+//! flaque et un pigeon sur les toits des voitures 115-118 et 124-127.
 //!
 //! Lecture du niveau (188 x 11 tuiles, un écran de haut), de gauche à droite.
 //! Le mobilier de rue (carte 9.20f, lettres `q a t d l`) est SOLIDE : on saute
@@ -81,9 +85,9 @@ const ASCII: &str = r"
 ............................................o...............................................................................................................................................
 .........................................aaaaaaa.............................................................f..............................................................................
 ................o........................aaaaaaa.....f....................................................aaaaaa............................................................................
-..........qq........qq...................aaaaaaa....tttt..................................................aaaaaa............................................................................
+..........qq........qq...................aaaaaaa....tttt........f.......p.................................aaaaaa....f........p..............................................................
 ..@...d..qqqq..f...qqqq..IrU.............aaaaaaa...............qq......qq...........A...A...A.............aaaaaa...qq.......qq............................................#######...........
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.ZLJ.......................ll.L.qqqq....qqqqJ.......f...............ll.L..d.aaaaaa..qqqq.IrU.qqqq..L........................................#######.......X...
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.ZLJ......................rll.L.qqqq..r.qqqqJ.......f............r..ll.L..d.aaaaaa..qqqq.IrU.qqqq..L........................................#######.......X...
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB~~~~~}}}}}}}}}}}BBBBBBBBBBBBBBBBBBBBBBBBB~~~~~BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..r.....d.J.............................o.........BBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBBB
@@ -212,8 +216,9 @@ mod tests {
     }
 
     /// Le niveau n'utilise que les lettres permises pour le premier niveau du
-    /// Monde 2 : eau, courants d'eau, un nénuphar au plus, trois rats au plus
-    /// (cartes 9.20f et 9.22a : ils annoncent les égouts), aucun autre ennemi d'eau.
+    /// Monde 2 : eau, courants d'eau, un nénuphar au plus, six rats au plus
+    /// (cartes 9.20f, 9.22a et 9.22e : ils annoncent les égouts), aucun autre
+    /// ennemi d'eau.
     #[test]
     fn seulement_les_mecaniques_du_premier_niveau() {
         let lettres: String = ASCII.chars().filter(|c| !c.is_whitespace()).collect();
@@ -221,7 +226,7 @@ mod tests {
             assert!(!lettres.contains(interdite), "{interdite}");
         }
         assert!(lettres.matches('n').count() <= 1);
-        assert!(lettres.matches('r').count() <= 3);
+        assert!(lettres.matches('r').count() <= 6);
         assert_eq!(lettres.matches('o').count(), 3);
         assert_eq!(lettres.matches('L').count(), 4);
     }
