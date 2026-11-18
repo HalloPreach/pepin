@@ -542,6 +542,41 @@ pub const GRELE_ECLAT: Image = &[
     ".0...0.",
 ];
 
+/// Petit nuage gris d'où tombe la grêle (carte 8.18), 24x11 : du DÉCOR, posé en haut
+/// de chaque colonne de grêle. Gris d'orage (ardoise claire), bosses éclairées par le
+/// haut (liseré de brume puis ardoise pâle : c'est lui qui le détache des ciels violets
+/// et ardoise), ventre plus sombre (ardoise) qui pend en deux bosses, d'où sortent les
+/// grêlons ; une mèche effilochée de chaque côté. Rien à voir avec les nuages où l'on
+/// se pose (blancs ou roses, en tuiles) : plus petit, plus sombre, il flotte. Deux
+/// images : les mèches et les bosses du ventre bougent un peu (le nuage s'effiloche).
+pub const GRELE_NUAGE0: Image = &[
+    "..........0000..........",
+    "........00555500........",
+    ".......0544444450000....",
+    "...000054333333455550...",
+    "..05555433333333444430.0",
+    ".0544333333333333333330.",
+    "00433333333333333333330.",
+    "..02333333333333333320..",
+    "...0222222222222222220..",
+    "....02222000022222000...",
+    ".....0000....00000......",
+];
+
+pub const GRELE_NUAGE1: Image = &[
+    "..........0000..........",
+    "........00555500........",
+    ".......0544444450000....",
+    "...000054333333455550...",
+    "..05555433333333444430..",
+    "00544333333333333333330.",
+    ".0433333333333333333330.",
+    "..02333333333333333320.0",
+    "...0222222222222222220..",
+    "....00222200022222000...",
+    "......0000...00000......",
+];
+
 /// Auvent de boutique (lettre `A`, 16x15), vu de profil : un mât de métal sombre
 /// (« 030 »), la toile en pente haute à gauche (rayée corail / blanc cassé /
 /// corail), le lambrequin au bout (rayures verticales, bas festonné) et une jambe
@@ -894,6 +929,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("grelon2", GRELON2),
     ("grelon3", GRELON3),
     ("grele_eclat", GRELE_ECLAT),
+    ("grele_nuage0", GRELE_NUAGE0),
+    ("grele_nuage1", GRELE_NUAGE1),
 ];
 
 /// Goutte d'or : 4 images de brillance.
@@ -931,3 +968,5 @@ pub const FRIABLE_ARDOISE: [&str; 2] = ["friable_ardoise0", "friable_ardoise1"];
 pub const DRAPEAU: [&str; 2] = ["drapeau0", "drapeau1"];
 /// Grêlon qui roule en tombant (4 images, le reflet fait le tour).
 pub const GRELON: [&str; 4] = ["grelon0", "grelon1", "grelon2", "grelon3"];
+/// Petit nuage de grêle (carte 8.18) : 2 images, ses mèches s'effilochent.
+pub const GRELE_NUAGE: [&str; 2] = ["grele_nuage0", "grele_nuage1"];

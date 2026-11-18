@@ -3,7 +3,8 @@
 //! toit au bas de la colonne, ou le parapluie OUVERT de Pépin quand il plane
 //! dessous (on voit la grêle rebondir sur la toile : c'est la preuve visuelle
 //! qu'il est protégé). Au-dessus d'un vide, rien ne les arrête : ils sortent de
-//! la carte.
+//! la carte. En haut de chaque colonne, un petit nuage gris (carte 8.18, du décor
+//! sans collision) : les grêlons sortent de son ventre.
 //!
 //! Aucune mémoire : la place de chaque grêlon se CALCULE à partir du numéro du pas
 //! (`Monde::pas`). Le même pas donne toujours la même image : le rendu est
@@ -106,6 +107,43 @@ pub fn disposer(zone: Aabb, pas: u32, sol: bool, abri: Option<Aabb>) -> Vec<Morc
         }
     }
     morceaux
+}
+
+/// Largeur du petit nuage de grêle (sprite `grele_nuage*`, 24 x 11).
+const NUAGE_L: i32 = 24;
+/// Le nuage dépasse de 2 px au-dessus du haut de la colonne : son ventre (rangées 8
+/// à 10 du sprite) couvre le haut de la colonne, les grêlons en sortent.
+const NUAGE_DESSUS: i32 = 2;
+/// Le nuage flotte : il monte et descend d'un pixel toutes les `FLOTTE` images, et
+/// ses mèches changent toutes les `MECHES` images.
+const FLOTTE: u32 = 45;
+const MECHES: u32 = 40;
+
+/// Petit nuage gris d'où tombe la grêle (carte 8.18) : coin haut-gauche (pixels du
+/// MONDE) et image (0 ou 1 : `objets::GRELE_NUAGE`) au pas `pas`. Du DÉCOR seulement
+/// (aucune collision : `Grele` n'en sait rien). Centré sur la colonne, posé à son
+/// bord haut dans le niveau (jamais au-dessus du haut de la carte : une colonne qui
+/// tombe du ciel garde son nuage visible). Chaque colonne a sa phase (d'après sa
+/// case) : deux colonnes voisines ne flottent pas ensemble.
+pub fn nuage(zone: Aabb, pas: u32) -> (i32, i32, usize) {
+    let phase = (zone.x as u32 / 16) * 23;
+    let t = pas.wrapping_add(phase);
+    let flotte = ((t / FLOTTE) % 2) as i32;
+    let x = zone.x as i32 + zone.w as i32 / 2 - NUAGE_L / 2;
+    let y = (zone.y as i32 - NUAGE_DESSUS).max(0) + flotte;
+    (x, y, ((t / MECHES) % 2) as usize)
+}
+
+/// Dessine le petit nuage d'une colonne (APRÈS ses grêlons : ils sortent de son
+/// ventre) ; `(cx, cy)` : caméra entière.
+pub fn dessiner_nuage(zone: Aabb, pas: u32, banque: &Banque, cx: i32, cy: i32) {
+    let (x, y, image) = nuage(zone, pas);
+    banque.dessiner(
+        objets::GRELE_NUAGE[image],
+        (x - cx) as f32,
+        (y - cy) as f32,
+        false,
+    );
 }
 
 /// Dessine les morceaux d'une colonne ; `(cx, cy)` : caméra entière.
