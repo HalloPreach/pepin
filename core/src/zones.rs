@@ -1031,7 +1031,10 @@ mod tests {
                 "niveau {} : {s:.1} s",
                 infos.numero
             );
-            assert!((40..=60).contains(&infos.duree_cible_s));
+            // Chrono cible : 40 à 60 s au Monde 1, jusqu'à 75 s au chapitre 2, aux
+            // niveaux plus longs (les égouts allongés de la carte 9.21a visent 65 s).
+            let cible_max = if infos.monde >= 2 { 75 } else { 60 };
+            assert!((40..=cible_max).contains(&infos.duree_cible_s));
         }
     }
 
