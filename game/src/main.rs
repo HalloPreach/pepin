@@ -50,6 +50,7 @@ mod focus;
 mod grele;
 mod hud;
 mod menu;
+mod mobilier_rue;
 mod monde;
 mod mur_pluie;
 mod musiques;

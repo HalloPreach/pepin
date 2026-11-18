@@ -11,26 +11,23 @@
 //! Ajouter le jeu d'un thème : ses dessins dans `sprites/tuiles_monde2.rs` (préfixe
 //! du thème), une fonction de choix ici, et une ligne dans `nom_du_theme`.
 
-use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::level::Tuile;
-use pepin_core::physics::JOUEUR_H;
 use pepin_core::zones::Theme;
 
 /// Ce que la scène sait d'une case solide et de ses voisines (tuiles VUES : un faux
-/// mur compte comme le solide qu'il imite).
+/// mur compte comme le solide qu'il imite, le mobilier de rue comme du vide).
 struct Voisinage {
     /// Colonne et rangée de la case.
     tx: i32,
     ty: i32,
-    /// La tuile de la case (le port distingue le bois `#` de la pierre `B`).
+    /// La tuile de la case (le port distingue le bois `#` de la pierre `B`, le
+    /// caniveau le sol de la rue `B` de ce qui est bâti `#`).
     tuile: Tuile,
     /// Les tuiles voisines : au-dessus, en dessous, à gauche, à droite.
     dessus: Tuile,
     dessous: Tuile,
     gauche: Tuile,
     droite: Tuile,
-    /// Rangée de la RUE : celle du sol sous le point de départ de Pépin.
-    rue: i32,
     /// Hachage fixe de la case (`scene::hachage_case`) : les variantes d'un dessin
     /// tombent toujours au même endroit.
     hachage: u32,
@@ -45,20 +42,13 @@ pub(crate) fn a_son_jeu(theme: Theme) -> bool {
     )
 }
 
-/// La rangée de la rue : celle de la case solide sous les pieds de Pépin au départ
-/// (`depart` : coin haut-gauche de sa boîte, en pixels).
-fn rangee_de_la_rue(depart: (f32, f32)) -> i32 {
-    ((depart.1 + JOUEUR_H) / TAILLE_TUILE).floor() as i32
-}
-
 /// Nom de la tuile du jeu du thème pour la case solide `(tx, ty)`, ou `None` (dessin
-/// du Monde 1). `vue` : la tuile vue d'une case ; `depart` : le départ du niveau ;
-/// `hachage` : le hachage fixe de la case.
+/// du Monde 1). `vue` : la tuile vue d'une case ; `hachage` : le hachage fixe de la
+/// case.
 pub(crate) fn nom_du_theme(
     theme: Theme,
     (tx, ty, tuile): (i32, i32, Tuile),
     vue: impl Fn(i32, i32) -> Tuile,
-    depart: (f32, f32),
     hachage: u32,
 ) -> Option<&'static str> {
     let choix: fn(&Voisinage) -> &'static str = match theme {
@@ -75,7 +65,7 @@ pub(crate) fn nom_du_theme(
     }
     // Carte 9.20a : la bouche d'égout, au bout du dernier courant du caniveau.
     if theme == Theme::Caniveau {
-        if let Some(nom) = bouche_d_egout(tx, ty, &vue, rangee_de_la_rue(depart)) {
+        if let Some(nom) = bouche_d_egout(tx, ty, &vue) {
             return Some(nom);
         }
     }
@@ -87,7 +77,6 @@ pub(crate) fn nom_du_theme(
         dessous: vue(tx, ty + 1),
         gauche: vue(tx - 1, ty),
         droite: vue(tx + 1, ty),
-        rue: rangee_de_la_rue(depart),
         hachage,
     }))
 }
@@ -98,56 +87,51 @@ fn ouvert(t: Tuile) -> bool {
 }
 
 /// La bouche d'égout du caniveau (carte 9.20a) : la bordure qui arrête un courant
-/// PROFOND (de l'eau dans la rangée de la rue et dans celle du dessous, à gauche de
-/// la bordure) est ouverte, de haut en bas : la grille sur le trottoir, la gueule à
-/// la surface, la gorge au fond. Les autres bordures (eau d'une tuile de fond)
-/// restent pleines. `rue` : la rangée de la rue.
-fn bouche_d_egout(
-    tx: i32,
-    ty: i32,
-    vue: &impl Fn(i32, i32) -> Tuile,
-    rue: i32,
-) -> Option<&'static str> {
-    let profonde = vue(tx - 1, rue) == Tuile::Eau && vue(tx - 1, rue + 1) == Tuile::Eau;
-    if !profonde {
-        return None;
-    }
-    match ty - rue {
-        -1 if ouvert(vue(tx - 1, ty)) => Some("can_egout_grille"),
-        0 => Some("can_egout_bouche"),
-        1 => Some("can_egout_gorge"),
-        _ => None,
+/// PROFOND (deux cases d'eau l'une sur l'autre à sa gauche, sous l'air) est
+/// ouverte, de haut en bas : la grille sur le trottoir, la gueule à la surface, la
+/// gorge au fond. Les autres bordures (eau d'une tuile de fond) restent pleines.
+/// Carte 9.20f : la rue descend, la bouche se cherche à la hauteur de son eau.
+fn bouche_d_egout(tx: i32, ty: i32, vue: &impl Fn(i32, i32) -> Tuile) -> Option<&'static str> {
+    // La case `(tx, y)` est-elle la gueule : la surface d'une eau profonde à sa gauche ?
+    let gueule = |y: i32| {
+        vue(tx - 1, y) == Tuile::Eau
+            && vue(tx - 1, y + 1) == Tuile::Eau
+            && vue(tx - 1, y - 1) != Tuile::Eau
+    };
+    if gueule(ty) {
+        Some("can_egout_bouche")
+    } else if gueule(ty + 1) && ouvert(vue(tx - 1, ty)) {
+        Some("can_egout_grille")
+    } else if gueule(ty - 1) {
+        Some("can_egout_gorge")
+    } else {
+        None
     }
 }
 
-/// Le caniveau : la rue, la terre dessous, et ce qui est bâti au-dessus de la rue.
+/// Le caniveau (refait à la carte 9.20f : la rue descend par des marches) : le sol
+/// de la rue `B` (des pavés sous l'air, la bordure du trottoir au bord d'une marche
+/// ou de l'eau, la terre dessous) et ce qui est bâti au-dessus `#` (corniches,
+/// stores, façades). Le mobilier de rue posé sur les pavés compte comme de l'air.
 fn caniveau(v: &Voisinage) -> &'static str {
     let a_l_air = v.dessus == Tuile::Vide;
-    if v.ty > v.rue {
-        // Sous la rue : le fond du caniveau à sec (rien au-dessus), sinon la terre.
-        return if a_l_air {
-            "can_rigole"
-        } else if v.hachage.is_multiple_of(5) {
-            "can_terre_pierre"
-        } else {
-            "can_terre"
-        };
-    }
-    if v.ty == v.rue {
-        // La rue : des pavés, la bordure du trottoir au bord d'un creux ou de
-        // l'eau ; sous une construction, son soubassement de granit.
-        return match (a_l_air, ouvert(v.gauche), ouvert(v.droite)) {
-            (false, _, _) => "can_soubassement",
+    let (g, d) = (ouvert(v.gauche), ouvert(v.droite));
+    if v.tuile == Tuile::Brique {
+        return match (a_l_air, g, d) {
             (true, true, true) => "can_bordure",
             (true, true, false) => "can_pave_g",
             (true, false, true) => "can_pave_d",
             (true, false, false) => "can_pave",
+            // Sous une construction posée sur la rue : son soubassement de granit.
+            (false, _, _) if v.dessus == Tuile::Toit => "can_soubassement",
+            // Sous les pavés ou sous l'eau : la terre, quelques pierres.
+            _ if v.hachage.is_multiple_of(5) => "can_terre_pierre",
+            _ => "can_terre",
         };
     }
-    // Au-dessus de la rue : la maison, ses marches, l'avant-toit. Une rangée de
+    // Au-dessus de la rue : la maison, l'avant-toit, les balcons. Une rangée de
     // pierres de taille a un contour à ses deux bouts seulement ; sous une pierre,
     // au-dessus du vide, le store d'une boutique.
-    let (g, d) = (ouvert(v.gauche), ouvert(v.droite));
     if a_l_air {
         return match (g, d) {
             (true, true) => "can_bordure",
@@ -333,12 +317,14 @@ pub(crate) fn objet_pose(nom_tuile: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests_bouche_d_egout {
     use super::*;
+    use pepin_core::aabb::TAILLE_TUILE;
     use pepin_core::levels::caniveau;
 
     /// Carte 9.20a : dans le caniveau, la bordure au bout du dernier courant (deux
     /// tuiles de fond) est la bouche d'égout, et le drapeau est planté sur sa grille ;
-    /// les bordures des deux premiers bassins (une tuile de fond) restent pleines.
-    /// Chaque nom choisi pour le niveau a son dessin.
+    /// les bordures des bassins d'une tuile de fond restent pleines. Chaque nom
+    /// choisi pour le niveau a son dessin. (Carte 9.20f : la rue descend, la bouche
+    /// est à la hauteur de son eau, plus à celle du départ.)
     #[test]
     fn la_sortie_du_caniveau_est_la_bouche_d_egout() {
         let niveau = caniveau::INFOS.charger().expect("caniveau");
@@ -346,15 +332,16 @@ mod tests_bouche_d_egout {
         let vue = |x: i32, y: i32| {
             if y >= bas {
                 Tuile::Brique
+            } else if niveau.est_mobilier(x, y) {
+                Tuile::Vide
             } else {
                 niveau.tuile_decor(x, y)
             }
         };
         let nom = |tx: i32, ty: i32| {
             let t = vue(tx, ty);
-            nom_du_theme(Theme::Caniveau, (tx, ty, t), vue, niveau.depart, 0)
+            nom_du_theme(Theme::Caniveau, (tx, ty, t), vue, 0)
         };
-        let rue = rangee_de_la_rue(niveau.depart);
         let mut bouches = Vec::new();
         for ty in 0..bas {
             for tx in 0..niveau.largeur() as i32 {
@@ -371,13 +358,13 @@ mod tests_bouche_d_egout {
                 }
             }
         }
-        let x = bouches.first().expect("une bouche d'égout").0;
+        let (x, y) = (bouches[0].0, bouches[0].1);
         assert_eq!(
             bouches,
             vec![
-                (x, rue - 1, "can_egout_grille"),
-                (x, rue, "can_egout_bouche"),
-                (x, rue + 1, "can_egout_gorge"),
+                (x, y, "can_egout_grille"),
+                (x, y + 1, "can_egout_bouche"),
+                (x, y + 2, "can_egout_gorge"),
             ]
         );
         // Le drapeau est sur la grille.
@@ -387,7 +374,7 @@ mod tests_bouche_d_egout {
                 (drapeau.x / TAILLE_TUILE) as i32,
                 ((drapeau.y + drapeau.h) / TAILLE_TUILE).ceil() as i32
             ),
-            (x, rue - 1)
+            (x, y)
         );
     }
 }

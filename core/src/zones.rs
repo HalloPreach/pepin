@@ -1063,7 +1063,8 @@ mod tests {
             .collect()
     }
 
-    /// Tuile pleine du dessin (`#` toit, `B` brique, `N` nuage, rien d'autre).
+    /// Tuile pleine du dessin (`#` toit, `B` brique, `N` nuage, et le mobilier de
+    /// rue `q a t d l` de la carte 9.20f, rien d'autre).
     /// Hors de la grille à gauche et à droite : mur ; en haut : ciel ouvert.
     fn plein(g: &[Vec<char>], x: i32, y: i32) -> bool {
         if x < 0 || x >= g[0].len() as i32 {
@@ -1072,7 +1073,10 @@ mod tests {
         if y < 0 || y >= g.len() as i32 {
             return false;
         }
-        matches!(g[y as usize][x as usize], '#' | 'B' | 'N')
+        matches!(
+            g[y as usize][x as usize],
+            '#' | 'B' | 'N' | 'q' | 'a' | 't' | 'd' | 'l'
+        )
     }
 
     /// Une lanterne (point de reprise) ne flotte jamais : la case juste en

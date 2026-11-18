@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use super::{
-    ErreurNiveau, GenreDecor, GenrePanneau, Niveau, ObjetDecor, Panneau, ReglageAiguille, Tuile,
-    GOUTTES_PAR_NIVEAU,
+    ErreurNiveau, GenreDecor, GenreMobilier, GenrePanneau, Mobilier, Niveau, ObjetDecor, Panneau,
+    ReglageAiguille, Tuile, GOUTTES_PAR_NIVEAU,
 };
 use crate::aabb::{touche_un_obstacle, Aabb, TAILLE_TUILE};
 use crate::entities::ennemi::SOUS_L_EAU_PAS;
@@ -87,6 +87,8 @@ pub(super) fn analyser(
     // (-1), `}` vers la droite (+1). L'eau n'est PAS une tuile solide : elle ne
     // sert qu'au dessin et à la mécanique de la barque (zones dans `Niveau::eaux`).
     let mut eaux_cases: Vec<(Case, i8)> = Vec::new();
+    // Mobilier de rue (carte 9.20f) : ses cases, regroupées en objets à la fin.
+    let mut mobilier_cases: Vec<(Case, GenreMobilier)> = Vec::new();
     let mut mobiles: BTreeMap<char, Vec<Case>> = BTreeMap::new();
     // Pigeons : il faut la grille entière pour trouver leur perchoir.
     let mut pigeons: Vec<Case> = Vec::new();
@@ -227,10 +229,19 @@ pub(super) fn analyser(
                 'W' => panneau(GenrePanneau::Vent),
                 'Z' => panneau(GenrePanneau::Barque),
                 '1'..='9' => mobiles.entry(c).or_default().push(case),
-                // Le reste : une lettre de décor, ou un caractère hors légende.
-                _ => match GenreDecor::depuis_lettre(c) {
-                    Some(genre) => decors.push((case, genre)),
-                    None => {
+                // Le reste : une lettre de décor ou de mobilier de rue, ou un
+                // caractère hors légende. Le mobilier (carte 9.20f) est un toit
+                // pour la collision ; ses objets sont assemblés plus bas.
+                _ => match (
+                    GenreDecor::depuis_lettre(c),
+                    GenreMobilier::depuis_lettre(c),
+                ) {
+                    (Some(genre), _) => decors.push((case, genre)),
+                    (None, Some(genre)) => {
+                        tuiles[ty * largeur + tx] = Tuile::Toit;
+                        mobilier_cases.push((case, genre));
+                    }
+                    (None, None) => {
                         return Err(ErreurNiveau::CaractereInconnu {
                             ligne: ty + 1,
                             colonne: tx + 1,
@@ -581,6 +592,7 @@ pub(super) fn analyser(
         eaux,
         panneaux,
         decors: objets_decor,
+        mobilier: assembler_mobilier(&mobilier_cases),
         caches,
         // Même boîte que le drapeau `X`.
         sortie_secrete: sorties_secretes.first().map(|&case| {
@@ -601,6 +613,49 @@ pub(super) fn analyser(
     // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).
     ajouter_aiguilles(&mut niveau, &pivots, reglages_aiguilles)?;
     Ok(niveau)
+}
+
+/// Mobilier de rue (carte 9.20f) : chaque groupe de cases voisines (par un côté)
+/// de la même lettre est UN objet, décrit par le rectangle qui l'entoure. Un
+/// parcours depuis chaque case pas encore vue, dans l'ordre de la lecture : les
+/// objets sortent de haut en bas, puis de gauche à droite.
+fn assembler_mobilier(cases: &[(Case, GenreMobilier)]) -> Vec<Mobilier> {
+    let genre_de = |c: Case| cases.iter().find(|(k, _)| *k == c).map(|&(_, g)| g);
+    let mut vues: Vec<Case> = Vec::new();
+    let mut objets = Vec::new();
+    for &(depart, genre) in cases {
+        if vues.contains(&depart) {
+            continue;
+        }
+        let mut file = vec![depart];
+        vues.push(depart);
+        let (mut x0, mut y0, mut x1, mut y1) = (depart.0, depart.1, depart.0, depart.1);
+        while let Some((x, y)) = file.pop() {
+            (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
+            // `wrapping_sub` : à la colonne 0, la voisine de gauche n'existe pas
+            // (un très grand nombre, qui n'est la case d'aucun mobilier).
+            let voisines = [
+                (x.wrapping_sub(1), y),
+                (x + 1, y),
+                (x, y.wrapping_sub(1)),
+                (x, y + 1),
+            ];
+            for v in voisines {
+                if !vues.contains(&v) && genre_de(v) == Some(genre) {
+                    vues.push(v);
+                    file.push(v);
+                }
+            }
+        }
+        objets.push(Mobilier {
+            genre,
+            tx: x0 as i32,
+            ty: y0 as i32,
+            l: (x1 - x0 + 1) as i32,
+            h: (y1 - y0 + 1) as i32,
+        });
+    }
+    objets
 }
 
 /// Les mécaniques d'eau de la carte 9.3, ajoutées aux entités :
