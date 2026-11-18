@@ -600,7 +600,8 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // Le caniveau (refait à la carte 9.6b) : la rue sous une forte averse, vue
         // du trottoir. Au loin, les immeubles de la ville (ardoise d'ombre, quelques
         // fenêtres orange) sur un ciel de nuit ; devant eux, une rangée de maisons
-        // (`Detail::Facades` : façades violettes ou d'ardoise, fenêtres, vitrines
+        // (`Detail::Facades` : façades d'ardoise sombres et ternes depuis la carte
+        // 9.20g, fenêtres, vitrines
         // sous leur store, descentes de gouttière) ; devant, les lampadaires et leur
         // halo. La couche proche reste sous la rue (cachée par les pavés).
         Theme::Caniveau => Ambiance {
@@ -616,7 +617,9 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             forme: Forme::Immeubles,
             relief: 30,
             socle: true,
-            fenetres: Some((ORANGE_SOLEIL, ORANGE_SOLEIL)),
+            // Carte 9.20g : le fond terne, les fenêtres lointaines faiblement
+            // allumées (violet d'orage) ; l'orange vif reste au premier plan.
+            fenetres: Some((VIOLET_ORAGE, VIOLET_ORAGE)),
             ilots: None,
             // Briques mouillées : les murs violets du dessin virent au cyan sombre.
             tuiles: TeinteTuiles {

@@ -8,8 +8,11 @@
 //! - tout est en rectangles de la palette, au pixel entier, contour sombre, deux
 //!   niveaux d'ombre au plus, aucun dégradé ni transparence ;
 //! - le DESSUS praticable se lit : il est au pixel près le haut de la case solide,
-//!   une ligne de contour sombre puis un reflet clair de pluie (comme l'arête des
-//!   pavés) ;
+//!   une ligne de contour sombre puis le LISERÉ CLAIR (`LISERE`, le même que
+//!   l'arête des pavés : carte 9.20g) ;
+//! - carte 9.20g : chaque objet est cerné de sombre tout autour ; ce qui n'est pas
+//!   solide (montants et vitre de l'abribus, affiche) est terne, sans trait
+//!   horizontal clair, comme le fond (`decor_rue`) ;
 //! - rien ne ressemble à de l'eau : le cyan (`PLUIE`, `PLUIE_SOMBRE`) n'est jamais
 //!   employé ici ; les vitres sont d'ardoise, les lumières orange ou or pâle.
 //!
@@ -21,8 +24,8 @@ use macroquad::prelude::draw_rectangle;
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::level::{GenreMobilier, Mobilier, Niveau};
 use pepin_core::palette::{
-    Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE,
-    BRUME, CORAIL, CORAIL_CLAIR, NUAGE, ORANGE_SOLEIL, OR_PALE,
+    Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BRUME, CORAIL,
+    CORAIL_CLAIR, NUAGE, ORANGE_SOLEIL, OR_PALE,
 };
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
@@ -41,12 +44,9 @@ fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
 type Teinte = (Couleur, Couleur);
 
 /// Les teintes des voitures garées, choisies d'après leur colonne (fixes) : des
-/// couleurs vives, qui ne se perdent pas sur les façades d'ardoise et de violet.
-const TEINTES_VOITURE: [Teinte; 3] = [
-    (CORAIL, CORAIL_CLAIR),
-    (ARDOISE_PALE, NUAGE),
-    (ORANGE_SOLEIL, OR_PALE),
-];
+/// couleurs vives, qui ne se perdent pas sur les façades sombres du fond (carte
+/// 9.20g : le fond n'a plus que les tons sombres de la palette).
+const TEINTES_VOITURE: [Couleur; 3] = [CORAIL, ARDOISE_PALE, ORANGE_SOLEIL];
 
 /// L'objet est-il (au moins en partie) à l'écran ? `(x, y)` : son coin à l'écran.
 fn visible(m: &Mobilier, x: i32, y: i32) -> bool {
@@ -151,20 +151,25 @@ fn roue(x: i32, y: i32, d: i32, pneu: Couleur, jante: Couleur) {
     rect(x + d / 2 - 1, y + d / 2 - 1, 2, 2, ARDOISE_OMBRE);
 }
 
+/// Le LISERÉ CLAIR (carte 9.20g) : la ligne de 1 px, juste sous le contour du
+/// haut, de TOUT dessus où l'on se pose (mobilier de rue, pavés, bordures,
+/// marquise). Toujours la même teinte : au premier coup d'œil, « ici on marche ».
+const LISERE: Couleur = NUAGE;
+
 /// Un dessus praticable de `w` px en `(x, y)` : le contour sombre (le haut exact
-/// de la case solide), puis le reflet de la pluie.
-fn dessus(x: i32, y: i32, w: i32, reflet: Couleur) {
+/// de la case solide), puis le liseré clair (`LISERE`).
+fn dessus(x: i32, y: i32, w: i32) {
     rect(x, y, w, 1, ARDOISE_OMBRE);
-    rect(x + 1, y + 1, w - 2, 1, reflet);
+    rect(x + 1, y + 1, w - 2, 1, LISERE);
 }
 
 /// Voiture garée, vue de profil, capot à droite (`w` = 4 cases, 2 de haut) : le
 /// TOIT (cases du milieu de la rangée du haut), le capot et le coffre (rangée du
 /// bas), deux roues dans leurs passages, phare or pâle devant, feu corail derrière.
-fn voiture(x: i32, y: i32, w: i32, (teinte, reflet): Teinte) {
+fn voiture(x: i32, y: i32, w: i32, teinte: Couleur) {
     // L'habitacle : de la 2e à la 3e case, avec ses montants inclinés.
     let (h0, h1) = (x + T, x + w - T);
-    dessus(h0 + 2, y, h1 - h0 - 4, reflet);
+    dessus(h0 + 2, y, h1 - h0 - 4);
     rect(h0 + 1, y + 1, 1, 15, ARDOISE_OMBRE);
     rect(h1 - 2, y + 1, 1, 15, ARDOISE_OMBRE);
     rect(h0 + 2, y + 2, h1 - h0 - 4, 14, teinte);
@@ -180,7 +185,10 @@ fn voiture(x: i32, y: i32, w: i32, (teinte, reflet): Teinte) {
     }
     // La caisse : capot et coffre au ras de la rangée du bas.
     let yb = y + T;
-    dessus(x + 1, yb, w - 2, reflet);
+    dessus(x + 1, yb, w - 2);
+    // Sous l'habitacle, la caisse continue : le liseré n'y passe pas (on ne se
+    // pose que sur le capot et le coffre, de part et d'autre).
+    rect(h0 + 1, yb, h1 - h0 - 2, 2, teinte);
     rect(x, yb + 1, 1, 10, ARDOISE_OMBRE);
     rect(x + w - 1, yb + 1, 1, 10, ARDOISE_OMBRE);
     rect(x + 1, yb + 2, w - 2, 9, teinte);
@@ -209,7 +217,7 @@ fn voiture(x: i32, y: i32, w: i32, (teinte, reflet): Teinte) {
 /// claire, le bas de caisse sombre. Le clignotant avant s'allume une demi-seconde
 /// sur deux (il attend à l'arrêt).
 fn autobus(x: i32, y: i32, (w, h): (i32, i32), (teinte, reflet): Teinte, pas: u32) {
-    dessus(x + 1, y, w - 2, BLANC_CASSE);
+    dessus(x + 1, y, w - 2);
     rect(x, y + 1, 1, h - 1, ARDOISE_OMBRE);
     rect(x + w - 1, y + 1, 1, h - 1, ARDOISE_OMBRE);
     rect(x + 1, y + 2, w - 2, h - 6, teinte);
@@ -262,10 +270,10 @@ fn autobus(x: i32, y: i32, (w, h): (i32, i32), (teinte, reflet): Teinte, pas: u3
 /// Abribus : le toit (la case solide, `w` px de large en `(x, y)`), ses montants
 /// jusqu'au trottoir (`sol`, ordonnée à l'écran du dessus des pavés), la vitre du
 /// fond (un cadre et des reflets, sans remplissage : on voit la rue derrière) et un
-/// panneau d'affichage éclairé (un parapluie dessiné dessus). On passe dessous.
+/// panneau d'affichage (un parapluie dessiné dessus). On passe dessous.
 fn abribus(x: i32, y: i32, w: i32, sol: i32) {
     // Le toit : la dalle, son bandeau allumé, son ombre dessous.
-    dessus(x, y, w, BLANC_CASSE);
+    dessus(x, y, w);
     rect(x, y + 1, 1, T - 1, ARDOISE_OMBRE);
     rect(x + w - 1, y + 1, 1, T - 1, ARDOISE_OMBRE);
     rect(x + 1, y + 2, w - 2, 6, ARDOISE_CLAIRE);
@@ -274,25 +282,27 @@ fn abribus(x: i32, y: i32, w: i32, sol: i32) {
         rect(k, y + 9, 3, 3, ARDOISE);
     }
     rect(x, y + 13, w, 3, ARDOISE_OMBRE);
+    // Sous le toit, rien n'est solide (on passe dessous) : carte 9.20g, les
+    // montants, la vitre et l'affiche sont ternes, sans trait horizontal clair.
     // Les montants, aux deux bouts.
     let haut = y + T;
     for mx in [x + 1, x + w - 4] {
         rect(mx, haut, 3, sol - haut, ARDOISE_OMBRE);
-        rect(mx + 1, haut, 1, sol - haut, ARDOISE_PALE);
+        rect(mx + 1, haut, 1, sol - haut, ARDOISE);
     }
     // La vitre du fond : un cadre fin et deux reflets en biais.
     let (v0, v1) = (x + 4, x + w - 4);
-    rect(v0, haut + 3, v1 - v0, 1, ARDOISE_PALE);
-    rect(v0, sol - 3, v1 - v0, 1, ARDOISE_PALE);
+    rect(v0, haut + 3, v1 - v0, 1, ARDOISE);
+    rect(v0, sol - 3, v1 - v0, 1, ARDOISE);
     for (k, r) in [(v0 + 8, 6), (v0 + 14, 4)] {
         for i in 0..r {
-            rect(k + i, haut + 4 + r * 2 - 2 * i, 1, 2, BRUME);
+            rect(k + i, haut + 4 + r * 2 - 2 * i, 1, 2, ARDOISE);
         }
     }
-    // Le panneau d'affichage éclairé, contre le montant de droite.
+    // Le panneau d'affichage, contre le montant de droite : éteint la nuit.
     let (p0, p1) = (x + w - 18, sol - 26);
     rect(p0, p1, 13, 23, ARDOISE_OMBRE);
-    rect(p0 + 1, p1 + 1, 11, 21, OR_PALE);
+    rect(p0 + 1, p1 + 1, 11, 21, ARDOISE_NUIT);
     // Le parapluie de l'affiche : sa toile corail, son manche.
     rect(p0 + 3, p1 + 6, 7, 2, CORAIL);
     rect(p0 + 4, p1 + 5, 5, 1, CORAIL);
@@ -300,11 +310,14 @@ fn abribus(x: i32, y: i32, w: i32, sol: i32) {
     rect(p0 + 5, p1 + 14, 1, 1, ARDOISE);
 }
 
-/// Poubelle de rue (une case) : couvercle praticable, cuve cannelée.
+/// Poubelle de rue (une case) : couvercle praticable, cuve cannelée, cernée de
+/// sombre tout autour (carte 9.20g).
 fn poubelle(x: i32, y: i32) {
-    dessus(x + 1, y, 14, BRUME);
+    dessus(x, y, 16);
+    rect(x, y + 1, 1, 4, ARDOISE_OMBRE);
+    rect(x + 15, y + 1, 1, 4, ARDOISE_OMBRE);
     rect(x + 1, y + 2, 14, 2, ARDOISE_CLAIRE);
-    rect(x + 1, y + 4, 14, 1, ARDOISE_OMBRE);
+    rect(x, y + 4, 16, 1, ARDOISE_OMBRE);
     rect(x + 2, y + 5, 12, 11, ARDOISE_OMBRE);
     rect(x + 3, y + 5, 10, 10, ARDOISE_CLAIRE);
     for k in [5, 8, 11] {
@@ -315,9 +328,9 @@ fn poubelle(x: i32, y: i32) {
 
 /// Banc public (une rangée de `w` px) : le haut du dossier est le dessus
 /// praticable ; dessous, deux lattes de dossier, l'assise claire et les pieds de
-/// fonte aux deux bouts.
+/// fonte aux deux bouts. Carte 9.20g : cerné de sombre aux deux bouts.
 fn banc(x: i32, y: i32, w: i32) {
-    dessus(x, y, w, BRUME);
+    dessus(x, y, w);
     rect(x, y + 2, w, 2, ARDOISE_PALE);
     rect(x, y + 4, w, 1, ARDOISE_OMBRE);
     rect(x + 1, y + 5, w - 2, 2, ARDOISE_CLAIRE);
@@ -326,9 +339,91 @@ fn banc(x: i32, y: i32, w: i32) {
     rect(x, y + 9, w, 1, ARDOISE_OMBRE);
     rect(x, y + 10, w, 2, ARDOISE_PALE);
     rect(x, y + 12, w, 1, ARDOISE_OMBRE);
+    // Le contour des deux bouts (dossier et assise).
+    for bx in [x, x + w - 1] {
+        rect(bx, y + 1, 1, 7, ARDOISE_OMBRE);
+        rect(bx, y + 9, 1, 4, ARDOISE_OMBRE);
+    }
     // Les pieds de fonte, et les montants du dossier au-dessus.
     for px in [x + 2, x + w - 5] {
         rect(px, y + 2, 3, 14, ARDOISE_OMBRE);
         rect(px + 1, y + 13, 1, 3, ARDOISE);
+    }
+}
+
+/// Test de lisibilité (carte 9.20g), build de QA seulement (touche O, voir
+/// `entrees::solides_qa`) : chaque case SOLIDE de la grille à l'écran est repassée
+/// en or, une rangée de pixels sur deux (on voit encore le dessin dessous). Sur une
+/// capture, l'or doit tomber exactement sur ce qui PARAÎT solide.
+#[cfg(feature = "debug_niveaux")]
+pub fn dessiner_solides_qa(monde: &Monde, cx: i32, cy: i32) {
+    let n = &monde.niveau;
+    let (l, h) = (LARGEUR_LOGIQUE as i32, HAUTEUR_LOGIQUE as i32);
+    for ty in cy.div_euclid(T)..=(cy + h).div_euclid(T) {
+        for tx in cx.div_euclid(T)..=(cx + l).div_euclid(T) {
+            if (0..n.largeur() as i32).contains(&tx) && n.tuile_decor(tx, ty).est_solide() {
+                for k in (0..T).step_by(2) {
+                    rect(tx * T - cx, ty * T - cy + k, T, 1, pepin_core::palette::OR);
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sprites::{objets_decor, pixel, tuiles_monde2};
+
+    /// Carte 9.20g : tout dessus où l'on se pose dans le caniveau (pavés, bordures,
+    /// grille de la bouche d'égout) a, sous son contour, le MÊME liseré clair que
+    /// le mobilier de rue (`LISERE`), d'un bout à l'autre de la tuile.
+    #[test]
+    fn les_dessus_de_la_rue_ont_le_lisere_du_mobilier() {
+        let dessus = [
+            "can_pave",
+            "can_pave_g",
+            "can_pave_d",
+            "can_bordure",
+            "can_bordure_g",
+            "can_bordure_m",
+            "can_bordure_d",
+            "can_egout_grille",
+        ];
+        for nom in dessus {
+            let (_, d) = tuiles_monde2::SPRITES
+                .iter()
+                .find(|(n, _)| *n == nom)
+                .unwrap_or_else(|| panic!("{nom} introuvable"));
+            assert!(d[0].chars().all(|c| c == '0'), "{nom} : contour du haut");
+            let clairs = d[1]
+                .chars()
+                .filter(|&c| pixel(c) == Ok(Some(LISERE)))
+                .count();
+            assert!(clairs >= 14, "{nom} : liseré de {clairs} px seulement");
+        }
+    }
+
+    /// Carte 9.20g : le décor de la rue SANS collision (poubelle `U`, borne `I`,
+    /// descente de gouttière `J` hors du filet d'eau) n'a aucune teinte claire
+    /// (ardoise claire et au-dessus) : rien de clair qui se prendrait pour un dessus.
+    #[test]
+    fn le_decor_sans_collision_de_la_rue_est_terne() {
+        let ternes = [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE];
+        for (nom, d) in objets_decor::SPRITES {
+            let rangees = match *nom {
+                "borne" | "poubelle" => d.len(),
+                // Le filet d'eau commence sous la gargouille (rangée 30).
+                n if objets_decor::GOUTTIERE.contains(&n) => 30,
+                _ => continue,
+            };
+            for ligne in &d[..rangees] {
+                for c in ligne.chars() {
+                    if let Ok(Some(couleur)) = pixel(c) {
+                        assert!(ternes.contains(&couleur), "{nom} : « {c} » trop clair");
+                    }
+                }
+            }
+        }
     }
 }

@@ -7,12 +7,16 @@
 //! maisons qui se répète : chaque maison est décrite à la main dans `RUE` (largeur,
 //! étages, couleur, store, gouttière). Tout est en rectangles de la palette, au
 //! pixel entier, sans dégradé ni transparence.
+//!
+//! Carte 9.20g (« c'est dur de savoir qu'est-ce qu'est un obstacle comparé au
+//! fond ») : tout ce fond est SOMBRE et TERNE. Il n'emploie que l'ardoise d'ombre,
+//! l'ardoise de nuit, l'ardoise et le violet d'orage : aucun
+//! contour sombre net, aucune couleur vive, aucun dessus plat clair (ni corniche,
+//! ni appui de fenêtre, ni faîte). Les teintes claires restent au premier plan, à
+//! ce qu'on touche (pavés, mobilier de rue), cerné de sombre et liseré de clair.
 
 use macroquad::prelude::draw_rectangle;
-use pepin_core::palette::{
-    Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, NUAGE,
-    ORANGE_SOLEIL, VIOLET_ORAGE,
-};
+use pepin_core::palette::{Couleur, ARDOISE, ARDOISE_NUIT, ARDOISE_OMBRE, VIOLET_ORAGE};
 
 use pepin_core::LARGEUR_LOGIQUE;
 
@@ -32,8 +36,8 @@ struct Maison {
     etages: i32,
     /// Couleur de la façade.
     corps: Couleur,
-    /// Le rez-de-chaussée est une boutique : vitrine éclairée sous un store rayé
-    /// (sinon une porte et un soupirail).
+    /// Le rez-de-chaussée est une boutique : vitrine sous un store rayé (sinon une
+    /// porte et un soupirail).
     boutique: bool,
     /// Une descente de gouttière le long du bord droit.
     gouttiere: bool,
@@ -51,16 +55,19 @@ const fn m(largeur: i32, etages: i32, corps: Couleur, boutique: bool, gouttiere:
     }
 }
 
-/// La rue : huit maisons, de gauche à droite, qui se répètent.
+/// La rue : huit maisons, de gauche à droite, qui se répètent. Carte 9.20g : deux
+/// tons sombres en alternance (ardoise, ardoise de nuit), plus de façade violette ;
+/// deux maisons voisines n'ont jamais la même teinte (pas besoin de mur mitoyen
+/// cerné pour les séparer).
 const RUE: [Maison; 8] = [
     m(64, 3, ARDOISE, true, true),
     m(48, 2, ARDOISE_NUIT, false, false),
     m(80, 4, ARDOISE, true, true),
-    m(48, 3, VIOLET_ORAGE, false, true),
-    m(64, 2, ARDOISE_NUIT, true, false),
-    m(64, 4, ARDOISE, true, true),
     m(48, 3, ARDOISE_NUIT, false, true),
-    m(80, 3, ARDOISE, true, false),
+    m(64, 2, ARDOISE, true, false),
+    m(64, 4, ARDOISE_NUIT, true, true),
+    m(48, 3, ARDOISE, false, true),
+    m(80, 3, ARDOISE_NUIT, true, false),
 ];
 
 /// Hauteur du rez-de-chaussée (px) et d'un étage.
@@ -83,14 +90,34 @@ fn allumee(maison: i32, etage: i32, colonne: i32) -> bool {
     (h.wrapping_mul(0x2C1B_3C6D) >> 7).is_multiple_of(4)
 }
 
+/// Le ton « en creux » d'une façade (vitres éteintes, croisées, porte, ombres) :
+/// un cran plus sombre que le mur.
+fn creux(corps: Couleur) -> Couleur {
+    if corps == ARDOISE {
+        ARDOISE_NUIT
+    } else {
+        ARDOISE_OMBRE
+    }
+}
+
+/// La vitre d'une fenêtre : faiblement allumée (violet d'orage, jamais l'orange
+/// vif du premier plan) ou éteinte.
+fn vitre(maison: i32, etage: i32, colonne: i32, eteinte: Couleur) -> Couleur {
+    if allumee(maison, etage, colonne) {
+        VIOLET_ORAGE
+    } else {
+        eteinte
+    }
+}
+
 /// Les maisons de la rue, posées sur la ligne `sol` (px, à l'écran), décalées de
 /// `dec` px par la parallaxe.
 pub(crate) fn dessiner_facades(dec: i32, sol: i32) {
     let p = periode();
-    // Le trottoir d'en face, au pied des maisons : sa bordure claire, puis l'ombre
-    // jusqu'en bas (on la voit dans les creux de la rue).
-    rect(0, sol, L, 2, ARDOISE);
-    rect(0, sol + 2, L, 60, ARDOISE_OMBRE);
+    // Le trottoir d'en face, au pied des maisons : l'ombre jusqu'en bas (on la voit
+    // dans les creux de la rue). Carte 9.20g : plus de bordure claire, seul le
+    // trottoir du niveau a un dessus clair.
+    rect(0, sol, L, 62, ARDOISE_OMBRE);
     let tour0 = dec.div_euclid(p) - 1;
     for tour in tour0..=tour0 + 2 {
         let mut x = tour * p - dec;
@@ -103,96 +130,71 @@ pub(crate) fn dessiner_facades(dec: i32, sol: i32) {
     }
 }
 
-/// Dessine une maison dont le coin bas-gauche est `(x, sol)`.
+/// Dessine une maison dont le coin bas-gauche est `(x, sol)`. Carte 9.20g : sans
+/// contour, sans rebord clair ; le toit en mansarde est en PENTE (un pixel de
+/// retrait par rangée de chaque côté) : aucun dessus plat où l'on croirait se poser.
 fn maison(m: &Maison, x: i32, sol: i32, numero: i32) {
     let w = m.largeur;
     let haut = sol - REZ - m.etages * ETAGE;
-    // La façade, cernée d'un trait sombre de chaque côté (les murs mitoyens) :
-    // elle se détache du ciel même quand elle en a la couleur.
+    let creux = creux(m.corps);
     rect(x, haut, w, sol - haut, m.corps);
-    rect(x, haut, 1, sol - haut, ARDOISE_OMBRE);
-    rect(x + w - 1, haut, 1, sol - haut, ARDOISE_OMBRE);
-    // Le toit en mansarde : ardoise sombre, faîte clair, une lucarne allumée ou non.
-    rect(x + 2, haut - TOIT, w - 4, TOIT, ARDOISE_OMBRE);
-    rect(x + 4, haut - TOIT - 1, w - 8, 1, ARDOISE_CLAIRE);
+    // Le toit en mansarde, et sa lucarne éteinte ou faiblement allumée.
+    for k in 0..TOIT {
+        rect(x + 1 + k, haut - 1 - k, w - 2 - 2 * k, 1, ARDOISE_OMBRE);
+    }
     let lucarne = x + w / 2 - 2;
-    rect(lucarne - 1, haut - TOIT + 1, 6, 6, ARDOISE_CLAIRE);
-    let vitre = if allumee(numero, 9, 0) {
-        ORANGE_SOLEIL
-    } else {
-        ARDOISE_NUIT
-    };
-    rect(lucarne, haut - TOIT + 2, 4, 4, vitre);
-    // La corniche sous le toit, et le bandeau entre le rez-de-chaussée et l'étage.
-    rect(x, haut, w, 2, ARDOISE_CLAIRE);
-    rect(x, haut + 2, w, 1, ARDOISE_OMBRE);
-    rect(x, sol - REZ - 2, w, 2, ARDOISE_CLAIRE);
-    // Les étages : une fenêtre par tranche de 16 px (cadre sombre, croisée, appui).
+    rect(
+        lucarne,
+        haut - TOIT + 3,
+        4,
+        4,
+        vitre(numero, 9, 0, ARDOISE_NUIT),
+    );
+    // Le bandeau entre le rez-de-chaussée et l'étage : une ombre, pas un rebord.
+    rect(x, sol - REZ - 1, w, 1, creux);
+    // Les étages : une fenêtre par tranche de 16 px (vitre et croisée, sans cadre
+    // ni appui).
     for e in 0..m.etages {
         let y = haut + 4 + e * ETAGE;
         for c in 0..w / 16 {
             let fx = x + c * 16 + 5;
-            rect(fx - 1, y + 1, 8, 11, ARDOISE_OMBRE);
-            let vitre = if allumee(numero, e, c) {
-                ORANGE_SOLEIL
-            } else {
-                ARDOISE_NUIT
-            };
-            rect(fx, y + 2, 6, 9, vitre);
-            rect(fx + 2, y + 2, 1, 9, ARDOISE_OMBRE);
-            rect(fx, y + 5, 6, 1, ARDOISE_OMBRE);
-            rect(fx - 1, y + 12, 8, 1, ARDOISE_PALE);
+            rect(fx, y + 2, 6, 9, vitre(numero, e, c, creux));
+            rect(fx + 2, y + 2, 1, 9, m.corps);
+            rect(fx, y + 5, 6, 1, m.corps);
         }
     }
     // Le rez-de-chaussée.
     let rez = sol - REZ;
     if m.boutique {
-        // Le store rayé (ardoise et violet, plus sourd que le store du niveau, qui
-        // est un solide où l'on se cogne) et son lambrequin festonné, puis la
-        // vitrine : une vitre SOMBRE (la boutique est fermée la nuit : rien de clair
-        // là où passent Pépin et les gouttes), ses reflets, ses montants, et une
-        // seule lampe orange au fond.
+        // Le store rayé, en deux tons sombres (le store du niveau, lui, est un
+        // solide où l'on se cogne), son lambrequin festonné, puis la vitrine : une
+        // vitre SOMBRE (la boutique est fermée la nuit), ses montants, ses reflets
+        // et une veilleuse violette au fond.
         for s in 0..(w - 4) / 4 {
-            let c = if s % 2 == 0 {
-                ARDOISE_PALE
-            } else {
-                VIOLET_ORAGE
-            };
+            let c = if s % 2 == 0 { ARDOISE_OMBRE } else { creux };
             rect(x + 2 + s * 4, rez, 4, 4, c);
             rect(x + 3 + s * 4, rez + 4, 2, 1, c);
         }
-        rect(x + 2, rez - 1, w - 4, 1, ARDOISE_OMBRE);
-        rect(x + 4, rez + 6, w - 8, 14, ARDOISE_OMBRE);
-        rect(x + 5, rez + 7, w - 10, 13, ARDOISE_NUIT);
+        rect(x + 4, rez + 6, w - 8, 14, creux);
         for mx in (x + 5 + 11..x + w - 6).step_by(12) {
-            rect(mx, rez + 7, 1, 13, ARDOISE_OMBRE);
+            rect(mx, rez + 7, 1, 13, m.corps);
         }
         for k in 0..2 {
-            rect(x + 7 + k * 3, rez + 15 - k * 3, 1, 3, ARDOISE);
+            rect(x + 7 + k * 3, rez + 15 - k * 3, 1, 3, m.corps);
         }
         let lampe = x + w / 2 + 3;
-        rect(lampe, rez + 7, 1, 3, ARDOISE_OMBRE);
-        rect(lampe - 1, rez + 10, 3, 2, ORANGE_SOLEIL);
+        rect(lampe - 1, rez + 10, 3, 2, VIOLET_ORAGE);
     } else {
-        // Une porte cochère sombre et son imposte, un soupirail.
+        // Une porte cochère sombre et son battant, un soupirail.
         let px = x + w / 2 - 6;
-        rect(px - 1, rez + 1, 14, 19, ARDOISE_OMBRE);
-        rect(px, rez + 2, 12, 18, ARDOISE_NUIT);
-        rect(px + 6, rez + 6, 1, 14, ARDOISE_OMBRE);
-        rect(px + 1, rez + 3, 10, 2, ARDOISE_CLAIRE);
-        rect(x + 4, sol - 7, 8, 3, ARDOISE_OMBRE);
+        rect(px, rez + 2, 12, 18, creux);
+        rect(px + 6, rez + 6, 1, 14, m.corps);
+        rect(x + 4, sol - 7, 8, 3, creux);
     }
-    // La descente de gouttière : un tuyau de zinc le long du bord droit, ses
-    // colliers sombres, de la corniche jusqu'au trottoir.
+    // La descente de gouttière : un tuyau de zinc terne (un cran plus sombre que
+    // le mur) le long du bord droit, du toit jusqu'au trottoir, sans colliers.
     if m.gouttiere {
-        let gx = x + w - 4;
-        rect(gx, haut + 3, 2, sol - haut - 3, ARDOISE_PALE);
-        rect(gx + 1, haut + 3, 1, sol - haut - 3, ARDOISE_CLAIRE);
-        let mut y = haut + 8;
-        while y < sol {
-            rect(gx - 1, y, 4, 1, ARDOISE_OMBRE);
-            y += 12;
-        }
+        rect(x + w - 4, haut, 2, sol - haut, creux);
     }
 }
 
@@ -206,26 +208,25 @@ fn disque(cx: i32, cy: i32, r: i32, c: Couleur) {
 }
 
 /// Les lampadaires de la rue, au pied `sol` (px, à l'écran), décalés de `dec` px :
-/// un mât de fonte sombre, une crosse, la lanterne orange et son halo.
+/// un mât de fonte sombre, une crosse, la lanterne et son halo. Carte 9.20g : du
+/// FOND, donc ternes : un halo d'ardoise, une lanterne violette (l'orange vif reste
+/// aux lanternes du niveau, devant), un chapeau pointu.
 pub(crate) fn dessiner_lampadaires(dec: i32, sol: i32) {
     for lx in [60i32, 230] {
         let x = (lx - dec).rem_euclid(L);
         let tete = sol - 46;
-        // Le halo : deux disques de lumière autour de la lanterne, en marches
+        // Le halo : un disque de lumière autour de la lanterne, en marches
         // d'escalier (un cercle de pixels, sans aucune demi-teinte).
-        for (r, c) in [(9, ARDOISE_CLAIRE), (5, ARDOISE_PALE)] {
-            disque(x + 1, tete + 2, r, c);
-        }
+        disque(x + 1, tete + 2, 7, ARDOISE);
         // Le mât, son socle évasé, sa crosse.
         rect(x, tete + 4, 2, sol - tete - 4, ARDOISE_OMBRE);
         rect(x - 2, sol - 10, 6, 10, ARDOISE_OMBRE);
         rect(x - 1, sol - 14, 4, 4, ARDOISE_OMBRE);
         rect(x - 1, tete + 9, 4, 1, ARDOISE_OMBRE);
-        // La lanterne : chapeau, vitres orange, cœur clair, fond.
-        rect(x - 2, tete - 2, 6, 2, ARDOISE_OMBRE);
-        rect(x - 3, tete, 8, 1, ARDOISE_OMBRE);
-        rect(x - 2, tete + 1, 6, 4, ARDOISE_OMBRE);
-        rect(x - 1, tete + 1, 4, 3, ORANGE_SOLEIL);
-        rect(x, tete + 2, 2, 1, NUAGE);
+        // La lanterne : chapeau pointu, vitres, fond.
+        rect(x, tete - 2, 2, 1, ARDOISE_OMBRE);
+        rect(x - 1, tete - 1, 4, 1, ARDOISE_OMBRE);
+        rect(x - 2, tete, 6, 5, ARDOISE_OMBRE);
+        rect(x - 1, tete + 1, 4, 3, VIOLET_ORAGE);
     }
 }

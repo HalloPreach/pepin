@@ -1473,6 +1473,12 @@ pub fn dessiner(
     dessiner_repere_pepin(monde, alpha, cx, cy);
     // L'encre de la Pieuvre (carte 9.12a), devant tout.
     crate::dessin_pieuvre::dessiner_encre(monde);
+    // Build de QA seulement (carte 9.20g) : la touche O repasse les cases SOLIDES
+    // de la grille en couleur vive (test de lisibilité des captures).
+    #[cfg(feature = "debug_niveaux")]
+    if crate::entrees::solides_qa() {
+        crate::mobilier_rue::dessiner_solides_qa(monde, cx, cy);
+    }
 }
 
 #[cfg(test)]
