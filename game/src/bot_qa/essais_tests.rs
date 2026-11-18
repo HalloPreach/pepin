@@ -233,6 +233,7 @@ fn le_robot_finit_le_niveau_d_essai_ventilateur() {
 /// la première l'a porté de plus d'un saut (56 px). Pendant toute montée où il est
 /// posé, ses pieds sont PILE sur le dessus d'une nacelle (porté, sans glisser).
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_montgolfiere() {
     let partie = jouer_essai_montgolfiere(&parcours_essai_montgolfiere());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -281,6 +282,7 @@ fn le_robot_finit_le_niveau_d_essai_montgolfiere() {
 /// toujours posé pendant la montée, et la première, quittée, redescend vers son
 /// quai pendant que Pépin monte dans la seconde. Trois gouttes, aucune mort.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_monte_jusqu_en_haut_des_deux_montgolfieres() {
     let partie = jouer_essai_montgolfiere(&parcours_essai_montgolfiere_jusqu_en_haut());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -325,6 +327,7 @@ fn le_robot_monte_jusqu_en_haut_des_deux_montgolfieres() {
 /// rebondi au moins deux fois sur un escargot (une par falaise) ; chaque rebond
 /// relance Pépin vers le haut et aplatit la coquille de l'escargot touché.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_escargot() {
     let partie = jouer_essai_escargot(&parcours_essai_escargot());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -365,6 +368,7 @@ fn le_robot_finit_le_niveau_d_essai_escargot() {
 /// Il a écrasé le chat une fois, PENDANT son sommeil ou son annonce (jamais
 /// réveillé), et il n'est passé sous le grand mur (x > 432) qu'après.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_chat() {
     let partie = jouer_essai_chat(&parcours_essai_chat());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -435,6 +439,7 @@ fn le_robot_finit_le_niveau_d_essai_chat() {
 /// les trois gouttes, porté par les DEUX aiguilles : il monte sur chacune (au
 /// moins une tuile de montée pendant qu'elle le porte) avant de sauter plus haut.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_horloge() {
     let partie = jouer_essai_horloge(&parcours_essai_horloge());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -474,6 +479,7 @@ fn le_robot_finit_le_niveau_d_essai_horloge() {
 /// de fin ; les trois gouttes. Ses points de vie descendent de 3 à 0, un coup à la
 /// fois, et il a traversé ses trois motifs d'éclairs.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_bat_le_grand_nuage() {
     let partie = jouer_essai_nuage(&parcours_essai_nuage());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -534,6 +540,7 @@ fn le_robot_bat_le_grand_nuage() {
 /// retard sur les touches (comme celui de l'horloge) : nuage vaincu, 0 mort, 3
 /// gouttes à chaque fois.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_parcours_du_grand_nuage_tient_a_une_image_pres() {
     let parcours = parcours_essai_nuage();
     for decalage in [-2, -1, 0, 1, 2] {
@@ -581,6 +588,7 @@ fn rejouer_decale(indice: usize, parcours: &[Entrees], decalage: i32) -> (bool, 
 /// démarrer le niveau d'essai une image plus tôt ou plus tard) : drapeau, 0
 /// mort, 3 gouttes à chaque fois. C'est ce que garantit `tient_au_decalage`.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_parcours_de_l_horloge_tient_a_une_image_pres() {
     let parcours = parcours_essai_horloge();
     for decalage in [-2, -1, 0, 1, 2] {
@@ -599,6 +607,7 @@ fn le_parcours_de_l_horloge_tient_a_une_image_pres() {
 /// redescend ; Pépin est TOUJOURS entier à l'écran, sauf quand il est lancé au-dessus
 /// du niveau, et alors la flèche de repère est là (et seulement alors).
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_vertical() {
     let parcours = parcours_essai_vertical();
     let partie = jouer_essai_vertical(&parcours);
@@ -746,6 +755,7 @@ fn ecrire_script_essai_eau_92() {
 /// de QA) sans mourir : il passe le crabe, la grenouille, le bassin du poisson, le
 /// tunnel du rat et la grue de la mouette.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_ennemis_eau() {
     let parcours = parcours_essai_ennemis_eau();
     let partie = jouer_essai_ennemis_eau(&parcours);
@@ -771,6 +781,7 @@ fn le_robot_finit_le_niveau_d_essai_ennemis_eau() {
 /// build de QA) sans mourir, après avoir pris les trois gouttes : l'arène n'a pas de
 /// drapeau, la fin n'est atteinte que si elle est vaincue.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_bat_la_pieuvre_sans_mourir() {
     let parcours = parcours_essai_pieuvre();
     let partie = jouer_essai_pieuvre(&parcours);
@@ -994,6 +1005,7 @@ fn ecrire_scenarios_94() {
 /// de nénuphar en nénuphar, monte dans les bulles, attend la marée en barque et
 /// descend la chute d'eau parapluie ouvert.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_eau2() {
     let parcours = parcours_essai_eau2();
     let partie = jouer_essai_eau2(&parcours);

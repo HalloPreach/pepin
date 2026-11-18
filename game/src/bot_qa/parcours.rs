@@ -1076,9 +1076,218 @@ pub fn trouver_parcours(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     trouver_parcours_mode(indice, precis, false)
 }
 
+/// Genre de parcours mis en mémoire (`en_memoire`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum GenreParcours {
+    Normal,
+    NouvellePartiePlus,
+    Complet,
+}
+
+/// Mémoire des parcours déjà cherchés dans CE processus de test (carte 9.23, tri
+/// des tests). La recherche ne dépend que de ses arguments (niveaux embarqués,
+/// simulation déterministe) : plusieurs tests qui demandent le même parcours (la
+/// partie du Monde 1 et le clocher, le Grand Nuage et sa tenue à une image près...)
+/// le cherchent UNE fois. Chaque clé a sa `OnceLock` : un deuxième fil qui la
+/// demande pendant la recherche attend son résultat au lieu de la refaire.
+/// Notions Rust : `OnceLock` (valeur calculée une seule fois, partagée entre fils),
+/// `Mutex<HashMap<..>>` (table partagée), `Arc` (la cellule survit au verrou).
+fn en_memoire(
+    cle: (usize, bool, GenreParcours),
+    chercher: impl FnOnce() -> Option<Vec<Entrees>>,
+) -> Option<Vec<Entrees>> {
+    use std::sync::{Arc, Mutex, OnceLock};
+    type Cellule = Arc<OnceLock<Option<Vec<Entrees>>>>;
+    type Table = HashMap<(usize, bool, GenreParcours), Cellule>;
+    static MEMOIRE: OnceLock<Mutex<Table>> = OnceLock::new();
+    let cellule: Cellule = {
+        let mut table = MEMOIRE
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        Arc::clone(table.entry(cle).or_default())
+    };
+    cellule.get_or_init(|| sur_disque(cle, chercher)).clone()
+}
+
+/// Mémoire SUR DISQUE des parcours (carte 9.23), d'une commande de test à l'autre.
+/// Seulement si la variable `PEPIN_MEMOIRE_PARCOURS` donne un dossier (les
+/// commandes `./docker-cargo.sh carte <clé>` et `lot` la posent ; un simple
+/// `cargo test` cherche toujours). Chaque fichier porte l'EMPREINTE de ce dont la
+/// recherche dépend (`empreinte_parcours`) : le code du jeu et du robot, et les
+/// données du niveau. Un niveau retouché, ou une ligne de code changée, et l'empreinte
+/// change : on cherche de nouveau. Un parcours relu est en plus REJOUÉ dans la vraie
+/// simulation (`parcours_encore_bon`) avant d'être rendu ; s'il ne tient plus, on
+/// cherche. « Aucun parcours » est gardé aussi (le robot maladroit qui échoue fait
+/// une recherche complète, la plus longue) : la recherche est déterministe, et
+/// l'empreinte couvre tout ce qu'elle lit.
+fn sur_disque(
+    cle: (usize, bool, GenreParcours),
+    chercher: impl FnOnce() -> Option<Vec<Entrees>>,
+) -> Option<Vec<Entrees>> {
+    let Some(dossier) = std::env::var_os("PEPIN_MEMOIRE_PARCOURS") else {
+        return chercher();
+    };
+    let dossier = std::path::PathBuf::from(dossier);
+    let chemin = dossier.join(format!("{:016x}.txt", empreinte_parcours(cle)));
+    if let Ok(texte) = std::fs::read_to_string(&chemin) {
+        match lire_parcours(&texte) {
+            Some(None) => return None,
+            Some(Some(p)) if parcours_encore_bon(cle, &p) => return Some(p),
+            _ => {}
+        }
+    }
+    let trouve = chercher();
+    // Écrit à côté puis renommé : un autre processus ne lit jamais un fichier à moitié écrit.
+    let provisoire = chemin.with_extension(format!("{}.provisoire", std::process::id()));
+    let _ = std::fs::create_dir_all(&dossier);
+    if std::fs::write(&provisoire, ecrire_parcours(trouve.as_deref())).is_ok() {
+        let _ = std::fs::rename(&provisoire, &chemin);
+    }
+    trouve
+}
+
+/// Une entrée par caractère : direction (0 immobile, 1 gauche, 2 droite) + 3 si
+/// SAUT tenu + 6 si BAS tenu, écrite en base 12 (`0`..`9`, `a`, `b`). « AUCUN » :
+/// la recherche n'a rien trouvé.
+fn ecrire_parcours(parcours: Option<&[Entrees]>) -> String {
+    use pepin_core::player::Direction;
+    let Some(p) = parcours else {
+        return "AUCUN\n".to_string();
+    };
+    let mut texte: String = p
+        .iter()
+        .map(|e| {
+            let d = match e.direction {
+                Direction::Immobile => 0,
+                Direction::Gauche => 1,
+                Direction::Droite => 2,
+            };
+            let n = d + 3 * u32::from(e.saut) + 6 * u32::from(e.bas);
+            char::from_digit(n, 12).expect("moins de 12")
+        })
+        .collect();
+    texte.push('\n');
+    texte
+}
+
+/// L'inverse de `ecrire_parcours` : `None` si le fichier est illisible.
+fn lire_parcours(texte: &str) -> Option<Option<Vec<Entrees>>> {
+    use pepin_core::player::Direction;
+    let texte = texte.trim();
+    if texte == "AUCUN" {
+        return Some(None);
+    }
+    let mut p = Vec::with_capacity(texte.len());
+    for c in texte.chars() {
+        let n = c.to_digit(12)?;
+        p.push(Entrees {
+            direction: match n % 3 {
+                0 => Direction::Immobile,
+                1 => Direction::Gauche,
+                _ => Direction::Droite,
+            },
+            saut: (n / 3) % 2 == 1,
+            bas: n / 6 == 1,
+        });
+    }
+    Some(Some(p))
+}
+
+/// Le parcours relu, rejoué depuis le début du niveau dans la vraie simulation :
+/// jamais de mort, le niveau fini, et la même condition d'arrivée que la recherche
+/// (chemin normal : `gouttes_avant_la_victoire`, aucun secret révélé ; partie
+/// complète : tous les objets du niveau, pas la sortie secrète).
+fn parcours_encore_bon(cle: (usize, bool, GenreParcours), parcours: &[Entrees]) -> bool {
+    let (indice, _, genre) = cle;
+    let mut m = Monde::charger(indice, genre == GenreParcours::NouvellePartiePlus);
+    let total = objets_du_niveau(&m);
+    for e in parcours {
+        m.avancer(e);
+        if m.derniere_mort.is_some() {
+            return false;
+        }
+    }
+    m.termine
+        && match genre {
+            GenreParcours::Complet => objets_pris(&m) == total && !m.sortie_secrete,
+            _ => gouttes_avant_la_victoire(&m) && !m.caches_reveles.iter().any(|&r| r),
+        }
+}
+
+/// Empreinte de ce dont dépend la recherche d'un parcours : le genre, le niveau
+/// (indice, robot précis ou maladroit, et TOUTES ses données : `InfosNiveau` en
+/// `Debug`, grille comprise), et le code (`empreinte_du_code`).
+fn empreinte_parcours(cle: (usize, bool, GenreParcours)) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let (indice, precis, genre) = cle;
+    let infos = crate::monde::infos_niveau(indice).expect("indice de niveau valide");
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    empreinte_du_code().hash(&mut h);
+    (indice, precis, genre).hash(&mut h);
+    format!("{infos:?}").hash(&mut h);
+    h.finish()
+}
+
+/// Empreinte du CODE que lit la recherche : `core/src` (la simulation), SAUF les
+/// fichiers des niveaux (`core/src/levels/<clé>.rs` : leurs données sont dans
+/// l'empreinte de chaque niveau ; `variantes.rs`, la nouvelle partie +, est du code
+/// et compte), plus `game/src/monde.rs` (le monde simulé, qui ne dépend que de
+/// `pepin_core`) et ce fichier (le robot). Une carte de rendu (décor, sprites,
+/// écrans) ne la change donc pas. Calculée une fois par processus.
+fn empreinte_du_code() -> u64 {
+    use std::hash::{Hash, Hasher};
+    use std::path::{Path, PathBuf};
+    use std::sync::OnceLock;
+    static EMPREINTE: OnceLock<u64> = OnceLock::new();
+    fn fichiers(dossier: &Path, liste: &mut Vec<PathBuf>) {
+        let Ok(entrees) = std::fs::read_dir(dossier) else {
+            return;
+        };
+        for entree in entrees.flatten() {
+            let chemin = entree.path();
+            if chemin.is_dir() {
+                fichiers(&chemin, liste);
+            } else {
+                liste.push(chemin);
+            }
+        }
+    }
+    *EMPREINTE.get_or_init(|| {
+        let racine = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let niveaux = racine.join("core/src/levels");
+        let mut liste = Vec::new();
+        fichiers(&racine.join("core/src"), &mut liste);
+        liste.retain(|f| !f.starts_with(&niveaux) || f.ends_with("variantes.rs"));
+        liste.push(racine.join("game/src/monde.rs"));
+        liste.push(racine.join("game/src/bot_qa/parcours.rs"));
+        liste.sort();
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        for f in &liste {
+            let contenu = std::fs::read(f)
+                .unwrap_or_else(|e| panic!("source illisible {} : {e}", f.display()));
+            f.strip_prefix(&racine).unwrap_or(f).hash(&mut h);
+            contenu.hash(&mut h);
+        }
+        h.finish()
+    })
+}
+
 /// Comme `trouver_parcours`, dans la variante de la nouvelle partie + si `ng_plus`
 /// (carte 8.8 : ennemis déplacés, éclairs plus fréquents, vent de face...).
 pub fn trouver_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Option<Vec<Entrees>> {
+    let genre = if ng_plus {
+        GenreParcours::NouvellePartiePlus
+    } else {
+        GenreParcours::Normal
+    };
+    en_memoire((indice, precis, genre), || {
+        chercher_parcours_mode(indice, precis, ng_plus)
+    })
+}
+
+/// La recherche de `trouver_parcours_mode`, sans la mémoire.
+fn chercher_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Option<Vec<Entrees>> {
     let (depart, mut entrees) = depart_pose_mode(indice, ng_plus);
     let sans_secret =
         |m: &Monde| gouttes_avant_la_victoire(m) && !m.caches_reveles.iter().any(|&r| r);
@@ -1180,6 +1389,13 @@ fn objets_du_niveau(m: &Monde) -> usize {
 /// les appelants essaient le maladroit, puis le précis) : là où la recherche par
 /// étapes réussit (tout le Monde 1, le Grand Nuage compris), rien ne change.
 pub fn trouver_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
+    en_memoire((indice, precis, GenreParcours::Complet), || {
+        chercher_parcours_complet(indice, precis)
+    })
+}
+
+/// La recherche de `trouver_parcours_complet`, sans la mémoire.
+fn chercher_parcours_complet(indice: usize, precis: bool) -> Option<Vec<Entrees>> {
     parcours_complet_par_etapes(indice, precis).or_else(|| {
         let (depart, _) = depart_pose(indice);
         let boss_sans_lettre =
