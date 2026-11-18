@@ -409,6 +409,7 @@ mod tests {
             &objets::FRIABLE_ARDOISE,
             &objets::DRAPEAU,
             &objets::GRELON,
+            &objets::GRELE_NUAGE,
             &objets::MONTGOLFIERE,
         ];
         for anim in animations {
