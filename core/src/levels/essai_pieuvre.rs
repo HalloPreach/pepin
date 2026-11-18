@@ -43,6 +43,12 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   d'une demi-case. On esquive en courant, en sautant un trou d'une case ; on
 ///   tombe dans un trou pour atterrir sur la tête sortie. Sous le platelage,
 ///   l'eau (la barque, BAS tenu, rattrape une chute).
+/// - Carte 9.12e (AGA : « enlever les petites plateformes au-dessus des endroits
+///   où se positionnait la pieuvre ») : le petit ponton flottant des colonnes
+///   9-10, au-dessus de la tête du milieu (tuiles 8,5 à 11,5), est retiré : le
+///   trou du milieu fait 4 cases (colonnes 8 à 11). Les petits pontons sur piliers
+///   (6-7, 12-13) ne surplombent aucune tête et restent ; les têtes de gauche et
+///   de droite sont sous les grands pontons des bords, gardés.
 /// - Gouttes : en colonne sous le départ (colonne 1, lignes 1 à 3) : Pépin les
 ///   prend en tombant au début, avant la colère. Sinon chaque goutte prise ou non
 ///   multiplie les cas que la recherche du robot et la mesure de difficulté
@@ -54,7 +60,7 @@ Bo.................B
 Bo.................B
 B..................B
 B.L................B
-B####.##.##.##.####B
+B####.##....##.####B
 B#....##....##....#B
 B#....##....##....#B
 B~~~~~~~~8~~~~~~~~~B

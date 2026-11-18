@@ -54,8 +54,9 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// 20 x 11 tuiles (un seul écran), thème Port. Géométrie du niveau d'essai
 /// « pieuvre » : bassin de toute l'arène, la pieuvre `8` (ses 9 colonnes de
 /// tentacules de 2 cases couvrent tout le bassin, aucun coin à l'abri), le
-/// platelage percé d'un trou d'une case au bord de chaque tête (carte 9.12c), les
-/// trois gouttes sous le départ (prises en tombant) et la lanterne.
+/// platelage percé d'un trou au bord de chaque tête (carte 9.12c ; carte 9.12e :
+/// plus de petit ponton au-dessus de la tête du milieu), les trois gouttes sous le
+/// départ (prises en tombant) et la lanterne.
 const ASCII: &str = r"
 B@.................B
 Bo.................B
@@ -63,7 +64,7 @@ Bo.................B
 Bo.................B
 B..................B
 B.L................B
-B####.##.##.##.####B
+B####.##....##.####B
 B#....##....##....#B
 B#....##....##....#B
 B~~~~~~~~8~~~~~~~~~B
