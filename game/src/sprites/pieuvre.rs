@@ -291,6 +291,28 @@ pub const PV_PIEUVRE_PERDU: Image = &[
     ".0.0.0.0..",
 ];
 
+/// Tentacule ENROULÉ sur le dessus d'une plateforme saisie (16x6, carte 9.12f),
+/// posé case par case : corps corail, reflet corail clair, ventouses d'or pâle,
+/// ombre violette dessous. 1re image.
+pub const TENTACULE_ENROULE0: Image = &[
+    ".00000000000000.",
+    "0998899888998890",
+    "08CC8888CC888CC0",
+    "0888888888888880",
+    "0FFFF8FFFF8FFFF0",
+    ".00000000000000.",
+];
+
+/// Tentacule enroulé, 2e image : les ventouses ont glissé (il serre).
+pub const TENTACULE_ENROULE1: Image = &[
+    ".00000000000000.",
+    "0889988899888990",
+    "0888CC8888CC8880",
+    "0888888888888880",
+    "0FF8FFFF8FFFF8F0",
+    ".00000000000000.",
+];
+
 /// Tous les sprites de la Pieuvre, par nom.
 pub const SPRITES: &[(&str, Image)] = &[
     ("pieuvre_colere0", PIEUVRE_COLERE0),
@@ -300,6 +322,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("tentacule_bout", TENTACULE_BOUT),
     ("tentacule0", TENTACULE0),
     ("tentacule1", TENTACULE1),
+    ("tentacule_enroule0", TENTACULE_ENROULE0),
+    ("tentacule_enroule1", TENTACULE_ENROULE1),
     ("tentacule_pointe0", TENTACULE_POINTE0),
     ("tentacule_pointe1", TENTACULE_POINTE1),
     ("remous_pieuvre0", REMOUS_PIEUVRE0),

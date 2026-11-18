@@ -837,7 +837,47 @@ fn poser_pieuvre(
             return Err(erreur);
         }
     }
-    Ok(Pieuvre::new(colonnes, places))
+    let mut p = Pieuvre::new(colonnes, places);
+    p.plateformes = plateformes_du_bassin(tuiles, largeur, (tx - portee, tx + portee + 1), ty);
+    Ok(p)
+}
+
+/// Les plateformes que la Pieuvre peut saisir (carte 9.12f) : chaque groupe de
+/// cases solides qui se touchent (par un côté), au-dessus du bassin (colonnes
+/// `x0..=x1`, rangées au-dessus de la surface `surface`). Les murs du bord sont
+/// hors du bassin : ils ne coulent jamais. Un parcours en largeur tout simple.
+fn plateformes_du_bassin(
+    tuiles: &[Tuile],
+    largeur: usize,
+    (x0, x1): (usize, usize),
+    surface: usize,
+) -> Vec<Vec<(i32, i32)>> {
+    let dedans = |x: i32, y: i32| {
+        (x0 as i32..=x1 as i32).contains(&x)
+            && (0..surface as i32).contains(&y)
+            && tuiles[y as usize * largeur + x as usize].est_solide()
+    };
+    let mut vues = std::collections::HashSet::new();
+    let mut plateformes = Vec::new();
+    for y in 0..surface as i32 {
+        for x in x0 as i32..=x1 as i32 {
+            if !dedans(x, y) || !vues.insert((x, y)) {
+                continue;
+            }
+            let mut cases = vec![(x, y)];
+            let mut k = 0;
+            while let Some(&(cx, cy)) = cases.get(k) {
+                k += 1;
+                for v in [(cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)] {
+                    if dedans(v.0, v.1) && vues.insert(v) {
+                        cases.push(v);
+                    }
+                }
+            }
+            plateformes.push(cases);
+        }
+    }
+    plateformes
 }
 
 /// Pose une aiguille d'horloge sur chaque pivot `h` (dans l'ordre de lecture),

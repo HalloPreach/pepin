@@ -163,6 +163,28 @@ pub(crate) const PAS_VAGUE: u32 = 24;
 /// la collision reste celle de la case. Les faux murs comptent comme le solide qu'ils imitent
 /// (`tuile_vue`) ; la case d'indice d'une zone cachée est une brique décalée.
 pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
+    // Carte 9.12f : la plateforme que la Pieuvre saisit se dessine à part
+    // (`dessin_pieuvre::dessiner_saisie`) : elle tremble, coule, remonte.
+    if crate::dessin_pieuvre::case_saisie(monde, tx, ty) {
+        return "";
+    }
+    nom_tuile_brut(monde, tx, ty, t)
+}
+
+/// Pour la plateforme saisie par la Pieuvre (carte 9.12f) : le nom de la tuile de
+/// la case `(tx, ty)` comme si de rien n'était, et l'objet posé dessus (la bitte
+/// d'amarrage), qui coule avec elle.
+pub(crate) fn noms_de_la_case(
+    monde: &Monde,
+    tx: i32,
+    ty: i32,
+) -> (&'static str, Option<&'static str>) {
+    let nom = nom_tuile_brut(monde, tx, ty, tuile_vue(monde, tx, ty));
+    let objet = tuiles_theme::objet_pose(nom).filter(|_| case_libre(monde, tx, ty - 1));
+    (nom, objet)
+}
+
+fn nom_tuile_brut(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
     // Monde 2 (carte 9.6b) : un thème qui a son propre jeu de tuiles choisit d'abord.
     // Sous la dernière rangée, le jeu voit du solide (le sol continue hors carte) :
     // la rangée du bas n'est ni un plafond ni une voûte (carte 9.6c).
@@ -1442,6 +1464,8 @@ pub fn dessiner(
     dessiner_tuiles(monde, banque, cx, cy);
     // La jetée de la Pieuvre (carte 9.20e) : bassin profond, quais, grue, caisses.
     crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
+    // La plateforme que la Pieuvre emporte sous l'eau (carte 9.12f).
+    crate::dessin_pieuvre::dessiner_saisie(monde, banque, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
     // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.

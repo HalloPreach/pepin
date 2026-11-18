@@ -6,10 +6,16 @@
 //! 1re moitié de l'annonce (0,4 s) : l'ombre de la pieuvre sous la surface et des
 //! remous sur toute la largeur de la colonne ; la 2e moitié : le bout du tentacule
 //! pointe hors de l'eau. Tout est en sprites de la palette (`sprites::pieuvre`).
+//!
+//! La saisie (carte 9.12f) : un tentacule monte de l'eau et s'enroule sur la
+//! plateforme, qui tremble (l'annonce) ; elle s'enfonce, découpée à la surface ;
+//! sous l'eau, des remous marquent sa place ; puis elle remonte.
 
+use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::pieuvre::{
-    EtatTentacule, PhasePieuvre, Pieuvre, LARGEUR_COLONNE, MARGE_TENTACULE, NB_COLONNES,
+    EtatSaisie, EtatTentacule, PhasePieuvre, Pieuvre, LARGEUR_COLONNE, MARGE_TENTACULE, NB_COLONNES,
 };
+use pepin_core::entities::Entite;
 use pepin_core::palette::ARDOISE_OMBRE;
 
 use crate::monde::{Monde, ENCRE_PAS};
@@ -156,5 +162,114 @@ pub fn dessiner_encre(monde: &Monde) {
     let c = couleur_mq(ARDOISE_OMBRE);
     for y in (0..HAUTEUR_LOGIQUE).step_by(pas_rangee) {
         macroquad::prelude::draw_rectangle(0.0, y as f32, LARGEUR_LOGIQUE as f32, 1.0, c);
+    }
+}
+
+/// La pieuvre du niveau, s'il y en a une.
+fn la_pieuvre(monde: &Monde) -> Option<&Pieuvre> {
+    monde.entites.iter().find_map(|e| match e {
+        Entite::Pieuvre(p) => Some(p.as_ref()),
+        _ => None,
+    })
+}
+
+/// La case `(tx, ty)` appartient-elle à la plateforme saisie en ce moment ? Le
+/// jeu de tuiles ne la dessine pas : `dessiner_saisie` s'en charge.
+pub fn case_saisie(monde: &Monde, tx: i32, ty: i32) -> bool {
+    la_pieuvre(monde)
+        .and_then(|p| {
+            p.saisie()
+                .map(|s| p.plateformes[s.cible].contains(&(tx, ty)))
+        })
+        .unwrap_or(false)
+}
+
+/// Enfoncement (px) de la plateforme saisie sous sa place, de 0 à `fond` (elle
+/// est alors tout entière sous la surface), et son tremblement (px). Pure.
+fn enfoncement(etat: EtatSaisie, fond: f32, pas: u32) -> (f32, f32) {
+    match etat {
+        // Le tremblement grandit avec l'annonce : 1 px, puis 2 px à la fin.
+        EtatSaisie::Annonce(a) => {
+            let ampleur = if a < 0.5 { 1.0 } else { 2.0 };
+            (0.0, [0.0, ampleur, 0.0, -ampleur][(pas / 2 % 4) as usize])
+        }
+        EtatSaisie::Plongee(p) => ((fond * p).round(), 0.0),
+        EtatSaisie::SousLEau => (fond, 0.0),
+        EtatSaisie::Remontee(p) => ((fond * (1.0 - p)).round(), 0.0),
+    }
+}
+
+/// La plateforme que la Pieuvre emporte (carte 9.12f), après l'eau du bassin :
+/// ses tuiles (qui tremblent, puis coulent, découpées à la surface), le
+/// tentacule qui monte de l'eau et s'enroule sur son dessus, les remous.
+pub fn dessiner_saisie(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let Some(p) = la_pieuvre(monde) else {
+        return;
+    };
+    let Some(saisie) = p.saisie() else {
+        return;
+    };
+    let t = TAILLE_TUILE;
+    let (cx, cy) = (cx as f32, cy as f32);
+    let cases = &p.plateformes[saisie.cible];
+    // La surface du bassin : le bas des colonnes de tentacules.
+    let surface = p.colonnes[0].bas();
+    let haut = cases.iter().map(|c| c.1).min().unwrap_or(0) as f32 * t;
+    let (g, d) = (
+        cases.iter().map(|c| c.0).min().unwrap_or(0) as f32 * t,
+        (cases.iter().map(|c| c.0).max().unwrap_or(0) + 1) as f32 * t,
+    );
+    let etat = saisie.etat();
+    let (dy, dx) = enfoncement(etat, surface - haut, monde.pas);
+    // Les tuiles, et l'objet posé dessus : seulement ce qui dépasse de l'eau.
+    for &(tx, ty) in cases {
+        let (nom, objet) = crate::scene::noms_de_la_case(monde, tx, ty);
+        let (x, y) = (tx as f32 * t + dx, ty as f32 * t + dy);
+        let reste = surface - y;
+        banque.dessiner_tuile_haut(monde.infos.theme, nom, x - cx, y - cy, reste);
+        if let Some(objet) = objet {
+            banque.dessiner_tuile_haut(monde.infos.theme, objet, x - cx, y - t - cy, reste + t);
+        }
+    }
+    // Le tentacule : il sort au milieu de la plateforme, monte pendant la 1re
+    // moitié de l'annonce, s'enroule sur le dessus ensuite et l'entraîne.
+    let milieu = ((g + d) / 2.0 - 12.0).round();
+    let remous = image(["remous_pieuvre0", "remous_pieuvre1"], monde.pas, 6);
+    let tirage = match etat {
+        EtatSaisie::Annonce(a) => (a * 2.0).min(1.0),
+        EtatSaisie::Plongee(_) => 1.0,
+        _ => 0.0,
+    };
+    if tirage > 0.0 {
+        let plein = surface - haut + 4.0;
+        let h = (plein * tirage).round() - dy;
+        dessiner_tentacule(banque, milieu - cx, surface - cy, h, monde.pas);
+        if tirage >= 1.0 {
+            let nom = image(["tentacule_enroule0", "tentacule_enroule1"], monde.pas, 8);
+            let mut x = g;
+            while x < d {
+                let y = haut - 3.0 + dy;
+                banque.dessiner_haut(nom, x + dx - cx, y - cy, surface - y);
+                x += t;
+            }
+        }
+        banque.dessiner(
+            "ombre_pieuvre",
+            milieu - 4.0 - cx,
+            surface + 1.0 - cy,
+            false,
+        );
+    }
+    // Des remous sur toute la largeur de la plateforme, de la plongée à la
+    // remontée (sa place sous l'eau), et au pied du tentacule pendant l'annonce.
+    let (r0, r1) = if matches!(etat, EtatSaisie::Annonce(_)) {
+        (milieu - 4.0, milieu + 28.0)
+    } else {
+        (g, d)
+    };
+    let mut x = r0;
+    while x < r1 {
+        banque.dessiner(remous, x - cx, surface - 5.0 - cy, false);
+        x += LARGEUR_COLONNE;
     }
 }

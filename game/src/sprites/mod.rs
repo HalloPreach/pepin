@@ -357,6 +357,14 @@ impl Banque {
         }
     }
 
+    /// Dessine seulement les `hauteur` premières rangées de la tuile `nom` du thème
+    /// (le reste est sous l'eau) : la plateforme que la Pieuvre emporte (carte 9.12f).
+    pub fn dessiner_tuile_haut(&self, theme: Theme, nom: &str, x: f32, y: f32, hauteur: f32) {
+        if let Some(t) = self.tuiles[theme.indice()].get(nom) {
+            Self::poser_haut(t, x, y, hauteur);
+        }
+    }
+
     /// Dessine seulement les `hauteur` premières rangées du sprite `nom` (le reste est
     /// sous l'eau) : la tête de la Pieuvre qui replonge, un tentacule qui redescend
     /// (carte 9.12a). Un découpage de l'image, pas une mise à l'échelle.
@@ -364,6 +372,10 @@ impl Banque {
         let Some(t) = self.sprites.get(nom) else {
             return;
         };
+        Self::poser_haut(t, x, y, hauteur);
+    }
+
+    fn poser_haut(t: &Texture2D, x: f32, y: f32, hauteur: f32) {
         let h = hauteur.round().clamp(0.0, t.height());
         if h <= 0.0 {
             return;

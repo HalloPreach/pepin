@@ -13,6 +13,7 @@ use pepin_core::aabb::Aabb;
 use pepin_core::entities::contacts::{
     porter_par_plateformes, resoudre_contacts, verifier_vide, CauseMort, Contact,
 };
+use pepin_core::entities::pieuvre::{cases_englouties, GrilleSaisie};
 use pepin_core::entities::{
     courants_des_entites, eaux_des_entites, reprendre_apres_une_mort, solides_des_entites,
     Actualisable, Entite,
@@ -271,11 +272,23 @@ impl Monde {
         self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);
         self.precedent_entites = self.entites.iter().map(Self::coin).collect();
 
+        // La Pieuvre du port (carte 9.12f) voit où est Pépin : elle vise sa
+        // plateforme, et ne la fait jamais remonter dans lui.
+        for e in &mut self.entites {
+            if let Entite::Pieuvre(p) = e {
+                p.voir_pepin(self.joueur.boite);
+            }
+        }
         // 1. Les entités avancent (plateformes, ennemis, éclairs...).
         let solides = solides_des_entites(&self.entites);
         {
-            let env = Environnement {
+            let trous = cases_englouties(&self.entites);
+            let grille = GrilleSaisie {
                 grille: &self.niveau,
+                trous: &trous,
+            };
+            let env = Environnement {
+                grille: &grille,
                 solides: &solides,
                 courants: &self.niveau.courants,
                 vents: &self.niveau.vents,
@@ -310,8 +323,15 @@ impl Monde {
         } else {
             Vec::new()
         };
-        let env = Environnement {
+        // La plateforme que la Pieuvre a emportée sous l'eau ne porte plus : on
+        // perce la grille de ses cases, le temps de la plongée (carte 9.12f).
+        let trous = cases_englouties(&self.entites);
+        let grille = GrilleSaisie {
             grille: &self.niveau,
+            trous: &trous,
+        };
+        let env = Environnement {
+            grille: &grille,
             solides: &solides,
             courants: &courants,
             vents: &self.niveau.vents,
