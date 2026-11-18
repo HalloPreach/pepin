@@ -1399,7 +1399,10 @@ mod tests {
             },
             &env,
         );
-        assert!(!j.en_barque() && !j.bateau_herite(), "le saut lâche la barque");
+        assert!(
+            !j.en_barque() && !j.bateau_herite(),
+            "le saut lâche la barque"
+        );
         for _ in 0..240 {
             j.actualiser(&droite(), &env);
             assert!(!j.en_barque(), "sans BAS, pas de barque");
