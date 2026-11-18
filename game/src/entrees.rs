@@ -378,6 +378,20 @@ pub fn fonds_qa_demande() -> bool {
     RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_FONDS_QA)
 }
 
+/// Test de lisibilité (carte 9.20g), build de QA seulement : la touche O allume ou
+/// éteint le repassage des cases SOLIDES de la grille en couleur vive
+/// (`mobilier_rue::dessiner_solides_qa`), pour vérifier sur une capture que ce qui
+/// paraît solide l'est. Inerte en production (la fonction n'y existe pas).
+#[cfg(feature = "debug_niveaux")]
+pub fn solides_qa() -> bool {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static ALLUME: AtomicBool = AtomicBool::new(false);
+    if RACCOURCIS_NIVEAUX && is_key_pressed(KeyCode::O) {
+        ALLUME.fetch_xor(true, Ordering::Relaxed);
+    }
+    ALLUME.load(Ordering::Relaxed)
+}
+
 /// Plantage volontaire (touche F9) : n'existe que dans le build de QA, fonctionnalité
 /// Cargo `qa_plantage`. Il sert à vérifier dans un vrai navigateur qu'un plantage en
 /// cours de partie (panique Rust, devenue « RuntimeError: unreachable » en wasm)

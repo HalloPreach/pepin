@@ -132,6 +132,9 @@ if (!MONDE1) {
 const script = fs.readFileSync(fichierScript, 'utf8').trim();
 console.log('démarré :', await ouvrir());
 if (!MONDE1 && process.env.SANS_BAS !== '1') await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
+// Carte 9.20g : TOUCHES='{"image":"Code",...}' appuie en plus ces touches pendant le
+// rejeu (ex. `KeyO` : le test de lisibilité du build de QA, cases solides en or).
+if (process.env.TOUCHES) await evalue(`Object.assign(window.__P.touches, ${process.env.TOUCHES}); 1`);
 let pos = 0;
 const etapes = demandes.map((d) => { const [nom, n] = d.split(':'); return [Number(n), nom]; }).sort((a, b) => a[0] - b[0]);
 for (const [a, nom] of etapes) {

@@ -35,10 +35,11 @@ pub const JEUX: [&[(&str, Image)]; 5] = [
 
 /// Pavés de la rue (la surface où l'on marche) : contour sombre, arête claire, trois
 /// rangées de pavés décalées (reflet en haut à gauche, ombre en bas à droite), joints
-/// sombres, puis le lit de sable.
+/// sombres, puis le lit de sable. Carte 9.20g : l'arête est le LISERÉ CLAIR (nuage)
+/// de tout dessus où l'on se pose, comme la bordure et le mobilier de rue.
 pub const PAVE: Image = &[
     "0000000000000000",
-    "4444444444444444",
+    "6666666666666666",
     "4443333144433331",
     "4333332143333321",
     "3333322133333221",
@@ -59,7 +60,7 @@ pub const PAVE: Image = &[
 /// trottoir, une pierre claire en haut et une arête nette (le contour de la colonne 0).
 pub const PAVE_G: Image = &[
     "0000000000000000",
-    "0666664444444444",
+    "0666666666666666",
     "0555513144433331",
     "0444412143333321",
     "0443412133333221",
@@ -79,7 +80,7 @@ pub const PAVE_G: Image = &[
 /// Pavés au bord DROIT de la rue : la même bordure, à droite.
 pub const PAVE_D: Image = &[
     "0000000000000000",
-    "4444444444666660",
+    "6666666666666660",
     "4443333144155550",
     "4333332143144430",
     "3333322133143430",
