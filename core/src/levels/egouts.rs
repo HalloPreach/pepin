@@ -49,6 +49,25 @@
 //! (`H`, au départ et à l'arrivée) ; les tuyaux et la grille du fond viennent du
 //! thème.
 //!
+//! Ennemis ajoutés par la carte 9.22b (placements seulement, Habitué visé 0,55
+//! à 0,70), chacun visible avant de toucher et loin des lanternes. Des FLAQUES
+//! `f` (celles du Monde 1, l'eau sale qui patrouille) plutôt que des rats : un
+//! ennemi d'eau écrasable double les cases du robot jusqu'au drapeau (un bit
+//! par ennemi écrasé, `bot_qa::ennemis_d_eau_de_la_case`), la flaque non.
+//! - une flaque dans le couloir du premier rat (colonne 14) : sous le plafond
+//!   bas, le rat qui fonce et la flaque qui avance ;
+//! - une flaque sur le quai entre les deux premiers bassins (colonne 47) : on
+//!   y remonte du bassin de la goutte avant l'eau, et elle est là ;
+//! - une flaque sur la marche du grand collecteur (colonnes 76 à 79), d'où
+//!   l'on prend son élan vers le bassin A ;
+//! - une flaque sur la corniche de sortie du bassin B (colonnes 115 à 119) :
+//!   on remonte du bassin pendant que la marée monte, et elle garde la marche ;
+//! - un 2e poisson dans le canal (colonne 140), avant la seconde voûte : en
+//!   barque, il faut choisir son moment pour passer sous lui ;
+//! - une flaque dans la galerie des rats (colonne 178), avec le rat de la
+//!   colonne 175, et une dans le couloir sous la galerie haute (colonne 208),
+//!   entre les deux rats et sous la goutte du plafond.
+//!
 //! Habillage (carte 9.20b, `game/src/decor_egouts.rs`, rendu seulement) : on
 //! arrive en tombant par la GRILLE de la bouche d'égout (au plafond au-dessus du
 //! départ, le rai du lampadaire et la pluie qui passent) ; d'autres grilles au
@@ -81,9 +100,9 @@ BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ..........BBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBB................................................................BBBBBBB.................BBBBBBBBBB......BBBBBBBBBBBBBBBBBBBBBBBB................BBBBBBBBBBBB.................B
 ..........BBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBB................................................................BBBBBBB.................BBBBBBBBBB......BBBBBBBBBBBBBBBBBBBBBBBB........r.....o.BBBBBBBBBBBB.................B
 ..........BBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBB................................................................BBBBBBB.................BBBBBBBBBB......BBBBBBBBBBBB................############BBBBBBBBBBBB.................B
-.................................................................................................................................BBBBBBB.................BBBBBBBBBB................................................V..........................B
-..@..H........................L...................................L.........####...............L....................................o..............i.................###L.................r.......##............................L....H...X....B
-##########.........r........######========###########==========#############BBBB==============####.................######~~~~}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBB#......r.....#############BB#......r...........r.....##################
+.............................................................................f...................................................BBBBBBB.................BBBBBBBBBB................................................V..........................B
+..@..H........................L................f..................L.........####...............L.....................f..............o.......i......i.................###L.................r.......##............................L....H...X....B
+##########....f....r........######========###########==========#############BBBB==============####.................######~~~~}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBB#......r..f..#############BB#......r....f......r.....##################
 BBBBBBBBBB##################BBBBBB========BBBBBBBBBBB==========BBBBBBBBBBBBBBBBB==============BBBB==============###BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB############BBBBBBBBBBBBBBBB########################BBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB========oBBBBBBBBBB==========BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB==============BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
