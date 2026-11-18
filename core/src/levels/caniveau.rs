@@ -115,12 +115,10 @@ mod tests {
             assert_eq!(*eau, '}', "courant d'eau, colonne {x}");
         }
         // L'autobus : colonnes 41 à 47, rangées 2 à 5 ; la rue est en rangée 7.
-        for x in 41..=47 {
-            let colonne: String = (1..=7).map(|y| g[y][x]).collect();
-            assert!(
-                colonne.ends_with("aaaa.}") || colonne.ends_with("aaaa.~"),
-                "colonne {x} : {colonne}"
-            );
+        for (x, &dessous) in g[6].iter().enumerate().take(48).skip(41) {
+            let colonne: String = (2..=5).map(|y| g[y][x]).collect();
+            assert_eq!(colonne, "aaaa", "autobus, colonne {x}");
+            assert_eq!(dessous, '.', "une rangée libre sous l'autobus, colonne {x}");
         }
         assert!(g[7][40..=48].iter().all(|&c| matches!(c, '~' | '}')));
     }
