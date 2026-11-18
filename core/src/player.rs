@@ -127,6 +127,12 @@ pub struct Joueur {
     /// la surface, et non protégé. Signalée une fois à `resoudre_contacts`
     /// (`CauseMort::Noyade`), remise à zéro à chaque `placer` (respawn).
     noyade: bool,
+    /// Bateau « hérité » (carte 9.2e, AGA : « quand on sort de l'eau sans
+    /// sauter comme pour la grande cascade, ça nous enlève pas le bateau ») :
+    /// la barque a quitté l'eau SANS saut (dérive par-dessus un bord, courant,
+    /// chute d'eau). Pépin garde son parapluie retourné pendant la chute, même
+    /// BAS lâché, jusqu'à l'eau (barque), le sol, un plané ou un rebond.
+    bateau_herite: bool,
 }
 
 impl Joueur {
@@ -147,6 +153,7 @@ impl Joueur {
             elan_auvent: 0.0,
             en_barque: false,
             noyade: false,
+            bateau_herite: false,
         }
     }
 
@@ -203,12 +210,19 @@ impl Joueur {
         self.en_barque
     }
 
+    /// Bateau hérité (carte 9.2e) ? Sorti de l'eau en barque sans sauter, il
+    /// tombe parapluie retourné sans tenir BAS.
+    pub fn bateau_herite(&self) -> bool {
+        self.bateau_herite
+    }
+
     /// Met Pépin À BORD de la barque (carte 9.2) : flottant à la surface,
     /// parapluie retourné sous lui. Les robots le reconstituent depuis un
     /// état (leur noeud ne garde que la position) ; le jeu lui l'obtient
     /// tout seul en PLANANT dans l'eau (`actualiser`).
     pub fn entrer_en_barque(&mut self) {
         self.en_barque = true;
+        self.bateau_herite = false;
         self.plane = false;
         self.au_sol = false;
         self.vitesse.y = 0.0;
@@ -222,6 +236,8 @@ impl Joueur {
         self.plane = false;
         self.monte_par_saut = false;
         self.coyote = 0;
+        // Un rebond relance Pépin comme un saut : le bateau hérité est lâché.
+        self.bateau_herite = false;
     }
 
     /// Lancer d'auvent : vers le haut à `VITESSE_AUVENT` et vers la droite avec
@@ -298,13 +314,18 @@ impl Joueur {
         if self.plane && !etait_plane {
             ev.debut_plane = true;
         }
+        if self.plane {
+            // Ouvrir le parapluie lâche le bateau hérité (carte 9.2e).
+            self.bateau_herite = false;
+        }
         // --- 3. bis Parapluie retourné (carte 9.2b) : BAS tenu -------------
         // Au sol comme en l'air, BAS tenu retourne le parapluie (la toile en
         // bol). Cela ne change RIEN au mouvement : en l'air, Pépin tombe
         // normalement. Seule l'eau le remarque (étape 8 : il y devient une
         // barque). SAUT tenu l'emporte : planer et retourner en même temps,
-        // c'est planer.
-        self.retourne = entrees.bas && !self.plane;
+        // c'est planer. Le bateau hérité (carte 9.2e) le garde retourné sans
+        // BAS tenu.
+        self.retourne = (entrees.bas || self.bateau_herite) && !self.plane;
 
         // --- 3bis. Barque (carte 9.2) : le parapluie retourné flotte --------
         // Ramer est LENT (40 % de la course, `VITESSE_RAME`) ; le courant
@@ -364,8 +385,13 @@ impl Joueur {
                 }
                 None => {
                     // Le centre est sorti de l'étendue : la barque quitte
-                    // l'eau et retombe comme n'importe quel joueur.
+                    // l'eau et retombe comme n'importe quel joueur, MAIS
+                    // parapluie toujours retourné sous lui (carte 9.2e) : sorti
+                    // sans sauter, il garde le bateau pendant la chute et
+                    // redevient barque en touchant l'eau plus bas.
                     self.en_barque = false;
+                    self.bateau_herite = true;
+                    self.retourne = true;
                 }
             }
             return ev;
@@ -484,6 +510,12 @@ impl Joueur {
             self.plane = false;
             self.monte_par_saut = false;
             self.elan_auvent = 0.0;
+            if self.bateau_herite {
+                // Posé (carte 9.2e) : le bateau hérité s'arrête là ; il ne
+                // reste retourné (assis, carte 9.2d) que si BAS est tenu.
+                self.bateau_herite = false;
+                self.retourne = entrees.bas;
+            }
             if !etait_au_sol {
                 ev.atterrissage = true;
             }
@@ -510,7 +542,8 @@ impl Joueur {
                 // Toujours vrai ici (`eau_touchee` l'exige) ; gardé pour la lecture.
                 if self.boite.bas() > surface {
                     if self.retourne || self.est_protege() {
-                        // Parapluie RETOURNÉ : Pépin devient une barque, la
+                        // Parapluie RETOURNÉ (BAS tenu, ou bateau hérité de
+                        // la carte 9.2e) : Pépin devient une barque, la
                         // toile en bol flotte à la surface. Il la garde sans
                         // rien tenir (voir le pas 3bis). PROTÉGÉ (il vient de
                         // réapparaître), il ne peut pas couler : l'eau le
@@ -519,6 +552,7 @@ impl Joueur {
                         // réapparition au-dessus de l'eau finirait noyée dès
                         // la fin de la protection.
                         self.en_barque = true;
+                        self.bateau_herite = false;
                         self.plane = false;
                         self.retourne = false;
                         self.vitesse.y = 0.0;
@@ -1293,6 +1327,88 @@ mod tests {
         );
         avec.actualiser(&AUCUNE, &env);
         assert_ne!(avec.etat(), EtatJoueur::Retourne, "BAS lâché : refermé");
+    }
+
+    /// Carte 9.2e (AGA : « quand on sort de l'eau sans sauter comme pour la
+    /// grande cascade, ça nous enlève pas le bateau ») : un bassin haut (y 48,
+    /// x 40 à 120, courant vers la droite) au-dessus d'un bassin bas (y 144, x
+    /// 100 à 300). La barque emportée par le courant passe le bord, tombe SANS
+    /// AUCUNE TOUCHE, parapluie retourné, et redevient barque en bas, vivante.
+    /// Sortie par un SAUT, la même chute sans BAS noie Pépin.
+    #[test]
+    fn sortir_de_l_eau_sans_sauter_garde_le_bateau() {
+        let g = salle();
+        let haut = Eau {
+            zone: Aabb::new(40.0, 48.0, 80.0, 32.0),
+            courant: 1,
+        };
+        let bas = Eau {
+            zone: Aabb::new(100.0, 144.0, 200.0, 32.0),
+            courant: 0,
+        };
+        let eaux = [haut, bas];
+        let env = Environnement {
+            grille: &g,
+            solides: &[],
+            courants: &[],
+            vents: &[],
+            eaux: &eaux,
+        };
+
+        // 1. Le courant emporte la barque par-dessus le bord : aucune touche.
+        let mut j = Joueur::new(60.0, haut.surface() - JOUEUR_H + ENFONCEMENT_BARQUE);
+        j.entrer_en_barque();
+        let mut pas_en_chute = 0;
+        for _ in 0..600 {
+            j.actualiser(&AUCUNE, &env);
+            assert!(!j.est_noye(), "sorti sans sauter : jamais noyé");
+            if !j.en_barque() {
+                pas_en_chute += 1;
+                assert!(j.bateau_herite(), "en chute, il garde le bateau");
+                assert_eq!(j.etat(), EtatJoueur::Retourne, "bateau sous Pépin");
+            } else if j.boite.y > 100.0 {
+                break;
+            }
+        }
+        assert!(pas_en_chute > 5, "il a bien chuté ({pas_en_chute} pas)");
+        assert!(j.en_barque(), "arrivé dans le bassin bas en barque");
+        assert_eq!(j.boite.bas(), bas.surface() + ENFONCEMENT_BARQUE);
+        assert!(!j.bateau_herite());
+
+        // Posé au sol après une telle chute : l'état normal revient (BAS lâché).
+        let mut j = Joueur::new(60.0, haut.surface() - JOUEUR_H + ENFONCEMENT_BARQUE);
+        j.entrer_en_barque();
+        let sans_bassin_bas = Environnement {
+            eaux: std::slice::from_ref(&haut),
+            ..env
+        };
+        for _ in 0..600 {
+            j.actualiser(&AUCUNE, &sans_bassin_bas);
+        }
+        assert!(j.au_sol && !j.bateau_herite(), "posé : bateau lâché");
+        assert_eq!(j.etat(), EtatJoueur::Sol);
+
+        // 2. Le contraire : il SAUTE hors de la barque vers la droite, puis
+        // tombe dans le bassin bas sans BAS : noyade.
+        let mut j = Joueur::new(100.0, haut.surface() - JOUEUR_H + ENFONCEMENT_BARQUE);
+        j.entrer_en_barque();
+        j.actualiser(
+            &Entrees {
+                saut: true,
+                ..droite()
+            },
+            &env,
+        );
+        assert!(!j.en_barque() && !j.bateau_herite(), "le saut lâche la barque");
+        for _ in 0..240 {
+            j.actualiser(&droite(), &env);
+            assert!(!j.en_barque(), "sans BAS, pas de barque");
+            if j.est_noye() {
+                break;
+            }
+        }
+        assert!(j.est_noye(), "sorti en sautant, sans BAS : noyade");
+        assert!(j.boite.y > 100.0, "noyé dans le bassin bas");
     }
 
     /// Carte 9.2d (AGA : « quand le parapluie est sous ses fesses on puisse se

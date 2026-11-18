@@ -92,6 +92,13 @@
 //!   chaque plan tient BAS (parapluie retourné) ; il entre donc dans l'eau en
 //!   barque. Un plan « planer » lâche le saut au ras de l'eau (planer dedans
 //!   noierait). Sans eau, jamais de BAS : Monde 1 inchangé.
+//! - le bateau hérité (carte 9.2e) : une barque qui quitte l'eau SANS saut
+//!   (dérive par-dessus un bord, courant) garde le parapluie retourné pendant
+//!   la chute ; c'est la vraie physique (`Joueur::actualiser`) qui le fait, le
+//!   robot n'a rien à tenir. Une barque partie à bord qui retombe dans l'eau
+//!   est un nouveau point de décision (`Fin::Barque`) : descendre de bassin en
+//!   bassin en barque est un chemin. Un plan « planer » le lâche (comme un
+//!   joueur qui ouvre son parapluie).
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -953,6 +960,8 @@ fn simuler(
     // position du pas précédent pour la détecter.
     let mut repos_barque: u16 = 0;
     let mut x_barque_prec: Option<f32> = None;
+    // Carte 9.2e : partie à bord, Pépin a-t-il quitté la barque ?
+    let mut a_quitte_l_eau = false;
 
     for pas in 0..pas_max {
         // BAS (carte 9.2b) : tenu à l'approche de l'eau (`MARGE_BAS`), JAMAIS
@@ -1018,7 +1027,10 @@ fn simuler(
         // REPOS (10 pas sans avancer : bloquée au quai, sans courant) : le
         // prochain choix (sauter) part de cet état immobile.
         if j.en_barque() {
-            if !depart.barque {
+            // Bateau hérité (carte 9.2e) : partie à bord, la barque a quitté
+            // l'eau (dérive sans saut, ou saut) et vient de retomber dans l'eau
+            // en barque : un nouveau point de décision, comme une entrée.
+            if !depart.barque || a_quitte_l_eau {
                 return (Fin::Barque(j.boite.x, j.boite.y), pas + 1);
             }
             // À bord depuis le départ : la barque est à REPOS quand elle ne
@@ -1034,6 +1046,10 @@ fn simuler(
             if repos_barque >= 10 {
                 return (Fin::Barque(j.boite.x, j.boite.y), pas + 1);
             }
+        }
+        // Partie à bord, Pépin n'est plus en barque (carte 9.2e).
+        if depart.barque && !j.en_barque() {
+            a_quitte_l_eau = true;
         }
 
         if !j.au_sol {

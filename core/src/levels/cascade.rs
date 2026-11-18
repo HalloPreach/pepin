@@ -9,7 +9,10 @@
 //! - parapluie OUVERT, on y descend lentement (56 px/s), en sécurité, et l'on
 //!   retombe en barque dans le bassin du dessous ;
 //! - parapluie FERMÉ, on est emporté vite (380 px/s) : dans un bassin, c'est la
-//!   noyade (la chute tue à l'arrivée) ; sur la roche, rien.
+//!   noyade (la chute tue à l'arrivée) ; sur la roche, rien ;
+//! - en BARQUE (carte 9.2e) : la barque que le courant emporte par-dessus le
+//!   bord, sans saut, garde son parapluie retourné ; elle tombe vite et
+//!   retombe en barque dans le bassin du dessous, sans noyade.
 //!
 //! Le parcours, de haut en bas :
 //! 1. le haut de la falaise : Pépin sort du GRAND TUYAU des égouts (carte 9.20c :
@@ -19,8 +22,9 @@
 //!    1re goutte flotte au-dessus (colonne 13) : on la prend d'un saut depuis la
 //!    barque, et l'on replane pour retomber à bord ;
 //! 2. au bout du bassin A, l'eau tombe : la CHUTE C1 (colonnes 27 et 28, dix
-//!    rangées). Il FAUT y planer : on y descend lentement jusqu'au BASSIN B, où
-//!    l'on retombe en barque (parapluie fermé, on s'y noie) ;
+//!    rangées). On y plane (descente lente) ou l'on s'y laisse emporter en
+//!    barque (carte 9.2e) jusqu'au BASSIN B, où l'on retombe en barque
+//!    (sauté hors de la barque, parapluie fermé, on s'y noie) ;
 //! 3. le bassin B, courant `{` vers la gauche : un poisson y saute (colonne 20) ;
 //!    on attend qu'il replonge. Au bout, la corniche (1re lanterne) ;
 //! 4. la GOUTTE DERRIÈRE LA CHUTE : au bout de la corniche, la chute C2 (quatre
