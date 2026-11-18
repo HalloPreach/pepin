@@ -972,7 +972,8 @@ mod tests {
     }
 
     /// Un niveau dure 40 à 60 s pour un joueur normal. Le robot « course
-    /// rapide » est ~2 fois plus rapide qu'un humain découvrant le niveau.
+    /// rapide » est ~2 fois plus rapide qu'un humain découvrant le niveau (au plus
+    /// 45 s, 60 s au chapitre 2 : carte 9.21b).
     ///
     /// L'arène du Grand Nuage : le robot de faisabilité le juge toujours essoufflé
     /// et atteint sa tête en une seconde ; ce qui fait la durée, c'est le combat.
@@ -1020,8 +1021,13 @@ mod tests {
                 "niveau {} : course rapide {s:.1} s (cible {} s)",
                 infos.numero, infos.duree_cible_s
             );
+            // Le chapitre 2 (carte 9.21b, demande d'AGA « les autres niveaux sont trop
+            // courts ») vise 50 à 70 s pour l'Habitué de la mesure : ses longues
+            // traversées en barque comptent autant pour le robot que pour l'Habitué
+            // (peu d'attente), d'où une course rapide permise jusqu'à 60 s.
+            let max = if infos.monde >= 2 { 60.0 } else { 45.0 };
             assert!(
-                (12.0..=45.0).contains(&s),
+                (12.0..=max).contains(&s),
                 "niveau {} : {s:.1} s",
                 infos.numero
             );
