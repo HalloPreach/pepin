@@ -225,7 +225,8 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
     (
         "caniveau",
         Intro {
-            texte: "La pluie descend des toits et file dans le caniveau. Pépin la suit.",
+            // Carte 9.20a : le niveau suit l'eau jusqu'à la bouche d'égout (sa sortie).
+            texte: "La pluie file dans le caniveau, jusqu'à la bouche d'égout. Pépin la suit.",
             // Carte 9.2b (demande d'AGA) : c'est BAS, plus le saut, qui fait la barque.
             astuce: "BAS : retourner le parapluie (en barque sur l'eau).",
         },

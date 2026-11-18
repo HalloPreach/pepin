@@ -126,9 +126,12 @@ if (!MONDE1) {
 }
 
 // 2. La partie du Monde 2 du robot.
+// Carte 9.20a : SANS_BAS=1 n'appuie pas sur BAS à l'image 0 (depuis la 9.1b, BAS +
+// Entrée à la même image ouvre la CARTE au lieu de JOUER, et le build de QA, où tout
+// est ouvert, y prend le dernier niveau : le script du robot part alors ailleurs).
 const script = fs.readFileSync(fichierScript, 'utf8').trim();
 console.log('démarré :', await ouvrir());
-if (!MONDE1) await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
+if (!MONDE1 && process.env.SANS_BAS !== '1') await evalue('window.__P.touches = { 0: "ArrowDown" }; 1');
 let pos = 0;
 const etapes = demandes.map((d) => { const [nom, n] = d.split(':'); return [Number(n), nom]; }).sort((a, b) => a[0] - b[0]);
 for (const [a, nom] of etapes) {

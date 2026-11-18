@@ -456,6 +456,13 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             continue;
         };
         let (x, y) = coin_decor(d.x, d.y, largeur(dessin), hauteur(dessin));
+        // Carte 9.20a : la descente de gouttière n'est pas centrée : son tuyau est dans
+        // sa case, sa gargouille déborde à droite jusqu'au caniveau.
+        let x = if matches!(d.genre, GenreDecor::Gouttiere) {
+            d.x.round() as i32
+        } else {
+            x
+        };
         banque.dessiner(nom, (x - cx) as f32, (y - cy) as f32, miroir);
     }
 }
