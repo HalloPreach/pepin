@@ -37,14 +37,18 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   de la carte : aucun coin à l'abri.
 /// - Ses têtes (48 x 32, posées sur l'eau) : au milieu (x de 136 à 184), à gauche
 ///   (40 à 88) et à droite (232 à 280).
-/// - Carte 9.12e (AGA : « enlever les petites plateformes et garder uniquement
-///   les grosses ») : seulement DEUX pontons, aux bords (ligne 6, colonnes 1 à 4
-///   et 15 à 18, sur leurs piliers aux colonnes 1 et 18). Tout le milieu est
-///   l'eau du bassin : on le traverse en barque (BAS tenu) ou en planant. Les
-///   têtes de gauche et de droite dépassent d'une demi-case au bout de leur
-///   ponton (on se laisse tomber dessus) ; celle du milieu se saute depuis la
-///   barque ou en planant. (Carte 9.12c : un platelage continu, avec trois petits
-///   pontons de 2 cases au milieu.)
+/// - Carte 9.12c (arène moins noyante) : un PLATELAGE continu (ligne 6, sur des
+///   piliers aux colonnes 1, 6-7, 12-13 et 18), percé de quatre trous d'une case
+///   (colonnes 5, 8, 11 et 14) : chaque trou est au bord d'une tête, qui y dépasse
+///   d'une demi-case. On esquive en courant, en sautant un trou d'une case ; on
+///   tombe dans un trou pour atterrir sur la tête sortie. Sous le platelage,
+///   l'eau (la barque, BAS tenu, rattrape une chute).
+/// - Carte 9.12e (AGA : « enlever les petites plateformes au-dessus des endroits
+///   où se positionnait la pieuvre ») : le petit ponton flottant des colonnes
+///   9-10, au-dessus de la tête du milieu (tuiles 8,5 à 11,5), est retiré : le
+///   trou du milieu fait 4 cases (colonnes 8 à 11). Les petits pontons sur piliers
+///   (6-7, 12-13) ne surplombent aucune tête et restent ; les têtes de gauche et
+///   de droite sont sous les grands pontons des bords, gardés.
 /// - Gouttes : en colonne sous le départ (colonne 1, lignes 1 à 3) : Pépin les
 ///   prend en tombant au début, avant la colère. Sinon chaque goutte prise ou non
 ///   multiplie les cas que la recherche du robot et la mesure de difficulté
@@ -56,9 +60,9 @@ Bo.................B
 Bo.................B
 B..................B
 B.L................B
-B####..........####B
-B#................#B
-B#................#B
+B####.##....##.####B
+B#....##....##....#B
+B#....##....##....#B
 B~~~~~~~~8~~~~~~~~~B
 BBBBBBBBBBBBBBBBBBBB
 ";
