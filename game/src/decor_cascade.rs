@@ -42,10 +42,12 @@ const RIDEAU_L: i32 = 10 * T;
 /// Hauteur (px) de la lèvre de roche d'où l'eau bascule, en haut du niveau.
 const LEVRE: i32 = 12;
 /// Les paliers du rideau (px, dans le niveau) : l'eau y rebondit dans l'écume. Pris
-/// là où le rideau se voit (la salle des chutes, le pied de la falaise).
-const PALIERS: [i32; 2] = [15 * T, 34 * T];
-/// Le pied de la falaise (px) : sous cette ordonnée, la roche du fond borde le rideau.
-const PIED_FALAISE: i32 = 30 * T;
+/// là où le rideau se voit (la salle des chutes, la salle des bras au ras du bassin
+/// E, la mare aux nénuphars ; carte 9.21b, le niveau allongé à 94 rangées).
+const PALIERS: [i32; 3] = [15 * T, 45 * T, 82 * T];
+/// Le pied de la falaise : la roche du fond borde le rideau sur les douze dernières
+/// rangées au-dessus du bassin d'arrivée (elle suit la hauteur du niveau).
+const PIED_FALAISE: i32 = 12 * T;
 /// Vitesse de l'eau du rideau (px par pas) : plus vite que la pluie.
 const VITESSE_RIDEAU: i32 = 3;
 
@@ -246,12 +248,14 @@ impl Trame {
     }
 }
 
-/// La falaise du pied, de part et d'autre du rideau, sous `PIED_FALAISE` : des pans
-/// de roche du fond (ardoise de nuit, fissures en biais), leur crête déchiquetée,
+/// La falaise du pied, de part et d'autre du rideau, sur `PIED_FALAISE` au-dessus du
+/// bassin d'arrivée : des pans de roche du fond (ardoise de nuit, fissures en biais),
+/// leur crête déchiquetée,
 /// jamais de dessus clair ni de trait horizontal (rien à atteindre). À droite, la
 /// crête plonge avant le bord : la gorge s'ouvre sur le ciel, là où part la rivière.
 fn dessiner_falaise_du_pied(bas: i32, largeur: i32, (cx, cy): (i32, i32)) {
-    if PIED_FALAISE > cy + H || bas < cy {
+    let pied = bas - PIED_FALAISE;
+    if pied > cy + H || bas < cy {
         return;
     }
     let (g, d) = (RIDEAU_X - 10, RIDEAU_X + RIDEAU_L + 10);
@@ -262,7 +266,7 @@ fn dessiner_falaise_du_pied(bas: i32, largeur: i32, (cx, cy): (i32, i32)) {
     let crete = |x: i32| {
         let distance = if x < g { g - x } else { x - d };
         let effondrement = if x > breche { (x - breche) * 2 } else { 0 };
-        PIED_FALAISE + distance / 3 + effondrement + (hache(x.div_euclid(4) + 500) % 6) as i32
+        pied + distance / 3 + effondrement + (hache(x.div_euclid(4) + 500) % 6) as i32
     };
     for x in (0..largeur).step_by(4) {
         if (g..d).contains(&x) {
