@@ -5,15 +5,20 @@
 #
 #   carte <clé> : ce qu'une carte de NIVEAU lance (cible : moins de 3 minutes).
 #                 Tous les tests rapides (core et game : grilles, décor, physique...),
-#                 plus, pour SON niveau seulement : faisabilité, reprise depuis chaque
-#                 lanterne, tests de lot de son module (`levels::<clé>::`) et robot de
-#                 QA qui le finit sans mourir.
+#                 plus, pour SON niveau seulement : faisabilité (3 gouttes, lanternes,
+#                 robot maladroit, durée), reprise depuis chaque lanterne et tests de
+#                 lot de son module (`levels::<clé>::`). PAS de robot de QA (décision
+#                 d'AGA du 18/11 : aucune carte ne lance de robot).
+#   carte <clé> robot [sans-memoire] : la même chose, plus le robot de QA qui finit
+#                 SON niveau sans mourir (sur demande seulement : sa recherche dure
+#                 9 s au caniveau, 25 min aux égouts). Le parcours trouvé entre dans
+#                 la mémoire (plus bas) : le `lot` suivant le relit.
 #   lot         : la suite complète du coordinateur, une fois par lot (cible : moins
 #                 de 12 minutes). Tous les tests rapides, plus tous les tests marqués
 #                 `#[ignore = "lot : ..."]` (robots, faisabilité de chaque niveau...).
 #                 Les autres tests ignorés (écriture de scripts, mesures) n'y sont pas.
 #                 `lot sans-memoire` : sans la mémoire des parcours du robot (plus bas),
-#                 toutes ses recherches refaites (plus de 40 minutes).
+#                 toutes ses recherches refaites (34 minutes).
 #
 # Les binaires de test sont compilés une fois (profil `tests-rapides`, voir
 # Cargo.toml), puis lancés EN MÊME TEMPS (un processus par groupe). Chaque
@@ -77,15 +82,32 @@ case "$COMMANDE" in
   carte)
     CLE="${1:-}"
     if [ -z "$CLE" ] || [ ! -f "core/src/levels/$CLE.rs" ]; then
-      echo "usage : ./docker-cargo.sh carte <clé> (clé d'un fichier core/src/levels/<clé>.rs)" >&2
+      echo "usage : ./docker-cargo.sh carte <clé> [robot] [sans-memoire] (clé d'un fichier core/src/levels/<clé>.rs)" >&2
       exit 2
     fi
+    shift
+    ROBOT=0
+    for option in "$@"; do
+      case "$option" in
+        robot) ROBOT=1 ;;
+        sans-memoire)
+          unset PEPIN_MEMOIRE_PARCOURS
+          echo "mémoire des parcours : NON (recherche du robot refaite)"
+          ;;
+        *)
+          echo "option inconnue : $option (robot, sans-memoire)" >&2
+          exit 2
+          ;;
+      esac
+    done
     export CLE
     lancer core-rapides "$CORE"
     lancer game-rapides "$GAME"
     lancer core-niveau "$CORE" --ignored --exact zones::tests::le_niveau_de_la_carte
     lancer core-module "$CORE" --ignored "levels::$CLE::"
-    lancer game-robot "$GAME" --ignored --exact bot_qa::tests::le_robot_finit_le_niveau_de_la_carte
+    if [ $ROBOT = 1 ]; then
+      lancer game-robot "$GAME" --ignored --exact bot_qa::tests::le_robot_finit_le_niveau_de_la_carte
+    fi
     ;;
   lot)
     # `lot sans-memoire` : toutes les recherches du robot refaites (voir plus bas).

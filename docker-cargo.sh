@@ -5,8 +5,8 @@
 #         ./docker-cargo.sh test -p game --no-default-features   (natif sans libasound : sans son réel)
 #         ./docker-cargo.sh fmt -p core         (applique rustfmt)
 #         ./docker-cargo.sh lint                (fmt --check + clippy -D warnings, core puis game wasm puis game tests)
-#         ./docker-cargo.sh carte <clé>         (tests d'une carte de niveau, < 3 min : voir tests-carte-lot.sh)
-#         ./docker-cargo.sh lot                 (suite complète du coordinateur, tests de lot compris, < 12 min)
+#         ./docker-cargo.sh carte <clé>         (tests d'une carte de niveau : voir tests-carte-lot.sh)
+#         ./docker-cargo.sh lot                 (suite complète du coordinateur, tests de lot compris)
 # Le conteneur est nommé puis supprimé avec `docker rm` (pas de --rm).
 set -u
 cd "$(dirname "$0")"

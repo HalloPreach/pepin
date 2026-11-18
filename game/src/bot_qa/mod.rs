@@ -560,12 +560,13 @@ mod tests {
         );
     }
 
-    /// Le robot d'UN niveau (carte 9.23, commande `./docker-cargo.sh carte <clé>`,
-    /// variable `CLE`) : son parcours, rejoué dans la vraie simulation, finit le
-    /// niveau sans mourir (comme l'arc-en-ciel ci-dessous). La partie complète du
-    /// Monde 2 (`le_robot_finit_le_monde_2_sans_mourir`) reste au lot.
+    /// Le robot d'UN niveau (carte 9.23, commande `./docker-cargo.sh carte <clé>
+    /// robot`, variable `CLE`), sur demande seulement : son parcours, rejoué dans la
+    /// vraie simulation, finit le niveau sans mourir (comme l'arc-en-ciel
+    /// ci-dessous). La partie complète du Monde 2
+    /// (`le_robot_finit_le_monde_2_sans_mourir`) reste au lot.
     #[test]
-    #[ignore = "carte : un seul niveau, CLE=<clé> (./docker-cargo.sh carte <clé>)"]
+    #[ignore = "carte : un seul niveau, CLE=<clé> (./docker-cargo.sh carte <clé> robot)"]
     fn le_robot_finit_le_niveau_de_la_carte() {
         use crate::monde::Monde;
         let cle = std::env::var("CLE").expect("CLE=<clé du niveau>");
