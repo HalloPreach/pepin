@@ -1430,6 +1430,8 @@ pub fn dessiner(
     crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
+    // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.
+    crate::decor_egouts::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);
