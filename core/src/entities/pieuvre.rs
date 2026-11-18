@@ -38,13 +38,23 @@
 //! perdus. MODE FACILE (carte 8.14, même mécanisme que le nuage) : `passer_en_facile`
 //! lui donne `PV_PIEUVRE_FACILE` points de vie et seulement les deux premiers motifs.
 //!
+//! LA SAISIE (carte 9.12f, demande d'AGA : « ajouter une mécanique » plutôt
+//! qu'accélérer) : PAR-DESSUS les motifs, qui ne changent pas, un tentacule
+//! attrape la plateforme de Pépin (`Pieuvre::plateformes`, les 4 appuis de
+//! l'arène) et l'emporte sous l'eau. Annonce de 1,3 s (le tentacule s'enroule, la
+//! plateforme tremble, elle porte encore), plongée de 0,5 s (elle ne porte plus :
+//! Pépin tombe à l'eau, la barque le sauve), 3 s sous l'eau, puis elle remonte,
+//! jamais dans Pépin. Une seule à la fois ; toutes les 9, 7 puis 5 s selon le
+//! motif ; quand la tête remonte, elle lâche la plateforme. La grille du niveau ne change pas : le jeu
+//! l'enveloppe d'une `GrilleSaisie` qui perce les cases englouties.
+//!
 //! Notions Rust : on RÉUTILISE la `Salve` du Grand Nuage (`use super::nuage::Salve`)
 //! au lieu de la recopier ; un `enum` à données (`EtatTentacule::Annonce(f32)`) ; des
 //! tableaux de taille fixe (`[Aabb; NB_COLONNES]`) construits par le parseur.
 
 use super::nuage::Salve;
-use super::Actualisable;
-use crate::aabb::Aabb;
+use super::{Actualisable, Entite};
+use crate::aabb::{Aabb, Grille, Tuile, TAILLE_TUILE};
 use crate::entities::contacts::MARGE_ECRASEMENT;
 use crate::physics::Environnement;
 use crate::player::Joueur;
@@ -92,6 +102,124 @@ pub const MARGE_TENTACULE: f32 = 4.0;
 /// Places de la tête, en colonnes depuis celle du `8` : au milieu après le motif 1,
 /// à gauche après le 2, à droite après le 3 (il faut traverser l'arène).
 pub const PLACES_TETE: [i8; 3] = [0, -3, 3];
+
+// ---------------------------------------------------------------------------
+// La SAISIE des plateformes (carte 9.12f)
+// ---------------------------------------------------------------------------
+
+/// Annonce d'une saisie : 1,3 s (au moins 1,2 s, demande d'AGA). Un tentacule sort
+/// de l'eau et s'enroule autour de la plateforme, qui tremble. Sans danger.
+pub const ANNONCE_SAISIE_PAS: u16 = 78;
+/// La plateforme s'enfonce sous l'eau : 0,5 s. Ses cases ne portent PLUS dès le
+/// début de la plongée (Pépin, s'il est dessus, tombe à l'eau).
+pub const PLONGEE_SAISIE_PAS: u16 = 30;
+/// La plateforme reste sous l'eau 3 s (des remous marquent sa place).
+pub const SOUS_L_EAU_PAS: u16 = 180;
+/// Elle remonte : 0,4 s, toujours sans porter ; solide à la fin seulement.
+pub const REMONTEE_SAISIE_PAS: u16 = 24;
+/// Durée totale d'une saisie (si rien ne retient la remontée).
+pub const SAISIE_PAS: u16 =
+    ANNONCE_SAISIE_PAS + PLONGEE_SAISIE_PAS + SOUS_L_EAU_PAS + REMONTEE_SAISIE_PAS;
+/// Une saisie toutes les 9 s, puis 7 s, puis 5 s (par motif, donc par point
+/// perdu) : plus elle perd de vie, plus elle insiste. L'annonce, elle, ne
+/// raccourcit jamais.
+pub const INTERVALLES_SAISIE: [u16; PV_PIEUVRE as usize] = [540, 420, 300];
+/// Première saisie (et après une mort) : 3 s après le début du prélude, soit
+/// 1,5 s après le début du premier motif.
+pub const PREMIERE_SAISIE_PAS: u16 = 180;
+
+/// Ce que fait la plateforme saisie pendant un pas.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EtatSaisie {
+    /// Le tentacule s'enroule, la plateforme tremble (avancement de 0.0 à 1.0) :
+    /// elle porte encore.
+    Annonce(f32),
+    /// Elle s'enfonce (avancement de 0.0 à 1.0) : elle ne porte plus.
+    Plongee(f32),
+    /// Sous l'eau : invisible, des remous à sa place.
+    SousLEau,
+    /// Elle remonte (avancement de 0.0 à 1.0) : solide à la fin seulement.
+    Remontee(f32),
+}
+
+/// Une saisie en cours : la plateforme visée (indice dans `Pieuvre::plateformes`)
+/// et les pas écoulés depuis son début. UNE SEULE à la fois : la pieuvre n'en
+/// garde qu'une (`Option<Saisie>`), il reste donc toujours les autres appuis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Saisie {
+    pub cible: usize,
+    ecoule: u16,
+}
+
+impl Saisie {
+    /// L'état de la plateforme au pas en cours (voir `EtatSaisie`).
+    pub fn etat(&self) -> EtatSaisie {
+        let t = self.ecoule;
+        let a = ANNONCE_SAISIE_PAS;
+        let p = a + PLONGEE_SAISIE_PAS;
+        let s = p + SOUS_L_EAU_PAS;
+        if t < a {
+            EtatSaisie::Annonce(f32::from(t) / f32::from(a))
+        } else if t < p {
+            EtatSaisie::Plongee(f32::from(t - a) / f32::from(PLONGEE_SAISIE_PAS))
+        } else if t < s {
+            EtatSaisie::SousLEau
+        } else {
+            EtatSaisie::Remontee(f32::from(t - s) / f32::from(REMONTEE_SAISIE_PAS))
+        }
+    }
+
+    /// La plateforme porte-t-elle encore (seulement pendant l'annonce) ?
+    pub fn porte(&self) -> bool {
+        matches!(self.etat(), EtatSaisie::Annonce(_))
+    }
+}
+
+/// Une grille dont quelques cases solides sont percées le temps d'une saisie : la
+/// plateforme engloutie. Elle « enveloppe » la vraie grille (un EMPRUNT, `&dyn
+/// Grille`) au lieu de la modifier : la grille du niveau ne change jamais, et le
+/// trou disparaît tout seul quand le jeu cesse de l'envelopper.
+pub struct GrilleSaisie<'a> {
+    pub grille: &'a dyn Grille,
+    /// Les cases `(tx, ty)` qui ne portent plus.
+    pub trous: &'a [(i32, i32)],
+}
+
+impl Grille for GrilleSaisie<'_> {
+    fn tuile(&self, tx: i32, ty: i32) -> Tuile {
+        if self.trous.contains(&(tx, ty)) {
+            Tuile::Vide
+        } else {
+            self.grille.tuile(tx, ty)
+        }
+    }
+}
+
+/// Boîte (px) d'une case de la grille.
+fn boite_case((tx, ty): (i32, i32)) -> Aabb {
+    let t = TAILLE_TUILE;
+    Aabb::new(tx as f32 * t, ty as f32 * t, t, t)
+}
+
+/// Étendue horizontale (px, de gauche à droite) des cases d'une plateforme.
+fn etendue(cases: &[(i32, i32)]) -> (f32, f32) {
+    let x0 = cases.iter().map(|c| c.0).min().unwrap_or(0);
+    let x1 = cases.iter().map(|c| c.0).max().unwrap_or(0);
+    (x0 as f32 * TAILLE_TUILE, (x1 + 1) as f32 * TAILLE_TUILE)
+}
+
+/// Les cases englouties de toutes les pieuvres du niveau (au plus une) : le jeu
+/// en perce la grille à chaque pas (`GrilleSaisie`). Vide sans pieuvre.
+pub fn cases_englouties(entites: &[Entite]) -> Vec<(i32, i32)> {
+    entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Pieuvre(p) => Some(p.cases_englouties().to_vec()),
+            _ => None,
+        })
+        .flatten()
+        .collect()
+}
 
 /// Les trois motifs, un par point perdu, de plus en plus gros et rapides. Les
 /// bandes sont en COLONNES depuis celle du `8` (-4 tout à gauche, 4 tout à droite).
@@ -272,10 +400,21 @@ pub struct Pieuvre {
     pv_max: u8,
     /// Place de la tête (indice dans `places`), choisie quand elle remonte.
     place: usize,
+    /// Les plateformes qu'elle peut saisir (carte 9.12f) : chacune est la liste
+    /// de ses cases `(tx, ty)`, posée par le parseur (`level::ascii`).
+    pub plateformes: Vec<Vec<(i32, i32)>>,
+    /// La saisie en cours, s'il y en a une (jamais deux : c'est un `Option`).
+    saisie: Option<Saisie>,
+    /// Pas avant la prochaine saisie (le compte s'arrête quand la tête sort).
+    avant_saisie: u16,
+    /// Où était Pépin au dernier pas (`voir_pepin`) : pour viser sa plateforme
+    /// et ne jamais la faire remonter dans lui.
+    pepin: Option<Aabb>,
 }
 
 impl Pieuvre {
-    /// Une pieuvre neuve, au prélude, avec ses 3 points de vie.
+    /// Une pieuvre neuve, au prélude, avec ses 3 points de vie (et aucune
+    /// plateforme à saisir : le parseur les ajoute).
     pub fn new(colonnes: [Aabb; NB_COLONNES], places: [Aabb; 3]) -> Self {
         Self {
             colonnes,
@@ -285,6 +424,102 @@ impl Pieuvre {
             pv: PV_PIEUVRE,
             pv_max: PV_PIEUVRE,
             place: 0,
+            plateformes: Vec::new(),
+            saisie: None,
+            avant_saisie: PREMIERE_SAISIE_PAS,
+            pepin: None,
+        }
+    }
+
+    /// La saisie en cours (pour le dessin et les tests).
+    pub fn saisie(&self) -> Option<Saisie> {
+        self.saisie
+    }
+
+    /// Les cases qui ne portent plus en ce moment : celles de la plateforme
+    /// saisie, de sa plongée jusqu'à la fin de sa remontée. Le jeu en perce la
+    /// grille (`GrilleSaisie`).
+    pub fn cases_englouties(&self) -> &[(i32, i32)] {
+        match self.saisie {
+            Some(s) if !s.porte() => &self.plateformes[s.cible],
+            _ => &[],
+        }
+    }
+
+    /// Le jeu dit à la pieuvre où est Pépin, à chaque pas, avant de la faire
+    /// avancer : elle vise sa plateforme, et attend qu'il en sorte pour la
+    /// faire remonter.
+    pub fn voir_pepin(&mut self, boite: Aabb) {
+        self.pepin = Some(boite);
+    }
+
+    /// La plateforme à saisir : celle sous Pépin, ou la plus proche de lui (il
+    /// faut changer d'appui) ; sans Pépin connu, chacune son tour.
+    fn choisir_cible(&self, tour: usize) -> usize {
+        let Some(pepin) = self.pepin else {
+            return tour % self.plateformes.len();
+        };
+        let milieu = pepin.x + pepin.w / 2.0;
+        let distance = |cases: &Vec<(i32, i32)>| {
+            let (g, d) = etendue(cases);
+            (g - milieu).max(milieu - d).max(0.0)
+        };
+        (0..self.plateformes.len())
+            .min_by(|&a, &b| {
+                distance(&self.plateformes[a]).total_cmp(&distance(&self.plateformes[b]))
+            })
+            .unwrap_or(0)
+    }
+
+    /// Un pas des saisies. Le compte à rebours ne tourne qu'au prélude et en
+    /// colère ; une saisie ne COMMENCE qu'en colère (jamais tête sortie), et
+    /// jamais pendant une autre.
+    fn avancer_saisie(&mut self) {
+        if let Some(s) = &mut self.saisie {
+            let fin = s.ecoule + 1 >= SAISIE_PAS;
+            // La plateforme redevient solide au dernier pas : jamais dans Pépin.
+            // S'il est dans son volume, elle attend sous la surface.
+            let gene = self.pepin.is_some_and(|p| {
+                self.plateformes[s.cible]
+                    .iter()
+                    .any(|&c| boite_case(c).chevauche(&p))
+            });
+            if fin && gene {
+                return;
+            }
+            s.ecoule += 1;
+            if s.ecoule >= SAISIE_PAS {
+                self.saisie = None;
+            }
+        }
+        if !matches!(self.phase, PhasePieuvre::Prelude | PhasePieuvre::Colere) {
+            // La tête remonte : la pieuvre a besoin de ses bras, elle LÂCHE la
+            // plateforme (règle d'équité : la tête se rejoint toujours depuis
+            // les 4 appuis). Annoncée, elle ne coule pas ; sous l'eau, elle
+            // remonte tout de suite, avant que la tête sorte (36 pas de remous
+            // contre 24 de remontée).
+            if let Some(s) = &mut self.saisie {
+                match s.etat() {
+                    EtatSaisie::Annonce(_) => self.saisie = None,
+                    EtatSaisie::Plongee(_) | EtatSaisie::SousLEau => {
+                        s.ecoule = SAISIE_PAS - REMONTEE_SAISIE_PAS;
+                    }
+                    EtatSaisie::Remontee(_) => {}
+                }
+            }
+            return;
+        }
+        self.avant_saisie = self.avant_saisie.saturating_sub(1);
+        let peut = self.phase == PhasePieuvre::Colere
+            && self.saisie.is_none()
+            && !self.plateformes.is_empty();
+        if self.avant_saisie == 0 && peut {
+            let tour = usize::from(self.ecoule);
+            self.saisie = Some(Saisie {
+                cible: self.choisir_cible(tour),
+                ecoule: 0,
+            });
+            self.avant_saisie = INTERVALLES_SAISIE[self.motif()];
         }
     }
 
@@ -397,6 +632,9 @@ impl Pieuvre {
         if !matches!(self.phase, PhasePieuvre::Plongee | PhasePieuvre::Vaincue) {
             self.entrer(PhasePieuvre::Prelude);
         }
+        // La plateforme saisie lâchée remonte d'un coup, et le compte repart.
+        self.saisie = None;
+        self.avant_saisie = PREMIERE_SAISIE_PAS;
     }
 
     /// La tête sort tout de suite, à la place `place` (robot de faisabilité, qui ne
@@ -466,6 +704,7 @@ impl Pieuvre {
 
 impl Actualisable for Pieuvre {
     fn actualiser(&mut self, _env: &Environnement<'_>) {
+        self.avancer_saisie();
         self.avancer();
     }
 }
@@ -755,5 +994,72 @@ mod tests {
                 }
             }
         }
+    }
+
+    // --- La saisie des plateformes (carte 9.12f) ---
+
+    /// Une pieuvre et deux plateformes de 2 cases (rangée 6) ; Pépin debout sur
+    /// la première.
+    fn pieuvre_et_plateformes() -> Pieuvre {
+        let mut p = pieuvre();
+        p.plateformes = vec![vec![(2, 6), (3, 6)], vec![(12, 6), (13, 6)]];
+        p.voir_pepin(Aabb::new(36.0, 82.0, 10.0, 14.0));
+        p
+    }
+
+    /// L'annonce dure au moins 1,2 s ; jamais deux saisies à la fois ; et la
+    /// plateforme redevient solide (sur 1 min de combat, Pépin sur une plateforme).
+    #[test]
+    fn une_saisie_s_annonce_coule_puis_remonte_une_a_la_fois() {
+        let mut p = pieuvre_et_plateformes();
+        let (mut saisies, mut remontees) = (0, 0);
+        let mut avant: Option<Saisie> = None;
+        for _ in 0..3600 {
+            pas(&mut p, 1);
+            let s = p.saisie();
+            // Une seule saisie : les cases englouties sont celles d'UNE plateforme.
+            let trous = p.cases_englouties();
+            assert!(trous.is_empty() || p.plateformes.iter().any(|c| c == trous));
+            match (avant, s) {
+                (None, Some(s)) => {
+                    saisies += 1;
+                    assert!(s.porte());
+                }
+                // Elle cesse de porter après au moins 1,2 s (72 pas) d'annonce.
+                (Some(a), Some(b)) if a.porte() && !b.porte() => {
+                    assert!(b.ecoule >= 72, "{} pas d'annonce", b.ecoule);
+                }
+                // Elle finit remontée, ou lâchée encore annoncée (la tête sort).
+                (Some(a), None) => match a.etat() {
+                    EtatSaisie::Remontee(_) => remontees += 1,
+                    EtatSaisie::Annonce(_) => assert_ne!(p.phase(), PhasePieuvre::Colere),
+                    e => panic!("finie en {e:?}"),
+                },
+                _ => {}
+            }
+            avant = s;
+        }
+        assert!(saisies >= 3, "{saisies} saisies en 1 min");
+        assert!(remontees >= 2, "{remontees} remontées");
+    }
+
+    /// La plateforme ne remonte jamais dans Pépin : s'il est dans son volume (en
+    /// barque juste dessous, par exemple), elle attend qu'il en sorte.
+    #[test]
+    fn la_plateforme_ne_remonte_pas_dans_pepin() {
+        let mut p = pieuvre_et_plateformes();
+        while p.saisie().is_none() {
+            pas(&mut p, 1);
+        }
+        let dans = Aabb::new(36.0, 98.0, 10.0, 14.0);
+        p.voir_pepin(dans);
+        pas(&mut p, u32::from(SAISIE_PAS) + 60);
+        assert_eq!(p.cases_englouties(), &[(2, 6), (3, 6)], "elle attend");
+        p.voir_pepin(Aabb::new(100.0, 82.0, 10.0, 14.0));
+        pas(&mut p, 1);
+        assert!(
+            p.cases_englouties().is_empty(),
+            "Pépin sorti : elle remonte"
+        );
     }
 }

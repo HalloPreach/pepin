@@ -114,5 +114,12 @@ mod tests {
         };
         assert_eq!(pieuvres(&n.entites).len(), 1);
         assert_eq!(pieuvres(&n.entites), pieuvres(&e.entites));
+        // Carte 9.12f : les 4 appuis de l'arène (les 2 grosses plateformes des
+        // bords, les 2 petites sur piliers) sont ceux qu'elle peut saisir.
+        let appuis = n.entites.iter().find_map(|e| match e {
+            Entite::Pieuvre(p) => Some(p.plateformes.len()),
+            _ => None,
+        });
+        assert_eq!(appuis, Some(4));
     }
 }
