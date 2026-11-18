@@ -20,7 +20,8 @@
 //!    et plane dans le BASSIN A (le panneau « planer » le rappelle), où l'eau du
 //!    tuyau se déverse ; son courant `}` porte la barque vers la droite. La
 //!    1re goutte flotte au-dessus (colonne 13) : on la prend d'un saut depuis la
-//!    barque, et l'on replane pour retomber à bord ;
+//!    barque, et l'on replane pour retomber à bord. Plus loin, un poisson saute
+//!    (colonne 21, carte 9.22c) : on attend ses remous pour passer à bord ;
 //! 2. au bout du bassin A, l'eau tombe : la CHUTE C1 (colonnes 27 et 28, dix
 //!    rangées). On y plane (descente lente) ou l'on s'y laisse emporter en
 //!    barque (carte 9.2e) jusqu'au BASSIN B, où l'on retombe en barque
@@ -45,7 +46,9 @@
 //!    corniche en corniche, du palier à la corniche K1 puis à K2 (4e lanterne), en
 //!    PLANANT à travers chaque bras (il freine la descente ; parapluie fermé, il
 //!    emporte au bassin). Une mouette garde le bout de K1 : on l'écrase en s'y
-//!    posant, ou on la laisse piquer avant de passer. Tombé dans le bassin E, on y
+//!    posant, ou on la laisse piquer avant de passer. Une 2e mouette guette au bord
+//!    de K2 (carte 9.22c) : elle pique vers la droite, sur qui arrive en planant.
+//!    Tombé dans le bassin E, on y
 //!    flotte en barque : son courant ramène sous le palier, où des marches
 //!    remontent ;
 //! 8. LA GALERIE EN BARQUE (carte 9.21b) : au bout de K2, on se laisse tomber
@@ -61,15 +64,21 @@
 //!     trois petits bassins en escalier vers la droite, reliés par deux courtes
 //!     chutes : la barque y passe par-dessus bord (BAS tenu en tombant, ou un saut
 //!     et l'on replane), et l'on retombe en barque dans la marche du dessous (la
-//!     deuxième est calme : on y rame). Au bout, une rive, et l'on tombe à droite ;
+//!     deuxième est calme : on y rame). Dans la troisième saute un poisson (carte
+//!     9.22c) : on choisit son moment avant de basculer. Au bout, une rive, et l'on
+//!     tombe à droite ;
 //! 11. LA MARE AUX NÉNUPHARS (carte 9.21b) : une rive (6e lanterne), puis la mare,
 //!     vers la gauche, de nénuphar en nénuphar (chacun s'enfonce sous Pépin : on ne
 //!     s'y attarde pas ; tombé à l'eau, BAS donne la barque, qui rame lentement).
-//!     Une grenouille garde l'autre rive ; on se laisse tomber derrière elle ;
+//!     Une grenouille guette sur le nénuphar du milieu (carte 9.22c) : on l'écrase
+//!     d'un saut (rebond) ou on attend son bond. Une autre garde l'autre rive ; on
+//!     se laisse tomber derrière elle ;
 //! 12. le pied de la cascade (carte 9.20c) : de la corniche de gauche, on gagne le
 //!     BASSIN D'ARRIVÉE, large, où tombe la grande chute du fond (la 3e goutte
-//!     au-dessus de l'eau, sur le chemin) ; il part en RIVIÈRE vers la droite (`}`)
-//!     jusqu'au drapeau posé sur la berge de droite (colonne 29).
+//!     au-dessus de l'eau, sur le chemin) ; une mouette garde le bout de la
+//!     corniche (carte 9.22c) et pique sur qui plane vers la goutte. Le bassin part
+//!     en RIVIÈRE vers la droite (`}`) jusqu'au drapeau posé sur la berge de droite
+//!     (colonne 29).
 //!
 //! La GRANDE CHUTE (carte 9.20c) est un décor de fond, sur toute la hauteur
 //! (`game/src/decor_cascade.rs`) : sans collision ni danger, plus sombre que les
@@ -77,8 +86,9 @@
 //!
 //! Six lanternes, chacune hors de tout danger : la corniche (10, 16), le couloir
 //! (15, 25), le palier (24, 35), K2 (3, 40), la corniche des marches (1, 68), la
-//! rive de la mare (29, 81). Ennemis : deux poissons (bassins B et F), une
-//! mouette (K1), un crabe, une grenouille. Les oiseaux du décor (`K`) n'ont aucun
+//! rive de la mare (29, 81). Ennemis : quatre poissons (bassins A, B et F, la
+//! 3e marche), trois mouettes (K1, K2, la corniche d'arrivée), un crabe, deux
+//! grenouilles. Les oiseaux du décor (`K`) n'ont aucun
 //! effet sur le jeu.
 
 use crate::levels::GenreNiveau;
@@ -130,7 +140,7 @@ BBBBBBB.........................
 ..@..G........................K.
 #######......o...............###
 BBBBBBB......................BBB
-BBBBBBB......................BBB
+BBBBBBB..............i.......BBB
 BBBBBBB~~~}}}}}}}}}}}}}}}}}||BBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBB||BBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBB||BBB
@@ -163,7 +173,7 @@ BBBBBBBBBBBBBBBBBBBBBB|BBBBBBBBB
 .......||.u....||..............B
 .......||.####.||..............B
 .......||......||..........##..B
-...L...||......||..............B
+...L.u.||......||..............B
 ..####.||......||..............B
 ..BBBB.||......||............##B
 ..BBBB.||......||..............B
@@ -197,20 +207,20 @@ BBBBBBBBBBB||..................B
 BBBBBBBBBBB||..................B
 BBBBBBBBBBB~~~~~~~~~~||........B
 BBBBBBBBBBBBBBBBBBBBB||........B
-BBBBBBBBBBBBBBBBBBBBB||.....##.B
+BBBBBBBBBBBBBBBBBBBBB||..i..##.B
 BBBBBBBBBBBBBBBBBBBBB}}}}}}}BB.B
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.B
 ...............................B
 ...............................B
 ...............................B
-...............................B
+...............j...............B
 ...j...n...n...n...n...n.....L.B
 ..##~~~~~~~~~~~~~~~~~~~~~~~####B
 ..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ...............................B
 ...............................B
 ...............................B
-...............................B
+.....u.........................B
 ######......o................X.B
 BBBBBB.....................####B
 BBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}
