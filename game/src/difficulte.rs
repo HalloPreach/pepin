@@ -78,6 +78,13 @@ const PROFONDEUR_CHAINE: usize = 8;
 /// compte dans la case, et une rue sous deux paires d'auvents) en explore plus que
 /// les autres niveaux.
 const LIMITE_CASES: usize = 20_000;
+/// Même garde-fou pour la mesure d'UN niveau du Monde 2 seulement
+/// (`mesure_d_un_niveau_du_monde_2`, carte 9.21a) : près d'un bassin, l'heure de la
+/// marée compte dans la case (`bot_qa::maree_de_la_case`) et multiplie les cases ;
+/// « Les égouts » dépassaient 20 000 cases sans atteindre le drapeau (ils en
+/// explorent 167 351 avant la carte 9.21a). Les autres usages (mesure complète,
+/// fantômes) gardent `LIMITE_CASES`.
+const LIMITE_CASES_MONDE_2: usize = 1_000_000;
 /// Voisinage des cases essayées quand Pépin se pose hors des cases connues :
 /// ±2 cases de 8 px en x, ±2 px en y.
 const VOISINAGE_X: i32 = 2;
@@ -278,12 +285,19 @@ impl Itineraires {
     /// Comme `calculer`, sans paniquer : `None` si le drapeau reste hors d'atteinte
     /// (course contre le robot, carte 8.7 : ce niveau n'aura pas de fantôme).
     pub(crate) fn tenter(indice: usize) -> Option<Self> {
-        Self::explorer(indice, plans(false)).or_else(|| Self::explorer(indice, plans(true)))
+        Self::tenter_jusqu_a(indice, LIMITE_CASES)
+    }
+
+    /// Comme `tenter`, avec au plus `limite` cases explorées (voir
+    /// `LIMITE_CASES_MONDE_2`).
+    fn tenter_jusqu_a(indice: usize, limite: usize) -> Option<Self> {
+        Self::explorer(indice, plans(false), limite)
+            .or_else(|| Self::explorer(indice, plans(true), limite))
     }
 
     /// Les deux passes avec les plans `tous`. `None` si le drapeau est
     /// inatteignable depuis le départ.
-    fn explorer(indice: usize, tous: Vec<Plan>) -> Option<Self> {
+    fn explorer(indice: usize, tous: Vec<Plan>, limite: usize) -> Option<Self> {
         let (depart, _) = depart_pose(indice);
         let nuage = depart.pv_nuage().is_some();
 
@@ -304,7 +318,7 @@ impl Itineraires {
                 continue;
             }
             developpees.insert(k);
-            if developpees.len() > LIMITE_CASES {
+            if developpees.len() > limite {
                 break;
             }
             let Some(monde) = meilleur.get_mut(&k).and_then(|(_, m)| m.take()) else {
@@ -1925,7 +1939,8 @@ mod tests {
     /// Mesure d'UN niveau du Monde 2 (carte 9.20a), pour comparer avant et après une
     /// retouche de son parcours : mêmes profils, graine officielle et nombre d'essais
     /// que la mesure complète. Le niveau : sa clé, variable d'environnement CLE
-    /// (`docker-cargo.sh` ne la transmet pas : par défaut le caniveau). Rang de graine :
+    /// (transmise par `docker-cargo.sh` depuis la carte 9.21a ; par défaut le caniveau).
+    /// Rang de graine :
     /// celui qui suit `RANGS_DE_GRAINE`, plus sa place dans le Monde 2. N'écrit aucun
     /// fichier.
     /// `./docker-cargo.sh test -p game --no-default-features mesure_d_un_niveau_du_monde_2 -- --ignored --nocapture`
@@ -1941,7 +1956,13 @@ mod tests {
         assert!(n >= NB_NIVEAUX, "« {cle} » n'est pas un niveau du Monde 2");
         let rang = RANGS_DE_GRAINE.len() + (n - NB_NIVEAUX);
         let debut = std::time::Instant::now();
-        let itineraires = Itineraires::calculer(n);
+        let itineraires = Itineraires::tenter_jusqu_a(n, LIMITE_CASES_MONDE_2)
+            .unwrap_or_else(|| panic!("« {cle} » : drapeau inatteignable"));
+        println!(
+            "({} cases explorées, {:.0} s)",
+            itineraires.cases,
+            debut.elapsed().as_secs_f32()
+        );
         let itineraires = &itineraires;
         let cases: Vec<Case> = std::thread::scope(|s| {
             let fils: Vec<_> = PROFILS
