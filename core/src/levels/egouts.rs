@@ -69,7 +69,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     genre: GenreNiveau::Normal,
     intro: "Sous la rue, l'eau de pluie file dans les tunnels. Les rats aussi.",
     mecanique: "Sauter par-dessus les rats qui foncent (ou les écraser) ; traverser les bassins à pied quand ils sont vides, ou en barque quand les tuyaux les ont remplis ; passer sous les voûtes du canal en barque.",
-    duree_cible_s: 55,
+    duree_cible_s: 65,
     ascii: ASCII,
     aiguilles: &[],
 };
