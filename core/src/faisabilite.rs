@@ -955,9 +955,10 @@ fn simuler(
     let mut x_barque_prec: Option<f32> = None;
 
     for pas in 0..pas_max {
-        // BAS (carte 9.2b) : tenu à l'approche de l'eau (`MARGE_BAS`).
+        // BAS (carte 9.2b) : tenu à l'approche de l'eau (`MARGE_BAS`), JAMAIS
+        // au sol (carte 9.2d : au sol, BAS assied Pépin, il ne court plus).
         let mut entrees = Entrees {
-            bas: eau_sous_les_pieds(&j.boite, env.eaux, MARGE_BAS),
+            bas: !j.au_sol && eau_sous_les_pieds(&j.boite, env.eaux, MARGE_BAS),
             ..Entrees::default()
         };
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
