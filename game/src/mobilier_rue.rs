@@ -22,7 +22,7 @@ use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::level::{GenreMobilier, Mobilier, Niveau};
 use pepin_core::palette::{
     Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE,
-    BRUME, CORAIL, CORAIL_CLAIR, NUAGE, ORANGE_SOLEIL, OR_PALE, VIOLET_ORAGE,
+    BRUME, CORAIL, CORAIL_CLAIR, NUAGE, ORANGE_SOLEIL, OR_PALE,
 };
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
@@ -40,9 +40,10 @@ fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
 /// Les couleurs d'une carrosserie : (teinte, reflet).
 type Teinte = (Couleur, Couleur);
 
-/// Les teintes des voitures garées, choisies d'après leur colonne (fixes).
+/// Les teintes des voitures garées, choisies d'après leur colonne (fixes) : des
+/// couleurs vives, qui ne se perdent pas sur les façades d'ardoise et de violet.
 const TEINTES_VOITURE: [Teinte; 3] = [
-    (VIOLET_ORAGE, ARDOISE_PALE),
+    (CORAIL, CORAIL_CLAIR),
     (ARDOISE_PALE, NUAGE),
     (ORANGE_SOLEIL, OR_PALE),
 ];
@@ -97,17 +98,17 @@ pub fn dessiner(monde: &Monde, cx: i32, cy: i32) {
                 voiture(x, y, m.l * T, teinte);
             }
             GenreMobilier::Autobus => {
-                // Deux livrées, d'après la colonne : corail, ou violet d'orage.
+                // Deux livrées, d'après la colonne : corail, ou orange.
                 let teinte = if m.tx.rem_euclid(2) == 1 {
                     (CORAIL, CORAIL_CLAIR)
                 } else {
-                    (VIOLET_ORAGE, ARDOISE_PALE)
+                    (ORANGE_SOLEIL, OR_PALE)
                 };
                 let (w, h) = (m.l * T, m.h * T);
                 autobus(x, y, (w, h), teinte, monde.pas);
                 if sur_le_trottoir(n, m) {
                     // Garé sur le trottoir : ses roues, devant le bas de caisse.
-                    for rx in [x + 12, x + w - 32] {
+                    for rx in [x + 12, x + w - 28] {
                         rect(rx - 2, y + h - 18, 24, 2, ARDOISE_OMBRE);
                         roue(rx, y + h - 20, 20, ARDOISE_NUIT, ARDOISE);
                     }
@@ -129,16 +130,24 @@ fn pied_de(n: &Niveau, m: &Mobilier) -> i32 {
         .unwrap_or(n.hauteur() as i32)
 }
 
-/// Une roue (octogone de `d` px de côté) : contour sombre, pneu, jante et moyeu.
+/// Une roue de `d` px de diamètre, en rangées de pixels (un disque au pixel près,
+/// sans forme vectorielle) : contour sombre, pneu, jante, moyeu.
 fn roue(x: i32, y: i32, d: i32, pneu: Couleur, jante: Couleur) {
-    let k = d / 4;
-    rect(x + k, y, d - 2 * k, d, ARDOISE_OMBRE);
-    rect(x, y + k, d, d - 2 * k, ARDOISE_OMBRE);
-    rect(x + 1, y + 1 + k / 2, d - 2, d - 2 - k, ARDOISE_OMBRE);
-    rect(x + k, y + 1, d - 2 * k, d - 2, pneu);
-    rect(x + 1, y + k, d - 2, d - 2 * k, pneu);
-    let j = d / 3;
-    rect(x + j, y + j, d - 2 * j, d - 2 * j, jante);
+    // Demi-largeur de la rangée `k` d'un disque de rayon `r` centré dans `d`.
+    let disque = |r: f32, c: Couleur| {
+        let centre = d as f32 / 2.0;
+        for k in 0..d {
+            let dy = k as f32 + 0.5 - centre;
+            if dy.abs() < r {
+                let demi = (r * r - dy * dy).sqrt().round() as i32;
+                rect(x + d / 2 - demi, y + k, 2 * demi, 1, c);
+            }
+        }
+    };
+    let r = d as f32 / 2.0;
+    disque(r, ARDOISE_OMBRE);
+    disque(r - 1.5, pneu);
+    disque(r * 0.45, jante);
     rect(x + d / 2 - 1, y + d / 2 - 1, 2, 2, ARDOISE_OMBRE);
 }
 
@@ -236,7 +245,7 @@ fn autobus(x: i32, y: i32, (w, h): (i32, i32), (teinte, reflet): Teinte, pas: u3
     }
     // La bande claire sous les vitres, la porte avant (deux vantaux vitrés).
     rect(x + 1, v1 + 2, w - 2, 2, reflet);
-    let porte = avant - 22;
+    let porte = avant - 36;
     rect(porte, v1 + 4, 18, h - 4 - (v1 + 4 - y), ARDOISE_OMBRE);
     for k in [porte + 1, porte + 9] {
         rect(k, v1 + 5, 8, h - 4 - (v1 + 6 - y), ARDOISE_NUIT);
