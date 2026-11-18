@@ -434,8 +434,9 @@ mod tests {
         Niveau::depuis_ascii(grotte::INFOS.ascii).expect("grotte")
     }
 
-    /// Chaque colonne de bulles a sa source : deux vasques d'eau (au pied de C1 et
-    /// de C3) et deux fissures dans la roche (sous C2 et C4). Une vasque est DANS sa
+    /// Chaque colonne de bulles a sa source : six vasques d'eau (au pied de CA, de
+    /// la colonne de la fosse, de CC, de C0, de C1 et de C3, cartes 9.20d et 9.21c)
+    /// et trois fissures dans la roche (sous CB, C2 et C4). Une vasque est DANS sa
     /// colonne (on y est soulevé, jamais noyé en la traversant) et les bulles
     /// partent de son fond ; une fissure est au sommet d'une roche.
     #[test]
@@ -451,9 +452,9 @@ mod tests {
             .collect();
         let s = sources(&n, &n.entites);
         assert_eq!(s.len(), colonnes.len(), "une source par colonne : {s:?}");
-        assert_eq!(colonnes.len(), 4);
+        assert_eq!(colonnes.len(), 7);
         let vasques = s.iter().filter(|s| s.genre == GenreSource::Vasque).count();
-        assert_eq!(vasques, 2, "{s:?}");
+        assert_eq!(vasques, 5, "{s:?}");
         for (s, z) in s.iter().zip(&colonnes) {
             let (tx, ty) = (s.x / T, s.y / T);
             assert_eq!((s.x, s.largeur), (z.x as i32, z.w as i32));
