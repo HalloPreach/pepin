@@ -700,7 +700,7 @@ mod tests {
                 assert!(solide(&n, tx, ty), "le tuyau sort du plafond : {t:?}");
             }
         }
-        assert_eq!(bassins, 2, "les deux bassins des égouts");
+        assert_eq!(bassins, 4, "les quatre bassins des égouts (carte 9.21a)");
     }
 
     /// Le tuyau gargouille pendant l'annonce, se vide par à-coups pendant toute la

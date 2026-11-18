@@ -53,7 +53,7 @@ exec cargo "$@"
 '
 
 docker run --name "$NOM" --user "$(id -u):$(id -g)" \
-  -e CARGO_HOME=/cargohome -e HOME=/tmp \
+  -e CARGO_HOME=/cargohome -e HOME=/tmp -e CLE \
   -e RUSTUP_HOME_IMAGE=/usr/local/rustup \
   -v "$CARGO_HOME_HOTE":/cargohome \
   -v "$PWD":/work -w /work \
