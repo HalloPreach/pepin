@@ -227,13 +227,14 @@ mod tests {
     /// par la couche du milieu, y restait jusqu'à la fin de l'essai (aucun chemin
     /// connu depuis ces cases).
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn on_repart_de_chaque_marche() {
         let n = INFOS.charger().unwrap();
         let t = TAILLE_TUILE;
         for (colonne, dessus) in [(111.0, 6.0), (114.0, 8.0)] {
             let pose = (colonne * t + 3.0, dessus * t - crate::physics::JOUEUR_H);
             assert!(n.tuile_decor(colonne as i32, dessus as i32).est_solide());
-            let r = analyser(&n, pose, Options::default());
+            let r = analyser(&n, pose, Options::arrivee_seule());
             assert!(r.arrivee, "bloqué sur la marche de la colonne {colonne}");
         }
     }

@@ -133,6 +133,13 @@ pub struct Options {
     /// et durées de saut grossiers). Un niveau que le robot maladroit termine
     /// n'exige pas de précision au pixel près.
     pub precis: bool,
+    /// S'arrêter dès que l'arrivée est touchée (carte 9.23, tri des tests). Pour
+    /// les vérifications qui ne lisent QUE `Rapport::arrivee` (reprise depuis une
+    /// lanterne, robot maladroit) : la recherche suit exactement le même ordre
+    /// (Dijkstra sur la durée), elle s'interrompt seulement plus tôt, donc
+    /// `arrivee` est la même qu'avec une exploration complète. Les autres champs
+    /// du rapport (gouttes, lanternes, durée) sont alors PARTIELS.
+    pub jusqu_a_l_arrivee: bool,
 }
 
 impl Default for Options {
@@ -142,6 +149,17 @@ impl Default for Options {
             courants: true,
             vents: true,
             precis: true,
+            jusqu_a_l_arrivee: false,
+        }
+    }
+}
+
+impl Options {
+    /// Les options par défaut, arrêt dès l'arrivée (voir `jusqu_a_l_arrivee`).
+    pub fn arrivee_seule() -> Self {
+        Self {
+            jusqu_a_l_arrivee: true,
+            ..Self::default()
         }
     }
 }
@@ -727,6 +745,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                     if mieux {
                         rapport.pas_arrivee = Some(cout_plan);
                     }
+                    if options.jusqu_a_l_arrivee {
+                        return rapport;
+                    }
                 }
                 Fin::Lance(x, y) => ajouter(
                     Noeud {
@@ -1119,6 +1140,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_parapluie_allonge_nettement_la_portee() {
         let sans = Options {
             planer: false,
@@ -1247,6 +1269,7 @@ mod tests {
     /// Bande de vent de face au niveau du sol : le robot la résiste (course à
     /// 36 px/s nets) et arrive quand même, mais le vent ralentit la traversée.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_robot_resiste_au_vent_de_face_au_sol() {
         let n = niveau_vent(0, -1, true);
         assert!(!n.vents.is_empty());
@@ -1348,6 +1371,7 @@ mod tests {
     /// Un vide de 4 tuiles que l'on saute sans parapluie (témoin) ; avec un rideau
     /// de grêle au-dessus, le même saut tue : il faut sauter plus tôt et planer.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer() {
         let temoin = niveau_grele(false, false, 4);
         assert!(analyser(&temoin, temoin.depart, sans_planer()).arrivee);
@@ -1439,6 +1463,7 @@ mod tests {
     /// Chaque rebond est un nouveau point de décision (noeud « lancé ») ; le robot
     /// peut aussi sauter un auvent en planant, s'il le trouve plus rapide.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_robot_traverse_le_vide_par_les_auvents() {
         for ecarts in ECARTS {
             let temoin = niveau_auvents(ecarts, false);
@@ -1751,6 +1776,7 @@ o.o.o.................
     /// Le robot monte au balcon en se laissant porter par l'aiguille (robot précis
     /// et maladroit) ; sans aiguille, il n'y arrive pas.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_robot_monte_au_balcon_par_l_aiguille() {
         let n = niveau_horloge(true);
         let r = analyser(&n, n.depart, Options::default());

@@ -411,6 +411,7 @@ mod tests {
     /// Le robot finit la partie sans mourir, et joue les niveaux dans l'ordre que
     /// donne `levels::apres` avec SES gouttes (bonus sauté s'il en manque).
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_finit_tous_les_niveaux_sans_mourir() {
         use pepin_core::levels::{apres, Apres, NIVEAUX};
         let parcours = tous_les_parcours();
@@ -459,6 +460,7 @@ mod tests {
     /// Monde 2 dans l'ordre, sans mourir, jusqu'à l'écran de fin. Elle grandit avec
     /// chaque niveau ajouté au Monde 2 (cartes 9.7 à 9.13), sans rien changer ici.
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_finit_le_monde_2_sans_mourir() {
         use pepin_core::levels::{apres, debut_monde, niveaux_du_monde, Apres};
         let monde_2 = niveaux_du_monde(NIVEAUX, 2);
@@ -500,6 +502,7 @@ mod tests {
     /// déplacés, éclairs plus fréquents, Grand Nuage serré, vent de face sur les
     /// toits) ; le robot la finit sans mourir, bonus sauté, épilogue joué.
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_finit_la_nouvelle_partie_plus_sans_mourir() {
         let partie = jouer_tout_mode(&tous_les_parcours_ng_plus(), true);
         assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -527,6 +530,7 @@ mod tests {
     /// l'épilogue (carte 5.17) et l'écran de fin, avec les 36 gouttes du jeu ;
     /// aucune mort.
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn la_partie_complete_joue_le_bonus() {
         // Les gouttes du MONDE 1 (carte 9.6 : `GOUTTES_TOTAL` compte tous les mondes).
         let gouttes_monde_1 = NB_NIVEAUX_MONDE_1 * pepin_core::level::GOUTTES_PAR_NIVEAU;
@@ -556,12 +560,44 @@ mod tests {
         );
     }
 
+    /// Le robot d'UN niveau (carte 9.23, commande `./docker-cargo.sh carte <clé>
+    /// robot`, variable `CLE`), sur demande seulement : son parcours, rejoué dans la
+    /// vraie simulation, finit le niveau sans mourir (comme l'arc-en-ciel
+    /// ci-dessous). La partie complète du Monde 2
+    /// (`le_robot_finit_le_monde_2_sans_mourir`) reste au lot.
+    #[test]
+    #[ignore = "carte : un seul niveau, CLE=<clé> (./docker-cargo.sh carte <clé> robot)"]
+    fn le_robot_finit_le_niveau_de_la_carte() {
+        use crate::monde::Monde;
+        let cle = std::env::var("CLE").expect("CLE=<clé du niveau>");
+        let i = NIVEAUX
+            .iter()
+            .position(|n| n.cle == cle)
+            .unwrap_or_else(|| panic!("aucun niveau de clé {cle:?}"));
+        let parcours = trouver_parcours(i, false)
+            .or_else(|| trouver_parcours(i, true))
+            .unwrap_or_else(|| panic!("le robot ne trouve aucun parcours ({cle})"));
+        let mut m = Monde::new(i);
+        for e in &parcours {
+            m.avancer(e);
+            assert!(m.derniere_mort.is_none(), "{cle} : mort au pas {}", m.pas);
+        }
+        assert!(m.termine, "{cle} : arrivée non atteinte");
+        println!(
+            "{cle} : {} pas ({:.1} s), gouttes {:?}",
+            parcours.len(),
+            parcours.len() as f32 / 60.0,
+            m.gouttes_niveau
+        );
+    }
+
     /// Le bonus (« L'arc-en-ciel », carte 5.16) : la partie du robot ne le joue
     /// pas (il ne ramasse pas toutes les gouttes), on rejoue donc son parcours à
     /// part, dans la vraie simulation : le pont friable se traverse d'un bout à
     /// l'autre sans mourir, et sans jamais rester posé plus d'une demi-seconde sur
     /// la même dalle (elle tomberait).
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_traverse_l_arc_en_ciel_sans_mourir() {
         use crate::monde::Monde;
         use pepin_core::levels::{arc, GenreNiveau, NIVEAUX};
@@ -596,6 +632,7 @@ mod tests {
     /// robot ne touchait ni celle de la cage ni celle du pilier, et une chute le
     /// renvoyait à la galerie, vingt rangées plus bas.)
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn au_clocher_le_parcours_allume_les_trois_lanternes() {
         use crate::monde::Monde;
         use pepin_core::levels::{clocher, NIVEAUX};

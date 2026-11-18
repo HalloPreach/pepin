@@ -1510,6 +1510,7 @@ mod tests {
 
     /// Niveau 1 : sans erreur, aucune mort ; et un essai se rejoue à l'identique.
     #[test]
+    #[ignore = "lot : joueur simulé : essais du niveau 1"]
     fn niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles() {
         let itin = Itineraires::calculer(0);
         let parfait = Profil {

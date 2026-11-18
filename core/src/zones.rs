@@ -319,6 +319,7 @@ mod tests {
     /// Le niveau d'essai vertical (45 rangées) passe les mêmes contrôles qu'un vrai
     /// niveau : arrivée, 3 gouttes, lanternes, robot maladroit compris.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn niveau_d_essai_vertical_faisable() {
         verifier_infos(&essai_vertical::INFOS);
     }
@@ -428,6 +429,7 @@ mod tests {
     /// Le niveau d'essai « ventilateur » passe les mêmes contrôles (arrivée, 3
     /// gouttes, lanternes, robot maladroit) : le robot monte par le souffle.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn niveau_d_essai_ventilateur_faisable() {
         verifier_infos(&essai_ventilateur::INFOS);
     }
@@ -517,6 +519,7 @@ mod tests {
     /// atteinte mais pas la falaise 2 (trop loin, même en planant depuis la
     /// falaise 1) : chacun des deux sert.
     #[test]
+    #[ignore = "lot : le niveau exige sa mécanique (recherche complète sans elle)"]
     fn niveau_d_essai_escargot_exige_les_deux_escargots() {
         let ascii = essai_escargot::INFOS.ascii;
         let sans = Niveau::depuis_ascii(&ascii.replace('s', ".")).unwrap();
@@ -561,6 +564,7 @@ mod tests {
     /// lanternes, robot maladroit) : le robot tombe du toit bas sur le chat
     /// endormi, l'écrase, et passe dessous le grand mur.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn niveau_d_essai_chat_faisable() {
         verifier_infos(&essai_chat::INFOS);
     }
@@ -586,6 +590,7 @@ mod tests {
     /// lanternes, robot maladroit) : le robot se laisse porter par les deux
     /// aiguilles d'une tour à l'autre.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn niveau_d_essai_horloge_faisable() {
         verifier_infos(&essai_horloge::INFOS);
     }
@@ -594,6 +599,7 @@ mod tests {
     /// le drapeau ne sont atteints : seule la goutte du sol l'est. Sans la petite
     /// (la 1re, en haut), la tour B l'est (goutte 1) mais pas la tour C.
     #[test]
+    #[ignore = "lot : le niveau exige sa mécanique (recherche complète sans elle)"]
     fn niveau_d_essai_horloge_exige_les_deux_aiguilles() {
         let ascii = essai_horloge::INFOS.ascii;
         let sans = Niveau::depuis_ascii(&ascii.replace('h', ".")).unwrap();
@@ -621,6 +627,7 @@ mod tests {
     /// une seule lanterne (le début de l'arène : on y reprend après une mort), d'où
     /// il l'atteint aussi.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn niveau_d_essai_nuage_faisable() {
         let niv = essai_nuage::INFOS.charger().unwrap();
         let r = analyser(&niv, niv.depart, Options::default());
@@ -637,6 +644,7 @@ mod tests {
     /// motif à l'autre). Sans courant, la tête est hors de portée (80 px au-dessus
     /// du sol), et seule la goutte du sol est prise.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn niveau_d_essai_nuage_chaque_courant_mene_a_la_tete() {
         use crate::entities::Entite;
         let niv = essai_nuage::INFOS.charger().unwrap();
@@ -713,13 +721,29 @@ mod tests {
     /// sont décidées, voir `pepin-notes/ETAPE-9.md`) : ajouter un niveau du Monde 2
     /// n'oblige à rien toucher ici. Une place encore vide (pas encore de niveau à cet
     /// indice) passe sans rien vérifier.
+    ///
+    /// Carte 9.23 (tri des tests) : chaque niveau a aussi SON test de reprise
+    /// (`reprise`, l'arrivée depuis chacune de ses lanternes), au lieu d'un seul
+    /// test qui faisait tous les niveaux l'un après l'autre (13 min) : ils tournent
+    /// en parallèle. Tous sont des tests de LOT (`./docker-cargo.sh lot`) ; une
+    /// carte de niveau lance les mêmes vérifications sur le sien seulement
+    /// (`le_niveau_de_la_carte`, `./docker-cargo.sh carte <clé>`).
     macro_rules! tests_de_faisabilite {
-        ($($nom:ident => $indice:expr),* $(,)?) => {
+        ($($nom:ident, $reprise:ident => $indice:expr),* $(,)?) => {
             $(
                 #[test]
+                #[ignore = "lot : recherche complète du robot de faisabilité (carte : le_niveau_de_la_carte)"]
                 fn $nom() {
                     if $indice < NB_NIVEAUX {
                         verifier($indice);
+                    }
+                }
+
+                #[test]
+                #[ignore = "lot : reprise depuis chaque lanterne (carte : le_niveau_de_la_carte)"]
+                fn $reprise() {
+                    if $indice < NB_NIVEAUX {
+                        reprise_depuis_chaque_lanterne(&NIVEAUX[$indice]);
                     }
                 }
             )*
@@ -731,26 +755,26 @@ mod tests {
     const M2: usize = crate::levels::NB_NIVEAUX_MONDE_1;
 
     tests_de_faisabilite! {
-        niveau_1_faisable => 0,
-        niveau_2_faisable => 1,
-        niveau_3_faisable => 2,
-        niveau_4_faisable => 3,
-        niveau_5_faisable => 4,
-        niveau_6_faisable => 5,
-        niveau_7_faisable => 6,
-        niveau_8_faisable => 7,
-        niveau_9_faisable => 8,
-        niveau_10_faisable => 9,
-        niveau_11_faisable => 10,
-        niveau_12_faisable => 11,
-        monde_2_niveau_1_faisable => M2,
-        monde_2_niveau_2_faisable => M2 + 1,
-        monde_2_niveau_3_faisable => M2 + 2,
-        monde_2_niveau_4_faisable => M2 + 3,
-        monde_2_niveau_5_faisable => M2 + 4,
-        monde_2_niveau_6_faisable => M2 + 5,
-        monde_2_niveau_7_faisable => M2 + 6,
-        monde_2_niveau_8_faisable => M2 + 7,
+        niveau_1_faisable, niveau_1_reprise => 0,
+        niveau_2_faisable, niveau_2_reprise => 1,
+        niveau_3_faisable, niveau_3_reprise => 2,
+        niveau_4_faisable, niveau_4_reprise => 3,
+        niveau_5_faisable, niveau_5_reprise => 4,
+        niveau_6_faisable, niveau_6_reprise => 5,
+        niveau_7_faisable, niveau_7_reprise => 6,
+        niveau_8_faisable, niveau_8_reprise => 7,
+        niveau_9_faisable, niveau_9_reprise => 8,
+        niveau_10_faisable, niveau_10_reprise => 9,
+        niveau_11_faisable, niveau_11_reprise => 10,
+        niveau_12_faisable, niveau_12_reprise => 11,
+        monde_2_niveau_1_faisable, monde_2_niveau_1_reprise => M2,
+        monde_2_niveau_2_faisable, monde_2_niveau_2_reprise => M2 + 1,
+        monde_2_niveau_3_faisable, monde_2_niveau_3_reprise => M2 + 2,
+        monde_2_niveau_4_faisable, monde_2_niveau_4_reprise => M2 + 3,
+        monde_2_niveau_5_faisable, monde_2_niveau_5_reprise => M2 + 4,
+        monde_2_niveau_6_faisable, monde_2_niveau_6_reprise => M2 + 5,
+        monde_2_niveau_7_faisable, monde_2_niveau_7_reprise => M2 + 6,
+        monde_2_niveau_8_faisable, monde_2_niveau_8_reprise => M2 + 7,
     }
 
     #[test]
@@ -798,6 +822,7 @@ mod tests {
     /// vide de 23 tuiles (colonnes 85 à 105, tous espacés de 4 tuiles), ne se
     /// franchit pas sans eux.
     #[test]
+    #[ignore = "lot : le niveau exige sa mécanique (recherche complète sans elle)"]
     fn niveau_3_le_marche_exige_ses_six_auvents() {
         use crate::entities::Entite;
         use crate::levels::marche;
@@ -833,6 +858,7 @@ mod tests {
     /// place du chat), la goutte n'est plus atteinte ; l'arrivée, si (le chemin
     /// principal passe par-dessus le mur).
     #[test]
+    #[ignore = "lot : le niveau exige sa mécanique (recherche complète sans elle)"]
     fn niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee() {
         let grille: Vec<&str> = crate::levels::marche::INFOS
             .ascii
@@ -867,6 +893,7 @@ mod tests {
     /// pas autrement) : le drapeau reste atteignable (on remonte la fente d'un
     /// saut, sur le bloc de boutique). Aucun piège sans retour au fond du passage.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn niveau_3_on_ressort_de_la_cachette_du_chat() {
         let lignes: Vec<String> = crate::levels::marche::INFOS
             .ascii
@@ -883,7 +910,7 @@ mod tests {
         let ecrase = Niveau::depuis_ascii(&lignes.join("\n")).unwrap();
         let t = crate::aabb::TAILLE_TUILE;
         let cachette = (67.0 * t + 3.0, 9.0 * t - crate::physics::JOUEUR_H);
-        let r = analyser(&ecrase, cachette, Options::default());
+        let r = analyser(&ecrase, cachette, Options::arrivee_seule());
         assert!(r.arrivee, "coincé dans la cachette : {r:?}");
     }
 
@@ -892,10 +919,11 @@ mod tests {
     /// moins 3 lanternes, sauf dans l'arène du Grand Nuage (l'« arrivée » y est sa
     /// tête, voir `faisabilite`) : une seule, au début de l'arène.
     fn verifier(i: usize) {
-        verifier_infos(&NIVEAUX[i]);
+        let r = verifier_infos(&NIVEAUX[i]);
+        verifier_duree(&NIVEAUX[i], &r);
     }
 
-    fn verifier_infos(infos: &InfosNiveau) {
+    fn verifier_infos(infos: &InfosNiveau) -> crate::faisabilite::Rapport {
         let niv = infos.charger().unwrap();
         let r = analyser(&niv, niv.depart, Options::default());
         let n = infos.numero;
@@ -936,12 +964,14 @@ mod tests {
             assert_eq!(niv.nb_lanternes(), 1, "niveau {n} : arène du boss");
         }
 
+        // Le robot maladroit ne sert qu'à l'arrivée : il s'arrête dès qu'il l'a
+        // touchée (même réponse, carte 9.23).
         let maladroit = analyser(
             &niv,
             niv.depart,
             Options {
                 precis: false,
-                ..Options::default()
+                ..Options::arrivee_seule()
             },
         );
         assert!(
@@ -949,26 +979,53 @@ mod tests {
             "niveau {n} : trop exigeant (robot maladroit bloqué à x = {})",
             maladroit.x_max
         );
+        r
     }
 
     /// Chaque lanterne est aussi un point de reprise : le niveau doit se
-    /// terminer DEPUIS elle (sinon un respawn pourrait coincer le joueur).
-    #[test]
-    fn reprise_depuis_chaque_lanterne() {
-        for infos in niveaux_et_essai() {
-            let niv = infos.charger().unwrap();
-            for e in &niv.entites {
-                if let crate::entities::Entite::Lanterne(l) = e {
-                    let r = analyser(&niv, l.point_de_reapparition(), Options::default());
-                    assert!(
-                        r.arrivee,
-                        "niveau {} : bloqué depuis la lanterne en {:?}",
-                        infos.numero,
-                        l.point_de_reapparition()
-                    );
-                }
+    /// terminer DEPUIS elle (sinon un respawn pourrait coincer le joueur). Un test
+    /// par niveau (`tests_de_faisabilite!`), un pour les niveaux d'essai ; la
+    /// recherche s'arrête dès l'arrivée touchée (`Options::arrivee_seule`).
+    fn reprise_depuis_chaque_lanterne(infos: &InfosNiveau) {
+        let niv = infos.charger().unwrap();
+        for e in &niv.entites {
+            if let crate::entities::Entite::Lanterne(l) = e {
+                let r = analyser(&niv, l.point_de_reapparition(), Options::arrivee_seule());
+                assert!(
+                    r.arrivee,
+                    "niveau {} : bloqué depuis la lanterne en {:?}",
+                    infos.numero,
+                    l.point_de_reapparition()
+                );
             }
         }
+    }
+
+    #[test]
+    #[ignore = "lot : reprise depuis chaque lanterne des niveaux d'essai"]
+    fn reprise_depuis_chaque_lanterne_des_niveaux_d_essai() {
+        for infos in niveaux_et_essai().skip(NB_NIVEAUX) {
+            reprise_depuis_chaque_lanterne(infos);
+        }
+    }
+
+    /// Ce qu'une carte de NIVEAU vérifie de son niveau (carte 9.23, commande
+    /// `./docker-cargo.sh carte <clé>`) : la faisabilité (arrivée, 3 gouttes,
+    /// lanternes, robot maladroit, durée) et la reprise depuis chaque lanterne, les
+    /// deux en parallèle. Les mêmes vérifications que ses deux tests de lot
+    /// (`tests_de_faisabilite!`), choisies par la clé (variable `CLE`).
+    #[test]
+    #[ignore = "carte : un seul niveau, CLE=<clé> (./docker-cargo.sh carte <clé>)"]
+    fn le_niveau_de_la_carte() {
+        let cle = std::env::var("CLE").expect("CLE=<clé du niveau>");
+        let i = NIVEAUX
+            .iter()
+            .position(|n| n.cle == cle)
+            .unwrap_or_else(|| panic!("aucun niveau de clé {cle:?}"));
+        std::thread::scope(|portee| {
+            portee.spawn(|| reprise_depuis_chaque_lanterne(&NIVEAUX[i]));
+            verifier(i);
+        });
     }
 
     /// Un niveau dure 40 à 60 s pour un joueur normal. Le robot « course
@@ -982,60 +1039,60 @@ mod tests {
     /// courant. L'arène de la Pieuvre du port (carte 9.12b) : de même, avec SES
     /// durées (prélude, les trois motifs, trois remontées de la tête, deux fois
     /// « touchée », la plongée).
-    #[test]
-    fn durees_plausibles() {
+    ///
+    /// Carte 9.23 : vérifiée dans le test de faisabilité de chaque niveau, avec SA
+    /// recherche (l'ancien test `durees_plausibles` refaisait la même recherche
+    /// complète de tous les niveaux, 6 min).
+    fn verifier_duree(infos: &InfosNiveau, r: &crate::faisabilite::Rapport) {
         use crate::entities::nuage::{
             duree_motif, DECHIRURE_PAS, PRELUDE_PAS, PV_NUAGE, TOUCHE_PAS,
         };
         use crate::entities::pieuvre;
-        for infos in NIVEAUX {
-            let niv = infos.charger().unwrap();
-            let r = analyser(&niv, niv.depart, Options::default());
-            let a_une_pieuvre = niv
-                .entites
-                .iter()
-                .any(|e| matches!(e, crate::entities::Entite::Pieuvre(_)));
-            let pas = if niv.arrivee.is_some() {
-                r.pas_arrivee.unwrap()
-            } else if a_une_pieuvre {
-                let pv = pieuvre::PV_PIEUVRE;
-                let motifs: u32 = (0..pv as usize)
-                    .map(|m| u32::from(pieuvre::duree_motif(m)))
-                    .sum();
-                u32::from(pieuvre::PRELUDE_PAS)
-                    + motifs
-                    + u32::from(pv) * u32::from(pieuvre::REMOUS_PAS)
-                    + u32::from(pv - 1) * u32::from(pieuvre::TOUCHEE_PAS)
-                    + u32::from(pieuvre::PLONGEE_PAS)
-            } else {
-                let motifs: u32 = (0..PV_NUAGE as usize)
-                    .map(|m| u32::from(duree_motif(m)))
-                    .sum();
-                u32::from(PRELUDE_PAS)
-                    + motifs
-                    + u32::from(PV_NUAGE - 1) * u32::from(TOUCHE_PAS)
-                    + u32::from(DECHIRURE_PAS)
-            };
-            let s = pas as f32 / 60.0;
-            println!(
-                "niveau {} : course rapide {s:.1} s (cible {} s)",
-                infos.numero, infos.duree_cible_s
-            );
-            // Le chapitre 2 (carte 9.21b, demande d'AGA « les autres niveaux sont trop
-            // courts ») vise 50 à 70 s pour l'Habitué de la mesure : ses longues
-            // traversées en barque comptent autant pour le robot que pour l'Habitué
-            // (peu d'attente), d'où une course rapide permise jusqu'à 60 s.
-            let max = if infos.monde >= 2 { 60.0 } else { 45.0 };
-            assert!(
-                (12.0..=max).contains(&s),
-                "niveau {} : {s:.1} s",
-                infos.numero
-            );
-            // Chrono cible : 40 à 60 s au Monde 1, jusqu'à 75 s au chapitre 2, aux
-            // niveaux plus longs (les égouts allongés de la carte 9.21a visent 65 s).
-            let cible_max = if infos.monde >= 2 { 75 } else { 60 };
-            assert!((40..=cible_max).contains(&infos.duree_cible_s));
-        }
+        let niv = infos.charger().unwrap();
+        let a_une_pieuvre = niv
+            .entites
+            .iter()
+            .any(|e| matches!(e, crate::entities::Entite::Pieuvre(_)));
+        let pas = if niv.arrivee.is_some() {
+            r.pas_arrivee.unwrap()
+        } else if a_une_pieuvre {
+            let pv = pieuvre::PV_PIEUVRE;
+            let motifs: u32 = (0..pv as usize)
+                .map(|m| u32::from(pieuvre::duree_motif(m)))
+                .sum();
+            u32::from(pieuvre::PRELUDE_PAS)
+                + motifs
+                + u32::from(pv) * u32::from(pieuvre::REMOUS_PAS)
+                + u32::from(pv - 1) * u32::from(pieuvre::TOUCHEE_PAS)
+                + u32::from(pieuvre::PLONGEE_PAS)
+        } else {
+            let motifs: u32 = (0..PV_NUAGE as usize)
+                .map(|m| u32::from(duree_motif(m)))
+                .sum();
+            u32::from(PRELUDE_PAS)
+                + motifs
+                + u32::from(PV_NUAGE - 1) * u32::from(TOUCHE_PAS)
+                + u32::from(DECHIRURE_PAS)
+        };
+        let s = pas as f32 / 60.0;
+        println!(
+            "niveau {} : course rapide {s:.1} s (cible {} s)",
+            infos.numero, infos.duree_cible_s
+        );
+        // Le chapitre 2 (carte 9.21b, demande d'AGA « les autres niveaux sont trop
+        // courts ») vise 50 à 70 s pour l'Habitué de la mesure : ses longues
+        // traversées en barque comptent autant pour le robot que pour l'Habitué
+        // (peu d'attente), d'où une course rapide permise jusqu'à 60 s.
+        let max = if infos.monde >= 2 { 60.0 } else { 45.0 };
+        assert!(
+            (12.0..=max).contains(&s),
+            "niveau {} : {s:.1} s",
+            infos.numero
+        );
+        // Chrono cible : 40 à 60 s au Monde 1, jusqu'à 75 s au chapitre 2, aux
+        // niveaux plus longs (les égouts allongés de la carte 9.21a visent 65 s).
+        let cible_max = if infos.monde >= 2 { 75 } else { 60 };
+        assert!((40..=cible_max).contains(&infos.duree_cible_s));
     }
 
     #[test]

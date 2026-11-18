@@ -255,10 +255,9 @@ mod tests {
             "un plané passerait sous la voûte : {descente}"
         );
         // Le robot de faisabilité, lui, la passe (en barque) : la rive d'en face
-        // et sa lanterne (la dernière dans l'ordre de lecture).
+        // et sa lanterne (la dernière dans l'ordre de lecture). Sa recherche est
+        // celle de `zones::tests::monde_2_niveau_4_faisable`, qui exige TOUTES les
+        // lanternes (carte 9.23 : elle n'est plus refaite ici).
         assert_eq!(g[77][26], 'L');
-        let niv = INFOS.charger().unwrap();
-        let r = analyser(&niv, niv.depart, Options::default());
-        assert!(r.lanternes[4], "la rive d'en face en barque");
     }
 }
