@@ -167,9 +167,17 @@ pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static s
     // Sous la dernière rangée, le jeu voit du solide (le sol continue hors carte) :
     // la rangée du bas n'est ni un plafond ni une voûte (carte 9.6c).
     let bas = monde.niveau.hauteur() as i32;
+    // Carte 9.20f : le mobilier de rue se dessine d'un seul tenant
+    // (`mobilier_rue`) ; ses cases ne sont pas des tuiles, et le jeu du thème le
+    // voit comme de l'air (les pavés restent des pavés sous une voiture).
+    if monde.niveau.est_mobilier(tx, ty) {
+        return "";
+    }
     let vue = |x, y| {
         if y >= bas {
             Tuile::Brique
+        } else if monde.niveau.est_mobilier(x, y) {
+            Tuile::Vide
         } else {
             tuile_vue(monde, x, y)
         }
@@ -179,10 +187,8 @@ pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static s
     if crate::dessin_port::dessine_la_case(monde, tx, ty, t) {
         return "";
     }
-    let (theme, depart) = (monde.infos.theme, monde.niveau.depart);
-    if let Some(nom) =
-        tuiles_theme::nom_du_theme(theme, (tx, ty, t), vue, depart, hachage_case(tx, ty))
-    {
+    let theme = monde.infos.theme;
+    if let Some(nom) = tuiles_theme::nom_du_theme(theme, (tx, ty, t), vue, hachage_case(tx, ty)) {
         return nom;
     }
     let haut = tuile_vue(monde, tx, ty - 1) == Tuile::Vide;
@@ -1429,6 +1435,8 @@ pub fn dessiner(
     crate::decor_cascade::dessiner_fond(monde, cx, cy);
     // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
     crate::eau::dessiner_marees(monde, banque, cx, cy);
+    // Les roues de l'autobus du caniveau (carte 9.20f), dans l'eau qui les couvre.
+    crate::mobilier_rue::dessiner_derriere(monde, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
     // La jetée de la Pieuvre (carte 9.20e) : bassin profond, quais, grue, caisses.
     crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
@@ -1438,6 +1446,8 @@ pub fn dessiner(
     crate::decor_egouts::dessiner(monde, cx, cy);
     // L'habillage de la grotte (carte 9.20d) : rideau de la cascade, sources, jour.
     crate::decor_grotte::dessiner(monde, cx, cy);
+    // Le mobilier de rue du caniveau (carte 9.20f) : voitures, autobus, abribus...
+    crate::mobilier_rue::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
     // Le grand tuyau du départ et le bassin d'arrivée de la cascade (carte 9.20c).
     crate::decor_cascade::dessiner(monde, cx, cy);
