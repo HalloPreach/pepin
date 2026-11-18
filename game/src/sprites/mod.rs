@@ -1711,20 +1711,14 @@ mod tests {
     /// Taille d'un objet de décor : une tuile de large au plus (il tient sur sa case) et
     /// moins de deux tuiles de haut (il ne déborde que sur la case du dessus, que les
     /// tests des niveaux gardent libre de tout danger et de tout objet).
-    /// Carte 9.20a : la descente de gouttière de la rue (Monde 2, seul le caniveau la
-    /// pose) fait exception : un tuyau le long de la façade et sa gargouille jusqu'au
-    /// caniveau, deux cases à droite (48 x 40 au plus, la taille des plus grands
-    /// sprites de la planche contact).
+    /// (La descente de gouttière de la rue, plus grande, n'est plus un sprite depuis
+    /// la carte 9.20h : `decor_rue` la dessine avec sa maison.)
     #[test]
     fn les_objets_de_decor_tiennent_dans_leur_case_et_celle_du_dessus() {
         for &(nom, d) in objets_decor::SPRITES {
             let (l, h) = (largeur(d), hauteur(d));
-            if objets_decor::GOUTTIERE.contains(&nom) {
-                assert!(l <= 48 && h <= 40, "{nom} : {l} x {h} px");
-            } else {
-                assert!((6..=16).contains(&l), "{nom} : {l} px de large");
-                assert!((8..=28).contains(&h), "{nom} : {h} px de haut");
-            }
+            assert!((6..=16).contains(&l), "{nom} : {l} px de large");
+            assert!((8..=28).contains(&h), "{nom} : {h} px de haut");
             // Posé : la dernière rangée touche le toit (au moins un pixel plein).
             assert!(d[h - 1].chars().any(|c| c != '.'), "{nom} : pas posé");
         }

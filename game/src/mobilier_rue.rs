@@ -404,8 +404,8 @@ mod tests {
         }
     }
 
-    /// Carte 9.20g : le décor de la rue SANS collision (poubelle `U`, borne `I`,
-    /// descente de gouttière `J` hors du filet d'eau) n'a aucune teinte claire
+    /// Carte 9.20g : le décor de la rue SANS collision (poubelle `U`, borne `I` ;
+    /// la gouttière `J` dans `decor_rue`) n'a aucune teinte claire
     /// (ardoise claire et au-dessus) : rien de clair qui se prendrait pour un dessus.
     #[test]
     fn le_decor_sans_collision_de_la_rue_est_terne() {
@@ -413,8 +413,7 @@ mod tests {
         for (nom, d) in objets_decor::SPRITES {
             let rangees = match *nom {
                 "borne" | "poubelle" => d.len(),
-                // Le filet d'eau commence sous la gargouille (rangée 30).
-                n if objets_decor::GOUTTIERE.contains(&n) => 30,
+                // La descente de gouttière `J` : `decor_rue` (carte 9.20h), testée là.
                 _ => continue,
             };
             for ligne in &d[..rangees] {

@@ -452,7 +452,9 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             GenreDecor::BoucheEgout => ("bouche_egout", false),
             GenreDecor::Borne => ("borne", false),
             GenreDecor::Poubelle => ("poubelle", false),
-            GenreDecor::Gouttiere => (image(&objets_decor::GOUTTIERE, monde.pas, 10), false),
+            // Carte 9.20h : la descente de gouttière est dessinée avec sa maison
+            // (`decor_rue::dessiner_gouttieres`, avant les tuiles).
+            GenreDecor::Gouttiere => continue,
         };
         let Some(dessin) = objets_decor::SPRITES
             .iter()
@@ -462,13 +464,6 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             continue;
         };
         let (x, y) = coin_decor(d.x, d.y, largeur(dessin), hauteur(dessin));
-        // Carte 9.20a : la descente de gouttière n'est pas centrée : son tuyau est dans
-        // sa case, sa gargouille déborde à droite jusqu'au caniveau.
-        let x = if matches!(d.genre, GenreDecor::Gouttiere) {
-            d.x.round() as i32
-        } else {
-            x
-        };
         banque.dessiner(nom, (x - cx) as f32, (y - cy) as f32, miroir);
     }
 }
@@ -1442,6 +1437,8 @@ pub fn dessiner(
     crate::eau::dessiner_marees(monde, banque, cx, cy);
     // Les roues de l'autobus du caniveau (carte 9.20f), dans l'eau qui les couvre.
     crate::mobilier_rue::dessiner_derriere(monde, cx, cy);
+    // Les descentes de gouttière du caniveau et leur pan de maison (carte 9.20h).
+    crate::decor_rue::dessiner_gouttieres(monde, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
     // La jetée de la Pieuvre (carte 9.20e) : bassin profond, quais, grue, caisses.
     crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
@@ -1454,6 +1451,8 @@ pub fn dessiner(
     // Le mobilier de rue du caniveau (carte 9.20f) : voitures, autobus, abribus...
     crate::mobilier_rue::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
+    // Le filet d'eau de chaque gouttière, sur l'eau du caniveau (carte 9.20h).
+    crate::decor_rue::dessiner_filets(monde, cx, cy);
     // Le grand tuyau du départ et le bassin d'arrivée de la cascade (carte 9.20c).
     crate::decor_cascade::dessiner(monde, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
@@ -1963,16 +1962,14 @@ mod tests {
             "borne",
             "poubelle",
         ];
-        let animes = objets_decor::OISEAU
-            .iter()
-            .chain(objets_decor::GOUTTIERE.iter());
-        for nom in noms.iter().chain(animes) {
+        for nom in noms.iter().chain(objets_decor::OISEAU.iter()) {
             assert!(
                 objets_decor::SPRITES.iter().any(|(n, _)| n == nom),
                 "{nom} : pas de dessin"
             );
         }
-        // Les genres animés (l'oiseau, la gouttière) ont un jeu d'images chacun.
+        // L'oiseau a un jeu d'images ; la gouttière (carte 9.20h) est dessinée avec
+        // sa maison par `decor_rue`, sans sprite.
         assert_eq!(GenreDecor::TOUS.len(), noms.len() + 2);
     }
 
