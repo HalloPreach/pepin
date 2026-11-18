@@ -1586,16 +1586,18 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
         }
         Detail::Chutes => {
             // Trois ruisselles qui tombent devant les falaises : le corps sombre,
-            // le courant clair, des éclats qui dévalent, la mousse au pied.
+            // le courant clair, des éclats qui dévalent, la mousse au pied. Carte
+            // 9.20c : en ardoise, comme la grande chute du fond (`decor_cascade`) ;
+            // le cyan vif est aux chutes jouables `|`, seules à pousser Pépin.
             for (i, cx) in [45i32, 150, 262].into_iter().enumerate() {
                 let x = (cx - dec).rem_euclid(L);
-                rect(x, 0, 5, H, PLUIE_SOMBRE);
-                rect(x + 1, 0, 2, H, PLUIE);
+                rect(x, 0, 5, H, ARDOISE);
+                rect(x + 1, 0, 2, H, ARDOISE_CLAIRE);
                 for k in 0..2 {
                     let y = (pas as i32 * 3 / 2 + k * 60 + i as i32 * 30).rem_euclid(H);
-                    rect(x + 1 + k, y, 1, 8, BLANC_CASSE);
+                    rect(x + 1 + k, y, 1, 8, ARDOISE_PALE);
                 }
-                rect(x - 2, H - 4, 9, 2, BLANC_CASSE);
+                rect(x - 2, H - 4, 9, 2, ARDOISE_PALE);
             }
         }
         Detail::Brume => {

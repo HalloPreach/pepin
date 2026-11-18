@@ -1423,6 +1423,8 @@ pub fn dessiner(
     mur_pluie::dessiner_soleil(monde);
     dessiner_dechirure(monde, cx);
     dessiner_facades(monde, banque, cx, cy);
+    // La grande chute en fond de la cascade (carte 9.20c), derrière les tuiles.
+    crate::decor_cascade::dessiner_fond(monde, cx, cy);
     // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
     crate::eau::dessiner_marees(monde, banque, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
@@ -1433,6 +1435,8 @@ pub fn dessiner(
     // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.
     crate::decor_egouts::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
+    // Le grand tuyau du départ et le bassin d'arrivée de la cascade (carte 9.20c).
+    crate::decor_cascade::dessiner(monde, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);
     dessiner_cadrans(monde, banque, alpha, cx, cy);

@@ -12,8 +12,10 @@
 //!   noyade (la chute tue à l'arrivée) ; sur la roche, rien.
 //!
 //! Le parcours, de haut en bas :
-//! 1. le haut de la falaise : on plane du départ dans le BASSIN A (le panneau
-//!    « planer » le rappelle) ; son courant `}` porte la barque vers la droite. La
+//! 1. le haut de la falaise : Pépin sort du GRAND TUYAU des égouts (carte 9.20c :
+//!    sa passerelle est la corniche du départ, la voûte au-dessus est de la roche),
+//!    et plane dans le BASSIN A (le panneau « planer » le rappelle), où l'eau du
+//!    tuyau se déverse ; son courant `}` porte la barque vers la droite. La
 //!    1re goutte flotte au-dessus (colonne 13) : on la prend d'un saut depuis la
 //!    barque, et l'on replane pour retomber à bord ;
 //! 2. au bout du bassin A, l'eau tombe : la CHUTE C1 (colonnes 27 et 28, dix
@@ -34,9 +36,14 @@
 //!    parapluie fermé (on traverse le puits en un tiers de seconde). En planant,
 //!    on y est encore quand elle tombe. En bas du puits, la salle et le palier
 //!    (3e lanterne), hors de la colonne de la stalactite ;
-//! 7. le pied de la cascade : on plane du palier dans le BASSIN D (la 3e goutte
-//!    au-dessus de l'eau, sur le chemin) ; son courant `{` mène à la berge, où
-//!    est le drapeau (colonne 2).
+//! 7. le pied de la cascade (carte 9.20c) : on plane du palier vers la gauche dans
+//!    le BASSIN D'ARRIVÉE, large, où tombe la grande chute du fond (la 3e goutte
+//!    au-dessus de l'eau, sur le chemin) ; il part en RIVIÈRE vers la droite (`}`),
+//!    sous le palier, jusqu'au drapeau posé sur la berge de droite (colonne 29).
+//!
+//! La GRANDE CHUTE (carte 9.20c) est un décor de fond, sur toute la hauteur
+//! (`game/src/decor_cascade.rs`) : sans collision ni danger, plus sombre que les
+//! chutes `|`, qui sont ses bras au premier plan.
 //!
 //! Trois lanternes, chacune hors de tout danger : la corniche (10, 16), le
 //! couloir (15, 25), le palier (27, 37). Deux ennemis seulement : le poisson du
@@ -57,7 +64,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     nom: "La grande cascade",
     theme: Theme::Cascade,
     genre: GenreNiveau::Normal,
-    intro: "L'eau ressort au bord de la falaise et tombe de bassin en bassin.",
+    intro: "L'eau ressort du grand tuyau au bord de la falaise et tombe de bassin en bassin.",
     mecanique: "Les chutes d'eau : parapluie ouvert, on y descend lentement jusqu'au \
                 bassin du dessous ; parapluie fermé, elles emportent vite (et l'on se noie \
                 si un bassin attend en bas).",
@@ -68,17 +75,19 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 
 /// Dessin du niveau (32 x 46 tuiles). Légende : voir `crate::level`.
 /// - Bassins : A rangée 8 (colonnes 7 à 26), B rangée 18 (14 à 28), C rangée 27
-///   (1 à 12), D rangée 41 (6 à 16).
+///   (1 à 12), D (l'arrivée, qui part en rivière) rangée 42 (6 à 31).
+/// - Le grand tuyau du départ : voûte rangées 0 (colonnes 0 à 4) et 1 (0 à 6), passerelle
+///   rangée 5 ; drapeau (29, 40) sur la berge de droite.
 /// - Chutes : C1 colonnes 27-28 (rangées 8 à 17), C2 colonnes 2 à 5 (11 à 26),
 ///   le puits colonne 22 (25 à 31), sous la stalactite (22, 24).
-/// - Gouttes : (13, 5), (1, 17) dans la niche, (12, 39) ; poisson (20, 17),
+/// - Gouttes : (13, 5), (1, 17) dans la niche, (12, 40) ; poisson (20, 17),
 ///   mouette (9, 34).
 const ASCII: &str = r"
+BBBBB...........................
+BBBBBBB.........................
 ................................
 ................................
-................................
-................................
-K.@..G........................K.
+..@..G........................K.
 #######......o...............###
 BBBBBBB......................BBB
 BBBBBBB......................BBB
@@ -113,10 +122,10 @@ BBBBBBBBBBBBBBBBBBBBBB|BBBBBBBBB
 ...............................B
 ...........................L..KB
 ..................#############B
-..X.........o....BBBBBBBBBBBBBBB
-######...........BBBBBBBBBBBBBBB
-BBBBBB{{{{{{{{{{{BBBBBBBBBBBBBBB
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+...............................B
+######......o................X.B
+BBBBBB.....................####B
+BBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB

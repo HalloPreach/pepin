@@ -234,7 +234,9 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
     (
         "cascade",
         Intro {
-            texte: "L'eau ressort au bord de la falaise et tombe de bassin en bassin.",
+            // Carte 9.20c : le départ est le bout du grand tuyau des égouts.
+            texte:
+                "L'eau ressort du grand tuyau au bord de la falaise et tombe de bassin en bassin.",
             astuce: "Dans une chute, plane pour aller doucement.",
         },
     ),
