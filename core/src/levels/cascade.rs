@@ -54,18 +54,18 @@
 //!    Sur la berge, un crabe (on lui rebondit dessus, ou on le saute) sous une
 //!    stalactite ; au bout, on se laisse tomber à gauche ;
 //! 10. LES MARCHES DE LA CASCADE (carte 9.21b) : une corniche (5e lanterne), puis
-//!    trois petits bassins en escalier vers la droite, reliés par deux courtes
-//!    chutes : la barque y passe par-dessus bord (BAS tenu en tombant, ou un saut
-//!    et l'on replane), et l'on retombe en barque dans la marche du dessous (la
-//!    deuxième est calme : on y rame). Au bout, une rive, et l'on tombe à droite ;
+//!     trois petits bassins en escalier vers la droite, reliés par deux courtes
+//!     chutes : la barque y passe par-dessus bord (BAS tenu en tombant, ou un saut
+//!     et l'on replane), et l'on retombe en barque dans la marche du dessous (la
+//!     deuxième est calme : on y rame). Au bout, une rive, et l'on tombe à droite ;
 //! 11. LA MARE AUX NÉNUPHARS (carte 9.21b) : une rive (6e lanterne), puis la mare,
-//!    vers la gauche, de nénuphar en nénuphar (chacun s'enfonce sous Pépin : on ne
-//!    s'y attarde pas ; tombé à l'eau, BAS donne la barque, qui rame lentement).
-//!    Une grenouille garde l'autre rive ; on se laisse tomber derrière elle ;
+//!     vers la gauche, de nénuphar en nénuphar (chacun s'enfonce sous Pépin : on ne
+//!     s'y attarde pas ; tombé à l'eau, BAS donne la barque, qui rame lentement).
+//!     Une grenouille garde l'autre rive ; on se laisse tomber derrière elle ;
 //! 12. le pied de la cascade (carte 9.20c) : de la corniche de gauche, on gagne le
-//!    BASSIN D'ARRIVÉE, large, où tombe la grande chute du fond (la 3e goutte
-//!    au-dessus de l'eau, sur le chemin) ; il part en RIVIÈRE vers la droite (`}`)
-//!    jusqu'au drapeau posé sur la berge de droite (colonne 29).
+//!     BASSIN D'ARRIVÉE, large, où tombe la grande chute du fond (la 3e goutte
+//!     au-dessus de l'eau, sur le chemin) ; il part en RIVIÈRE vers la droite (`}`)
+//!     jusqu'au drapeau posé sur la berge de droite (colonne 29).
 //!
 //! La GRANDE CHUTE (carte 9.20c) est un décor de fond, sur toute la hauteur
 //! (`game/src/decor_cascade.rs`) : sans collision ni danger, plus sombre que les
