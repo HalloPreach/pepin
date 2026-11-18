@@ -30,7 +30,7 @@
 //!    Au bout, C0 (1-2) jaillit de sa vasque contre le mur et perce le sol de la
 //!    salle du bassin ;
 //! 3. la SALLE DU BASSIN (sol en rangée 46), vers la DROITE : un bassin
-//!    (colonnes 8 à 12) et son nénuphar ; un crabe patrouille le sol, une
+//!    (colonnes 8 à 13) et son nénuphar ; un crabe patrouille le sol, une
 //!    stalactite (colonne 15) pend sous la corniche P1. Au bout, C1 (30-31)
 //!    jaillit de sa vasque et soulève Pépin jusqu'à P1 (rangée 35), à sa gauche ;
 //! 4. P1, vers la GAUCHE : la lanterne 3 (colonne 27), puis le COULOIR des
@@ -39,7 +39,7 @@
 //!    puis on y entre vers la DROITE ;
 //! 5. le DESSUS DU ROCHER (rangée 23), vers la DROITE : en sortant des bulles, on
 //!    passe sous le surplomb et ses deux stalactites (colonnes 8 et 11), une goutte
-//!    entre elles ; la lanterne 4 (colonne 13), un bassin (colonnes 15 à 18) et
+//!    entre elles ; la lanterne 4 (colonne 13), un bassin (colonnes 14 à 18) et
 //!    une grenouille sur sa rive (colonne 20) ;
 //! 6. le MOMENT FORT : C3 (22-23), née de sa vasque au bord de la corniche de
 //!    repli (rangée 26), monte jusqu'à la rangée 9 ; C4 (28-29) sort d'une FISSURE
@@ -57,8 +57,14 @@
 //!    petite corniche P5 (rangée 7) et sa goutte ; retour par un saut planant
 //!    dans C4. Raté : la chute finit au pilier ou sur la corniche.
 //!
-//! Dix stalactites, trois ennemis (deux crabes, la grenouille), cinq lanternes,
-//! sept colonnes de bulles (sept sources), deux oiseaux de décor (les
+//! Carte 9.22d (AGA : des ennemis là où ils comptent, Habitué au-dessus de 0,5) :
+//! quatre poissons (deux dans le lac de la barque, un dans chaque bassin, élargis
+//! d'une case), un crabe sur la corniche aux trois stalactites et treize corbeaux
+//! (les chauves-souris de la grotte) en travers des sauts, des planés et des
+//! colonnes de bulles. Aucun ennemi ÉCRASABLE ajouté : chacun doublerait la
+//! recherche d'itinéraires de la mesure de difficulté.
+//! Dix stalactites, trois ennemis d'origine (deux crabes, la grenouille), cinq
+//! lanternes, sept colonnes de bulles (sept sources), deux oiseaux de décor (les
 //! hirondelles de la grotte). Aucune lanterne dans la colonne d'une stalactite.
 //! Une colonne contre un mur sort d'une vasque : on y attend en barque, puis on
 //! saute dans le sens de la sortie (une colonne de fissure laisse la place de se
@@ -114,7 +120,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 const ASCII: &str = r"
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 B........................V....V.....
-B...................................
+B.............................c.....
 B...........................YY...X..
 B...........................YY#####B
 B...........................YYBBBBBB
@@ -122,9 +128,9 @@ B...............o...........YYBBBBBB
 B...............####........YY.....B
 B...........................YY.....B
 B.....................YY....YY.....B
+B....................cYY....YY.....B
 B.....................YY....YY.....B
-B.....................YY....YY.....B
-B.....................YY....YY.....B
+B.....................YY....YY.c...B
 B.....................YY....YY.....B
 B.....................YY....YY.....B
 B.....................YY....YY.....B
@@ -132,10 +138,10 @@ B.....................YY....YY.....B
 B......BBBBBB.........YY....YY.....B
 B......BBBBBB.........YY....YY.....B
 B.......V..V..........YY....YY.....B
-B.....................YY....YY.....B
+B.................c...YY....YY.....B
 B.....................YY....BB.....B
-B...YY....o..L......j.YY....BB.....B
-B...YY#########~~~~###YY....BB.....B
+B...YY....o..L..i...j.YY....BB.....B
+B...YY########~~~~~###YY....BB.....B
 B...YYBBBBBBBBBBBBBBBBYY....BB.....B
 B...YYBBBBBBBBBBBBBBBBYY...LBB.....B
 B...YYBBBBBBBBBBBBBBBB~~####BB.....B
@@ -146,39 +152,39 @@ B...YYBBBBBBBBBBBBBBBBBB...........B
 B...YY.....V....V..................B
 B...YY.............................B
 B...YY.............................B
-B...YY..............K......L..YY...B
+B...YY...c........c.K......L..YY...B
 B#############################YY...B
 B..............V..............YY...B
 B.............................YY...B
 B.............................YY...B
 B.............................YY...B
+B.........................c...YY...B
 B.............................YY...B
 B.............................YY...B
+B.........c...................YY...B
 B.............................YY...B
-B.............................YY...B
-B.............................YY...B
-BYY.K.....n...........k.......YY...B
-BYY#####~~~~~#################~~###B
+BYY.K.....n.i.........k.......YY...B
+BYY#####~~~~~~################~~###B
 BYYBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BYY.....................BBBBBBBBBBBB
 BYY.....................BBBBBBBBBBBB
 BYY...............YY....BBBBBBBBBBBB
+BYY........c......YY....BBBBBBBBBBBB
 BYY...............YY....BBBBBBBBBBBB
-BYY...............YY....BBBBBBBBBBBB
-BYY...............YY....BBBBBBBBBBBB
+BYY............c..YY....BBBBBBBBBBBB
 BYY...............YY.....V..V..V...B
 BYY...............YY...............B
-BYY.....L.........YY.............YYB
+BYY.....L.........YY......k......YYB
 B~~#######........YY....#########YYB
 BBBBBBBBBBo...k...YY....BBBBBBBBBYYB
 BBBBBBBBBB########~~####BBBBBBBBBYYB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBYYB
+B.........BBBBBBB.............c..YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
-B.........BBBBBBB................YYB
-B.........BBBBBBB................YYB
+B.........BBBBBBB............c...YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
@@ -186,10 +192,10 @@ B.........BBBBBBB................YYB
 ..........BBBBBBB................YYB
 ..........BBBBBBB................YYB
 ..........BBBBBBB................YYB
-..........BBBBBBB................YYB
+........c.BBBBBBB................YYB
 ..........BBBBBBB................YYB
 .................................YYB
-..@....n..................L......YYB
+..@....n.i........i.......L......YYB
 B####~~~~~~~~~~~~~~~~############~~B
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ";
