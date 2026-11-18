@@ -372,7 +372,18 @@ impl Joueur {
         }
 
         // --- 4. Mouvement horizontal ---------------------------------------
-        let signe = entrees.direction.signe();
+        // Carte 9.2d (AGA : « quand le parapluie est sous ses fesses on puisse
+        // se déplacer uniquement sur l'eau ») : AU SOL, parapluie retourné
+        // (BAS tenu), Pépin est assis dans sa coque et ne court plus. Gauche
+        // et droite sont sans effet : il freine jusqu'à l'arrêt (friction du
+        // sol, pas d'arrêt sec). En l'air, le contrôle reste (viser l'eau) ;
+        // sauter reste possible.
+        let assis = self.au_sol && self.retourne;
+        let signe = if assis {
+            0.0
+        } else {
+            entrees.direction.signe()
+        };
         let (vmax, accel, friction) = if self.au_sol {
             (VITESSE_COURSE, ACCEL_SOL, FRICTION_SOL)
         } else if self.plane {
@@ -1256,8 +1267,9 @@ mod tests {
             "réapparu au-dessus de l'eau : la barque le recueille"
         );
 
-        // 6. Loin de l'eau, BAS ne change RIEN au mouvement (Monde 1
-        // inchangé) : même course, même saut, parapluie retourné visible.
+        // 6. Loin de l'eau, EN L'AIR, BAS ne change RIEN au mouvement (le
+        // contrôle aérien reste, carte 9.2d) : même saut, même course en
+        // l'air, parapluie retourné visible. (Au sol, voir le test suivant.)
         let g = salle();
         let env = Environnement::simple(&g);
         let mut avec = au_sol(&g, 40.0);
@@ -1268,10 +1280,12 @@ mod tests {
                 saut: (10..25).contains(&pas),
                 bas: false,
             };
+            let en_l_air = !avec.au_sol;
             sans.actualiser(&e, &env);
-            avec.actualiser(&Entrees { bas: true, ..e }, &env);
+            avec.actualiser(&Entrees { bas: en_l_air, ..e }, &env);
             assert_eq!(avec.boite, sans.boite, "pas {pas} : même trajectoire");
         }
+        avec.actualiser(&BAS, &env);
         assert_eq!(
             avec.etat(),
             EtatJoueur::Retourne,
@@ -1279,6 +1293,81 @@ mod tests {
         );
         avec.actualiser(&AUCUNE, &env);
         assert_ne!(avec.etat(), EtatJoueur::Retourne, "BAS lâché : refermé");
+    }
+
+    /// Carte 9.2d (AGA : « quand le parapluie est sous ses fesses on puisse se
+    /// déplacer uniquement sur l'eau ») : AU SOL, BAS tenu, Pépin ne court plus.
+    /// Lancé à pleine vitesse, droite toujours tenue, il freine avec la friction
+    /// du sol (pas d'arrêt sec) puis ne bouge plus ; il peut encore sauter, et
+    /// en l'air il garde son contrôle.
+    #[test]
+    fn au_sol_le_parapluie_retourne_ne_bouge_plus() {
+        let g = salle();
+        let env = Environnement::simple(&g);
+        let mut j = au_sol(&g, 40.0);
+        for _ in 0..30 {
+            j.actualiser(&droite(), &env);
+        }
+        assert_eq!(j.vitesse.x, VITESSE_COURSE, "lancé à pleine vitesse");
+
+        let bas_droite = Entrees {
+            bas: true,
+            ..droite()
+        };
+        // Pas d'arrêt sec : le premier pas freine seulement de la friction.
+        let x0 = j.boite.x;
+        j.actualiser(&bas_droite, &env);
+        assert!(
+            (j.vitesse.x - (VITESSE_COURSE - FRICTION_SOL * DT)).abs() < 1e-3,
+            "décélération normale, pas d'arrêt sec : {}",
+            j.vitesse.x
+        );
+        // Arrêt au bout du freinage (96 / 900 s, 7 pas) : quelques px au plus.
+        let mut pas_arret = None;
+        for pas in 1..60 {
+            j.actualiser(&bas_droite, &env);
+            if j.vitesse.x == 0.0 && pas_arret.is_none() {
+                pas_arret = Some(pas);
+            }
+        }
+        let freinage = VITESSE_COURSE * VITESSE_COURSE / (2.0 * FRICTION_SOL);
+        assert!(pas_arret.is_some_and(|p| p <= 8), "arrêté : {pas_arret:?}");
+        assert!(
+            j.boite.x - x0 <= freinage + 2.0,
+            "glisse {} px pour {freinage} de freinage",
+            j.boite.x - x0
+        );
+        assert_eq!(j.etat(), EtatJoueur::Retourne, "assis dans sa coque");
+        let x_arret = j.boite.x;
+        for _ in 0..60 {
+            j.actualiser(&bas_droite, &env);
+        }
+        assert_eq!(j.boite.x, x_arret, "droite tenue : il ne bouge plus");
+
+        // Il peut toujours sauter, et en l'air (BAS tenu) il avance.
+        j.actualiser(
+            &Entrees {
+                saut: true,
+                ..bas_droite
+            },
+            &env,
+        );
+        for _ in 0..10 {
+            j.actualiser(&bas_droite, &env);
+        }
+        assert!(!j.au_sol, "le saut part");
+        assert!(j.boite.x > x_arret + 2.0, "en l'air, le contrôle reste");
+
+        // BAS lâché au sol : il recourt.
+        let mut j = au_sol(&g, 40.0);
+        for _ in 0..30 {
+            j.actualiser(&BAS, &env);
+        }
+        let x = j.boite.x;
+        for _ in 0..30 {
+            j.actualiser(&droite(), &env);
+        }
+        assert!(j.boite.x > x + 20.0, "BAS lâché : il court");
     }
 
     /// Correctif d'AGA : l'eau compte À LA HAUTEUR de Pépin, pas seulement dans

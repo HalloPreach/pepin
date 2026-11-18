@@ -244,11 +244,12 @@ fn eau_proche(m: &Monde, marge: f32) -> bool {
 }
 
 /// Les entrées d'un pas avec BAS tenu à l'approche de l'eau (carte 9.2b) : le
-/// parapluie retourné, pour entrer dans l'eau en barque. BAS ne change rien
-/// d'autre au mouvement ; sans eau, jamais tenu (Monde 1 inchangé).
+/// parapluie retourné, pour entrer dans l'eau en barque. Jamais au sol (carte
+/// 9.2d : au sol, BAS assied Pépin et il ne court plus) ; sans eau, jamais tenu
+/// (Monde 1 inchangé).
 fn entrees_du_pas(m: &Monde) -> Entrees {
     Entrees {
-        bas: eau_proche(m, MARGE_BAS),
+        bas: !m.joueur.au_sol && eau_proche(m, MARGE_BAS),
         ..Entrees::default()
     }
 }

@@ -70,11 +70,12 @@ pub fn libelle(choix: Choix) -> &'static str {
 pub const TITRE_AIDE: &str = "COMMENT JOUER";
 /// Couples (touches, effet), affichés sur deux colonnes.
 /// Carte 9.2b : une sixième ligne, BAS (le parapluie retourné, la barque).
+/// Carte 9.2d : au sol, BAS assied Pépin, il ne bouge plus.
 pub const COMMANDES_AIDE: [(&str, &str); 6] = [
     ("FLÈCHES, Q, D", "Courir"),
     ("ESPACE, HAUT, W", "Sauter, plus haut si maintenu"),
     ("SAUT EN L'AIR", "Maintenu : le parapluie plane !"),
-    ("BAS, S", "Retourner le parapluie"),
+    ("BAS, S", "Barque sur l'eau, figé au sol"),
     ("ÉCHAP, P", "Pause"),
     ("M", "Son, ou l'icône en bas à gauche"),
 ];
@@ -89,7 +90,7 @@ pub const ASTUCES_AIDE: [&str; 7] = [
     "Écrase les flaques en leur sautant dessus.",
     "Les courants d'air te portent vers le haut.",
     "Sous la grêle, garde le parapluie ouvert !",
-    "BAS : retourner le parapluie (barque sur l'eau)",
+    "BAS : barque sur l'eau (au sol, on ne bouge pas)",
     "Les lanternes sont des points de reprise.",
     "Trois gouttes d'or par niveau : facultatives !",
     "Trois gouttes d'un niveau : une vie de plus !",
@@ -228,7 +229,8 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
             // Carte 9.20a : le niveau suit l'eau jusqu'à la bouche d'égout (sa sortie).
             texte: "La pluie file dans le caniveau, jusqu'à la bouche d'égout. Pépin la suit.",
             // Carte 9.2b (demande d'AGA) : c'est BAS, plus le saut, qui fait la barque.
-            astuce: "BAS : retourner le parapluie (en barque sur l'eau).",
+            // Carte 9.2d : au sol, BAS assied Pépin, il ne bouge plus.
+            astuce: "BAS : barque sur l'eau. Au sol, Pépin ne bouge pas.",
         },
     ),
     (

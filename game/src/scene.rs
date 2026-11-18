@@ -1234,14 +1234,19 @@ fn poser_pepin(
             poser(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
         }
         // Parapluie retourné (carte 9.2b, BAS tenu), SOUS Pépin depuis la 9.2c :
-        // Pépin debout dans la coque de la barque (16x16). En l'air, posé comme la
-        // barque (`ENFONCE_BARQUE_RENDU` plus bas) : la coque est à la même place
-        // sous les pieds qu'en barque, Pépin s'y assied en touchant l'eau. Au sol,
-        // la crosse posée sur le sol (pas dedans).
+        // en l'air, Pépin debout dans la coque de la barque (16x16), posé comme
+        // la barque (`ENFONCE_BARQUE_RENDU` plus bas) : la coque est à la même
+        // place sous les pieds qu'en barque, Pépin s'y assied en touchant
+        // l'eau. Au sol (carte 9.2d), il ne court plus : ASSIS dans la coque
+        // (le dessin de la barque), la crosse posée sur le sol (pas dedans).
         EtatJoueur::Retourne => {
-            let enfonce = if j.au_sol { 0 } else { ENFONCE_BARQUE_RENDU };
+            let (nom, enfonce) = if j.au_sol {
+                (images.barque, 0)
+            } else {
+                (images.retourne, ENFONCE_BARQUE_RENDU)
+            };
             poser(
-                images.retourne,
+                nom,
                 (milieu - 8) as f32,
                 (bas - 16 + enfonce) as f32,
                 miroir,
