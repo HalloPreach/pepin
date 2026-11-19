@@ -362,6 +362,11 @@ minutes : le robot de QA joue réellement tous les niveaux. La mesure de difficu
 de la courbe ne se lancent plus qu'à la main, à la demande (voir `QA.md`, « Mesure de
 difficulté »).
 
+Les recherches des robots (faisabilité, QA, mesure de difficulté) se répartissent sur
+tous les cœurs de la machine (`core/src/parallele.rs`), sans changer leur résultat. Pour
+limiter le nombre de fils (machine chargée) : `PEPIN_FILS=4 ./docker-cargo.sh ...`
+(`PEPIN_FILS=1` : tout en série). Chronos : `docs/temps-des-tests.txt`.
+
 Hygiène du code (format et avertissements) :
 
     ./docker-cargo.sh lint

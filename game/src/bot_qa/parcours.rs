@@ -764,9 +764,29 @@ const PORTEE_CHAT: (f32, f32) = PORTEE_ESCARGOT;
 /// 8 tranches pour un cycle de 3,7 s (12 pour 6 s avant la carte 6.3).
 const TRANCHE_CHAT_PAS: u16 = 30;
 
+/// Fenêtre (px, en x entre les centres et en y entre les pieds) dans laquelle un
+/// ennemi ÉCRASÉ (chat, ennemi d'eau) compte dans la case de Pépin : un écran de
+/// chaque côté.
+///
+/// Pourquoi (allègement des outils) : avec un bit par ennemi écrasé de TOUT le
+/// niveau, chaque ennemi écrasable doublait le nombre de cases de toute la suite
+/// (6 rats au caniveau : 64 fois plus de cases, une recherche de plusieurs
+/// heures), alors qu'un rat écrasé trois écrans plus tôt ne change rien à ce que
+/// Pépin peut faire ici. Chaque noeud de la recherche garde son VRAI monde (tous
+/// ses ennemis, écrasés ou non) : le parcours trouvé reste exactement jouable ;
+/// seules deux cases qui ne diffèrent que par un ennemi lointain fusionnent (la
+/// moins coûteuse reste, comme pour deux positions voisines).
+const FENETRE_ECRASES: (f32, f32) = (320.0, 180.0);
+
+/// `(x du centre, y des pieds)` est-il dans `FENETRE_ECRASES` autour de Pépin ?
+fn dans_la_fenetre_des_ecrases(joueur: &Aabb, centre_x: f32, pieds: f32) -> bool {
+    (centre_x - (joueur.x + joueur.w / 2.0)).abs() <= FENETRE_ECRASES.0
+        && (pieds - joueur.bas()).abs() <= FENETRE_ECRASES.1
+}
+
 /// Les chats du niveau, résumés en un entier : `32 × écrasés + 2 × tranche + bond`.
 /// - `écrasés` : un bit par chat du niveau (dans l'ordre des entités), à 1 s'il
-///   est écrasé ;
+///   est écrasé ET proche de Pépin (`FENETRE_ECRASES`) ;
 /// - `tranche` : où en est le chat vivant le plus proche (dans `PORTEE_CHAT`,
 ///   mesurée depuis sa PLACE : un chat en plein bond reste le même chat) dans son
 ///   cycle, `1 + pas_du_cycle / TRANCHE_CHAT_PAS` (de 1 à 8) ; 0 si aucun chat
@@ -797,7 +817,10 @@ pub(crate) fn chats_de_la_case(m: &Monde) -> i32 {
     for (k, c) in chats.enumerate() {
         assert!(k < 25, "trop de chats pour la case du robot");
         if !c.est_dangereux() {
-            ecrases |= 1 << k;
+            let (px, py) = c.place();
+            if dans_la_fenetre_des_ecrases(j, px + c.boite.w / 2.0, py + c.boite.h) {
+                ecrases |= 1 << k;
+            }
             continue;
         }
         let (px, py) = c.place();
@@ -854,7 +877,8 @@ const PORTEE_EAU: (f32, f32) = (112.0, 80.0);
 const TRANCHE_EAU_PAS: u16 = 15;
 
 /// Les ennemis d'eau du Monde 2 (carte 9.4 : grenouille, poisson, crabe, rat,
-/// mouette), résumés en un entier : un bit par ennemi déjà écrasé, puis, pour le
+/// mouette), résumés en un entier : un bit par ennemi déjà écrasé et proche de
+/// Pépin (`FENETRE_ECRASES`), puis, pour le
 /// plus proche dans `PORTEE_EAU` encore vivant, son espèce, sa phase, le temps
 /// de sa phase (tranches de `TRANCHE_EAU_PAS`) et sa case de 16 px en x. 0 dans
 /// un niveau sans eux : la case est alors exactement celle d'avant la carte 9.4.
@@ -878,7 +902,10 @@ pub(crate) fn ennemis_d_eau_de_la_case(m: &Monde) -> i64 {
     for (k, c) in ennemis.enumerate() {
         assert!(k < 24, "trop d'ennemis d'eau pour la case du robot");
         if c.etat != EtatEnnemi::Actif {
-            ecrases |= 1 << k;
+            // Écrasé : il ne compte que proche de Pépin (`FENETRE_ECRASES`).
+            if dans_la_fenetre_des_ecrases(j, c.boite.x + c.boite.w / 2.0, c.boite.bas()) {
+                ecrases |= 1 << k;
+            }
             continue;
         }
         let dx = (c.boite.x + c.boite.w / 2.0 - centre).abs();
@@ -1008,15 +1035,24 @@ pub(crate) fn chercher_avec(
         } else {
             tous
         };
-        for &plan in a_essayer {
-            let (fin, monde, entrees) = simuler(&noeuds[i].monde, plan);
+        // Chaque plan est simulé à part, sur les cœurs libres (`parallele`), puis
+        // dépouillé ci-dessous dans l'ordre des plans : le robot trouve exactement
+        // le même parcours qu'en série (mêmes empreintes). `None` : rien à
+        // dépouiller (mort, abandon, ou plan écarté).
+        let depart_des_plans = &noeuds[i].monde;
+        let essais = pepin_core::parallele::appliquer(a_essayer, |&plan| {
+            let (fin, monde, entrees) = simuler(depart_des_plans, plan);
+            if matches!(fin, Fin::Mort | Fin::Abandon) {
+                return None;
+            }
             // Dans un niveau à aiguilles d'horloge : un plan qui ne tient qu'à
             // l'image près est écarté, comme une mort (`tient_au_decalage`).
-            if !matches!(fin, Fin::Mort | Fin::Abandon)
-                && !tient_au_decalage(&noeuds[i].monde, plan, fin, &monde, &entrees)
-            {
-                continue;
+            if !tient_au_decalage(depart_des_plans, plan, fin, &monde, &entrees) {
+                return None;
             }
+            Some((plan, fin, monde, entrees))
+        });
+        for (plan, fin, monde, entrees) in essais.into_iter().flatten() {
             let cout_plan = cout + entrees.len() as u32;
             let etape = Etape {
                 plan,

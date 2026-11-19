@@ -37,6 +37,45 @@ Chronos réels APRÈS (via lourd.sh) :
 - `./docker-cargo.sh lot` : 2 min 01 s, mémoire des parcours pleine (extraction propre) ;
   34 min 14 s, mémoire vide (toutes les recherches du robot refaites).
 
+======== ALLÈGEMENT DES RECHERCHES (2026-11-19, après 66c6190) ========
+
+Deux changements, dans les trois recherches (faisabilité `core::faisabilite`,
+robot de QA `bot_qa::parcours`, itinéraires de la mesure `difficulte`) :
+
+1. Les plans d'un état sont simulés en parallèle (`core::parallele::appliquer`),
+   puis dépouillés dans l'ordre des plans : même résultat qu'en série (comptes
+   rendus de faisabilité identiques sur 10 niveaux, mesure de la cascade et du
+   caniveau identiques). Les essais d'un niveau de la mesure aussi (3 x 48 parties).
+   Réglage : `PEPIN_FILS=<n>` (1 = tout en série, comme avant ; défaut : tous les
+   cœurs). Le nombre de fils est partagé par tout le processus : dans `lot`, où
+   beaucoup de tests tournent ensemble, chacun reste à peu près seul sur son cœur.
+2. Fenêtre locale des écrasés : un chat (ou un ennemi d'eau) écrasé ne distingue
+   deux états de la recherche que s'il est à moins de 320 px en x et 180 px en y
+   de Pépin (`FENETRE_CHATS`, `FENETRE_ECRASES`). Avant, chaque ennemi écrasable
+   DOUBLAIT la recherche (6 rats : x 64) : c'est ce qui rendait le caniveau et
+   les égouts interminables. L'état garde toujours la liste complète des écrasés,
+   et le parcours trouvé est toujours rejoué dans la vraie simulation.
+
+Mesuré sur une machine de 2 cœurs (bien plus lente que la machine du projet ; le
+gain du point 1 y plafonne à x 1,8, il doit être nettement plus grand sur 20 cœurs) :
+- faisabilité : `niveau_3_faisable` (marché) 87,5 s -> 48,9 s en parallèle seul ;
+  recherche du marché 41,9 s -> 4,6 s avec la fenêtre (8 583 états -> 826, même
+  compte rendu) ; `monde_2_niveau_3_faisable` 22,1 s -> 11,8 s ;
+- robot de QA (`carte <clé> robot`, sans mémoire) : caniveau > 15 min (arrêté) -> 124 s ;
+  marché 85 s ; Pieuvre 211 s ; égouts 19 min sur ces 2 cœurs (24 min 50 s avant, sur
+  les 20 cœurs du projet : c'est la recherche qui reste la plus longue) ;
+- mesure de difficulté d'un niveau du Monde 2 : caniveau, jamais finie -> 3 min
+  (0,54 / 0,04 / 0,04 mort ; un essai Débutant sur 48 ne finit pas et coûte à
+  lui seul le tiers du temps : il cherche des détours jusqu'à la limite) ; cascade 2 228 s -> 576 s, mêmes chiffres à 0,04 près
+  pour le Débutant (0,25 / 0,25 / 0,23) ; égouts, jamais finie -> 19 min
+  (0,85 / 0,38 / 0,17 mort, 48/48 finis pour les trois profils).
+
+À savoir : les empreintes du robot de QA notées dans QA.md peuvent changer UNE fois
+pour les niveaux à chats ou à ennemis d'eau (le robot peut trouver un parcours
+différent, toujours vérifié par rejeu). Le code du robot ayant changé, l'empreinte
+de la mémoire des parcours change : le premier `lot` après ce changement refait
+toutes les recherches du robot une fois, puis la mémoire est de nouveau pleine.
+
 ======== AVANT (commit 18be99a, `test --release`, un processus par crate) ========
 
 --- core : 416 verts, 2 ignorés, chrono réel 14 min 59 s : 416 tests, 59 de plus de 2 s (ensemble 3779 s sur 3790 s)

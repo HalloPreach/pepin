@@ -377,6 +377,18 @@ fn changer_de_maree(n: Noeud, eaux_apres: &[Eau], marees: &[Aabb]) -> Option<Noe
 /// Au plus 32 chats par niveau (un bit chacun dans `Noeud::chats`).
 const CHATS_MAX: usize = 32;
 
+/// Fenêtre (px, en x entre les centres et en y entre les pieds) dans laquelle un
+/// chat écrasé compte dans la CLÉ de fusion d'un noeud : un écran de chaque côté.
+///
+/// Pourquoi (allègement des outils) : avec tous les chats du niveau dans la clé,
+/// chaque chat doublait le nombre d'états de TOUTE la suite du niveau (6 chats :
+/// 64 fois plus), alors qu'un chat écrasé trois écrans plus tôt ne change rien à
+/// ce que Pépin peut faire ici. Le noeud, lui, garde TOUS ses chats écrasés
+/// (`Noeud::chats`) : chaque plan est simulé avec le vrai état des chats, seuls
+/// deux états qui ne diffèrent que par un chat lointain fusionnent (le moins
+/// coûteux reste, comme pour deux positions voisines).
+const FENETRE_CHATS: (f32, f32) = (320.0, 180.0);
+
 /// Un chat vivant de `ents` bondirait-il sur Pépin posé en `(x, y)` (coin
 /// haut-gauche) s'il se réveillait maintenant ? (`Ennemi::bond_atteint` : il le
 /// voit, un bond est possible, et ce bond le touche.) Toujours faux dans un
@@ -537,6 +549,31 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         .map(|(i, _)| i)
         .collect();
     assert!(chats.len() <= CHATS_MAX, "trop de chats : {}", chats.len());
+    // Le centre et les pieds de chaque chat, à sa place : pour la clé de fusion.
+    let places_des_chats: Vec<(f32, f32)> = chats
+        .iter()
+        .map(|&i| match &entites[i] {
+            Entite::Ennemi(c) => {
+                let (px, py) = c.place();
+                (px + c.boite.w / 2.0, py + c.boite.h)
+            }
+            _ => unreachable!("`chats` ne liste que des ennemis"),
+        })
+        .collect();
+    // Clé de fusion d'un noeud : celle de `Noeud::cle`, où seuls comptent les
+    // chats écrasés PROCHES du noeud (`FENETRE_CHATS`).
+    let cle_de = |n: Noeud| -> CleNoeud {
+        let (kx, ky, lance, barque, ecrases, haute) = n.cle();
+        let (cx, pieds) = (n.x + JOUEUR_L / 2.0, n.y + JOUEUR_H);
+        let proches = places_des_chats
+            .iter()
+            .enumerate()
+            .filter(|(_, &(x, y))| {
+                (x - cx).abs() <= FENETRE_CHATS.0 && (y - pieds).abs() <= FENETRE_CHATS.1
+            })
+            .fold(0u32, |m, (k, _)| m | (1 << k));
+        (kx, ky, lance, barque, ecrases & proches, haute)
+    };
 
     let mut courants: Vec<CourantAscendant> = if options.courants {
         niveau.courants.clone()
@@ -637,7 +674,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         barque: sur_l_eau,
         ..Noeud::pose(depart.0, depart.1, 0)
     };
-    meilleur.insert(n0.cle(), 0);
+    meilleur.insert(cle_de(n0), 0);
     tas.push(Reverse((
         0,
         depart.0.to_bits(),
@@ -663,7 +700,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         };
         let env_noeud = if haute { &env_haute } else { &env };
         let etat = (noeud.x, noeud.y);
-        if meilleur.get(&noeud.cle()).is_some_and(|&c| c < cout) {
+        if meilleur.get(&cle_de(noeud)).is_some_and(|&c| c < cout) {
             continue; // version périmée : un chemin plus court existe
         }
         rapport.etats += 1;
@@ -672,7 +709,25 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             rapport.dernier_etat = etat;
         }
         let a_essayer = if lance { &plans_lance } else { &tous_les_plans };
-        for plan in a_essayer {
+        // Chaque plan est simulé à part, sur les cœurs libres (`parallele`), puis
+        // les résultats sont dépouillés ici dans l'ordre des plans : la recherche
+        // trouve exactement ce qu'elle trouvait en série. L'environnement est
+        // refait dans chaque fil à partir de ses morceaux (une référence
+        // `&dyn Grille` ne se partage pas entre fils, `&Niveau` si).
+        let (solides_noeud, courants_noeud, vents_noeud, eaux_noeud) = (
+            env_noeud.solides,
+            env_noeud.courants,
+            env_noeud.vents,
+            env_noeud.eaux,
+        );
+        let essais = crate::parallele::appliquer(a_essayer, |plan| {
+            let env_plan = Environnement {
+                grille: niveau,
+                solides: solides_noeud,
+                courants: courants_noeud,
+                vents: vents_noeud,
+                eaux: eaux_noeud,
+            };
             let mut ents = entites.clone();
             // Les chats déjà écrasés dans cet état le restent.
             for (k, &i) in chats.iter().enumerate() {
@@ -683,7 +738,14 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
             }
             let mut touches: Vec<Contact> = Vec::new();
-            let (fin, duree) = simuler(niveau, env_noeud, noeud, *plan, &mut ents, &mut touches);
+            let (fin, duree) = simuler(niveau, &env_plan, noeud, *plan, &mut ents, &mut touches);
+            if matches!(fin, Fin::Mort | Fin::Abandon) {
+                // Rien à dépouiller : on ne garde ni les entités ni les contacts.
+                return (fin, duree, Vec::new(), Vec::new());
+            }
+            (fin, duree, ents, touches)
+        });
+        for (fin, duree, ents, touches) in essais {
             if matches!(fin, Fin::Mort | Fin::Abandon) {
                 continue;
             }
@@ -724,7 +786,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 {
                     return;
                 }
-                let k = arrive.cle();
+                let k = cle_de(arrive);
                 if meilleur.get(&k).is_none_or(|&c| cout < c) {
                     meilleur.insert(k, cout);
                     tas.push(Reverse((

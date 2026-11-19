@@ -326,9 +326,14 @@ impl Itineraires {
             };
             // Case « lancée » (un auvent vient de relancer Pépin) : plans en vol.
             let a_essayer = if k.lance { &en_vol } else { &tous };
-            for &plan in a_essayer {
+            // Chaque plan est simulé à part, sur les cœurs libres (`parallele`),
+            // puis dépouillé ici dans l'ordre des plans : mêmes arêtes, dans le
+            // même ordre, donc mêmes itinéraires et même mesure qu'en série.
+            let essais = pepin_core::parallele::appliquer(a_essayer, |&plan| {
                 let (fin, apres, entrees) = simuler(&monde, plan);
-                let duree = entrees.len() as u32;
+                (plan, fin, apres, entrees.len() as u32)
+            });
+            for (plan, fin, apres, duree) in essais {
                 match fin {
                     Fin::Arrivee => aretes.push((k, plan, None, duree)),
                     Fin::Pose | Fin::Lance | Fin::Barque => {
@@ -945,6 +950,22 @@ pub(crate) fn mesurer(graine: u64, essais: u32) -> Vec<Vec<Case>> {
             })
             .collect()
     })
+}
+
+/// Les essais d'UN niveau, pour chaque profil : `PROFILS.len() × ESSAIS` parties
+/// indépendantes, réparties sur tous les cœurs libres (au lieu d'un fil par
+/// profil). Mêmes graines, résultats rendus dans l'ordre : mêmes chiffres qu'avant.
+fn essais_d_un_niveau(itineraires: &Itineraires, rang: usize, genre: GenreNiveau) -> Vec<Case> {
+    let parties: Vec<(usize, u32)> = (0..PROFILS.len())
+        .flat_map(|p| (0..ESSAIS).map(move |e| (p, e)))
+        .collect();
+    let essais = pepin_core::parallele::appliquer(&parties, |&(p, e)| {
+        jouer_essai(itineraires, &PROFILS[p], graine_essai(GRAINE, p, rang, e))
+    });
+    essais
+        .chunks(ESSAIS as usize)
+        .map(|liste| bilan(liste, genre))
+        .collect()
 }
 
 /// Bilan des essais `liste` d'un niveau de genre `genre`.
@@ -1811,26 +1832,7 @@ mod tests {
         let debut = std::time::Instant::now();
         let itineraires = Itineraires::calculer(n);
         let itineraires = &itineraires;
-        let cases: Vec<Case> = std::thread::scope(|s| {
-            let fils: Vec<_> = PROFILS
-                .iter()
-                .enumerate()
-                .map(|(p, profil)| {
-                    s.spawn(move || {
-                        let liste: Vec<Essai> = (0..ESSAIS)
-                            .map(|e| {
-                                let graine = graine_essai(GRAINE, p, rang_de_graine(n), e);
-                                jouer_essai(itineraires, profil, graine)
-                            })
-                            .collect();
-                        bilan(&liste, NIVEAUX[n].genre)
-                    })
-                })
-                .collect();
-            fils.into_iter()
-                .map(|f| f.join().expect("essais"))
-                .collect()
-        });
+        let cases = essais_d_un_niveau(itineraires, rang_de_graine(n), NIVEAUX[n].genre);
         println!("{}. {} :", n + 1, NIVEAUX[n].nom);
         for (profil, c) in PROFILS.iter().zip(&cases) {
             let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
@@ -1965,25 +1967,7 @@ mod tests {
             debut.elapsed().as_secs_f32()
         );
         let itineraires = &itineraires;
-        let cases: Vec<Case> = std::thread::scope(|s| {
-            let fils: Vec<_> = PROFILS
-                .iter()
-                .enumerate()
-                .map(|(p, profil)| {
-                    s.spawn(move || {
-                        let liste: Vec<Essai> = (0..ESSAIS)
-                            .map(|e| {
-                                jouer_essai(itineraires, profil, graine_essai(GRAINE, p, rang, e))
-                            })
-                            .collect();
-                        bilan(&liste, TOUTE_LA_TABLE[n].genre)
-                    })
-                })
-                .collect();
-            fils.into_iter()
-                .map(|f| f.join().expect("essais"))
-                .collect()
-        });
+        let cases = essais_d_un_niveau(itineraires, rang, TOUTE_LA_TABLE[n].genre);
         println!("{} ({}) :", TOUTE_LA_TABLE[n].nom, TOUTE_LA_TABLE[n].cle);
         for (profil, c) in PROFILS.iter().zip(&cases) {
             let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
