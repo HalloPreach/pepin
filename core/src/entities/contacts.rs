@@ -292,13 +292,13 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
             Entite::Ventilateur(_) => {}
             // Carte 9.3. Le nénuphar s'enfonce tant que Pépin est posé dessus
             // (comme la friable qui s'effrite) ; la stalactite guette Pépin
-            // sous elle et ne tue qu'en tombant (une pointe). Bulles, chutes
-            // d'eau et marée agissent par la physique (courants et eau), pas
-            // par contact.
+            // sous elle et tue au toucher, accrochée comme en chute (une pointe,
+            // carte 9.26a). Bulles, chutes d'eau et marée agissent par la
+            // physique (courants et eau), pas par contact.
             Entite::Nenuphar(n) => n.porter(pose_sur(joueur, &n.boite)),
             Entite::Stalactite(s) => {
                 s.guetter(&joueur.boite);
-                if !protege && s.tombe() && joueur.boite.chevauche(&s.boite) {
+                if !protege && s.blesse() && joueur.boite.chevauche(&s.boite) {
                     mort.get_or_insert(CauseMort::Pointe);
                 }
             }
@@ -600,6 +600,19 @@ mod tests {
         // Juste à côté de la boîte (marge de pardon de 2 px) : sauf.
         let mut j = joueur(100.0 - 10.0 + 1.0, 110.0); // droite = 101 < 102
         assert!(resoudre_contacts(&mut j, &mut e).is_empty());
+    }
+
+    /// Carte 9.26a : une stalactite ACCROCHÉE tue aussi, si on la touche.
+    #[test]
+    fn toucher_une_stalactite_accrochee_tue() {
+        use crate::entities::Stalactite;
+        // Case (100, 120) ; sa boîte : x 103 à 113, y 120 à 134.
+        let mut e = vec![Entite::Stalactite(Stalactite::new(100.0, 120.0, 200.0))];
+        let mut j = joueur(104.0, 125.0);
+        assert_eq!(
+            resoudre_contacts(&mut j, &mut e),
+            vec![Contact::Mort(CauseMort::Pointe)]
+        );
     }
 
     #[test]
