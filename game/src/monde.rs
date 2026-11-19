@@ -20,13 +20,16 @@ use pepin_core::entities::{
 };
 use pepin_core::level::Niveau;
 use pepin_core::levels::variantes;
-use pepin_core::physics::{CourantAscendant, Environnement, Vec2};
+use pepin_core::physics::{CourantAscendant, Eau, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
 use pepin_core::poursuite::MurDePluie;
 use pepin_core::state::{EtatJeu, Ordre};
 use pepin_core::zones::{self, InfosNiveau};
 
-/// Durée (pas) de l'animation de réapparition de Pépin.
+use crate::mort::{AnimationMort, CauseDeMort, RIDEAU_FERME};
+
+/// Sans temps de mort (`Monde::temps_de_mort` faux) : pas restants du court
+/// clignotement de réapparition, le monde continuant de tourner.
 pub const REAPPARITION_PAS: u16 = 18;
 /// Durée (pas) de l'encre de la Pieuvre (carte 9.12a) : l'écran s'assombrit 0,75 s
 /// quand elle a eu Pépin. Un effet visuel, rien de plus.
@@ -49,8 +52,16 @@ pub struct Monde {
     pub contacts: Vec<Contact>,
     /// Dernière cause de mort (pour les effets).
     pub derniere_mort: Option<CauseMort>,
-    /// Pas restants de l'animation de réapparition (0 = aucune).
+    /// Pas restants du temps de mort (carte 9.24, `crate::mort`) : l'animation de
+    /// la cause puis le rideau. Tant qu'il dure, le monde est figé et les
+    /// commandes ne répondent plus (0 = Pépin en jeu).
     pub reapparition: u16,
+    /// La mort en cours d'animation (cause, endroit) : lue par le dessin.
+    pub mort: AnimationMort,
+    /// Le temps de mort (carte 9.24) est-il joué ? Oui dans la partie (`app`) ; non
+    /// dans les simulations (robot de QA, mesure, fantôme de la course, démo) :
+    /// leurs parcours enregistrés supposent la réapparition immédiate d'avant.
+    pub temps_de_mort: bool,
     /// Pas restants de l'encre de la Pieuvre (0 = aucune, voir `ENCRE_PAS`).
     pub encre: u16,
     /// Où Pépin est mort (coin haut-gauche), pour jouer l'animation de mort.
@@ -247,6 +258,8 @@ impl Monde {
             contacts: Vec::new(),
             derniere_mort: None,
             reapparition: 0,
+            mort: AnimationMort::default(),
+            temps_de_mort: false,
             encre: 0,
             pos_mort: (0.0, 0.0),
             termine: false,
@@ -271,6 +284,11 @@ impl Monde {
     pub fn avancer(&mut self, entrees: &Entrees) {
         self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);
         self.precedent_entites = self.entites.iter().map(Self::coin).collect();
+        // Temps de mort (carte 9.24) : le monde est figé, les entrées ignorées.
+        if self.temps_de_mort && self.reapparition > 0 {
+            self.pas_de_mort();
+            return;
+        }
 
         // La Pieuvre du port (carte 9.12f) voit où est Pépin : elle vise sa
         // plateforme, et ne la fait jamais remonter dans lui.
@@ -362,7 +380,14 @@ impl Monde {
         }
         // 5. L'état de partie digère les contacts (score, checkpoint, respawn).
         //    On retient où Pépin se trouvait : l'animation de mort se joue là.
-        let avant_mort = (self.joueur.boite.x, self.joueur.boite.y);
+        let avant_mort = self.joueur.boite;
+        let eaux = if a_une_maree {
+            &eaux_du_moment
+        } else {
+            &self.niveau.eaux
+        };
+        let surface = surface_sous(eaux, &avant_mort);
+        let regarde_droite = self.joueur.regarde_droite;
         self.etat.traiter(&mut self.joueur, &contacts);
         for c in &contacts {
             match *c {
@@ -373,26 +398,32 @@ impl Monde {
                 }
                 Contact::Lettre => self.lettre_prise = true,
                 Contact::Mort(cause) => {
-                    // Le Grand Nuage reprend son combat au début (il garde ses
-                    // points perdus) : Pépin réapparaît au début de l'arène. Les
-                    // dalles friables se reforment (carte 5.16), sauf sous Pépin
-                    // déjà replacé.
-                    reprendre_apres_une_mort(&mut self.entites, &self.joueur.boite);
-                    // Le mur recule à distance fixe derrière Pépin replacé : jamais
-                    // de mort en boucle (carte 8.2).
-                    if let Some(mur) = &mut self.mur {
-                        mur.replacer(&self.joueur.boite);
-                    }
+                    // Le cœur a déjà replacé Pépin à la lanterne. Avec le temps de
+                    // mort, le monde se remet en place derrière le rideau
+                    // (`pas_de_mort`), pas avant : on voit l'animation de mort dans
+                    // le monde tel qu'il était.
                     self.derniere_mort = Some(cause);
-                    self.reapparition = REAPPARITION_PAS;
+                    let anime = CauseDeMort::depuis(cause);
+                    self.mort = AnimationMort {
+                        cause: anime,
+                        boite: (avant_mort.x, avant_mort.y, avant_mort.w, avant_mort.h),
+                        surface: surface.unwrap_or(avant_mort.bas()),
+                        regarde_droite,
+                    };
+                    if self.temps_de_mort {
+                        self.reapparition = anime.duree_totale();
+                    } else {
+                        self.remettre_en_place();
+                        self.reapparition = REAPPARITION_PAS;
+                    }
                     // La Pieuvre a eu Pépin : l'encre (carte 9.12a).
-                    if cause == CauseMort::Pieuvre {
+                    if self.derniere_mort == Some(CauseMort::Pieuvre) {
                         self.encre = ENCRE_PAS;
                     }
                     // Mort dans le vide : on garde l'animation visible, au bas du niveau.
                     self.pos_mort = (
-                        avant_mort.0,
-                        avant_mort.1.min(self.niveau.hauteur_px() - 16.0),
+                        avant_mort.x,
+                        avant_mort.y.min(self.niveau.hauteur_px() - 16.0),
                     );
                     // Téléportation : pas d'interpolation entre l'ancien et le nouvel endroit.
                     self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);
@@ -401,7 +432,9 @@ impl Monde {
             }
         }
         self.contacts = contacts;
-        self.reapparition = self.reapparition.saturating_sub(1);
+        if !self.temps_de_mort {
+            self.reapparition = self.reapparition.saturating_sub(1);
+        }
         self.encre = self.encre.saturating_sub(1);
         // Après la réapparition éventuelle : un Pépin replacé n'est pas encore au sol.
         self.immobile = compter_immobile(self.immobile, &self.joueur, entrees);
@@ -431,6 +464,34 @@ impl Monde {
             self.termine = true;
         }
         self.pas += 1;
+    }
+
+    /// Un pas du temps de mort (carte 9.24) : rien ne bouge (entités, boss, mur,
+    /// Pépin), seul le compteur avance. Rideau fermé (`RIDEAU_FERME`), le monde se
+    /// remet en place comme il le faisait au pas de la mort.
+    fn pas_de_mort(&mut self) {
+        self.reapparition -= 1;
+        if self.reapparition == RIDEAU_FERME {
+            self.remettre_en_place();
+            // Les entités replacées sautent : pas d'interpolation.
+            self.precedent_entites = self.entites.iter().map(Self::coin).collect();
+        }
+        self.evenements = Evenements::default();
+        self.contacts.clear();
+        self.secret_revele = false;
+        self.encre = self.encre.saturating_sub(1);
+        self.pas += 1;
+    }
+
+    /// Après une mort, Pépin déjà replacé : le Grand Nuage reprend son combat au
+    /// début (il garde ses points perdus) et Pépin réapparaît au début de l'arène ;
+    /// les dalles friables se reforment (carte 5.16), sauf sous Pépin ; le mur
+    /// recule à distance fixe derrière lui : jamais de mort en boucle (carte 8.2).
+    fn remettre_en_place(&mut self) {
+        reprendre_apres_une_mort(&mut self.entites, &self.joueur.boite);
+        if let Some(mur) = &mut self.mur {
+            mur.replacer(&self.joueur.boite);
+        }
     }
 
     /// Points de vie du boss du niveau (`None` s'il n'y en a pas) : le HUD les
@@ -509,6 +570,14 @@ pub fn compter_immobile(avant: u32, joueur: &Joueur, entrees: &Entrees) -> u32 {
     }
 }
 
+/// Noyade (carte 9.24) : la surface (px) de l'eau où la boîte `b` de Pépin est entrée.
+fn surface_sous(eaux: &[Eau], b: &Aabb) -> Option<f32> {
+    let (cx, _) = b.centre();
+    eaux.iter()
+        .find(|e| cx >= e.zone.x && cx <= e.zone.x + e.zone.w && b.chevauche(&e.zone))
+        .map(|e| e.zone.y)
+}
+
 /// Interpolation linéaire ; au-delà de 32 px d'écart c'est une téléportation
 /// (réapparition) : on n'interpole pas.
 fn interpoler(avant: (f32, f32), apres: (f32, f32), alpha: f32) -> (f32, f32) {
@@ -578,6 +647,69 @@ mod tests {
         assert!(m.reapparition > 0);
     }
 
+    /// Avance (sans commande) jusqu'à la fin du temps de mort (carte 9.24).
+    fn finir_la_mort(m: &mut Monde) {
+        while m.reapparition > 0 {
+            m.avancer(&Entrees::default());
+        }
+    }
+
+    /// Carte 9.24 : Pépin, déjà replacé par le cœur, ne réapparaît qu'à l'ouverture
+    /// du rideau, après l'animation de la cause ; sa protection de 1 s commence alors.
+    #[test]
+    fn pas_de_reapparition_avant_la_fin_de_l_animation() {
+        use crate::dessin_mort::pepin_cache;
+        use crate::mort::{CauseDeMort, RIDEAU_FERME};
+        use pepin_core::player::PROTECTION_REAPPARITION_PAS;
+        let mut m = Monde::new(0);
+        m.temps_de_mort = true;
+        m.joueur
+            .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
+        m.avancer(&Entrees::default());
+        assert_eq!(m.mort.cause, CauseDeMort::Vide);
+        let total = CauseDeMort::Vide.duree_totale();
+        assert_eq!(m.reapparition, total);
+        let mut caches = 0;
+        while m.reapparition > 0 {
+            caches += u16::from(pepin_cache(m.reapparition));
+            m.avancer(&Entrees::default());
+        }
+        assert_eq!(caches, total - RIDEAU_FERME, "caché jusqu'au rideau fermé");
+        assert_eq!(m.joueur.protection_restante(), PROTECTION_REAPPARITION_PAS);
+    }
+
+    /// Carte 9.24 : pendant le temps de mort, les commandes sont ignorées et le
+    /// monde est figé (Pépin et les entités) ; ensuite, Pépin répond de nouveau.
+    #[test]
+    fn les_commandes_sont_ignorees_pendant_l_animation() {
+        let mut m = Monde::new(0);
+        m.temps_de_mort = true;
+        for _ in 0..30 {
+            m.avancer(&Entrees::default());
+        }
+        m.joueur
+            .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
+        m.avancer(&Entrees::default());
+        let pepin = (m.joueur.boite.x, m.joueur.boite.y);
+        let entites: Vec<(f32, f32)> = m.entites.iter().map(Monde::coin).collect();
+        while m.reapparition > crate::mort::RIDEAU_FERME {
+            m.avancer(&SAUT);
+            assert_eq!((m.joueur.boite.x, m.joueur.boite.y), pepin);
+            assert_eq!(
+                m.entites.iter().map(Monde::coin).collect::<Vec<_>>(),
+                entites
+            );
+        }
+        while m.reapparition > 0 {
+            m.avancer(&DROITE);
+        }
+        assert_eq!((m.joueur.boite.x, m.joueur.boite.y), pepin);
+        for _ in 0..10 {
+            m.avancer(&DROITE);
+        }
+        assert!(m.joueur.boite.x > pepin.0, "Pépin repart");
+    }
+
     /// Le bonus (carte 5.16), sans lanterne : une chute ramène au départ, et le pont
     /// friable s'y est déjà reformé en entier (sans attendre les 3 s d'absence
     /// d'une dalle tombée), pour repartir aussitôt.
@@ -590,6 +722,7 @@ mod tests {
             .position(|n| n.genre == GenreNiveau::Bonus)
             .unwrap();
         let mut m = Monde::new(i);
+        m.temps_de_mort = true;
         // Le début du pont est tombé, une autre dalle s'effrite.
         let mut friables = 0;
         for e in m.entites.iter_mut() {
@@ -607,6 +740,8 @@ mod tests {
             .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
         m.avancer(&Entrees::default());
         assert_eq!(m.etat.morts, 1);
+        // Le pont se reforme derrière le rideau du temps de mort (carte 9.24).
+        finir_la_mort(&mut m);
         assert_eq!(
             (m.joueur.boite.x, m.joueur.boite.y),
             m.niveau.depart,

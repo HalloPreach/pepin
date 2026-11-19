@@ -110,6 +110,11 @@ impl Camera {
         self.avance = 0.0;
     }
 
+    /// Temps de mort (carte 9.24) : la caméra reste où elle est, sans interpolation.
+    pub fn figer(&mut self) {
+        self.precedente = (self.x, self.y);
+    }
+
     /// Point visé : Pépin légèrement décentré, plus l'anticipation.
     fn cible(joueur: &Joueur, avance: f32, haut: f32) -> (f32, f32) {
         let (px, py) = joueur.boite.centre();

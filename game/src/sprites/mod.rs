@@ -235,6 +235,8 @@ pub struct Banque {
     nuages_trames: HashMap<&'static str, Texture2D>,
     /// Les personnages tramés en damier : le fantôme de la course (carte 8.7).
     personnages_trames: HashMap<&'static str, Texture2D>,
+    /// Les personnages tout en blanc cassé : le flash d'un dégât (carte 9.24).
+    personnages_blancs: HashMap<&'static str, Texture2D>,
 }
 
 impl Banque {
@@ -294,6 +296,18 @@ impl Banque {
             .into_iter()
             .map(|(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
             .collect();
+        // Silhouettes blanches : chaque pixel du dessin passe au blanc cassé (`7`).
+        let personnages_blancs = personnages()
+            .into_iter()
+            .map(|(nom, dessin)| {
+                let blanc: Vec<String> = dessin
+                    .iter()
+                    .map(|l| l.chars().map(|c| if c == '.' { c } else { '7' }).collect())
+                    .collect();
+                let lignes: Vec<&str> = blanc.iter().map(String::as_str).collect();
+                (nom, texture(&lignes, None))
+            })
+            .collect();
         Self {
             sprites,
             tuiles: jeu(false),
@@ -302,6 +316,7 @@ impl Banque {
             motif: Cell::new(None),
             nuages_trames,
             personnages_trames,
+            personnages_blancs,
         }
     }
 
@@ -355,6 +370,47 @@ impl Banque {
         if let Some(t) = self.personnages_trames.get(nom) {
             Self::poser(t, x, y, miroir);
         }
+    }
+
+    /// Le personnage `nom` en silhouette blanche : le flash d'un dégât (carte 9.24).
+    pub fn dessiner_blanc(&self, nom: &str, x: f32, y: f32, miroir: bool) {
+        if let Some(t) = self.personnages_blancs.get(nom) {
+            Self::poser(t, x, y, miroir);
+        }
+    }
+
+    /// Animation de mort (carte 9.24) : le rectangle `source` (x, y, largeur, hauteur,
+    /// en pixels de l'image) du sprite `nom`, avec le motif en service, posé en
+    /// `(x, y)` et tourné de `quarts` quarts de tour autour de son centre (des
+    /// quarts seulement : les pixels restent sur la grille).
+    pub fn dessiner_partie(
+        &self,
+        nom: &str,
+        (x, y): (f32, f32),
+        source: (f32, f32, f32, f32),
+        quarts: u8,
+        miroir: bool,
+    ) {
+        let avec_motif = self.motif.get().and_then(|m| self.motifs.get(&(m, nom)));
+        let Some(t) = avec_motif.or_else(|| self.sprites.get(nom)) else {
+            return;
+        };
+        let (sx, sy, l, h) = source;
+        if l <= 0.0 || h <= 0.0 {
+            return;
+        }
+        macroquad::prelude::draw_texture_ex(
+            t,
+            x.round(),
+            y.round(),
+            WHITE,
+            DrawTextureParams {
+                source: Some(macroquad::prelude::Rect::new(sx, sy, l, h.round())),
+                rotation: f32::from(quarts % 4) * std::f32::consts::FRAC_PI_2,
+                flip_x: miroir,
+                ..Default::default()
+            },
+        );
     }
 
     /// Dessine seulement les `hauteur` premières rangées de la tuile `nom` du thème

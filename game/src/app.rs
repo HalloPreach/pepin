@@ -51,6 +51,7 @@ use crate::facile::{self as mode_facile, EtatFacile, Origine, Proposition, Repon
 use crate::hud;
 use crate::menu::{Choix, Menu};
 use crate::monde::Monde;
+use crate::mort;
 use crate::navigation::Navigation;
 use crate::particules::Particules;
 use crate::plan::{self, ActionPlan, EtatPlan};
@@ -60,7 +61,6 @@ use crate::secousse::Secousse;
 use crate::skins::Skin;
 use crate::sprites::Banque;
 use crate::transition::Transition;
-use pepin_core::entities::contacts::Contact;
 
 /// Ce qui doit se produire quand l'écran est entièrement couvert par la transition.
 #[derive(Debug, Clone)]
@@ -103,6 +103,8 @@ pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
 /// Comme `charger`, en nouvelle partie + si `ng_plus` (carte 8.8).
 pub fn charger_mode(indice: usize, garder: Option<EtatJeu>, ng_plus: bool) -> (Monde, Camera) {
     let mut monde = Monde::charger(indice, ng_plus);
+    // La partie joue le temps de mort (carte 9.24), pas les simulations.
+    monde.temps_de_mort = true;
     if let Some(mut etat) = garder {
         // Un NOUVEAU niveau : nouveau départ, et sa vie des trois gouttes à prendre.
         etat.nouveau_niveau(monde.niveau.depart, monde.infos.genre);
@@ -833,15 +835,16 @@ impl Application {
         if self.monde.etat.vies.restantes() > vies_avant {
             self.eclat_vie = hud::DUREE_ECLAT_VIE;
         }
-        if self
-            .monde
-            .contacts
-            .iter()
-            .any(|c| matches!(c, Contact::Mort(_)))
-        {
+        // Temps de mort (carte 9.24) : la caméra reste sur l'endroit de la mort (elle
+        // ne suit pas une chute dans le vide), puis saute à la lanterne quand le rideau
+        // est fermé.
+        if self.monde.reapparition > mort::RIDEAU_FERME {
+            self.camera.figer();
+        } else if self.monde.reapparition == mort::RIDEAU_FERME {
             self.camera.recentrer(&self.monde.joueur, largeur, hauteur);
+        } else {
+            self.camera.suivre(&self.monde.joueur, largeur, hauteur);
         }
-        self.camera.suivre(&self.monde.joueur, largeur, hauteur);
         if let Some(mur) = self.monde.mur.filter(|m| !m.vaincu()) {
             self.camera.defiler_avec_le_mur(mur.front(), largeur);
         }
@@ -859,8 +862,9 @@ impl Application {
         self.tentative.morts = self.monde.etat.morts - self.morts_debut_tentative;
         self.compter_defaite_au_boss();
         // La dernière vie perdue : l'écran « plus de vies », puis le niveau recommence
-        // (avant tout, même si ce pas-là finissait aussi le niveau).
-        if self.monde.etat.vies.plus_de_vies() {
+        // (avant tout, même si ce pas-là finissait aussi le niveau). Après l'animation
+        // de la mort (carte 9.24), le rideau fermé.
+        if self.monde.etat.vies.plus_de_vies() && self.monde.reapparition <= mort::RIDEAU_FERME {
             self.game_over_partie = true;
             self.ouvrir(Ecran::PlusDeVies(plus_de_vies::DUREE_PAS));
             return;
@@ -1208,11 +1212,9 @@ impl Application {
     /// « plus de vies », ni si NON a déjà été répondu dans ce niveau). La démo du
     /// titre ne passe pas par ici (`pas_demo`), et une course ne compte pas.
     fn compter_defaite_au_boss(&mut self) {
-        let mort = self
-            .monde
-            .contacts
-            .iter()
-            .any(|c| matches!(c, Contact::Mort(_)));
+        // Une fois l'animation de la mort jouée, le rideau fermé (carte 9.24) : la
+        // bannière ne la cache pas.
+        let mort = self.monde.reapparition == mort::RIDEAU_FERME;
         // Une course contre le robot (carte 8.7) ne compte pas : on y rejoue pour le chrono.
         if !mort || self.facile.actif || self.fantome.is_some() || self.monde.pv_nuage().is_none() {
             return;
@@ -1429,6 +1431,7 @@ impl Application {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pepin_core::entities::contacts::Contact;
     use pepin_core::entities::Entite;
     use pepin_core::state::POINTS_GOUTTE;
     use pepin_core::vies::{VIES_DEPART, VIES_MAX};
@@ -2325,11 +2328,16 @@ mod tests {
 
     /// Fait tomber Pépin dans le vide : une mort au pas suivant (le vide tue même
     /// pendant la protection de réapparition).
+    /// Fait tomber Pépin dans le vide, puis attend la fin du temps de mort (carte
+    /// 9.24) ou l'écran « plus de vies ».
     fn tomber(app: &mut Application) {
         let bas = app.monde.niveau.hauteur_px();
         let x = app.monde.joueur.boite.x;
         app.monde.joueur.placer(x, bas + 100.0);
         avancer(app, 1);
+        while app.ecran == Ecran::Jeu && app.monde.reapparition > 0 {
+            avancer(app, 1);
+        }
     }
 
     /// Pose Pépin sur chacune des gouttes d'or du niveau, une par pas.
