@@ -1,38 +1,40 @@
-//! Monde 2, niveau 5 : « La rivière » (carte 9.10). Au pied de la cascade, l'eau
-//! part en rivière vers la droite : une DESCENTE EN BARQUE (parapluie retourné,
-//! flèche du BAS), de bief en bief, chacun un peu plus bas que le précédent.
-//! Difficulté : entre la grotte et la Pieuvre du port.
+//! Monde 2, niveau 5 : « La rivière » (cartes 9.10 et 9.10b). Au pied de la
+//! cascade, l'eau DESCEND une vallée par paliers : une descente en barque
+//! (parapluie retourné, flèche du BAS) de bief en bief, deux grandes chutes, et
+//! deux endroits où l'on CHOISIT entre le chemin du haut, à pied (plus sûr, une
+//! goutte), et la barque en bas (plus rapide, plus risquée). Difficulté : entre la
+//! grotte et la Pieuvre du port.
 //!
-//! Lecture du niveau (244 x 11 tuiles, un écran de haut ; l'eau descend de la
-//! rangée 5 à la rangée 8), de gauche à droite :
-//! 1. la berge du départ (colonnes 0 à 9), le panneau « barque » : on plane
-//!    dans le BIEF 1 (colonnes 10 à 41, courant `}`). Deux poissons y sautent
-//!    (colonnes 18 et 36) ; la 1re goutte flotte au-dessus de l'eau (colonne 24),
-//!    près d'une chauve-souris (colonne 32) : on la prend d'un saut depuis la
-//!    barque, et l'on replane pour retomber à bord ;
-//! 2. un ROCHER (colonnes 42 et 43) arrête la barque, une grenouille dessus : on
-//!    saute hors de la barque, on l'écrase ou on la laisse bondir, on franchit le
-//!    rocher, et l'on retrouve la berge de la 1re lanterne (colonne 47) ;
-//! 3. le BIEF 2 (colonnes 52 à 84), une rangée plus bas : deux poissons et une
-//!    chauve-souris au-dessus de l'eau. Au bout, l'eau tombe par une petite
-//!    CHUTE (colonnes 85 et 86) : la barque bascule et retombe dans le bief 3 ;
-//! 4. le BIEF 3 (colonnes 85 à 118), deux rangées plus bas : deux poissons, un
-//!    rocher au milieu du courant (colonnes 101 et 102) : on en saute, et l'on
-//!    replane dans l'eau d'après, sous une chauve-souris ;
-//! 5. la rive de la 2e lanterne (colonne 123), puis la MARE (colonnes 129 à 150,
-//!    eau calme) : on la traverse de nénuphar en nénuphar (chacun s'enfonce sous
-//!    Pépin). Une grenouille guette sur celui du milieu, la 2e goutte au-dessus ;
-//! 6. la rive de la 3e lanterne (colonne 153), le BIEF 4 (colonnes 157 à 176), son
-//!    poisson sous une chauve-souris, puis une 2e CHUTE (colonnes 177 et 178) ;
-//! 7. le BIEF 5 (colonnes 177 à 229), le plus long : trois poissons, deux
-//!    chauves-souris, la 3e goutte au-dessus de l'eau (colonne 194) et un rocher
-//!    (colonnes 203 et 204) gardé par une grenouille ; puis la berge du drapeau
-//!    (colonne 240), gardée par une grenouille.
+//! Lecture du niveau (206 x 34 tuiles ; l'eau descend des rangées 9, 16, 23 puis
+//! 29), de gauche à droite :
+//! 1. la berge du départ (colonnes 0 à 9), le panneau « barque » ; le BIEF 1
+//!    (colonnes 10 à 33), deux poissons sous une chauve-souris ; la berge de la
+//!    1re lanterne (colonne 37) ;
+//! 2. la GORGE (colonnes 42 à 93), 1er CHOIX : en haut, le chemin des PONTS de bois
+//!    et des corniches, à sauter de l'un à l'autre (la 1re goutte au-dessus de la
+//!    2e brèche, une grenouille sur le pont du milieu) ; en bas, on se laisse
+//!    tomber par une brèche dans le BIEF 2, sept rangées plus bas : deux poissons,
+//!    une chauve-souris sous le pont, un rocher au milieu du courant (colonnes 70
+//!    et 71) à sauter. Les deux chemins se rejoignent à la 2e lanterne (colonne 96) ;
+//! 3. le BIEF 3 (colonnes 102 à 117), son poisson, puis la 1re GRANDE CHUTE
+//!    (colonnes 118 et 119, sept rangées) : on la descend en planant jusqu'au
+//!    BIEF 4 ;
+//! 4. le BIEF 4 (colonnes 118 à 145), coupé par l'ÎLOT de la 3e lanterne (colonnes
+//!    130 à 134) : un poisson et une chauve-souris avant, un poisson et la 2e goutte
+//!    après ;
+//! 5. la 2e GRANDE CHUTE (colonnes 146 et 147, six rangées), 2e CHOIX : on saute
+//!    par-dessus vers le PLATEAU (en haut : la MARE, ses nénuphars qui s'enfoncent,
+//!    une grenouille, un TRONC FLOTTANT qui va et vient, puis un rocher dont le pied
+//!    cache la 3e goutte derrière un faux mur) ; ou l'on tombe dans la chute vers
+//!    le BIEF 5, qui passe SOUS le plateau par la PETITE GROTTE (deux
+//!    chauves-souris) ;
+//! 6. la berge du drapeau (colonne 199), gardée par une grenouille.
 //!
 //! Chaque chute finit dans l'eau. Les poissons sautent au-dessus d'un courant,
-//! jamais d'une eau calme ; les chauves-souris (`c`) volent au-dessus de l'eau,
-//! loin des lanternes. Décor : des oiseaux posés (`K`) sur les berges. Tuiles du
-//! thème : `game/src/sprites/tuiles_monde2/riviere.rs`.
+//! jamais d'une eau calme ni sous un plafond ; les chauves-souris (`c`) volent
+//! au-dessus de l'eau, loin des lanternes. Décor : des oiseaux posés (`K`) sur les
+//! berges. Tuiles du thème : `game/src/sprites/tuiles_monde2/riviere.rs` ; le fond
+//! (vallée au soleil couchant) : `game/src/decor_riviere.rs`.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -47,28 +49,51 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     nom: "La rivière",
     theme: Theme::Riviere,
     genre: GenreNiveau::Normal,
-    intro: "Au pied de la cascade, l'eau part en rivière. Pépin la descend en barque.",
-    mecanique: "Descendre la rivière en barque, de bief en bief : sauter hors de la barque \
-                devant un rocher, replaner dans l'eau d'après ; traverser la mare de nénuphar \
-                en nénuphar ; laisser retomber les poissons.",
+    intro: "L'orage est passé. La rivière descend la vallée : par les ponts, ou en barque.",
+    mecanique: "Choisir : le chemin du haut, à pied, de pont en pont ; ou la barque en bas, \
+                plus rapide. Descendre les grandes chutes en planant ; traverser la mare \
+                de nénuphar en tronc ; laisser retomber les poissons.",
     duree_cible_s: 60,
     ascii: ASCII,
     aiguilles: &[],
 };
 
-/// Dessin du niveau (186 x 11 tuiles). Légende : voir `crate::level`.
+/// Dessin du niveau (206 x 34 tuiles). Légende : voir `crate::level`.
 const ASCII: &str = r"
-....................................................................................................................................................................................................................................................
-................................c...............................................................................................................................................................c...................................................
-........................o.................j.......................c...................................................................................................................................................c.............................
-..........................................##.................................................................................................o............................c.........................................................................
-..@...Z.K.........i.................i.....##..................................................................c...................................................................................o.................................................
-BBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}##...L............i...............i...........................................K..L...............j.............L..................................................j...............................j...X..K
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}||..............##................BBBBBBBBBB..n...n...n...n...n...BBBBBB.........i....................................##.........................BBBBBBBBBBBBBB
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||......i.......##.........i......BBBBBBBBBB~~~~~~~~~~~~~~~~~~~~~~BBBBBB}}}}}}}}}}}}}}}}}}}}||.......i................##.......i.......i.........BBBBBBBBBBBBBB
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}##}}}}}}}}}}}}}}}}BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}##}}}}}}}}}}}}}}}}}}}}}}}}}BBBBBBBBBBBBBB
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+..............................................................................................................................................................................................................
+..............................................................................................................................................................................................................
+..............................................................................................................................................................................................................
+..............................................................................................................................................................................................................
+..............................................................................................................................................................................................................
+......................c.......................................................................................................................................................................................
+............................................................o.................................................................................................................................................
+..............................................................................................................................................................................................................
+..@...Z.K.......i...........i........L..............................j.........................................................................................................................................
+BBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}BBBBBBBB#########...#####...###########...#####...##########................................................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB............#####.................#####.............................................................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB....................................................................................................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..................c.................................................................................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB....................................................................................................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB............................##......................................................................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB................i...........##............i...........L............i................................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}##}}}}}}}}}}}}}}}}}}}}BBBBBBBBBB}}}}}}}}}}}}}}}}||......................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||......................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||......................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||....c..............o..................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||......................................................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||....................................................j...###...........................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||....i.......L..........i......K.....n..n..1.....1...n...mo#...........................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}BBBBB}}}}}}}}}}}||BBBBBB~~~~~~~~~~~~~~~~~~~~~BBBBBBBBBB.....................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.....................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.....................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||..........c............c..................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||..........................................................
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB||..........................................j........X...K..
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ";
 
 #[cfg(test)]
