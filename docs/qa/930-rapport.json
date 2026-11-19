@@ -1,0 +1,17 @@
+[
+ {
+  "geste": "ch1 carte ouverte",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "geste": "ch1 toucher « CHAPITRE 2 ▶ » (290,130)",
+  "ok": true,
+  "detail": "passe au chapitre 2 (le titre du bandeau change)"
+ },
+ {
+  "geste": "ch2 toucher « ◀ CHAPITRE 1 » (200,130)",
+  "ok": true,
+  "detail": "revient au chapitre 1 (même titre qu'au départ)"
+ }
+]

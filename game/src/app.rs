@@ -1063,7 +1063,8 @@ impl Application {
                     self.sauvegarde.noter_niveau_atteint(n.cle);
                     self.sauvegarde.enregistrer();
                 }
-                if etat.is_none() {
+                let partie_neuve = etat.is_none();
+                if partie_neuve {
                     self.pas_partie = 0;
                     self.gouttes_bonus = None;
                     self.game_over_partie = false;
@@ -1071,6 +1072,16 @@ impl Application {
                     self.facile.dans_la_partie = false;
                 }
                 self.recharger(indice, etat);
+                // AGA : « quand on quitte et qu'on revient sur jouer on revient bien au bon
+                // niveau mais on perd l'avancement des gouttes d'or ». Une partie reprise
+                // en cours de monde (JOUER reprend où l'on en est) compte d'emblée les
+                // gouttes déjà trouvées dans les niveaux d'avant de ce monde (sauvegarde) :
+                // le compteur, le bonus et l'écran de fin restent justes.
+                if partie_neuve {
+                    let deja = gouttes_deja_trouvees(&self.sauvegarde, indice);
+                    self.monde.etat.gouttes = deja;
+                    self.debut_niveau.gouttes = deja;
+                }
                 // Une image de l'histoire avant certains niveaux d'une partie lancée par
                 // JOUER (carte 8.4) ; chaque niveau n'est chargé ainsi qu'une fois par
                 // partie (« recommencer » et « plus de vies » passent par `relancer`),
@@ -1460,6 +1471,21 @@ impl Application {
     }
 }
 
+/// Gouttes d'or déjà trouvées (sauvegarde) dans les niveaux NORMAUX du même monde
+/// AVANT le niveau `indice` : le point de départ du compteur d'une partie reprise en
+/// cours de monde. Le bonus et l'épilogue ne comptent pas (le bonus a son compteur à
+/// part). Vaut 0 au premier niveau d'un monde, comme une partie neuve.
+fn gouttes_deja_trouvees(s: &Sauvegarde, indice: usize) -> u32 {
+    let Some(n) = NIVEAUX.get(indice) else {
+        return 0;
+    };
+    NIVEAUX[..indice]
+        .iter()
+        .filter(|m| m.monde == n.monde && m.genre == GenreNiveau::Normal)
+        .map(|m| s.progres(m.cle).gouttes.iter().filter(|&&g| g).count() as u32)
+        .sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1559,6 +1585,23 @@ mod tests {
             app.monde.indice,
             levels::debut_monde(NIVEAUX, 2).unwrap() + 3
         );
+        // AGA : les gouttes déjà trouvées dans les niveaux d'avant restent comptées.
+        let mut app = Application::new(true);
+        app.sauvegarde = Sauvegarde::depuis_texte(
+            "version=3\nparties_finies=1\nniveau.poursuite=medaille:1\nniveau.caniveau=medaille:1\nniveau.egouts=medaille:1\nniveau.cascade=medaille:1",
+        );
+        let d = levels::debut_monde(NIVEAUX, 2).unwrap();
+        if let Some(p) = app.sauvegarde.progres_mut(NIVEAUX[d].cle) {
+            p.gouttes = [true, true, false];
+        }
+        if let Some(p) = app.sauvegarde.progres_mut(NIVEAUX[d + 2].cle) {
+            p.gouttes = [true, false, false];
+        }
+        app.ouvrir(Ecran::Titre);
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.indice, d + 3);
+        assert_eq!(app.monde.etat.gouttes, 3);
         // Porte fermée (`poursuite` pas fini) : JOUER lance le Monde 1, comme avant.
         app.sauvegarde = Sauvegarde::depuis_texte("version=3\nparties_finies=1");
         assert_eq!(app.monde_de_jouer(), 1);
