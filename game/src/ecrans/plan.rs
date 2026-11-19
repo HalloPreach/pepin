@@ -43,6 +43,22 @@ const BOUTON_JOUER: (f32, f32, f32, f32) = (184.0, 140.0, 63.0, 20.0);
 const BOUTON_COURSE: (f32, f32, f32, f32) = (249.0, 140.0, 63.0, 20.0);
 /// Bouton RETOUR, dans le bandeau du bas.
 const BOUTON_RETOUR: (f32, f32, f32, f32) = (4.0, 166.0, 62.0, 13.0);
+/// Flèches tactiles de chapitre (carte 9.30), dans le panneau, sur la rangée libre
+/// au-dessus de JOUER/COURSE (le texte du panneau finit au plus à y = 119) :
+/// « ◀ CHAPITRE 1 » à gauche, « CHAPITRE 2 ▶ » à droite. Hors de la vue de la carte,
+/// elles ne cachent aucune étape. Avec deux chapitres, une seule est montrée à la
+/// fois (test `une_seule_fleche_de_chapitre_a_la_fois`) : elles peuvent donc être
+/// plus larges que la moitié du panneau.
+const L_FLECHE: f32 = 74.0;
+const H_FLECHE: f32 = 16.0;
+const Y_FLECHE: f32 = 122.0;
+const FLECHE_PRECEDENT: (f32, f32, f32, f32) = (BOUTON_JOUER.0, Y_FLECHE, L_FLECHE, H_FLECHE);
+const FLECHE_SUIVANT: (f32, f32, f32, f32) = (
+    BOUTON_COURSE.0 + BOUTON_COURSE.2 - L_FLECHE,
+    Y_FLECHE,
+    L_FLECHE,
+    H_FLECHE,
+);
 /// Demi-côté d'une étape, et demi-côté de sa zone de toucher (plus large).
 const DEMI: f32 = 7.0;
 const DEMI_TOUCHER: f32 = 11.0;
@@ -55,6 +71,8 @@ const _: () = {
     assert!(BOUTON_JOUER.0 + BOUTON_JOUER.2 < BOUTON_COURSE.0);
     assert!(BOUTON_COURSE.0 + BOUTON_COURSE.2 <= PANNEAU.0 + PANNEAU.2 - 4.0);
     assert!(L_CARTE < PANNEAU.0);
+    assert!(Y_FLECHE + H_FLECHE < BOUTON_JOUER.1);
+    assert!(L_FLECHE >= 24.0 && H_FLECHE >= 16.0);
 };
 
 /// Ligne du haut du titre du bandeau (carte 9.28 : 1 px plus bas qu'avant, pour
@@ -145,6 +163,50 @@ impl Zones for MiseEnPage {
     fn sur_retour(&self, x: f32, y: f32) -> bool {
         dedans(BOUTON_RETOUR, x, y)
     }
+
+    fn sur_chapitre_precedent(&self, x: f32, y: f32) -> bool {
+        dedans(FLECHE_PRECEDENT, x, y)
+    }
+
+    fn sur_chapitre_suivant(&self, x: f32, y: f32) -> bool {
+        dedans(FLECHE_SUIVANT, x, y)
+    }
+}
+
+/// Une flèche tactile de chapitre (carte 9.30) : cadre sombre liseré d'or (lisible
+/// sur les deux fonds), « CHAPITRE n » et un triangle plein vers le chapitre.
+fn dessiner_fleche((x, y, w, h): (f32, f32, f32, f32), monde: u8, suivant: bool, anim: u32) {
+    panneau(x, y, w, h, ARDOISE_NUIT, OR);
+    let libelle = contenu::libelle_chapitre(monde);
+    let lt = largeur_texte(&libelle, 1) as f32;
+    let ty = y + (h - 7.0) / 2.0;
+    // Le triangle (4 x 7) bat d'un pixel vers le chapitre, pour inviter au toucher.
+    let pousse = if (anim / 20).is_multiple_of(2) {
+        0.0
+    } else {
+        1.0
+    };
+    let (tx, lx) = if suivant {
+        (x + w - 8.0 + pousse, x + 3.0)
+    } else {
+        (x + 4.0 - pousse, x + 11.0)
+    };
+    debug_assert!(lt <= w - 15.0);
+    for k in 0..4 {
+        let col = if suivant {
+            tx + k as f32
+        } else {
+            tx + 3.0 - k as f32
+        };
+        let demi = 3.0 - k as f32;
+        rect(col, ty + 3.0 - demi, 1.0, 2.0 * demi + 1.0, OR_PALE);
+    }
+    texte::dessiner(
+        &libelle,
+        lx,
+        ty,
+        Style::simple(OR_PALE, 1).avec_ombre(ARDOISE_OMBRE),
+    );
 }
 
 /// Dessine la carte des niveaux. `anim` : pas écoulés depuis son ouverture.
@@ -193,6 +255,12 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
         ombre(BLANC_CASSE),
     );
     dessiner_panneau(banque, s, e, anim);
+    // Les flèches de chapitre (carte 9.30), seulement vers un chapitre jouable.
+    for (suivant, zone) in [(false, FLECHE_PRECEDENT), (true, FLECHE_SUIVANT)] {
+        if let Some(m) = e.chapitre_voisin(suivant, NIVEAUX, s) {
+            dessiner_fleche(zone, m, suivant, anim);
+        }
+    }
     let (x, y, w, h) = BOUTON_RETOUR;
     panneau(x, y, w, h, ARDOISE_NUIT, BRUME);
     texte::dessiner_centre_sur(contenu::RETOUR, x + w / 2.0, y + 3.0, ombre(BRUME));

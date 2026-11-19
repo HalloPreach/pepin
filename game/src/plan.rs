@@ -354,6 +354,11 @@ pub trait Zones {
     fn sur_course(&self, x: f32, y: f32) -> bool;
     /// Le bouton RETOUR contient-il le point ?
     fn sur_retour(&self, x: f32, y: f32) -> bool;
+    /// La flèche du chapitre précédent (« ◀ CHAPITRE 1 », carte 9.30) contient-elle
+    /// le point ? (La flèche n'est là que si `chapitre_voisin` la montre.)
+    fn sur_chapitre_precedent(&self, x: f32, y: f32) -> bool;
+    /// La flèche du chapitre suivant (« CHAPITRE 2 ▶ ») contient-elle le point ?
+    fn sur_chapitre_suivant(&self, x: f32, y: f32) -> bool;
 }
 
 /// Ce que l'application doit faire après un appui.
@@ -459,6 +464,22 @@ impl EtatPlan {
         self.selection = Self::ou_on_en_est_du_monde(niveaux, s, monde);
         self.centrer();
         true
+    }
+
+    /// Le chapitre voisin (précédent, ou `suivant`) s'il est jouable : sa flèche
+    /// tactile est alors dessinée et répond au toucher (carte 9.30).
+    pub fn chapitre_voisin(
+        &self,
+        suivant: bool,
+        niveaux: &[InfosNiveau],
+        s: &Sauvegarde,
+    ) -> Option<u8> {
+        let monde = if suivant {
+            self.monde.checked_add(1)?
+        } else {
+            self.monde.checked_sub(1).filter(|&m| m >= 1)?
+        };
+        monde_jouable(niveaux, s, monde).then_some(monde)
     }
 
     fn defil_max(&self) -> f32 {
@@ -573,6 +594,18 @@ impl EtatPlan {
                 self.course = true;
                 return courir(self.selection);
             }
+            // Les flèches de chapitre (carte 9.30) : le même changement de monde que
+            // Gauche/Droite au clavier. Sans chapitre voisin jouable, pas de flèche :
+            // le toucher retombe sur la carte.
+            for (suivant, sur) in [
+                (false, z.sur_chapitre_precedent(x, y)),
+                (true, z.sur_chapitre_suivant(x, y)),
+            ] {
+                if let Some(m) = self.chapitre_voisin(suivant, niveaux, s).filter(|_| sur) {
+                    self.aller_monde(m, self.course, niveaux, s);
+                    return ActionPlan::Rien;
+                }
+            }
             if let Some(i) = z.etape_sous(&self.geometrie, self.defil, x, y) {
                 // Toucher choisit seulement (un glisser commence aussi par un appui) :
                 // on lance avec JOUER ou Entrée. L'étape est un indice LOCAL de la
@@ -627,6 +660,90 @@ mod tests {
         }
         fn sur_retour(&self, _: f32, _: f32) -> bool {
             false
+        }
+        fn sur_chapitre_precedent(&self, _: f32, _: f32) -> bool {
+            false
+        }
+        fn sur_chapitre_suivant(&self, _: f32, _: f32) -> bool {
+            false
+        }
+    }
+
+    /// Des zones où tout point est sur les deux flèches de chapitre (carte 9.30).
+    struct Fleches;
+    impl Zones for Fleches {
+        fn etape_sous(&self, _: &Geometrie, _: f32, _: f32, _: f32) -> Option<usize> {
+            None
+        }
+        fn sur_jouer(&self, _: f32, _: f32) -> bool {
+            false
+        }
+        fn sur_course(&self, _: f32, _: f32) -> bool {
+            false
+        }
+        fn sur_retour(&self, _: f32, _: f32) -> bool {
+            false
+        }
+        fn sur_chapitre_precedent(&self, _: f32, _: f32) -> bool {
+            true
+        }
+        fn sur_chapitre_suivant(&self, _: f32, _: f32) -> bool {
+            true
+        }
+    }
+
+    /// Toucher la flèche de chapitre (carte 9.30) : chapitre 2 ouvert, du 1 on va au
+    /// 2, puis du 2 on revient au 1, comme Droite/Gauche au clavier (`aller_monde`).
+    #[test]
+    fn toucher_la_fleche_change_de_chapitre() {
+        let t = table_deux_mondes();
+        let s = poursuite_finie();
+        let mut e = EtatPlan::new(&t, 0);
+        assert_eq!(e.chapitre_voisin(false, &t, &s), None, "pas de chapitre 0");
+        assert_eq!(e.chapitre_voisin(true, &t, &s), Some(2));
+        let clic = Navigation {
+            clic: Some((10.0, 10.0)),
+            ..Navigation::default()
+        };
+        assert_eq!(e.reagir(&clic, &t, &s, &Fleches), ActionPlan::Rien);
+        let mut attendu = EtatPlan::new(&t, 0);
+        attendu.aller_monde(2, false, &t, &s);
+        assert_eq!(e, attendu);
+        assert_eq!(e.chapitre_voisin(true, &t, &s), None, "pas de chapitre 3");
+        e.reagir(&clic, &t, &s, &Fleches);
+        assert_eq!(e.monde, 1);
+    }
+
+    /// Chapitre 2 fermé : pas de flèche, et toucher sa place ne change rien.
+    #[test]
+    fn pas_de_fleche_vers_un_chapitre_ferme() {
+        let t = table_deux_mondes();
+        let vide = Sauvegarde::default();
+        let mut e = EtatPlan::new(&t, 0);
+        assert_eq!(e.chapitre_voisin(true, &t, &vide), None);
+        let avant = e.clone();
+        let clic = Navigation {
+            clic: Some((10.0, 10.0)),
+            ..Navigation::default()
+        };
+        assert_eq!(e.reagir(&clic, &t, &vide, &Fleches), ActionPlan::Rien);
+        assert_eq!(e, avant);
+    }
+
+    /// Les deux flèches de chapitre se chevauchent dans le panneau (carte 9.30) :
+    /// avec la vraie table, jamais les deux à la fois (pas de chapitre 3).
+    #[test]
+    fn une_seule_fleche_de_chapitre_a_la_fois() {
+        use pepin_core::levels::NIVEAUX;
+        let s = poursuite_finie();
+        for monde in [1, 2] {
+            let mut e = EtatPlan::new(NIVEAUX, 0);
+            assert!(e.aller_monde(monde, false, NIVEAUX, &s));
+            let fleches = [false, true]
+                .iter()
+                .filter(|&&suivant| e.chapitre_voisin(suivant, NIVEAUX, &s).is_some())
+                .count();
+            assert_eq!(fleches, 1, "chapitre {monde}");
         }
     }
 
