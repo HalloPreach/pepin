@@ -1453,7 +1453,14 @@ pub fn dessiner(
     // Le fond compte la caméra depuis le bas du niveau (parallaxe verticale d'un niveau
     // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
-    decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    // Le fond du port (carte 9.11b) : sans son phare lointain sur la jetée de la
+    // Pieuvre, qui a le sien, rayé, plus près.
+    if monde.infos.theme == pepin_core::zones::Theme::Port {
+        let phare = !crate::dessin_port::est_la_jetee(monde);
+        crate::decor_port::dessiner_fond(cx, cy_fond, monde.pas, phare);
+    } else {
+        decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    }
     // La Pieuvre du port (carte 9.20e) : la mer, le phare et les bateaux du port.
     crate::dessin_port::dessiner_fond(monde, banque, cx, cy);
     mur_pluie::dessiner_soleil(monde);

@@ -30,6 +30,7 @@ mod decor;
 mod decor_cascade;
 mod decor_egouts;
 mod decor_grotte;
+mod decor_port;
 mod decor_riviere;
 mod decor_rue;
 mod defis;

@@ -1853,6 +1853,10 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
         crate::fond_egouts::dessiner(cam_x, cam_y, pas);
         return;
     }
+    // Le port a son propre fond (carte 9.11b) : `decor_port`.
+    if theme == Theme::Port {
+        return crate::decor_port::dessiner_fond(cam_x, cam_y, pas, true);
+    }
     let a = ambiance(theme);
     if a.voyage {
         dessiner_voyage(&a, cam_x, cam_y, pas);
@@ -1963,6 +1967,9 @@ pub fn planche_fonds_qa(k: usize, pas: u32) {
 /// Dessine la pluie PAR-DESSUS le niveau (devant tout). `forte` : la pluie de la
 /// nouvelle partie + (carte 8.8), plus dense et plus penchée.
 pub fn dessiner_avant(theme: Theme, pas: u32, forte: bool) {
+    if theme == Theme::Port {
+        return crate::decor_port::dessiner_bruine(pas, forte);
+    }
     if theme.pluie() {
         dessiner_pluie(&ambiance(theme), pas, forte);
     }
