@@ -41,6 +41,8 @@ pub struct Escargot {
     au_sol: bool,
     /// Pas d'animation de rebond restants (0 = il marche).
     compression: u8,
+    /// Coin haut-gauche à l'apparition : `revenir_a_l_origine` l'y ramène.
+    origine: (f32, f32),
 }
 
 impl Escargot {
@@ -52,7 +54,14 @@ impl Escargot {
             vitesse_y: 0.0,
             au_sol: false,
             compression: 0,
+            origine: (x, y),
         }
+    }
+
+    /// Pépin vient de mourir (carte 9.29) : l'escargot revient à son point
+    /// d'apparition, tourné vers la gauche, comme au chargement du niveau.
+    pub fn revenir_a_l_origine(&mut self) {
+        *self = Escargot::new(self.origine.0, self.origine.1);
     }
 
     /// Pépin lui tombe-t-il dessus en ce moment ? Il descend, chevauche la coquille,
