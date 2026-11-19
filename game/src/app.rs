@@ -317,6 +317,15 @@ impl Application {
         self.ecran = ecran;
         self.anim = 0;
         self.choix = choix_pour(ecran);
+        // AGA : « quand on a fini le monde 1, le niveau d'après [doit être] le premier
+        // du monde 2, même si on n'a pas ouvert la carte ». À la fin du Monde 1, Monde 2
+        // ouvert : CONTINUER en premier (sélectionné), qui enchaîne sur le chapitre 2.
+        if ecran == Ecran::Fin
+            && self.bilan.monde == 1
+            && plan::monde_jouable(NIVEAUX, &self.sauvegarde, 2)
+        {
+            self.choix.insert(0, Choix::Continuer);
+        }
         // HISTOIRE n'apparaît au titre qu'une fois le jeu fini (carte 8.11) : avant,
         // ses images se découvrent en jouant. Pas de ligne grisée ni de cadenas.
         // La NOUVELLE PARTIE + aussi (carte 8.8).
@@ -693,6 +702,14 @@ impl Application {
     }
 
     fn valider_choix(&mut self, choix: Choix) {
+        // CONTINUER (écran de fin du Monde 1) : exactement JOUER, qui part dans le
+        // Monde 2 dès que sa porte est ouverte, là où l'on en est (niveau 1 la
+        // première fois).
+        let choix = if choix == Choix::Continuer {
+            Choix::Jouer
+        } else {
+            choix
+        };
         match choix {
             // REJOUER garde le mode de la partie finie ; JOUER : une partie normale ;
             // NOUVELLE PARTIE + : la même, variantes et pluie forte (carte 8.8), sans
@@ -757,6 +774,8 @@ impl Application {
             }),
             Choix::Reprendre => self.ecran = Ecran::Jeu,
             Choix::Recommencer => self.lancer(Suite::Recommencer),
+            // Déjà ramené à JOUER en tête de fonction.
+            Choix::Continuer => {}
             Choix::QuitterAuTitre | Choix::RetourTitre => self.lancer(Suite::Titre),
         }
     }
@@ -1813,6 +1832,29 @@ mod tests {
             }
         );
         assert_eq!(app.choix, vec![Choix::Rejouer, Choix::RetourTitre]);
+    }
+
+    /// AGA : le Monde 1 fini (porte du Monde 2 ouverte), l'écran de fin propose
+    /// CONTINUER en premier, qui lance le niveau 1 du Monde 2 sans passer par la carte.
+    #[test]
+    fn finir_le_monde_1_enchaine_sur_le_monde_2() {
+        let mut app = en_jeu();
+        app.sauvegarde = Sauvegarde::depuis_texte("version=3\nniveau.poursuite=medaille:1");
+        let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
+        app.monde = monde;
+        app.camera = camera;
+        app.monde.termine = true;
+        avancer(&mut app, 1);
+        jusqu_a(&mut app, |e| e == Ecran::Fin);
+        assert_eq!(
+            app.choix,
+            vec![Choix::Continuer, Choix::Rejouer, Choix::RetourTitre]
+        );
+        assert_eq!(app.choix[app.menu.selection()], Choix::Continuer);
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.infos.monde, 2);
+        assert_eq!(Some(app.monde.indice), levels::debut_monde(NIVEAUX, 2));
     }
 
     #[test]
