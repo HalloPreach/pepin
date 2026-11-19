@@ -8,9 +8,9 @@ use crate::sprites::Image;
 /// Berge herbeuse (où l'on marche) : herbe violine aux pointes rousses (la palette
 /// n'a pas de vert), la terre sombre dessous.
 pub const RIV_HERBE: Image = &[
-    "..0......0....0.",
-    ".0A0....0F0..0A0",
-    "0FAF0000FFF00FFF",
+    "..0..9...0...7..",
+    ".0A09C90.0F0.7D7",
+    "0FAF0900FFF00F7F",
     "FFFFAFFFFFFFAFFF",
     "FFFFFFFFFFFFFFFF",
     "2F22F222F2F22F22",
@@ -28,9 +28,9 @@ pub const RIV_HERBE: Image = &[
 
 /// Berge herbeuse au bord GAUCHE.
 pub const RIV_HERBE_G: Image = &[
-    "..0......0....0.",
-    ".0A0....0F0..0A0",
-    "00AF0000FFF00FFF",
+    "..0......0...7..",
+    ".0A0....0F0..7D7",
+    "00AF0000FFF00F7F",
     "0FFFAFFFFFFFAFFF",
     "0FFFFFFFFFFFFFFF",
     "0F22F222F2F22F22",
@@ -48,9 +48,9 @@ pub const RIV_HERBE_G: Image = &[
 
 /// Berge herbeuse au bord DROIT.
 pub const RIV_HERBE_D: Image = &[
-    "..0......0....0.",
-    ".0A0....0F0..0A.",
-    "0FAF0000FFF00F00",
+    "..0..9...0....0.",
+    ".0A09C90.0F0.0A.",
+    "0FAF0900FFF00F00",
     "FFFFAFFFFFFFAFF0",
     "FFFFFFFFFFFFFFF0",
     "2F22F222F2F22F20",
@@ -68,9 +68,9 @@ pub const RIV_HERBE_D: Image = &[
 
 /// Berge herbeuse seule (ouverte des deux côtés).
 pub const RIV_HERBE_SEUL: Image = &[
-    "..0......0....0.",
-    ".0A0....0F0..0A.",
-    "00AF0000FFF00F00",
+    "..0..9...0....0.",
+    ".0A09C90.0F0.0A.",
+    "00AF0900FFF00F00",
     "0FFFAFFFFFFFAFF0",
     "0FFFFFFFFFFFFFF0",
     "0F22F222F2F22F20",
@@ -141,8 +141,8 @@ pub const RIV_BERGE: Image = &[
     "1111111111111111",
     "1111112221111111",
     "1111112421111222",
-    "2221112221111242",
-    "2421111111111222",
+    "2221112221111252",
+    "2521111111111222",
     "2221111111111111",
 ];
 
@@ -206,6 +206,27 @@ pub const RIV_ROCHER_HAUT: Image = &[
     "1222212222122221",
 ];
 
+/// Pont de bois (carte 9.10b : un `#` d'une rangée au-dessus du vide) : des
+/// planches corail et orange, disjointes, sur une poutre ; le dessous est vide.
+pub const RIV_PONT: Image = &[
+    "0000000000000000",
+    "9999999999999999",
+    "AAA0AAAAA0AAAAA0",
+    "A8A0AA8AA0A8AAA0",
+    "8880888880888880",
+    "0000000000000000",
+    "1111111111111111",
+    "0000000000000000",
+    ".02..........20.",
+    ".02..........20.",
+    "..02........20..",
+    "...0........0...",
+    "................",
+    "................",
+    "................",
+    "................",
+];
+
 /// Les sprites de ce thème : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("riv_herbe", RIV_HERBE),
@@ -218,4 +239,5 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("riv_galets", RIV_GALETS),
     ("riv_rocher", RIV_ROCHER),
     ("riv_rocher_haut", RIV_ROCHER_HAUT),
+    ("riv_pont", RIV_PONT),
 ];

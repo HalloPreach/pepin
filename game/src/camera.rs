@@ -565,17 +565,19 @@ mod tests {
             let mut m = Monde::new(indice);
             let (l, h) = (m.niveau.largeur_px(), m.niveau.hauteur_px());
             // Le clocher (carte 5.13), la descente (carte 5.17), la grande cascade
-            // (carte 9.8) et la grotte aux bulles (carte 9.9), plusieurs écrans de
+            // (carte 9.8), la grotte aux bulles (carte 9.9) et la rivière en paliers
+            // (carte 9.10b), plusieurs écrans de
             // haut, sont les seuls niveaux du jeu que la caméra suit en hauteur : ils n'ont pas d'« ancienne » caméra à comparer
             // (la caméra verticale a ses propres tests, plus bas).
             if Camera::suit_en_hauteur(h) {
-                use pepin_core::levels::{cascade, clocher, descente, grotte};
+                use pepin_core::levels::{cascade, clocher, descente, grotte, riviere};
                 assert!(
                     [
                         clocher::INFOS.nom,
                         descente::INFOS.nom,
                         cascade::INFOS.nom,
-                        grotte::INFOS.nom
+                        grotte::INFOS.nom,
+                        riviere::INFOS.nom
                     ]
                     .contains(&infos.nom),
                     "{}",

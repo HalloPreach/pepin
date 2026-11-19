@@ -144,7 +144,8 @@ impl Theme {
     /// devant le front d'orage du Grand Nuage (il ne pleut que dedans), ni dans la
     /// grotte du Monde 2 (carte 9.5 : la pluie est restée dehors), ni dans les
     /// égouts (carte 9.27 : sous terre ; seuls les filets d'eau des grilles y
-    /// tombent, dessinés par leur habillage). Rendu seulement : aucune règle de
+    /// tombent, dessinés par leur habillage), ni sur la rivière (carte 9.10b :
+    /// l'orage est passé, le soleil se couche). Rendu seulement : aucune règle de
     /// jeu n'en dépend.
     pub fn pluie(self) -> bool {
         !matches!(
@@ -156,6 +157,7 @@ impl Theme {
                 | Theme::Poursuite
                 | Theme::Egouts
                 | Theme::Grotte
+                | Theme::Riviere
         )
     }
 }

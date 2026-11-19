@@ -255,8 +255,8 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
     (
         "riviere",
         Intro {
-            texte: "Au pied de la cascade, l'eau part en rivière. Pépin la descend en barque.",
-            astuce: "Un rocher arrête la barque : saute, puis replane dans l'eau d'après.",
+            texte: "L'orage est passé. La rivière descend la vallée : par les ponts, ou en barque.",
+            astuce: "Les ponts du haut sont plus sûrs, la barque du bas va plus vite.",
         },
     ),
     (

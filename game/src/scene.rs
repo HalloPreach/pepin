@@ -799,7 +799,9 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
             // `dessiner_cadrans`) ou une plateforme en aller-retour.
             Entite::Mobile(m) => {
                 // Au port (carte 9.11) : bateaux et caisse de grue.
-                if crate::dessin_port::dessiner_mobile(monde, banque, m.extremites(), sx, sy) {
+                if crate::dessin_port::dessiner_mobile(monde, banque, m.extremites(), sx, sy)
+                    || crate::decor_riviere::dessiner_tronc(monde, sx, sy)
+                {
                     continue;
                 }
                 let nom = if m.cercle().is_some() {
@@ -1459,6 +1461,8 @@ pub fn dessiner(
     dessiner_facades(monde, banque, cx, cy);
     // La grande chute en fond de la cascade (carte 9.20c), derrière les tuiles.
     crate::decor_cascade::dessiner_fond(monde, cx, cy);
+    // La vallée au soleil couchant de la rivière (carte 9.10b), derrière les tuiles.
+    crate::decor_riviere::dessiner_fond(monde, cx, cy);
     // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
     crate::eau::dessiner_marees(monde, banque, cx, cy);
     // Les roues de l'autobus du caniveau (carte 9.20f), dans l'eau qui les couvre.
@@ -1476,6 +1480,8 @@ pub fn dessiner(
     crate::decor_egouts::dessiner(monde, cx, cy);
     // L'habillage de la grotte (carte 9.20d) : rideau de la cascade, sources, jour.
     crate::decor_grotte::dessiner(monde, cx, cy);
+    // La rivière (carte 9.10b) : reflets, écume des rochers et des chutes, roseaux.
+    crate::decor_riviere::dessiner(monde, cx, cy);
     // Le mobilier de rue du caniveau (carte 9.20f) : voitures, autobus, abribus...
     crate::mobilier_rue::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);

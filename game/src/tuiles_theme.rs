@@ -284,6 +284,10 @@ fn grotte(v: &Voisinage) -> &'static str {
 /// gris, coiffés de mousse.
 fn riviere(v: &Voisinage) -> &'static str {
     if v.tuile == Tuile::Toit {
+        // Carte 9.10b : un `#` d'une rangée au-dessus du vide est un PONT de bois.
+        if sol(v) && v.dessous == Tuile::Vide {
+            return "riv_pont";
+        }
         return if sol(v) {
             "riv_rocher_haut"
         } else {
