@@ -6965,6 +6965,7 @@ jeu, pour débloquer une fin différente. »
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## Carte 9.24 : un temps de mort avant la réapparition (AGA : « on voit pas l'animation de noyade ou de dégâts »)
 - À la mort, le monde se fige (ennemis, boss, plateformes, mur ; commandes ignorées) et l'animation de la cause se joue (`game/src/mort.rs`, `dessin_mort.rs`) : noyade 1,2 s (Pépin coule en se débattant, bulles cyan, parapluie couché qui flotte), dégât 1,0 s (flash blanc, éjection, chute à travers le décor en tournant d'un quart de tour), vide 0,6 s (la caméra reste au trou), puis un rideau de 0,3 s ; total 0,9 à 1,5 s. Vies, protection de 1 s et « PLUS DE VIES » inchangés (l'écran et la bannière « TROP DUR ? » attendent le rideau fermé).
 - Seule la partie joue ce temps (`Monde::temps_de_mort`) : robot de QA, mesure, fantôme de la course et démo gardent la réapparition immédiate d'avant (leurs parcours enregistrés restent valables ; un fantôme qui meurt prend donc un peu d'avance sur le joueur).
@@ -6979,3 +6980,8 @@ jeu, pour débloquer une fin différente. »
 - Fait (`core/src/levels/egouts.rs`, grille seule) : +2 corbeaux existants au-dessus des deux bassins à marée, (87, 6) et (105, 7), loin des lanternes (66, 95) ; 3 gouttes et lanternes inchangées. Mesure `CLE=egouts` (48 essais), AVANT -> APRÈS : Débutant 0,85 -> 0,98 (game over 1/48) ; Habitué 0,38 -> 0,54 ; Expert 0,17 -> 0,21 ; recherche 107 201 -> 113 073 cases (pas d'explosion ; 1 251 s sous charge 61).
 - Preuves : `carte egouts` VERT (core 380 ok, game 368 ok, niveau 1 ok), `lint` LINT-OK. PAS lancés : robot, captures. PAS testé : joueur humain.
 >>>>>>> carte-9.25b
+=======
+## Carte 9.25d : « La grotte aux bulles », la difficulté monte vers la Pieuvre (cible Habitué 0,70-0,80)
+- Fait (`core/src/levels/grotte.rs`, grille seule) : un 2e poisson dans chaque bassin, là où l'on saute par-dessus : (8, 45) au bord du bassin de la salle, avant le nénuphar ; (18, 22) au bord du bassin du rocher, avant la grenouille. Aucun sur une lanterne ni au départ, 3 gouttes, 5 lanternes.
+- Mesure `CLE=grotte` (48 essais, 16 478 cases), AVANT (19/11) -> APRÈS : Débutant 1,23 -> 0,98 ; Habitué 0,35 -> 0,73 (cible atteinte, 1 mesure ; col. 16-23 ennemi 20, col. 8 pointes 6) ; Expert 0,27 -> 0,27. PAS testé : joueur humain, robot (aucun robot), captures.
+>>>>>>> carte-9.25d

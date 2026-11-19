@@ -63,6 +63,10 @@
 //! (les chauves-souris de la grotte) en travers des sauts, des planés et des
 //! colonnes de bulles. Aucun ennemi ÉCRASABLE ajouté : chacun doublerait la
 //! recherche d'itinéraires de la mesure de difficulté.
+//! Carte 9.25d (AGA : la difficulté du chapitre 2 monte jusqu'à la Pieuvre ;
+//! cible Habitué 0,70 à 0,80) : un 2e poisson dans chaque bassin, là où l'on
+//! saute par-dessus : (8, 45) au bord du bassin de la salle (avant le nénuphar)
+//! et (18, 22) au bord du bassin du rocher (avant la grenouille).
 //! Dix stalactites, trois ennemis d'origine (deux crabes, la grenouille), cinq
 //! lanternes, sept colonnes de bulles (sept sources), deux oiseaux de décor (les
 //! hirondelles de la grotte). Aucune lanterne dans la colonne d'une stalactite.
@@ -140,7 +144,7 @@ B......BBBBBB.........YY....YY.....B
 B.......V..V..........YY....YY.....B
 B.................c...YY....YY.....B
 B.....................YY....BB.....B
-B...YY....o..L..i...j.YY....BB.....B
+B...YY....o..L..i.i.j.YY....BB.....B
 B...YY########~~~~~###YY....BB.....B
 B...YYBBBBBBBBBBBBBBBBYY....BB.....B
 B...YYBBBBBBBBBBBBBBBBYY...LBB.....B
@@ -163,7 +167,7 @@ B.............................YY...B
 B.............................YY...B
 B.........c...................YY...B
 B.............................YY...B
-BYY.K.....n.i.........k.......YY...B
+BYY.K...i.n.i.........k.......YY...B
 BYY#####~~~~~~################~~###B
 BYYBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BYY.....................BBBBBBBBBBBB
