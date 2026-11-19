@@ -7002,3 +7002,8 @@ jeu, pour débloquer une fin différente. »
 - Tuiles `riv_` (`tuiles_monde2/riviere.rs` : herbe violine aux pointes rousses, terre, galets, rochers moussus), branchées dans `JEUX`, `nom_du_theme`, `a_son_jeu` ; fond : `Detail::Foret` (deux rangs de sapins) ajouté au thème Riviere ; planche des sprites régénérée.
 - Mesure `CLE=riviere` (48 essais) : Débutant 0,58 ; Habitué 0,81 (48/48, 53,5 s) ; Expert 1,92 (game over 6/48, 77 morts col. 165-166 : poisson du bief 4 sous sa chauve-souris, à surveiller en jeu).
 - Preuves : `carte riviere` VERT, `lint` LINT-OK, `lourd.sh ./build.sh --qa` OK ; captures `910-depart`, `910-barque-poisson` regardées (0 hors palette, 0 flou). Robot, joueur humain : PAS lancés.
+
+## Carte 9.11 : « Le port » (Monde 2, numéro 5 dans la branche, la Pieuvre passe à 6)
+- `core/src/levels/port.rs` (97 x 11, thème Port) : quai du départ, 3 bateaux en va-et-vient obligés (bassins de 14 et 12 cases), caisse de grue verticale jusqu'au toit de l'entrepôt, 3 mouettes sur des caisses aux arrivées des bateaux, 3 crabes, 3 poissons, 3 gouttes, 3 lanternes, drapeau au bout de la jetée. Rendu : plateformes mobiles du port dessinées en bateau (`port_bateau`) ou caisse pendue à son câble (`port_caisse_grue`), `dessin_port::dessiner_mobile`.
+- Preuves : `carte port` VERT, `lint` LINT-OK, `lourd.sh ./build.sh --qa` OK ; captures `911-depart`, `911-bateau`, `911-poisson` regardées (0 hors palette, 0 flou, 0 erreur de console). La grue et l'arrivée ne sont PAS capturées (pilotage à la main trop long).
+- Mesure CLE=port : Débutant 1,25 morts, Habitué 0,35 morts (86 s), Expert 0,31. Sous la cible 0,85-1,00 : à juger par AGA en jouant (morts surtout aux arrivées des bateaux, col. 25-28, 75-76, 87-89). Robot de QA : PAS lancé (consigne).
