@@ -38,7 +38,12 @@ struct Voisinage {
 pub(crate) fn a_son_jeu(theme: Theme) -> bool {
     matches!(
         theme,
-        Theme::Caniveau | Theme::Egouts | Theme::Cascade | Theme::Grotte | Theme::Port
+        Theme::Caniveau
+            | Theme::Egouts
+            | Theme::Cascade
+            | Theme::Grotte
+            | Theme::Riviere
+            | Theme::Port
     )
 }
 
@@ -56,8 +61,9 @@ pub(crate) fn nom_du_theme(
         Theme::Egouts => egouts,
         Theme::Cascade => cascade,
         Theme::Grotte => grotte,
+        Theme::Riviere => riviere,
         Theme::Port => port,
-        // La rivière et la marée : leurs niveaux viendront avec leur jeu.
+        // La marée : son niveau viendra avec son jeu.
         _ => return None,
     };
     if !tuile.est_solide() {
@@ -270,6 +276,36 @@ fn grotte(v: &Voisinage) -> &'static str {
         (false, true) if cristal => "gro_cristal_d",
         _ if v.hachage.is_multiple_of(2) => "gro_roche_b",
         _ => "gro_roche",
+    }
+}
+
+/// La rivière (carte 9.10) : la terre (`B`) fait les berges, herbe rousse sur les
+/// dessus, galets au bord et au fond de l'eau ; le `#` fait les rochers du courant,
+/// gris, coiffés de mousse.
+fn riviere(v: &Voisinage) -> &'static str {
+    if v.tuile == Tuile::Toit {
+        return if sol(v) {
+            "riv_rocher_haut"
+        } else {
+            "riv_rocher"
+        };
+    }
+    if sol(v) {
+        return dessus_borde(
+            v,
+            ["riv_herbe_seul", "riv_herbe_g", "riv_herbe_d", "riv_herbe"],
+        );
+    }
+    if v.dessus == Tuile::Eau {
+        return "riv_galets";
+    }
+    if v.gauche == Tuile::Eau || v.droite == Tuile::Eau {
+        return "riv_berge";
+    }
+    if v.hachage.is_multiple_of(3) {
+        "riv_terre_b"
+    } else {
+        "riv_terre"
     }
 }
 

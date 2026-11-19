@@ -251,6 +251,13 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
         },
     ),
     (
+        "riviere",
+        Intro {
+            texte: "Au pied de la cascade, l'eau part en rivière. Pépin la descend en barque.",
+            astuce: "Un rocher arrête la barque : saute, puis replane dans l'eau d'après.",
+        },
+    ),
+    (
         "pieuvre",
         Intro {
             texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
