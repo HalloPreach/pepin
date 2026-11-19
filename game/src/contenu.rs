@@ -44,6 +44,7 @@ pub const REPRENDRE: &str = "REPRENDRE";
 pub const RECOMMENCER: &str = "RECOMMENCER";
 pub const QUITTER_AU_TITRE: &str = "QUITTER AU TITRE";
 pub const REJOUER: &str = "REJOUER";
+pub const CONTINUER_CHAPITRE: &str = "CONTINUER";
 pub const RETOUR_TITRE: &str = "TITRE";
 
 /// Texte affiché pour une ligne de menu. Le son n'a plus de ligne (carte 7.8b) : une
@@ -60,6 +61,7 @@ pub fn libelle(choix: Choix) -> &'static str {
         Choix::Recommencer => RECOMMENCER,
         Choix::QuitterAuTitre => QUITTER_AU_TITRE,
         Choix::Rejouer | Choix::RejouerNiveau | Choix::RejouerCourse => REJOUER,
+        Choix::Continuer => CONTINUER_CHAPITRE,
         Choix::RetourTitre => RETOUR_TITRE,
         Choix::Force(f) => f.libelle(),
     }

@@ -319,6 +319,7 @@ mod tests {
             Choix::Recommencer,
             Choix::QuitterAuTitre,
             Choix::Rejouer,
+            Choix::Continuer,
             Choix::RetourTitre,
             Choix::Carte,
             Choix::RejouerNiveau,

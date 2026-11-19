@@ -25,6 +25,9 @@ pub enum Choix {
     Recommencer,
     QuitterAuTitre,
     Rejouer,
+    /// Écran de fin du Monde 1 (AGA : « quand on a fini le monde 1, le niveau
+    /// d'après » est le premier du Monde 2) : enchaîner sur le chapitre suivant.
+    Continuer,
     RetourTitre,
     /// Bilan d'un niveau joué depuis la carte (carte 7.4) : le relancer tout de suite.
     RejouerNiveau,
