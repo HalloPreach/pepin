@@ -180,6 +180,9 @@ pub enum Detail {
     Cristaux,
     /// L'eau de la rivière : une bande de courant sombre, ses reflets.
     EauRiviere,
+    /// La forêt de la rivière (carte 9.10) : deux rangs de sapins sombres à
+    /// mi-hauteur, au-dessus des berges hautes du niveau.
+    Foret,
     /// L'eau du port : une bande plus haute, une écume claire au bord.
     EauPort,
     /// L'eau de la marée : une bande sombre plus épaisse, l'écume qui monte.
@@ -759,6 +762,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         },
         // La rivière : berges de fond et roseaux devant, ciel grisé qui
         // s'éclaircit vers l'horizon ; l'eau du courant au pied, ses reflets.
+        // Carte 9.10 : une forêt de sapins à mi-hauteur, au-dessus des berges.
         Theme::Riviere => Ambiance {
             ciel: [ARDOISE, ARDOISE_CLAIRE, BRUME, NUAGE],
             lointain: ARDOISE_CLAIRE,
@@ -784,7 +788,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 1.0,
             arc: false,
             voyage: false,
-            details: [Some(Detail::EauRiviere), None, None, None],
+            details: [Some(Detail::Foret), Some(Detail::EauRiviere), None, None],
             vent: VENT_NUIT,
         },
         // Le port : quais et coques de bateaux, grues au premier plan, mouettes au
@@ -1627,9 +1631,12 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
 fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let (facteur, vert) = match d {
         Detail::Mouettes => (0.0, 0),
-        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => {
-            (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige))
-        }
+        Detail::Chutes
+        | Detail::Brume
+        | Detail::Tuyaux
+        | Detail::Lueur
+        | Detail::Facades
+        | Detail::Foret => (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige)),
         _ => (FACTEUR_PROCHE, enfoncement(cam_y, VERT_PROCHE * a.vertige)),
     };
     let dec = decalage(cam_x, facteur);
@@ -1711,6 +1718,28 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
                 rect(x + 1, pied - 4 - h / 2, 6, h / 2, PLUIE_SOMBRE);
                 rect(x + 3, pied - 4 - h, 2, h / 2, PLUIE_SOMBRE);
                 rect(x + 3, pied - 4 - h, 1, h, PLUIE);
+            }
+        }
+        Detail::Foret => {
+            // Deux rangs de sapins : le rang du fond (ardoise claire), puis un
+            // rang plus sombre, plus bas ; chaque sapin est un empilement de
+            // gradins. Le pied de chaque rang descend jusqu'au bas de l'écran
+            // (les berges du niveau le cachent).
+            for (rang, (couleur, sommet, pas_x)) in [(ARDOISE_CLAIRE, 44, 13), (ARDOISE, 58, 17)]
+                .into_iter()
+                .enumerate()
+            {
+                let dec_rang = dec * (rang as i32 + 1) / 2;
+                rect(0, sommet + 22, L, pied - sommet - 22, couleur);
+                for k in 0..(L / pas_x + 2) {
+                    let h = hache(k + rang as i32 * 97, 0x5A9) as i32;
+                    let x = (k * pas_x - dec_rang).rem_euclid(L + pas_x) - pas_x / 2;
+                    let haut = sommet + h % 9;
+                    for g in 0..6 {
+                        let demi = 1 + g;
+                        rect(x - demi, haut + g * 4, 2 * demi + 1, 4, couleur);
+                    }
+                }
             }
         }
         Detail::EauRiviere => {
@@ -1796,7 +1825,12 @@ fn dessiner_details(a: &Ambiance, groupe: u8, cam_x: i32, cam_y: i32, pas: u32) 
     for d in a.details.iter().copied().flatten() {
         let g = match d {
             Detail::Mouettes | Detail::Phare => 0,
-            Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => 1,
+            Detail::Chutes
+            | Detail::Brume
+            | Detail::Tuyaux
+            | Detail::Lueur
+            | Detail::Facades
+            | Detail::Foret => 1,
             _ => 2,
         };
         if g == groupe {

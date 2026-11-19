@@ -10,7 +10,8 @@
 //! aux gouttes.
 //!
 //! Carte 9.6c : les jeux des égouts, de la cascade, de la grotte et du port sont
-//! dans les sous-modules du même nom ; `JEUX` les rassemble tous.
+//! dans les sous-modules du même nom (carte 9.10 : la rivière) ; `JEUX` les
+//! rassemble tous.
 
 use super::Image;
 
@@ -18,14 +19,16 @@ pub mod cascade;
 pub mod egouts;
 pub mod grotte;
 pub mod port;
+pub mod riviere;
 
 /// Tous les jeux de tuiles du Monde 2, un par thème (le caniveau, puis carte 9.6c).
-pub const JEUX: [&[(&str, Image)]; 5] = [
+pub const JEUX: [&[(&str, Image)]; 6] = [
     SPRITES,
     egouts::SPRITES,
     cascade::SPRITES,
     grotte::SPRITES,
     port::SPRITES,
+    riviere::SPRITES,
 ];
 
 // --- Le caniveau ---------------------------------------------------------------
