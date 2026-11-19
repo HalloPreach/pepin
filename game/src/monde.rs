@@ -695,10 +695,14 @@ mod tests {
         while m.reapparition > crate::mort::RIDEAU_FERME {
             m.avancer(&SAUT);
             assert_eq!((m.joueur.boite.x, m.joueur.boite.y), pepin);
-            assert_eq!(
-                m.entites.iter().map(Monde::coin).collect::<Vec<_>>(),
-                entites
-            );
+            // Au pas du rideau fermé, les ennemis rentrent chez eux (carte 9.29) :
+            // seul ce pas-là les déplace.
+            if m.reapparition > crate::mort::RIDEAU_FERME {
+                assert_eq!(
+                    m.entites.iter().map(Monde::coin).collect::<Vec<_>>(),
+                    entites
+                );
+            }
         }
         while m.reapparition > 0 {
             m.avancer(&DROITE);

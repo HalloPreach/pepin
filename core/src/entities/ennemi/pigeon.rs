@@ -97,7 +97,7 @@ impl Ennemi {
     /// tourné vers la droite ou vers la gauche : c'est de ce côté qu'il plongera.
     pub fn pigeon(x: f32, y: f32, vers_la_droite: bool) -> Self {
         let mut p = Ennemi::new(TypeEnnemi::Pigeon, x, y);
-        p.vers_la_droite = vers_la_droite;
+        p.regarder_au_depart(vers_la_droite);
         p
     }
 

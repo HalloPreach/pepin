@@ -480,7 +480,7 @@ pub(super) fn analyser(
         let (x, y) = px((tx, ty));
         let decalage = 30 * (k as u16 % 4);
         let mut chat = Ennemi::chat(x + 1.0, y + 8.0, decalage);
-        chat.vers_la_droite = mur_gauche && libre_droite;
+        chat.regarder_au_depart(mur_gauche && libre_droite);
         entites.push(Entite::Ennemi(chat));
     }
 

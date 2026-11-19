@@ -117,6 +117,7 @@ impl Ennemi {
     pub fn poisson(x: f32, surface: f32, decalage_pas: u16) -> Self {
         let mut p = Ennemi::new(TypeEnnemi::Poisson, x + 3.0, surface + PROFONDEUR_POISSON);
         p.eau = PhaseEau::Repos(SOUS_L_EAU_PAS - decalage_pas.min(SOUS_L_EAU_PAS - 1));
+        p.depart.eau = p.eau;
         p
     }
 
