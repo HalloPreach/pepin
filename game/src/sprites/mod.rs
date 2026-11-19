@@ -533,6 +533,7 @@ mod tests {
             &pepin::REAPPARITION,
             &ennemis::FLAQUE,
             &ennemis::CORBEAU,
+            &ennemis::CHAUVE_SOURIS,
             &ennemis::PIGEON,
             &ennemis::ESCARGOT,
             &ennemis::CHAT_DORT,
@@ -674,6 +675,49 @@ mod tests {
         }
         assert!(contraste(couleur_de('4'), pepin_core::palette::ARDOISE) >= 3.0);
         assert!(contraste(couleur_de('3'), pepin_core::palette::ARDOISE) < 3.0);
+    }
+
+    /// Carte 9.26b : la chauve-souris (le corbeau du Monde 2) a la taille du corbeau
+    /// (même boîte, même placement), un contour sombre de 1 px (aucun pixel coloré ne
+    /// touche le vide), des yeux rouges (`8`), un corps violet (`F`, couleur la plus
+    /// fréquente), un liseré clair (`4`) qui se détache des fonds sombres de la grotte
+    /// et des égouts, des ailes qui battent (les deux images diffèrent) ; symétrique.
+    #[test]
+    fn la_chauve_souris_du_monde_2_se_detache_de_la_grotte() {
+        for nom in ennemis::CHAUVE_SOURIS {
+            assert_eq!(taille(nom), (18, 14), "{nom}");
+            let d = dessin(nom);
+            for (x, y, c) in pixels_colores(d) {
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    assert_ne!(
+                        car(d, x + dx, y + dy),
+                        '.',
+                        "{nom} : ({x}, {y}) `{c}` touche le vide (contour)"
+                    );
+                }
+            }
+            let compte = |c: char| d.iter().map(|l| l.matches(c).count()).sum::<usize>();
+            assert_eq!(compte('8'), 2, "{nom} : deux yeux rouges");
+            assert!(compte('4') >= 8, "{nom} : le liseré clair des ailes");
+            assert!(compte('F') > compte('1'), "{nom} : corps violet");
+            assert!(
+                d.iter().all(|l| l.chars().all(|c| ".0148F".contains(c))),
+                "{nom} : couleurs inattendues"
+            );
+            // Symétrique : le miroir du rendu ne la change pas.
+            for l in d.iter() {
+                assert_eq!(l.chars().rev().collect::<String>(), *l, "{nom}");
+            }
+        }
+        let (a, b) = (dessin("chauve_souris0"), dessin("chauve_souris1"));
+        assert_ne!(a, b, "les ailes battent");
+        // Le liseré clair se voit sur l'ombre de la grotte et le fond des égouts.
+        for fond in [
+            pepin_core::palette::ARDOISE_OMBRE,
+            pepin_core::palette::ARDOISE_NUIT,
+        ] {
+            assert!(contraste(couleur_de('4'), fond) >= 3.0);
+        }
     }
 
     /// Carte 6.1 : le corbeau se lit DE PROFIL, jamais comme une chauve-souris (corps
