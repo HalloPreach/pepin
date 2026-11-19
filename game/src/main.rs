@@ -48,6 +48,7 @@ mod effets;
 mod entrees;
 mod facile;
 mod focus;
+mod fond_egouts;
 mod grele;
 mod hud;
 mod menu;

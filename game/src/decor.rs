@@ -653,7 +653,10 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // grilles du plafond (`decor_egouts`). Le ciel du tunnel s'éclaircit vers
         // le bas (la lueur de l'eau), mais jamais à la couleur d'une paroi : la
         // lointaine (ardoise nuit) et la proche (brique violette) tranchent sur
-        // les quatre bandes.
+        // les quatre bandes. Carte 9.27b : ces couches ne sont plus DESSINÉES (le
+        // ciel, le plafond, les voûtes, les tuyaux et la lueur faisaient « route ») ;
+        // le fond est celui de `fond_egouts`. Elles restent pour les couleurs du
+        // premier plan et les garde-fous.
         Theme::Egouts => Ambiance {
             ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE],
             lointain: ARDOISE_NUIT,
@@ -723,8 +726,10 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // (`vertige`) : l'ascension se fait en bulles. Carte 9.20d : plus de
         // bulles au fond, sorties de nulle part ; les vraies jaillissent de leurs
         // sources, au premier plan (`decor_grotte`).
+        // Carte 9.27b : un ciel d'une seule teinte ; la trame entre deux bandes
+        // traçait une ligne d'horizon à mi-hauteur, comme dehors.
         Theme::Grotte => Ambiance {
-            ciel: [ARDOISE_OMBRE, ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE_NUIT],
+            ciel: [ARDOISE_NUIT; 4],
             lointain: ARDOISE,
             proche: ARDOISE_OMBRE,
             // La grotte est sèche (la pluie est restée dehors) : `Theme::pluie` est
@@ -735,7 +740,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             gouttes: 0,
             descente: DESCENTE_IMMEUBLES,
             plafond: Some(Plafond {
-                loin: ARDOISE_NUIT,
+                loin: ARDOISE_OMBRE,
                 proche: ARDOISE,
                 ampleur: 2,
                 stalactites: true,
@@ -1842,6 +1847,12 @@ fn dessiner_details(a: &Ambiance, groupe: u8, cam_x: i32, cam_y: i32, pas: u32) 
 /// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes).
 /// `cam_y` : ordonnée de la caméra vue par le fond (`camera_fond`).
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
+    // Carte 9.27b : les égouts ont leur propre fond, un collecteur (arches pleines,
+    // tuyaux, coulures, eau sombre), sans ciel ni couches de silhouettes.
+    if theme == Theme::Egouts {
+        crate::fond_egouts::dessiner(cam_x, cam_y, pas);
+        return;
+    }
     let a = ambiance(theme);
     if a.voyage {
         dessiner_voyage(&a, cam_x, cam_y, pas);
