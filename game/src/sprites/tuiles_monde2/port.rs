@@ -267,8 +267,96 @@ pub const POR_BITTE: Image = &[
     "....00000000....",
 ];
 
+/// Pierre de taille (carte 9.11b, variante du plein) : un long bloc à bossage en
+/// haut (arête claire, panneau en relief), la rangée du dessous en joints décalés.
+pub const POR_TAILLE: Image = &[
+    "4444444444444444",
+    "4555555555555523",
+    "4533333333333323",
+    "4533333333333323",
+    "4522222222222223",
+    "2222222222222222",
+    "1111111111111111",
+    "4444443444444444",
+    "3333332333333333",
+    "3333332333333333",
+    "3333332333333333",
+    "3333332333333333",
+    "2222221222222222",
+    "1111111111111111",
+    "4444444443444444",
+    "3333333332333333",
+];
+
+/// Barbacane (carte 9.11b) : la bouche d'écoulement du quai, ronde et noire, et la
+/// traînée mouillée qu'elle laisse sur la pierre en dessous.
+pub const POR_BARBACANE: Image = &[
+    "4444444444443444",
+    "3333300003332333",
+    "3333000000332333",
+    "3333000000332333",
+    "3333200002332333",
+    "2222212122221222",
+    "1111111111111111",
+    "4443412144444444",
+    "3332312133333333",
+    "3332322233333333",
+    "3332331233333333",
+    "3332332133333333",
+    "2221212122222222",
+    "1111111111111111",
+    "4444441443444444",
+    "3333332332333333",
+];
+
+/// Pierre au ras de l'eau (carte 9.11b) : la pierre noircie par la marée, les
+/// algues violettes qui pendent de la laisse de mer, la mousse dans les joints.
+pub const POR_ALGUES: Image = &[
+    "4444444444443444",
+    "3333333333332333",
+    "3F33333F33332F33",
+    "2F33F32F33F32F33",
+    "2F2FF22F2FF21F2F",
+    "1F1F21FF2F1F1F1F",
+    "1111111111111111",
+    "2F21222F22222F22",
+    "1F11111F1F111F11",
+    "1F1F111F1F111111",
+    "1111111111F11111",
+    "1110111111110111",
+    "0000000000000000",
+    "2222222221222222",
+    "1111111111111111",
+    "1111111110111111",
+];
+
+/// Échelle de fer scellée dans le quai (carte 9.11b) : deux montants sombres, un
+/// barreau toutes les quatre rangées (et son ombre), d'une case à l'autre.
+pub const POR_ECHELLE: Image = &[
+    "4444044444403444",
+    "3333033333302333",
+    "3333000000002333",
+    "3333022222202333",
+    "3333033333302333",
+    "2222022222201222",
+    "1111000000001111",
+    "4443022222204444",
+    "3332033333303333",
+    "3332033333303333",
+    "3332000000003333",
+    "3332022222203333",
+    "2221022222202222",
+    "1111011111101111",
+    "4444000000004444",
+    "3333022222203333",
+];
+
 /// Les sprites de ce thème : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
+    ("por_taille", POR_TAILLE),
+    ("por_barbacane", POR_BARBACANE),
+    ("por_algues", POR_ALGUES),
+    ("por_echelle", POR_ECHELLE),
     ("por_pierre", POR_PIERRE),
     ("por_quai", POR_QUAI),
     ("por_quai_g", POR_QUAI_G),
