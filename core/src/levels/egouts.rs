@@ -45,9 +45,9 @@
 //!
 //! Cinq lanternes (30, 66, 95, 168, 224), chacune sur un palier sans rat (les
 //! marches arrêtent leur patrouille) et hors de l'eau qui monte. Aucune eau
-//! suspendue au-dessus d'un passage à pied. Décor : deux souches d'aération
-//! (`H`, au départ et à l'arrivée) ; les tuyaux et la grille du fond viennent du
-//! thème.
+//! suspendue au-dessus d'un passage à pied. Décor : aucun objet `H` (carte 9.27 :
+//! les deux souches d'aération se lisaient comme des cheminées de toit) ; les
+//! tuyaux, les voûtes et la grille du fond viennent du thème.
 //!
 //! Ennemis ajoutés par la carte 9.22b (placements seulement, Habitué visé 0,55
 //! à 0,70), chacun visible avant de toucher et loin des lanternes. Des FLAQUES
@@ -101,7 +101,7 @@ BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ..........BBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBB................................................................BBBBBBB.................BBBBBBBBBB......BBBBBBBBBBBBBBBBBBBBBBBB........r.....o.BBBBBBBBBBBB.................B
 ..........BBBBBBBBBBBBBBBBBB.......................BBBBBBBBBBBBBB................................................................BBBBBBB.................BBBBBBBBBB......BBBBBBBBBBBB................############BBBBBBBBBBBB.................B
 .............................................................................f...................................................BBBBBBB.................BBBBBBBBBB................................................V..........................B
-..@..H........................L................f..................L.........####.......c.......L.....................f..............o.......i......i.................###L.................r.......##............................L....H...X....B
+..@...........................L................f..................L.........####.......c.......L.....................f..............o.......i......i.................###L.................r.......##............................L........X....B
 ##########....f....r........######========###########==========#############BBBB==============####.......c.........######~~~~}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBB#......r..f..#############BB#......r....f......r.....##################
 BBBBBBBBBB##################BBBBBB========BBBBBBBBBBB==========BBBBBBBBBBBBBBBBB==============BBBB==============###BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB############BBBBBBBBBBBBBBBB########################BBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB========oBBBBBBBBBB==========BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB==============BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB

@@ -39,6 +39,13 @@ pub enum Forme {
     /// Coques de bateaux amarrés (Monde 2, carte 9.5) : une coque au fond
     /// creusé et un mât nu.
     Coques,
+    /// Voûtes de tunnel (égouts, carte 9.27) : une arcade continue de piliers
+    /// et d'arcs en gradins, les bouches des galeries voisines. Rien de dehors
+    /// (ni toit, ni cheminée).
+    Voutes,
+    /// Stalagmites (grotte, carte 9.27) : des pointes de roche qui montent du
+    /// sol en gradins, sans sommet plat (rien qui se lise comme un toit).
+    Stalagmites,
 }
 
 /// Plafond de nuages d'orage : des dômes renversés accrochés en haut de l'écran,
@@ -634,19 +641,23 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             details: [Some(Detail::Facades), Some(Detail::Lampadaires), None, None],
             vent: VENT_NUIT,
         },
-        // Les égouts : tunnel de briques sombres entre deux parois (masses de
-        // `Roche`), un plafond bas (l'arche du tunnel), deux tuyaux et leur grille
-        // au fond, la lueur cyan de l'eau stagnante au sol. Presque sec : gouttes
-        // de condensation. Le ciel du tunnel s'éclaircit vers le bas (la lueur de
-        // l'eau), mais jamais à la couleur d'une paroi : la lointaine (ardoise nuit)
-        // et la proche (brique violette) tranchent sur les quatre bandes.
+        // Les égouts : tunnel de briques sombres, des voûtes au fond (les bouches
+        // des galeries voisines, carte 9.27 : plus de masses de `Roche`, qui se
+        // lisaient comme des toits et des cheminées), un plafond bas (l'arche du
+        // tunnel), deux tuyaux et leur grille au fond, la lueur cyan de l'eau
+        // stagnante au sol. Sous terre, il ne pleut pas (carte 9.27 :
+        // `Theme::pluie` est faux, densité 0) : seuls tombent les filets d'eau des
+        // grilles du plafond (`decor_egouts`). Le ciel du tunnel s'éclaircit vers
+        // le bas (la lueur de l'eau), mais jamais à la couleur d'une paroi : la
+        // lointaine (ardoise nuit) et la proche (brique violette) tranchent sur
+        // les quatre bandes.
         Theme::Egouts => Ambiance {
             ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE],
             lointain: ARDOISE_NUIT,
             proche: VIOLET_ORAGE,
             pluie: (PLUIE_SOMBRE, PLUIE),
             etoiles: None,
-            gouttes: 8,
+            gouttes: 0,
             descente: DESCENTE_IMMEUBLES,
             plafond: Some(Plafond {
                 loin: ARDOISE_NUIT,
@@ -655,7 +666,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 stalactites: false,
             }),
             soleil: false,
-            forme: Forme::Roche,
+            forme: Forme::Voutes,
             relief: 0,
             socle: true,
             fenetres: None,
@@ -727,7 +738,9 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 stalactites: true,
             }),
             soleil: false,
-            forme: Forme::Roche,
+            // Carte 9.27 : des stalagmites (pointes) au lieu de masses de `Roche`
+            // au sommet plat, qui se lisaient comme des toits.
+            forme: Forme::Stalagmites,
             relief: 10,
             socle: true,
             fenetres: None,
@@ -1142,6 +1155,35 @@ pub fn immeuble(cellule: i32, graine: u32) -> (i32, i32, i32, i32) {
     )
 }
 
+/// Hauteur des voûtes du fond des égouts (`Forme::Voutes`, carte 9.27), sans relief.
+const HAUTEUR_VOUTES: i32 = 44;
+/// Épaisseur du linteau, au-dessus de l'arc d'une voûte.
+const VOUTE_LINTEAU: i32 = 6;
+/// Rayon de l'arc d'une voûte : demi-largeur de l'ouverture entre les piliers
+/// (24 - 18 : des piliers de 6 px de chaque côté de la cellule, 12 px à deux).
+const VOUTE_RAYON: i32 = 18;
+
+/// Demi-largeur de l'ouverture d'une voûte, `dy` px sous son sommet (0 : rangée
+/// pleine, le linteau). Un plein cintre arrondi au pair, puis les piliers droits.
+pub(crate) fn ouverture_voute(dy: i32) -> i32 {
+    let centre = VOUTE_LINTEAU + VOUTE_RAYON;
+    if dy < VOUTE_LINTEAU {
+        0
+    } else if dy >= centre {
+        VOUTE_RAYON
+    } else {
+        let k = centre - dy;
+        let w = ((VOUTE_RAYON * VOUTE_RAYON - k * k) as f32).sqrt() as i32;
+        w & !1
+    }
+}
+
+/// Largeur (paire, de 20 à 2 px) d'une stalagmite de `hauteur` px, `dy` px au-dessus
+/// de son pied (`Forme::Stalagmites`, carte 9.27) : un cône qui finit en pointe.
+pub(crate) fn largeur_stalagmite(dy: i32, hauteur: i32) -> i32 {
+    (2 + 18 * (hauteur - dy).max(0) / hauteur.max(1)) & !1
+}
+
 /// Hauteur totale (en pixels) de la silhouette de la cellule `cellule`, pour la
 /// forme de l'ambiance et `relief` pixels de plus. Pure : sert au dessin ET aux tests.
 pub fn hauteur_silhouette(a: &Ambiance, cellule: i32, graine: u32, relief: i32) -> i32 {
@@ -1158,6 +1200,10 @@ pub fn hauteur_silhouette(a: &Ambiance, cellule: i32, graine: u32, relief: i32) 
         Forme::Roseaux => 24 + (h % 24) + relief,
         // Coques de bateaux : la coque (12 px) et le mât, de 30 à 40 px au total.
         Forme::Coques => 30 + (h % 11) + relief,
+        // Voûtes : une arcade de hauteur constante (44 px), comme un mur bâti.
+        Forme::Voutes => HAUTEUR_VOUTES + relief,
+        // Stalagmites : la plus haute des deux pointes, de 24 à 58 px.
+        Forme::Stalagmites => 24 + (h % 35) + relief,
     }
 }
 
@@ -1457,6 +1503,43 @@ fn dessiner_couche(
                 rect(x + 4, y + h, l - 8, 2, couleur);
                 let mx = x + l / 2 + (hache(cellule, graine) % 5) as i32;
                 rect(mx, y - 2, 1, h - 2, couleur);
+            }
+            Forme::Voutes => {
+                // Une bouche de galerie par cellule de 48 px (sans décalage : les
+                // piliers voisins se touchent, l'arcade est continue) : un linteau,
+                // un arc en plein cintre, deux piliers ; l'ouverture laisse voir le
+                // fond du tunnel.
+                let x0 = cellule * 48 - dec;
+                let haut = base - hauteur_silhouette(a, cellule, graine, relief);
+                for dy in 0..base - haut {
+                    let o = ouverture_voute(dy);
+                    if o == 0 {
+                        rect(x0, haut + dy, 48, 1, couleur);
+                    } else {
+                        rect(x0, haut + dy, 24 - o, 1, couleur);
+                        rect(x0 + 24 + o, haut + dy, 24 - o, 1, couleur);
+                    }
+                }
+            }
+            Forme::Stalagmites => {
+                // Deux pointes de roche par cellule, en cônes : 20 px à la base,
+                // 2 px à la pointe, une marche toutes les 2 rangées ; la seconde
+                // aux deux tiers de la première.
+                let hp = hauteur_silhouette(a, cellule, graine, relief);
+                for k in 0..2 {
+                    let hk = if k == 0 { hp } else { hp * 2 / 3 };
+                    let cx = x + 10 + k * l / 2 + (hache(cellule * 5 + k, graine) % 8) as i32;
+                    for dy in (0..hk).step_by(2) {
+                        let hh = 2.min(hk - dy);
+                        rect(
+                            cx - largeur_stalagmite(dy, hk) / 2,
+                            base - dy - hh,
+                            largeur_stalagmite(dy, hk),
+                            hh,
+                            couleur,
+                        );
+                    }
+                }
             }
         }
     }
@@ -2368,6 +2451,40 @@ mod tests {
         }
     }
 
+    /// Carte 9.27 (AGA : « dans les égouts il y a des cheminées et des décors de
+    /// dehors ») : sous terre, ni pluie ni silhouette de dehors (immeubles,
+    /// masses au sommet plat). Les voûtes forment une arcade continue (piliers de
+    /// 6 px, ouverture en plein cintre) ; les stalagmites finissent en pointe.
+    #[test]
+    fn sous_terre_rien_de_dehors() {
+        for t in [Theme::Egouts, Theme::Grotte] {
+            let a = ambiance(t);
+            assert!(!t.pluie() && a.gouttes == 0, "{t:?} : il pleut sous terre");
+            assert!(
+                !matches!(a.forme, Forme::Immeubles | Forme::Roche | Forme::Nuages),
+                "{t:?} : silhouette de dehors {:?}",
+                a.forme
+            );
+        }
+        assert_eq!(ambiance(Theme::Egouts).forme, Forme::Voutes);
+        assert_eq!(ambiance(Theme::Grotte).forme, Forme::Stalagmites);
+        // La voûte : le linteau plein, l'arc qui s'ouvre sans jamais se refermer,
+        // puis les piliers droits jusqu'en bas.
+        let o: Vec<i32> = (0..HAUTEUR_VOUTES).map(ouverture_voute).collect();
+        assert!(o[..VOUTE_LINTEAU as usize].iter().all(|&w| w == 0));
+        assert!(o.windows(2).all(|p| p[0] <= p[1]), "{o:?}");
+        assert_eq!(*o.last().unwrap(), VOUTE_RAYON);
+        assert!(o.iter().all(|&w| w % 2 == 0 && w <= 24 - 6));
+        // La stalagmite : 20 px au pied, 2 px à la pointe, jamais plus large en
+        // montant (pas de sommet plat qui ferait un toit).
+        for h in [16, 24, 40, 68] {
+            let w: Vec<i32> = (0..h).map(|dy| largeur_stalagmite(dy, h)).collect();
+            assert_eq!(w[0], 20, "{h}");
+            assert_eq!(*w.last().unwrap(), 2, "{h}");
+            assert!(w.windows(2).all(|p| p[0] >= p[1]), "{w:?}");
+        }
+    }
+
     /// I-20 : la pluie diffère d'un niveau à l'autre, reste sous le garde-fou,
     /// et ses deux couleurs ne se confondent avec aucune bande de ciel.
     #[test]
@@ -2375,7 +2492,7 @@ mod tests {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
         assert_eq!(
             n,
-            [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0, 0, 56, 8, 24, 0, 24, 16, 40]
+            [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0, 0, 56, 0, 24, 0, 24, 16, 40]
         );
         for t in Theme::TOUS {
             let a = ambiance(t);
