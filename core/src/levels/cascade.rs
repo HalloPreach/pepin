@@ -86,10 +86,13 @@
 //!
 //! Six lanternes, chacune hors de tout danger : la corniche (10, 16), le couloir
 //! (15, 25), le palier (24, 35), K2 (3, 40), la corniche des marches (1, 68), la
-//! rive de la mare (29, 81). Ennemis : quatre poissons (bassins A, B et F, la
-//! 3e marche), trois mouettes (K1, K2, la corniche d'arrivée), un crabe, deux
-//! grenouilles. Les oiseaux du décor (`K`) n'ont aucun
-//! effet sur le jeu.
+//! rive de la mare (29, 81). Ennemis : huit poissons (deux dans chacun des
+//! bassins A, B et F, un dans la 3e marche, un dans la rivière d'arrivée ; carte
+//! 9.25c, la courbe du chapitre 2), trois mouettes (K1, K2, la corniche
+//! d'arrivée), un crabe, trois grenouilles (deux sur les nénuphars) et, en plus
+//! de celles du puits et de la berge, deux stalactites (galerie, plané vers la
+//! 3e goutte ; carte 9.25c). Les oiseaux du décor (`K`) n'ont
+//! aucun effet sur le jeu.
 
 use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
@@ -127,6 +130,11 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 ///   à 74).
 /// - Gouttes : (13, 5), (1, 17) dans la niche, (12, 88) ; poissons (20, 17) et
 ///   (25, 52) ; mouette (10, 37) ; crabe (7, 60) ; grenouille (3, 81) ;
+///   poissons de la courbe du chapitre 2 (carte 9.25c), tous au-dessus d'un
+///   courant : (16, 7) dans le bassin A, (25, 17) au pied de C1, (21, 52) dans la
+///   galerie, (19, 89) dans la rivière d'arrivée ; une 2e grenouille sur le
+///   nénuphar (19, 81), des stalactites au plafond de la galerie (16, 49), où l'on
+///   attend le poisson, et au-dessus du plané vers la 3e goutte (10, 84) ;
 ///   stalactite de la berge (5, 56) ; nénuphars rangée 81 (colonnes 7 à 23).
 /// - La rive du puits de gauche (colonnes 0-1, rangée 52) : on s'y pose avant la
 ///   galerie. Aucun ennemi d'eau au-dessus d'une eau CALME : arrêté là, le robot
@@ -140,7 +148,7 @@ BBBBBBB.........................
 ..@..G........................K.
 #######......o...............###
 BBBBBBB......................BBB
-BBBBBBB..............i.......BBB
+BBBBBBB.........i....i.......BBB
 BBBBBBB~~~}}}}}}}}}}}}}}}}}||BBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBB||BBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBB||BBB
@@ -150,7 +158,7 @@ BB||||.....................||BBB
 BB||||.....................||BBB
 ..||||.....................||BBB
 ..||||....L................||BBB
-.o||||########......i......||BBB
+.o||||########......i....i.||BBB
 BB||||BBBBBBBB{{{{{{{{{{{{{{{BBB
 BB||||BBBBBBBBBBBBBBBBBBBBBBBBBB
 BB||||BBBBBBBBBBBBBBBBBBBBBBBBBB
@@ -182,10 +190,10 @@ BBBBBBBBBBBBBBBBBBBBBB|BBBBBBBBB
 ..BBBB}}}}}}}}}}}}}}}}}}}BBBBBBB
 ..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+................V.............BB
 ..............................BB
 ..............................BB
-..............................BB
-##.......................i....BB
+##...................i...i....BB
 BB~~~~~~~~~~~~~~~~}}}}}}}}}}||BB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBB||BB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBB||BB
@@ -213,16 +221,16 @@ BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.B
 ...............................B
 ...............................B
 ...............................B
-...............j...............B
+...............j...j...........B
 ...j...n...n...n...n...n.....L.B
 ..##~~~~~~~~~~~~~~~~~~~~~~~####B
 ..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
-...............................B
+..........V....................B
 ...............................B
 ...............................B
 .....u.........................B
 ######......o................X.B
-BBBBBB.....................####B
+BBBBBB.............i.......####B
 BBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB

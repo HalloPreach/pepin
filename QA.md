@@ -6963,25 +6963,20 @@ jeu, pour débloquer une fin différente. »
 - Preuves : `carte pieuvre` VERT (2 tests de saisie : annonce ≥ 72 pas, une seule à la fois, remontée ; pas de retour dans Pépin ; + 4 appuis trouvés), `lint` LINT-OK, `lourd.sh ./build.sh --qa` OK. Captures regardées : `912f-annonce-saisie`, `912f-plateforme-sous-l-eau` (le pilier parti, remous à sa place) ; 0 hors palette, 0 flou.
 - Remarque (hors carte) : l'écran « TROP DUR ? » de la Pieuvre dit encore « LE NUAGE N'A QUE 2 VIES ».
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 ## Carte 9.24 : un temps de mort avant la réapparition (AGA : « on voit pas l'animation de noyade ou de dégâts »)
 - À la mort, le monde se fige (ennemis, boss, plateformes, mur ; commandes ignorées) et l'animation de la cause se joue (`game/src/mort.rs`, `dessin_mort.rs`) : noyade 1,2 s (Pépin coule en se débattant, bulles cyan, parapluie couché qui flotte), dégât 1,0 s (flash blanc, éjection, chute à travers le décor en tournant d'un quart de tour), vide 0,6 s (la caméra reste au trou), puis un rideau de 0,3 s ; total 0,9 à 1,5 s. Vies, protection de 1 s et « PLUS DE VIES » inchangés (l'écran et la bannière « TROP DUR ? » attendent le rideau fermé).
 - Seule la partie joue ce temps (`Monde::temps_de_mort`) : robot de QA, mesure, fantôme de la course et démo gardent la réapparition immédiate d'avant (leurs parcours enregistrés restent valables ; un fantôme qui meurt prend donc un peu d'avance sur le joueur).
 - Preuves : `carte caniveau` et `carte toits` VERT (2 tests : pas de réapparition avant la fin, commandes ignorées), `lint` LINT-OK, `lourd.sh ./build.sh --qa` et `./build.sh` OK (0 nom interdit). Captures regardées : `924-noyade`, `924-degat`, `924-chute` (0 hors palette, 0 flou, 0 erreur de console). PAS testé : joueur humain, téléphone, Safari.
-=======
+
 ## Carte 9.25a : « Le caniveau » à Habitué 0,15 à 0,20 (courbe du chapitre 2)
 - Fait (`core/src/levels/caniveau.rs`, grille seule, en-tête à jour) : 4 corbeaux `c` en travers de sauts (col. 16, 78, 121, 140), hors de l'autobus, des lanternes et du départ. Essayé puis retiré : un 5e au-dessus des auvents (col. 90, rangées 3 puis 2) : la relance y jetait Pépin (Habitué 0,38 puis 0,46).
 - Mesure `CLE=caniveau` (48 essais), AVANT -> APRÈS : Débutant 0,54 -> 0,81 ; Habitué 0,04 -> 0,21 (48/48 finis, 45,0 s) ; Expert 0,04 -> 0,06 ; 11 644 cases, 379 s. Preuves : `carte caniveau` VERT, `lint` LINT-OK. Ni robot, ni capture ; PAS testé : joueur humain.
->>>>>>> carte-9.25a
-=======
 ## Carte 9.25b : « Les égouts », la difficulté monte (cible Habitué 0,45-0,55)
 - Fait (`core/src/levels/egouts.rs`, grille seule) : +2 corbeaux existants au-dessus des deux bassins à marée, (87, 6) et (105, 7), loin des lanternes (66, 95) ; 3 gouttes et lanternes inchangées. Mesure `CLE=egouts` (48 essais), AVANT -> APRÈS : Débutant 0,85 -> 0,98 (game over 1/48) ; Habitué 0,38 -> 0,54 ; Expert 0,17 -> 0,21 ; recherche 107 201 -> 113 073 cases (pas d'explosion ; 1 251 s sous charge 61).
 - Preuves : `carte egouts` VERT (core 380 ok, game 368 ok, niveau 1 ok), `lint` LINT-OK. PAS lancés : robot, captures. PAS testé : joueur humain.
->>>>>>> carte-9.25b
-=======
 ## Carte 9.25d : « La grotte aux bulles », la difficulté monte vers la Pieuvre (cible Habitué 0,70-0,80)
 - Fait (`core/src/levels/grotte.rs`, grille seule) : un 2e poisson dans chaque bassin, là où l'on saute par-dessus : (8, 45) au bord du bassin de la salle, avant le nénuphar ; (18, 22) au bord du bassin du rocher, avant la grenouille. Aucun sur une lanterne ni au départ, 3 gouttes, 5 lanternes.
 - Mesure `CLE=grotte` (48 essais, 16 478 cases), AVANT (19/11) -> APRÈS : Débutant 1,23 -> 0,98 ; Habitué 0,35 -> 0,73 (cible atteinte, 1 mesure ; col. 16-23 ennemi 20, col. 8 pointes 6) ; Expert 0,27 -> 0,27. PAS testé : joueur humain, robot (aucun robot), captures.
->>>>>>> carte-9.25d
+## Carte 9.25c : « La grande cascade » à Habitué 0,55-0,65 (courbe du chapitre 2)
+- Fait (`cascade.rs`, grille seule) : +4 poissons au-dessus des courants (bassin A, pied de C1, galerie, rivière d'arrivée), +2 stalactites (attente du poisson de la galerie, plané vers la 3e goutte), +1 grenouille sur un nénuphar. Mesure 1 (poissons seuls) : Habitué 0,17 (itinéraire changé).
+- Mesure 2 `CLE=cascade` : Débutant 0,44 (42/48 finis) ; Habitué 0,25 -> 0,65 (46/48 finis, max 12, game over 2/48, col. 25-26 ennemi 22) ; Expert 0,27 (max 11, game over 1/48). Morts concentrées en col. 25-26 (poisson du pied de C1 ou de la galerie). `carte cascade` VERT, `lint` LINT-OK ; robot, captures, joueur humain : PAS lancés.
