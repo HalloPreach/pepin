@@ -67,6 +67,9 @@
 //! cible Habitué 0,70 à 0,80) : un 2e poisson dans chaque bassin, là où l'on
 //! saute par-dessus : (8, 45) au bord du bassin de la salle (avant le nénuphar)
 //! et (18, 22) au bord du bassin du rocher (avant la grenouille).
+//! Carte 9.26a (AGA : pas de corbeaux dans les bulles) : les neuf corbeaux qui
+//! volaient dans ou au-dessus d'une colonne de bulles sont retirés ; restent
+//! quatre, loin des colonnes : (18, 34), (10, 43), (11, 51), (8, 74).
 //! Dix stalactites, trois ennemis d'origine (deux crabes, la grenouille), cinq
 //! lanternes, sept colonnes de bulles (sept sources), deux oiseaux de décor (les
 //! hirondelles de la grotte). Aucune lanterne dans la colonne d'une stalactite.
@@ -124,7 +127,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 const ASCII: &str = r"
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 B........................V....V.....
-B.............................c.....
+B...................................
 B...........................YY...X..
 B...........................YY#####B
 B...........................YYBBBBBB
@@ -132,9 +135,9 @@ B...............o...........YYBBBBBB
 B...............####........YY.....B
 B...........................YY.....B
 B.....................YY....YY.....B
-B....................cYY....YY.....B
 B.....................YY....YY.....B
-B.....................YY....YY.c...B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
 B.....................YY....YY.....B
 B.....................YY....YY.....B
 B.....................YY....YY.....B
@@ -142,7 +145,7 @@ B.....................YY....YY.....B
 B......BBBBBB.........YY....YY.....B
 B......BBBBBB.........YY....YY.....B
 B.......V..V..........YY....YY.....B
-B.................c...YY....YY.....B
+B.....................YY....YY.....B
 B.....................YY....BB.....B
 B...YY....o..L..i.i.j.YY....BB.....B
 B...YY########~~~~~###YY....BB.....B
@@ -156,13 +159,13 @@ B...YYBBBBBBBBBBBBBBBBBB...........B
 B...YY.....V....V..................B
 B...YY.............................B
 B...YY.............................B
-B...YY...c........c........L..YY...B
+B...YY............c........L..YY...B
 B#############################YY...B
 B..............V..............YY...B
 B.............................YY...B
 B.............................YY...B
 B.............................YY...B
-B.........................c...YY...B
+B.............................YY...B
 B.............................YY...B
 B.............................YY...B
 B.........c...................YY...B
@@ -175,7 +178,7 @@ BYY.....................BBBBBBBBBBBB
 BYY...............YY....BBBBBBBBBBBB
 BYY........c......YY....BBBBBBBBBBBB
 BYY...............YY....BBBBBBBBBBBB
-BYY............c..YY....BBBBBBBBBBBB
+BYY...............YY....BBBBBBBBBBBB
 BYY...............YY.....V..V..V...B
 BYY...............YY...............B
 BYY.....L.........YY......k......YYB
@@ -183,12 +186,12 @@ B~~#######........YY....#########YYB
 BBBBBBBBBBo...k...YY....BBBBBBBBBYYB
 BBBBBBBBBB########~~####BBBBBBBBBYYB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBYYB
-B.........BBBBBBB.............c..YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
-B.........BBBBBBB............c...YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB
 B.........BBBBBBB................YYB

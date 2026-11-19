@@ -1,13 +1,14 @@
 //! Stalactite qui tombe (carte 9.3, lettre `V`) : une pointe de pierre
 //! accrochée au plafond (la case au-dessus de `V` est solide). Quand Pépin
 //! passe dessous (dans sa colonne, jusqu'au premier solide), elle TREMBLE
-//! 0,75 s (`TREMBLE_PAS`), puis TOMBE. En tombant, elle est mortelle (une
-//! pointe : `CauseMort::Pointe`) ; accrochée ou tremblante, elle ne fait rien.
+//! 0,75 s (`TREMBLE_PAS`), puis TOMBE. Elle est mortelle (une pointe :
+//! `CauseMort::Pointe`) dès qu'on la TOUCHE, accrochée, tremblante ou en chute
+//! (carte 9.26a, demande d'AGA) ; brisée, ses éclats ne font rien.
 //! Elle se brise au sol (le premier solide sous elle) et ne revient qu'après
 //! une mort de Pépin (`entities::reprendre_apres_une_mort`).
 //!
-//! On passe donc dessous SANS S'ARRÊTER : la course traverse une colonne en
-//! un quart de seconde, bien avant la chute.
+//! On passe donc dessous SANS S'ARRÊTER (et sans sauter dedans) : la course
+//! traverse une colonne en un quart de seconde, bien avant la chute.
 //!
 //! Notions Rust : un `enum` d'états à données (`Tremble(n)`, `Chute(vitesse)`,
 //! `Brisee(n)`), une machine à états dans `actualiser`.
@@ -63,9 +64,14 @@ impl Stalactite {
         }
     }
 
-    /// Mortelle en ce moment (en chute) ?
+    /// En chute ?
     pub fn tombe(&self) -> bool {
         matches!(self.etat, EtatStalactite::Chute(_))
+    }
+
+    /// Mortelle au toucher en ce moment ? Toujours, sauf brisée (carte 9.26a).
+    pub fn blesse(&self) -> bool {
+        !matches!(self.etat, EtatStalactite::Brisee(_))
     }
 
     /// Après une mort de Pépin : de nouveau accrochée au plafond.

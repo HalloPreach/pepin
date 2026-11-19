@@ -904,9 +904,10 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                     TypeEnnemi::Corbeau => {
                         // Le corbeau du dessin regarde à droite. Sprite 18x14 centré
                         // sur la boîte 12x10 (3 px de chaque côté, 2 px en haut et en
-                        // bas) : le miroir garde le corps sur la boîte.
+                        // bas) : le miroir garde le corps sur la boîte. Au Monde 2
+                        // (carte 9.26b), même ennemi dessiné en chauve-souris.
                         banque.dessiner(
-                            image(&ennemis::CORBEAU, pas, 10),
+                            image(images_corbeau(monde.infos.monde), pas, 10),
                             sx - 3.0,
                             sy - 2.0,
                             !e.vers_la_droite,
@@ -958,6 +959,17 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                 }
             }
         }
+    }
+}
+
+/// Images du corbeau selon le monde du niveau (carte 9.26b) : un corbeau au
+/// Monde 1, une chauve-souris à partir du Monde 2 (grotte, égouts…). Même ennemi,
+/// même boîte : seul le dessin change. Fonction pure.
+pub(crate) fn images_corbeau(monde: u8) -> &'static [&'static str; 2] {
+    if monde >= 2 {
+        &ennemis::CHAUVE_SOURIS
+    } else {
+        &ennemis::CORBEAU
     }
 }
 
@@ -1501,6 +1513,16 @@ mod tests {
     use super::*;
     use crate::sprites::pepin;
 
+    // --- Corbeau / chauve-souris (carte 9.26b) ---
+
+    /// Le corbeau reste un corbeau au Monde 1 ; à partir du Monde 2 il est
+    /// dessiné en chauve-souris, avec le même battement (2 images, même taille).
+    #[test]
+    fn le_corbeau_devient_une_chauve_souris_au_monde_2() {
+        assert_eq!(images_corbeau(1), &ennemis::CORBEAU);
+        assert_eq!(images_corbeau(2), &ennemis::CHAUVE_SOURIS);
+        assert_eq!(images_corbeau(3), &ennemis::CHAUVE_SOURIS);
+    }
     // --- Grand Nuage (carte 5.11) ---
 
     /// Chaque phase a son image : colère (prélude compris) et essoufflé s'animent,

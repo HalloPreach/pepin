@@ -103,6 +103,50 @@ pub const CORBEAU1: Image = &[
     "....0000..........",
 ];
 
+/// Chauve-souris (carte 9.26b) : le corbeau du Monde 2 (grotte, égouts…), même
+/// taille (18x14), même boîte, même battement en 2 images ; seul le dessin change.
+/// De face : petites oreilles pointues, deux yeux rouges (`8`, CORAIL), corps
+/// VIOLET_ORAGE (`F`) au ventre sombre (`1`), ailes membraneuses à pointes, leurs
+/// doigts en bleu nuit (`1`) et un liseré ARDOISE_PALE (`4`) sur le bord d'attaque :
+/// c'est lui qui la détache des fonds sombres de la grotte et des égouts. Contour
+/// sombre de 1 px tout autour. Symétrique : le miroir du rendu ne change rien.
+/// Image 0 : ailes HAUTES, pointes en l'air.
+pub const CHAUVE_SOURIS0: Image = &[
+    "00..............00",
+    "040............040",
+    "0F40..........04F0",
+    "0FF40..0..0..04FF0",
+    "01FF400F00F004FF10",
+    "0F1FF40FFFF04FF1F0",
+    "0F11F408FF804F11F0",
+    "0FF1F40FFFF04F1FF0",
+    "01F1FF0FFFF0FF1F10",
+    "0F0F1F0FFFF0F1F0F0",
+    ".0.0F00F11F00F0.0.",
+    "....0.0F11F0.0....",
+    ".......0FF0.......",
+    "........00........",
+];
+
+/// Chauve-souris, image 1 : ailes BASSES, pointes vers le bas. La tête et le corps
+/// (colonnes 6 à 11) ne bougent pas : seules les ailes battent.
+pub const CHAUVE_SOURIS1: Image = &[
+    "..................",
+    "..................",
+    "..................",
+    ".......0..0.......",
+    "......0F00F0......",
+    "......0FFFF0......",
+    "....0008FF8000....",
+    "..00440FFFF04400..",
+    ".044FF0FFFF0FF440.",
+    "04F1F10FFFF01F1F40",
+    "041FF10F11F01FF140",
+    "040F1F0F11F0F1F040",
+    "00.0F0.0FF0.0F0.00",
+    "....0...00...0....",
+];
+
 /// Pigeon perché (18x14, tourné vers la droite). Carte 6.6 : l'ancien pigeon, une
 /// masse d'ardoise sombre, ne se lisait pas (ni tête, ni queue) ; celui-ci est un
 /// pigeon des villes. Corps rond et dodu gris-bleu MOYEN (`4`, ARDOISE_PALE), aile
@@ -690,6 +734,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("flaque_ecrasee", FLAQUE_ECRASEE),
     ("corbeau0", CORBEAU0),
     ("corbeau1", CORBEAU1),
+    ("chauve_souris0", CHAUVE_SOURIS0),
+    ("chauve_souris1", CHAUVE_SOURIS1),
     ("pigeon0", PIGEON0),
     ("pigeon1", PIGEON1),
     ("pigeon_annonce", PIGEON_ANNONCE),
@@ -723,6 +769,8 @@ pub const SPRITES: &[(&str, Image)] = &[
 pub const FLAQUE: [&str; 3] = ["flaque0", "flaque1", "flaque2"];
 /// Images d'un corbeau (battement d'ailes).
 pub const CORBEAU: [&str; 2] = ["corbeau0", "corbeau1"];
+/// Le corbeau du Monde 2 dessiné en chauve-souris (battement d'ailes, carte 9.26b).
+pub const CHAUVE_SOURIS: [&str; 2] = ["chauve_souris0", "chauve_souris1"];
 /// Pigeon perché : il hoche la tête (2 images).
 pub const PIGEON: [&str; 2] = ["pigeon0", "pigeon1"];
 /// Pigeon en piqué : il s'élance ailes ouvertes, puis les relève en flèche (2 images).
