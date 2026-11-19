@@ -9,24 +9,23 @@
 //! rappel des touches). La carte est dessinée en entier puis recouverte par les
 //! bandeaux et le panneau : rien ne déborde (pas de découpage à faire).
 
-use pepin_core::font::largeur_texte;
+use pepin_core::font::{largeur_texte, ESPACEMENT, LARGEUR_GLYPHE};
 use pepin_core::levels::{niveaux_du_monde, GenreNiveau, NIVEAUX};
 use pepin_core::palette::{
     Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE,
-    BRUME, CORAIL, CORAIL_CLAIR, NUAGE, OR, ORANGE_SOLEIL, OR_PALE, PLUIE, VIOLET_ORAGE,
+    BRUME, OR, OR_PALE,
 };
-use pepin_core::zones::Theme;
 use pepin_core::LARGEUR_LOGIQUE;
 
 use super::carte::titre_niveau;
 use super::resultats::{case, grille, icone_medaille, medaille, ECART_ICONE, L_ICONE};
-use super::{image, panneau, rect};
+use super::{fond_plan, image, panneau, rect};
 use crate::chrono;
 use crate::contenu;
 use crate::defis::defis_du_niveau;
 use crate::plan::{
     self, etat_etape, gouttes_trouvees_normales, EtatEtape, EtatPlan, Geometrie, Zones, H_TOITS,
-    H_VUE, Y_SOLEIL,
+    H_VUE,
 };
 use crate::sauvegarde::Sauvegarde;
 use crate::skins::Skin;
@@ -58,18 +57,59 @@ const _: () = {
     assert!(L_CARTE < PANNEAU.0);
 };
 
-/// Ciel de la carte, de haut en bas : le soleil doré au sommet, l'orage au pied.
-const CIEL: [Couleur; 9] = [
-    OR_PALE,
-    OR,
-    ORANGE_SOLEIL,
-    CORAIL_CLAIR,
-    CORAIL,
-    VIOLET_ORAGE,
-    ARDOISE,
-    ARDOISE_NUIT,
-    ARDOISE_OMBRE,
-];
+/// Ligne du haut du titre du bandeau (carte 9.28 : 1 px plus bas qu'avant, pour
+/// laisser deux rangées aux accents au-dessus des lettres).
+const Y_TITRE: f32 = 5.0;
+// Le titre (7 rangées) et son ombre tiennent au-dessus de la vue de la carte.
+const _: () = assert!(Y_TITRE + 7.0 + 1.0 <= Y_VUE);
+
+/// Accents du titre, en pixels relatifs au coin de la lettre (rangées au-dessus).
+const GRAVE: &[(f32, f32)] = &[(1.0, -3.0), (2.0, -2.0)];
+const AIGU: &[(f32, f32)] = &[(3.0, -3.0), (2.0, -2.0)];
+const CIRCONFLEXE: &[(f32, f32)] = &[(1.0, -2.0), (2.0, -3.0), (3.0, -2.0)];
+const TREMA: &[(f32, f32)] = &[(1.0, -2.0), (3.0, -2.0)];
+
+/// Une capitale accentuée du titre : sa lettre sans accent, et son accent (carte
+/// 9.28). La police tasse ces lettres sur 6 rangées et y colle l'accent : au
+/// bandeau, « LÀ OÙ » se lisait « LA OU ». Le titre les dessine en lettre entière,
+/// l'accent à part, séparé d'une rangée.
+fn accent_de(c: char) -> Option<(char, &'static [(f32, f32)])> {
+    Some(match c {
+        'À' => ('A', GRAVE),
+        'Â' => ('A', CIRCONFLEXE),
+        'Ä' => ('A', TREMA),
+        'É' => ('E', AIGU),
+        'È' => ('E', GRAVE),
+        'Ê' => ('E', CIRCONFLEXE),
+        'Ë' => ('E', TREMA),
+        'Î' => ('I', CIRCONFLEXE),
+        'Ï' => ('I', TREMA),
+        'Ô' => ('O', CIRCONFLEXE),
+        'Ö' => ('O', TREMA),
+        'Ù' => ('U', GRAVE),
+        'Û' => ('U', CIRCONFLEXE),
+        'Ü' => ('U', TREMA),
+        _ => return None,
+    })
+}
+
+/// Le titre du bandeau du haut, centré sur l'écran, ombré, ses accents bien visibles.
+fn dessiner_titre(titre: &str, y: f32, c: Couleur) {
+    let x0 = texte::x_centre(titre, LARGEUR_LOGIQUE as f32 / 2.0, 1).round();
+    let pas = (LARGEUR_GLYPHE + ESPACEMENT) as f32;
+    let style = Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
+    for (i, car) in titre.chars().enumerate() {
+        let x = x0 + i as f32 * pas;
+        let (lettre, accent) = accent_de(car).unwrap_or((car, &[]));
+        texte::dessiner(&lettre.to_string(), x, y, style);
+        for &(dx, dy) in accent {
+            rect(x + dx + 1.0, y + dy + 1.0, 1.0, 1.0, ARDOISE_OMBRE);
+        }
+        for &(dx, dy) in accent {
+            rect(x + dx, y + dy, 1.0, 1.0, c);
+        }
+    }
+}
 
 /// Cadenas d'une étape verrouillée : `#` contour, `o` corps.
 const CADENAS: [&str; 7] = [
@@ -112,15 +152,17 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
     let g = &e.geometrie;
     // Ordonnée écran d'une ordonnée de la carte.
     let ecran = |y: f32| (Y_VUE + y - e.defil).round();
-    dessiner_ciel(g, &ecran);
-    dessiner_soleil(ecran(Y_SOLEIL));
-    dessiner_nuages(g, &ecran);
-    dessiner_pluie(g, &ecran, anim);
-    let y_toits = ecran(g.hauteur - H_TOITS);
-    for k in 0..=(L_CARTE as i32 / 16) {
-        let x = k as f32 * 16.0;
-        banque.dessiner_tuile(Theme::Toits, "toit_haut", x, y_toits);
-        banque.dessiner_tuile(Theme::Toits, "toit_plein", x, y_toits + 16.0);
+    // Le fond du chapitre (carte 9.28) : l'ascension au chapitre 1, la descente de
+    // l'eau au chapitre 2.
+    let vue = fond_plan::Vue {
+        y_vue: Y_VUE,
+        l: L_CARTE,
+        defil: e.defil,
+    };
+    if e.monde >= 2 {
+        fond_plan::chapitre_2(banque, &vue, g, niveaux_du_monde(NIVEAUX, e.monde), anim);
+    } else {
+        fond_plan::chapitre_1(banque, &vue, g, anim);
     }
     dessiner_chemins(e, s, &ecran);
     for (k, &(x, y)) in g.etapes.iter().enumerate() {
@@ -139,11 +181,10 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
     rect(0.0, Y_VUE + H_VUE, l, 180.0 - Y_VUE - H_VUE, ARDOISE_OMBRE);
     rect(L_CARTE, Y_VUE, l - L_CARTE, H_VUE, ARDOISE_OMBRE);
     let ombre = |c| Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
-    // Le bandeau du haut (carte 9.1b) : le Monde 1 garde « CARTE DES NIVEAUX », tel
-    // qu'avant ; un chapitre suivant affiche son titre (« CHAPITRE 2 : LÀ OÙ VA LA
-    // PLUIE »), centré : la carte est une seule suite, on y passe par Droite ou Haut.
+    // Le bandeau du haut (carte 9.1b) : le titre du chapitre (carte 9.28 : le
+    // chapitre 1 aussi), centré ; ses accents dessinés à part, bien visibles.
     let titre = contenu::titre_chapitre(e.monde).unwrap_or(contenu::TITRE_PLAN);
-    texte::dessiner_centre(titre, 4.0, ombre(OR_PALE));
+    dessiner_titre(titre, Y_TITRE, OR_PALE);
     banque.dessiner("goutte0", 4.0, 2.0, false);
     texte::dessiner(
         &s.gouttes_en_poche.to_string(),
@@ -161,73 +202,6 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
         y + 3.0,
         Style::simple(BRUME, 1),
     );
-}
-
-/// Le ciel en bandes, du soleil (haut) à l'orage (bas), avec un damier entre deux
-/// bandes (pas de dégradé : la palette n'en a pas).
-fn dessiner_ciel(g: &Geometrie, ecran: &impl Fn(f32) -> f32) {
-    let h_bande = g.hauteur / CIEL.len() as f32;
-    for (i, &c) in CIEL.iter().enumerate() {
-        let y0 = ecran(i as f32 * h_bande);
-        let y1 = ecran((i + 1) as f32 * h_bande);
-        if y1 < Y_VUE || y0 > Y_VUE + H_VUE {
-            continue;
-        }
-        rect(0.0, y0, L_CARTE, y1 - y0 + 1.0, c);
-        // Damier de la bande suivante sur les 4 dernières rangées.
-        if let Some(&suivante) = CIEL.get(i + 1) {
-            for r in 0..4 {
-                let y = y1 - 4.0 + r as f32;
-                let depart = (r % 2) as usize;
-                for x in (depart..L_CARTE as usize).step_by(if r < 2 { 4 } else { 2 }) {
-                    rect(x as f32, y, 1.0, 1.0, suivante);
-                }
-            }
-        }
-    }
-}
-
-/// Le soleil au sommet de la carte, en rangées de pixels : un halo orange (le ciel
-/// du sommet est déjà OR_PALE), un disque d'or, un cœur blanc.
-fn dessiner_soleil(cy: f32) {
-    let cx = 120.0;
-    for (r, c) in [(19i32, ORANGE_SOLEIL), (16, OR), (10, BLANC_CASSE)] {
-        for dy in -r..=r {
-            let w = ((r * r - dy * dy) as f32).sqrt() as i32;
-            rect(cx - w as f32, cy + dy as f32, (2 * w + 1) as f32, 1.0, c);
-        }
-    }
-}
-
-/// Une petite rangée de nuages vers le haut de la carte (la mer de nuages).
-fn dessiner_nuages(g: &Geometrie, ecran: &impl Fn(f32) -> f32) {
-    for (fx, fy, r) in [
-        (20.0, 0.28, 9),
-        (70.0, 0.31, 12),
-        (130.0, 0.27, 10),
-        (160.0, 0.33, 8),
-    ] {
-        let cy = ecran(g.hauteur * fy);
-        let r: i32 = r;
-        for dy in -r / 2..=r / 2 {
-            let w = ((r * r - 4 * dy * dy) as f32).sqrt() as i32;
-            let c = if dy > 0 { ARDOISE_PALE } else { NUAGE };
-            rect(fx - w as f32, cy + dy as f32, (2 * w + 1) as f32, 1.0, c);
-        }
-    }
-}
-
-/// La pluie de l'orage, en bas de la carte : de courts traits qui tombent.
-fn dessiner_pluie(g: &Geometrie, ecran: &impl Fn(f32) -> f32, anim: u32) {
-    let haut = g.hauteur * 0.6;
-    let bas = g.hauteur - H_TOITS;
-    for i in 0..40u32 {
-        let x = (i * 37 % L_CARTE as u32) as f32;
-        let span = (bas - haut) as u32;
-        let y = haut + ((i * 53 + anim * 3) % span) as f32;
-        let (y, x) = (ecran(y), x + ((anim + i * 7) % 4) as f32);
-        rect(x, y, 1.0, 3.0, PLUIE);
-    }
 }
 
 /// Pointillés entre deux points.
@@ -508,5 +482,30 @@ fn bouton((x, y, w, h): (f32, f32, f32, f32), libelle: &str, actif: bool, choisi
         let chevron = Style::simple(OR, 1);
         texte::dessiner(">", x + 4.0, ty, chevron);
         texte::dessiner_a_droite("<", x + w - 4.0, ty, chevron);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Les titres des deux chapitres : chaque capitale accentuée a son accent dessiné
+    /// à part, dans le bandeau (rangée 2 au moins), et le titre centré ne touche pas le
+    /// compteur de gouttes (x < 48).
+    #[test]
+    fn les_accents_du_titre_tiennent_dans_le_bandeau() {
+        for monde in [1, 2] {
+            let titre = contenu::titre_chapitre(monde).unwrap();
+            for c in titre.chars().filter(|c| !c.is_ascii()) {
+                let (lettre, accent) = accent_de(c).unwrap_or_else(|| panic!("{c:?}"));
+                assert!(lettre.is_ascii_uppercase());
+                for &(_, dy) in accent {
+                    assert!(Y_TITRE + dy >= 1.0, "{c:?} : l'accent sort du bandeau");
+                    assert!(dy <= -2.0, "{c:?} : une rangée vide sous l'accent");
+                }
+            }
+            let x0 = texte::x_centre(titre, LARGEUR_LOGIQUE as f32 / 2.0, 1);
+            assert!(x0 >= 48.0, "{titre} : x {x0}");
+        }
     }
 }

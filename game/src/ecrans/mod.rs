@@ -25,6 +25,7 @@ pub mod carte;
 pub mod course_force;
 pub mod facile;
 pub mod fin;
+mod fond_plan;
 pub mod histoire;
 pub mod pause;
 pub mod plan;
