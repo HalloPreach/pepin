@@ -713,10 +713,17 @@ impl Application {
                     Choix::NouvellePartiePlus => self.ng_plus = true,
                     _ => {}
                 }
-                self.lancer(Suite::Niveau {
-                    indice: levels::debut_monde(NIVEAUX, monde).unwrap_or(0),
-                    etat: None,
-                });
+                // AGA (2026-11-19) : « quand je fais jouer ça me mets au niveau 1 du
+                // monde 2 alors que sur la carte j'ai le niveau 3 du monde 2 de fini ».
+                // Au Monde 2, JOUER reprend donc au niveau le plus avancé déjà ouvert
+                // (celui que la carte montre comme « où l'on en est »). Le Monde 1, lui,
+                // reste une partie depuis son premier niveau, comme avant.
+                let indice = if choix == Choix::Jouer && monde >= 2 {
+                    plan::EtatPlan::ou_on_en_est_du_monde(NIVEAUX, &self.sauvegarde, monde)
+                } else {
+                    levels::debut_monde(NIVEAUX, monde).unwrap_or(0)
+                };
+                self.lancer(Suite::Niveau { indice, etat: None });
             }
             Choix::Histoire => {
                 self.histoire_depuis_titre = true;
@@ -1514,6 +1521,19 @@ mod tests {
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
         assert_eq!(app.monde.infos.monde, 2);
         assert_eq!(Some(app.monde.indice), levels::debut_monde(NIVEAUX, 2));
+        // AGA : trois niveaux du Monde 2 finis, JOUER reprend au 4e (pas au 1er).
+        let mut app = Application::new(true);
+        app.sauvegarde = Sauvegarde::depuis_texte(
+            "version=3\nparties_finies=1\nniveau.poursuite=medaille:1\nniveau.caniveau=medaille:1\nniveau.egouts=medaille:1\nniveau.cascade=medaille:1",
+        );
+        app.ouvrir(Ecran::Titre);
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.infos.monde, 2);
+        assert_eq!(
+            app.monde.indice,
+            levels::debut_monde(NIVEAUX, 2).unwrap() + 3
+        );
         // Porte fermée (`poursuite` pas fini) : JOUER lance le Monde 1, comme avant.
         app.sauvegarde = Sauvegarde::depuis_texte("version=3\nparties_finies=1");
         assert_eq!(app.monde_de_jouer(), 1);
