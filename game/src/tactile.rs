@@ -1,5 +1,7 @@
 //! Commandes tactiles : quatre boutons virtuels (gauche, droite, saut, pause)
-//! dessinés en pixel art par-dessus le jeu, uniquement sur un écran tactile.
+//! dessinés en pixel art par-dessus le jeu, uniquement sur un écran tactile. Un
+//! cinquième, BAS (carte 9.2b : retourner le parapluie en barque), apparaît sous
+//! le bouton de saut (carte 9.2c) dans les seuls niveaux qui ont de l'eau.
 //!
 //! `Tactile` est une `SourceEntrees` comme le clavier : le jeu ne voit que des
 //! `Commandes`. Plusieurs doigts en même temps sont gérés (courir ET sauter).
@@ -50,32 +52,45 @@ impl Zone {
     }
 }
 
-/// Position des quatre boutons : l'aspect visible et la zone de toucher
-/// (plus grande que le dessin, pour pardonner un doigt imprécis).
+/// Position des boutons : l'aspect visible et la zone de toucher (plus grande
+/// que le dessin, pour pardonner un doigt imprécis).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Disposition {
     pub gauche: Zone,
     pub droite: Zone,
     pub saut: Zone,
     pub pause: Zone,
+    /// Le bouton BAS (carte 9.2b), sous le saut (9.2c) : `None` dans un niveau
+    /// sans eau (il n'y sert à rien, on n'encombre pas l'écran).
+    pub bas: Option<Zone>,
     /// Zones sensibles correspondantes (même ordre).
     pub touche_gauche: Zone,
     pub touche_droite: Zone,
     pub touche_saut: Zone,
     pub touche_pause: Zone,
+    pub touche_bas: Option<Zone>,
 }
 
 impl Disposition {
-    /// Disposition pour un écran de `l` x `h` pixels : flèches en bas à gauche,
-    /// gros bouton de saut en bas à droite, petite pause en haut à droite.
+    /// Disposition pour un écran de `l` x `h` pixels, sans bouton BAS : flèches
+    /// en bas à gauche, gros bouton de saut en bas à droite, petite pause en haut
+    /// à droite. Le jeu passe par `calculer_avec_bas` ; les tests, par celle-ci.
+    #[cfg(test)]
     pub fn calculer(l: f32, h: f32) -> Self {
+        Self::calculer_avec_bas(l, h, false)
+    }
+
+    /// Comme `calculer` ; `avec_bas` (niveau avec de l'eau) ajoute le bouton BAS
+    /// À DROITE, juste SOUS le bouton de saut, sur sa colonne et presque aussi
+    /// gros ; le saut remonte d'autant (carte 9.2c, les flèches ne bougent pas).
+    /// Sans lui, la disposition est exactement celle d'avant.
+    pub fn calculer_avec_bas(l: f32, h: f32, avec_bas: bool) -> Self {
         let petit_cote = l.min(h);
         let taille = (petit_cote * 0.26).clamp(56.0, 180.0);
         let marge = (petit_cote * 0.04).max(8.0);
-        let bas = h - marge - taille;
         let gauche = Zone {
             x: marge,
-            y: bas,
+            y: h - marge - taille,
             l: taille,
             h: taille,
         };
@@ -84,9 +99,18 @@ impl Disposition {
             ..gauche
         };
         let grand = taille * 1.3;
+        // Le bouton BAS : 85 % du saut (même doigt, ou presque), centré sur
+        // sa colonne, en bas à droite.
+        let cote_bas = (grand * 0.85).max(48.0);
+        let bouton_bas = avec_bas.then(|| Zone {
+            x: l - marge - grand + (grand - cote_bas) / 2.0,
+            y: h - marge - cote_bas,
+            l: cote_bas,
+            h: cote_bas,
+        });
         let saut = Zone {
             x: l - marge - grand,
-            y: h - marge - grand,
+            y: bouton_bas.map_or(h, |b| b.y) - marge - grand,
             l: grand,
             h: grand,
         };
@@ -98,25 +122,44 @@ impl Disposition {
             h: cote_pause,
         };
         let touche_droite = droite.agrandie(marge / 2.0);
+        let touche_pause = pause.agrandie(marge);
         // Zone de saut nettement plus large que le dessin, mais sans empiéter
-        // sur la flèche droite (écrans étroits).
-        let mut touche_saut = saut.agrandie(taille * 0.3);
+        // sur la flèche droite (écrans étroits), ni sur la pause au-dessus, ni
+        // sur le bouton BAS en dessous (ils se partagent l'espace entre eux).
         let bord = touche_droite.x + touche_droite.l;
-        if touche_saut.x < bord {
-            touche_saut.l -= bord - touche_saut.x;
-            touche_saut.x = bord;
-        }
+        let rogner = |mut z: Zone, haut: f32, bas: f32| {
+            if z.x < bord {
+                z.l -= bord - z.x;
+                z.x = bord;
+            }
+            if z.y < haut {
+                z.h -= haut - z.y;
+                z.y = haut;
+            }
+            z.h = z.h.min(bas - z.y);
+            z
+        };
+        let milieu = bouton_bas.map_or(f32::INFINITY, |b| b.y - marge / 2.0);
+        let touche_saut = rogner(
+            saut.agrandie(taille * 0.3),
+            touche_pause.y + touche_pause.h,
+            milieu,
+        );
+        let touche_bas =
+            bouton_bas.map(|b| rogner(b.agrandie(taille * 0.3), milieu, f32::INFINITY));
         Self {
             // Flèches : les zones sensibles se rejoignent au milieu de l'espace
             // entre les deux boutons, sans se chevaucher.
             touche_gauche: gauche.agrandie(marge / 2.0),
             touche_droite,
             touche_saut,
-            touche_pause: pause.agrandie(marge),
+            touche_pause,
+            touche_bas,
             gauche,
             droite,
             saut,
             pause,
+            bas: bouton_bas,
         }
     }
 }
@@ -137,6 +180,7 @@ pub fn commandes_pour(d: &Disposition, points: &[Point]) -> Commandes {
         gauche: dans(&d.touche_gauche),
         droite: dans(&d.touche_droite),
         saut: dans(&d.touche_saut),
+        bas: d.touche_bas.is_some_and(|z| dans(&z)),
         pause: points
             .iter()
             .any(|p| p.nouveau && d.touche_pause.contient(p.x, p.y)),
@@ -150,6 +194,8 @@ struct Etat {
     actif: bool,
     /// Dernières commandes lues, pour dessiner les boutons enfoncés.
     dernieres: Commandes,
+    /// Le bouton BAS est-il montré (niveau avec de l'eau, carte 9.2b) ?
+    avec_bas: bool,
 }
 
 /// La source d'entrée tactile. Elle se clone (`Rc`) : un exemplaire part dans
@@ -170,21 +216,33 @@ impl Tactile {
         self.etat.get().actif
     }
 
+    /// Montre (ou cache) le bouton BAS : la boucle principale le règle à chaque
+    /// image, vrai dans un niveau qui a de l'eau (carte 9.2b).
+    pub fn montrer_bas(&self, oui: bool) {
+        let mut e = self.etat.get();
+        e.avec_bas = oui;
+        self.etat.set(e);
+    }
+
     /// Dessine les boutons par-dessus l'écran (à appeler après le rendu du jeu,
     /// en caméra par défaut). Sans effet tant qu'aucun toucher n'a eu lieu.
     pub fn dessiner(&self) {
         let Etat {
             actif,
             dernieres: c,
+            avec_bas,
         } = self.etat.get();
         if !actif {
             return;
         }
-        let d = Disposition::calculer(screen_width(), screen_height());
+        let d = Disposition::calculer_avec_bas(screen_width(), screen_height(), avec_bas);
         dessiner_bouton(&d.gauche, &FLECHE_GAUCHE, c.gauche, PLUIE);
         dessiner_bouton(&d.droite, &FLECHE_DROITE, c.droite, PLUIE);
         dessiner_bouton(&d.saut, &FLECHE_HAUT, c.saut, OR);
         dessiner_bouton(&d.pause, &PAUSE, false, BLANC_CASSE);
+        if let Some(z) = d.bas {
+            dessiner_bouton(&z, &FLECHE_BAS, c.bas, PLUIE);
+        }
     }
 }
 
@@ -202,12 +260,14 @@ impl SourceEntrees for Tactile {
                 nouveau: t.phase == TouchPhase::Started,
             })
             .collect();
-        let actif = self.etat.get().actif || !points.is_empty();
-        let d = Disposition::calculer(screen_width(), screen_height());
+        let avant = self.etat.get();
+        let actif = avant.actif || !points.is_empty();
+        let d = Disposition::calculer_avec_bas(screen_width(), screen_height(), avant.avec_bas);
         let commandes = commandes_pour(&d, &points);
         self.etat.set(Etat {
             actif,
             dernieres: commandes,
+            avec_bas: avant.avec_bas,
         });
         commandes
     }
@@ -225,6 +285,10 @@ const FLECHE_DROITE: Bitmap = [
 ];
 const FLECHE_HAUT: Bitmap = [
     "...#...", "..###..", ".#####.", "#######", "..###..", "..###..", "..###..",
+];
+/// La flèche du haut retournée (carte 9.2b).
+const FLECHE_BAS: Bitmap = [
+    "..###..", "..###..", "..###..", "#######", ".#####.", "..###..", "...#...",
 ];
 const PAUSE: Bitmap = [
     ".##.##.", ".##.##.", ".##.##.", ".##.##.", ".##.##.", ".##.##.", ".##.##.",
@@ -306,33 +370,69 @@ mod tests {
     }
 
     /// Tailles d'écran de téléphones (paysage, portrait) et de tablette.
-    const ECRANS: [(f32, f32); 5] = [
+    const ECRANS: [(f32, f32); 6] = [
         (844.0, 390.0),
         (390.0, 844.0),
         (667.0, 375.0),
+        (568.0, 320.0),
         (1024.0, 768.0),
         (320.0, 480.0),
     ];
 
+    /// Toutes les dispositions à vérifier : sans et avec le bouton BAS (carte 9.2b).
+    fn dispositions() -> Vec<(f32, f32, Disposition)> {
+        ECRANS
+            .iter()
+            .flat_map(|&(l, h)| {
+                [false, true].map(|avec| (l, h, Disposition::calculer_avec_bas(l, h, avec)))
+            })
+            .collect()
+    }
+
     #[test]
     fn les_boutons_restent_dans_l_ecran_et_sont_assez_gros() {
-        for (l, h) in ECRANS {
-            let d = Disposition::calculer(l, h);
-            for z in [d.gauche, d.droite, d.saut, d.pause] {
+        for (l, h, d) in dispositions() {
+            for z in [d.gauche, d.droite, d.saut, d.pause]
+                .into_iter()
+                .chain(d.bas)
+            {
                 assert!(z.x >= 0.0 && z.y >= 0.0, "{l}x{h} : {z:?}");
                 assert!(z.x + z.l <= l && z.y + z.h <= h, "{l}x{h} : {z:?}");
             }
             // Au moins ~ 9 mm : 48 px est le minimum usuel pour un doigt.
-            for z in [d.gauche, d.droite, d.saut] {
+            for z in [d.gauche, d.droite, d.saut].into_iter().chain(d.bas) {
                 assert!(z.l >= 48.0 && z.h >= 48.0, "{l}x{h} : {z:?}");
             }
+        }
+        // Sans eau, rien ne change : pas de bouton BAS, les flèches à leur place.
+        let (sans, avant) = (
+            Disposition::calculer_avec_bas(844.0, 390.0, false),
+            Disposition::calculer(844.0, 390.0),
+        );
+        assert_eq!(sans, avant);
+        assert!(sans.bas.is_none());
+        // Avec de l'eau (carte 9.2c) : BAS à droite, juste sous le saut, sur sa
+        // colonne et presque aussi gros ; les flèches restent où elles sont.
+        for (l, h) in ECRANS {
+            let (sans, avec) = (
+                Disposition::calculer_avec_bas(l, h, false),
+                Disposition::calculer_avec_bas(l, h, true),
+            );
+            let (b, s) = (avec.bas.expect("bouton BAS"), avec.saut);
+            assert_eq!((avec.gauche, avec.droite), (sans.gauche, sans.droite));
+            assert!(b.y > s.y + s.h, "{l}x{h} : BAS sous le saut");
+            assert!((centre(&b).0 - centre(&s).0).abs() < 1e-3, "{l}x{h}");
+            assert!(b.l >= s.l * 0.8, "{l}x{h} : BAS presque aussi gros");
+            assert!(
+                b.x > avec.droite.x + avec.droite.l,
+                "{l}x{h} : BAS à droite"
+            );
         }
     }
 
     #[test]
     fn les_boutons_ne_se_chevauchent_pas() {
-        for (l, h) in ECRANS {
-            let d = Disposition::calculer(l, h);
+        for (l, h, d) in dispositions() {
             let (g, dr, s, p) = (
                 d.touche_gauche,
                 d.touche_droite,
@@ -341,18 +441,34 @@ mod tests {
             );
             // Gauche et droite se touchent au plus (jamais de recouvrement).
             assert!(g.x + g.l <= dr.x + 1e-3, "{l}x{h}");
+            let zones: Vec<Zone> = [g, dr, s, p].into_iter().chain(d.touche_bas).collect();
+            // Aucun recouvrement, ni des dessins ni des zones sensibles (9.2c).
+            let dessins: Vec<Zone> = [d.gauche, d.droite, d.saut, d.pause]
+                .into_iter()
+                .chain(d.bas)
+                .collect();
+            for liste in [&zones, &dessins] {
+                for (i, a) in liste.iter().enumerate() {
+                    for b in &liste[i + 1..] {
+                        let separes = a.x + a.l <= b.x + 1e-3
+                            || b.x + b.l <= a.x + 1e-3
+                            || a.y + a.h <= b.y + 1e-3
+                            || b.y + b.h <= a.y + 1e-3;
+                        assert!(separes, "{l}x{h} : {a:?} et {b:?}");
+                    }
+                }
+            }
             // Le centre de chaque bouton ne tombe que dans sa propre zone.
             for (z, nom) in [
-                (d.gauche, "g"),
-                (d.droite, "d"),
-                (d.saut, "s"),
-                (d.pause, "p"),
+                (Some(d.gauche), "g"),
+                (Some(d.droite), "d"),
+                (Some(d.saut), "s"),
+                (Some(d.pause), "p"),
+                (d.bas, "b"),
             ] {
+                let Some(z) = z else { continue };
                 let (cx, cy) = centre(&z);
-                let n = [g, dr, s, p]
-                    .iter()
-                    .filter(|zz| zz.contient(cx, cy))
-                    .count();
+                let n = zones.iter().filter(|zz| zz.contient(cx, cy)).count();
                 assert_eq!(n, 1, "{l}x{h} bouton {nom}");
             }
         }
@@ -366,7 +482,12 @@ mod tests {
         let c = commandes_pour(&d, &[doigt(&d.droite, false)]);
         assert!(!c.gauche && c.droite && !c.saut);
         let c = commandes_pour(&d, &[doigt(&d.saut, false)]);
-        assert!(c.saut && !c.gauche && !c.droite);
+        assert!(c.saut && !c.gauche && !c.droite && !c.bas);
+        // Le bouton BAS (niveau avec de l'eau, carte 9.2b).
+        let d = Disposition::calculer_avec_bas(844.0, 390.0, true);
+        let bas = d.bas.expect("bouton BAS montré");
+        let c = commandes_pour(&d, &[doigt(&bas, false)]);
+        assert!(c.bas && !c.gauche && !c.droite && !c.saut);
     }
 
     #[test]

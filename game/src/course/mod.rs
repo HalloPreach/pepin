@@ -325,7 +325,8 @@ mod tests {
     use crate::demo::compresser;
     use pepin_core::physics::HZ;
     use pepin_core::player::Entrees;
-    use pepin_core::zones::NIVEAUX;
+    // La course contre le robot est celle du MONDE 1 seulement (carte 9.6).
+    use pepin_core::levels::NIVEAUX_MONDE_1 as NIVEAUX;
 
     /// Chaque partie embarquée, rejouée dans la vraie simulation comme le fait le jeu,
     /// touche le drapeau au pas prévu, avec les morts prévues et sans jamais être

@@ -59,6 +59,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
+    monde: 1,
     numero: 5,
     cle: "clocher",
     sans_planer: false,
@@ -219,6 +220,7 @@ mod tests {
     /// est 80 px plus haut, plus qu'un saut) ; sans celui du socle, le niveau se
     /// finit mais la goutte en l'air n'est pas prise (seul son rebond y porte).
     #[test]
+    #[ignore = "lot : le niveau exige sa mécanique (recherche complète sans elle)"]
     fn le_clocher_exige_ses_escargots() {
         let niv = sans('s', |_, _| false);
         let r = analyser(&niv, niv.depart, Options::default());
@@ -237,6 +239,7 @@ mod tests {
     /// Sans le souffle du ventilateur, la galerie est un cul-de-sac : la corniche
     /// F1 est 128 px plus haut (seule la goutte en l'air, avant, est prise).
     #[test]
+    #[ignore = "lot : le niveau exige sa mécanique (recherche complète sans elle)"]
     fn le_clocher_exige_le_ventilateur() {
         let n = INFOS.charger().unwrap();
         let sans_courant = Options {
@@ -254,6 +257,7 @@ mod tests {
     /// aiguille, le pilier (et sa goutte) est hors de portée ; sans la petite
     /// (la 1re en lisant), le pilier l'est, la tour du drapeau non.
     #[test]
+    #[ignore = "lot : le niveau exige sa mécanique (recherche complète sans elle)"]
     fn le_clocher_exige_ses_deux_aiguilles() {
         let niv = sans('h', |_, _| false);
         let r = analyser(&niv, niv.depart, Options::default());

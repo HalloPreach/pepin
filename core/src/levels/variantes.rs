@@ -287,6 +287,7 @@ mod tests {
     /// gouttes et lanternes (robot précis), arrivée (robot maladroit), et arrivée
     /// depuis chaque lanterne. Un fil d'exécution par niveau (`thread::scope`).
     #[test]
+    #[ignore = "lot : faisabilité de chaque niveau de la nouvelle partie +"]
     fn chaque_variante_ng_plus_est_finissable() {
         for v in VARIANTES {
             assert!(NIVEAUX.iter().any(|n| n.cle == v.cle), "clé : {}", v.cle);
@@ -358,7 +359,14 @@ mod tests {
             }
         }
 
-        // Finissable (robot de faisabilité : vent de face compris).
+        // Finissable (robot de faisabilité : vent de face compris). Un niveau que la
+        // nouvelle partie + ne change pas du tout (aucune variante, ni éclair, ni
+        // nuage, ni vent de face : le Monde 2) est déjà vérifié tel quel par
+        // `zones` (faisabilité et reprise depuis chaque lanterne) : les mêmes
+        // recherches ne sont pas refaites (carte 9.23, tri des tests).
+        if format!("{ng:?}") == format!("{normal:?}") {
+            return;
+        }
         let r = analyser(&ng, ng.depart, Options::default());
         assert!(
             r.arrivee,
@@ -367,9 +375,11 @@ mod tests {
         );
         assert_eq!(r.gouttes, [true; 3], "{cle} : gouttes");
         assert!(r.lanternes.iter().all(|&l| l), "{cle} : lanternes");
+        // Les autres recherches ne lisent que l'arrivée : arrêt dès qu'elle est
+        // touchée (`Options::arrivee_seule`, même réponse).
         let maladroit = Options {
             precis: false,
-            ..Options::default()
+            ..Options::arrivee_seule()
         };
         assert!(
             analyser(&ng, ng.depart, maladroit).arrivee,
@@ -377,7 +387,7 @@ mod tests {
         );
         for &p in &reprises {
             assert!(
-                analyser(&ng, p, Options::default()).arrivee,
+                analyser(&ng, p, Options::arrivee_seule()).arrivee,
                 "{cle} : depuis {p:?}"
             );
         }

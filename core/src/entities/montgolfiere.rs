@@ -298,6 +298,7 @@ mod tests {
                     solides: &solides,
                     courants: &[],
                     vents: &[],
+                    eaux: &[],
                 };
                 for e in &mut self.entites {
                     e.actualiser(&env);
@@ -309,6 +310,7 @@ mod tests {
                 solides: &solides,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             porter_par_plateformes(&mut self.joueur, &self.entites, &env);
             self.joueur.actualiser(entrees, &env);
@@ -437,6 +439,7 @@ mod tests {
         let gauche = Entrees {
             direction: Direction::Gauche,
             saut: false,
+            bas: false,
         };
         for _ in 0..6 {
             banc.pas(&gauche);
@@ -492,6 +495,7 @@ mod tests {
         let saut = Entrees {
             direction: Direction::Immobile,
             saut: true,
+            bas: false,
         };
         banc.pas(&saut);
         banc.pas(&saut);

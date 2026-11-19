@@ -47,6 +47,7 @@ use crate::levels::GenreNiveau;
 use crate::zones::{InfosNiveau, Theme};
 
 pub const INFOS: InfosNiveau = InfosNiveau {
+    monde: 1,
     numero: 12,
     cle: "descente",
     sans_planer: true,
@@ -183,6 +184,7 @@ mod tests {
             let entrees = Entrees {
                 direction: sens,
                 saut: false,
+                bas: false,
             };
             let mut pose = None;
             for _ in 0..600 {
@@ -192,6 +194,7 @@ mod tests {
                     solides: &solides,
                     courants: &n.courants,
                     vents: &n.vents,
+                    eaux: &[],
                 };
                 for e in entites.iter_mut() {
                     e.actualiser(&env);

@@ -341,6 +341,91 @@ pub const OMBRE_TOIT: Image = &[
     "1111111111111111",
 ];
 
+// --- Eau (carte 9.2, redessinée à la carte 9.6b) ---
+// Trois bandes nettes, sans dégradé : la LIGNE de surface claire (D, 1 px), la BANDE
+// sous la surface (E, 6 px, quelques reflets D) et le FOND plus sombre (2, l'ardoise,
+// quelques traits E) : l'eau tranche sur le sol, même quand il est sombre. Chaque
+// matière d'eau a trois dessins : « haut » (le dessus de l'étendue), « vague » (le
+// même, 1 px plus bas : `nom_tuile` alterne les deux pour que la surface ondule d'un
+// pixel) et « plein » (l'intérieur). Le SENS d'un courant ne se dessine plus dans la
+// tuile (les anciens chevrons « > » se lisaient comme du texte) : de courtes stries
+// défilent par-dessus, dans le sens du courant (`crate::dessin_courant`).
+
+/// Eau, dessus de l'étendue : la ligne claire, la bande, le fond.
+pub const EAU_CALME_HAUT: Image = &[
+    "DDDDDDDDDDDDDDDD",
+    "EEEEEEEEEEEEEEEE",
+    "EEEDDDEEEEEEEEEE",
+    "EEEEEEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEDDEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "2222222222222222",
+    "2222222222222222",
+    "22222222EE222222",
+    "2222222222222222",
+    "2EE2222222222222",
+    "2222222222222222",
+    "2222222222EE2222",
+    "2222222222222222",
+    "2222222222222222",
+];
+
+/// Eau, dessus, l'autre temps de la vague : la même surface 1 px plus bas.
+pub const EAU_CALME_VAGUE: Image = &[
+    "................",
+    "DDDDDDDDDDDDDDDD",
+    "EEEEEEEEEEEEEEEE",
+    "EEEDDDEEEEEEEEEE",
+    "EEEEEEEEEEEDDDEE",
+    "EEEEEEEEEEEEEEEE",
+    "EEEEEEEDDEEEEEEE",
+    "EEEEEEEEEEEEEEEE",
+    "2222222222222222",
+    "2222222222222222",
+    "22222222EE222222",
+    "2222222222222222",
+    "2EE2222222222222",
+    "2222222222222222",
+    "2222222222EE2222",
+    "2222222222222222",
+];
+
+/// Eau, intérieur de l'étendue : le fond sombre, quelques traits de reflet.
+pub const EAU_CALME_PLEIN: Image = &[
+    "2222222222222222",
+    "222222EE22222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222EE2",
+    "2222222222222222",
+    "2222222222222222",
+    "2EE2222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "222222222EE22222",
+    "2222222222222222",
+    "2222222222222222",
+    "22222EE222222222",
+    "2222222222222222",
+    "2222222222222222",
+];
+
+// Les courants ont les mêmes dessins que l'eau calme (les stries animées disent le
+// sens) ; leurs noms restent, pour que le choix de `nom_tuile` ne change pas.
+/// Courant vers la gauche (`{`), dessus.
+pub const EAU_COURANT_G_HAUT: Image = EAU_CALME_HAUT;
+/// Courant vers la gauche, dessus, l'autre temps de la vague.
+pub const EAU_COURANT_G_VAGUE: Image = EAU_CALME_VAGUE;
+/// Courant vers la gauche, intérieur.
+pub const EAU_COURANT_G_PLEIN: Image = EAU_CALME_PLEIN;
+/// Courant vers la droite (`}`), dessus.
+pub const EAU_COURANT_D_HAUT: Image = EAU_CALME_HAUT;
+/// Courant vers la droite, dessus, l'autre temps de la vague.
+pub const EAU_COURANT_D_VAGUE: Image = EAU_CALME_VAGUE;
+/// Courant vers la droite, intérieur.
+pub const EAU_COURANT_D_PLEIN: Image = EAU_CALME_PLEIN;
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("toit_haut", TOIT_HAUT),
@@ -360,4 +445,13 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("brique_saillie_g", BRIQUE_SAILLIE_G),
     ("brique_saillie_d", BRIQUE_SAILLIE_D),
     ("ombre_toit", OMBRE_TOIT),
+    ("eau_calme_haut", EAU_CALME_HAUT),
+    ("eau_calme_vague", EAU_CALME_VAGUE),
+    ("eau_calme_plein", EAU_CALME_PLEIN),
+    ("eau_courant_g_haut", EAU_COURANT_G_HAUT),
+    ("eau_courant_g_vague", EAU_COURANT_G_VAGUE),
+    ("eau_courant_g_plein", EAU_COURANT_G_PLEIN),
+    ("eau_courant_d_haut", EAU_COURANT_D_HAUT),
+    ("eau_courant_d_vague", EAU_COURANT_D_VAGUE),
+    ("eau_courant_d_plein", EAU_COURANT_D_PLEIN),
 ];

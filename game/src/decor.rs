@@ -30,6 +30,15 @@ pub enum Forme {
     Nuages,
     /// Tours ou pics de nuages en quatre étages de plus en plus étroits.
     Pics,
+    /// Falaise ou mur de blocs (Monde 2, carte 9.5) : une masse au sommet
+    /// arrondi, scindée en blocs par des joints sombres.
+    Roche,
+    /// Roseaux (Monde 2, carte 9.5) : de fines tiges de hauteurs inégales,
+    /// chacune coiffée d'une touffe.
+    Roseaux,
+    /// Coques de bateaux amarrés (Monde 2, carte 9.5) : une coque au fond
+    /// creusé et un mât nu.
+    Coques,
 }
 
 /// Plafond de nuages d'orage : des dômes renversés accrochés en haut de l'écran,
@@ -40,6 +49,9 @@ pub struct Plafond {
     pub proche: Couleur,
     /// Épaisseur des nuages : 4 = pleine, 2 = nuages discrets.
     pub ampleur: i32,
+    /// Stalactites pointues (Monde 2, carte 9.5, la grotte) au lieu de dômes :
+    /// des pointes vers le bas, de profondeurs inégales.
+    pub stalactites: bool,
 }
 
 /// Ce qui distingue l'ambiance d'un niveau.
@@ -96,6 +108,9 @@ pub struct Ambiance {
     /// (`dessiner_voyage`) ; `ciel` et les silhouettes décrivent alors le BAS de la
     /// descente (la ville du premier niveau, la nuit).
     pub voyage: bool,
+    /// Motifs de décor du Monde 2 (carte 9.5) : jusqu'à quatre, rangés dans
+    /// l'ordre du dessin (`dessiner_detail` ; `None` = motif absent).
+    pub details: [Option<Detail>; 4],
 }
 
 /// Couleurs d'une traînée de vent latéral (`particules::souffle_lateral`) : une
@@ -128,6 +143,47 @@ pub struct TeinteTuiles {
     pub eclaircissement: u32,
     /// Les briques violettes virent à l'orange (sous le soleil).
     pub briques_orangees: bool,
+    /// Les briques violettes virent au cyan sombre (Monde 2, carte 9.5) : les
+    /// murs de briques mouillés des égouts et du port.
+    pub briques_mouillees: bool,
+}
+
+/// Motif de décor du Monde 2 (carte 9.5) : un élément du fond qui n'est PAS une
+/// couche de silhouettes : l'eau au pied de l'écran, les chutes, les bulles, les
+/// grues... (dessinés par `dessiner_detail`, devant ou derrière la couche lointaine
+/// selon le groupe).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Detail {
+    /// Les lampadaires de la rue (le caniveau, carte 9.6b) : mât de fonte, lanterne
+    /// orange et son halo (`decor_rue`).
+    Lampadaires,
+    /// Les maisons de la rue du caniveau (carte 9.6b) : façades, fenêtres
+    /// allumées, vitrines sous leur store, descentes de gouttière (`decor_rue`).
+    Facades,
+    /// Les égouts : deux tuyaux qui traversent le tunnel et leurs colliers.
+    Tuyaux,
+    /// La lueur cyan des égouts : une bande d'eau sombre au sol, ses reflets.
+    Lueur,
+    /// Les chutes d'eau de la cascade : trois ruisselles qui tombent devant
+    /// les falaises, leur mousse au pied.
+    Chutes,
+    /// La brume de la cascade : deux nappes basses qui dérivent.
+    Brume,
+    /// Les cristaux cyan de la grotte : des pointes au pied de l'écran.
+    Cristaux,
+    /// L'eau de la rivière : une bande de courant sombre, ses reflets.
+    EauRiviere,
+    /// L'eau du port : une bande plus haute, une écume claire au bord.
+    EauPort,
+    /// L'eau de la marée : une bande sombre plus épaisse, l'écume qui monte.
+    EauMaree,
+    /// Les grues du port : deux mâts sombres, leur flèche et leur treuil.
+    Grues,
+    /// Les mouettes du port : trois petits oiseaux qui traversent le ciel.
+    Mouettes,
+    /// Le phare au loin, à l'entrée du port : une tour blanche cerclée de corail,
+    /// sa lanterne qui clignote et son faisceau.
+    Phare,
 }
 
 /// Ambiance d'un thème : l'orage noir s'éclaircit jusqu'au soleil doré.
@@ -158,11 +214,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 0,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
@@ -179,6 +237,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 loin: ARDOISE,
                 proche: ARDOISE_CLAIRE,
                 ampleur: 2,
+                stalactites: false,
             }),
             soleil: false,
             forme: Forme::Immeubles,
@@ -189,11 +248,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 1,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // Marché couvert : nuit bleue qui s'éclaircit vers l'horizon (la lueur du
@@ -220,11 +281,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 1,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // Orage : le ciel est violet à l'horizon ; les immeubles, plus hauts
@@ -242,6 +305,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 loin: ARDOISE_NUIT,
                 proche: ARDOISE,
                 ampleur: 4,
+                stalactites: false,
             }),
             soleil: false,
             forme: Forme::Immeubles,
@@ -254,11 +318,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 0,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // Clocher (niveau vertical) : nuit violette après l'orage, une lueur pâle
@@ -288,11 +354,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 0,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: false,
             vertige: 2.5,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // L'œil du cyclone (le boss) : violet et or. Tout en haut, la trouée d'or
@@ -313,6 +381,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
                 loin: ARDOISE_NUIT,
                 proche: VIOLET_ORAGE,
                 ampleur: 2,
+                stalactites: false,
             }),
             soleil: false,
             forme: Forme::Pics,
@@ -324,11 +393,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 0,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
@@ -353,11 +424,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 2,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             // Le ciel du haut est violet : la queue des traînées est bleu nuit.
             vent: CouleursVent {
                 traine: ARDOISE_NUIT,
@@ -404,11 +477,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 2,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_JOUR,
         },
         // Soleil : pas de pluie. Bancs de nuages rosés par le soleil, bas (leurs
@@ -432,11 +507,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 3,
                 briques_orangees: true,
+                briques_mouillees: false,
             },
             friable_nuage: true,
             vertige: 1.0,
             arc: false,
             voyage: false,
+            details: [None; 4],
             vent: VENT_JOUR,
         },
         // L'arc-en-ciel (carte 5.16, le bonus) : TOUTE LA PALETTE. L'averse vient
@@ -467,11 +544,13 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 2,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: true,
             vertige: 1.0,
             arc: true,
             voyage: false,
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // La descente (carte 5.17, l'épilogue) : le ciel refait le voyage en sens
@@ -503,11 +582,265 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             tuiles: TeinteTuiles {
                 eclaircissement: 0,
                 briques_orangees: false,
+                briques_mouillees: false,
             },
             friable_nuage: false,
             vertige: 1.0,
             arc: false,
             voyage: true,
+            details: [None; 4],
+            vent: VENT_NUIT,
+        },
+        // MONDE 2, « Là où va la pluie » (carte 9.5) : le parapluie retourné devient
+        // une barque. Le ciel reste dans la nuit bleue du Monde 1 (la pluie n'a pas
+        // fini) et s'éclaircit doucement jusqu'à l'aube du port et de la marée.
+        // La palette tient déjà : les deux cyans (`PLUIE`, `PLUIE_SOMBRE`) font
+        // l'eau, les silhouettes et les cristaux.
+        //
+        // Le caniveau (refait à la carte 9.6b) : la rue sous une forte averse, vue
+        // du trottoir. Au loin, les immeubles de la ville (ardoise d'ombre, quelques
+        // fenêtres orange) sur un ciel de nuit ; devant eux, une rangée de maisons
+        // (`Detail::Facades` : façades d'ardoise sombres et ternes depuis la carte
+        // 9.20g, fenêtres, vitrines
+        // sous leur store, descentes de gouttière) ; devant, les lampadaires et leur
+        // halo. La couche proche reste sous la rue (cachée par les pavés).
+        Theme::Caniveau => Ambiance {
+            ciel: [ARDOISE_NUIT, ARDOISE_NUIT, ARDOISE, ARDOISE],
+            lointain: ARDOISE_OMBRE,
+            proche: ARDOISE_OMBRE,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: None,
+            gouttes: 56,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            soleil: false,
+            forme: Forme::Immeubles,
+            relief: 30,
+            socle: true,
+            // Carte 9.20g : le fond terne, les fenêtres lointaines faiblement
+            // allumées (violet d'orage) ; l'orange vif reste au premier plan.
+            fenetres: Some((VIOLET_ORAGE, VIOLET_ORAGE)),
+            ilots: None,
+            // Briques mouillées : les murs violets du dessin virent au cyan sombre.
+            tuiles: TeinteTuiles {
+                eclaircissement: 1,
+                briques_orangees: false,
+                briques_mouillees: true,
+            },
+            friable_nuage: false,
+            vertige: 1.0,
+            arc: false,
+            voyage: false,
+            details: [Some(Detail::Facades), Some(Detail::Lampadaires), None, None],
+            vent: VENT_NUIT,
+        },
+        // Les égouts : tunnel de briques sombres entre deux parois (masses de
+        // `Roche`), un plafond bas (l'arche du tunnel), deux tuyaux et leur grille
+        // au fond, la lueur cyan de l'eau stagnante au sol. Presque sec : gouttes
+        // de condensation. Le ciel du tunnel s'éclaircit vers le bas (la lueur de
+        // l'eau), mais jamais à la couleur d'une paroi : la lointaine (ardoise nuit)
+        // et la proche (brique violette) tranchent sur les quatre bandes.
+        Theme::Egouts => Ambiance {
+            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE],
+            lointain: ARDOISE_NUIT,
+            proche: VIOLET_ORAGE,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: None,
+            gouttes: 8,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: Some(Plafond {
+                loin: ARDOISE_NUIT,
+                proche: VIOLET_ORAGE,
+                ampleur: 2,
+                stalactites: false,
+            }),
+            soleil: false,
+            forme: Forme::Roche,
+            relief: 0,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 0,
+                briques_orangees: false,
+                briques_mouillees: true,
+            },
+            friable_nuage: false,
+            vertige: 1.0,
+            arc: false,
+            voyage: false,
+            details: [Some(Detail::Tuyaux), Some(Detail::Lueur), None, None],
+            vent: VENT_NUIT,
+        },
+        // La grande cascade : niveau vertical (`vertige`) entre les chutes d'eau ;
+        // falaises de fond et ruisselles devant, deux nappes de brume, ciel qui
+        // s'éclaircit vers l'horizon (la lumière qui remonte de la brèche).
+        Theme::Cascade => Ambiance {
+            ciel: [ARDOISE_NUIT, VIOLET_ORAGE, BRUME, NUAGE],
+            lointain: ARDOISE,
+            proche: ARDOISE_NUIT,
+            pluie: (PLUIE, BLANC_CASSE),
+            etoiles: None,
+            gouttes: 24,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            soleil: false,
+            // Falaises hautes : le relief remonte la couche lointaine.
+            forme: Forme::Roche,
+            relief: 26,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 2,
+                briques_orangees: false,
+                briques_mouillees: false,
+            },
+            friable_nuage: false,
+            // Niveau vertical : comme le clocher, la falaise s'enfonce en montant.
+            vertige: 2.5,
+            arc: false,
+            voyage: false,
+            details: [Some(Detail::Chutes), Some(Detail::Brume), None, None],
+            vent: VENT_NUIT,
+        },
+        // La grotte aux bulles : nuit bleue profonde, stalactites au plafond (les
+        // seules, carte 9.5) et des cristaux cyan au pied. Niveau vertical
+        // (`vertige`) : l'ascension se fait en bulles. Carte 9.20d : plus de
+        // bulles au fond, sorties de nulle part ; les vraies jaillissent de leurs
+        // sources, au premier plan (`decor_grotte`).
+        Theme::Grotte => Ambiance {
+            ciel: [ARDOISE_OMBRE, ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE_NUIT],
+            lointain: ARDOISE,
+            proche: ARDOISE_OMBRE,
+            // La grotte est sèche (la pluie est restée dehors) : `Theme::pluie` est
+            // faux et la densité vaut 0. Couleurs jamais dessinées, mais visibles
+            // sur chaque bande si un jour il pleuvait.
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: None,
+            gouttes: 0,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: Some(Plafond {
+                loin: ARDOISE_NUIT,
+                proche: ARDOISE,
+                ampleur: 2,
+                stalactites: true,
+            }),
+            soleil: false,
+            forme: Forme::Roche,
+            relief: 10,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 0,
+                briques_orangees: false,
+                briques_mouillees: false,
+            },
+            friable_nuage: false,
+            vertige: 2.5,
+            arc: false,
+            voyage: false,
+            details: [Some(Detail::Cristaux), None, None, None],
+            vent: VENT_NUIT,
+        },
+        // La rivière : berges de fond et roseaux devant, ciel grisé qui
+        // s'éclaircit vers l'horizon ; l'eau du courant au pied, ses reflets.
+        Theme::Riviere => Ambiance {
+            ciel: [ARDOISE, ARDOISE_CLAIRE, BRUME, NUAGE],
+            lointain: ARDOISE_CLAIRE,
+            proche: ARDOISE_OMBRE,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: None,
+            gouttes: 24,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            soleil: false,
+            // Devant : des roseaux (tiges fines), pas des silhouettes hautes.
+            forme: Forme::Roseaux,
+            relief: 0,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 2,
+                briques_orangees: false,
+                briques_mouillees: false,
+            },
+            friable_nuage: false,
+            vertige: 1.0,
+            arc: false,
+            voyage: false,
+            details: [Some(Detail::EauRiviere), None, None, None],
+            vent: VENT_NUIT,
+        },
+        // Le port : quais et coques de bateaux, grues au premier plan, mouettes au
+        // loin ; l'eau sombre du port au pied, une écume claire au bord. Le ciel
+        // s'éclaircit encore : la nuit tire sur la brume.
+        Theme::Port => Ambiance {
+            ciel: [ARDOISE_NUIT, ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE],
+            lointain: ARDOISE_PALE,
+            proche: ARDOISE_OMBRE,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: None,
+            gouttes: 16,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            soleil: false,
+            // Les quais : des coques de bateaux amarrés au premier plan.
+            forme: Forme::Coques,
+            relief: 0,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            // Les quais ont leur jeu de tuiles (carte 9.6c) : la teinte ne touche
+            // plus que l'eau, gardée sombre et lisible comme au caniveau.
+            tuiles: TeinteTuiles {
+                eclaircissement: 1,
+                briques_orangees: false,
+                briques_mouillees: true,
+            },
+            friable_nuage: false,
+            vertige: 1.0,
+            arc: false,
+            voyage: false,
+            details: [
+                Some(Detail::EauPort),
+                Some(Detail::Grues),
+                Some(Detail::Mouettes),
+                Some(Detail::Phare),
+            ],
+            vent: VENT_NUIT,
+        },
+        // La marée (bonus) : le mur de blocs du port, l'eau sombre qui monte au
+        // bas de l'écran, un ciel d'aube qui s'empourpre vers l'horizon. Niveau
+        // vertical (`vertige`) : la course vers le haut, la poursuite de la carte
+        // 8.2 à la verticale.
+        Theme::Maree => Ambiance {
+            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, VIOLET_ORAGE, CORAIL_CLAIR],
+            lointain: ARDOISE,
+            proche: ARDOISE_NUIT,
+            pluie: (PLUIE_SOMBRE, PLUIE),
+            etoiles: None,
+            gouttes: 40,
+            descente: DESCENTE_IMMEUBLES,
+            plafond: None,
+            soleil: false,
+            forme: Forme::Roche,
+            relief: 18,
+            socle: true,
+            fenetres: None,
+            ilots: None,
+            tuiles: TeinteTuiles {
+                eclaircissement: 2,
+                briques_orangees: false,
+                briques_mouillees: false,
+            },
+            friable_nuage: false,
+            vertige: 2.5,
+            arc: false,
+            voyage: false,
+            details: [Some(Detail::EauMaree), None, None, None],
             vent: VENT_NUIT,
         },
     }
@@ -819,6 +1152,12 @@ pub fn hauteur_silhouette(a: &Ambiance, cellule: i32, graine: u32, relief: i32) 
         Forme::Nuages => 8 + h / 3 + relief,
         // Quatre étages égaux (arrondis vers le haut).
         Forme::Pics => 4 * ((h + relief + 3) / 4),
+        // Falaise ou mur de blocs : une masse de 24 à 58 px (Monde 2, carte 9.5).
+        Forme::Roche => 24 + (h % 35) + relief,
+        // Roseaux : des tiges fines de 24 à 47 px (Monde 2, carte 9.5).
+        Forme::Roseaux => 24 + (h % 24) + relief,
+        // Coques de bateaux : la coque (12 px) et le mât, de 30 à 40 px au total.
+        Forme::Coques => 30 + (h % 11) + relief,
     }
 }
 
@@ -1083,6 +1422,42 @@ fn dessiner_couche(
                     }
                 }
             }
+            Forme::Roche => {
+                // Falaise ou mur de blocs (Monde 2) : une masse en trois assises
+                // (le sommet plus étroit), coupée par des joints : le ciel passe
+                // à travers les coutures, sans couleur hors palette.
+                let s = h / 3;
+                let j1 = x + l / 3 + (hache(cellule * 7, graine) % 4) as i32;
+                let j2 = x + 2 * l / 3 + (hache(cellule * 7 + 1, graine) % 4) as i32;
+                rect(x, base - s, j1 - x, s, couleur);
+                rect(j1 + 2, base - s, j2 - j1 - 2, s, couleur);
+                rect(j2 + 2, base - s, x + l - j2 - 2, s, couleur);
+                let jm = x + 2 + (l - 4) / 2 + (hache(cellule * 7 + 2, graine) % 4) as i32;
+                rect(x + 2, base - 2 * s, jm - x - 2, s, couleur);
+                rect(jm + 2, base - 2 * s, x + l - 2 - jm - 2, s, couleur);
+                rect(x + 5, base - h, l - 10, s + 1, couleur);
+                rect(x + 8, base - h - 2, l - 16, 2, couleur);
+            }
+            Forme::Roseaux => {
+                // Roseaux (Monde 2) : trois tiges fines de hauteurs inégales,
+                // chacune coiffée d'une touffe (la graine les décale).
+                for k in 0..3 {
+                    let hx = x + 3 + k * 4 + (hache(cellule * 13 + k, graine) % 6) as i32;
+                    let th = 10 + ((hache(cellule * 17 + k, graine) % 3) as i32) * 5;
+                    rect(hx, y + h - th, 1, th, couleur);
+                    rect(hx - 1, y + h - th - 3, 3, 3, couleur);
+                }
+            }
+            Forme::Coques => {
+                // Coque de bateau amarré (Monde 2) : la coque au fond creusé,
+                // le mât nu qui porte la voile (la voile attendra les mécaniques).
+                let coque = 12;
+                rect(x, y + h - coque, l, coque, couleur);
+                rect(x + 2, y + h - 2, l - 4, 2, couleur);
+                rect(x + 4, y + h, l - 8, 2, couleur);
+                let mx = x + l / 2 + (hache(cellule, graine) % 5) as i32;
+                rect(mx, y - 2, 1, h - 2, couleur);
+            }
         }
     }
     // Socle : la couche lointaine descend jusqu'au bas de l'écran, sans trouée.
@@ -1092,7 +1467,9 @@ fn dessiner_couche(
 }
 
 /// Plafond de nuages d'orage : dômes renversés accrochés en haut de l'écran
-/// (trois étages de plus en plus étroits vers le bas).
+/// (trois étages de plus en plus étroits vers le bas), ou, dans la grotte
+/// (Monde 2, carte 9.5), des stalactites : des pointes vers le bas, de
+/// profondeurs inégales.
 fn dessiner_plafond(cam_x: i32, facteur: f32, graine: u32, p: &Plafond, couleur: Couleur) {
     let dec = decalage(cam_x, facteur);
     let premiere = dec.div_euclid(CELLULE_PLAFOND) - 1;
@@ -1100,9 +1477,22 @@ fn dessiner_plafond(cam_x: i32, facteur: f32, graine: u32, p: &Plafond, couleur:
     for cellule in premiere..=derniere {
         let (x, l, d) = nuage_plafond(cellule, graine, p.ampleur);
         let x = x - dec;
-        rect(x, 0, l, d / 2, couleur);
-        rect(x + l / 8, d / 2, l * 3 / 4, d / 4, couleur);
-        rect(x + l / 3, d / 2 + d / 4, l / 3, d - d / 2 - d / 4, couleur);
+        if p.stalactites {
+            // Deux stalactites par cellule : une pointe à la base large, amincie
+            // en trois gradins vers le bas.
+            for k in 0..2 {
+                let h = hache(cellule * 5 + k, graine);
+                let sx = x + k * l / 2 + (h % 10) as i32;
+                let sd = d + ((h >> 3) % 6) as i32;
+                rect(sx, 0, 4, sd - 3, couleur);
+                rect(sx + 1, sd - 3, 2, 2, couleur);
+                rect(sx + 2, sd - 1, 1, 1, couleur);
+            }
+        } else {
+            rect(x, 0, l, d / 2, couleur);
+            rect(x + l / 8, d / 2, l * 3 / 4, d / 4, couleur);
+            rect(x + l / 3, d / 2 + d / 4, l / 3, d - d / 2 - d / 4, couleur);
+        }
     }
 }
 
@@ -1145,6 +1535,193 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
     }
 }
 
+/// Motif de décor du Monde 2 (carte 9.5) : le dessin d'un motif (`Detail`) pour
+/// une ambiance, en trois groupes de parallaxe : les motifs du fond (mouettes,
+/// phare) restent fixés à l'écran (« à l'infini »), les motifs du milieu
+/// (chutes, brume, tuyaux, lueur) suivent la couche des îlots, les motifs du
+/// premier plan (eau, lampadaires, grues, cristaux) suivent la couche proche.
+/// Pur : ne dépend que de `cam_x`, `cam_y` et `pas`.
+fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
+    let (facteur, vert) = match d {
+        Detail::Mouettes => (0.0, 0),
+        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => {
+            (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige))
+        }
+        _ => (FACTEUR_PROCHE, enfoncement(cam_y, VERT_PROCHE * a.vertige)),
+    };
+    let dec = decalage(cam_x, facteur);
+    // Le « pied » du décor : le bas de l'écran, qui s'enfonce avec la parallaxe
+    // verticale du groupe (nulle en bas d'un niveau d'un écran).
+    let pied = H + vert;
+    match d {
+        // La rue du caniveau (carte 9.6b) : posée sur la ligne du sol (48 px
+        // au-dessus du bas de l'écran, juste sous le dessus des pavés).
+        Detail::Lampadaires => crate::decor_rue::dessiner_lampadaires(dec, pied - 48),
+        Detail::Facades => crate::decor_rue::dessiner_facades(dec, pied - 48),
+        Detail::Tuyaux => {
+            // Deux tuyaux qui traversent le tunnel (segments en parallaxe),
+            // leurs colliers, et une grille d'évacuation au fond. Carte 9.20b :
+            // tuyaux sombres (ardoise, plus d'arête claire), pour qu'aucun ne se
+            // lise comme une plate-forme.
+            for (y, gy) in [(H / 3, 21), (2 * H / 3, 29)] {
+                for seg in 0..3 {
+                    let x0 = (seg * 120 + gy - dec).rem_euclid(L);
+                    rect(x0, y, 80, 3, ARDOISE);
+                    rect(x0, y + 3, 80, 1, ARDOISE_OMBRE);
+                    rect(x0 + 20, y - 1, 4, 5, ARDOISE_NUIT);
+                    rect(x0 + 60, y - 1, 4, 5, ARDOISE_NUIT);
+                }
+            }
+            let gx = (200i32 - dec).rem_euclid(L);
+            rect(gx, H / 3 + 10, 14, 22, ARDOISE_NUIT);
+            for b in 0..4 {
+                rect(gx + 2 + b * 3, H / 3 + 12, 1, 18, ARDOISE_CLAIRE);
+            }
+        }
+        Detail::Lueur => {
+            // L'eau stagnante du fond des égouts : une bande sombre et sa
+            // lueur cyan, qui dérive lentement.
+            rect(0, H - 10, L, 10, PLUIE_SOMBRE);
+            for k in 0..4 {
+                let x = (k * 83 + pas as i32 / 6).rem_euclid(L);
+                rect(x, H - 8 + (k % 2) * 3, 6, 1, PLUIE);
+            }
+        }
+        Detail::Chutes => {
+            // Trois ruisselles qui tombent devant les falaises : le corps sombre,
+            // le courant clair, des éclats qui dévalent, la mousse au pied. Carte
+            // 9.20c : en ardoise, comme la grande chute du fond (`decor_cascade`) ;
+            // le cyan vif est aux chutes jouables `|`, seules à pousser Pépin.
+            for (i, cx) in [45i32, 150, 262].into_iter().enumerate() {
+                let x = (cx - dec).rem_euclid(L);
+                rect(x, 0, 5, H, ARDOISE);
+                rect(x + 1, 0, 2, H, ARDOISE_CLAIRE);
+                for k in 0..2 {
+                    let y = (pas as i32 * 3 / 2 + k * 60 + i as i32 * 30).rem_euclid(H);
+                    rect(x + 1 + k, y, 1, 8, ARDOISE_PALE);
+                }
+                rect(x - 2, H - 4, 9, 2, ARDOISE_PALE);
+            }
+        }
+        Detail::Brume => {
+            // Deux nappes de brume basse qui dérivent devant les falaises. En
+            // lentille (bouts effilés, cœur en traits clairs décalés) : un
+            // rectangle plein se lirait comme une plateforme (captures 95-*).
+            for (y0, gy) in [(H / 3, 51), (2 * H / 3, 61)] {
+                for seg in 0..3 {
+                    let x0 = (seg * 120 + gy - dec + pas as i32 / 8).rem_euclid(L);
+                    rect(x0 + 12, y0, 36, 2, BRUME);
+                    rect(x0, y0 + 2, 60, 4, BRUME);
+                    rect(x0 + 14, y0 + 6, 32, 2, BRUME);
+                    rect(x0 + 8, y0 + 3, 18, 1, NUAGE);
+                    rect(x0 + 30, y0 + 4, 22, 1, NUAGE);
+                }
+            }
+        }
+        Detail::Cristaux => {
+            // Des cristaux cyan au pied de la grotte : des pointes en trois
+            // gradins, un liseré clair sur l'arête.
+            for k in 0..5 {
+                let x = (k * 68 + 16 - dec).rem_euclid(L);
+                let h = 12 + (k * 7) % 10;
+                rect(x, pied - 4, 8, 4, PLUIE_SOMBRE);
+                rect(x + 1, pied - 4 - h / 2, 6, h / 2, PLUIE_SOMBRE);
+                rect(x + 3, pied - 4 - h, 2, h / 2, PLUIE_SOMBRE);
+                rect(x + 3, pied - 4 - h, 1, h, PLUIE);
+            }
+        }
+        Detail::EauRiviere => {
+            // L'eau du courant au pied de l'écran : une bande sombre, sa surface
+            // claire, des reflets en pointillés qui dérivent.
+            rect(0, pied - 16, L, 16, PLUIE_SOMBRE);
+            rect(0, pied - 16, L, 2, PLUIE);
+            for k in 0..4 {
+                let x = (k * 79 + pas as i32 / 5).rem_euclid(L);
+                rect(x, pied - 13 + (k % 3) * 3, 1, 6, BLANC_CASSE);
+            }
+        }
+        Detail::EauPort => {
+            // L'eau du port : une bande plus haute, l'écume claire qui bouge au
+            // bord.
+            rect(0, pied - 24, L, 24, PLUIE_SOMBRE);
+            rect(0, pied - 24, L, 2, PLUIE);
+            for k in 0..6 {
+                let x = (k * 57 + 30 + pas as i32 / 7).rem_euclid(L);
+                rect(x, pied - 21, 5, 1, BLANC_CASSE);
+            }
+        }
+        Detail::EauMaree => {
+            // La marée : une bande d'eau sombre plus épaisse encore, l'écume qui
+            // grimpe le long du mur (la course du bonus, carte 9.13).
+            rect(0, pied - 36, L, 36, PLUIE_SOMBRE);
+            rect(0, pied - 36, L, 2, PLUIE);
+            for k in 0..7 {
+                let x = (k * 49 + 12 + pas as i32 / 9).rem_euclid(L);
+                rect(x, pied - 33 + (k % 2), 4, 1, BLANC_CASSE);
+            }
+        }
+        Detail::Grues => {
+            // Deux grues de port au premier plan : un mât, une flèche, un treuil
+            // (des silhouettes claires sur la nuit : elles ne se lisent pas
+            // comme des plateformes, trop fines et trop hautes).
+            for (i, gx) in [58i32, 232].into_iter().enumerate() {
+                let x = (gx - dec).rem_euclid(L);
+                let haut = 34 + (i as i32) * 6;
+                rect(x, pied - haut, 2, haut, ARDOISE_OMBRE);
+                rect(x - 6, pied - haut, 18, 2, ARDOISE_OMBRE);
+                rect(x + 8, pied - haut + 2, 1, 8 + (i as i32) * 4, ARDOISE_OMBRE);
+            }
+        }
+        Detail::Mouettes => {
+            // Trois mouettes qui traversent le ciel du port : un V de trois
+            // pixels, qui dérivent lentement.
+            for k in 0..3u32 {
+                let x = (k as i32 * 97 + 20 - pas as i32 / 5).rem_euclid(L);
+                let y = 30 + (k as i32) * 22 + ((pas / 20 + k) % 4) as i32 - 2;
+                rect(x, y, 1, 1, BLANC_CASSE);
+                rect(x - 2, y - 1, 1, 1, NUAGE);
+                rect(x + 2, y - 1, 1, 1, NUAGE);
+            }
+        }
+        Detail::Phare => {
+            // Le phare au loin, fixé à l'écran comme les mouettes (« à
+            // l'infini ») : une tour blanche à trois anneaux corail, sa galerie et
+            // sa lanterne sombres. Le pied passe derrière les coques et l'eau
+            // (dessinées après). La lampe s'allume une seconde sur deux (60 pas)
+            // et lance deux traits de faisceau or pâle.
+            let (x, haut) = (L - 64, 98);
+            rect(x, haut + 8, 6, H - 20 - haut - 8, BLANC_CASSE);
+            for k in 0..3 {
+                rect(x, haut + 14 + k * 12, 6, 3, CORAIL);
+            }
+            rect(x - 1, haut + 6, 8, 2, ARDOISE_OMBRE);
+            rect(x + 1, haut, 4, 6, ARDOISE_OMBRE);
+            if (pas / 60).is_multiple_of(2) {
+                rect(x + 2, haut + 2, 2, 3, OR);
+                rect(x - 26, haut + 3, 24, 1, OR_PALE);
+                rect(x + 8, haut + 3, 24, 1, OR_PALE);
+            }
+        }
+    }
+}
+
+/// Dessine les motifs du Monde 2 rangés dans `a.details`, groupe par groupe :
+/// `groupe` 0 = derrière les couches de silhouettes (le plus lointain : mouettes,
+/// phare), `groupe` 1 = entre les deux couches (chutes, brume, tuyaux, lueur),
+/// `groupe` 2 = devant la couche proche (eau, lampadaires, grues, cristaux).
+fn dessiner_details(a: &Ambiance, groupe: u8, cam_x: i32, cam_y: i32, pas: u32) {
+    for d in a.details.iter().copied().flatten() {
+        let g = match d {
+            Detail::Mouettes | Detail::Phare => 0,
+            Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Facades => 1,
+            _ => 2,
+        };
+        if g == groupe {
+            dessiner_detail(d, a, cam_x, cam_y, pas);
+        }
+    }
+}
+
 /// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes).
 /// `cam_y` : ordonnée de la caméra vue par le fond (`camera_fond`).
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
@@ -1163,6 +1740,9 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
     if a.arc {
         dessiner_arc(cam_x);
     }
+    // Motifs du Monde 2 (carte 9.5) : le groupe 0 (mouettes, phare) est le plus
+    // lointain, derrière le plafond et les deux couches de silhouettes.
+    dessiner_details(&a, 0, cam_x, cam_y, pas);
     if let Some(p) = &a.plafond {
         dessiner_plafond(cam_x, FACTEUR_PLAFOND_LOIN, GRAINE_PLAFOND_LOIN, p, p.loin);
         dessiner_plafond(
@@ -1183,6 +1763,8 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
         Some((l, p)) => (Some(l), Some(p)),
         None => (None, None),
     };
+    // Motifs du Monde 2 (carte 9.5) : le groupe 1 (chutes, brume, tuyaux, lueur)
+    // se glisse entre les deux couches de silhouettes.
     dessiner_couche(
         &a,
         cam_x,
@@ -1193,6 +1775,8 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
         a.relief,
         fen_loin,
     );
+    dessiner_details(&a, 1, cam_x, cam_y, pas);
+    // Le groupe 2 (eau, lampadaires, grues, cristaux) est devant la couche proche.
     dessiner_couche(
         &a,
         cam_x,
@@ -1202,6 +1786,49 @@ pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
         GRAINE_PROCHE,
         0,
         fen_proche,
+    );
+    dessiner_details(&a, 2, cam_x, cam_y, pas);
+}
+
+/// La planche du Monde 2 (build de QA seulement, carte 9.5) : le plein écran
+/// dessine les 7 nouveaux fonds, un par un (la pluie et les motifs animés, le nom
+/// en haut de l'écran) pour les captures `docs/qa/95-*.png`. Un appui de la
+/// touche V fait défiler vers le fond suivant (voir `main`).
+#[cfg(feature = "debug_niveaux")]
+pub fn planche_fonds_qa(k: usize, pas: u32) {
+    use crate::texte::{self, Style};
+    const NOMS: [&str; 7] = [
+        "Le caniveau",
+        "Les égouts",
+        "La cascade",
+        "La grotte",
+        "La rivière",
+        "Le port",
+        "La marée",
+    ];
+    const THEMES: [Theme; 7] = [
+        Theme::Caniveau,
+        Theme::Egouts,
+        Theme::Cascade,
+        Theme::Grotte,
+        Theme::Riviere,
+        Theme::Port,
+        Theme::Maree,
+    ];
+    let t = THEMES[k.min(6)];
+    // Tous les fonds sont vus au PIED du niveau (caméra du fond à 0), même les
+    // verticaux : au sommet, l'eau, les cristaux et la couche proche s'enfoncent
+    // sous l'écran (le modèle du clocher, testé par
+    // `au_sommet_du_clocher_la_ville_s_est_enfoncee`) et la planche les cacherait.
+    let cam_y = 0;
+    // Un léger défilement horizontal pour que l'on voie la parallaxe vivre.
+    dessiner_fond(t, pas as i32 / 16, cam_y, pas);
+    dessiner_avant(t, pas, false);
+    texte::dessiner(
+        NOMS[k.min(6)],
+        8.0,
+        8.0,
+        Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE),
     );
 }
 
@@ -1222,17 +1849,31 @@ mod tests {
     #[test]
     fn teinte_des_tuiles_et_friables_par_theme() {
         let attendu = |t: Theme| match t {
-            Theme::Toits | Theme::Orage | Theme::Clocher | Theme::Descente => (0, false, false),
-            Theme::Gouttieres | Theme::Marche => (1, false, false),
-            Theme::Cyclone => (0, false, true),
-            Theme::Altitude | Theme::Mer | Theme::ArcEnCiel | Theme::Poursuite => (2, false, true),
-            Theme::Soleil => (3, true, true),
+            Theme::Toits | Theme::Orage | Theme::Clocher | Theme::Descente => {
+                (0, false, false, false)
+            }
+            Theme::Gouttieres | Theme::Marche => (1, false, false, false),
+            Theme::Cyclone => (0, false, false, true),
+            Theme::Altitude | Theme::Mer | Theme::ArcEnCiel | Theme::Poursuite => {
+                (2, false, false, true)
+            }
+            Theme::Soleil => (3, true, false, true),
+            // Monde 2 (carte 9.5) : briques mouillées (cyan sombre) aux égouts
+            // et au port ; les autres thèmes gardent leurs couleurs.
+            Theme::Caniveau => (1, false, true, false),
+            Theme::Egouts => (0, false, true, false),
+            Theme::Cascade => (2, false, false, false),
+            Theme::Grotte => (0, false, false, false),
+            Theme::Riviere => (2, false, false, false),
+            Theme::Port => (1, false, true, false),
+            Theme::Maree => (2, false, false, false),
         };
         for t in Theme::TOUS {
             let a = ambiance(t);
             let lu = (
                 a.tuiles.eclaircissement,
                 a.tuiles.briques_orangees,
+                a.tuiles.briques_mouillees,
                 a.friable_nuage,
             );
             assert_eq!(lu, attendu(t), "{t:?}");
@@ -1528,8 +2169,24 @@ mod tests {
         let loin = enfoncement(sommet, VERT_LOINTAINE * a.vertige);
         assert_eq!((proche, loin), (135, 68));
         assert!(proche < hauteur - H, "moins vite que les tuiles");
-        for t in Theme::TOUS.into_iter().filter(|&t| t != Theme::Clocher) {
+        // Les niveaux verticaux (le clocher, carte 5.9, et, dans le Monde 2,
+        // carte 9.5, la cascade où l'on descend, la grotte aux ascensions en
+        // bulles et la marée, course vers le haut) suivent le même modèle : leur fond
+        // s'enfonce davantage en montant. Les autres gardent `vertige` à 1.
+        for t in Theme::TOUS.into_iter().filter(|&t| {
+            !matches!(
+                t,
+                Theme::Clocher | Theme::Cascade | Theme::Grotte | Theme::Maree
+            )
+        }) {
             assert!(ambiance(t).vertige == 1.0, "{t:?}");
+        }
+        for t in [Theme::Cascade, Theme::Grotte, Theme::Maree] {
+            assert_eq!(
+                ambiance(t).vertige,
+                ambiance(Theme::Clocher).vertige,
+                "{t:?}"
+            );
         }
     }
 
@@ -1716,7 +2373,10 @@ mod tests {
     #[test]
     fn la_pluie_a_une_densite_par_niveau_et_se_voit() {
         let n: Vec<i32> = Theme::TOUS.iter().map(|t| ambiance(*t).gouttes).collect();
-        assert_eq!(n, [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            n,
+            [24, 48, 36, 60, 16, 32, 18, 0, 0, 0, 0, 0, 56, 8, 24, 0, 24, 16, 40]
+        );
         for t in Theme::TOUS {
             let a = ambiance(t);
             assert!(a.gouttes <= GOUTTES_MAX, "{t:?}");
@@ -1735,13 +2395,18 @@ mod tests {
     }
 
     /// I-21 : le plafond de nuages tient dans la bande du haut, sa couleur diffère
-    /// de celle-ci, et il n'existe qu'aux gouttières, à l'orage et dans l'œil du
-    /// cyclone (les nuages qui tournent autour de la trouée d'or).
+    /// de celle-ci, et il n'existe qu'aux gouttières, à l'orage, dans l'œil du
+    /// cyclone (les nuages qui tournent autour de la trouée d'or) et, dans le
+    /// Monde 2 (carte 9.5), aux égouts (l'arche du tunnel) et à la grotte
+    /// (des stalactites à la place des dômes).
     #[test]
     fn le_plafond_de_nuages_tient_dans_la_bande_du_haut() {
         for t in Theme::TOUS {
             let a = ambiance(t);
-            let attendu = matches!(t, Theme::Gouttieres | Theme::Orage | Theme::Cyclone);
+            let attendu = matches!(
+                t,
+                Theme::Gouttieres | Theme::Orage | Theme::Cyclone | Theme::Egouts | Theme::Grotte
+            );
             assert_eq!(a.plafond.is_some(), attendu, "{t:?}");
             if let Some(p) = a.plafond {
                 for c in [p.loin, p.proche] {

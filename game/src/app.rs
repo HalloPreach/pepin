@@ -23,6 +23,8 @@
 //! d'écran).
 
 use pepin_core::lettres;
+#[cfg(test)]
+use pepin_core::levels::NB_NIVEAUX_MONDE_1;
 use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
 use pepin_core::physics::HZ;
 use pepin_core::player::Entrees;
@@ -49,6 +51,7 @@ use crate::facile::{self as mode_facile, EtatFacile, Origine, Proposition, Repon
 use crate::hud;
 use crate::menu::{Choix, Menu};
 use crate::monde::Monde;
+use crate::mort;
 use crate::navigation::Navigation;
 use crate::particules::Particules;
 use crate::plan::{self, ActionPlan, EtatPlan};
@@ -58,7 +61,6 @@ use crate::secousse::Secousse;
 use crate::skins::Skin;
 use crate::sprites::Banque;
 use crate::transition::Transition;
-use pepin_core::entities::contacts::Contact;
 
 /// Ce qui doit se produire quand l'écran est entièrement couvert par la transition.
 #[derive(Debug, Clone)]
@@ -101,6 +103,8 @@ pub fn charger(indice: usize, garder: Option<EtatJeu>) -> (Monde, Camera) {
 /// Comme `charger`, en nouvelle partie + si `ng_plus` (carte 8.8).
 pub fn charger_mode(indice: usize, garder: Option<EtatJeu>, ng_plus: bool) -> (Monde, Camera) {
     let mut monde = Monde::charger(indice, ng_plus);
+    // La partie joue le temps de mort (carte 9.24), pas les simulations.
+    monde.temps_de_mort = true;
     if let Some(mut etat) = garder {
         // Un NOUVEAU niveau : nouveau départ, et sa vie des trois gouttes à prendre.
         etat.nouveau_niveau(monde.niveau.depart, monde.infos.genre);
@@ -320,6 +324,8 @@ impl Application {
             self.choix
                 .retain(|&c| c != Choix::Histoire && c != Choix::NouvellePartiePlus);
         }
+        // Pas de ligne MONDE 2 (carte 9.1b, AGA : « c'est juste la suite du jeu ») :
+        // JOUER reprend là où on en est (`monde_de_jouer`).
         // NOUVELLE PARTIE + désactivée pour l'instant (AGA), sauf pour le robot de QA.
         if !NOUVELLE_PARTIE_PLUS_OUVERTE && !self.ng_plus_qa {
             self.choix.retain(|&c| c != Choix::NouvellePartiePlus);
@@ -372,6 +378,18 @@ impl Application {
         self.cosmetiques = cosmetiques::Choix::depuis(&self.sauvegarde);
     }
 
+    /// Le monde que lance JOUER au titre (carte 9.1b, AGA : « c'est juste la suite du
+    /// jeu ») : le Monde 2 dès que sa porte est ouverte (« poursuite » fini, règle
+    /// `plan::monde_jouable`), le Monde 1 sinon, exactement comme avant. Tout fini,
+    /// JOUER relance donc le Monde 2. Aucune ligne de menu de plus.
+    fn monde_de_jouer(&self) -> u8 {
+        if plan::monde_jouable(NIVEAUX, &self.sauvegarde, 2) {
+            2
+        } else {
+            1
+        }
+    }
+
     /// Revient au titre, curseur sur la ligne `choix` (retour de l'aide, de la boutique).
     fn retour_titre_sur(&mut self, choix: Choix) {
         self.ouvrir(Ecran::Titre);
@@ -392,6 +410,14 @@ impl Application {
     pub fn debloquer_ng_plus_qa(&mut self) {
         self.sauvegarde.parties_finies = 1;
         self.ng_plus_qa = true;
+        self.ouvrir(Ecran::Titre);
+    }
+
+    /// Robot de QA (carte 9.6) : la sauvegarde `texte` remplace celle du jeu et le
+    /// titre est rouvert (JOUER y lance le Monde 2 si « poursuite » y est fini).
+    #[cfg(test)]
+    pub fn charger_sauvegarde_qa(&mut self, texte: &str) {
+        self.sauvegarde = Sauvegarde::depuis_texte(texte);
         self.ouvrir(Ecran::Titre);
     }
 
@@ -671,15 +697,24 @@ impl Application {
             // REJOUER garde le mode de la partie finie ; JOUER : une partie normale ;
             // NOUVELLE PARTIE + : la même, variantes et pluie forte (carte 8.8), sans
             // les images de l'histoire (déjà vues).
+            // JOUER reprend LÀ OÙ ON EN EST (carte 9.1b, `monde_de_jouer`) : le Monde 1
+            // tant que sa porte est fermée, puis le Monde 2 (sans variante ni image de
+            // l'histoire du Monde 1) ; REJOUER garde le monde de la partie finie.
             Choix::Jouer | Choix::Rejouer | Choix::NouvellePartiePlus => {
-                self.partie_racontee = choix == Choix::Jouer;
+                let monde = match choix {
+                    Choix::Jouer => self.monde_de_jouer(),
+                    Choix::Rejouer => self.monde.infos.monde,
+                    _ => 1,
+                };
+                // Les images de l'histoire racontent le Monde 1 : seulement là.
+                self.partie_racontee = choix == Choix::Jouer && monde == 1;
                 match choix {
                     Choix::Jouer => self.ng_plus = false,
                     Choix::NouvellePartiePlus => self.ng_plus = true,
                     _ => {}
                 }
                 self.lancer(Suite::Niveau {
-                    indice: 0,
+                    indice: levels::debut_monde(NIVEAUX, monde).unwrap_or(0),
                     etat: None,
                 });
             }
@@ -800,15 +835,16 @@ impl Application {
         if self.monde.etat.vies.restantes() > vies_avant {
             self.eclat_vie = hud::DUREE_ECLAT_VIE;
         }
-        if self
-            .monde
-            .contacts
-            .iter()
-            .any(|c| matches!(c, Contact::Mort(_)))
-        {
+        // Temps de mort (carte 9.24) : la caméra reste sur l'endroit de la mort (elle
+        // ne suit pas une chute dans le vide), puis saute à la lanterne quand le rideau
+        // est fermé.
+        if self.monde.reapparition > mort::RIDEAU_FERME {
+            self.camera.figer();
+        } else if self.monde.reapparition == mort::RIDEAU_FERME {
             self.camera.recentrer(&self.monde.joueur, largeur, hauteur);
+        } else {
+            self.camera.suivre(&self.monde.joueur, largeur, hauteur);
         }
-        self.camera.suivre(&self.monde.joueur, largeur, hauteur);
         if let Some(mur) = self.monde.mur.filter(|m| !m.vaincu()) {
             self.camera.defiler_avec_le_mur(mur.front(), largeur);
         }
@@ -826,8 +862,9 @@ impl Application {
         self.tentative.morts = self.monde.etat.morts - self.morts_debut_tentative;
         self.compter_defaite_au_boss();
         // La dernière vie perdue : l'écran « plus de vies », puis le niveau recommence
-        // (avant tout, même si ce pas-là finissait aussi le niveau).
-        if self.monde.etat.vies.plus_de_vies() {
+        // (avant tout, même si ce pas-là finissait aussi le niveau). Après l'animation
+        // de la mort (carte 9.24), le rideau fermé.
+        if self.monde.etat.vies.plus_de_vies() && self.monde.reapparition <= mort::RIDEAU_FERME {
             self.game_over_partie = true;
             self.ouvrir(Ecran::PlusDeVies(plus_de_vies::DUREE_PAS));
             return;
@@ -1046,6 +1083,8 @@ impl Application {
                 self.ouvrir(Ecran::Titre)
             }
             Suite::Fin => {
+                // Le monde de la partie (carte 9.1) : celui de son dernier niveau.
+                let monde = self.monde.infos.monde;
                 let e = &self.monde.etat;
                 self.bilan = Bilan {
                     pas: self.pas_partie,
@@ -1056,11 +1095,18 @@ impl Application {
                     score: e.score,
                     gouttes_bonus: self.gouttes_bonus,
                     epilogue: self.monde.infos.genre == GenreNiveau::Epilogue,
-                    lettres: Some(self.sauvegarde.lettres()),
+                    // Les lettres cachées sont celles du Monde 1 (carte 8.6).
+                    lettres: (monde == 1).then(|| self.sauvegarde.lettres()),
+                    monde,
                 };
                 // Un boss vaincu en facile (carte 8.14) : partie finie, mais pas de record ;
                 // une nouvelle partie + (carte 8.8) a ses records à part.
-                self.nouveau_record = if self.ng_plus {
+                // Une partie du Monde 2 (carte 9.1) a ses records à part : `partie.monde2`.
+                self.nouveau_record = if monde > 1 {
+                    self.sauvegarde
+                        .partie_monde2
+                        .noter_partie(e.score, self.pas_partie)
+                } else if self.ng_plus {
                     self.sauvegarde
                         .ng_plus
                         .noter_partie(e.score, self.pas_partie)
@@ -1074,8 +1120,10 @@ impl Application {
                 };
                 // Bonus de fin de partie (carte 7.3) : chaque ligne n'est créditée que
                 // la première fois qu'elle est gagnée (carte 7.9).
-                let toutes = self.bilan.gouttes >= levels::gouttes_du_parcours(NIVEAUX);
-                self.bonus_fin = defis::bonus_fin(!self.game_over_partie, toutes);
+                let parcours =
+                    levels::gouttes_du_parcours(levels::niveaux_du_monde(NIVEAUX, monde));
+                let toutes = self.bilan.gouttes >= parcours;
+                self.bonus_fin = defis::bonus_fin_du_monde(monde, !self.game_over_partie, toutes);
                 defis::crediter_bonus_fin(&mut self.sauvegarde, &mut self.bonus_fin);
                 self.sauvegarde.enregistrer();
                 // Les cinq lettres réunies (carte 8.6) : la 4e image, puis la fin secrète.
@@ -1164,11 +1212,9 @@ impl Application {
     /// « plus de vies », ni si NON a déjà été répondu dans ce niveau). La démo du
     /// titre ne passe pas par ici (`pas_demo`), et une course ne compte pas.
     fn compter_defaite_au_boss(&mut self) {
-        let mort = self
-            .monde
-            .contacts
-            .iter()
-            .any(|c| matches!(c, Contact::Mort(_)));
+        // Une fois l'animation de la mort jouée, le rideau fermé (carte 9.24) : la
+        // bannière ne la cache pas.
+        let mort = self.monde.reapparition == mort::RIDEAU_FERME;
         // Une course contre le robot (carte 8.7) ne compte pas : on y rejoue pour le chrono.
         if !mort || self.facile.actif || self.fantome.is_some() || self.monde.pv_nuage().is_none() {
             return;
@@ -1290,6 +1336,7 @@ impl Application {
                 if self.ecran == Ecran::Jeu {
                     // Niveau joué seul (carte 7.4) : les gouttes de CE niveau, sur 3.
                     let compteur = hud::compteur(
+                        self.monde.infos.monde,
                         self.niveau_seul || self.monde.infos.genre == GenreNiveau::Bonus,
                         self.monde.etat.gouttes,
                         self.gouttes_bonus,
@@ -1313,6 +1360,7 @@ impl Application {
                         cible,
                         self.monde.points_nuage(),
                         self.monde.ng_plus,
+                        self.monde.boss_pieuvre(),
                     );
                     // Course (carte 8.7) : l'état du fantôme sous le chrono.
                     if let Some(f) = &self.fantome {
@@ -1383,6 +1431,7 @@ impl Application {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pepin_core::entities::contacts::Contact;
     use pepin_core::entities::Entite;
     use pepin_core::state::POINTS_GOUTTE;
     use pepin_core::vies::{VIES_DEPART, VIES_MAX};
@@ -1436,6 +1485,38 @@ mod tests {
         app.reagir(&valider(), &Commandes::default(), None);
         assert_eq!(app.ecran, Ecran::Jeu);
         app
+    }
+
+    /// Carte 9.1b (AGA : « c'est juste la suite du jeu ») : jamais de ligne MONDE 2 au
+    /// titre ; JOUER reprend là où on en est : le Monde 1 tant que `poursuite` n'est
+    /// pas fini, le Monde 2 ensuite (aussi quand tout est fini).
+    #[test]
+    fn jouer_reprend_la_ou_on_en_est() {
+        let mut app = Application::new(true);
+        app.sauvegarde =
+            Sauvegarde::depuis_texte("version=3\nparties_finies=1\nniveau.poursuite=medaille:1");
+        app.ouvrir(Ecran::Titre);
+        let mut attendu = vec![
+            Choix::Jouer,
+            Choix::NouvellePartiePlus,
+            Choix::Carte,
+            Choix::Boutique,
+            Choix::Histoire,
+            Choix::Aide,
+        ];
+        // NOUVELLE PARTIE + désactivée pour l'instant (AGA) : absente du titre.
+        if !NOUVELLE_PARTIE_PLUS_OUVERTE {
+            attendu.retain(|&c| c != Choix::NouvellePartiePlus);
+        }
+        assert_eq!(app.choix, attendu);
+        // Porte ouverte : JOUER (1re ligne) lance la 1re étape du Monde 2.
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        assert_eq!(app.monde.infos.monde, 2);
+        assert_eq!(Some(app.monde.indice), levels::debut_monde(NIVEAUX, 2));
+        // Porte fermée (`poursuite` pas fini) : JOUER lance le Monde 1, comme avant.
+        app.sauvegarde = Sauvegarde::depuis_texte("version=3\nparties_finies=1");
+        assert_eq!(app.monde_de_jouer(), 1);
     }
 
     #[test]
@@ -1664,10 +1745,12 @@ mod tests {
         assert_eq!(app.monde.etat.gouttes, 4);
     }
 
+    /// Le dernier niveau DU MONDE 1 (l'épilogue ; carte 9.6 : la table continue avec
+    /// le Monde 2) mène à l'écran de fin, avec le bilan de la partie.
     #[test]
     fn finir_le_dernier_niveau_ouvre_l_ecran_de_fin_avec_le_bilan() {
         let mut app = en_jeu();
-        let (monde, camera) = charger(NB_NIVEAUX - 1, None);
+        let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
         app.monde = monde;
         app.camera = camera;
         app.monde.etat.gouttes = 9;
@@ -1689,6 +1772,7 @@ mod tests {
                 gouttes_bonus: None,
                 epilogue: true,
                 lettres: Some([false; 5]),
+                monde: 1,
             }
         );
         assert_eq!(app.choix, vec![Choix::Rejouer, Choix::RetourTitre]);
@@ -2205,7 +2289,7 @@ mod tests {
     #[test]
     fn focus_perdu_en_allant_vers_la_fin_aucune_pause_plus_tard() {
         let mut app = en_jeu();
-        let (monde, camera) = charger(NB_NIVEAUX - 1, None);
+        let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
         app.monde = monde;
         app.camera = camera;
         app.monde.termine = true;
@@ -2244,11 +2328,16 @@ mod tests {
 
     /// Fait tomber Pépin dans le vide : une mort au pas suivant (le vide tue même
     /// pendant la protection de réapparition).
+    /// Fait tomber Pépin dans le vide, puis attend la fin du temps de mort (carte
+    /// 9.24) ou l'écran « plus de vies ».
     fn tomber(app: &mut Application) {
         let bas = app.monde.niveau.hauteur_px();
         let x = app.monde.joueur.boite.x;
         app.monde.joueur.placer(x, bas + 100.0);
         avancer(app, 1);
+        while app.ecran == Ecran::Jeu && app.monde.reapparition > 0 {
+            avancer(app, 1);
+        }
     }
 
     /// Pose Pépin sur chacune des gouttes d'or du niveau, une par pas.
@@ -2562,7 +2651,7 @@ mod tests {
     fn le_bilan_garde_les_vies_restantes() {
         let mut app = en_jeu();
         let etat = app.monde.etat.clone();
-        aller_au_niveau(&mut app, NB_NIVEAUX - 1, etat);
+        aller_au_niveau(&mut app, NB_NIVEAUX_MONDE_1 - 1, etat);
         tomber(&mut app);
         app.monde.termine = true;
         avancer(&mut app, 1);
@@ -2624,7 +2713,9 @@ mod tests {
     /// ne bougent pas en les passant.
     #[test]
     fn une_partie_montre_les_trois_images_une_fois_chacune() {
-        for gouttes in [0, levels::gouttes_pour_le_bonus(NIVEAUX)] {
+        // Toutes les gouttes du MONDE 1 (carte 9.6 : pas celles de toute la table).
+        let toutes = levels::gouttes_pour_le_bonus(levels::NIVEAUX_MONDE_1);
+        for gouttes in [0, toutes] {
             let mut app = Application::new(true);
             app.reagir(&valider(), &Commandes::default(), None);
             let mut vues = Vec::new();
@@ -2661,7 +2752,7 @@ mod tests {
                 vec![
                     (Chapitre::Depart, 0),
                     (Chapitre::Lueur, indice_de_la_suite_du_boss),
-                    (Chapitre::Soleil, NB_NIVEAUX - 1),
+                    (Chapitre::Soleil, NB_NIVEAUX_MONDE_1 - 1),
                 ],
                 "gouttes : {gouttes}"
             );
@@ -2679,7 +2770,7 @@ mod tests {
         app.reagir(&valider(), &Commandes::default(), None);
         assert_eq!(image_suivante(&mut app), None, "REJOUER");
         let mut app = en_jeu();
-        let descente = NB_NIVEAUX - 1;
+        let descente = NB_NIVEAUX_MONDE_1 - 1;
         app.reagir(
             &rien(),
             &Commandes::default(),

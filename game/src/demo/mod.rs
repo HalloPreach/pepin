@@ -68,6 +68,7 @@ pub fn entrees(code: u8) -> Entrees {
             _ => Direction::Immobile,
         },
         saut: code & 8 != 0,
+        bas: false,
     }
 }
 

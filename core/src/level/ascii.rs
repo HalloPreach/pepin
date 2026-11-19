@@ -9,18 +9,20 @@
 use std::collections::BTreeMap;
 
 use super::{
-    ErreurNiveau, GenreDecor, GenrePanneau, Niveau, ObjetDecor, Panneau, ReglageAiguille, Tuile,
-    GOUTTES_PAR_NIVEAU,
+    ErreurNiveau, GenreDecor, GenreMobilier, GenrePanneau, Mobilier, Niveau, ObjetDecor, Panneau,
+    ReglageAiguille, Tuile, GOUTTES_PAR_NIVEAU,
 };
 use crate::aabb::{touche_un_obstacle, Aabb, TAILLE_TUILE};
+use crate::entities::ennemi::SOUS_L_EAU_PAS;
 use crate::entities::montgolfiere::HAUT_BALLON;
 use crate::entities::nuage::{NB_COLONNES, PORTEE_COLONNES, TAILLE_NUAGE};
+use crate::entities::pieuvre::{self, MARGE_TENTACULE, PLACES_TETE, TAILLE_TETE};
 use crate::entities::{
-    Actualisable, Auvent, Champignon, Eclair, Ennemi, Entite, Escargot, GoutteDor, GrandNuage,
-    Grele, Lanterne, Lettre, Montgolfiere, PlateformeFriable, PlateformeMobile, Pointe, TypeEnnemi,
-    Ventilateur,
+    Actualisable, Auvent, Bulles, Champignon, Chute, Eclair, Ennemi, Entite, Escargot, GoutteDor,
+    GrandNuage, Grele, Lanterne, Lettre, Maree, Montgolfiere, Nenuphar, Pieuvre, PlateformeFriable,
+    PlateformeMobile, Pointe, Stalactite, TypeEnnemi, Ventilateur,
 };
-use crate::physics::{CourantAscendant, Environnement, VentLateral, JOUEUR_H};
+use crate::physics::{CourantAscendant, Eau, Environnement, VentLateral, JOUEUR_H};
 
 /// Vitesse (px/s) des plateformes mobiles.
 pub(super) const VITESSE_MOBILE: f32 = 36.0;
@@ -81,9 +83,19 @@ pub(super) fn analyser(
     let mut vent = vec![false; largeur * hauteur];
     // Vents latéraux : `<` pousse vers la gauche (-1), `>` vers la droite (+1).
     let mut vents: Vec<(Case, i8)> = Vec::new();
+    // Eau (carte 9.2) : `~` eau calme (courant 0), `{` courant vers la gauche
+    // (-1), `}` vers la droite (+1). L'eau n'est PAS une tuile solide : elle ne
+    // sert qu'au dessin et à la mécanique de la barque (zones dans `Niveau::eaux`).
+    let mut eaux_cases: Vec<(Case, i8)> = Vec::new();
+    // Mobilier de rue (carte 9.20f) : ses cases, regroupées en objets à la fin.
+    let mut mobilier_cases: Vec<(Case, GenreMobilier)> = Vec::new();
     let mut mobiles: BTreeMap<char, Vec<Case>> = BTreeMap::new();
     // Pigeons : il faut la grille entière pour trouver leur perchoir.
     let mut pigeons: Vec<Case> = Vec::new();
+    // Ennemis d'eau à placer d'après la grille (carte 9.4) : mouettes (perchées
+    // comme les pigeons), poissons (sur l'eau du dessous).
+    let mut mouettes: Vec<Case> = Vec::new();
+    let mut poissons: Vec<Case> = Vec::new();
     // Ventilateurs : il faut la grille entière (appui en dessous, plafond au-dessus).
     let mut ventilateurs: Vec<Case> = Vec::new();
     // Montgolfières : il faut la grille entière (place du ballon, plafond au-dessus).
@@ -96,6 +108,8 @@ pub(super) fn analyser(
     // Grand Nuage (au plus un) : il faut la grille entière (sa place, ses colonnes
     // d'éclairs jusqu'au sol, ses courants).
     let mut nuages: Vec<Case> = Vec::new();
+    // Pieuvre du port (carte 9.12a, au plus un boss en tout) : son bassin entier.
+    let mut pieuvres: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
     let mut lettres = 0usize;
     // Secrets (carte 8.5) : faux murs `m` et sortie secrète `x`.
@@ -103,6 +117,14 @@ pub(super) fn analyser(
     let mut sorties_secretes: Vec<Case> = Vec::new();
     // Mur de pluie (au plus un, carte 8.2) : cases `P`.
     let mut murs: Vec<Case> = Vec::new();
+    // Mécaniques d'eau (carte 9.3) : il faut la grille entière (l'eau sous un
+    // nénuphar, le plafond d'une stalactite, l'appui d'une marée...). Bulles
+    // `Y`, chutes d'eau `|` et marées `=` forment des rectangles, comme le vent.
+    let mut bulles = vec![false; largeur * hauteur];
+    let mut chutes = vec![false; largeur * hauteur];
+    let mut marees = vec![false; largeur * hauteur];
+    let mut nenuphars: Vec<Case> = Vec::new();
+    let mut stalactites: Vec<Case> = Vec::new();
 
     for (ty, ligne) in lignes.iter().enumerate() {
         for (tx, c) in ligne.chars().enumerate() {
@@ -149,6 +171,14 @@ pub(super) fn analyser(
                     y + 3.0,
                 ))),
                 'p' => pigeons.push(case),
+                // Ennemis d'eau (carte 9.4) : grenouille et crabe tombent sur ce
+                // qui est dessous (la grenouille se pose aussi sur l'eau), le rat
+                // de même ; la mouette et le poisson se placent après la lecture.
+                'j' => entites.push(Entite::Ennemi(Ennemi::grenouille(x, y))),
+                'k' => entites.push(Entite::Ennemi(Ennemi::crabe(x, y))),
+                'r' => entites.push(Entite::Ennemi(Ennemi::rat(x, y))),
+                'u' => mouettes.push(case),
+                'i' => poissons.push(case),
                 'F' => entites.push(Entite::Friable(PlateformeFriable::new(Aabb::new(
                     x, y, 16.0, 8.0,
                 )))),
@@ -163,16 +193,55 @@ pub(super) fn analyser(
                 'h' => pivots.push(case),
                 'O' => nuages.push(case),
                 'P' => murs.push(case),
+                'Y' => bulles[ty * largeur + tx] = true,
+                '|' => chutes[ty * largeur + tx] = true,
+                '=' => marees[ty * largeur + tx] = true,
+                'n' => nenuphars.push(case),
+                'V' => stalactites.push(case),
+                // Eau (carte 9.2) : `~` calme, `{` courant vers la gauche, `}`
+                // vers la droite. La tuile n'est PAS solide : le moteur de
+                // collision ne la voit pas, seule la surface compte (le haut de
+                // l'étendue, assemblée dans `Niveau::eaux`).
+                '~' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, 0));
+                }
+                '{' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, -1));
+                }
+                '}' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, 1));
+                }
+                // La Pieuvre (carte 9.12a) : sa case est de l'eau calme, elle vit
+                // dessous. Avant `'1'..='9'` : le chiffre 8 n'est plus une
+                // plateforme mobile (aucun niveau ne s'en servait).
+                '8' => {
+                    tuiles[ty * largeur + tx] = Tuile::Eau;
+                    eaux_cases.push((case, 0));
+                    pieuvres.push(case);
+                }
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
                 'C' => panneau(GenrePanneau::Champignon),
                 'W' => panneau(GenrePanneau::Vent),
+                'Z' => panneau(GenrePanneau::Barque),
                 '1'..='9' => mobiles.entry(c).or_default().push(case),
-                // Le reste : une lettre de décor, ou un caractère hors légende.
-                _ => match GenreDecor::depuis_lettre(c) {
-                    Some(genre) => decors.push((case, genre)),
-                    None => {
+                // Le reste : une lettre de décor ou de mobilier de rue, ou un
+                // caractère hors légende. Le mobilier (carte 9.20f) est un toit
+                // pour la collision ; ses objets sont assemblés plus bas.
+                _ => match (
+                    GenreDecor::depuis_lettre(c),
+                    GenreMobilier::depuis_lettre(c),
+                ) {
+                    (Some(genre), _) => decors.push((case, genre)),
+                    (None, Some(genre)) => {
+                        tuiles[ty * largeur + tx] = Tuile::Toit;
+                        mobilier_cases.push((case, genre));
+                    }
+                    (None, None) => {
                         return Err(ErreurNiveau::CaractereInconnu {
                             ligne: ty + 1,
                             colonne: tx + 1,
@@ -201,10 +270,19 @@ pub(super) fn analyser(
             nombre: nuages.len(),
         });
     }
-    let arrivee_case = match (arrivees.as_slice(), nuages.is_empty()) {
+    if !pieuvres.is_empty() && nuages.len() + pieuvres.len() > 1 {
+        return Err(ErreurNiveau::BossMultiple {
+            nombre: nuages.len() + pieuvres.len(),
+        });
+    }
+    let arrivee_case = match (
+        arrivees.as_slice(),
+        nuages.is_empty() && pieuvres.is_empty(),
+    ) {
         ([], true) => return Err(ErreurNiveau::ArriveeManquante),
         ([], false) => None,
         ([a], true) => Some(*a),
+        ([_], false) if nuages.is_empty() => return Err(ErreurNiveau::ArriveeEtPieuvre),
         ([_], false) => return Err(ErreurNiveau::ArriveeEtNuage),
         (autres, _) => {
             return Err(ErreurNiveau::ArriveeMultiple {
@@ -252,6 +330,15 @@ pub(super) fn analyser(
         let zone = Aabb::new(tx as f32 * TAILLE_TUILE + 2.0, haut, 12.0, bas - haut);
         entites.push(Entite::Grele(Grele::new(zone)));
     }
+    // Mécaniques d'eau (carte 9.3) : voir `poser_mecaniques_d_eau`.
+    poser_mecaniques_d_eau(
+        &tuiles,
+        largeur,
+        hauteur,
+        (&bulles, &chutes, &marees),
+        (&nenuphars, &stalactites),
+        &mut entites,
+    )?;
     // Plateformes mobiles : un chiffre = deux extrémités (ordre de lecture).
     for (marque, cases) in &mobiles {
         let [a, b] = cases.as_slice() else {
@@ -290,6 +377,39 @@ pub(super) fn analyser(
             y + 6.0,
             gauche && !droite,
         )));
+    }
+
+    // Mouettes (carte 9.4) : perchées et tournées comme les pigeons ; poissons :
+    // la case `i` est la case d'air juste au-dessus de la surface, l'eau est
+    // dessous (obligatoire). Deux poissons voisins ne sautent pas ensemble.
+    for (tx, ty) in mouettes {
+        if ty + 1 >= hauteur || !solide(tx, ty + 1) {
+            return Err(ErreurNiveau::EnnemiDEauMalPlace {
+                ligne: ty + 1,
+                colonne: tx + 1,
+                caractere: 'u',
+            });
+        }
+        let gauche = tx > 0 && solide(tx - 1, ty + 1);
+        let droite = tx + 1 < largeur && solide(tx + 1, ty + 1);
+        let (x, y) = px((tx, ty));
+        entites.push(Entite::Ennemi(Ennemi::mouette(
+            x + 2.0,
+            y + 6.0,
+            gauche && !droite,
+        )));
+    }
+    for (k, &(tx, ty)) in poissons.iter().enumerate() {
+        if ty + 1 >= hauteur || tuiles[(ty + 1) * largeur + tx] != Tuile::Eau {
+            return Err(ErreurNiveau::EnnemiDEauMalPlace {
+                ligne: ty + 1,
+                colonne: tx + 1,
+                caractere: 'i',
+            });
+        }
+        let (x, y) = px((tx, ty + 1));
+        let decalage = (40 * k as u16) % SOUS_L_EAU_PAS;
+        entites.push(Entite::Ennemi(Ennemi::poisson(x, y, decalage)));
     }
 
     // Ventilateurs : hélice posée sur le solide du dessous (le socle repose
@@ -369,6 +489,11 @@ pub(super) fn analyser(
         let nuage = poser_nuage(&tuiles, largeur, hauteur, case)?;
         entites.push(Entite::Nuage(Box::new(nuage)));
     }
+    // Pieuvre du port : voir `poser_pieuvre`.
+    for &case in &pieuvres {
+        let p = poser_pieuvre(&tuiles, largeur, case)?;
+        entites.push(Entite::Pieuvre(Box::new(p)));
+    }
 
     // Vents latéraux : les cases `<` et `>` forment des rectangles de même
     // sens (deux zones voisines de sens opposés restent distinctes).
@@ -398,6 +523,38 @@ pub(super) fn analyser(
     }
 
     let courants = fusionner_courants(&vent, largeur, hauteur);
+
+    // Eau (carte 9.2) : les cases d'un même courant forment des rectangles
+    // (comme les vents latéraux, par sens). La surface de l'eau, c'est le HAUT
+    // du rectangle : `physics::eau_touchee` cherche le rectangle que Pépin
+    // chevauche en abscisse ET en hauteur, du plus haut au plus bas (c'est pour
+    // cela que l'ordre du vecteur est par surface croissante).
+    let grille_eau = |courant: i8| {
+        let mut grille = vec![false; largeur * hauteur];
+        for ((tx, ty), c) in &eaux_cases {
+            if *c == courant {
+                grille[*ty * largeur + *tx] = true;
+            }
+        }
+        grille
+    };
+    let mut eaux: Vec<Eau> = Vec::new();
+    for sens in [0i8, -1, 1] {
+        for (g, d, h, b) in fusionner_zones(&grille_eau(sens), largeur, hauteur) {
+            eaux.push(Eau {
+                zone: Aabb::new(
+                    g as f32 * TAILLE_TUILE,
+                    h as f32 * TAILLE_TUILE,
+                    (d - g + 1) as f32 * TAILLE_TUILE,
+                    (b - h + 1) as f32 * TAILLE_TUILE,
+                ),
+                courant: sens,
+            });
+        }
+    }
+    // Du plus haut au plus bas : si une boîte touche deux étendues empilées,
+    // `eau_touchee` retient la plus haute.
+    eaux.sort_by(|a, b| a.surface().total_cmp(&b.surface()));
     // Décor : posé sur la tuile du dessous, qui doit être solide (la dernière
     // ligne n'a pas de dessous : le décor y serait au-dessus du vide).
     let mut objets_decor = Vec::with_capacity(decors.len());
@@ -432,8 +589,10 @@ pub(super) fn analyser(
         entites,
         courants,
         vents: vents_laterales,
+        eaux,
         panneaux,
         decors: objets_decor,
+        mobilier: assembler_mobilier(&mobilier_cases),
         caches,
         // Même boîte que le drapeau `X`.
         sortie_secrete: sorties_secretes.first().map(|&case| {
@@ -454,6 +613,117 @@ pub(super) fn analyser(
     // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).
     ajouter_aiguilles(&mut niveau, &pivots, reglages_aiguilles)?;
     Ok(niveau)
+}
+
+/// Mobilier de rue (carte 9.20f) : chaque groupe de cases voisines (par un côté)
+/// de la même lettre est UN objet, décrit par le rectangle qui l'entoure. Un
+/// parcours depuis chaque case pas encore vue, dans l'ordre de la lecture : les
+/// objets sortent de haut en bas, puis de gauche à droite.
+fn assembler_mobilier(cases: &[(Case, GenreMobilier)]) -> Vec<Mobilier> {
+    let genre_de = |c: Case| cases.iter().find(|(k, _)| *k == c).map(|&(_, g)| g);
+    let mut vues: Vec<Case> = Vec::new();
+    let mut objets = Vec::new();
+    for &(depart, genre) in cases {
+        if vues.contains(&depart) {
+            continue;
+        }
+        let mut file = vec![depart];
+        vues.push(depart);
+        let (mut x0, mut y0, mut x1, mut y1) = (depart.0, depart.1, depart.0, depart.1);
+        while let Some((x, y)) = file.pop() {
+            (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
+            // `wrapping_sub` : à la colonne 0, la voisine de gauche n'existe pas
+            // (un très grand nombre, qui n'est la case d'aucun mobilier).
+            let voisines = [
+                (x.wrapping_sub(1), y),
+                (x + 1, y),
+                (x, y.wrapping_sub(1)),
+                (x, y + 1),
+            ];
+            for v in voisines {
+                if !vues.contains(&v) && genre_de(v) == Some(genre) {
+                    vues.push(v);
+                    file.push(v);
+                }
+            }
+        }
+        objets.push(Mobilier {
+            genre,
+            tx: x0 as i32,
+            ty: y0 as i32,
+            l: (x1 - x0 + 1) as i32,
+            h: (y1 - y0 + 1) as i32,
+        });
+    }
+    objets
+}
+
+/// Les mécaniques d'eau de la carte 9.3, ajoutées aux entités :
+/// - colonnes de bulles `Y` (rectangles), PROLONGÉES vers le bas à travers
+///   l'eau qui est juste dessous : les bulles partent du fond du bassin ;
+/// - chutes d'eau `|` (rectangles, tels quels) ;
+/// - marées `=` (rectangles) : la rangée sous chacune est solide ou de l'eau
+///   (le bas de la carte compte comme un appui manquant) ;
+/// - nénuphars `n` : la case du dessous est de l'eau ;
+/// - stalactites `V` : la case du dessus est solide ; elles tombent jusqu'au
+///   premier solide ou à la première eau en dessous (le bas de la carte sinon).
+fn poser_mecaniques_d_eau(
+    tuiles: &[Tuile],
+    largeur: usize,
+    hauteur: usize,
+    (bulles, chutes, marees): (&[bool], &[bool], &[bool]),
+    (nenuphars, stalactites): (&[Case], &[Case]),
+    entites: &mut Vec<Entite>,
+) -> Result<(), ErreurNiveau> {
+    let t = TAILLE_TUILE;
+    let tuile = |x: usize, y: usize| tuiles[y * largeur + x];
+    let rect = |g: usize, d: usize, h: usize, b: usize| {
+        Aabb::new(
+            g as f32 * t,
+            h as f32 * t,
+            (d - g + 1) as f32 * t,
+            (b - h + 1) as f32 * t,
+        )
+    };
+    let mal_pose = |(tx, ty): Case, caractere| ErreurNiveau::EauMalPosee {
+        ligne: ty + 1,
+        colonne: tx + 1,
+        caractere,
+    };
+    for (g, d, h, mut b) in fusionner_zones(bulles, largeur, hauteur) {
+        while b + 1 < hauteur && (g..=d).all(|x| tuile(x, b + 1) == Tuile::Eau) {
+            b += 1;
+        }
+        entites.push(Entite::Bulles(Bulles::new(rect(g, d, h, b))));
+    }
+    for (g, d, h, b) in fusionner_zones(chutes, largeur, hauteur) {
+        entites.push(Entite::Chute(Chute::new(rect(g, d, h, b))));
+    }
+    for (g, d, h, b) in fusionner_zones(marees, largeur, hauteur) {
+        let appui = |x: usize| b + 1 < hauteur && tuile(x, b + 1) != Tuile::Vide;
+        if let Some(x) = (g..=d).find(|&x| !appui(x)) {
+            return Err(mal_pose((x, b), '='));
+        }
+        entites.push(Entite::Maree(Maree::new(rect(g, d, h, b))));
+    }
+    for &(tx, ty) in nenuphars {
+        if ty + 1 >= hauteur || tuile(tx, ty + 1) != Tuile::Eau {
+            return Err(mal_pose((tx, ty), 'n'));
+        }
+        let (x, y) = px((tx, ty));
+        entites.push(Entite::Nenuphar(Nenuphar::dans_la_case(x, y)));
+    }
+    for &(tx, ty) in stalactites {
+        if ty == 0 || !tuile(tx, ty - 1).est_solide() {
+            return Err(mal_pose((tx, ty), 'V'));
+        }
+        let sol = (ty + 1..hauteur)
+            .find(|&y| tuile(tx, y) != Tuile::Vide)
+            .unwrap_or(hauteur);
+        let (x, y) = px((tx, ty));
+        entites.push(Entite::Stalactite(Stalactite::new(x, y, sol as f32 * t)));
+    }
+    Ok(())
 }
 
 /// Le Grand Nuage de la case `O` (`tx`, `ty`) :
@@ -511,6 +781,103 @@ fn poser_nuage(
         colonnes,
         [courant(tx - 4), courant(tx + 3)],
     ))
+}
+
+/// La Pieuvre du port de la case `8` (`tx`, `ty`), carte 9.12a :
+/// - la rangée `ty` est la surface de son bassin : de 8 cases à gauche du `8` à 9
+///   à droite, toutes d'eau (18 cases, dans la carte) ;
+/// - ses 9 colonnes de tentacules font deux cases de large (la colonne 0 : le `8`
+///   et sa voisine de droite) ; chaque tentacule (24 px, `MARGE_TENTACULE` de
+///   chaque côté) va de la surface jusqu'en haut de la carte, « de toute la
+///   hauteur » : il traverse les pontons et les caisses ;
+/// - ses 3 places de tête (`PLACES_TETE` : milieu, gauche, droite), 48 x 32,
+///   centrées sur leur colonne et posées sur l'eau, ne touchent aucun solide.
+fn poser_pieuvre(
+    tuiles: &[Tuile],
+    largeur: usize,
+    (tx, ty): Case,
+) -> Result<Pieuvre, ErreurNiveau> {
+    let erreur = ErreurNiveau::PieuvreSansPlace {
+        ligne: ty + 1,
+        colonne: tx + 1,
+    };
+    let portee = 2 * pieuvre::PORTEE_COLONNES as usize;
+    if ty < 2 || tx < portee || tx + portee + 1 >= largeur {
+        return Err(erreur);
+    }
+    if (tx - portee..=tx + portee + 1).any(|x| tuiles[ty * largeur + x] != Tuile::Eau) {
+        return Err(erreur);
+    }
+    let t = TAILLE_TUILE;
+    let surface = ty as f32 * t;
+    // Abscisse (px) du bord gauche de la colonne `k` (de -4 à 4).
+    let gauche = |k: i8| (tx as f32 + 2.0 * f32::from(k)) * t;
+    let colonnes: [Aabb; pieuvre::NB_COLONNES] = std::array::from_fn(|i| {
+        let k = i as i8 - pieuvre::PORTEE_COLONNES;
+        Aabb::new(
+            gauche(k) + MARGE_TENTACULE,
+            0.0,
+            pieuvre::LARGEUR_COLONNE - 2.0 * MARGE_TENTACULE,
+            surface,
+        )
+    });
+    let places = PLACES_TETE.map(|k| {
+        let milieu = gauche(k) + pieuvre::LARGEUR_COLONNE / 2.0;
+        Aabb::new(
+            milieu - TAILLE_TETE.0 / 2.0,
+            surface - TAILLE_TETE.1,
+            TAILLE_TETE.0,
+            TAILLE_TETE.1,
+        )
+    });
+    for tete in &places {
+        let (x0, x1) = ((tete.x / t) as usize, ((tete.droite() - 1.0) / t) as usize);
+        let solide = (ty - 2..ty).any(|y| (x0..=x1).any(|x| tuiles[y * largeur + x].est_solide()));
+        if solide {
+            return Err(erreur);
+        }
+    }
+    let mut p = Pieuvre::new(colonnes, places);
+    p.plateformes = plateformes_du_bassin(tuiles, largeur, (tx - portee, tx + portee + 1), ty);
+    Ok(p)
+}
+
+/// Les plateformes que la Pieuvre peut saisir (carte 9.12f) : chaque groupe de
+/// cases solides qui se touchent (par un côté), au-dessus du bassin (colonnes
+/// `x0..=x1`, rangées au-dessus de la surface `surface`). Les murs du bord sont
+/// hors du bassin : ils ne coulent jamais. Un parcours en largeur tout simple.
+fn plateformes_du_bassin(
+    tuiles: &[Tuile],
+    largeur: usize,
+    (x0, x1): (usize, usize),
+    surface: usize,
+) -> Vec<Vec<(i32, i32)>> {
+    let dedans = |x: i32, y: i32| {
+        (x0 as i32..=x1 as i32).contains(&x)
+            && (0..surface as i32).contains(&y)
+            && tuiles[y as usize * largeur + x as usize].est_solide()
+    };
+    let mut vues = std::collections::HashSet::new();
+    let mut plateformes = Vec::new();
+    for y in 0..surface as i32 {
+        for x in x0 as i32..=x1 as i32 {
+            if !dedans(x, y) || !vues.insert((x, y)) {
+                continue;
+            }
+            let mut cases = vec![(x, y)];
+            let mut k = 0;
+            while let Some(&(cx, cy)) = cases.get(k) {
+                k += 1;
+                for v in [(cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)] {
+                    if dedans(v.0, v.1) && vues.insert(v) {
+                        cases.push(v);
+                    }
+                }
+            }
+            plateformes.push(cases);
+        }
+    }
+    plateformes
 }
 
 /// Pose une aiguille d'horloge sur chaque pivot `h` (dans l'ordre de lecture),

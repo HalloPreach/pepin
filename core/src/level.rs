@@ -34,7 +34,7 @@
 //!   g  grêle : colonne de grêlons qui tombe EN CONTINU, de la case `g` au 1er
 //!      solide dessous (ou au bas de la carte) ; elle tue parapluie fermé, on la
 //!      traverse en planant dessous
-//!   v  courant ascendant       1-9 extrémités d'une plateforme mobile (2 par chiffre)
+//!   v  courant ascendant       1-7, 9 extrémités d'une plateforme mobile (2 par chiffre)
 //!   w  ventilateur : hélice posée sur le solide du dessous ; son courant
 //!      ascendant (du dessus du socle au 1er solide au-dessus, ou au haut de
 //!      la carte) souffle 2 s puis s'arrête 2 s ; la reprise est annoncée
@@ -60,8 +60,11 @@
 //!      (`ReglageAiguille`, une ligne par `h` dans l'ordre de lecture) ; son
 //!      cercle ne doit toucher aucun solide, ni Pépin debout dessus
 //!   D S G C W  panneaux : déplacer, sauter, planer, champignon, vent
+//!   Z  panneau « barque » (carte 9.6c) : la flèche du BAS vers le parapluie retourné
 //!   H T R Q K  décor sans collision, posé sur le solide du dessous : cheminée,
 //!              antenne, paratonnerre, manche à air, oiseau posé
+//!   E I U J    décor de rue du Monde 2 (carte 9.6b), sans collision lui aussi :
+//!              bouche d'égout, borne, poubelle, descente de gouttière
 //!   m  faux mur (carte 8.5) : case LIBRE dessinée comme le solide qu'elle
 //!      prolonge (voir `ZoneCachee`) ; Pépin y entre et la zone se révèle
 //!   x  sortie secrète : un second drapeau, qui finit le niveau comme `X`
@@ -71,6 +74,49 @@
 //!   P  mur de pluie (un au plus, carte 8.2) : son front part du bord droit de
 //!      la case `P` et avance vers la droite ; il tue au contact (voir
 //!      `crate::poursuite`). Hors de ce repère, la case est vide
+//!   Ennemis d'eau du Monde 2 (carte 9.4, `entities::ennemi`, sous-module `eau`) :
+//!   j  grenouille, posée sur ce qui est dessous (berge, nénuphar ou eau) ;
+//!      Pépin à portée, elle se ramasse 0,5 s puis bondit en arc vers lui ;
+//!      écrasable
+//!   i  poisson : la case d'AIR juste au-dessus de l'eau (l'eau est dessous,
+//!      obligatoire) ; remous 0,7 s, puis il saute à la verticale (3,5 tuiles) ;
+//!      mortel hors de l'eau, jamais écrasable
+//!   k  crabe : patrouille comme la flaque ; lui sauter dessus fait REBONDIR
+//!      Pépin sans le blesser (carapace dure) ; de côté, il tue
+//!   r  rat : patrouille ; Pépin sur sa ligne (pieds à la même hauteur, moins de
+//!      6 tuiles, sans mur entre eux), il se dresse 0,5 s puis fonce jusqu'au
+//!      mur ; écrasable
+//!   u  mouette, perchée sur le solide du dessous (mât, grue) : un pigeon du
+//!      port, même annonce, même piqué
+//!   ~  {  }  eau calme, courant d'eau vers la gauche, vers la droite (carte
+//!            9.2) : planer dedans donne la barque, y entrer autrement noie
+//!   Y  bulles (carte 9.3) : colonne qui soulève comme un courant ascendant,
+//!      prolongée vers le bas à travers l'eau qui est juste dessous
+//!   n  nénuphar (carte 9.3), dans la case au-dessus de l'eau : une feuille sur
+//!      laquelle on se pose ; elle s'enfonce sous Pépin et le met à l'eau en 1 s
+//!   =  marée (carte 9.3) : zone où l'eau monte et descend par cycles
+//!      (`entities::maree`) ; elle repose sur un solide ou sur de l'eau
+//!   V  stalactite (carte 9.3), sous un solide : elle tremble 0,75 s quand
+//!      Pépin passe dessous, puis tombe (mortelle) et se brise au sol
+//!   |  chute d'eau (carte 9.3) : colonne qui pousse vers le BAS (lente
+//!      parapluie ouvert, rapide parapluie fermé)
+//!   8  la Pieuvre du port, boss du Monde 2 (carte 9.12a, un boss au plus) : le
+//!      `8` est dans l'eau de son bassin (case d'eau calme), qui couvre 8 cases à
+//!      sa gauche et 9 à sa droite ; 9 colonnes de 2 cases (la colonne 0 : le `8`
+//!      et sa voisine) où ses tentacules, annoncés 0,8 s, se dressent jusqu'en
+//!      haut de la carte (mortels 0,5 s) ; entre deux motifs, sa tête (3 x 2 cases)
+//!      sort sur l'eau au milieu (colonne 0), à gauche (-3) ou à droite (3) : on lui
+//!      saute dessus, trois coups. Pas de drapeau `X` : la vaincre finit le niveau
+//!   Mobilier de rue du Monde 2 (carte 9.20f) : des cases SOLIDES (des toits
+//!   pour la collision) que le jeu dessine comme un seul objet par groupe de
+//!   cases voisines de la même lettre (`Mobilier`) :
+//!   q  voiture garée (4 x 2 cases : `.qq.` sur `qqqq`, le capot et le coffre
+//!      plus bas que le toit)
+//!   a  autobus garé (un rectangle ; ses roues sont dessinées sous lui)
+//!   t  toit d'abribus (une rangée ; ses montants et sa vitre, dessinés jusqu'au
+//!      sol, ne bloquent rien : on passe dessous)
+//!   d  poubelle de rue (1 case)
+//!   l  banc (une rangée)
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
@@ -98,7 +144,7 @@ pub const TAILLE_AIGUILLE: (f32, f32) = ascii::TAILLE_AIGUILLE;
 
 use crate::aabb::{self, Aabb, Grille, TAILLE_TUILE};
 use crate::entities::Entite;
-use crate::physics::{CourantAscendant, VentLateral};
+use crate::physics::{CourantAscendant, Eau, VentLateral};
 
 /// Réglage d'une aiguille d'horloge (pivot `h`). Le fichier de niveau en donne
 /// une petite table (`InfosNiveau::aiguilles`) : la 1re ligne règle le 1er `h`
@@ -125,20 +171,27 @@ pub struct ReglageAiguille {
 /// Nombre de gouttes d'or dans chaque niveau.
 pub const GOUTTES_PAR_NIVEAU: usize = 3;
 
-/// Nature d'une tuile du décor. Tout sauf `Vide` est solide ; la variante ne
-/// sert qu'à choisir le dessin (toit en tuiles, brique de cheminée, nuage).
+/// Nature d'une tuile du décor. Tout sauf `Vide` et `Eau` est solide ; la
+/// variante ne sert qu'à choisir le dessin (toit en tuiles, brique de
+/// cheminée, nuage, eau). `Eau` (carte 9.2) n'est PAS solide : le moteur de
+/// collision ne la voit pas, elle n'existe que pour le dessin et la
+/// mécanique de la barque (les étendues d'eau sont assemblées en zones dans
+/// `Niveau::eaux`, voir `level::ascii`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tuile {
     Vide,
     Toit,
     Brique,
     Nuage,
+    /// Eau (lettres `~`, `{`, `}` de la grille) : non solide, surface = le haut
+    /// de l'étendue (voir `Niveau::eaux`).
+    Eau,
 }
 
 impl Tuile {
-    /// La tuile bloque-t-elle le joueur ?
+    /// La tuile bloque-t-elle le joueur ? L'eau ne bloque rien.
     pub fn est_solide(self) -> bool {
-        !matches!(self, Tuile::Vide)
+        !matches!(self, Tuile::Vide | Tuile::Eau)
     }
 }
 
@@ -150,6 +203,8 @@ pub enum GenrePanneau {
     Planer,
     Champignon,
     Vent,
+    /// La barque (carte 9.6c) : BAS retourne le parapluie sur l'eau.
+    Barque,
 }
 
 /// Panneau décoratif ; `(x, y)` est le coin haut-gauche de sa tuile.
@@ -174,16 +229,29 @@ pub enum GenreDecor {
     MancheAAir,
     /// `K` : oiseau posé (au-dessus des nuages).
     Oiseau,
+    /// `E` : bouche d'égout à grille (la rue du Monde 2, carte 9.6b).
+    BoucheEgout,
+    /// `I` : borne de trottoir (sa silhouette est celle de la lettre).
+    Borne,
+    /// `U` : poubelle de rue (sa silhouette est celle de la lettre).
+    Poubelle,
+    /// `J` : descente de gouttière qui déverse de l'eau dans la rue (le tuyau
+    /// et son coude en J).
+    Gouttiere,
 }
 
 impl GenreDecor {
     /// Tous les genres, dans l'ordre de la légende.
-    pub const TOUS: [GenreDecor; 5] = [
+    pub const TOUS: [GenreDecor; 9] = [
         GenreDecor::Cheminee,
         GenreDecor::Antenne,
         GenreDecor::Paratonnerre,
         GenreDecor::MancheAAir,
         GenreDecor::Oiseau,
+        GenreDecor::BoucheEgout,
+        GenreDecor::Borne,
+        GenreDecor::Poubelle,
+        GenreDecor::Gouttiere,
     ];
 
     /// Lettre de la grille ASCII.
@@ -194,6 +262,10 @@ impl GenreDecor {
             GenreDecor::Paratonnerre => 'R',
             GenreDecor::MancheAAir => 'Q',
             GenreDecor::Oiseau => 'K',
+            GenreDecor::BoucheEgout => 'E',
+            GenreDecor::Borne => 'I',
+            GenreDecor::Poubelle => 'U',
+            GenreDecor::Gouttiere => 'J',
         }
     }
 
@@ -201,6 +273,68 @@ impl GenreDecor {
     /// (`find` sur `TOUS` : une seule table à tenir, `lettre`.)
     pub fn depuis_lettre(c: char) -> Option<GenreDecor> {
         GenreDecor::TOUS.into_iter().find(|g| g.lettre() == c)
+    }
+}
+
+/// Mobilier de rue (carte 9.20f) : des cases solides dessinées comme un objet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenreMobilier {
+    /// `q` : voiture garée.
+    Voiture,
+    /// `a` : autobus garé.
+    Autobus,
+    /// `t` : toit d'abribus.
+    Abribus,
+    /// `d` : poubelle de rue.
+    Poubelle,
+    /// `l` : banc.
+    Banc,
+}
+
+impl GenreMobilier {
+    /// Tous les genres, dans l'ordre de la légende.
+    pub const TOUS: [GenreMobilier; 5] = [
+        GenreMobilier::Voiture,
+        GenreMobilier::Autobus,
+        GenreMobilier::Abribus,
+        GenreMobilier::Poubelle,
+        GenreMobilier::Banc,
+    ];
+
+    /// Lettre de la grille ASCII.
+    pub fn lettre(self) -> char {
+        match self {
+            GenreMobilier::Voiture => 'q',
+            GenreMobilier::Autobus => 'a',
+            GenreMobilier::Abribus => 't',
+            GenreMobilier::Poubelle => 'd',
+            GenreMobilier::Banc => 'l',
+        }
+    }
+
+    /// Genre désigné par une lettre de la grille, `None` si ce n'est pas du mobilier.
+    pub fn depuis_lettre(c: char) -> Option<GenreMobilier> {
+        GenreMobilier::TOUS.into_iter().find(|g| g.lettre() == c)
+    }
+}
+
+/// Un objet du mobilier de rue : un groupe de cases voisines de la même lettre.
+/// `(tx, ty)` : la case en haut à gauche du rectangle qui l'entoure, `(l, h)` :
+/// sa taille en cases. Seules les cases de la lettre sont solides (la voiture a
+/// deux coins libres en haut).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mobilier {
+    pub genre: GenreMobilier,
+    pub tx: i32,
+    pub ty: i32,
+    pub l: i32,
+    pub h: i32,
+}
+
+impl Mobilier {
+    /// La case `(tx, ty)` est-elle dans le rectangle de l'objet ?
+    pub fn couvre(&self, tx: i32, ty: i32) -> bool {
+        (self.tx..self.tx + self.l).contains(&tx) && (self.ty..self.ty + self.h).contains(&ty)
     }
 }
 
@@ -230,10 +364,17 @@ pub struct Niveau {
     pub courants: Vec<CourantAscendant>,
     /// Zones de vent latéral (`<` vers la gauche, `>` vers la droite).
     pub vents: Vec<VentLateral>,
+    /// Étendues d'eau (`~`, `{`, `}` de la grille, carte 9.2) : leur surface
+    /// (le haut de la zone) est la seule règle de l'eau pour la mécanique de
+    /// la barque. Vide dans tous les niveaux du Monde 1.
+    pub eaux: Vec<Eau>,
     /// Panneaux du tutoriel.
     pub panneaux: Vec<Panneau>,
     /// Objets de décor (dessin seulement).
     pub decors: Vec<ObjetDecor>,
+    /// Mobilier de rue (carte 9.20f) : ses cases sont solides (des toits), le
+    /// jeu dessine chaque objet d'un seul tenant. Vide hors de la rue.
+    pub mobilier: Vec<Mobilier>,
     /// Zones cachées derrière des faux murs `m` (carte 8.5).
     pub caches: Vec<ZoneCachee>,
     /// Sortie secrète `x` (carte 8.5) : la toucher finit le niveau comme le drapeau.
@@ -331,6 +472,34 @@ impl Niveau {
             .iter()
             .filter(|e| matches!(e, Entite::Lanterne(_)))
             .count()
+    }
+
+    /// L'étendue d'eau où la `boite` est vraiment (carte 9.2), voir
+    /// `physics::eau_touchee` : en abscisse ET en hauteur.
+    pub fn eau_touchee(&self, boite: &Aabb) -> Option<&crate::physics::Eau> {
+        crate::physics::eau_touchee(boite, &self.eaux)
+    }
+
+    /// Le courant de l'étendue d'eau qui couvre la case `(tx, ty)` (carte 9.2)
+    /// : 0 calme, -1 vers la gauche, +1 vers la droite. Sert AUSSIT au décor
+    /// (`nom_tuile` en `scene.rs`) ; hors étendue d'eau, renvoie 0.
+    pub fn courant_eau(&self, tx: i32, ty: i32) -> i8 {
+        let case = Aabb::new(
+            tx as f32 * TAILLE_TUILE,
+            ty as f32 * TAILLE_TUILE,
+            TAILLE_TUILE,
+            TAILLE_TUILE,
+        );
+        self.eaux
+            .iter()
+            .find(|e| e.zone.chevauche(&case))
+            .map_or(0, |e| e.courant)
+    }
+
+    /// La case `(tx, ty)` est-elle une case SOLIDE du mobilier de rue (carte
+    /// 9.20f) ? Le jeu ne la dessine pas comme une tuile : l'objet s'en charge.
+    pub fn est_mobilier(&self, tx: i32, ty: i32) -> bool {
+        self.tuile_decor(tx, ty).est_solide() && self.mobilier.iter().any(|m| m.couvre(tx, ty))
     }
 }
 

@@ -411,6 +411,27 @@ pub const PANNEAU_VENT: Image = &[
     "......0000......",
 ];
 
+/// Panneau « barque » (carte 9.6c, lettre `Z`) : la flèche du BAS plonge dans le
+/// parapluie retourné (la coque corail, son bord clair). Sans mot.
+pub const PANNEAU_BARQUE: Image = &[
+    "..000000000000..",
+    "..044444444440..",
+    "..032227722230..",
+    "..032227722230..",
+    "..032777777230..",
+    "..032277772230..",
+    "..039227722930..",
+    "..039888888930..",
+    "..032988889230..",
+    "..033333333330..",
+    "..000000000000..",
+    ".......33.......",
+    ".......33.......",
+    ".......33.......",
+    ".......33.......",
+    "......0000......",
+];
+
 pub const DRAPEAU0: Image = &[
     ".0BB0...........",
     ".0BB0...........",
@@ -900,6 +921,7 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("panneau_planer", PANNEAU_PLANER),
     ("panneau_champignon", PANNEAU_CHAMPIGNON),
     ("panneau_vent", PANNEAU_VENT),
+    ("panneau_barque", PANNEAU_BARQUE),
     ("drapeau0", DRAPEAU0),
     ("drapeau1", DRAPEAU1),
     ("grelon0", GRELON0),

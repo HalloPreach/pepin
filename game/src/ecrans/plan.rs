@@ -10,7 +10,7 @@
 //! bandeaux et le panneau : rien ne déborde (pas de découpage à faire).
 
 use pepin_core::font::largeur_texte;
-use pepin_core::levels::{nb_normaux, GenreNiveau, NIVEAUX};
+use pepin_core::levels::{niveaux_du_monde, GenreNiveau, NIVEAUX};
 use pepin_core::palette::{
     Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE,
     BRUME, CORAIL, CORAIL_CLAIR, NUAGE, OR, ORANGE_SOLEIL, OR_PALE, PLUIE, VIOLET_ORAGE,
@@ -122,12 +122,13 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
         banque.dessiner_tuile(Theme::Toits, "toit_haut", x, y_toits);
         banque.dessiner_tuile(Theme::Toits, "toit_plein", x, y_toits + 16.0);
     }
-    dessiner_chemins(g, s, &ecran);
-    for (i, &(x, y)) in g.etapes.iter().enumerate() {
+    dessiner_chemins(e, s, &ecran);
+    for (k, &(x, y)) in g.etapes.iter().enumerate() {
+        let i = e.debut_monde + k; // Indice DANS LA TABLE (l'étape est un indice local du monde).
         dessiner_etape(i, x, ecran(y), s, i == e.selection, anim);
     }
-    // Pépin (skin actif) debout sur l'étape choisie.
-    if let Some(&(x, y)) = g.etapes.get(e.selection) {
+    // Pépin (skin actif) debout sur l'étape choisie (indice local de la tranche).
+    if let Some(&(x, y)) = g.etapes.get(e.selection.saturating_sub(e.debut_monde)) {
         let pepin = image(&skin.images().repos, anim, 30);
         banque.dessiner(pepin, x - 8.0, ecran(y) - DEMI - 16.0, false);
     }
@@ -138,7 +139,11 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
     rect(0.0, Y_VUE + H_VUE, l, 180.0 - Y_VUE - H_VUE, ARDOISE_OMBRE);
     rect(L_CARTE, Y_VUE, l - L_CARTE, H_VUE, ARDOISE_OMBRE);
     let ombre = |c| Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
-    texte::dessiner_centre(contenu::TITRE_PLAN, 4.0, ombre(OR_PALE));
+    // Le bandeau du haut (carte 9.1b) : le Monde 1 garde « CARTE DES NIVEAUX », tel
+    // qu'avant ; un chapitre suivant affiche son titre (« CHAPITRE 2 : LÀ OÙ VA LA
+    // PLUIE »), centré : la carte est une seule suite, on y passe par Droite ou Haut.
+    let titre = contenu::titre_chapitre(e.monde).unwrap_or(contenu::TITRE_PLAN);
+    texte::dessiner_centre(titre, 4.0, ombre(OR_PALE));
     banque.dessiner("goutte0", 4.0, 2.0, false);
     texte::dessiner(
         &s.gouttes_en_poche.to_string(),
@@ -241,15 +246,24 @@ fn pointilles((x0, y0): (f32, f32), (x1, y1): (f32, f32), c: Couleur) {
 }
 
 /// Le chemin qui monte (niveaux normaux), la branche secrète du bonus (une fois
-/// révélé) et la descente de l'épilogue jusqu'aux toits.
-fn dessiner_chemins(g: &Geometrie, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) {
-    let pos = |i: usize| (g.etapes[i].0, ecran(g.etapes[i].1));
+/// révélé) et la descente de l'épilogue jusqu'aux toits. Dessine le MONDE affiché :
+/// les indices de `g.etapes` sont locaux à sa tranche, ceux de `etat_etape` sont des
+/// indices de table (`debut_monde + k`).
+fn dessiner_chemins(e: &EtatPlan, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) {
+    let g = &e.geometrie;
+    let debut = e.debut_monde;
+    let tranche = niveaux_du_monde(NIVEAUX, e.monde);
+    let pos = |k: usize| (g.etapes[k].0, ecran(g.etapes[k].1));
     let couleur = |i: usize| match etat_etape(NIVEAUX, s, i) {
         EtatEtape::Ouverte | EtatEtape::Finie => OR_PALE,
         _ => ARDOISE_PALE,
     };
-    let normaux: Vec<usize> = (0..NIVEAUX.len())
-        .filter(|&i| NIVEAUX[i].genre == GenreNiveau::Normal)
+    // Indices LOCAUX de la tranche du monde (l'étape `k` est `debut + k` en table).
+    let normaux: Vec<usize> = tranche
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| n.genre == GenreNiveau::Normal)
+        .map(|(k, _)| k)
         .collect();
     // Des toits jusqu'au premier niveau.
     if let Some(&premier) = normaux.first() {
@@ -257,19 +271,20 @@ fn dessiner_chemins(g: &Geometrie, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) 
         pointilles((x, ecran(g.hauteur - H_TOITS)), (x, y), OR_PALE);
     }
     for w in normaux.windows(2) {
-        pointilles(pos(w[0]), pos(w[1]), couleur(w[1]));
+        pointilles(pos(w[0]), pos(w[1]), couleur(debut + w[1]));
     }
     let Some(&sommet) = normaux.last() else {
         return;
     };
-    for (i, n) in NIVEAUX.iter().enumerate() {
+    for (k, n) in tranche.iter().enumerate() {
+        let i = debut + k;
         match n.genre {
             GenreNiveau::Bonus if etat_etape(NIVEAUX, s, i) != EtatEtape::Cachee => {
-                pointilles(pos(sommet), pos(i), couleur(i));
+                pointilles(pos(sommet), pos(k), couleur(i));
             }
             // La descente part du sommet vers la droite, puis redescend.
             GenreNiveau::Epilogue => {
-                let (x, y) = pos(i);
+                let (x, y) = pos(k);
                 let coude = (x, pos(sommet).1);
                 pointilles(pos(sommet), coude, couleur(i));
                 pointilles(coude, (x, y), couleur(i));
@@ -371,11 +386,12 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
             texte::dessiner_centre_sur(&ligne, centre, y, ombre(BLANC_CASSE));
             y += 10.0;
         }
-        // Où on en est : gouttes des niveaux normaux trouvées, sur le total.
+        // Où on en est : gouttes des niveaux normaux DU MONDE trouvées, sur le total du monde.
+        let tranche = niveaux_du_monde(NIVEAUX, e.monde);
         let compte = format!(
             "{}/{}",
-            gouttes_trouvees_normales(NIVEAUX, s),
-            gouttes_pour_le_bonus(NIVEAUX)
+            gouttes_trouvees_normales(tranche, s),
+            gouttes_pour_le_bonus(tranche)
         );
         let lc = largeur_texte(&compte, 1) as f32 + 12.0;
         let gx = (centre - lc / 2.0).round();
@@ -385,7 +401,9 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
         return;
     }
     texte::dessiner_centre_sur(
-        &contenu::etiquette_niveau(infos, nb_normaux(NIVEAUX)),
+        // Le numéro est PAR MONDE (carte 9.1b) : « NIVEAU 1/8 », sans le chapitre
+        // (trop large pour le panneau ; le bandeau du haut le nomme déjà).
+        &contenu::etiquette_courte(infos),
         centre,
         y,
         ombre(BRUME),

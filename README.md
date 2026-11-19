@@ -43,7 +43,7 @@ Commandes (voir l'en-tête de `game/src/main.rs`) :
 | Pause                | Échap ou P ; s'ouvre aussi seule si la fenêtre perd le focus en pleine partie (onglet masqué, autre application) |
 | Son (coupé au départ)| M (sur AZERTY comme sur QWERTY), ou l'icône du haut-parleur en bas à gauche du titre et de la pause |
 | Menus                | flèches + Entrée, clic de souris ou toucher          |
-| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral, de la grêle, des auvents, du ventilateur, des montgolfières, des escargots, du chat endormi et des aiguilles d'horloge : F1, F2, F3, F4, F5, F6, F7 et F8, arène du Grand Nuage : F10 ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
+| Aller à un niveau    | touches 1 à 9 (niveaux existants), niveau suivant : Page suivante ou N, précédent : Page précédente ou B, niveau d'essai vertical (quatre écrans de haut) : 0, niveaux d'essai du vent latéral, de la grêle, des auvents, du ventilateur, des montgolfières, des escargots, du chat endormi et des aiguilles d'horloge : F1, F2, F3, F4, F5, F6, F7 et F8, arène du Grand Nuage : F10, eau et barque : F11, mécaniques d'eau (bulles, nénuphars, marée, stalactites, chutes d'eau) : F12, ennemis d'eau : J ; UNIQUEMENT dans le build de mise au point `./build.sh --qa` (dossier `dist-qa/`) ; absentes de la production |
 
 Les touches sont lues par leur POSITION physique (le « code » du navigateur), pas
 par la lettre imprimée : sur un clavier AZERTY, A et Q (QWERTY) sont à la place de Q
@@ -362,6 +362,11 @@ minutes : le robot de QA joue réellement tous les niveaux. La mesure de difficu
 de la courbe ne se lancent plus qu'à la main, à la demande (voir `QA.md`, « Mesure de
 difficulté »).
 
+Les recherches des robots (faisabilité, QA, mesure de difficulté) se répartissent sur
+tous les cœurs de la machine (`core/src/parallele.rs`), sans changer leur résultat. Pour
+limiter le nombre de fils (machine chargée) : `PEPIN_FILS=4 ./docker-cargo.sh ...`
+(`PEPIN_FILS=1` : tout en série). Chronos : `docs/temps-des-tests.txt`.
+
 Hygiène du code (format et avertissements) :
 
     ./docker-cargo.sh lint
@@ -384,7 +389,10 @@ Build de mise au point (touches 1 à 9 pour sauter à un niveau, Page suivante /
 Page précédente / B pour le niveau suivant ou précédent, 0 pour le niveau d'essai
 vertical de la caméra, F1, F2, F3, F4, F5, F6, F7 et F8 pour les niveaux d'essai du vent latéral, de
 la grêle, des auvents, du ventilateur, des montgolfières, des escargots, du chat endormi et des
-aiguilles d'horloge, F10 pour l'arène du Grand Nuage (le boss), F9 pour provoquer un vrai
+aiguilles d'horloge, F10 pour l'arène du Grand Nuage (le boss), F11 pour l'eau et la barque,
+F12 pour les mécaniques d'eau (bulles, nénuphars, marée, stalactites, chutes d'eau),
+J pour les ennemis d'eau du Monde 2,
+F9 pour provoquer un vrai
 plantage et vérifier le message de la
 page ; sert aux captures et à la QA, jamais à publier) :
 

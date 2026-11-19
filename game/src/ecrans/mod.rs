@@ -147,7 +147,8 @@ pub const TITRE_SIX_LIGNES: Disposition = Disposition {
 
 /// Mise en page d'un menu de `nb` lignes. Le titre n'a HISTOIRE qu'après une partie
 /// finie (carte 8.11) : ses 4 lignes d'avant sont centrées dans la place des 5, au
-/// même pas de 18 px ; avec la NOUVELLE PARTIE + (6 lignes) : `TITRE_SIX_LIGNES`.
+/// même pas de 18 px ; avec la NOUVELLE PARTIE + (6 lignes) : `TITRE_SIX_LIGNES`, le
+/// plus long titre (pas de ligne MONDE 2 depuis la carte 9.1b : JOUER y mène).
 /// Les autres écrans : `disposition`.
 pub fn disposition_menu(ecran: Ecran, nb: usize) -> Option<Disposition> {
     let mut d = disposition(ecran)?;

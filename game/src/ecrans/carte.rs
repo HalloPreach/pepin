@@ -3,7 +3,6 @@
 
 use pepin_core::font::largeur_texte;
 use pepin_core::lettres::{rang_du_niveau, NB_LETTRES};
-use pepin_core::levels::{nb_normaux, NIVEAUX};
 use pepin_core::palette::{
     ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, BLANC_CASSE, BRUME, CORAIL_CLAIR, OR_PALE,
 };
@@ -50,7 +49,8 @@ pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32, lettres: &[bool; 
     panneau(12.0, 34.0, l - 24.0, 112.0, ARDOISE_NUIT, ARDOISE_CLAIRE);
     let ombre = |c| Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
 
-    let etiquette = contenu::etiquette_niveau(infos, nb_normaux(NIVEAUX));
+    // « NIVEAU 3/10 » ; hors du Monde 1 (carte 9.1b) : « CHAPITRE 2 · NIVEAU 1/8 ».
+    let etiquette = contenu::etiquette(infos);
     texte::dessiner_centre(&etiquette, 44.0, ombre(BRUME));
     super::fin::dessiner_lettres(lettres, rang_du_niveau(infos.cle), l - 20.0, 44.0);
     texte::dessiner_centre(
@@ -87,6 +87,7 @@ pub fn ligne_vies(infos: &InfosNiveau) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pepin_core::levels::NIVEAUX;
     use pepin_core::zones::InfosNiveau;
 
     /// Les niveaux d'essai du build de QA (hors de la table), avec leur indice.

@@ -10,7 +10,9 @@
 //! vérifiée par le compilateur, `struct` de données, tests qui parcourent les
 //! données.
 
-use pepin_core::levels::{GenreNiveau, NB_NIVEAUX};
+use pepin_core::levels::{
+    nb_normaux, niveaux_du_monde, GenreNiveau, NB_NIVEAUX, NB_NIVEAUX_MONDE_1, NIVEAUX,
+};
 use pepin_core::zones::InfosNiveau;
 
 use crate::menu::Choix;
@@ -67,10 +69,13 @@ pub fn libelle(choix: Choix) -> &'static str {
 
 pub const TITRE_AIDE: &str = "COMMENT JOUER";
 /// Couples (touches, effet), affichés sur deux colonnes.
-pub const COMMANDES_AIDE: [(&str, &str); 5] = [
+/// Carte 9.2b : une sixième ligne, BAS (le parapluie retourné, la barque).
+/// Carte 9.2d : au sol, BAS assied Pépin, il ne bouge plus.
+pub const COMMANDES_AIDE: [(&str, &str); 6] = [
     ("FLÈCHES, Q, D", "Courir"),
     ("ESPACE, HAUT, W", "Sauter, plus haut si maintenu"),
     ("SAUT EN L'AIR", "Maintenu : le parapluie plane !"),
+    ("BAS, S", "Barque sur l'eau, figé au sol"),
     ("ÉCHAP, P", "Pause"),
     ("M", "Son, ou l'icône en bas à gauche"),
 ];
@@ -78,13 +83,14 @@ pub const COMMANDES_AIDE: [(&str, &str); 5] = [
 /// niveaux (vent, grêle, auvents, ventilateurs, montgolfières, escargots, chats,
 /// aiguilles, Grand Nuage) se jouent avec les MÊMES touches : l'aide le dit, et
 /// rappelle la seule règle à savoir d'avance (la grêle, parapluie ouvert). Carte
-/// 6.2 : une septième ligne, la règle des vies.
+/// 6.2 : une septième ligne, la règle des vies. Carte 9.2b : « aucune touche en
+/// plus » n'est plus vrai (BAS fait la barque) ; la ligne dit à quoi sert BAS.
 /// 48 caractères au plus : une ligne du panneau (test `les_astuces_tiennent`).
 pub const ASTUCES_AIDE: [&str; 7] = [
     "Écrase les flaques en leur sautant dessus.",
     "Les courants d'air te portent vers le haut.",
     "Sous la grêle, garde le parapluie ouvert !",
-    "Vent, auvent, horloge : aucune touche en plus !",
+    "BAS : barque sur l'eau (au sol, on ne bouge pas)",
     "Les lanternes sont des points de reprise.",
     "Trois gouttes d'or par niveau : facultatives !",
     "Trois gouttes d'un niveau : une vie de plus !",
@@ -153,9 +159,10 @@ pub struct Intro {
     pub astuce: &'static str,
 }
 
-/// Une intro par niveau, dans l'ordre. Le type `[Intro; NB_NIVEAUX]` fait
-/// échouer la compilation si on ajoute un niveau sans écrire son texte.
-pub const INTROS: [Intro; NB_NIVEAUX] = [
+/// Une intro par niveau du MONDE 1, dans l'ordre. Le type `[Intro; NB_NIVEAUX_MONDE_1]`
+/// fait échouer la compilation si on ajoute un niveau au Monde 1 sans écrire son
+/// texte. Le Monde 2 a sa propre liste, rangée par clé : `INTROS_MONDE_2`.
+pub const INTROS: [Intro; NB_NIVEAUX_MONDE_1] = [
     Intro {
         texte: "La pluie tambourine sur les toits. Pépin ouvre son parapluie : en route vers le soleil !",
         astuce: "Maintiens SAUT en l'air pour planer.",
@@ -210,6 +217,94 @@ pub const INTROS: [Intro; NB_NIVEAUX] = [
     },
 ];
 
+/// Les intros du MONDE 2 (carte 9.6), rangées par CLÉ de niveau et non par place :
+/// les niveaux du Monde 2 arrivent en parallèle (cartes 9.7 à 9.13), chacun ajoute
+/// sa ligne sans se soucier de l'ordre des autres. Un niveau du Monde 2 sans sa
+/// ligne ici empêche le jeu de COMPILER (`intros_du_monde_2_completes`), comme le
+/// tableau du Monde 1.
+pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
+    (
+        "caniveau",
+        Intro {
+            // Carte 9.20a : le niveau suit l'eau jusqu'à la bouche d'égout (sa sortie).
+            texte: "La pluie file dans le caniveau, jusqu'à la bouche d'égout. Pépin la suit.",
+            // Carte 9.2b (demande d'AGA) : c'est BAS, plus le saut, qui fait la barque.
+            // Carte 9.2d : au sol, BAS assied Pépin, il ne bouge plus.
+            astuce: "BAS : barque sur l'eau. Au sol, Pépin ne bouge pas.",
+        },
+    ),
+    (
+        "cascade",
+        Intro {
+            // Carte 9.20c : le départ est le bout du grand tuyau des égouts.
+            texte:
+                "L'eau ressort du grand tuyau au bord de la falaise et tombe de bassin en bassin.",
+            astuce: "Dans une chute, plane pour aller doucement.",
+        },
+    ),
+    (
+        "grotte",
+        Intro {
+            texte:
+                "Derrière la cascade, une grotte. Des sources bouillonnent : les bulles te portent.",
+            astuce: "Une stalactite tremble : ne t'arrête pas dessous.",
+        },
+    ),
+    (
+        "pieuvre",
+        Intro {
+            texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
+            astuce: "Elle frappe là où l'eau tremble.",
+        },
+    ),
+    (
+        "egouts",
+        Intro {
+            texte: "Sous la rue, l'eau de pluie file dans les tunnels. Les rats aussi.",
+            astuce: "Un rat qui se dresse va foncer : saute-lui dessus ou par-dessus.",
+        },
+    ),
+];
+
+// Vérifié À LA COMPILATION : chaque niveau du Monde 2 de la table a son intro.
+const _: () = assert!(
+    intros_du_monde_2_completes(),
+    "un niveau du Monde 2 n'a pas son intro dans INTROS_MONDE_2"
+);
+
+/// Chaque niveau hors du Monde 1 a-t-il sa ligne dans `INTROS_MONDE_2` ? Fonction
+/// `const` (boucles `while`, `==` sur `&str` n'étant pas permis en `const`).
+const fn intros_du_monde_2_completes() -> bool {
+    let mut i = NB_NIVEAUX_MONDE_1;
+    while i < NB_NIVEAUX {
+        let mut k = 0;
+        while k < INTROS_MONDE_2.len() && !meme_texte(INTROS_MONDE_2[k].0, NIVEAUX[i].cle) {
+            k += 1;
+        }
+        if k == INTROS_MONDE_2.len() {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+/// Deux textes identiques, octet par octet (utilisable en `const`).
+const fn meme_texte(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut k = 0;
+    while k < a.len() {
+        if a[k] != b[k] {
+            return false;
+        }
+        k += 1;
+    }
+    true
+}
+
 /// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
 /// sauf, dans les tests et le build de QA, ceux des niveaux d'essai (vertical, vent,
 /// grêle, auvent, ventilateur, montgolfière).
@@ -254,7 +349,16 @@ pub fn intro(indice: usize) -> &'static Intro {
     if indice == crate::monde::INDICE_ESSAI_NUAGE {
         return &INTRO_ESSAI_NUAGE;
     }
-    &INTROS[indice.min(NB_NIVEAUX - 1)]
+    // Le Monde 1 par sa place ; les autres mondes par la clé du niveau ; hors de la
+    // table, le dernier niveau.
+    let i = indice.min(NB_NIVEAUX - 1);
+    if i < NB_NIVEAUX_MONDE_1 {
+        return &INTROS[i];
+    }
+    INTROS_MONDE_2
+        .iter()
+        .find(|(cle, _)| *cle == NIVEAUX[i].cle)
+        .map_or(&INTROS[NB_NIVEAUX_MONDE_1 - 1], |(_, intro)| intro)
 }
 
 /// Intro du niveau d'essai vertical (build de QA seulement, voir `monde::INDICE_ESSAI`).
@@ -340,13 +444,43 @@ pub const INTRO_ESSAI_NUAGE: Intro = Intro {
 /// normal (`nb_normaux` : nombre de niveaux normaux du jeu ; le bonus et l'épilogue ne
 /// comptent pas), « NIVEAU BONUS » ou « ÉPILOGUE » pour les deux autres genres. Le
 /// numéro 0 est celui d'un niveau hors de la table (le niveau d'essai du build de QA).
+///
+/// Hors du Monde 1, le chapitre vient devant : « CHAPITRE 2 · NIVEAU 3/8 » (carte
+/// 9.1b : le Monde 2 est la suite du jeu, son 2e chapitre ; `nb_normaux` est alors le
+/// nombre de niveaux normaux DU MONDE). Le Monde 1 garde exactement ses libellés
+/// d'avant, sans le mot chapitre.
 pub fn etiquette_niveau(infos: &InfosNiveau, nb_normaux: usize) -> String {
+    let base = etiquette_dans_le_chapitre(infos, nb_normaux);
+    if infos.monde > 1 {
+        format!("{} · {base}", libelle_chapitre(infos.monde))
+    } else {
+        base
+    }
+}
+
+/// `etiquette_niveau` SANS le chapitre devant (« NIVEAU 1/8 », « NIVEAU BONUS ») :
+/// pour le panneau de la carte des niveaux (carte 9.1b), trop étroit pour
+/// « CHAPITRE 2 · NIVEAU BONUS », et dont le bandeau du haut nomme déjà le chapitre.
+pub fn etiquette_dans_le_chapitre(infos: &InfosNiveau, nb_normaux: usize) -> String {
     match infos.genre {
         GenreNiveau::Normal if infos.numero == 0 => "NIVEAU D'ESSAI".to_string(),
         GenreNiveau::Normal => format!("NIVEAU {}/{nb_normaux}", infos.numero),
         GenreNiveau::Bonus => "NIVEAU BONUS".to_string(),
         GenreNiveau::Epilogue => "ÉPILOGUE".to_string(),
     }
+}
+
+/// `etiquette_niveau` avec le nombre de niveaux normaux DU MONDE du niveau, compté
+/// dans la vraie table (carte 9.1) : ce qu'affiche la carte de titre du niveau
+/// (« CHAPITRE 2 · NIVEAU 1/8 » au Monde 2).
+pub fn etiquette(infos: &InfosNiveau) -> String {
+    etiquette_niveau(infos, nb_normaux(niveaux_du_monde(NIVEAUX, infos.monde)))
+}
+
+/// `etiquette_dans_le_chapitre` comptée dans la vraie table : le panneau de la carte
+/// des niveaux (carte 9.1b).
+pub fn etiquette_courte(infos: &InfosNiveau) -> String {
+    etiquette_dans_le_chapitre(infos, nb_normaux(niveaux_du_monde(NIVEAUX, infos.monde)))
 }
 
 // --- Pause -----------------------------------------------------------------
@@ -416,6 +550,23 @@ pub const AIDE_BOUTIQUE: &str = "Entrée : choisir   Échap : retour";
 // --- Carte des niveaux (carte 7.4) ----------------------------------------------
 
 pub const TITRE_PLAN: &str = "CARTE DES NIVEAUX";
+/// Le libellé d'un monde vu par le joueur (carte 9.1b) : un CHAPITRE de la même
+/// histoire (« CHAPITRE 2 »), pas un monde à part. Le code garde le mot `monde`.
+pub fn libelle_chapitre(monde: u8) -> String {
+    format!("CHAPITRE {monde}")
+}
+/// Le titre du chapitre 2 (« Là où va la pluie », étape 9).
+pub const TITRE_CHAPITRE_2: &str = "CHAPITRE 2 : LÀ OÙ VA LA PLUIE";
+/// Titre de la carte des niveaux d'un chapitre (carte 9.1b), dans son bandeau du
+/// haut : le Monde 1 n'en a pas (son bandeau reste « CARTE DES NIVEAUX ») ; le
+/// Monde 2 porte le nom de son chapitre. Il tient dans le bandeau (test
+/// `etiquette_de_niveau`).
+pub fn titre_chapitre(monde: u8) -> Option<&'static str> {
+    match monde {
+        2 => Some(TITRE_CHAPITRE_2),
+        _ => None,
+    }
+}
 /// Rappel des touches en bas de la carte (Gauche/Droite : bouton JOUER ou COURSE,
 /// carte 8.7).
 pub const AIDE_PLAN: &str = "Haut/Bas : niveau  Gauche/Droite : mode";
@@ -577,6 +728,7 @@ pub(crate) mod tests {
             CARTE,
             TITRE_PLAN,
             AIDE_PLAN,
+            TITRE_CHAPITRE_2,
             NIVEAU_SECRET,
             INDICE_SECRET,
             VERROUILLE,
@@ -628,7 +780,7 @@ pub(crate) mod tests {
             t.push(effet);
         }
         t.extend(ASTUCES_AIDE);
-        for i in INTROS {
+        for i in INTROS.iter().chain(INTROS_MONDE_2.iter().map(|(_, i)| i)) {
             t.push(i.texte);
             t.push(i.astuce);
         }
@@ -688,8 +840,16 @@ pub(crate) mod tests {
 
     #[test]
     fn l_intro_hors_bornes_donne_le_dernier_niveau() {
-        assert_eq!(intro(99).texte, INTROS[NB_NIVEAUX - 1].texte);
+        assert_eq!(intro(99).texte, intro(NB_NIVEAUX - 1).texte);
         assert_eq!(intro(0).texte, INTROS[0].texte);
+        // Le Monde 2 (carte 9.6) : par la clé, quelle que soit sa place dans la table.
+        let caniveau = pepin_core::levels::indice_de_cle(NIVEAUX, "caniveau").unwrap();
+        assert_eq!(intro(caniveau).astuce, INTROS_MONDE_2[0].1.astuce);
+        // Chaque intro du Monde 2 désigne un niveau du Monde 2 de la table.
+        for (cle, _) in INTROS_MONDE_2 {
+            let i = pepin_core::levels::indice_de_cle(NIVEAUX, cle).expect(cle);
+            assert!(i >= NB_NIVEAUX_MONDE_1, "{cle}");
+        }
     }
 
     /// Tous les mots de fin possibles (chaque cas de `message_fin`).
@@ -729,13 +889,14 @@ pub(crate) mod tests {
 
     #[test]
     fn etiquette_de_niveau() {
-        use pepin_core::levels::{nb_normaux, NIVEAUX};
+        use pepin_core::levels::{nb_normaux, niveaux_du_monde, NIVEAUX};
         // Les dix niveaux normaux (le marché couvert inséré en 3e place, carte 5.12 ;
         // le clocher en 5e, carte 5.13 ; l'œil du cyclone en 6e, carte 5.14 ; la mer
         // de nuages en 8e, carte 5.15 ; le retour du Grand Nuage en 10e, 8.2), puis le
         // bonus (carte 5.16) et l'épilogue (carte 5.17).
+        // Compté PAR MONDE (carte 9.1) : les normaux du Monde 1.
         assert_eq!(
-            etiquette_niveau(&NIVEAUX[1], nb_normaux(NIVEAUX)),
+            etiquette_niveau(&NIVEAUX[1], nb_normaux(niveaux_du_monde(NIVEAUX, 1))),
             "NIVEAU 2/10"
         );
         assert_eq!(etiquette_niveau(&NIVEAUX[10], 10), "NIVEAU BONUS");
@@ -754,9 +915,31 @@ pub(crate) mod tests {
         assert_eq!(essai.numero, 0);
         assert_eq!(etiquette_niveau(&essai, 5), "NIVEAU D'ESSAI");
         assert_eq!(intro(crate::monde::INDICE_ESSAI).texte, INTRO_ESSAI.texte);
+        // Monde 2 (cartes 9.1 et 9.1b) : le CHAPITRE devant, compté PAR MONDE ; le
+        // Monde 1 inchangé (`etiquette` compte les normaux du monde dans la vraie table).
+        let m2 = pepin_core::levels::caniveau::INFOS;
+        assert_eq!(etiquette_niveau(&m2, 8), "CHAPITRE 2 · NIVEAU 1/8");
+        let mut bonus_m2 = m2;
+        bonus_m2.genre = GenreNiveau::Bonus;
+        assert_eq!(etiquette_niveau(&bonus_m2, 8), "CHAPITRE 2 · NIVEAU BONUS");
+        assert_eq!(etiquette(&NIVEAUX[1]), "NIVEAU 2/10");
+        assert_eq!(etiquette(&NIVEAUX[11]), "ÉPILOGUE");
+        // Le panneau de la carte des niveaux (128 px de texte) : sans le chapitre ; la
+        // carte de titre du niveau (296 px de large) a la place pour le chapitre.
+        assert_eq!(etiquette_dans_le_chapitre(&bonus_m2, 8), "NIVEAU BONUS");
+        assert!(pepin_core::font::largeur_texte("CHAPITRE 2 · NIVEAU BONUS", 1) <= 280);
+        // Le titre du chapitre 2 tient dans le bandeau de la carte des niveaux : centré
+        // sur l'écran (320 px), à droite du compteur de gouttes (x < 48), soit 224 px.
+        assert!(pepin_core::font::largeur_texte(TITRE_CHAPITRE_2, 1) <= 224);
+        assert_eq!(
+            titre_chapitre(1),
+            None,
+            "le Monde 1 n'a pas de titre de chapitre"
+        );
         // Chaque caractère existe dans la police.
         for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10", "NIVEAU D'ESSAI"]
             .into_iter()
+            .chain(["CHAPITRE 2 · NIVEAU 3/8", TITRE_CHAPITRE_2])
             .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
             .chain([INTRO_ESSAI_CHAT.texte, INTRO_ESSAI_CHAT.astuce])
             .chain([INTRO_ESSAI_HORLOGE.texte, INTRO_ESSAI_HORLOGE.astuce])

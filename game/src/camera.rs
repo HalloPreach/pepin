@@ -110,6 +110,11 @@ impl Camera {
         self.avance = 0.0;
     }
 
+    /// Temps de mort (carte 9.24) : la caméra reste où elle est, sans interpolation.
+    pub fn figer(&mut self) {
+        self.precedente = (self.x, self.y);
+    }
+
     /// Point visé : Pépin légèrement décentré, plus l'anticipation.
     fn cible(joueur: &Joueur, avance: f32, haut: f32) -> (f32, f32) {
         let (px, py) = joueur.boite.centre();
@@ -529,7 +534,11 @@ mod tests {
             let duree_saut = tirer(70) as usize;
             for k in 0..duree {
                 let saut = (debut_saut..debut_saut + duree_saut).contains(&k);
-                v.push(Entrees { direction, saut });
+                v.push(Entrees {
+                    direction,
+                    saut,
+                    bas: false,
+                });
             }
         }
         v.truncate(n);
@@ -555,14 +564,20 @@ mod tests {
         for (indice, infos) in NIVEAUX.iter().enumerate() {
             let mut m = Monde::new(indice);
             let (l, h) = (m.niveau.largeur_px(), m.niveau.hauteur_px());
-            // Le clocher (carte 5.13) et la descente (carte 5.17), quatre écrans de
-            // haut, sont les seuls niveaux du jeu que la caméra suit en hauteur : ils
-            // n'ont pas d'« ancienne » caméra à comparer (la caméra verticale a ses
-            // propres tests, plus bas).
+            // Le clocher (carte 5.13), la descente (carte 5.17), la grande cascade
+            // (carte 9.8) et la grotte aux bulles (carte 9.9), plusieurs écrans de
+            // haut, sont les seuls niveaux du jeu que la caméra suit en hauteur : ils n'ont pas d'« ancienne » caméra à comparer
+            // (la caméra verticale a ses propres tests, plus bas).
             if Camera::suit_en_hauteur(h) {
-                use pepin_core::levels::{clocher, descente};
+                use pepin_core::levels::{cascade, clocher, descente, grotte};
                 assert!(
-                    [clocher::INFOS.nom, descente::INFOS.nom].contains(&infos.nom),
+                    [
+                        clocher::INFOS.nom,
+                        descente::INFOS.nom,
+                        cascade::INFOS.nom,
+                        grotte::INFOS.nom
+                    ]
+                    .contains(&infos.nom),
                     "{}",
                     infos.nom
                 );
@@ -673,6 +688,7 @@ mod tests {
             let saut = Entrees {
                 direction: Direction::Immobile,
                 saut: pas < 30,
+                bas: false,
             };
             j.actualiser(&saut, &env);
             c.suivre(&j, L_TOUR, H_TOUR);
@@ -755,6 +771,7 @@ mod tests {
                     Direction::Immobile
                 },
                 saut: plane_des.is_some_and(|p| pas >= p),
+                bas: false,
             };
             let avant = c.y;
             j.actualiser(&e, &env);

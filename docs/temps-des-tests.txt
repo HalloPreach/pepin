@@ -1,0 +1,342 @@
+Temps des tests de PÉPIN (carte 9.23, tri des tests), mesurés le 2026-11-18
+==========================================================================
+
+Mesure : chaque test lancé dans le conteneur de `docker-cargo.sh`, via `lourd.sh`,
+avec la durée de chaque test donnée par libtest :
+  RUSTC_BOOTSTRAP=1 ./docker-cargo.sh test -p core --release -- -Z unstable-options --report-time --format json
+  RUSTC_BOOTSTRAP=1 ./docker-cargo.sh test -p game --release --no-default-features -- -Z unstable-options --report-time --format json
+(APRÈS : les comptes rendus de `./docker-cargo.sh lot`, qui passe `--report-time` lui-même.)
+Seuls les tests de plus de 2 s sont listés, du plus lent au moins lent.
+
+À lire avec prudence : la machine (20 cœurs) était chargée par les autres cartes
+(charge 10 à 65). Un test lancé seul va bien plus vite (essai « eau 2 » : 117 s
+dans la suite AVANT, 25 s seul). Ce qui compte : l'ordre des tests et le chrono réel.
+
+Ce que la carte a changé (détail dans QA.md, section « Carte 9.23 ») :
+- `durees_plausibles` supprimé : il refaisait la recherche complète de chaque
+  niveau ; ses vérifications passent dans `niveau_<n>_faisable` (même recherche).
+- `reprise_depuis_chaque_lanterne` coupé en un test par niveau
+  (`niveau_<n>_reprise`, `monde_2_niveau_<n>_reprise`) + un pour les niveaux
+  d'essai : ils tournent en parallèle.
+- Recherche arrêtée dès l'arrivée (`Options::arrivee_seule`) quand seule l'arrivée
+  compte : reprises, robot maladroit, nouvelle partie +, marches de la mer...
+- Nouvelle partie + : les niveaux qu'elle ne change pas (le Monde 2) ne sont plus
+  refaits (déjà vérifiés par `zones`).
+- Robot de QA : un parcours n'est cherché qu'UNE fois par processus (clocher,
+  arc-en-ciel, Grand Nuage, horloge : deux tests chacun) ; mémoire sur disque par
+  empreinte (code de la simulation + données du niveau), rejouée avant usage.
+- Tests lents (> 5 s) en `#[ignore = "lot : ..."]` : lancés par `./docker-cargo.sh lot`.
+- Profil `tests-rapides` (optimisation 3, sans LTO) au lieu de `--release`
+  (taille minimale `z`, LTO) : essai « eau 2 » seul 25 s -> 18 s, compilation 22 s -> 13 s.
+
+Chronos réels APRÈS (via lourd.sh) :
+- `./docker-cargo.sh carte <clé>` (sans robot) : caniveau 17 s (recompilation comprise),
+  égouts 14 s, clocher 19 s, marché 58 s ;
+- `./docker-cargo.sh carte <clé> robot sans-memoire` (robot du niveau, sur demande) :
+  caniveau 10 s, égouts 24 min 50 s (la recherche du robot des égouts) ;
+- `./docker-cargo.sh lot` : 2 min 01 s, mémoire des parcours pleine (extraction propre) ;
+  34 min 14 s, mémoire vide (toutes les recherches du robot refaites).
+
+======== ALLÈGEMENT DES RECHERCHES (2026-11-19, après 66c6190) ========
+
+Deux changements, dans les trois recherches (faisabilité `core::faisabilite`,
+robot de QA `bot_qa::parcours`, itinéraires de la mesure `difficulte`) :
+
+1. Les plans d'un état sont simulés en parallèle (`core::parallele::appliquer`),
+   puis dépouillés dans l'ordre des plans : même résultat qu'en série (comptes
+   rendus de faisabilité identiques sur 10 niveaux, mesure de la cascade et du
+   caniveau identiques). Les essais d'un niveau de la mesure aussi (3 x 48 parties).
+   Réglage : `PEPIN_FILS=<n>` (1 = tout en série, comme avant ; défaut : tous les
+   cœurs). Le nombre de fils est partagé par tout le processus : dans `lot`, où
+   beaucoup de tests tournent ensemble, chacun reste à peu près seul sur son cœur.
+2. Fenêtre locale des écrasés : un chat (ou un ennemi d'eau) écrasé ne distingue
+   deux états de la recherche que s'il est à moins de 320 px en x et 180 px en y
+   de Pépin (`FENETRE_CHATS`, `FENETRE_ECRASES`). Avant, chaque ennemi écrasable
+   DOUBLAIT la recherche (6 rats : x 64) : c'est ce qui rendait le caniveau et
+   les égouts interminables. L'état garde toujours la liste complète des écrasés,
+   et le parcours trouvé est toujours rejoué dans la vraie simulation.
+
+Mesuré sur une machine de 2 cœurs (bien plus lente que la machine du projet ; le
+gain du point 1 y plafonne à x 1,8, il doit être nettement plus grand sur 20 cœurs) :
+- faisabilité : `niveau_3_faisable` (marché) 87,5 s -> 48,9 s en parallèle seul ;
+  recherche du marché 41,9 s -> 4,6 s avec la fenêtre (8 583 états -> 826, même
+  compte rendu) ; `monde_2_niveau_3_faisable` 22,1 s -> 11,8 s ;
+- robot de QA (`carte <clé> robot`, sans mémoire) : caniveau > 15 min (arrêté) -> 124 s ;
+  marché 85 s ; Pieuvre 211 s ; égouts 19 min sur ces 2 cœurs (24 min 50 s avant, sur
+  les 20 cœurs du projet : c'est la recherche qui reste la plus longue) ;
+- mesure de difficulté d'un niveau du Monde 2 : caniveau, jamais finie -> 3 min
+  (0,54 / 0,04 / 0,04 mort ; un essai Débutant sur 48 ne finit pas et coûte à
+  lui seul le tiers du temps : il cherche des détours jusqu'à la limite) ; cascade 2 228 s -> 576 s, mêmes chiffres à 0,04 près
+  pour le Débutant (0,25 / 0,25 / 0,23) ; égouts, jamais finie -> 19 min
+  (0,85 / 0,38 / 0,17 mort, 48/48 finis pour les trois profils).
+
+À savoir : les empreintes du robot de QA notées dans QA.md peuvent changer UNE fois
+pour les niveaux à chats ou à ennemis d'eau (le robot peut trouver un parcours
+différent, toujours vérifié par rejeu). Le code du robot ayant changé, l'empreinte
+de la mémoire des parcours change : le premier `lot` après ce changement refait
+toutes les recherches du robot une fois, puis la mémoire est de nouveau pleine.
+
+======== AVANT (commit 18be99a, `test --release`, un processus par crate) ========
+
+--- core : 416 verts, 2 ignorés, chrono réel 14 min 59 s : 416 tests, 59 de plus de 2 s (ensemble 3779 s sur 3790 s)
+   806.3 s  zones::tests::reprise_depuis_chaque_lanterne
+   524.2 s  levels::variantes::tests::chaque_variante_ng_plus_est_finissable
+   368.6 s  zones::tests::durees_plausibles
+   268.4 s  zones::tests::niveau_3_faisable
+   157.3 s  zones::tests::niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee
+   144.4 s  zones::tests::niveau_3_on_ressort_de_la_cachette_du_chat
+   122.3 s  zones::tests::monde_2_niveau_3_faisable
+   121.7 s  levels::clocher::tests::le_clocher_exige_ses_deux_aiguilles
+   117.7 s  zones::tests::niveau_3_le_marche_exige_ses_six_auvents
+   113.4 s  zones::tests::niveau_5_faisable
+   104.9 s  levels::clocher::tests::le_clocher_exige_ses_escargots
+   104.7 s  zones::tests::niveau_11_faisable
+    97.8 s  zones::tests::monde_2_niveau_4_faisable
+    77.3 s  levels::grotte::tests::le_lac_se_traverse_en_barque
+    71.5 s  zones::tests::monde_2_niveau_2_faisable
+    55.6 s  zones::tests::niveau_4_faisable
+    43.2 s  zones::tests::monde_2_niveau_1_faisable
+    43.0 s  levels::clocher::tests::le_clocher_exige_le_ventilateur
+    38.4 s  zones::tests::niveau_2_faisable
+    33.0 s  zones::tests::niveau_10_faisable
+    30.3 s  zones::tests::niveau_8_faisable
+    27.8 s  zones::tests::niveau_d_essai_horloge_faisable
+    26.9 s  zones::tests::niveau_9_faisable
+    23.7 s  zones::tests::niveau_7_faisable
+    21.2 s  levels::mer::tests::on_repart_de_chaque_marche
+    19.3 s  zones::tests::niveau_1_faisable
+    19.1 s  zones::tests::niveau_d_essai_vertical_faisable
+    17.6 s  faisabilite::tests::le_robot_monte_au_balcon_par_l_aiguille
+    17.1 s  zones::tests::niveau_d_essai_horloge_exige_les_deux_aiguilles
+    13.9 s  zones::tests::niveau_12_faisable
+    13.4 s  zones::tests::niveau_d_essai_nuage_chaque_courant_mene_a_la_tete
+    13.0 s  zones::tests::niveau_d_essai_chat_faisable
+    12.9 s  faisabilite::tests::le_parapluie_allonge_nettement_la_portee
+    11.4 s  faisabilite::tests::le_robot_traverse_le_vide_par_les_auvents
+    10.4 s  zones::tests::niveau_d_essai_escargot_exige_les_deux_escargots
+     7.0 s  faisabilite::tests::un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer
+     6.4 s  zones::tests::niveau_d_essai_ventilateur_faisable
+     5.4 s  zones::tests::niveau_d_essai_nuage_faisable
+     5.1 s  faisabilite::tests::le_robot_resiste_au_vent_de_face_au_sol
+     4.8 s  faisabilite::tests::la_grele_se_traverse_en_planant_dessous
+     4.3 s  zones::tests::niveau_d_essai_chat_le_chat_garde_le_seul_passage
+     4.0 s  levels::grotte::tests::les_bulles_font_le_niveau
+     3.9 s  zones::tests::niveau_d_essai_escargot_faisable
+     3.7 s  zones::tests::monde_2_niveau_5_faisable
+     3.7 s  faisabilite::tests::le_vent_porteur_prolonge_la_traversee_du_vide
+     3.6 s  faisabilite::tests::le_vent_de_face_bloque_la_traversee_du_vide
+     3.5 s  levels::mer::tests::sans_vent_la_mer_de_nuages_est_infranchissable
+     3.3 s  zones::tests::niveau_d_essai_grele_faisable
+     3.2 s  zones::tests::niveau_6_faisable
+     3.1 s  zones::tests::niveau_d_essai_montgolfiere_faisable
+     2.9 s  zones::tests::niveau_d_essai_auvent_faisable
+     2.8 s  zones::tests::niveau_d_essai_montgolfiere_exige_les_deux_montgolfieres
+     2.7 s  zones::tests::niveau_d_essai_vent_faisable
+     2.7 s  faisabilite::tests::un_long_plane_d_une_grille_haute_est_trouve
+     2.6 s  faisabilite::tests::le_robot_rebondit_sur_l_escargot_pour_monter
+     2.5 s  zones::tests::niveau_1_exige_de_planer
+     2.5 s  zones::tests::niveau_d_essai_ventilateur_exige_les_courants
+     2.1 s  zones::tests::niveau_d_essai_vent_exige_les_vents
+     2.0 s  faisabilite::tests::portee_du_saut_sans_parapluie
+
+--- game : 387 verts, 40 ignorés, chrono réel 41 min 23 s : 387 tests, 20 de plus de 2 s (ensemble 9702 s sur 9710 s)
+  2455.5 s  bot_qa::tests::le_robot_finit_le_monde_2_sans_mourir
+  1292.4 s  bot_qa::tests::le_robot_finit_la_nouvelle_partie_plus_sans_mourir
+  1161.5 s  bot_qa::tests::au_clocher_le_parcours_allume_les_trois_lanternes
+  1160.8 s  bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir
+   767.4 s  bot_qa::essais_tests::le_robot_bat_la_pieuvre_sans_mourir
+   582.7 s  bot_qa::tests::la_partie_complete_joue_le_bonus
+   526.9 s  bot_qa::essais_tests::le_robot_bat_le_grand_nuage
+   517.5 s  bot_qa::essais_tests::le_parcours_du_grand_nuage_tient_a_une_image_pres
+   247.2 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_ennemis_eau
+   242.9 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_horloge
+   242.3 s  bot_qa::essais_tests::le_parcours_de_l_horloge_tient_a_une_image_pres
+   205.7 s  bot_qa::tests::le_robot_traverse_l_arc_en_ciel_sans_mourir
+   117.0 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_eau2
+    42.7 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_escargot
+    39.1 s  difficulte::tests::niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles
+    38.7 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_montgolfiere
+    36.6 s  bot_qa::essais_tests::le_robot_monte_jusqu_en_haut_des_deux_montgolfieres
+    14.2 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_vertical
+     8.1 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_chat
+     2.2 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_ventilateur
+
+======== APRÈS, lot à mémoire VIDE (toutes les recherches du robot refaites, comme lot sans-memoire), 06b9a60, chrono réel 34 min 14 s ========
+
+--- core-rapides : 373 tests, 25 de plus de 2 s (ensemble 146 s sur 151 s)
+    14.5 s  zones::tests::niveau_d_essai_escargot_faisable
+    11.9 s  faisabilite::tests::le_robot_rebondit_sur_l_escargot_pour_monter
+     9.3 s  zones::tests::niveau_d_essai_montgolfiere_faisable
+     9.0 s  faisabilite::tests::le_vent_porteur_prolonge_la_traversee_du_vide
+     8.8 s  faisabilite::tests::la_grele_se_traverse_en_planant_dessous
+     7.9 s  faisabilite::tests::un_long_plane_d_une_grille_haute_est_trouve
+     7.4 s  levels::grotte::tests::les_bulles_font_le_niveau
+     7.1 s  faisabilite::tests::le_robot_ecrase_le_chat_pour_prendre_la_goutte_cachee
+     6.5 s  faisabilite::tests::le_vent_de_face_bloque_la_traversee_du_vide
+     5.8 s  faisabilite::tests::le_robot_monte_au_balcon_par_la_montgolfiere
+     5.5 s  zones::tests::niveau_d_essai_grele_faisable
+     5.2 s  zones::tests::niveau_d_essai_montgolfiere_exige_les_deux_montgolfieres
+     4.9 s  faisabilite::tests::portee_du_saut_sans_parapluie
+     4.8 s  faisabilite::tests::du_fond_de_la_niche_le_robot_ecrase_le_chat_pour_sortir
+     4.5 s  faisabilite::tests::hauteur_de_marche_maximale
+     4.3 s  levels::mer::tests::sans_vent_la_mer_de_nuages_est_infranchissable
+     4.0 s  faisabilite::tests::le_robot_maladroit_traverse_aussi_par_les_auvents
+     3.9 s  zones::tests::niveau_d_essai_chat_le_chat_garde_le_seul_passage
+     3.8 s  zones::tests::niveau_d_essai_vent_faisable
+     3.6 s  zones::tests::niveau_d_essai_ventilateur_exige_les_courants
+     3.1 s  zones::tests::niveau_d_essai_auvent_exige_les_auvents
+     2.7 s  faisabilite::tests::le_robot_ne_monte_pas_plus_haut_que_la_montgolfiere
+     2.6 s  faisabilite::tests::sous_un_abri_la_grele_ne_tombe_plus
+     2.4 s  zones::tests::niveau_d_essai_auvent_faisable
+     2.4 s  zones::tests::niveau_1_exige_de_planer
+
+--- game-rapides : 368 tests, 3 de plus de 2 s (ensemble 7 s sur 17 s)
+     2.3 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_vent
+     2.2 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_ventilateur
+     2.1 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_auvent
+
+--- core-lot : 62 tests, 50 de plus de 2 s (ensemble 2872 s sur 2874 s)
+   287.5 s  levels::variantes::tests::chaque_variante_ng_plus_est_finissable
+   227.4 s  zones::tests::niveau_3_faisable
+   215.7 s  zones::tests::monde_2_niveau_3_reprise
+   165.8 s  zones::tests::niveau_3_reprise
+   132.3 s  zones::tests::niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee
+   121.5 s  levels::clocher::tests::le_clocher_exige_ses_deux_aiguilles
+   111.6 s  zones::tests::monde_2_niveau_3_faisable
+    98.5 s  zones::tests::monde_2_niveau_4_faisable
+    94.6 s  zones::tests::monde_2_niveau_4_reprise
+    94.1 s  zones::tests::monde_2_niveau_1_reprise
+    92.6 s  levels::clocher::tests::le_clocher_exige_ses_escargots
+    91.1 s  zones::tests::monde_2_niveau_2_reprise
+    86.9 s  zones::tests::niveau_3_le_marche_exige_ses_six_auvents
+    85.5 s  zones::tests::niveau_5_faisable
+    66.5 s  zones::tests::niveau_11_faisable
+    65.7 s  zones::tests::niveau_5_reprise
+    64.5 s  zones::tests::monde_2_niveau_2_faisable
+    55.2 s  zones::tests::niveau_4_reprise
+    44.1 s  zones::tests::niveau_7_reprise
+    42.3 s  zones::tests::reprise_depuis_chaque_lanterne_des_niveaux_d_essai
+    40.6 s  zones::tests::niveau_3_on_ressort_de_la_cachette_du_chat
+    40.4 s  zones::tests::monde_2_niveau_1_faisable
+    38.1 s  levels::clocher::tests::le_clocher_exige_le_ventilateur
+    37.7 s  zones::tests::niveau_10_faisable
+    36.5 s  zones::tests::niveau_8_reprise
+    35.8 s  zones::tests::niveau_1_reprise
+    34.8 s  faisabilite::tests::le_robot_monte_au_balcon_par_l_aiguille
+    33.8 s  zones::tests::niveau_2_reprise
+    29.6 s  zones::tests::niveau_9_reprise
+    29.1 s  zones::tests::niveau_d_essai_horloge_faisable
+    24.1 s  zones::tests::niveau_4_faisable
+    23.2 s  zones::tests::niveau_8_faisable
+    22.9 s  zones::tests::niveau_1_faisable
+    20.3 s  faisabilite::tests::le_parapluie_allonge_nettement_la_portee
+    20.1 s  faisabilite::tests::le_robot_resiste_au_vent_de_face_au_sol
+    20.1 s  zones::tests::niveau_2_faisable
+    19.2 s  zones::tests::niveau_12_reprise
+    18.9 s  levels::mer::tests::on_repart_de_chaque_marche
+    17.6 s  faisabilite::tests::le_robot_traverse_le_vide_par_les_auvents
+    15.5 s  faisabilite::tests::un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer
+    12.9 s  zones::tests::niveau_7_faisable
+    12.4 s  zones::tests::niveau_d_essai_horloge_exige_les_deux_aiguilles
+    10.8 s  zones::tests::niveau_d_essai_vertical_faisable
+    10.7 s  zones::tests::niveau_9_faisable
+     8.8 s  zones::tests::niveau_10_reprise
+     4.1 s  zones::tests::niveau_12_faisable
+     2.9 s  zones::tests::monde_2_niveau_5_faisable
+     2.7 s  zones::tests::niveau_d_essai_chat_faisable
+     2.4 s  zones::tests::niveau_d_essai_nuage_chaque_courant_mene_a_la_tete
+     2.2 s  zones::tests::niveau_d_essai_escargot_exige_les_deux_escargots
+
+--- game-lot : 19 tests, 19 de plus de 2 s (ensemble 8581 s sur 8581 s)
+  2045.5 s  bot_qa::tests::le_robot_finit_le_monde_2_sans_mourir
+  1110.9 s  bot_qa::tests::le_robot_finit_la_nouvelle_partie_plus_sans_mourir
+  1021.1 s  bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir
+  1021.1 s  bot_qa::tests::au_clocher_le_parcours_allume_les_trois_lanternes
+   714.8 s  bot_qa::essais_tests::le_robot_bat_la_pieuvre_sans_mourir
+   569.3 s  bot_qa::tests::la_partie_complete_joue_le_bonus
+   463.4 s  bot_qa::essais_tests::le_parcours_du_grand_nuage_tient_a_une_image_pres
+   463.4 s  bot_qa::essais_tests::le_robot_bat_le_grand_nuage
+   278.9 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_ennemis_eau
+   204.4 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_horloge
+   204.4 s  bot_qa::essais_tests::le_parcours_de_l_horloge_tient_a_une_image_pres
+   168.1 s  bot_qa::tests::le_robot_traverse_l_arc_en_ciel_sans_mourir
+   143.2 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_eau2
+    50.3 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_escargot
+    38.0 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_montgolfiere
+    33.9 s  bot_qa::essais_tests::le_robot_monte_jusqu_en_haut_des_deux_montgolfieres
+    19.1 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_vertical
+    18.9 s  difficulte::tests::niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles
+    12.2 s  bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_chat
+
+======== APRÈS, lot à mémoire pleine, extraction propre de 06b9a60, chrono réel 2 min 01 s (compilation 12 s) ========
+
+--- core-rapides : 373 tests, 12 de plus de 2 s (ensemble 41 s sur 59 s)
+     7.2 s  faisabilite::tests::la_grele_se_traverse_en_planant_dessous
+     4.1 s  faisabilite::tests::le_robot_rebondit_sur_l_escargot_pour_monter
+     3.8 s  faisabilite::tests::un_long_plane_d_une_grille_haute_est_trouve
+     3.4 s  zones::tests::niveau_d_essai_montgolfiere_faisable
+     3.3 s  faisabilite::tests::le_vent_porteur_prolonge_la_traversee_du_vide
+     3.2 s  zones::tests::niveau_d_essai_escargot_faisable
+     2.9 s  faisabilite::tests::le_vent_de_face_bloque_la_traversee_du_vide
+     2.9 s  faisabilite::tests::le_robot_ecrase_le_chat_pour_prendre_la_goutte_cachee
+     2.7 s  faisabilite::tests::hauteur_de_marche_maximale
+     2.6 s  faisabilite::tests::le_robot_maladroit_traverse_aussi_par_les_auvents
+     2.5 s  zones::tests::niveau_d_essai_auvent_faisable
+     2.4 s  faisabilite::tests::du_fond_de_la_niche_le_robot_ecrase_le_chat_pour_sortir
+
+--- game-rapides : 368 tests, 0 de plus de 2 s (ensemble 0 s sur 2 s)
+
+--- core-lot : 62 tests, 49 de plus de 2 s (ensemble 1126 s sur 1130 s)
+   107.4 s  levels::variantes::tests::chaque_variante_ng_plus_est_finissable
+    86.7 s  zones::tests::niveau_3_faisable
+    81.9 s  zones::tests::monde_2_niveau_3_reprise
+    61.6 s  zones::tests::niveau_3_reprise
+    51.9 s  zones::tests::niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee
+    47.8 s  zones::tests::monde_2_niveau_3_faisable
+    46.5 s  zones::tests::monde_2_niveau_4_reprise
+    45.8 s  levels::clocher::tests::le_clocher_exige_ses_deux_aiguilles
+    44.9 s  zones::tests::monde_2_niveau_2_reprise
+    38.6 s  zones::tests::niveau_3_le_marche_exige_ses_six_auvents
+    35.6 s  zones::tests::monde_2_niveau_1_reprise
+    33.2 s  zones::tests::niveau_5_faisable
+    32.2 s  zones::tests::monde_2_niveau_4_faisable
+    28.7 s  levels::clocher::tests::le_clocher_exige_ses_escargots
+    26.6 s  zones::tests::niveau_5_reprise
+    25.0 s  zones::tests::monde_2_niveau_2_faisable
+    24.9 s  zones::tests::niveau_11_faisable
+    21.6 s  zones::tests::niveau_4_reprise
+    18.9 s  zones::tests::niveau_7_reprise
+    18.1 s  levels::clocher::tests::le_clocher_exige_le_ventilateur
+    17.4 s  zones::tests::niveau_3_on_ressort_de_la_cachette_du_chat
+    16.9 s  zones::tests::niveau_10_reprise
+    15.0 s  zones::tests::niveau_2_reprise
+    14.9 s  zones::tests::monde_2_niveau_1_faisable
+    14.1 s  zones::tests::reprise_depuis_chaque_lanterne_des_niveaux_d_essai
+    12.6 s  zones::tests::niveau_4_faisable
+    11.8 s  faisabilite::tests::le_robot_monte_au_balcon_par_l_aiguille
+    10.7 s  zones::tests::niveau_8_reprise
+    10.3 s  zones::tests::niveau_2_faisable
+    10.1 s  zones::tests::niveau_9_reprise
+     9.7 s  zones::tests::niveau_1_reprise
+     9.4 s  zones::tests::niveau_10_faisable
+     8.7 s  zones::tests::niveau_d_essai_horloge_faisable
+     7.8 s  zones::tests::niveau_1_faisable
+     7.2 s  zones::tests::niveau_12_faisable
+     6.9 s  zones::tests::niveau_12_reprise
+     6.4 s  zones::tests::niveau_7_faisable
+     6.3 s  zones::tests::niveau_9_faisable
+     6.1 s  zones::tests::niveau_d_essai_vertical_faisable
+     6.1 s  faisabilite::tests::le_robot_traverse_le_vide_par_les_auvents
+     6.0 s  levels::mer::tests::on_repart_de_chaque_marche
+     5.7 s  zones::tests::niveau_8_faisable
+     5.6 s  faisabilite::tests::le_parapluie_allonge_nettement_la_portee
+     5.3 s  faisabilite::tests::un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer
+     4.8 s  zones::tests::niveau_d_essai_horloge_exige_les_deux_aiguilles
+     4.1 s  faisabilite::tests::le_robot_resiste_au_vent_de_face_au_sol
+     2.9 s  zones::tests::niveau_d_essai_escargot_exige_les_deux_escargots
+     2.8 s  zones::tests::niveau_d_essai_nuage_chaque_courant_mene_a_la_tete
+     2.3 s  zones::tests::niveau_d_essai_chat_faisable
+
+--- game-lot : 19 tests, 2 de plus de 2 s (ensemble 32 s sur 33 s)
+    22.8 s  difficulte::tests::niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles
+     9.0 s  bot_qa::essais_tests::le_robot_monte_jusqu_en_haut_des_deux_montgolfieres

@@ -41,6 +41,15 @@ pub enum ErreurNiveau {
     /// cases au-dessus doivent être libres, dans la carte, et ses 17 colonnes
     /// d'éclairs (8 de chaque côté de `O`) dans la carte.
     NuageSansPlace { ligne: usize, colonne: usize },
+    /// L'arène de la Pieuvre du port (`8`, carte 9.12a) n'a pas de drapeau `X` :
+    /// la vaincre finit le niveau.
+    ArriveeEtPieuvre,
+    /// Un seul boss par niveau (Grand Nuage `O` ou Pieuvre `8`).
+    BossMultiple { nombre: usize },
+    /// La Pieuvre (`8`) n'a pas sa place : le `8` est dans l'eau, et ce rang d'eau
+    /// doit couvrir ses 9 colonnes (de 8 cases à gauche du `8` à 9 à droite) ; ses
+    /// 3 places de tête (48 x 32 au-dessus de l'eau) ne touchent aucun solide.
+    PieuvreSansPlace { ligne: usize, colonne: usize },
     /// Un niveau contient exactement 3 gouttes d'or.
     NombreDeGouttes { trouve: usize },
     /// Une plateforme mobile (chiffre 1-9) doit apparaître exactement deux fois
@@ -56,6 +65,13 @@ pub enum ErreurNiveau {
     /// Un pigeon (`p`) doit être perché sur une tuile solide : c'est là qu'il
     /// revient se poser après chaque plongée.
     PigeonSansPerchoir { ligne: usize, colonne: usize },
+    /// Un ennemi d'eau mal placé (carte 9.4) : une mouette (`u`) doit être
+    /// perchée sur un solide, un poisson (`i`) doit avoir de l'eau juste dessous.
+    EnnemiDEauMalPlace {
+        ligne: usize,
+        colonne: usize,
+        caractere: char,
+    },
     /// Un ventilateur (`w`) doit être posé sur une tuile solide : sa casette
     /// (le socle de l'hélice) repose dessus.
     VentilateurSansAppui { ligne: usize, colonne: usize },
@@ -79,6 +95,14 @@ pub enum ErreurNiveau {
     MurMultiple { nombre: usize },
     /// Une lettre cachée `*` au plus par niveau (carte 8.6).
     LettreMultiple { nombre: usize },
+    /// Une mécanique d'eau (carte 9.3) mal posée : un nénuphar `n` sans eau
+    /// juste dessous, une stalactite `V` sans solide juste au-dessus, une zone
+    /// de marée `=` qui ne repose pas sur un solide ou sur de l'eau.
+    EauMalPosee {
+        ligne: usize,
+        colonne: usize,
+        caractere: char,
+    },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -118,6 +142,18 @@ impl fmt::Display for ErreurNiveau {
                 "ligne {ligne}, colonne {colonne} : le Grand Nuage « O » n'a pas sa place \
                  (3 x 2 cases libres et les 3 du dessus, 8 colonnes de chaque côté)"
             ),
+            ErreurNiveau::ArriveeEtPieuvre => write!(
+                f,
+                "arrivée « X » dans l'arène de la Pieuvre « 8 » (la vaincre finit le niveau)"
+            ),
+            ErreurNiveau::BossMultiple { nombre } => {
+                write!(f, "{nombre} boss (« O » ou « 8 ») : un seul permis")
+            }
+            ErreurNiveau::PieuvreSansPlace { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : la Pieuvre « 8 » n'a pas sa place \
+                 (de l'eau sur 18 cases, 8 à gauche et 9 à droite ; ses têtes hors des solides)"
+            ),
             ErreurNiveau::NombreDeGouttes { trouve } => {
                 write!(f, "{trouve} gouttes d'or « o » au lieu de 3")
             }
@@ -133,6 +169,24 @@ impl fmt::Display for ErreurNiveau {
                 f,
                 "ligne {ligne}, colonne {colonne} : le décor « {caractere} » n'est pas posé \
                  sur un solide"
+            ),
+            ErreurNiveau::EnnemiDEauMalPlace {
+                ligne,
+                colonne,
+                caractere,
+            } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : « {caractere} » mal placé (une mouette \
+                 se perche sur un solide, un poisson a de l'eau juste dessous)"
+            ),
+            ErreurNiveau::EauMalPosee {
+                ligne,
+                colonne,
+                caractere,
+            } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : « {caractere} » mal posé (nénuphar sur l'eau, \
+                 stalactite sous un solide, marée sur un solide ou sur l'eau)"
             ),
             ErreurNiveau::PigeonSansPerchoir { ligne, colonne } => write!(
                 f,

@@ -320,6 +320,43 @@ fn auvent_pose_dans_sa_case_et_traversable() {
     }));
 }
 
+/// Carte 9.20f : le mobilier de rue est SOLIDE (un toit pour la collision), et
+/// chaque groupe de cases voisines de la même lettre est un seul objet, décrit par
+/// le rectangle qui l'entoure (la voiture a deux coins libres en haut). Deux
+/// voitures côte à côte restent deux objets si une case les sépare.
+#[test]
+fn le_mobilier_de_rue_est_solide_et_groupe_par_objet() {
+    let avec = "
+.o.o.o...............
+.......qq...ttt..qq..
+.@.d..qqqqll....qqqqX
+#####################
+";
+    let n = Niveau::depuis_ascii(avec).unwrap_or_else(|e| panic!("{e}"));
+    let objets: Vec<(GenreMobilier, i32, i32, i32, i32)> = n
+        .mobilier
+        .iter()
+        .map(|m| (m.genre, m.tx, m.ty, m.l, m.h))
+        .collect();
+    assert_eq!(
+        objets,
+        vec![
+            (GenreMobilier::Voiture, 6, 1, 4, 2),
+            (GenreMobilier::Abribus, 12, 1, 3, 1),
+            (GenreMobilier::Voiture, 16, 1, 4, 2),
+            (GenreMobilier::Poubelle, 3, 2, 1, 1),
+            (GenreMobilier::Banc, 10, 2, 2, 1),
+        ]
+    );
+    assert!(n.est_solide(7, 1) && n.est_solide(3, 2) && n.est_solide(12, 1));
+    assert!(
+        n.est_mobilier(7, 1) && !n.est_mobilier(6, 1),
+        "coin libre de la voiture"
+    );
+    assert!(!n.est_solide(12, 2), "on passe sous l'abribus");
+    assert!(!n.est_mobilier(0, 3), "la rue n'est pas du mobilier");
+}
+
 #[test]
 fn panneaux_et_tuiles_decor() {
     let avec = "
@@ -341,9 +378,9 @@ fn panneaux_et_tuiles_decor() {
 #[test]
 fn objets_de_decor_lus_et_poses_sur_leur_appui() {
     let avec = "
-.o.o.o.......
-.@.HTRQK..X..
-#####B#N#####
+.o.o.o...........
+.@.HTRQKEIUJ..X..
+#####B#N#########
 ";
     let n = Niveau::depuis_ascii(avec).unwrap();
     let genres: Vec<GenreDecor> = n.decors.iter().map(|d| d.genre).collect();

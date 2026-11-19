@@ -207,6 +207,7 @@ mod tests {
                 solides: &solides,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             for e in &mut self.entites {
                 e.actualiser(&env);
@@ -341,6 +342,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         let mut traverse = false;
         for _ in 0..60 {

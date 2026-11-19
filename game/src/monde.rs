@@ -13,19 +13,27 @@ use pepin_core::aabb::Aabb;
 use pepin_core::entities::contacts::{
     porter_par_plateformes, resoudre_contacts, verifier_vide, CauseMort, Contact,
 };
+use pepin_core::entities::pieuvre::{cases_englouties, GrilleSaisie};
 use pepin_core::entities::{
-    courants_des_entites, reprendre_apres_une_mort, solides_des_entites, Actualisable, Entite,
+    courants_des_entites, eaux_des_entites, reprendre_apres_une_mort, solides_des_entites,
+    Actualisable, Entite,
 };
 use pepin_core::level::Niveau;
 use pepin_core::levels::variantes;
-use pepin_core::physics::{CourantAscendant, Environnement, Vec2};
+use pepin_core::physics::{CourantAscendant, Eau, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
 use pepin_core::poursuite::MurDePluie;
 use pepin_core::state::{EtatJeu, Ordre};
 use pepin_core::zones::{self, InfosNiveau};
 
-/// Durée (pas) de l'animation de réapparition de Pépin.
+use crate::mort::{AnimationMort, CauseDeMort, RIDEAU_FERME};
+
+/// Sans temps de mort (`Monde::temps_de_mort` faux) : pas restants du court
+/// clignotement de réapparition, le monde continuant de tourner.
 pub const REAPPARITION_PAS: u16 = 18;
+/// Durée (pas) de l'encre de la Pieuvre (carte 9.12a) : l'écran s'assombrit 0,75 s
+/// quand elle a eu Pépin. Un effet visuel, rien de plus.
+pub const ENCRE_PAS: u16 = 45;
 
 #[derive(Clone)]
 pub struct Monde {
@@ -44,8 +52,18 @@ pub struct Monde {
     pub contacts: Vec<Contact>,
     /// Dernière cause de mort (pour les effets).
     pub derniere_mort: Option<CauseMort>,
-    /// Pas restants de l'animation de réapparition (0 = aucune).
+    /// Pas restants du temps de mort (carte 9.24, `crate::mort`) : l'animation de
+    /// la cause puis le rideau. Tant qu'il dure, le monde est figé et les
+    /// commandes ne répondent plus (0 = Pépin en jeu).
     pub reapparition: u16,
+    /// La mort en cours d'animation (cause, endroit) : lue par le dessin.
+    pub mort: AnimationMort,
+    /// Le temps de mort (carte 9.24) est-il joué ? Oui dans la partie (`app`) ; non
+    /// dans les simulations (robot de QA, mesure, fantôme de la course, démo) :
+    /// leurs parcours enregistrés supposent la réapparition immédiate d'avant.
+    pub temps_de_mort: bool,
+    /// Pas restants de l'encre de la Pieuvre (0 = aucune, voir `ENCRE_PAS`).
+    pub encre: u16,
     /// Où Pépin est mort (coin haut-gauche), pour jouer l'animation de mort.
     pub pos_mort: (f32, f32),
     /// Le joueur a-t-il touché le drapeau d'arrivée ?
@@ -123,13 +141,34 @@ pub const INDICE_ESSAI_HORLOGE: usize = pepin_core::levels::NB_NIVEAUX + 8;
 /// après celui de l'horloge (touche F10 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_NUAGE: usize = pepin_core::levels::NB_NIVEAUX + 9;
+/// Niveau d'essai « eau » (carte 9.2 : la mécanique de la barque, le Monde 2),
+/// tests et build de QA seulement.
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_EAU: usize = pepin_core::levels::NB_NIVEAUX + 10;
+/// Niveau d'essai « eau 2 » (carte 9.3 : bulles, nénuphars, marée, stalactites,
+/// chutes d'eau), tests et build de QA seulement (touche F12).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_EAU2: usize = pepin_core::levels::NB_NIVEAUX + 11;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les dix niveaux
+/// Niveau d'essai « ennemis d'eau » (carte 9.4 : grenouille, poisson, crabe, rat,
+/// mouette ; touche J), tests et build de QA seulement. L'indice `+ 11` est celui
+/// de l'essai de la carte 9.3 (touche F12).
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_ENNEMIS_EAU: usize = pepin_core::levels::NB_NIVEAUX + 12;
+
+/// Niveau d'essai « pieuvre » (carte 9.12a : l'arène de la Pieuvre du port, boss du
+/// Monde 2 ; touche L), tests et build de QA seulement.
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_PIEUVRE: usize = pepin_core::levels::NB_NIVEAUX + 13;
+
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les quatorze niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
 /// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
-/// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage), tests
+/// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage,
+/// `INDICE_ESSAI_EAU` eau, `INDICE_ESSAI_EAU2` eau 2, `INDICE_ESSAI_ENNEMIS_EAU` ennemis d'eau,
+/// `INDICE_ESSAI_PIEUVRE` arène de la Pieuvre), tests
 /// et build de QA seulement. `None` au-delà.
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
     zones::niveau(indice).or_else(|| niveau_essai(indice))
@@ -157,6 +196,14 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(&pepin_core::levels::essai_horloge::INFOS)
     } else if indice == INDICE_ESSAI_NUAGE {
         Some(&pepin_core::levels::essai_nuage::INFOS)
+    } else if indice == INDICE_ESSAI_EAU {
+        Some(&pepin_core::levels::essai_eau::INFOS)
+    } else if indice == INDICE_ESSAI_EAU2 {
+        Some(&pepin_core::levels::essai_eau2::INFOS)
+    } else if indice == INDICE_ESSAI_ENNEMIS_EAU {
+        Some(&pepin_core::levels::essai_ennemis_eau::INFOS)
+    } else if indice == INDICE_ESSAI_PIEUVRE {
+        Some(&pepin_core::levels::essai_pieuvre::INFOS)
     } else {
         None
     }
@@ -211,6 +258,9 @@ impl Monde {
             contacts: Vec::new(),
             derniere_mort: None,
             reapparition: 0,
+            mort: AnimationMort::default(),
+            temps_de_mort: false,
+            encre: 0,
             pos_mort: (0.0, 0.0),
             termine: false,
             gouttes_niveau: [false; 3],
@@ -234,15 +284,33 @@ impl Monde {
     pub fn avancer(&mut self, entrees: &Entrees) {
         self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);
         self.precedent_entites = self.entites.iter().map(Self::coin).collect();
+        // Temps de mort (carte 9.24) : le monde est figé, les entrées ignorées.
+        if self.temps_de_mort && self.reapparition > 0 {
+            self.pas_de_mort();
+            return;
+        }
 
+        // La Pieuvre du port (carte 9.12f) voit où est Pépin : elle vise sa
+        // plateforme, et ne la fait jamais remonter dans lui.
+        for e in &mut self.entites {
+            if let Entite::Pieuvre(p) = e {
+                p.voir_pepin(self.joueur.boite);
+            }
+        }
         // 1. Les entités avancent (plateformes, ennemis, éclairs...).
         let solides = solides_des_entites(&self.entites);
         {
-            let env = Environnement {
+            let trous = cases_englouties(&self.entites);
+            let grille = GrilleSaisie {
                 grille: &self.niveau,
+                trous: &trous,
+            };
+            let env = Environnement {
+                grille: &grille,
                 solides: &solides,
                 courants: &self.niveau.courants,
                 vents: &self.niveau.vents,
+                eaux: &[],
             };
             for e in &mut self.entites {
                 e.actualiser(&env);
@@ -264,11 +332,35 @@ impl Monde {
             .cloned()
             .chain(courants_des_entites(&self.entites))
             .collect();
-        let env = Environnement {
+        // La marée (carte 9.3) : son eau, qui monte et descend, s'ajoute à celle
+        // du niveau. Seulement dans un niveau qui en a une : ailleurs, l'eau du
+        // niveau sert telle quelle (rien ne change au Monde 1).
+        let a_une_maree = self.entites.iter().any(|e| matches!(e, Entite::Maree(_)));
+        let eaux_du_moment = if a_une_maree {
+            eaux_des_entites(&self.niveau.eaux, &self.entites)
+        } else {
+            Vec::new()
+        };
+        // La plateforme que la Pieuvre a emportée sous l'eau ne porte plus : on
+        // perce la grille de ses cases, le temps de la plongée (carte 9.12f).
+        let trous = cases_englouties(&self.entites);
+        let grille = GrilleSaisie {
             grille: &self.niveau,
+            trous: &trous,
+        };
+        let env = Environnement {
+            grille: &grille,
             solides: &solides,
             courants: &courants,
             vents: &self.niveau.vents,
+            // L'eau (carte 9.2) : la barque flotte, la noyade tue. Seuls le
+            // joueur et ses états (barque/noyade) en sont affectés : les
+            // entités (plateformes, ennemis) ne s'y baignent pas.
+            eaux: if a_une_maree {
+                &eaux_du_moment
+            } else {
+                &self.niveau.eaux
+            },
         };
         porter_par_plateformes(&mut self.joueur, &self.entites, &env);
         // 3. Le joueur bouge.
@@ -288,7 +380,14 @@ impl Monde {
         }
         // 5. L'état de partie digère les contacts (score, checkpoint, respawn).
         //    On retient où Pépin se trouvait : l'animation de mort se joue là.
-        let avant_mort = (self.joueur.boite.x, self.joueur.boite.y);
+        let avant_mort = self.joueur.boite;
+        let eaux = if a_une_maree {
+            &eaux_du_moment
+        } else {
+            &self.niveau.eaux
+        };
+        let surface = surface_sous(eaux, &avant_mort);
+        let regarde_droite = self.joueur.regarde_droite;
         self.etat.traiter(&mut self.joueur, &contacts);
         for c in &contacts {
             match *c {
@@ -299,22 +398,32 @@ impl Monde {
                 }
                 Contact::Lettre => self.lettre_prise = true,
                 Contact::Mort(cause) => {
-                    // Le Grand Nuage reprend son combat au début (il garde ses
-                    // points perdus) : Pépin réapparaît au début de l'arène. Les
-                    // dalles friables se reforment (carte 5.16), sauf sous Pépin
-                    // déjà replacé.
-                    reprendre_apres_une_mort(&mut self.entites, &self.joueur.boite);
-                    // Le mur recule à distance fixe derrière Pépin replacé : jamais
-                    // de mort en boucle (carte 8.2).
-                    if let Some(mur) = &mut self.mur {
-                        mur.replacer(&self.joueur.boite);
-                    }
+                    // Le cœur a déjà replacé Pépin à la lanterne. Avec le temps de
+                    // mort, le monde se remet en place derrière le rideau
+                    // (`pas_de_mort`), pas avant : on voit l'animation de mort dans
+                    // le monde tel qu'il était.
                     self.derniere_mort = Some(cause);
-                    self.reapparition = REAPPARITION_PAS;
+                    let anime = CauseDeMort::depuis(cause);
+                    self.mort = AnimationMort {
+                        cause: anime,
+                        boite: (avant_mort.x, avant_mort.y, avant_mort.w, avant_mort.h),
+                        surface: surface.unwrap_or(avant_mort.bas()),
+                        regarde_droite,
+                    };
+                    if self.temps_de_mort {
+                        self.reapparition = anime.duree_totale();
+                    } else {
+                        self.remettre_en_place();
+                        self.reapparition = REAPPARITION_PAS;
+                    }
+                    // La Pieuvre a eu Pépin : l'encre (carte 9.12a).
+                    if self.derniere_mort == Some(CauseMort::Pieuvre) {
+                        self.encre = ENCRE_PAS;
+                    }
                     // Mort dans le vide : on garde l'animation visible, au bas du niveau.
                     self.pos_mort = (
-                        avant_mort.0,
-                        avant_mort.1.min(self.niveau.hauteur_px() - 16.0),
+                        avant_mort.x,
+                        avant_mort.y.min(self.niveau.hauteur_px() - 16.0),
                     );
                     // Téléportation : pas d'interpolation entre l'ancien et le nouvel endroit.
                     self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);
@@ -323,20 +432,20 @@ impl Monde {
             }
         }
         self.contacts = contacts;
-        self.reapparition = self.reapparition.saturating_sub(1);
+        if !self.temps_de_mort {
+            self.reapparition = self.reapparition.saturating_sub(1);
+        }
+        self.encre = self.encre.saturating_sub(1);
         // Après la réapparition éventuelle : un Pépin replacé n'est pas encore au sol.
         self.immobile = compter_immobile(self.immobile, &self.joueur, entrees);
 
-        // Fin du niveau : le drapeau touché, ou le Grand Nuage vaincu (le ciel s'est
-        // déchiré : son arène n'a pas de drapeau).
+        // Fin du niveau : le drapeau touché, ou le boss vaincu (le ciel s'est
+        // déchiré, ou la Pieuvre a replongé : leur arène n'a pas de drapeau).
         let drapeau = self
             .niveau
             .arrivee
             .is_some_and(|a| self.joueur.boite.chevauche(&a));
-        let nuage_vaincu = self
-            .entites
-            .iter()
-            .any(|e| matches!(e, Entite::Nuage(n) if n.est_vaincu()));
+        let nuage_vaincu = self.entites.iter().any(Entite::boss_vaincu);
         // Secrets (carte 8.5) : une zone cachée que Pépin touche se révèle pour de
         // bon ; la sortie secrète finit le niveau comme le drapeau.
         self.secret_revele = false;
@@ -357,32 +466,66 @@ impl Monde {
         self.pas += 1;
     }
 
-    /// Points de vie du Grand Nuage du niveau (`None` s'il n'y en a pas) : le HUD les
-    /// affiche.
-    pub fn pv_nuage(&self) -> Option<u8> {
-        self.entites.iter().find_map(|e| match e {
-            Entite::Nuage(g) => Some(g.pv()),
-            _ => None,
-        })
+    /// Un pas du temps de mort (carte 9.24) : rien ne bouge (entités, boss, mur,
+    /// Pépin), seul le compteur avance. Rideau fermé (`RIDEAU_FERME`), le monde se
+    /// remet en place comme il le faisait au pas de la mort.
+    fn pas_de_mort(&mut self) {
+        self.reapparition -= 1;
+        if self.reapparition == RIDEAU_FERME {
+            self.remettre_en_place();
+            // Les entités replacées sautent : pas d'interpolation.
+            self.precedent_entites = self.entites.iter().map(Self::coin).collect();
+        }
+        self.evenements = Evenements::default();
+        self.contacts.clear();
+        self.secret_revele = false;
+        self.encre = self.encre.saturating_sub(1);
+        self.pas += 1;
     }
 
-    /// Points de vie du Grand Nuage et son maximum, `(pv, pv_max)` : le HUD montre
+    /// Après une mort, Pépin déjà replacé : le Grand Nuage reprend son combat au
+    /// début (il garde ses points perdus) et Pépin réapparaît au début de l'arène ;
+    /// les dalles friables se reforment (carte 5.16), sauf sous Pépin ; le mur
+    /// recule à distance fixe derrière lui : jamais de mort en boucle (carte 8.2).
+    fn remettre_en_place(&mut self) {
+        reprendre_apres_une_mort(&mut self.entites, &self.joueur.boite);
+        if let Some(mur) = &mut self.mur {
+            mur.replacer(&self.joueur.boite);
+        }
+    }
+
+    /// Points de vie du boss du niveau (`None` s'il n'y en a pas) : le HUD les
+    /// affiche. Le boss : le Grand Nuage, ou la Pieuvre du port (carte 9.12a,
+    /// `Entite::points_du_boss`) ; le nom est resté celui du premier boss.
+    pub fn pv_nuage(&self) -> Option<u8> {
+        self.points_nuage().map(|(pv, _)| pv)
+    }
+
+    /// Points de vie du boss et son maximum, `(pv, pv_max)` : le HUD montre
     /// `pv_max` cases (2 en mode facile, carte 8.14).
     pub fn points_nuage(&self) -> Option<(u8, u8)> {
-        self.entites.iter().find_map(|e| match e {
-            Entite::Nuage(g) => Some((g.pv(), g.pv_max())),
-            _ => None,
-        })
+        self.entites.iter().find_map(Entite::points_du_boss)
     }
 
-    /// Mode facile du boss (carte 8.14) : chaque Grand Nuage du niveau passe à
-    /// `PV_NUAGE_FACILE` points de vie. Sans nuage, rien.
+    /// La Pieuvre du port (carte 9.12a) est-elle le boss du niveau ? (Le HUD dessine
+    /// alors ses points de vie en petites pieuvres.)
+    pub fn boss_pieuvre(&self) -> bool {
+        self.entites.iter().any(|e| matches!(e, Entite::Pieuvre(_)))
+    }
+
+    /// Mode facile du boss (carte 8.14) : le boss du niveau (Grand Nuage ou Pieuvre)
+    /// passe à deux points de vie. Sans boss, rien.
     pub fn passer_nuage_en_facile(&mut self) {
         for e in &mut self.entites {
-            if let Entite::Nuage(g) = e {
-                g.passer_en_facile();
-            }
+            e.passer_boss_en_facile();
         }
+    }
+
+    /// Le niveau a-t-il de l'eau (étendues, ou marée qui en apporte, cartes 9.2 et
+    /// 9.3) ? C'est là seulement que le bouton tactile BAS (retourner le parapluie,
+    /// carte 9.2b) est montré.
+    pub fn a_de_l_eau(&self) -> bool {
+        !self.niveau.eaux.is_empty() || self.entites.iter().any(|e| matches!(e, Entite::Maree(_)))
     }
 
     /// Position interpolée de Pépin (coin haut-gauche), `alpha` entre 0 et 1.
@@ -408,7 +551,7 @@ impl Monde {
 
 /// Minuterie de l'attente : nombre de pas que Pépin vient de passer immobile au sol.
 /// `avant` : la valeur du pas précédent. Elle repart de zéro au premier mouvement : une
-/// touche de direction ou de saut enfoncée (même contre un mur, où il ne bouge pas), une
+/// touche de direction, de saut ou BAS enfoncée (même contre un mur, où il ne bouge pas), une
 /// vitesse non nulle, ou les pieds qui quittent le sol (saut, chute, réapparition).
 /// Elle ne fait que LIRE le joueur (`&Joueur`) : aucun effet sur la physique. Porté par
 /// une plateforme mobile sans toucher à rien, Pépin est immobile (il attend, debout).
@@ -417,12 +560,22 @@ pub fn compter_immobile(avant: u32, joueur: &Joueur, entrees: &Entrees) -> u32 {
     let bouge = !joueur.au_sol
         || joueur.vitesse != Vec2::default()
         || entrees.direction != Direction::Immobile
-        || entrees.saut;
+        || entrees.saut
+        // BAS tenu (carte 9.2b) : il tient son parapluie retourné, il n'attend pas.
+        || entrees.bas;
     if bouge {
         0
     } else {
         avant.saturating_add(1)
     }
+}
+
+/// Noyade (carte 9.24) : la surface (px) de l'eau où la boîte `b` de Pépin est entrée.
+fn surface_sous(eaux: &[Eau], b: &Aabb) -> Option<f32> {
+    let (cx, _) = b.centre();
+    eaux.iter()
+        .find(|e| cx >= e.zone.x && cx <= e.zone.x + e.zone.w && b.chevauche(&e.zone))
+        .map(|e| e.zone.y)
 }
 
 /// Interpolation linéaire ; au-delà de 32 px d'écart c'est une téléportation
@@ -461,6 +614,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         for _ in 0..30 {
             m.avancer(&droite);
@@ -470,11 +624,13 @@ mod tests {
         m.avancer(&Entrees {
             direction: Direction::Droite,
             saut: true,
+            bas: false,
         });
         for _ in 0..5 {
             m.avancer(&Entrees {
                 direction: Direction::Droite,
                 saut: true,
+                bas: false,
             });
         }
         assert!(m.joueur.boite.y < y0 - 5.0, "le saut décolle");
@@ -491,6 +647,69 @@ mod tests {
         assert!(m.reapparition > 0);
     }
 
+    /// Avance (sans commande) jusqu'à la fin du temps de mort (carte 9.24).
+    fn finir_la_mort(m: &mut Monde) {
+        while m.reapparition > 0 {
+            m.avancer(&Entrees::default());
+        }
+    }
+
+    /// Carte 9.24 : Pépin, déjà replacé par le cœur, ne réapparaît qu'à l'ouverture
+    /// du rideau, après l'animation de la cause ; sa protection de 1 s commence alors.
+    #[test]
+    fn pas_de_reapparition_avant_la_fin_de_l_animation() {
+        use crate::dessin_mort::pepin_cache;
+        use crate::mort::{CauseDeMort, RIDEAU_FERME};
+        use pepin_core::player::PROTECTION_REAPPARITION_PAS;
+        let mut m = Monde::new(0);
+        m.temps_de_mort = true;
+        m.joueur
+            .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
+        m.avancer(&Entrees::default());
+        assert_eq!(m.mort.cause, CauseDeMort::Vide);
+        let total = CauseDeMort::Vide.duree_totale();
+        assert_eq!(m.reapparition, total);
+        let mut caches = 0;
+        while m.reapparition > 0 {
+            caches += u16::from(pepin_cache(m.reapparition));
+            m.avancer(&Entrees::default());
+        }
+        assert_eq!(caches, total - RIDEAU_FERME, "caché jusqu'au rideau fermé");
+        assert_eq!(m.joueur.protection_restante(), PROTECTION_REAPPARITION_PAS);
+    }
+
+    /// Carte 9.24 : pendant le temps de mort, les commandes sont ignorées et le
+    /// monde est figé (Pépin et les entités) ; ensuite, Pépin répond de nouveau.
+    #[test]
+    fn les_commandes_sont_ignorees_pendant_l_animation() {
+        let mut m = Monde::new(0);
+        m.temps_de_mort = true;
+        for _ in 0..30 {
+            m.avancer(&Entrees::default());
+        }
+        m.joueur
+            .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
+        m.avancer(&Entrees::default());
+        let pepin = (m.joueur.boite.x, m.joueur.boite.y);
+        let entites: Vec<(f32, f32)> = m.entites.iter().map(Monde::coin).collect();
+        while m.reapparition > crate::mort::RIDEAU_FERME {
+            m.avancer(&SAUT);
+            assert_eq!((m.joueur.boite.x, m.joueur.boite.y), pepin);
+            assert_eq!(
+                m.entites.iter().map(Monde::coin).collect::<Vec<_>>(),
+                entites
+            );
+        }
+        while m.reapparition > 0 {
+            m.avancer(&DROITE);
+        }
+        assert_eq!((m.joueur.boite.x, m.joueur.boite.y), pepin);
+        for _ in 0..10 {
+            m.avancer(&DROITE);
+        }
+        assert!(m.joueur.boite.x > pepin.0, "Pépin repart");
+    }
+
     /// Le bonus (carte 5.16), sans lanterne : une chute ramène au départ, et le pont
     /// friable s'y est déjà reformé en entier (sans attendre les 3 s d'absence
     /// d'une dalle tombée), pour repartir aussitôt.
@@ -503,6 +722,7 @@ mod tests {
             .position(|n| n.genre == GenreNiveau::Bonus)
             .unwrap();
         let mut m = Monde::new(i);
+        m.temps_de_mort = true;
         // Le début du pont est tombé, une autre dalle s'effrite.
         let mut friables = 0;
         for e in m.entites.iter_mut() {
@@ -520,6 +740,8 @@ mod tests {
             .placer(m.niveau.largeur_px() / 2.0, m.niveau.hauteur_px() + 40.0);
         m.avancer(&Entrees::default());
         assert_eq!(m.etat.morts, 1);
+        // Le pont se reforme derrière le rideau du temps de mort (carte 9.24).
+        finir_la_mort(&mut m);
         assert_eq!(
             (m.joueur.boite.x, m.joueur.boite.y),
             m.niveau.depart,
@@ -542,10 +764,12 @@ mod tests {
     const DROITE: Entrees = Entrees {
         direction: Direction::Droite,
         saut: false,
+        bas: false,
     };
     const SAUT: Entrees = Entrees {
         direction: Direction::Immobile,
         saut: true,
+        bas: false,
     };
 
     /// Pépin posé, immobile (le vrai niveau 1 après 30 pas sans toucher à rien).

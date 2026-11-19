@@ -340,6 +340,56 @@ pub const PEPIN_PLANE1: Image = &[
     ".......00..00.......",
 ];
 
+/// Parapluie RETOURNÉ (carte 9.2b, BAS tenu), dessiné SOUS Pépin (carte 9.2c, AGA :
+/// « que le parapluie se mette sous pépin et pas au dessus ») : Pépin debout dans
+/// la coque, la même que celle de `PEPIN_BARQUE` (bord clair festonné, toile
+/// corail, baleines, crosse en quille dessous). C'est la barque prête à toucher
+/// l'eau : posé dessus, Pépin s'y assied (3 px plus bas). Image 16x16, comme la
+/// barque ; la scène la pose sur les pieds au sol, à la place de la barque en l'air.
+pub const PEPIN_RETOURNE: Image = &[
+    "....00000000....",
+    "...0777777770...",
+    "...0770770770...",
+    "...0770770770...",
+    "...0797797550...",
+    "...0777777550...",
+    "...0555555550...",
+    ".00055555555000.",
+    "0999099999909990",
+    "0888888888888880",
+    ".08898888889880.",
+    "..088988889880..",
+    "...0088998800...",
+    ".....000A000....",
+    ".......0A0......",
+    "......0AA0......",
+];
+
+/// Barque (carte 9.2) : le parapluie corail RETOURNÉ devient une coque, et Pépin
+/// s'assied dedans : la tête (yeux, joues) dépasse du bord, le bord clair (9) est
+/// festonné comme le bord de la toile, deux baleines (9) descendent vers le fond,
+/// et la crosse (A) sort dessous comme une quille. Posée comme une image 16x16, le
+/// coin haut-gauche à (milieu-8, bas-16) : le bas de la coque est à la surface de
+/// l'eau, la crosse dessous, à hauteur des pieds (3 px sous la surface).
+pub const PEPIN_BARQUE: Image = &[
+    "................",
+    "................",
+    ".....000000.....",
+    "....07777770....",
+    "...0777777770...",
+    "...0770770770...",
+    "...0797777970...",
+    ".00077777777000.",
+    "0999099999909990",
+    "0888888888888880",
+    ".08898888889880.",
+    "..088988889880..",
+    "...0088998800...",
+    ".....000A000....",
+    ".......0A0......",
+    "......0AA0......",
+];
+
 /// Icône des vies dans le HUD (10x10, carte 6.2) : la tête de Pépin, corps blanc,
 /// yeux, joues corail et ombre de brume, comme le vrai, cernée de sombre pour se lire
 /// sur tous les ciels.
@@ -374,6 +424,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pepin_mort2", PEPIN_MORT2),
     ("pepin_plane0", PEPIN_PLANE0),
     ("pepin_plane1", PEPIN_PLANE1),
+    ("pepin_retourne", PEPIN_RETOURNE),
+    ("pepin_barque", PEPIN_BARQUE),
     ("vie", VIE),
 ];
 
@@ -396,6 +448,8 @@ pub const IMAGES: JeuImages = JeuImages {
     chute: "pepin_chute",
     attente: ATTENTE,
     planer: PLANER,
+    retourne: "pepin_retourne",
+    barque: "pepin_barque",
     reapparition: REAPPARITION,
     vie: "vie",
 };

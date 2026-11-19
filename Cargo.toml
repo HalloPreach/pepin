@@ -14,3 +14,17 @@ panic = "abort"
 # on les optimise pour qu'ils restent rapides (quelques secondes).
 [profile.test]
 opt-level = 2
+
+# Profil des commandes `./docker-cargo.sh carte <clé>` et `lot` (carte 9.23, tri des
+# tests). `--release` compile les tests avec le profil de la version web (taille
+# minimale `z`, LTO, une seule unité : lent à compiler ET lent à exécuter) ; celui-ci
+# vise la VITESSE des robots : optimisations complètes (`3`), sans LTO, compilation
+# en parallèle. Mêmes calculs (Rust ne change pas les résultats des flottants selon
+# le niveau d'optimisation) : seule la durée change.
+[profile.tests-rapides]
+inherits = "release"
+opt-level = 3
+lto = false
+codegen-units = 16
+strip = false
+panic = "unwind"

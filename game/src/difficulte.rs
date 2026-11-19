@@ -47,7 +47,10 @@ use pepin_core::levels::{
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::vies::{Vies, VIES_DEPART};
-use pepin_core::zones::{NB_NIVEAUX, NIVEAUX};
+// La mesure décrit la courbe du MONDE 1 seulement (carte 9.6) : `NIVEAUX` et
+// `NB_NIVEAUX` y désignent ses niveaux (le début de la table, mêmes indices). Le
+// Monde 2 se juge à la main, AGA en jouant : pas de mesure ni de juge de courbe.
+use pepin_core::levels::{NB_NIVEAUX_MONDE_1 as NB_NIVEAUX, NIVEAUX_MONDE_1 as NIVEAUX};
 
 use crate::bot_qa::{
     chercher, cle, depart_pose, plans, plans_en_vol, simuler, CaseParcours, Fin, Plan, PAS_DEPART,
@@ -75,6 +78,13 @@ const PROFONDEUR_CHAINE: usize = 8;
 /// compte dans la case, et une rue sous deux paires d'auvents) en explore plus que
 /// les autres niveaux.
 const LIMITE_CASES: usize = 20_000;
+/// Même garde-fou pour la mesure d'UN niveau du Monde 2 seulement
+/// (`mesure_d_un_niveau_du_monde_2`, carte 9.21a) : près d'un bassin, l'heure de la
+/// marée compte dans la case (`bot_qa::maree_de_la_case`) et multiplie les cases ;
+/// « Les égouts » dépassaient 20 000 cases sans atteindre le drapeau (ils en
+/// explorent 167 351 avant la carte 9.21a). Les autres usages (mesure complète,
+/// fantômes) gardent `LIMITE_CASES`.
+const LIMITE_CASES_MONDE_2: usize = 1_000_000;
 /// Voisinage des cases essayées quand Pépin se pose hors des cases connues :
 /// ±2 cases de 8 px en x, ±2 px en y.
 const VOISINAGE_X: i32 = 2;
@@ -275,12 +285,19 @@ impl Itineraires {
     /// Comme `calculer`, sans paniquer : `None` si le drapeau reste hors d'atteinte
     /// (course contre le robot, carte 8.7 : ce niveau n'aura pas de fantôme).
     pub(crate) fn tenter(indice: usize) -> Option<Self> {
-        Self::explorer(indice, plans(false)).or_else(|| Self::explorer(indice, plans(true)))
+        Self::tenter_jusqu_a(indice, LIMITE_CASES)
+    }
+
+    /// Comme `tenter`, avec au plus `limite` cases explorées (voir
+    /// `LIMITE_CASES_MONDE_2`).
+    fn tenter_jusqu_a(indice: usize, limite: usize) -> Option<Self> {
+        Self::explorer(indice, plans(false), limite)
+            .or_else(|| Self::explorer(indice, plans(true), limite))
     }
 
     /// Les deux passes avec les plans `tous`. `None` si le drapeau est
     /// inatteignable depuis le départ.
-    fn explorer(indice: usize, tous: Vec<Plan>) -> Option<Self> {
+    fn explorer(indice: usize, tous: Vec<Plan>, limite: usize) -> Option<Self> {
         let (depart, _) = depart_pose(indice);
         let nuage = depart.pv_nuage().is_some();
 
@@ -301,7 +318,7 @@ impl Itineraires {
                 continue;
             }
             developpees.insert(k);
-            if developpees.len() > LIMITE_CASES {
+            if developpees.len() > limite {
                 break;
             }
             let Some(monde) = meilleur.get_mut(&k).and_then(|(_, m)| m.take()) else {
@@ -309,12 +326,17 @@ impl Itineraires {
             };
             // Case « lancée » (un auvent vient de relancer Pépin) : plans en vol.
             let a_essayer = if k.lance { &en_vol } else { &tous };
-            for &plan in a_essayer {
+            // Chaque plan est simulé à part, sur les cœurs libres (`parallele`),
+            // puis dépouillé ici dans l'ordre des plans : mêmes arêtes, dans le
+            // même ordre, donc mêmes itinéraires et même mesure qu'en série.
+            let essais = pepin_core::parallele::appliquer(a_essayer, |&plan| {
                 let (fin, apres, entrees) = simuler(&monde, plan);
-                let duree = entrees.len() as u32;
+                (plan, fin, apres, entrees.len() as u32)
+            });
+            for (plan, fin, apres, duree) in essais {
                 match fin {
                     Fin::Arrivee => aretes.push((k, plan, None, duree)),
-                    Fin::Pose | Fin::Lance => {
+                    Fin::Pose | Fin::Lance | Fin::Barque => {
                         let k2 = cle(&apres);
                         if k2 == k {
                             continue; // sur place : inutile
@@ -457,7 +479,7 @@ impl Itineraires {
             let (fin, apres, _) = simuler(monde, plan);
             let ok = match fin {
                 Fin::Arrivee => true,
-                Fin::Pose | Fin::Lance => {
+                Fin::Pose | Fin::Lance | Fin::Barque => {
                     progresse(&apres) && (!self.nuage || self.chaine_sure(&apres))
                 }
                 Fin::Mort | Fin::Abandon => false,
@@ -510,7 +532,9 @@ impl Itineraires {
                 let (fin, apres, _) = simuler(&m, plan);
                 match fin {
                     Fin::Arrivee => Some(None),
-                    Fin::Pose | Fin::Lance if self.progresse(&apres, seuil) => Some(Some(apres)),
+                    Fin::Pose | Fin::Lance | Fin::Barque if self.progresse(&apres, seuil) => {
+                        Some(Some(apres))
+                    }
                     _ => None,
                 }
             });
@@ -624,6 +648,8 @@ fn nom_cause(c: CauseMort) -> &'static str {
         CauseMort::Eclair => "éclair",
         CauseMort::Grele => "grêle",
         CauseMort::Pluie => "Grand Nuage",
+        CauseMort::Noyade => "noyade",
+        CauseMort::Pieuvre => "Pieuvre",
     }
 }
 
@@ -924,6 +950,22 @@ pub(crate) fn mesurer(graine: u64, essais: u32) -> Vec<Vec<Case>> {
             })
             .collect()
     })
+}
+
+/// Les essais d'UN niveau, pour chaque profil : `PROFILS.len() × ESSAIS` parties
+/// indépendantes, réparties sur tous les cœurs libres (au lieu d'un fil par
+/// profil). Mêmes graines, résultats rendus dans l'ordre : mêmes chiffres qu'avant.
+fn essais_d_un_niveau(itineraires: &Itineraires, rang: usize, genre: GenreNiveau) -> Vec<Case> {
+    let parties: Vec<(usize, u32)> = (0..PROFILS.len())
+        .flat_map(|p| (0..ESSAIS).map(move |e| (p, e)))
+        .collect();
+    let essais = pepin_core::parallele::appliquer(&parties, |&(p, e)| {
+        jouer_essai(itineraires, &PROFILS[p], graine_essai(GRAINE, p, rang, e))
+    });
+    essais
+        .chunks(ESSAIS as usize)
+        .map(|liste| bilan(liste, genre))
+        .collect()
 }
 
 /// Bilan des essais `liste` d'un niveau de genre `genre`.
@@ -1489,6 +1531,7 @@ mod tests {
 
     /// Niveau 1 : sans erreur, aucune mort ; et un essai se rejoue à l'identique.
     #[test]
+    #[ignore = "lot : joueur simulé : essais du niveau 1"]
     fn niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles() {
         let itin = Itineraires::calculer(0);
         let parfait = Profil {
@@ -1789,27 +1832,143 @@ mod tests {
         let debut = std::time::Instant::now();
         let itineraires = Itineraires::calculer(n);
         let itineraires = &itineraires;
-        let cases: Vec<Case> = std::thread::scope(|s| {
-            let fils: Vec<_> = PROFILS
+        let cases = essais_d_un_niveau(itineraires, rang_de_graine(n), NIVEAUX[n].genre);
+        println!("{}. {} :", n + 1, NIVEAUX[n].nom);
+        for (profil, c) in PROFILS.iter().zip(&cases) {
+            let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
+            println!(
+                "- {} : {} morts, {}/{} finis, {} s, max {}, game over {}/{} ; {}",
+                profil.nom,
+                centiemes(c.morts_moyennes),
+                c.finis,
+                c.essais,
+                decimal(c.duree_s),
+                c.morts_max,
+                c.game_over,
+                c.essais,
+                lieux.join(" · ")
+            );
+        }
+        println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
+    }
+
+    /// Mesure des DEUX boss (carte 9.12b, AGA : la Pieuvre « compliquée comme le
+    /// mini boss du premier monde ») : l'arène du Grand Nuage (« L'œil du cyclone »)
+    /// et celle de la Pieuvre du port, avec les mêmes profils, la même graine
+    /// officielle et le même nombre d'essais que la mesure complète. Le cyclone garde
+    /// son rang de graine (ses chiffres sont ceux de la mesure complète) ; la
+    /// pieuvre, hors de la table du Monde 1 (la courbe ne couvre pas le Monde 2),
+    /// prend le rang qui suit ceux de `RANGS_DE_GRAINE`. Un fil par arène et par
+    /// profil. N'écrit aucun fichier.
+    /// `./docker-cargo.sh test -p game --no-default-features mesure_des_deux_boss -- --ignored --nocapture`
+    #[test]
+    #[ignore = "mesure de difficulté facultative (décision d'AGA, carte 6.5) : se lance à la main"]
+    fn mesure_des_deux_boss() {
+        use pepin_core::levels::{cyclone, NIVEAUX as TOUTE_LA_TABLE};
+        let indice = |cle: &str| {
+            TOUTE_LA_TABLE
                 .iter()
-                .enumerate()
-                .map(|(p, profil)| {
-                    s.spawn(move || {
-                        let liste: Vec<Essai> = (0..ESSAIS)
-                            .map(|e| {
-                                let graine = graine_essai(GRAINE, p, rang_de_graine(n), e);
-                                jouer_essai(itineraires, profil, graine)
+                .position(|n| n.cle == cle)
+                .unwrap_or_else(|| panic!("« {cle} » n'est pas dans la table"))
+        };
+        let cyclone = indice(cyclone::INFOS.cle);
+        // (indice dans la table, rang de graine)
+        let arenes = [
+            (cyclone, rang_de_graine(cyclone)),
+            (indice("pieuvre"), RANGS_DE_GRAINE.len()),
+        ];
+        let debut = std::time::Instant::now();
+        let itineraires: Vec<Itineraires> = std::thread::scope(|s| {
+            let fils: Vec<_> = arenes
+                .iter()
+                .map(|&(n, _)| s.spawn(move || Itineraires::calculer(n)))
+                .collect();
+            fils.into_iter()
+                .map(|f| f.join().expect("itinéraires"))
+                .collect()
+        });
+        let cases: Vec<Vec<Case>> = std::thread::scope(|s| {
+            let fils: Vec<Vec<_>> = arenes
+                .iter()
+                .zip(&itineraires)
+                .map(|(&(n, rang), itin)| {
+                    PROFILS
+                        .iter()
+                        .enumerate()
+                        .map(|(p, profil)| {
+                            s.spawn(move || {
+                                let liste: Vec<Essai> = (0..ESSAIS)
+                                    .map(|e| {
+                                        jouer_essai(itin, profil, graine_essai(GRAINE, p, rang, e))
+                                    })
+                                    .collect();
+                                bilan(&liste, TOUTE_LA_TABLE[n].genre)
                             })
-                            .collect();
-                        bilan(&liste, NIVEAUX[n].genre)
-                    })
+                        })
+                        .collect()
                 })
                 .collect();
             fils.into_iter()
-                .map(|f| f.join().expect("essais"))
+                .map(|l| l.into_iter().map(|f| f.join().expect("essais")).collect())
                 .collect()
         });
-        println!("{}. {} :", n + 1, NIVEAUX[n].nom);
+        println!("| Arène | Débutant | Habitué | Expert |");
+        println!("| --- | --- | --- | --- |");
+        for (&(n, _), c) in arenes.iter().zip(&cases) {
+            let morts: Vec<String> = c.iter().map(|c| centiemes(c.morts_moyennes)).collect();
+            println!("| {} | {} |", TOUTE_LA_TABLE[n].nom, morts.join(" | "));
+        }
+        for (&(n, _), c) in arenes.iter().zip(&cases) {
+            println!("{} :", TOUTE_LA_TABLE[n].nom);
+            for (profil, c) in PROFILS.iter().zip(c) {
+                let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
+                println!(
+                    "- {} : {} morts, {}/{} finis, {} s, max {}, game over {}/{} ; {}",
+                    profil.nom,
+                    centiemes(c.morts_moyennes),
+                    c.finis,
+                    c.essais,
+                    decimal(c.duree_s),
+                    c.morts_max,
+                    c.game_over,
+                    c.essais,
+                    lieux.join(" · ")
+                );
+            }
+        }
+        println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
+    }
+
+    /// Mesure d'UN niveau du Monde 2 (carte 9.20a), pour comparer avant et après une
+    /// retouche de son parcours : mêmes profils, graine officielle et nombre d'essais
+    /// que la mesure complète. Le niveau : sa clé, variable d'environnement CLE
+    /// (transmise par `docker-cargo.sh` depuis la carte 9.21a ; par défaut le caniveau).
+    /// Rang de graine :
+    /// celui qui suit `RANGS_DE_GRAINE`, plus sa place dans le Monde 2. N'écrit aucun
+    /// fichier.
+    /// `./docker-cargo.sh test -p game --no-default-features mesure_d_un_niveau_du_monde_2 -- --ignored --nocapture`
+    #[test]
+    #[ignore = "mesure de difficulté facultative (décision d'AGA, carte 6.5) : se lance à la main"]
+    fn mesure_d_un_niveau_du_monde_2() {
+        use pepin_core::levels::NIVEAUX as TOUTE_LA_TABLE;
+        let cle = std::env::var("CLE").unwrap_or_else(|_| "caniveau".to_string());
+        let n = TOUTE_LA_TABLE
+            .iter()
+            .position(|niveau| niveau.cle == cle)
+            .unwrap_or_else(|| panic!("« {cle} » n'est pas dans la table"));
+        assert!(n >= NB_NIVEAUX, "« {cle} » n'est pas un niveau du Monde 2");
+        let rang = RANGS_DE_GRAINE.len() + (n - NB_NIVEAUX);
+        let debut = std::time::Instant::now();
+        let itineraires = Itineraires::tenter_jusqu_a(n, LIMITE_CASES_MONDE_2)
+            .unwrap_or_else(|| panic!("« {cle} » : drapeau inatteignable"));
+        println!(
+            "({} cases explorées, {:.0} s)",
+            itineraires.cases,
+            debut.elapsed().as_secs_f32()
+        );
+        let itineraires = &itineraires;
+        let cases = essais_d_un_niveau(itineraires, rang, TOUTE_LA_TABLE[n].genre);
+        println!("{} ({}) :", TOUTE_LA_TABLE[n].nom, TOUTE_LA_TABLE[n].cle);
         for (profil, c) in PROFILS.iter().zip(&cases) {
             let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
             println!(

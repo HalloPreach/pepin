@@ -326,6 +326,50 @@ pub const VIE_PEPINETTE: Image = &[
     "..000000..",
 ];
 
+/// Parapluie RETOURNÉ de Pépinette (carte 9.2b), SOUS elle (carte 9.2c) : comme
+/// celui de Pépin, debout dans la coque de `PEPINETTE_BARQUE` (toile cyan, bord et
+/// baleines en 6, crosse dessous), son nœud corail et sa robe au-dessus. 16x16.
+pub const PEPINETTE_RETOURNE: Image = &[
+    ".000.0000.......",
+    ".08808800000....",
+    "..00707777070...",
+    "...0770770770...",
+    "...0770770770...",
+    "...0797797550...",
+    "...0888888880...",
+    ".00088888888000.",
+    "0666066666606660",
+    "0DDDDDDDDDDDDDD0",
+    ".0DD6DDDDDD6DD0.",
+    "..0DD6DDDD6DD0..",
+    "...00DD66DD00...",
+    ".....000A000....",
+    ".......0A0......",
+    "......0AA0......",
+];
+
+/// Barque de Pépinette (carte 9.2) : la même coque que celle de Pépin, dans la toile
+/// cyan de son parapluie (D, bord et baleines en 6), son nœud corail (8) sur la tête.
+/// Comme la barque de Pépin, la crosse (A) pointe vers le bas.
+pub const PEPINETTE_BARQUE: Image = &[
+    "................",
+    "....000.000.....",
+    "....0880880.....",
+    "....07777770....",
+    "...0777777770...",
+    "...0770770770...",
+    "...0797777970...",
+    ".00077777777000.",
+    "0666066666606660",
+    "0DDDDDDDDDDDDDD0",
+    ".0DD6DDDDDD6DD0.",
+    "..0DD6DDDD6DD0..",
+    "...00DD66DD00...",
+    ".....000A000....",
+    ".......0A0......",
+    "......0AA0......",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("pepinette_idle0", PEPINETTE_IDLE0),
@@ -344,6 +388,8 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("pepinette_mort2", PEPINETTE_MORT2),
     ("pepinette_plane0", PEPINETTE_PLANE0),
     ("pepinette_plane1", PEPINETTE_PLANE1),
+    ("pepinette_retourne", PEPINETTE_RETOURNE),
+    ("pepinette_barque", PEPINETTE_BARQUE),
     ("vie_pepinette", VIE_PEPINETTE),
 ];
 
@@ -355,6 +401,8 @@ pub const IMAGES: JeuImages = JeuImages {
     chute: "pepinette_chute",
     attente: ["pepinette_cligne", "pepinette_ciel", "pepinette_tapote"],
     planer: ["pepinette_plane0", "pepinette_plane1"],
+    retourne: "pepinette_retourne",
+    barque: "pepinette_barque",
     reapparition: ["pepinette_mort0", "pepinette_mort1", "pepinette_mort2"],
     vie: "vie_pepinette",
 };

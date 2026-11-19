@@ -6,7 +6,7 @@
 use pepin_core::entities::nuage::PV_NUAGE;
 use pepin_core::font::largeur_texte;
 use pepin_core::level::GOUTTES_PAR_NIVEAU;
-use pepin_core::levels::{gouttes_du_parcours, NIVEAUX};
+use pepin_core::levels::{gouttes_du_parcours, niveaux_du_monde, NIVEAUX};
 use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR};
 use pepin_core::LARGEUR_LOGIQUE;
 
@@ -90,8 +90,10 @@ pub fn points_de_vie(pv: u8, max: u8) -> Vec<(&'static str, i32)> {
 /// niveau bonus : celles du bonus (`gouttes_niveau`), sur ses trois. Partout
 /// ailleurs : celles du PARCOURS (tous les niveaux sauf le bonus, épilogue compris),
 /// c'est-à-dire les gouttes de la partie moins celles du bonus s'il a été joué
-/// (`gouttes_bonus`) ; c'est aussi le total de l'écran de fin. Pure.
+/// (`gouttes_bonus`) ; c'est aussi le total de l'écran de fin. Le total est celui du
+/// MONDE de la partie (`monde`, carte 9.1). Pure.
 pub fn compteur(
+    monde: u8,
     dans_le_bonus: bool,
     gouttes_partie: u32,
     gouttes_bonus: Option<u32>,
@@ -102,7 +104,7 @@ pub fn compteur(
     } else {
         (
             gouttes_partie.saturating_sub(gouttes_bonus.unwrap_or(0)),
-            gouttes_du_parcours(NIVEAUX),
+            gouttes_du_parcours(niveaux_du_monde(NIVEAUX, monde)),
         )
     }
 }
@@ -115,7 +117,8 @@ pub fn compteur(
 /// `pv_nuage` : points de vie du Grand Nuage et son maximum, `(pv, max)`, s'il y en a
 /// un dans le niveau ; `skin` : la tenue de Pépin, dont l'icône des vies montre le
 /// visage ; `ng_plus` : une nouvelle partie + (carte 8.8), marquée d'un « + » en or
-/// devant le chrono.
+/// devant le chrono ; `pieuvre` : le boss est la Pieuvre du port (carte 9.12a), ses
+/// points de vie sont de petites pieuvres au lieu de petits nuages.
 #[allow(clippy::too_many_arguments)]
 pub fn dessiner(
     banque: &Banque,
@@ -126,6 +129,7 @@ pub fn dessiner(
     cible: Option<u32>,
     pv_nuage: Option<(u8, u8)>,
     ng_plus: bool,
+    pieuvre: bool,
 ) {
     let style = Style::simple(BLANC_CASSE, 1).avec_ombre(ARDOISE_OMBRE);
     // Sprite 10x10 (contour de 2 px) : décalé d'un pixel pour garder la goutte à la même place.
@@ -164,6 +168,11 @@ pub fn dessiner(
     }
     if let Some((pv, max)) = pv_nuage {
         for (nom, x) in points_de_vie(pv, max) {
+            let nom = match (pieuvre, nom) {
+                (true, "pv_nuage") => "pv_pieuvre",
+                (true, _) => "pv_pieuvre_perdu",
+                (false, _) => nom,
+            };
             banque.dessiner(nom, x as f32, 6.0, false);
         }
     }
@@ -188,15 +197,15 @@ mod tests {
     #[test]
     fn le_compteur_compte_le_parcours_et_le_bonus_a_part() {
         // Au 10e niveau, toutes les gouttes : 30/33 (le bonus s'ouvre).
-        assert_eq!(compteur(false, 30, None, 3), (30, 33));
+        assert_eq!(compteur(1, false, 30, None, 3), (30, 33));
         // Dans le bonus : ses gouttes, sur 3 (la partie en compte 30 + 2).
-        assert_eq!(compteur(true, 32, None, 2), (2, 3));
+        assert_eq!(compteur(1, true, 32, None, 2), (2, 3));
         // Dans l'épilogue, après un bonus à 2 gouttes : 30 + 1 du parcours.
-        assert_eq!(compteur(false, 33, Some(2), 1), (31, 33));
+        assert_eq!(compteur(1, false, 33, Some(2), 1), (31, 33));
         // Tout : 33/33 (et le bonus, compté à part).
-        assert_eq!(compteur(false, 36, Some(3), 3), (33, 33));
+        assert_eq!(compteur(1, false, 36, Some(3), 3), (33, 33));
         // Bonus sauté : rien à retrancher.
-        assert_eq!(compteur(false, 22, None, 0), (22, 33));
+        assert_eq!(compteur(1, false, 22, None, 0), (22, 33));
     }
 
     /// Trois points, centrés sur l'écran (320 px : de 142 à 178), pleins puis perdus.

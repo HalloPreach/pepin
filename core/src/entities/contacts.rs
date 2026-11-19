@@ -33,6 +33,11 @@ pub enum CauseMort {
     Vide,
     /// Rattrapé par le mur de pluie (carte 8.2, `crate::poursuite`).
     Pluie,
+    /// Entré dans l'eau parapluie fermé (carte 9.2, la mécanique de la barque).
+    Noyade,
+    /// Un tentacule dressé, ou la tête sortie touchée autrement qu'en tombant
+    /// dessus : la Pieuvre du port (carte 9.12a). Le jeu assombrit l'écran (l'encre).
+    Pieuvre,
 }
 
 /// Ce qui s'est passé pendant ce pas de simulation.
@@ -53,6 +58,9 @@ pub enum Contact {
     /// Pépin vient de sauter sur la tête du Grand Nuage essoufflé : un point de
     /// vie en moins pour lui (`GrandNuage::toucher`).
     Nuage,
+    /// Pépin vient de sauter sur la tête sortie de la Pieuvre du port (carte
+    /// 9.12a) : un point de vie en moins pour elle (`Pieuvre::toucher`).
+    Pieuvre,
     /// Le joueur est mort.
     Mort(CauseMort),
 }
@@ -162,7 +170,7 @@ fn porter_sur_aiguille(joueur: &mut Joueur, p: &PlateformeMobile, env: &Environn
 /// Protection de réapparition (`Joueur::est_protege`) : aucun danger ne tue
 /// (ennemi touché de côté, pointe, éclair, grêle, éclair du Grand Nuage) ; tout le
 /// reste continue (gouttes, lanternes, champignons, escargots, auvents, écrasement d'un
-/// ennemi par le dessus, saut sur la tête du Grand Nuage). Tout NOUVEAU
+/// ennemi par le dessus, saut sur la tête du Grand Nuage ou de la Pieuvre). Tout NOUVEAU
 /// danger ajouté ici doit passer par la même règle. La chute dans le vide n'est
 /// pas traitée ici (`verifier_vide`) : elle reste mortelle.
 ///
@@ -179,6 +187,14 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
     let mut lanterne_allumee: Option<usize> = None;
     // Pépin vient-il de réapparaître ? Alors les dangers ci-dessous l'ignorent.
     let protege = joueur.est_protege();
+
+    // Noyade (carte 9.2) : Pépin est entré dans l'eau SANS planer (les pieds
+    // sous la surface, `Joueur::actualiser`). Comme les autres dangers, la
+    // protection de réapparition l'absorbe ; c'est le seul danger que le
+    // Joueur porte lui-même (l'eau n'est pas une entité de la liste).
+    if joueur.est_noye() && !protege {
+        mort.get_or_insert(CauseMort::Noyade);
+    }
 
     for (i, entite) in entites.iter_mut().enumerate() {
         match entite {
@@ -206,7 +222,13 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                         && joueur.boite.bas() - e.boite.y <= MARGE_ECRASEMENT;
                     // Un chat réveillé ne s'écrase pas : même par le dessus, le
                     // toucher tue (`est_ecrasable` est vrai pour tous les autres).
-                    if par_le_dessus && e.est_ecrasable() {
+                    if par_le_dessus && e.a_une_carapace() {
+                        // Le crabe (carte 9.4) : carapace dure, Pépin rebondit
+                        // comme sur un ennemi écrasé, le crabe reste entier.
+                        e.claquer();
+                        joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
+                        contacts.push(Contact::Rebond);
+                    } else if par_le_dessus && e.est_ecrasable() {
                         e.ecraser();
                         joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
                         contacts.push(Contact::Ecrase);
@@ -268,6 +290,19 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
             // La casette du ventilateur est un SOLIDE (on s'y pose), géré par
             // `solides_des_entites` : aucun contact ni danger ici.
             Entite::Ventilateur(_) => {}
+            // Carte 9.3. Le nénuphar s'enfonce tant que Pépin est posé dessus
+            // (comme la friable qui s'effrite) ; la stalactite guette Pépin
+            // sous elle et ne tue qu'en tombant (une pointe). Bulles, chutes
+            // d'eau et marée agissent par la physique (courants et eau), pas
+            // par contact.
+            Entite::Nenuphar(n) => n.porter(pose_sur(joueur, &n.boite)),
+            Entite::Stalactite(s) => {
+                s.guetter(&joueur.boite);
+                if !protege && s.tombe() && joueur.boite.chevauche(&s.boite) {
+                    mort.get_or_insert(CauseMort::Pointe);
+                }
+            }
+            Entite::Bulles(_) | Entite::Chute(_) | Entite::Maree(_) => {}
             Entite::Nuage(n) => {
                 // Sa tête, pendant l'essoufflement : un point de moins, et Pépin
                 // rebondit comme sur un ennemi écrasé. Son corps ne blesse pas :
@@ -278,6 +313,18 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
                     contacts.push(Contact::Nuage);
                 } else if !protege && n.foudroie(&joueur.boite) {
                     mort.get_or_insert(CauseMort::Eclair);
+                }
+            }
+            Entite::Pieuvre(p) => {
+                // Même règle que le nuage : lui tomber sur la tête sortie, un point
+                // de moins et Pépin rebondit ; mais toucher la tête autrement (ou un
+                // tentacule dressé) est mortel.
+                if p.recoit(joueur) {
+                    p.toucher();
+                    joueur.rebondir(VITESSE_REBOND_ECRASEMENT);
+                    contacts.push(Contact::Pieuvre);
+                } else if !protege && p.blesse(&joueur.boite) {
+                    mort.get_or_insert(CauseMort::Pieuvre);
                 }
             }
         }
@@ -678,6 +725,7 @@ mod tests {
                 solides: &s,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             porter_par_plateformes(&mut j, &e, &env);
         }
@@ -706,6 +754,7 @@ mod tests {
                 solides: &s,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             porter_par_plateformes(&mut j, &e, &env);
         }
@@ -912,6 +961,7 @@ mod tests {
             solides: &s,
             courants: &[],
             vents: &[],
+            eaux: &[],
         };
         porter_par_plateformes(j, e, &env);
         j.actualiser(entrees, &env);
@@ -991,6 +1041,7 @@ mod tests {
         let saut = crate::player::Entrees {
             direction: crate::player::Direction::Immobile,
             saut: true,
+            bas: false,
         };
         for _ in 0..5 {
             pas_du_jeu(&n, &mut e, &mut j, &crate::player::Entrees::default());
@@ -1074,6 +1125,7 @@ mod tests {
             solides: &s,
             courants: &courants,
             vents: &[],
+            eaux: &[],
         };
         porter_par_plateformes(j, e, &env);
         j.actualiser(entrees, &env);
@@ -1105,6 +1157,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         let mut coups = 0;
         for _ in 0..90 {

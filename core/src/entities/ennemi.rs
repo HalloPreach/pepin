@@ -2,19 +2,27 @@
 //! droite et font demi-tour au bout de leur portée (ou contre un mur), pigeons
 //! perchés qui plongent sur Pépin quand il passe dessous (sous-module `pigeon`),
 //! chats endormis qui se réveillent brièvement, en cycle, et bondissent sur Pépin
-//! s'il est à portée à la fin de l'annonce (sous-module `chat`).
+//! s'il est à portée à la fin de l'annonce (sous-module `chat`). Le Monde 2
+//! (carte 9.4) ajoute les ennemis d'eau : grenouille, poisson, crabe, rat
+//! (sous-module `eau`), et la mouette, un pigeon du port.
 //!
 //! Notions Rust : un `enum` pour le TYPE (`TypeEnnemi`) et un autre pour l'ÉTAT
 //! (`EtatEnnemi`) ; l'état `Ecrase(u8)` PORTE une donnée (les pas d'animation restants) ;
 //! `Option<f32>` pour une portée qui peut ne pas exister (`None` : sans limite).
 
 mod chat;
+mod eau;
 mod pigeon;
 
 pub use chat::{
     decalage_bond, decalage_chat, pas_du_cycle, phase_chat_suivante, PhaseChat, BOND_PAS, DORT_PAS,
     EVEILLE_PAS, PERIODE_CHAT_PAS, PORTEE_BOND_X, PORTEE_BOND_Y, POSE_BOND_PAS, REVEIL_PAS,
     VITESSE_BOND_Y,
+};
+pub use eau::{
+    hauteur_saut_poisson, PhaseEau, ALERTE_CRABE, ANNONCE_GRENOUILLE_PAS, ANNONCE_RAT_PAS,
+    CLAQUE_CRABE_PAS, HAUT_SAUT_POISSON, PERIODE_POISSON_PAS, PORTEE_GRENOUILLE, PORTEE_RAT,
+    REMOUS_PAS, SAUT_POISSON_PAS, SOUS_L_EAU_PAS,
 };
 pub use pigeon::{
     decalage_vol, phase_suivante, PhasePigeon, ANNONCE_PIGEON_PAS, MARGE_CONE, PLONGEE_PAS,
@@ -52,6 +60,21 @@ pub enum TypeEnnemi {
     /// Chat endormi : immobile ; il dort, se réveille brièvement (annoncé), se
     /// rendort. Éveillé, on ne peut pas l'écraser (voir le sous-module `chat`).
     Chat,
+    /// Grenouille (Monde 2) : guette, se ramasse (annonce) et bondit en arc vers
+    /// Pépin ; écrasable (sous-module `eau`).
+    Grenouille,
+    /// Poisson (Monde 2) : sous l'eau, saute à la verticale sur sa colonne après
+    /// des remous ; mortel hors de l'eau, jamais écrasable.
+    Poisson,
+    /// Crabe (Monde 2) : patrouille ; carapace dure, on rebondit dessus sans le
+    /// blesser ; de côté, il tue.
+    Crabe,
+    /// Rat (Monde 2) : patrouille son tunnel ; Pépin sur sa ligne, il se dresse
+    /// (annonce) puis fonce jusqu'au mur ; écrasable.
+    Rat,
+    /// Mouette (Monde 2, le port) : un pigeon perché sur un mât ou une grue, même
+    /// annonce, même piqué ; seul son dessin change.
+    Mouette,
 }
 
 impl TypeEnnemi {
@@ -61,9 +84,14 @@ impl TypeEnnemi {
             TypeEnnemi::Flaque => 24.0,
             TypeEnnemi::Corbeau => 40.0,
             // Vitesse de plongée, dans chaque axe (120 px/s).
-            TypeEnnemi::Pigeon => PROFONDEUR_PLONGEE / PLONGEE_PAS as f32 * HZ as f32,
-            // Le chat ne bouge jamais.
-            TypeEnnemi::Chat => 0.0,
+            TypeEnnemi::Pigeon | TypeEnnemi::Mouette => {
+                PROFONDEUR_PLONGEE / PLONGEE_PAS as f32 * HZ as f32
+            }
+            // Le chat ne bouge jamais. La grenouille et le poisson ont leur propre
+            // trajectoire (bond, saut vertical).
+            TypeEnnemi::Chat | TypeEnnemi::Grenouille | TypeEnnemi::Poisson => 0.0,
+            TypeEnnemi::Crabe => eau::VITESSE_CRABE,
+            TypeEnnemi::Rat => eau::VITESSE_RAT,
         }
     }
 
@@ -75,6 +103,11 @@ impl TypeEnnemi {
             TypeEnnemi::Pigeon => (12.0, 10.0),
             // Roulé en boule : plus large que haut (le sprite fait 16 x 14).
             TypeEnnemi::Chat => (14.0, 8.0),
+            TypeEnnemi::Grenouille | TypeEnnemi::Mouette => (12.0, 10.0),
+            // Le poisson saute la tête en haut : plus haut que large.
+            TypeEnnemi::Poisson => (10.0, 12.0),
+            TypeEnnemi::Crabe => (14.0, 9.0),
+            TypeEnnemi::Rat => (14.0, 8.0),
         }
     }
 
@@ -86,8 +119,8 @@ impl TypeEnnemi {
     /// Le chat ne bouge pas.
     pub fn portee(self) -> Option<f32> {
         match self {
-            TypeEnnemi::Flaque | TypeEnnemi::Pigeon | TypeEnnemi::Chat => None,
             TypeEnnemi::Corbeau => Some(PORTEE_CORBEAU),
+            _ => None,
         }
     }
 }
@@ -131,6 +164,10 @@ pub struct Ennemi {
     /// Chat : longueur (px) du bond en cours pendant l'éveil, `None` s'il se
     /// réveille sur place. Toujours `None` pour les autres.
     bond: Option<f32>,
+    /// Ennemis d'eau (carte 9.4) : leur phase (toujours `Guet` pour les autres).
+    eau: PhaseEau,
+    /// Grenouille : vitesse horizontale (px/s) du bond en cours, 0 sinon.
+    elan: f32,
 }
 
 impl Ennemi {
@@ -153,12 +190,16 @@ impl Ennemi {
             proie: None,
             pret: false,
             bond: None,
+            eau: PhaseEau::Guet,
+            elan: 0.0,
         }
     }
 
     /// Peut-il blesser le joueur (ou être écrasé) ?
     pub fn est_dangereux(&self) -> bool {
-        self.etat == EtatEnnemi::Actif
+        // Le poisson caché sous l'eau est inoffensif (`hors_de_l_eau` est vrai
+        // pour tous les autres ennemis).
+        self.etat == EtatEnnemi::Actif && self.hors_de_l_eau()
     }
 
     /// À afficher ? (actif ou en train d'être aplati)
@@ -242,10 +283,14 @@ impl Actualisable for Ennemi {
                 TypeEnnemi::Flaque => self.patrouiller(env),
                 TypeEnnemi::Corbeau => self.voler(env),
                 // Le pigeon vole sans regarder les tuiles : `env` ne lui sert pas.
-                TypeEnnemi::Pigeon => self.voler_pigeon(),
+                TypeEnnemi::Pigeon | TypeEnnemi::Mouette => self.voler_pigeon(),
                 // Le chat ne tombe pas (pas de gravité : il dort sur son toit) ;
                 // il ne bouge que pour bondir, sur une trajectoire calculée.
                 TypeEnnemi::Chat => self.dormir(env),
+                TypeEnnemi::Grenouille
+                | TypeEnnemi::Poisson
+                | TypeEnnemi::Crabe
+                | TypeEnnemi::Rat => self.actualiser_eau(env),
             },
             EtatEnnemi::Ecrase(restant) => {
                 self.etat = if restant <= 1 {

@@ -15,6 +15,10 @@
 //! de fausses listes (avec bonus, avec épilogue, avec les deux, sans aucun) sans
 //! toucher au vrai jeu.
 //!
+//! Chaque niveau appartient à un MONDE (carte 9.1, `InfosNiveau::monde`) : les mondes
+//! sont des blocs contigus de la table, dans l'ordre, et les règles valent PAR MONDE
+//! (`niveaux_du_monde` donne la tranche d'un monde).
+//!
 //! Les dessins ASCII sont des `&str` embarqués dans le binaire : aucun fichier
 //! à charger, donc aucune erreur d'entrée/sortie possible au lancement.
 //!
@@ -25,24 +29,33 @@
 
 // Niveaux d'essai : HORS de la table `NIVEAUX` (tests et build de QA seulement).
 pub mod arc;
+pub mod caniveau;
+pub mod cascade;
 pub mod clocher;
 pub mod cyclone;
 pub mod descente;
+pub mod egouts;
 pub mod essai_auvent;
 pub mod essai_chat;
+pub mod essai_eau;
+pub mod essai_eau2;
+pub mod essai_ennemis_eau;
 pub mod essai_escargot;
 pub mod essai_grele;
 pub mod essai_horloge;
 pub mod essai_montgolfiere;
 pub mod essai_nuage;
+pub mod essai_pieuvre;
 pub mod essai_vent;
 pub mod essai_ventilateur;
 pub mod essai_vertical;
 pub mod gouttieres;
+pub mod grotte;
 pub mod marche;
 pub mod mer;
 pub mod nuages;
 pub mod orage;
+pub mod pieuvre;
 pub mod poursuite;
 pub mod toits;
 pub mod variantes;
@@ -76,10 +89,43 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     poursuite::INFOS,
     arc::INFOS,
     descente::INFOS,
+    // MONDE 2, « Là où va la pluie » (étape 9) : ses niveaux s'ajoutent ICI, à la FIN
+    // de la table, dans l'ordre du parcours (`monde: 2`, `numero` 1, 2, 3...). Les
+    // indices du Monde 1 ne bougent pas. Recette : `pepin-notes/ETAPE-9.md`.
+    caniveau::INFOS,
+    egouts::INFOS,
+    cascade::INFOS,
+    grotte::INFOS,
+    pieuvre::INFOS,
 ];
 
-/// Nombre de niveaux du jeu (bonus et épilogue compris).
+/// Nombre de niveaux du jeu (bonus et épilogue compris, tous mondes).
 pub const NB_NIVEAUX: usize = NIVEAUX.len();
+
+/// Nombre de niveaux du MONDE 1 (carte 9.6) : le premier bloc de la table, indices
+/// `0..NB_NIVEAUX_MONDE_1`. Ce qui ne décrit QUE le Monde 1 (la mesure de
+/// difficulté et sa courbe, le robot de la partie normale, la course, la nouvelle
+/// partie +) se dimensionne avec lui : ajouter un niveau du Monde 2 n'y change rien.
+pub const NB_NIVEAUX_MONDE_1: usize = compter_monde(NIVEAUX, 1);
+
+/// Les niveaux du Monde 1 : le début de `NIVEAUX` (la même chose que
+/// `niveaux_du_monde(NIVEAUX, 1)`, mais `const`, donc utilisable partout).
+pub const NIVEAUX_MONDE_1: &[InfosNiveau] = NIVEAUX.split_at(NB_NIVEAUX_MONDE_1).0;
+
+/// Nombre de niveaux du monde `monde` dans `niveaux`. Fonction `const` (boucle
+/// `while`, les itérateurs n'étant pas permis en `const`) : elle sert de taille de
+/// tableau.
+pub const fn compter_monde(niveaux: &[InfosNiveau], monde: u8) -> usize {
+    let mut n = 0;
+    let mut i = 0;
+    while i < niveaux.len() {
+        if niveaux[i].monde == monde {
+            n += 1;
+        }
+        i += 1;
+    }
+    n
+}
 
 // Les CLÉS de la table (carte 7.9) sont vérifiées À LA COMPILATION : chacune est un
 // identifiant (minuscules, chiffres, `_`) et aucune n'est en double. Une clé fautive
@@ -175,24 +221,28 @@ pub fn bonus_debloque(niveaux: &[InfosNiveau], gouttes_normales: u32) -> bool {
     gouttes_normales >= gouttes_pour_le_bonus(niveaux)
 }
 
-/// Ce qui suit le niveau `indice` de `niveaux` :
+/// Ce qui suit le niveau `indice` de `niveaux`, DANS SON MONDE (carte 9.1) :
 /// - après un épilogue (ou un indice hors de la table) : l'écran de fin ;
-/// - sinon le niveau suivant de la table, en sautant le bonus s'il n'est pas débloqué ;
-/// - plus aucun niveau : l'écran de fin.
+/// - sinon le niveau suivant du monde, en sautant le bonus s'il n'est pas débloqué ;
+/// - plus aucun niveau dans le monde : l'écran de fin (une partie ne passe jamais
+///   d'un monde à l'autre).
 ///
 /// `gouttes_normales` ne compte que si le niveau suivant est un bonus. Le jeu passe les
 /// gouttes de toute la partie : grâce à l'ordre imposé par `verifier_ordre` (tous les
-/// niveaux normaux d'abord), au moment de choisir le bonus ce sont exactement celles des
-/// niveaux normaux.
+/// niveaux normaux du monde d'abord), au moment de choisir le bonus ce sont exactement
+/// celles des niveaux normaux du monde. Avec un seul monde, la tranche du monde est la
+/// table entière : rien ne change pour le Monde 1.
 pub fn apres(niveaux: &[InfosNiveau], indice: usize, gouttes_normales: u32) -> Apres {
-    if niveaux
-        .get(indice)
-        .is_none_or(|n| n.genre == GenreNiveau::Epilogue)
-    {
+    let Some(n) = niveaux.get(indice) else {
+        return Apres::Fin;
+    };
+    if n.genre == GenreNiveau::Epilogue {
         return Apres::Fin;
     }
-    let bonus = bonus_debloque(niveaux, gouttes_normales);
-    (indice + 1..niveaux.len())
+    let debut = debut_monde(niveaux, n.monde).unwrap_or(indice);
+    let monde = niveaux_du_monde(niveaux, n.monde);
+    let bonus = bonus_debloque(monde, gouttes_normales);
+    (indice + 1..debut + monde.len())
         .find(|&j| bonus || niveaux[j].genre != GenreNiveau::Bonus)
         .map_or(Apres::Fin, Apres::Niveau)
 }
@@ -202,27 +252,50 @@ pub fn apres(niveaux: &[InfosNiveau], indice: usize, gouttes_normales: u32) -> A
 pub enum ErreurOrdre {
     /// Aucun niveau normal : il n'y aurait rien à jouer avant le bonus.
     AucunNiveauNormal,
-    /// Le numéro affiché n'est pas la place dans la table (1 pour le premier).
+    /// Le numéro affiché n'est pas la place DANS SON MONDE (1 pour le premier).
     NumeroFaux { indice: usize, numero: u8 },
-    /// Un niveau normal après le bonus ou l'épilogue.
+    /// Un monde qui n'apparaît pas dans l'ordre (les mondes sont des blocs
+    /// contigus, numérotés 1, 2, ... sans saut, et le premier est le Monde 1).
+    MondeDesordonne { indice: usize, monde: u8 },
+    /// Un niveau normal après le bonus ou l'épilogue (de SON monde).
     NormalApresLaFin { indice: usize },
-    /// Plus d'un bonus.
+    /// Plus d'un bonus (dans le même monde).
     BonusMultiple,
-    /// Un épilogue qui n'est pas le dernier niveau (deux épilogues compris).
+    /// Un épilogue qui n'est pas le dernier niveau de la table (deux épilogues
+    /// compris : chaque monde a le sien, le Monde 1 étant toujours le premier).
     EpilogueAvantLaFin { indice: usize },
 }
 
-/// Vérifie l'ordre d'une table : numéros 1, 2, 3... ; au moins un niveau normal ;
-/// TOUS les niveaux normaux d'abord, puis au plus un bonus, puis au plus un épilogue
-/// (le tout dernier).
+/// Vérifie l'ordre d'une table : les mondes apparaissent dans l'ordre (1, 2, ...),
+/// chacun en un seul bloc ; dans chaque monde, numéros 1, 2, 3... ; au moins un
+/// niveau normal ; TOUS les niveaux normaux d'abord, puis au plus un bonus, puis
+/// au plus un épilogue (le tout dernier de la table). Les règles s'appliquent PAR
+/// MONDE (carte 9.1) : le bonus et l'épilogue du Monde 2 n'entrent pas dans le
+/// Monde 1, et réciproquement.
 pub fn verifier_ordre(niveaux: &[InfosNiveau]) -> Result<(), ErreurOrdre> {
     if nb_normaux(niveaux) == 0 {
         return Err(ErreurOrdre::AucunNiveauNormal);
     }
     let mut extras = 0;
     let mut bonus = 0;
+    let mut monde: u8 = 0;
+    let mut position_dans_le_monde = 0u32;
     for (indice, n) in niveaux.iter().enumerate() {
-        if n.numero as usize != indice + 1 {
+        // Les mondes : blocs contigus, dans l'ordre, à partir de 1.
+        if n.monde < monde || n.monde > monde + 1 {
+            return Err(ErreurOrdre::MondeDesordonne {
+                indice,
+                monde: n.monde,
+            });
+        }
+        if n.monde != monde {
+            monde = n.monde;
+            position_dans_le_monde = 0;
+            extras = 0;
+            bonus = 0;
+        }
+        position_dans_le_monde += 1;
+        if n.numero as u32 != position_dans_le_monde {
             return Err(ErreurOrdre::NumeroFaux {
                 indice,
                 numero: n.numero,
@@ -235,16 +308,44 @@ pub fn verifier_ordre(niveaux: &[InfosNiveau]) -> Result<(), ErreurOrdre> {
             GenreNiveau::Normal => {}
             GenreNiveau::Bonus if bonus > 0 => return Err(ErreurOrdre::BonusMultiple),
             GenreNiveau::Bonus => bonus += 1,
-            GenreNiveau::Epilogue if indice + 1 != niveaux.len() => {
-                return Err(ErreurOrdre::EpilogueAvantLaFin { indice })
+            // L'épilogue est le DERNIER niveau de son MONDE (carte 9.1) : le niveau
+            // suivant, s'il existe, ouvre le monde suivant (un normal). L'épilogue
+            // du dernier monde est donc le dernier niveau de la table.
+            GenreNiveau::Epilogue => {
+                if let Some(suivant) = niveaux.get(indice + 1) {
+                    if suivant.monde == n.monde {
+                        return Err(ErreurOrdre::EpilogueAvantLaFin { indice });
+                    }
+                }
             }
-            GenreNiveau::Epilogue => {}
         }
         if n.genre != GenreNiveau::Normal {
             extras += 1;
         }
     }
     Ok(())
+}
+
+/// Premier indice de `niveaux` appartenant au monde `monde` (`None` : ce monde
+/// n'existe pas). Les mondes sont des blocs contigus de la table, dans l'ordre
+/// (règle de `verifier_ordre`), donc les indices du Monde 1 ne bougent jamais quand
+/// on ajoute le Monde 2 à la fin (carte 9.1).
+pub fn debut_monde(niveaux: &[InfosNiveau], monde: u8) -> Option<usize> {
+    niveaux.iter().position(|n| n.monde == monde)
+}
+
+/// Les niveaux du monde `monde`, dans l'ordre de la table (une table vide si ce
+/// monde n'y figure pas). C'est sur CETTE tranche que s'appliquent les règles
+/// par monde : `apres`, `gouttes_pour_le_bonus`, `gouttes_du_parcours`...
+pub fn niveaux_du_monde(niveaux: &[InfosNiveau], monde: u8) -> &[InfosNiveau] {
+    let Some(debut) = debut_monde(niveaux, monde) else {
+        return &[];
+    };
+    let fin = niveaux[debut..]
+        .iter()
+        .position(|n| n.monde != monde)
+        .map_or(niveaux.len(), |p| debut + p);
+    &niveaux[debut..fin]
 }
 
 #[cfg(test)]
@@ -254,8 +355,9 @@ mod tests {
     use GenreNiveau::{Bonus, Epilogue, Normal};
 
     /// Un faux niveau : seuls le numéro et le genre comptent pour les règles.
-    const fn faux(numero: u8, genre: GenreNiveau) -> InfosNiveau {
+    const fn faux_monde(numero: u8, genre: GenreNiveau, monde: u8) -> InfosNiveau {
         InfosNiveau {
+            monde,
             numero,
             cle: "faux",
             sans_planer: false,
@@ -268,6 +370,11 @@ mod tests {
             ascii: "",
             aiguilles: &[],
         }
+    }
+
+    /// Un faux niveau du Monde 1.
+    const fn faux(numero: u8, genre: GenreNiveau) -> InfosNiveau {
+        faux_monde(numero, genre, 1)
     }
 
     /// Relance le robot de faisabilité, parapluie interdit, sur chaque niveau et
@@ -320,6 +427,27 @@ mod tests {
         assert_eq!(NB_NIVEAUX, NIVEAUX.len());
     }
 
+    /// Le Monde 2 (carte 9.6, qui remplace le faux Monde 2 de la carte 9.1) : à la
+    /// FIN de la table, après tout le Monde 1, dont les indices ne bougent pas ; son
+    /// premier niveau est le caniveau ; aucune partie ne passe d'un monde à l'autre.
+    #[test]
+    fn le_monde_2_suit_le_monde_1() {
+        let cles = |l: &[InfosNiveau]| l.iter().map(|n| n.cle).collect::<Vec<_>>();
+        assert_eq!(cles(niveaux_du_monde(NIVEAUX, 1)), cles(NIVEAUX_MONDE_1));
+        assert_eq!(NB_NIVEAUX_MONDE_1, 12);
+        assert_eq!(NIVEAUX_MONDE_1.last().unwrap().cle, "descente");
+        assert_eq!(debut_monde(NIVEAUX, 2), Some(NB_NIVEAUX_MONDE_1));
+        assert_eq!(NIVEAUX[NB_NIVEAUX_MONDE_1].cle, caniveau::INFOS.cle);
+        assert_eq!(
+            NB_NIVEAUX_MONDE_1 + compter_monde(NIVEAUX, 2),
+            NB_NIVEAUX,
+            "deux mondes seulement"
+        );
+        // L'épilogue du Monde 1 finit la partie ; le dernier niveau du Monde 2 aussi.
+        assert_eq!(apres(NIVEAUX, NB_NIVEAUX_MONDE_1 - 1, 36), Apres::Fin);
+        assert_eq!(apres(NIVEAUX, NB_NIVEAUX - 1, 99), Apres::Fin);
+    }
+
     /// La vraie table depuis la carte 8.2 : dix niveaux normaux (le 10e, « Le mur de
     /// pluie », est le sommet), le bonus (« L'arc-en-ciel », 11e) et l'épilogue
     /// (« La descente », 12e). Les DEUX chemins : avec les 30 gouttes des dix niveaux
@@ -328,9 +456,11 @@ mod tests {
     /// la fin. Avant le 10e, les gouttes ne changent rien.
     #[test]
     fn la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_finit_par_l_epilogue() {
-        let normaux = NB_NIVEAUX - 2;
+        // Le Monde 1 : le début de la table (carte 9.6 : le Monde 2 vient après).
+        const NIVEAUX: &[InfosNiveau] = NIVEAUX_MONDE_1;
+        let normaux = NB_NIVEAUX_MONDE_1 - 2;
         assert_eq!(normaux, 10);
-        assert_eq!(NB_NIVEAUX, 12);
+        assert_eq!(NB_NIVEAUX_MONDE_1, 12);
         assert!(NIVEAUX[..normaux].iter().all(|n| n.genre == Normal));
         assert_eq!(NIVEAUX[normaux].genre, Bonus);
         assert_eq!(NIVEAUX[normaux].nom, arc::INFOS.nom);
@@ -400,16 +530,21 @@ mod tests {
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (12, 3));
         let t = table(&[Normal, Normal]);
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (6, 0));
-        // La vraie table : 10 normaux et l'épilogue (33), le bonus (3) ; en tout, les
-        // 36 gouttes du jeu.
+        // Le Monde 1 : 10 normaux et l'épilogue (33), le bonus (3) ; en tout, ses 36
+        // gouttes. Le jeu entier : la somme de chaque monde.
         assert_eq!(
-            (gouttes_du_parcours(NIVEAUX), gouttes_du_bonus(NIVEAUX)),
+            (
+                gouttes_du_parcours(NIVEAUX_MONDE_1),
+                gouttes_du_bonus(NIVEAUX_MONDE_1)
+            ),
             (33, 3)
         );
-        assert_eq!(
-            (gouttes_du_parcours(NIVEAUX) + gouttes_du_bonus(NIVEAUX)) as usize,
-            crate::zones::GOUTTES_TOTAL
-        );
+        let total: u32 = [1, 2]
+            .map(|m| niveaux_du_monde(NIVEAUX, m))
+            .iter()
+            .map(|t| gouttes_du_parcours(t) + gouttes_du_bonus(t))
+            .sum();
+        assert_eq!(total as usize, crate::zones::GOUTTES_TOTAL);
     }
 
     #[test]
@@ -427,6 +562,95 @@ mod tests {
         assert_eq!(apres(&t, 2, 0), Apres::Fin);
         assert_eq!(apres(&t, 99, 0), Apres::Fin);
         assert_eq!(apres(&[], 0, 0), Apres::Fin);
+    }
+
+    /// Deux mondes (carte 9.1) : numérotation PAR MONDE ; le bonus et l'épilogue
+    /// d'un monde ne touchent pas l'autre (les règles tournent sur la tranche du
+    /// monde) ; les mondes sont des blocs contigus dans l'ordre, le premier étant
+    /// le Monde 1.
+    #[test]
+    fn deux_mondes_les_regles_s_appliquent_par_monde() {
+        // Monde 1 : 2 normaux, bonus, épilogue. Monde 2 : pareil, à la fin.
+        let t: Vec<InfosNiveau> = [
+            faux_monde(1, Normal, 1),
+            faux_monde(2, Normal, 1),
+            faux_monde(3, Bonus, 1),
+            faux_monde(4, Epilogue, 1),
+            faux_monde(1, Normal, 2),
+            faux_monde(2, Normal, 2),
+            faux_monde(3, Bonus, 2),
+            faux_monde(4, Epilogue, 2),
+        ]
+        .to_vec();
+        assert_eq!(verifier_ordre(&t), Ok(()));
+        // Les tranches par monde (les indices du Monde 1 ne bougent pas).
+        assert_eq!(debut_monde(&t, 1), Some(0));
+        assert_eq!(debut_monde(&t, 2), Some(4));
+        assert_eq!(niveaux_du_monde(&t, 1).len(), 4);
+        assert_eq!(niveaux_du_monde(&t, 2).len(), 4);
+        assert!(niveaux_du_monde(&t, 3).is_empty());
+        // L'épilogue du Monde 1 FINIT la partie : le Monde 2 ne s'enchaîne PAS
+        // par `apres` (c'est la carte des niveaux et le déblocage qui y mènent).
+        assert_eq!(apres(&t, 3, 12), Apres::Fin);
+        assert_eq!(apres(&t, 7, 12), Apres::Fin);
+        // `apres` sur la table ENTIÈRE reste dans le monde : avec les 6 gouttes du
+        // Monde 2, son bonus est joué ; avec 5, on passe à son épilogue.
+        assert_eq!(apres(&t, 4, 0), Apres::Niveau(5));
+        assert_eq!(apres(&t, 5, 6), Apres::Niveau(6));
+        assert_eq!(apres(&t, 5, 5), Apres::Niveau(7));
+        assert_eq!(apres(&t, 1, 6), Apres::Niveau(2));
+        // Un monde SANS épilogue : son dernier niveau finit la partie, le monde
+        // suivant ne s'enchaîne pas.
+        let sans_epilogue: Vec<InfosNiveau> = [
+            faux_monde(1, Normal, 1),
+            faux_monde(2, Normal, 1),
+            faux_monde(1, Normal, 2),
+        ]
+        .to_vec();
+        assert_eq!(verifier_ordre(&sans_epilogue), Ok(()));
+        assert_eq!(apres(&sans_epilogue, 0, 0), Apres::Niveau(1));
+        assert_eq!(apres(&sans_epilogue, 1, 6), Apres::Fin);
+        assert_eq!(apres(&sans_epilogue, 2, 3), Apres::Fin);
+        // Chaque monde compte SES gouttes : avec les 6 du monde, le bonus du
+        // monde est joué ; une de moins, on passe direct à l'épilogue. Les 12 de
+        // la partie entière ne valent pas les 6 du monde (règle par monde).
+        let w1 = niveaux_du_monde(&t, 1);
+        let w2 = niveaux_du_monde(&t, 2);
+        assert_eq!(parcours(w1, 6), [0, 1, 2, 3]);
+        assert_eq!(parcours(w2, 6), [0, 1, 2, 3]);
+        assert_eq!(parcours(w1, 5), [0, 1, 3]);
+        assert_eq!(parcours(w2, 5), [0, 1, 3]);
+        // Un monde qui commence sans le Monde 1, ou qui s'interrompt : refusé.
+        let mal: Vec<InfosNiveau> = [faux_monde(1, Normal, 2), faux_monde(2, Normal, 1)].to_vec();
+        assert_eq!(
+            verifier_ordre(&mal),
+            Err(ErreurOrdre::MondeDesordonne {
+                indice: 0,
+                monde: 2
+            })
+        );
+        let mal: Vec<InfosNiveau> = [
+            faux_monde(1, Normal, 1),
+            faux_monde(1, Normal, 2),
+            faux_monde(2, Normal, 1),
+        ]
+        .to_vec();
+        assert_eq!(
+            verifier_ordre(&mal),
+            Err(ErreurOrdre::MondeDesordonne {
+                indice: 2,
+                monde: 1
+            })
+        );
+        // La numérotation est par monde : le 1er du Monde 2 est le « 1 », pas le 5.
+        let mal: Vec<InfosNiveau> = [faux_monde(1, Normal, 1), faux_monde(5, Normal, 2)].to_vec();
+        assert_eq!(
+            verifier_ordre(&mal),
+            Err(ErreurOrdre::NumeroFaux {
+                indice: 1,
+                numero: 5
+            })
+        );
     }
 
     #[test]

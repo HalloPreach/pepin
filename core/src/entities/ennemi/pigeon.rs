@@ -137,7 +137,10 @@ impl Ennemi {
         if self.type_ennemi == TypeEnnemi::Chat {
             self.guetter_chat(joueur);
         }
-        if self.type_ennemi == TypeEnnemi::Pigeon
+        if self.type_ennemi.est_d_eau() && self.etat == EtatEnnemi::Actif {
+            self.guetter_eau(joueur);
+        }
+        if matches!(self.type_ennemi, TypeEnnemi::Pigeon | TypeEnnemi::Mouette)
             && self.etat == EtatEnnemi::Actif
             && self.phase == PhasePigeon::Perche
             && self.dans_le_cone(joueur)

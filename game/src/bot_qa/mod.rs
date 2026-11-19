@@ -45,6 +45,8 @@
 //! partie sans la jouer), `char` comme code de commande, et un hachage FNV-1a
 //! maison (empreinte reproductible du jeu, pour comparer deux builds).
 
+#[cfg(test)]
+mod captures_99;
 mod essais;
 mod essais_tests;
 mod parcours;
@@ -58,8 +60,8 @@ pub use parcours::*;
 
 use pepin_core::entities::ennemi::PhasePigeon;
 use pepin_core::entities::{Entite, TypeEnnemi};
+use pepin_core::levels::{NB_NIVEAUX_MONDE_1, NIVEAUX};
 use pepin_core::player::{Direction, Entrees};
-use pepin_core::zones::NB_NIVEAUX;
 
 use crate::app::Application;
 use crate::ecrans::histoire::Chapitre;
@@ -94,22 +96,35 @@ pub struct Trame {
 }
 
 impl Trame {
-    /// Un chiffre hexadécimal : 1 = Entrée, 2 = gauche, 4 = droite, 8 = saut.
+    /// Le code de l'image (voir `code_entrees`), Entrée comprise.
     pub fn code(&self) -> char {
-        let mut v = 0u32;
-        if self.valider {
-            v |= 1;
-        }
-        match self.entrees.direction {
-            Direction::Gauche => v |= 2,
-            Direction::Droite => v |= 4,
-            Direction::Immobile => {}
-        }
-        if self.entrees.saut {
-            v |= 8;
-        }
-        char::from_digit(v, 16).unwrap()
+        code_entrees(&self.entrees, self.valider)
     }
+}
+
+/// Le code d'un pas pour les scripts du navigateur : 1 = Entrée, 2 = gauche,
+/// 4 = droite, 8 = saut, et 16 = BAS (carte 9.2b, le parapluie retourné ; les
+/// quatre premiers bits étaient tous pris). Écrit comme un chiffre en BASE 32
+/// (`0`-`9` puis `a`-`v`) : sans BAS, c'est exactement le chiffre hexadécimal
+/// d'avant (les scripts du Monde 1 ne changent pas) ; avec BAS, une lettre de
+/// `g` à `v`. Les pilotes le lisent par `parseInt(c, 32)` (`docs/pilote-qa.js`).
+pub fn code_entrees(e: &Entrees, valider: bool) -> char {
+    let mut v = 0u32;
+    if valider {
+        v |= 1;
+    }
+    match e.direction {
+        Direction::Gauche => v |= 2,
+        Direction::Droite => v |= 4,
+        Direction::Immobile => {}
+    }
+    if e.saut {
+        v |= 8;
+    }
+    if e.bas {
+        v |= 16;
+    }
+    char::from_digit(v, 32).unwrap()
 }
 
 /// Nom court d'un état de pigeon, pour la trace (`ecrase` : écrasé, quelle que soit
@@ -197,7 +212,32 @@ pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
     if ng_plus {
         app.debloquer_ng_plus_qa();
     }
-    let image_jouer = u32::from(ng_plus);
+    jouer_depuis_le_titre(app, parcours, ng_plus)
+}
+
+/// Sauvegarde où « Le retour du Grand Nuage » (clé `poursuite`) est fini : la porte
+/// du Monde 2 est ouverte (carte 9.1), JOUER au titre y mène (carte 9.1b).
+pub const SAUVEGARDE_MONDE_2_OUVERT: &str = "version=3\nniveau.poursuite=atteint:1 medaille:1";
+
+/// La partie du MONDE 2 (carte 9.6), depuis le titre : la sauvegarde ouvre le
+/// Monde 2 et le robot appuie sur JOUER (image 0, Entrée), qui reprend là où on en
+/// est : le Monde 2 (carte 9.1b, plus de ligne MONDE 2). `parcours[k]` : le
+/// parcours du niveau numéro `k + 1` du Monde 2.
+pub fn jouer_monde_2(parcours: &[Vec<Entrees>]) -> Partie {
+    let mut app = Application::new(true);
+    app.charger_sauvegarde_qa(SAUVEGARDE_MONDE_2_OUVERT);
+    jouer_depuis_le_titre(app, parcours, false)
+}
+
+/// Joue la partie depuis le titre de `app` : Entrée sur la 1re ligne, ou sur la 2e
+/// si `deuxieme_ligne` (NOUVELLE PARTIE +). `parcours` est rangé par NUMÉRO de
+/// niveau dans son monde (la numérotation est par monde, carte 9.1).
+fn jouer_depuis_le_titre(
+    mut app: Application,
+    parcours: &[Vec<Entrees>],
+    deuxieme_ligne: bool,
+) -> Partie {
+    let image_jouer = u32::from(deuxieme_ligne);
     let mut trames: Vec<Trame> = Vec::new();
     let mut fin_atteinte = false;
     let mut fin_secrete_vue = false;
@@ -220,7 +260,7 @@ pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
         }
         let nav = Navigation {
             valider: trame.valider,
-            bas: ng_plus && image == 0,
+            bas: deuxieme_ligne && image == 0,
             ..Navigation::default()
         };
         app.reagir(&nav, &Commandes::default(), None);
@@ -282,15 +322,24 @@ pub fn jouer_tout_mode(parcours: &[Vec<Entrees>], ng_plus: bool) -> Partie {
     }
 }
 
-/// Cherche le parcours de chaque niveau de la table (robot « maladroit » d'abord,
+/// Cherche le parcours de chaque niveau du MONDE 1 (robot « maladroit » d'abord,
 /// puis précis si besoin). Un fil d'exécution par niveau, comme
 /// `tous_les_parcours_complets` (carte 6.9 : les onze recherches l'une après
 /// l'autre prenaient plusieurs minutes). La recherche de chaque niveau ne dépend
 /// que de son indice : les parcours sont les mêmes qu'en série, et `join` dans
 /// l'ordre des fils les range dans l'ordre des niveaux.
 pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
+    tous_les_parcours_du_monde(1)
+}
+
+/// Les parcours des niveaux du monde `monde`, rangés par numéro (carte 9.6 : le
+/// Monde 2 est la suite de la table ; `parcours[k]` est son niveau numéro `k + 1`).
+pub fn tous_les_parcours_du_monde(monde: u8) -> Vec<Vec<Entrees>> {
+    use pepin_core::levels::{debut_monde, niveaux_du_monde};
+    let debut = debut_monde(NIVEAUX, monde).expect("monde de la table");
+    let nb = niveaux_du_monde(NIVEAUX, monde).len();
     std::thread::scope(|portee| {
-        let fils: Vec<_> = (0..NB_NIVEAUX)
+        let fils: Vec<_> = (debut..debut + nb)
             .map(|i| {
                 portee.spawn(move || {
                     trouver_parcours(i, false)
@@ -311,7 +360,7 @@ pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
 /// comme `tous_les_parcours` (un fil par niveau).
 pub fn tous_les_parcours_ng_plus() -> Vec<Vec<Entrees>> {
     std::thread::scope(|portee| {
-        let fils: Vec<_> = (0..NB_NIVEAUX)
+        let fils: Vec<_> = (0..NB_NIVEAUX_MONDE_1)
             .map(|i| {
                 portee.spawn(move || {
                     trouver_parcours_mode(i, false, true)
@@ -326,13 +375,21 @@ pub fn tous_les_parcours_ng_plus() -> Vec<Vec<Entrees>> {
     })
 }
 
-/// Parcours « complet » de chaque niveau de la table : les trois gouttes d'or
+/// Parcours « complet » de chaque niveau du MONDE 1 : les trois gouttes d'or
 /// ramassées avant l'arrivée (`trouver_parcours_complet`, carte 5.16). Joués à la
 /// suite, ils font la partie qui débloque le bonus. Un fil d'exécution par niveau
 /// (`std::thread::scope` : les fils empruntent la portée, sans `Arc`).
 pub fn tous_les_parcours_complets() -> Vec<Vec<Entrees>> {
+    tous_les_parcours_complets_du_monde(1)
+}
+
+/// Parcours « complets » des niveaux du monde `monde`, rangés par numéro (carte 9.6).
+pub fn tous_les_parcours_complets_du_monde(monde: u8) -> Vec<Vec<Entrees>> {
+    use pepin_core::levels::{debut_monde, niveaux_du_monde};
+    let debut = debut_monde(NIVEAUX, monde).expect("monde de la table");
+    let nb = niveaux_du_monde(NIVEAUX, monde).len();
     std::thread::scope(|portee| {
-        let fils: Vec<_> = (0..NB_NIVEAUX)
+        let fils: Vec<_> = (debut..debut + nb)
             .map(|i| {
                 portee.spawn(move || {
                     trouver_parcours_complet(i, false)
@@ -354,6 +411,7 @@ mod tests {
     /// Le robot finit la partie sans mourir, et joue les niveaux dans l'ordre que
     /// donne `levels::apres` avec SES gouttes (bonus sauté s'il en manque).
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_finit_tous_les_niveaux_sans_mourir() {
         use pepin_core::levels::{apres, Apres, NIVEAUX};
         let parcours = tous_les_parcours();
@@ -386,6 +444,57 @@ mod tests {
         // Partie normale (carte 8.6) : aucune lettre cachée, la fin habituelle.
         assert_eq!(partie.lettres, [false; 5]);
         assert!(!partie.fin_secrete_vue);
+        // L'empreinte de la partie (image par image) : à comparer avant et après une
+        // carte qui ne doit rien changer au Monde 1 (carte 9.6 : le Monde 2 ajouté).
+        println!(
+            "partie du Monde 1 : {} images, chrono {} pas, empreinte {:016x}",
+            partie.trames.len(),
+            partie.chrono,
+            empreinte(&partie.trames)
+        );
+    }
+
+    /// La partie du MONDE 2 (carte 9.6), depuis le titre, avec une sauvegarde où
+    /// « poursuite » est fini : le robot appuie sur JOUER (qui reprend au Monde 2,
+    /// carte 9.1b) et joue chaque niveau du
+    /// Monde 2 dans l'ordre, sans mourir, jusqu'à l'écran de fin. Elle grandit avec
+    /// chaque niveau ajouté au Monde 2 (cartes 9.7 à 9.13), sans rien changer ici.
+    #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
+    fn le_robot_finit_le_monde_2_sans_mourir() {
+        use pepin_core::levels::{apres, debut_monde, niveaux_du_monde, Apres};
+        let monde_2 = niveaux_du_monde(NIVEAUX, 2);
+        assert!(!monde_2.is_empty(), "le Monde 2 a au moins un niveau");
+        let partie = jouer_monde_2(&tous_les_parcours_du_monde(2));
+        assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+        assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+        let mut joues: Vec<(u8, u32)> = Vec::new();
+        for t in partie.trames.iter().filter(|t| t.niveau > 0) {
+            match joues.last_mut() {
+                Some((n, g)) if *n == t.niveau => *g = t.gouttes,
+                _ => joues.push((t.niveau, t.gouttes)),
+            }
+        }
+        // Les niveaux du Monde 2 dans l'ordre de `apres` (règles PAR MONDE) : le
+        // premier est le caniveau (numéro 1 du Monde 2), aucun du Monde 1.
+        let debut = debut_monde(NIVEAUX, 2).unwrap();
+        let mut attendu = vec![1u8];
+        for &(n, g) in &joues {
+            if let Apres::Niveau(j) = apres(NIVEAUX, debut + n as usize - 1, g) {
+                attendu.push((j - debut) as u8 + 1);
+            }
+        }
+        let numeros: Vec<u8> = joues.iter().map(|&(n, _)| n).collect();
+        assert_eq!(numeros, attendu);
+        assert_eq!(monde_2[0].cle, "caniveau");
+        println!(
+            "partie du Monde 2 : niveaux {numeros:?}, {} images, chrono {} pas, \
+             gouttes {}, empreinte {:016x}",
+            partie.trames.len(),
+            partie.chrono,
+            partie.gouttes,
+            empreinte(&partie.trames)
+        );
     }
 
     /// La troisième partie du robot (carte 8.8) : la NOUVELLE PARTIE +, choisie au
@@ -393,6 +502,7 @@ mod tests {
     /// déplacés, éclairs plus fréquents, Grand Nuage serré, vent de face sur les
     /// toits) ; le robot la finit sans mourir, bonus sauté, épilogue joué.
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_finit_la_nouvelle_partie_plus_sans_mourir() {
         let partie = jouer_tout_mode(&tous_les_parcours_ng_plus(), true);
         assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -420,8 +530,10 @@ mod tests {
     /// l'épilogue (carte 5.17) et l'écran de fin, avec les 36 gouttes du jeu ;
     /// aucune mort.
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn la_partie_complete_joue_le_bonus() {
-        use pepin_core::zones::GOUTTES_TOTAL;
+        // Les gouttes du MONDE 1 (carte 9.6 : `GOUTTES_TOTAL` compte tous les mondes).
+        let gouttes_monde_1 = NB_NIVEAUX_MONDE_1 * pepin_core::level::GOUTTES_PAR_NIVEAU;
         let partie = jouer_tout(&tous_les_parcours_complets());
         assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
         assert_eq!(partie.morts, 0);
@@ -436,7 +548,7 @@ mod tests {
         // puis l'épilogue (12e).
         let attendu: Vec<(u8, u32)> = (1..=12).map(|n| (n, 3 * u32::from(n))).collect();
         assert_eq!(joues, attendu);
-        assert_eq!(partie.gouttes as usize, GOUTTES_TOTAL);
+        assert_eq!(partie.gouttes as usize, gouttes_monde_1);
         // Les cinq lettres cachées (carte 8.6) prises en route : la fin secrète.
         assert_eq!(partie.lettres, [true; 5]);
         assert!(partie.fin_secrete_vue, "l'image de la fin secrète");
@@ -448,12 +560,44 @@ mod tests {
         );
     }
 
+    /// Le robot d'UN niveau (carte 9.23, commande `./docker-cargo.sh carte <clé>
+    /// robot`, variable `CLE`), sur demande seulement : son parcours, rejoué dans la
+    /// vraie simulation, finit le niveau sans mourir (comme l'arc-en-ciel
+    /// ci-dessous). La partie complète du Monde 2
+    /// (`le_robot_finit_le_monde_2_sans_mourir`) reste au lot.
+    #[test]
+    #[ignore = "carte : un seul niveau, CLE=<clé> (./docker-cargo.sh carte <clé> robot)"]
+    fn le_robot_finit_le_niveau_de_la_carte() {
+        use crate::monde::Monde;
+        let cle = std::env::var("CLE").expect("CLE=<clé du niveau>");
+        let i = NIVEAUX
+            .iter()
+            .position(|n| n.cle == cle)
+            .unwrap_or_else(|| panic!("aucun niveau de clé {cle:?}"));
+        let parcours = trouver_parcours(i, false)
+            .or_else(|| trouver_parcours(i, true))
+            .unwrap_or_else(|| panic!("le robot ne trouve aucun parcours ({cle})"));
+        let mut m = Monde::new(i);
+        for e in &parcours {
+            m.avancer(e);
+            assert!(m.derniere_mort.is_none(), "{cle} : mort au pas {}", m.pas);
+        }
+        assert!(m.termine, "{cle} : arrivée non atteinte");
+        println!(
+            "{cle} : {} pas ({:.1} s), gouttes {:?}",
+            parcours.len(),
+            parcours.len() as f32 / 60.0,
+            m.gouttes_niveau
+        );
+    }
+
     /// Le bonus (« L'arc-en-ciel », carte 5.16) : la partie du robot ne le joue
     /// pas (il ne ramasse pas toutes les gouttes), on rejoue donc son parcours à
     /// part, dans la vraie simulation : le pont friable se traverse d'un bout à
     /// l'autre sans mourir, et sans jamais rester posé plus d'une demi-seconde sur
     /// la même dalle (elle tomberait).
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_traverse_l_arc_en_ciel_sans_mourir() {
         use crate::monde::Monde;
         use pepin_core::levels::{arc, GenreNiveau, NIVEAUX};
@@ -488,6 +632,7 @@ mod tests {
     /// robot ne touchait ni celle de la cage ni celle du pilier, et une chute le
     /// renvoyait à la galerie, vingt rangées plus bas.)
     #[test]
+    #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn au_clocher_le_parcours_allume_les_trois_lanternes() {
         use crate::monde::Monde;
         use pepin_core::levels::{clocher, NIVEAUX};
@@ -540,6 +685,91 @@ mod tests {
     fn ecrire_script_partie_complete() {
         let partie = jouer_tout(&tous_les_parcours_complets());
         ecrire_partie(&partie, "script-516.txt", "trace-516.csv");
+    }
+
+    /// Écrit le script de la partie COMPLÈTE du MONDE 2 (carte 9.6 : les trois gouttes
+    /// de chaque niveau, dont celle de la gouttière du caniveau, qu'on n'a qu'en
+    /// barque) : `target/qa/script-96.txt` et `target/qa/trace-96.csv`. L'image 0 est
+    /// Entrée sur JOUER au titre (carte 9.1b : JOUER reprend au Monde 2). La sauvegarde
+    /// du navigateur doit ouvrir le Monde 2 (`SAUVEGARDE_MONDE_2_OUVERT`).
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_monde_2
+    #[test]
+    #[ignore]
+    fn ecrire_script_monde_2_96() {
+        let partie = jouer_monde_2(&tous_les_parcours_complets_du_monde(2));
+        assert_eq!(partie.morts, 0);
+        let nb = pepin_core::levels::niveaux_du_monde(NIVEAUX, 2).len();
+        assert_eq!(
+            partie.gouttes as usize,
+            3 * nb,
+            "toutes les gouttes du Monde 2"
+        );
+        ecrire_partie(&partie, "script-96.txt", "trace-96.csv");
+    }
+
+    /// Captures de la carte 9.12b (la Pieuvre du port, niveau du boss du Monde 2) :
+    /// écrit la partie complète du Monde 2 (`script-912b.txt`, `trace-912b.csv`, pour
+    /// `docs/capture-96.mjs`), puis affiche les IMAGES à photographier : la carte de
+    /// titre du niveau de la pieuvre, et chaque frappe du motif 3 (la vague) avec la
+    /// place de Pépin. Le niveau commence à la première image de jeu de son numéro ;
+    /// le robot ne meurt jamais, le pas `k` du niveau est donc l'image `debut + k`.
+    /// Lancer avec : cargo test -p game --no-default-features -- --ignored ecrire_script_pieuvre_912b
+    #[test]
+    #[ignore]
+    fn ecrire_script_pieuvre_912b() {
+        use pepin_core::entities::pieuvre::{EtatTentacule, PhasePieuvre, NB_COLONNES};
+        let parcours = tous_les_parcours_complets_du_monde(2);
+        let partie = jouer_monde_2(&parcours);
+        assert_eq!(partie.morts, 0);
+        ecrire_partie(&partie, "script-912b.txt", "trace-912b.csv");
+        let indice = NIVEAUX.iter().position(|n| n.cle == "pieuvre").unwrap();
+        let numero = NIVEAUX[indice].numero;
+        let debut = partie
+            .trames
+            .iter()
+            .position(|t| t.ecran == "jeu" && t.niveau == numero)
+            .unwrap();
+        // La carte de titre : les images « carte » juste avant la 1re image de jeu.
+        let fin_carte = (0..debut)
+            .rev()
+            .find(|&i| partie.trames[i].ecran == "carte");
+        let debut_carte = fin_carte.map(|f| {
+            (0..=f)
+                .rev()
+                .take_while(|&i| partie.trames[i].ecran == "carte")
+                .last()
+                .unwrap_or(f)
+        });
+        println!(
+            "pieuvre : numéro {numero}, carte de titre {debut_carte:?}..{fin_carte:?}, \
+             1re image de jeu {debut}"
+        );
+        let mut m = crate::monde::Monde::new(indice);
+        for (k, e) in parcours[numero as usize - 1].iter().enumerate() {
+            m.avancer(e);
+            let Some(p) = m.entites.iter().find_map(|x| match x {
+                Entite::Pieuvre(p) => Some(p),
+                _ => None,
+            }) else {
+                continue;
+            };
+            if p.phase() == PhasePieuvre::Colere && p.motif() == 2 && k % 6 == 0 {
+                let tentacules: String = (0..NB_COLONNES)
+                    .map(|i| match p.etat_tentacule(i) {
+                        EtatTentacule::Dresse => 'X',
+                        EtatTentacule::Annonce(_) => 'a',
+                        _ => '.',
+                    })
+                    .collect();
+                println!(
+                    "pas {k} (image {}) : {tentacules} ; Pépin x = {:.0}, y = {:.0}, vx = {:.0}",
+                    debut + k,
+                    m.joueur.boite.x,
+                    m.joueur.boite.y,
+                    m.joueur.vitesse.x
+                );
+            }
+        }
     }
 
     /// Écrit le script (un chiffre hexadécimal par image) et la trace d'une partie

@@ -16,10 +16,10 @@ use pepin_core::entities::ennemi::{EtatEnnemi, PhaseChat, PhasePigeon};
 use pepin_core::entities::friable::EtatFriable;
 use pepin_core::entities::montgolfiere::{EtatMontgolfiere, HAUT_BALLON};
 use pepin_core::entities::nuage::{EtatColonne, GrandNuage, PhaseNuage, NB_COLONNES};
-use pepin_core::entities::{Entite, TypeEnnemi};
+use pepin_core::entities::{eaux_des_entites, Entite, TypeEnnemi};
 use pepin_core::level::{GenreDecor, GenrePanneau, Niveau, Tuile};
 use pepin_core::palette::*;
-use pepin_core::physics::{CourantAscendant, VentLateral, HZ};
+use pepin_core::physics::{CourantAscendant, VentLateral, ENFONCEMENT_BARQUE, HZ};
 use pepin_core::player::EtatJoueur;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
@@ -27,13 +27,14 @@ use crate::cosmetiques::Trainees;
 use crate::course::{self, Bord};
 use crate::decor;
 use crate::grele;
-use crate::monde::{Monde, REAPPARITION_PAS};
+use crate::monde::Monde;
 use crate::mur_pluie;
 use crate::particules::Particules;
 use crate::rendu::couleur_mq;
 use crate::skins::Skin;
 use crate::sprites::{ennemis, hauteur, largeur, objets, objets_decor, Banque, JeuImages};
 use crate::texte::{self, Style};
+use crate::tuiles_theme;
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
@@ -112,6 +113,19 @@ fn tuile_vue(monde: &Monde, tx: i32, ty: i32) -> Tuile {
     }
 }
 
+/// La case `(tx, ty)` est-elle libre pour un objet de décor posé (carte 9.6c) : ni
+/// tuile, ni entité du niveau (lanterne, goutte, ennemi...) qui la touche ?
+fn case_libre(monde: &Monde, tx: i32, ty: i32) -> bool {
+    let t = TAILLE_TUILE;
+    let case = Aabb::new(tx as f32 * t, ty as f32 * t, t, t);
+    tuile_vue(monde, tx, ty) == Tuile::Vide
+        && !monde
+            .niveau
+            .entites
+            .iter()
+            .any(|e| e.boite().chevauche(&case))
+}
+
 /// La case `(tx, ty)` est-elle dans une zone cachée PAS ENCORE révélée (carte 8.5) ?
 fn case_cachee(monde: &Monde, tx: i32, ty: i32) -> bool {
     monde
@@ -140,11 +154,65 @@ fn case_d_indice(monde: &Monde, tx: i32, ty: i32) -> bool {
         .any(|z| z.indice == Some((tx, ty)))
 }
 
+/// Pas (1/60 s) entre deux temps de la vague de l'eau (carte 9.2) : la surface
+/// monte et descend d'un pixel toutes les 0,4 s.
+pub(crate) const PAS_VAGUE: u32 = 24;
+
 /// Nom de la tuile à dessiner : version « haut » si rien de solide au-dessus ; un nuage dont la
 /// case voisine est vide (à gauche et/ou à droite) prend un bord arrondi. Dessin seulement :
 /// la collision reste celle de la case. Les faux murs comptent comme le solide qu'ils imitent
 /// (`tuile_vue`) ; la case d'indice d'une zone cachée est une brique décalée.
-fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
+pub(crate) fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
+    // Carte 9.12f : la plateforme que la Pieuvre saisit se dessine à part
+    // (`dessin_pieuvre::dessiner_saisie`) : elle tremble, coule, remonte.
+    if crate::dessin_pieuvre::case_saisie(monde, tx, ty) {
+        return "";
+    }
+    nom_tuile_brut(monde, tx, ty, t)
+}
+
+/// Pour la plateforme saisie par la Pieuvre (carte 9.12f) : le nom de la tuile de
+/// la case `(tx, ty)` comme si de rien n'était, et l'objet posé dessus (la bitte
+/// d'amarrage), qui coule avec elle.
+pub(crate) fn noms_de_la_case(
+    monde: &Monde,
+    tx: i32,
+    ty: i32,
+) -> (&'static str, Option<&'static str>) {
+    let nom = nom_tuile_brut(monde, tx, ty, tuile_vue(monde, tx, ty));
+    let objet = tuiles_theme::objet_pose(nom).filter(|_| case_libre(monde, tx, ty - 1));
+    (nom, objet)
+}
+
+fn nom_tuile_brut(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
+    // Monde 2 (carte 9.6b) : un thème qui a son propre jeu de tuiles choisit d'abord.
+    // Sous la dernière rangée, le jeu voit du solide (le sol continue hors carte) :
+    // la rangée du bas n'est ni un plafond ni une voûte (carte 9.6c).
+    let bas = monde.niveau.hauteur() as i32;
+    // Carte 9.20f : le mobilier de rue se dessine d'un seul tenant
+    // (`mobilier_rue`) ; ses cases ne sont pas des tuiles, et le jeu du thème le
+    // voit comme de l'air (les pavés restent des pavés sous une voiture).
+    if monde.niveau.est_mobilier(tx, ty) {
+        return "";
+    }
+    let vue = |x, y| {
+        if y >= bas {
+            Tuile::Brique
+        } else if monde.niveau.est_mobilier(x, y) {
+            Tuile::Vide
+        } else {
+            tuile_vue(monde, x, y)
+        }
+    };
+    // Carte 9.20e : la jetée de la Pieuvre dessine elle-même ses quais et son
+    // bassin (`dessin_port::dessiner_jetee`) ; ici, rien.
+    if crate::dessin_port::dessine_la_case(monde, tx, ty, t) {
+        return "";
+    }
+    let theme = monde.infos.theme;
+    if let Some(nom) = tuiles_theme::nom_du_theme(theme, (tx, ty, t), vue, hachage_case(tx, ty)) {
+        return nom;
+    }
     let haut = tuile_vue(monde, tx, ty - 1) == Tuile::Vide;
     if t == Tuile::Nuage && haut {
         let (gauche, droite) = (
@@ -167,6 +235,35 @@ fn nom_tuile(monde: &Monde, tx: i32, ty: i32, t: Tuile) -> &'static str {
         (Tuile::Brique, false) => variante_brique(tx, ty).unwrap_or("brique_plein"),
         (Tuile::Nuage, true) => "nuage_haut",
         (Tuile::Nuage, false) => "nuage_plein",
+        // Eau (carte 9.2) : la version « haut » (la surface) est posée quand la
+        // case au-dessus est vide ; le sens du courant donne les chevrons. La
+        // surface ONDULE d'un pixel : « haut » et « vague » (le même dessin 1 px
+        // plus bas) alternent tous les `PAS_VAGUE` pas, à contretemps d'une
+        // colonne à sa voisine. `rem_euclid` garde un reste positif même pour
+        // une colonne négative.
+        (Tuile::Eau, _) => {
+            // Sous l'eau d'une marée montée (carte 9.3), ce n'est plus la surface.
+            let haut = haut && !crate::eau::sous_une_maree(monde, tx, ty);
+            let vague = (monde.pas / PAS_VAGUE) as i32 + tx;
+            let (surface, creux, plein) = match monde.niveau.courant_eau(tx, ty) {
+                -1 => (
+                    "eau_courant_g_haut",
+                    "eau_courant_g_vague",
+                    "eau_courant_g_plein",
+                ),
+                1 => (
+                    "eau_courant_d_haut",
+                    "eau_courant_d_vague",
+                    "eau_courant_d_plein",
+                ),
+                _ => ("eau_calme_haut", "eau_calme_vague", "eau_calme_plein"),
+            };
+            match (haut, vague.rem_euclid(2) == 1) {
+                (false, _) => plein,
+                (true, false) => surface,
+                (true, true) => creux,
+            }
+        }
         (Tuile::Vide, _) => "",
     }
 }
@@ -202,6 +299,13 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                     }
                 };
                 poser(nom);
+                // Carte 9.6c : un objet posé sur la tuile (la bitte d'amarrage du
+                // port), dans la case du dessus quand elle est libre.
+                if let Some(objet) = tuiles_theme::objet_pose(nom) {
+                    if !revele && case_libre(monde, tx, ty - 1) {
+                        banque.dessiner_tuile(monde.infos.theme, objet, x, y - taille as f32);
+                    }
+                }
                 // L'indice de brique d'une zone cachée (carte 8.5) dépasse sur la case libre.
                 if nom == "brique_decalee" && !revele {
                     let (saillie, dx) = if tuile_vue(monde, tx - 1, ty) == Tuile::Vide {
@@ -212,7 +316,9 @@ fn dessiner_tuiles(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                     banque.dessiner_tuile(monde.infos.theme, saillie, x + dx as f32, y);
                 }
                 // Bande d'ombre du rebord, par-dessus le haut de la brique.
-                if ombre_sous_toit(t, tuile_vue(monde, tx, ty - 1)) {
+                if ombre_sous_toit(t, tuile_vue(monde, tx, ty - 1))
+                    && !tuiles_theme::a_son_jeu(monde.infos.theme)
+                {
                     poser("ombre_toit");
                 }
             }
@@ -290,6 +396,7 @@ fn dessiner_panneaux(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
             GenrePanneau::Planer => "panneau_planer",
             GenrePanneau::Champignon => "panneau_champignon",
             GenrePanneau::Vent => "panneau_vent",
+            GenrePanneau::Barque => "panneau_barque",
         };
         banque.dessiner(nom, p.x.round() - cx as f32, p.y.round() - cy as f32, false);
     }
@@ -363,6 +470,13 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                 oiseaux += 1;
                 (image_oiseau(monde.pas, oiseaux - 1), false)
             }
+            // La rue du Monde 2 (carte 9.6b).
+            GenreDecor::BoucheEgout => ("bouche_egout", false),
+            GenreDecor::Borne => ("borne", false),
+            GenreDecor::Poubelle => ("poubelle", false),
+            // Carte 9.20h : la descente de gouttière est dessinée avec sa maison
+            // (`decor_rue::dessiner_gouttieres`, avant les tuiles).
+            GenreDecor::Gouttiere => continue,
         };
         let Some(dessin) = objets_decor::SPRITES
             .iter()
@@ -379,7 +493,7 @@ fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
 /// Annonce de l'éclair : le pointillé est-il allumé à cet instant ? `progression` va de 0.0
 /// (début de l'annonce) à 1.0 (frappe imminente) : le clignotement ACCÉLÈRE, de 2,5 Hz au début
 /// à 15 Hz à la fin (7 clignotements en 0,8 s). Fonction pure, testable.
-fn annonce_allumee(progression: f32) -> bool {
+pub(crate) fn annonce_allumee(progression: f32) -> bool {
     let p = progression.clamp(0.0, 1.0);
     let phase = 2.0 * p + 5.0 * p * p; // nombre de cycles écoulés
     phase.fract() < 0.5
@@ -745,6 +859,14 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
             // Le Grand Nuage et ses éclairs (son courant : des brins, `effets` ; la
             // déchirure du ciel : `dessiner_dechirure`, derrière les tuiles).
             Entite::Nuage(g) => dessiner_nuage(g, banque, pas, sx, sy, cx, cy),
+            // La Pieuvre du port (carte 9.12a) : `dessin_pieuvre.rs`.
+            Entite::Pieuvre(p) => crate::dessin_pieuvre::dessiner(p, banque, pas, cx, cy),
+            // Les mécaniques d'eau du Monde 2 (carte 9.3) : `eau.rs`.
+            Entite::Bulles(_)
+            | Entite::Chute(_)
+            | Entite::Nenuphar(_)
+            | Entite::Stalactite(_)
+            | Entite::Maree(_) => crate::eau::dessiner(monde, banque, entite, (sx, sy), cx, cy),
             Entite::Grele(g) => {
                 // Un solide sous la colonne ? (Sinon elle tombe dans le vide.)
                 let t = TAILLE_TUILE;
@@ -803,6 +925,12 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                             e.vers_la_droite == retourne,
                         );
                     }
+                    // Les ennemis d'eau du Monde 2 (carte 9.4) : `dessin_eau`.
+                    TypeEnnemi::Grenouille
+                    | TypeEnnemi::Poisson
+                    | TypeEnnemi::Crabe
+                    | TypeEnnemi::Rat
+                    | TypeEnnemi::Mouette => crate::dessin_eau::dessiner(e, banque, pas, sx, sy),
                     TypeEnnemi::Chat => {
                         // Le chat du dessin regarde à gauche. Sprite 16x14 posé sur le
                         // bas de la boîte 14x8, centré (1 px de chaque côté). Il se
@@ -1079,40 +1207,28 @@ pub(crate) fn image_attente(images: &JeuImages, immobile: u32) -> Option<&'stati
 /// skins, seuls les noms des images changent (`JeuImages`).
 fn dessiner_pepin(monde: &Monde, banque: &Banque, skin: Skin, alpha: f32, cx: i32, cy: i32) {
     let poser = |nom: &str, x: f32, y: f32, miroir: bool| banque.dessiner(nom, x, y, miroir);
-    poser_pepin(monde, skin.images(), alpha, (cx, cy), true, &poser);
+    // Le temps de mort (carte 9.24) : l'animation de la cause, à l'endroit de la mort.
+    crate::dessin_mort::dessiner(monde, banque, skin.images(), (cx, cy));
+    poser_pepin(monde, skin.images(), alpha, (cx, cy), &poser);
 }
 
 /// Le dessin de Pépin, quelles que soient ses images (`images`) et la façon de les
 /// poser (`poser` : pleines, ou tramées pour le fantôme de la course, carte 8.7).
-/// `borner` : garder l'animation de mort dans le cadre (Pépin ; pas le fantôme, qui
-/// peut mourir hors champ).
 fn poser_pepin(
     monde: &Monde,
     images: &JeuImages,
     alpha: f32,
     (cx, cy): (i32, i32),
-    borner: bool,
     poser: &dyn Fn(&str, f32, f32, bool),
 ) {
     let pas = monde.pas;
     let j = &monde.joueur;
     let miroir = !j.regarde_droite;
 
-    // Mort : trois images jouées à l'endroit de la mort, puis réapparition clignotante.
-    if monde.reapparition > 0 {
-        let ecoule = REAPPARITION_PAS - monde.reapparition;
-        let k = (ecoule as usize * 3 / REAPPARITION_PAS as usize).min(2);
-        // Chute dans le vide ou réapparition lointaine : l'animation reste dans le cadre.
-        let (mort_x, mort_y) = if borner {
-            borner_mort(monde.pos_mort, (cx as f32, cy as f32))
-        } else {
-            monde.pos_mort
-        };
-        let (mx, my) = (
-            mort_x.round() as i32 - cx - 3,
-            mort_y.round() as i32 - cy - 2,
-        );
-        poser(images.reapparition[k], mx as f32, my as f32, false);
+    // Temps de mort (carte 9.24) : déjà replacé à la lanterne, Pépin n'y paraît
+    // qu'à l'ouverture du rideau (l'animation est dans `dessin_mort`).
+    if monde.temps_de_mort && crate::dessin_mort::pepin_cache(monde.reapparition) {
+        return;
     }
     // Tout juste réapparu, Pépin est protégé des dangers (1 s) : il clignote.
     if pepin_cache(j.protection_restante(), pas) {
@@ -1127,6 +1243,38 @@ fn poser_pepin(
         EtatJoueur::Plane => {
             let nom = image(&images.planer, pas, 8);
             poser(nom, (milieu - 10) as f32, (bas - 20) as f32, miroir);
+        }
+        // Parapluie retourné (carte 9.2b, BAS tenu), SOUS Pépin depuis la 9.2c :
+        // en l'air, Pépin debout dans la coque de la barque (16x16), posé comme
+        // la barque (`ENFONCE_BARQUE_RENDU` plus bas) : la coque est à la même
+        // place sous les pieds qu'en barque, Pépin s'y assied en touchant
+        // l'eau. Au sol (carte 9.2d), il ne court plus : ASSIS dans la coque
+        // (le dessin de la barque), la crosse posée sur le sol (pas dedans).
+        EtatJoueur::Retourne => {
+            let (nom, enfonce) = if j.au_sol {
+                (images.barque, 0)
+            } else {
+                (images.retourne, ENFONCE_BARQUE_RENDU)
+            };
+            poser(
+                nom,
+                (milieu - 8) as f32,
+                (bas - 16 + enfonce) as f32,
+                miroir,
+            );
+        }
+        // Barque (carte 9.2) : le parapluie retourné avec Pépin assis dedans.
+        // À MOITIÉ ENFONCÉE (carte 9.2b, AGA : « il flotte trop haut ») : un
+        // décalage de RENDU seulement (`ENFONCE_BARQUE_RENDU`, la physique ne
+        // bouge pas), puis une bande d'eau DEVANT la coque.
+        EtatJoueur::Barque => {
+            poser(
+                images.barque,
+                (milieu - 8) as f32,
+                (bas - 16 + ENFONCE_BARQUE_RENDU) as f32,
+                miroir,
+            );
+            dessiner_eau_devant_barque(monde, (milieu, bas), (cx, cy));
         }
         etat => {
             let nom = match etat {
@@ -1153,7 +1301,7 @@ pub fn dessiner_fantome(
     etiquette: &str,
 ) {
     let poser = |nom: &str, x: f32, y: f32, miroir: bool| banque.dessiner_trame(nom, x, y, miroir);
-    poser_pepin(monde, Skin::Pepin.images(), alpha, (cx, cy), false, &poser);
+    poser_pepin(monde, Skin::Pepin.images(), alpha, (cx, cy), &poser);
     let j = &monde.joueur;
     let (px, py) = monde.joueur_interpole(alpha);
     let (bx, by) = (
@@ -1190,6 +1338,76 @@ fn dessiner_fleche_fantome(x: i32, y: i32, bord: Bord) {
     }
 }
 
+/// Décalage de RENDU (px) de la barque vers le bas (carte 9.2b, AGA : « il flotte
+/// trop haut par rapport à l'eau ») : la coque (rangées 8 à 12 de l'image) passe à
+/// moitié sous la surface, et Pépin s'assied plus bas. La physique ne bouge pas
+/// (`ENFONCEMENT_BARQUE` reste 3 px) : sauts, robots et niveaux sont inchangés.
+const ENFONCE_BARQUE_RENDU: i32 = 3;
+
+/// Pas (1/60 s) d'un cran des rides autour de la barque (carte 9.2b).
+const PAS_RIDE: u32 = 10;
+
+/// L'eau DEVANT la barque (carte 9.2b) : de la surface jusqu'au bas de l'image de la
+/// barque, sur sa largeur, on redessine l'eau par-dessus la coque, pixel par pixel,
+/// avec les couleurs des tuiles d'eau voisines (vague comprise) : la moitié basse
+/// de la coque plonge dans l'eau. De part et d'autre, deux petites rides claires
+/// (2 px) s'éloignent sur la surface. `(milieu, bas)` : milieu et pieds de Pépin, en
+/// pixels d'écran ; `(cx, cy)` : la caméra. Dans le code de Pépin, pas dans
+/// `eau.rs` : le rendu de l'eau elle-même reste à la carte 9.6b.
+fn dessiner_eau_devant_barque(monde: &Monde, (milieu, bas): (i32, i32), (cx, cy): (i32, i32)) {
+    use crate::sprites::{pixel, tuiles};
+    let taille = TAILLE_TUILE as i32;
+    // La surface : les pieds de la barque sont `ENFONCEMENT_BARQUE` (3 px) dessous.
+    let surface = bas - ENFONCEMENT_BARQUE as i32;
+    // Bas de l'image de la barque (16 px de haut, posée à `bas - 16 + décalage`).
+    let fond = bas + ENFONCE_BARQUE_RENDU;
+    // Les étendues du moment (marées comprises, carte 9.3).
+    let eaux = eaux_des_entites(&monde.niveau.eaux, &monde.entites);
+    let dans_l_eau = |wx: i32, wy: i32| {
+        let (x, y) = (wx as f32 + 0.5, wy as f32 + 0.5);
+        eaux.iter()
+            .any(|e| e.zone.x < x && x < e.zone.droite() && e.zone.y < y && y < e.zone.bas())
+    };
+    // Couleur de l'eau au pixel du monde `(wx, wy)` : celle de la tuile d'eau qui
+    // est là (son dessin, vague comprise), sinon (marée) clair en surface, sombre
+    // dessous. `None` : pas d'eau (le quai, ou le creux d'une vague).
+    let couleur = |wx: i32, wy: i32| -> Option<Couleur> {
+        let (tx, ty) = (wx.div_euclid(taille), wy.div_euclid(taille));
+        let t = monde.niveau.tuile_decor(tx, ty);
+        if t == Tuile::Eau {
+            let nom = nom_tuile(monde, tx, ty, t);
+            let (_, dessin) = tuiles::SPRITES.iter().find(|(n, _)| *n == nom)?;
+            let ligne = dessin.get(wy.rem_euclid(taille) as usize)?;
+            let c = ligne.chars().nth(wx.rem_euclid(taille) as usize)?;
+            pixel(c).ok().flatten()
+        } else if dans_l_eau(wx, wy) {
+            Some(if wy == surface + cy {
+                PLUIE
+            } else {
+                PLUIE_SOMBRE
+            })
+        } else {
+            None
+        }
+    };
+    for x in milieu - 8..milieu + 8 {
+        for y in surface..fond {
+            if let Some(c) = couleur(x + cx, y + cy) {
+                rect(x, y, 1, 1, c);
+            }
+        }
+    }
+    // Les rides : deux traits clairs de 2 px, juste au-dessus de la surface, qui
+    // s'éloignent de la coque en 3 crans puis repartent de son bord.
+    let k = (monde.pas / PAS_RIDE % 3) as i32;
+    for x in [milieu - 10 - 2 * k, milieu + 8 + 2 * k] {
+        // Seulement au-dessus de l'eau (pas sur le quai).
+        if dans_l_eau(x + cx, surface + cy) && dans_l_eau(x + 1 + cx, surface + cy) {
+            rect(x, surface - 1, 2, 1, PLUIE);
+        }
+    }
+}
+
 /// Flèche de repère par-dessus tout le monde (pluie comprise) quand Pépin est au-dessus du cadre.
 fn dessiner_repere_pepin(monde: &Monde, alpha: f32, cx: i32, cy: i32) {
     let j = &monde.joueur;
@@ -1218,11 +1436,37 @@ pub fn dessiner(
     // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    // La Pieuvre du port (carte 9.20e) : la mer, le phare et les bateaux du port.
+    crate::dessin_port::dessiner_fond(monde, banque, cx, cy);
     mur_pluie::dessiner_soleil(monde);
     dessiner_dechirure(monde, cx);
     dessiner_facades(monde, banque, cx, cy);
+    // La grande chute en fond de la cascade (carte 9.20c), derrière les tuiles.
+    crate::decor_cascade::dessiner_fond(monde, cx, cy);
+    // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
+    crate::eau::dessiner_marees(monde, banque, cx, cy);
+    // Les roues de l'autobus du caniveau (carte 9.20f), dans l'eau qui les couvre.
+    crate::mobilier_rue::dessiner_derriere(monde, cx, cy);
+    // Les descentes de gouttière du caniveau et leur pan de maison (carte 9.20h).
+    crate::decor_rue::dessiner_gouttieres(monde, cx, cy);
     dessiner_tuiles(monde, banque, cx, cy);
+    // La jetée de la Pieuvre (carte 9.20e) : bassin profond, quais, grue, caisses.
+    crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
+    // La plateforme que la Pieuvre emporte sous l'eau (carte 9.12f).
+    crate::dessin_pieuvre::dessiner_saisie(monde, banque, cx, cy);
+    // Les stries du courant (carte 9.6b), sur l'eau qui coule.
+    crate::dessin_courant::dessiner(monde, cx, cy);
+    // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.
+    crate::decor_egouts::dessiner(monde, cx, cy);
+    // L'habillage de la grotte (carte 9.20d) : rideau de la cascade, sources, jour.
+    crate::decor_grotte::dessiner(monde, cx, cy);
+    // Le mobilier de rue du caniveau (carte 9.20f) : voitures, autobus, abribus...
+    crate::mobilier_rue::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);
+    // Le filet d'eau de chaque gouttière, sur l'eau du caniveau (carte 9.20h).
+    crate::decor_rue::dessiner_filets(monde, cx, cy);
+    // Le grand tuyau du départ et le bassin d'arrivée de la cascade (carte 9.20c).
+    crate::decor_cascade::dessiner(monde, cx, cy);
     dessiner_panneaux(monde, banque, cx, cy);
     dessiner_arrivee(monde, banque, cx, cy);
     dessiner_cadrans(monde, banque, alpha, cx, cy);
@@ -1238,6 +1482,18 @@ pub fn dessiner(
         decor::dessiner_avant(monde.infos.theme, monde.pas, monde.ng_plus);
     }
     dessiner_repere_pepin(monde, alpha, cx, cy);
+    // L'encre de la Pieuvre (carte 9.12a), devant tout.
+    crate::dessin_pieuvre::dessiner_encre(monde);
+    // Le rideau du temps de mort (carte 9.24), devant tout.
+    if monde.temps_de_mort {
+        crate::dessin_mort::dessiner_rideau(monde.reapparition);
+    }
+    // Build de QA seulement (carte 9.20g) : la touche O repasse les cases SOLIDES
+    // de la grille en couleur vive (test de lisibilité des captures).
+    #[cfg(feature = "debug_niveaux")]
+    if crate::entrees::solides_qa() {
+        crate::mobilier_rue::dessiner_solides_qa(monde, cx, cy);
+    }
 }
 
 #[cfg(test)]
@@ -1445,7 +1701,17 @@ mod tests {
                 Theme::Soleil | Theme::Cyclone | Theme::Mer | Theme::ArcEnCiel => {
                     assert_eq!(ombres, 0, "{}", infos.nom)
                 }
-                Theme::Altitude | Theme::Poursuite => {}
+                // L'altitude, le retour du Grand Nuage et le Monde 2 (carte 9.5,
+                // niveaux à venir) n'ont pas encore de contrôle d'ombre propre.
+                Theme::Altitude
+                | Theme::Poursuite
+                | Theme::Caniveau
+                | Theme::Egouts
+                | Theme::Cascade
+                | Theme::Grotte
+                | Theme::Riviere
+                | Theme::Port
+                | Theme::Maree => {}
             }
         }
         let part = variantes as f32 / pleines as f32;
@@ -1703,14 +1969,24 @@ mod tests {
         assert_eq!(coin_decor(48.0, 112.0, 12, 20), (50, 108));
         assert_eq!(coin_decor(48.0, 112.0, 16, 22), (48, 106));
         assert_eq!(coin_decor(48.0, 112.0, 7, 24), (52, 104));
-        let noms = ["cheminee", "antenne", "paratonnerre", "manche_a_air"];
+        let noms = [
+            "cheminee",
+            "antenne",
+            "paratonnerre",
+            "manche_a_air",
+            "bouche_egout",
+            "borne",
+            "poubelle",
+        ];
         for nom in noms.iter().chain(objets_decor::OISEAU.iter()) {
             assert!(
                 objets_decor::SPRITES.iter().any(|(n, _)| n == nom),
                 "{nom} : pas de dessin"
             );
         }
-        assert_eq!(GenreDecor::TOUS.len(), noms.len() + 1);
+        // L'oiseau a un jeu d'images ; la gouttière (carte 9.20h) est dessinée avec
+        // sa maison par `decor_rue`, sans sprite.
+        assert_eq!(GenreDecor::TOUS.len(), noms.len() + 2);
     }
 
     // --- Attente de Pépin (carte 4.3) ---
@@ -1821,6 +2097,7 @@ mod tests {
         let droite = Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         };
         immobile = compter_immobile(immobile, &m.joueur, &droite);
         assert_eq!(image_attente(&pepin::IMAGES, immobile), None);

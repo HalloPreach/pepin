@@ -583,6 +583,7 @@ fn ecrire_script_vies() {
                 Entrees {
                     direction: Direction::Droite,
                     saut: sauter,
+                    bas: false,
                 }
             } else {
                 robot(&normaux).unwrap_or_default()
@@ -767,6 +768,7 @@ fn ecrire_script_chats() {
             trame.entrees = Entrees {
                 direction,
                 saut: false,
+                bas: false,
             };
         }
         if etape == Etape::Fin {
@@ -957,10 +959,12 @@ fn ecrire_parcours_pigeon_ecrase_66() {
     let droite = Entrees {
         direction: Direction::Droite,
         saut: false,
+        bas: false,
     };
     let planer = Entrees {
         direction: Direction::Droite,
         saut: true,
+        bas: false,
     };
     let lacher = Entrees::default();
     let ecrase = |m: &crate::monde::Monde| {

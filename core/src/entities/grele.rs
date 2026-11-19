@@ -144,6 +144,7 @@ mod tests {
                 solides: &solides,
                 courants: &niv.courants,
                 vents: &niv.vents,
+                eaux: &[],
             };
             let entrees = pilote(&j);
             j.actualiser(&entrees, &env);
@@ -169,6 +170,7 @@ mod tests {
         let issue = jouer(|_| Entrees {
             direction: Direction::Droite,
             saut: false,
+            bas: false,
         });
         assert_eq!(issue.mort, Some(CauseMort::Grele));
         assert!(!issue.mort_en_l_air, "tué au sol");
@@ -183,6 +185,7 @@ mod tests {
         let issue = jouer(|j| Entrees {
             direction: Direction::Droite,
             saut: j.boite.x >= 60.0 && j.boite.x < 200.0,
+            bas: false,
         });
         assert_eq!(issue.mort, None);
         assert!(issue.arrivee, "le drapeau est atteint");
@@ -197,6 +200,7 @@ mod tests {
         let issue = jouer(|j| Entrees {
             direction: Direction::Droite,
             saut: j.boite.x >= 104.0,
+            bas: false,
         });
         assert_eq!(issue.mort, Some(CauseMort::Grele));
         assert!(issue.mort_en_l_air, "tué pendant la montée");

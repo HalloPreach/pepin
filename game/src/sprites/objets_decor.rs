@@ -1,7 +1,10 @@
 //! Sprites des objets de décor (carte 4.2) : cheminée, antenne, paratonnerre,
-//! manche à air, oiseau posé. Aucun n'a de collision : ce sont des dessins posés
-//! sur le toit (leur dernière rangée touche la tuile du dessous), d'une tuile de
-//! large au plus et de moins de deux tuiles de haut.
+//! manche à air, oiseau posé ; et ceux de la rue du Monde 2 (carte 9.6b) : bouche
+//! d'égout, borne, poubelle. Aucun n'a de collision : ce
+//! sont des dessins posés sur le toit ou la rue (leur dernière rangée touche la
+//! tuile du dessous), d'une tuile de large au plus et de moins de deux tuiles de
+//! haut. (La descente de gouttière de la rue n'est plus un sprite depuis la carte
+//! 9.20h : `decor_rue` la dessine accrochée à sa maison.)
 //!
 //! Ils sont dessinés tels quels (sans la substitution de couleurs des tuiles) : chacun
 //! ne sert que dans les niveaux de son thème (voir `level::GenreDecor`). Couleurs
@@ -142,6 +145,59 @@ pub const OISEAU1: Image = &[
     "....0.0.....",
 ];
 
+/// Bouche d'égout du caniveau (carte 9.6b) : la pierre de la bordure, la bouche
+/// sombre et sa grille de fonte (16x9).
+pub const BOUCHE_EGOUT: Image = &[
+    "0000000000000000",
+    "0666666666666660",
+    "0444444444444440",
+    "0000000000000000",
+    "0504040404040400",
+    "0404040404040400",
+    "0404040404040400",
+    "0000000000000000",
+    "0333333333333330",
+];
+
+/// Borne de trottoir en fonte : tête ronde, bague, fût, pied évasé (6x14). Carte
+/// 9.20g : du décor sans collision, donc terne (ardoise sombre, aucune tête claire).
+pub const BORNE: Image = &[
+    "..00..",
+    ".0220.",
+    ".0210.",
+    "000000",
+    "021210",
+    "000000",
+    ".0210.",
+    ".0110.",
+    ".0110.",
+    ".0110.",
+    ".0110.",
+    "002100",
+    "021110",
+    "011110",
+];
+
+/// Poubelle de rue : couvercle et sa poignée, cuve cannelée (12x14). Carte 9.20g :
+/// du décor sans collision, donc terne (plus de couvercle clair : elle ne se
+/// confond plus avec la poubelle SOLIDE du mobilier de rue, `mobilier_rue`).
+pub const POUBELLE: Image = &[
+    "....0000....",
+    "...021120...",
+    "..00000000..",
+    ".0222222220.",
+    "000000000000",
+    ".0121212110.",
+    ".0121212110.",
+    ".0121212110.",
+    ".0121212110.",
+    ".0121212110.",
+    ".0121212110.",
+    ".0121212110.",
+    ".0111111110.",
+    ".0000000000.",
+];
+
 /// Tous les sprites de ce fichier : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("cheminee", CHEMINEE),
@@ -150,6 +206,9 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("manche_a_air", MANCHE_A_AIR),
     ("oiseau0", OISEAU0),
     ("oiseau1", OISEAU1),
+    ("bouche_egout", BOUCHE_EGOUT),
+    ("borne", BORNE),
+    ("poubelle", POUBELLE),
 ];
 
 /// Oiseau posé (2 images) : regard devant, puis tête tournée.

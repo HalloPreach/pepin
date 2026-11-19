@@ -233,6 +233,7 @@ fn le_robot_finit_le_niveau_d_essai_ventilateur() {
 /// la première l'a porté de plus d'un saut (56 px). Pendant toute montée où il est
 /// posé, ses pieds sont PILE sur le dessus d'une nacelle (porté, sans glisser).
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_montgolfiere() {
     let partie = jouer_essai_montgolfiere(&parcours_essai_montgolfiere());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -281,6 +282,7 @@ fn le_robot_finit_le_niveau_d_essai_montgolfiere() {
 /// toujours posé pendant la montée, et la première, quittée, redescend vers son
 /// quai pendant que Pépin monte dans la seconde. Trois gouttes, aucune mort.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_monte_jusqu_en_haut_des_deux_montgolfieres() {
     let partie = jouer_essai_montgolfiere(&parcours_essai_montgolfiere_jusqu_en_haut());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -325,6 +327,7 @@ fn le_robot_monte_jusqu_en_haut_des_deux_montgolfieres() {
 /// rebondi au moins deux fois sur un escargot (une par falaise) ; chaque rebond
 /// relance Pépin vers le haut et aplatit la coquille de l'escargot touché.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_escargot() {
     let partie = jouer_essai_escargot(&parcours_essai_escargot());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -365,6 +368,7 @@ fn le_robot_finit_le_niveau_d_essai_escargot() {
 /// Il a écrasé le chat une fois, PENDANT son sommeil ou son annonce (jamais
 /// réveillé), et il n'est passé sous le grand mur (x > 432) qu'après.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_chat() {
     let partie = jouer_essai_chat(&parcours_essai_chat());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -435,6 +439,7 @@ fn le_robot_finit_le_niveau_d_essai_chat() {
 /// les trois gouttes, porté par les DEUX aiguilles : il monte sur chacune (au
 /// moins une tuile de montée pendant qu'elle le porte) avant de sauter plus haut.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_horloge() {
     let partie = jouer_essai_horloge(&parcours_essai_horloge());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -474,6 +479,7 @@ fn le_robot_finit_le_niveau_d_essai_horloge() {
 /// de fin ; les trois gouttes. Ses points de vie descendent de 3 à 0, un coup à la
 /// fois, et il a traversé ses trois motifs d'éclairs.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_bat_le_grand_nuage() {
     let partie = jouer_essai_nuage(&parcours_essai_nuage());
     assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -534,6 +540,7 @@ fn le_robot_bat_le_grand_nuage() {
 /// retard sur les touches (comme celui de l'horloge) : nuage vaincu, 0 mort, 3
 /// gouttes à chaque fois.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_parcours_du_grand_nuage_tient_a_une_image_pres() {
     let parcours = parcours_essai_nuage();
     for decalage in [-2, -1, 0, 1, 2] {
@@ -581,6 +588,7 @@ fn rejouer_decale(indice: usize, parcours: &[Entrees], decalage: i32) -> (bool, 
 /// démarrer le niveau d'essai une image plus tôt ou plus tard) : drapeau, 0
 /// mort, 3 gouttes à chaque fois. C'est ce que garantit `tient_au_decalage`.
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_parcours_de_l_horloge_tient_a_une_image_pres() {
     let parcours = parcours_essai_horloge();
     for decalage in [-2, -1, 0, 1, 2] {
@@ -599,6 +607,7 @@ fn le_parcours_de_l_horloge_tient_a_une_image_pres() {
 /// redescend ; Pépin est TOUJOURS entier à l'écran, sauf quand il est lancé au-dessus
 /// du niveau, et alors la flèche de repère est là (et seulement alors).
 #[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
 fn le_robot_finit_le_niveau_d_essai_vertical() {
     let parcours = parcours_essai_vertical();
     let partie = jouer_essai_vertical(&parcours);
@@ -680,4 +689,440 @@ fn pepin_attend_sur_la_casette_puis_le_souffle_le_porte() {
         "Pépin retombe sur la casette"
     );
     assert_eq!(partie.morts, 0);
+}
+
+/// Le robot finit le niveau d'essai « eau » (carte 9.2, touche F11 du build de QA)
+/// sans mourir : le bassin ne se traverse qu'en BARQUE (y marcher noie, il est trop
+/// large pour un saut planant depuis le sol), donc le parcours passe par l'eau
+/// (planer pour flotter, laisser le courant porter, sauter hors de l'eau). Les
+/// trois gouttes sont ramassées, aucune mort.
+#[test]
+fn le_robot_finit_le_niveau_d_essai_eau() {
+    let parcours = parcours_essai_eau();
+    let partie = jouer_essai_eau(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(partie.gouttes, 3, "les trois gouttes du niveau d'essai eau");
+    assert_eq!(
+        partie.images.iter().filter(|i| i.touche_essai).count(),
+        1,
+        "la touche F11, une seule fois"
+    );
+    let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+    assert!(essai.len() > 100, "{} images de jeu", essai.len());
+    // La barque flotte : les pieds de Pépin restent `ENFONCEMENT_BARQUE` (3 px)
+    // sous la surface (144, au ras du sol), le haut de sa boîte (`trame.y`) est
+    // donc à 144 - 14 + 3 = 133 : ni au sol (130), ni sur le quai (114), ni en
+    // vol (il traverserait cette hauteur en une image ou deux). Il a bel et bien
+    // traversé l'eau en barque. Depuis la carte 9.2b (BAS fait la barque), le
+    // robot « ricoche » plus court : quelques images à bord suffisent (5 au
+    // dernier passage, plus de 10 avant).
+    let y_barque = 144.0 - pepin_core::physics::JOUEUR_H + pepin_core::physics::ENFONCEMENT_BARQUE;
+    let en_barque = essai
+        .iter()
+        .filter(|i| !i.au_sol && (i.trame.y - y_barque).abs() < 0.01)
+        .count();
+    assert!(en_barque >= 3, "{en_barque} images à bord de la barque");
+    let dernier = essai.last().unwrap();
+    assert!(dernier.trame.x > 500.0, "arrivée à x = {}", dernier.trame.x);
+    println!(
+        "essai eau : {} images de jeu, {} en barque, gouttes {}, fin à x = {:.1}",
+        essai.len(),
+        en_barque,
+        partie.gouttes,
+        dernier.trame.x
+    );
+}
+
+/// Écrit le parcours du robot dans le niveau d'essai « eau » pour les captures de la carte
+/// 9.2 (`docs/capture-92.mjs`) : `target/qa/script-92-eau.txt`, un chiffre hexadécimal par
+/// pas (2 gauche, 4 droite, 8 saut), comme les autres scripts du navigateur. Ignoré : on le
+/// lance à la main (`--ignored ecrire_script_essai_eau_92`).
+#[test]
+#[ignore]
+fn ecrire_script_essai_eau_92() {
+    let parcours = parcours_essai_eau();
+    let script: String = parcours
+        .iter()
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-92-eau.txt", &script).unwrap();
+    println!("script-92-eau.txt : {} pas", script.len());
+}
+
+/// Le robot finit le niveau d'essai « ennemis d'eau » (carte 9.4, touche J du build
+/// de QA) sans mourir : il passe le crabe, la grenouille, le bassin du poisson, le
+/// tunnel du rat et la grue de la mouette.
+#[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
+fn le_robot_finit_le_niveau_d_essai_ennemis_eau() {
+    let parcours = parcours_essai_ennemis_eau();
+    let partie = jouer_essai_ennemis_eau(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(
+        partie.images.iter().filter(|i| i.touche_essai).count(),
+        1,
+        "la touche J, une seule fois"
+    );
+    let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+    let dernier = essai.last().unwrap();
+    assert!(dernier.trame.x > 900.0, "arrivée à x = {}", dernier.trame.x);
+    println!(
+        "essai ennemis d'eau : {} images de jeu, gouttes {}, fin à x = {:.1}",
+        essai.len(),
+        partie.gouttes,
+        dernier.trame.x
+    );
+}
+
+/// Le robot bat la Pieuvre du port dans son arène d'essai (carte 9.12a, touche L du
+/// build de QA) sans mourir, après avoir pris les trois gouttes : l'arène n'a pas de
+/// drapeau, la fin n'est atteinte que si elle est vaincue.
+#[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
+fn le_robot_bat_la_pieuvre_sans_mourir() {
+    let parcours = parcours_essai_pieuvre();
+    let partie = jouer_essai_pieuvre(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(partie.gouttes, 3);
+    assert_eq!(
+        partie.images.iter().filter(|i| i.touche_essai).count(),
+        1,
+        "la touche L, une seule fois"
+    );
+    println!(
+        "essai pieuvre : {} images de jeu",
+        partie.images.iter().filter(|i| i.en_essai).count()
+    );
+}
+
+/// Écrit le parcours du robot dans l'arène de la Pieuvre pour les captures de la carte
+/// 9.12a (`docs/capture-912.mjs`) : `target/qa/script-912-pieuvre.txt` (un chiffre
+/// hexadécimal par pas, comme `ecrire_script_essai_ennemis_eau_94`), le décalage entre
+/// l'appui sur L et la première image de jeu (`decalage-912.txt`), et la chronologie de
+/// la pieuvre (pour choisir les pas). Ignoré : on le lance à la main.
+#[test]
+#[ignore]
+fn ecrire_script_essai_pieuvre_912() {
+    let parcours = parcours_essai_pieuvre();
+    let script: String = parcours
+        .iter()
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-912-pieuvre.txt", &script).unwrap();
+    let partie = jouer_essai_pieuvre(&parcours);
+    let appui = partie.images.iter().position(|i| i.touche_essai).unwrap();
+    let debut = partie.images.iter().position(|i| i.en_essai).unwrap();
+    std::fs::write("../target/qa/decalage-912.txt", (debut - appui).to_string()).unwrap();
+    println!(
+        "script : {} pas, décalage : {} images",
+        script.len(),
+        debut - appui
+    );
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_PIEUVRE, false);
+    let mut avant = None;
+    for (k, e) in parcours.iter().enumerate() {
+        m.avancer(e);
+        let etat = m.entites.iter().find_map(|x| match x {
+            pepin_core::entities::Entite::Pieuvre(p) => Some((p.phase(), p.pv())),
+            _ => None,
+        });
+        if etat != avant {
+            println!("pas {k} : Pépin x = {:.0} : {etat:?}", m.joueur.boite.x);
+            avant = etat;
+        }
+    }
+}
+
+/// Écrit le parcours du robot dans le niveau d'essai « ennemis d'eau » pour les captures
+/// de la carte 9.4 (`docs/capture-94.mjs`) : `target/qa/script-94-ennemis.txt`, un chiffre
+/// hexadécimal par pas (2 gauche, 4 droite, 8 saut). Ignoré : on le lance à la main
+/// (`--ignored ecrire_script_essai_ennemis_eau_94`).
+#[test]
+#[ignore]
+fn ecrire_script_essai_ennemis_eau_94() {
+    let parcours = parcours_essai_ennemis_eau();
+    let script: String = parcours
+        .iter()
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-94-ennemis.txt", &script).unwrap();
+    println!("script-94-ennemis.txt : {} pas", script.len());
+    // Images entre l'appui sur J et la première image de jeu du niveau d'essai (la
+    // carte du niveau) : le pilote du navigateur appuie sur J au début du script et
+    // rejoue ce nombre d'images immobiles avant le parcours, pour que le monde (le
+    // poisson, le crabe, qui vivent sans Pépin) soit exactement celui du robot.
+    let partie = jouer_essai_ennemis_eau(&parcours);
+    let appui = partie.images.iter().position(|i| i.touche_essai).unwrap();
+    let debut = partie.images.iter().position(|i| i.en_essai).unwrap();
+    std::fs::write("../target/qa/decalage-94.txt", (debut - appui).to_string()).unwrap();
+    println!("décalage : {} images", debut - appui);
+    // Chronologie des phases des ennemis le long du parcours (pour choisir les pas des
+    // captures) : une ligne à chaque changement de phase.
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_ENNEMIS_EAU, false);
+    let mut avant: Vec<String> = Vec::new();
+    for (k, e) in parcours.iter().enumerate() {
+        m.avancer(e);
+        let phases: Vec<String> = m
+            .entites
+            .iter()
+            .filter_map(|x| match x {
+                pepin_core::entities::Entite::Ennemi(c) => Some(format!(
+                    "{:?}:{:?}/{:?}/{:?}@{:.0}",
+                    c.type_ennemi,
+                    c.etat,
+                    c.phase_eau(),
+                    c.phase(),
+                    c.boite.x
+                )),
+                _ => None,
+            })
+            .collect();
+        for (i, p) in phases.iter().enumerate() {
+            let court = |s: &str| s.split('@').next().unwrap().to_string();
+            if avant.get(i).map(|a| court(a)) != Some(court(p)) {
+                println!("pas {k} : Pépin x = {:.0} : {p}", m.joueur.boite.x);
+            }
+        }
+        avant = phases;
+    }
+}
+
+/// Scénarios des captures de la carte 9.4 que le parcours du robot ne montre pas :
+/// Pépin qui REBONDIT sur le crabe (ses pinces claquent), et le rat qui le voit, se
+/// dresse puis FONCE (le robot, lui, l'écrase sans lui laisser le temps). Cherchés par
+/// force brute sur la vraie simulation, écrits dans `target/qa/script-94-crabe.txt` et
+/// `script-94-rat.txt` (même format que le parcours), avec les pas à capturer.
+/// Ignoré : on le lance à la main (`--ignored ecrire_scenarios_94`).
+#[test]
+#[ignore]
+fn ecrire_scenarios_94() {
+    use pepin_core::entities::contacts::Contact;
+    use pepin_core::entities::ennemi::PhaseEau;
+    use pepin_core::entities::{Entite, TypeEnnemi};
+    use pepin_core::player::Direction;
+    let i = crate::monde::INDICE_ESSAI_ENNEMIS_EAU;
+    let encoder = |p: &[Entrees]| -> String {
+        p.iter()
+            .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
+            .collect()
+    };
+    let phase = |m: &Monde, t: TypeEnnemi| {
+        m.entites.iter().find_map(|e| match e {
+            Entite::Ennemi(c) if c.type_ennemi == t && c.est_visible() => Some(c.phase_eau()),
+            _ => None,
+        })
+    };
+    let droite = |saut| Entrees {
+        direction: Direction::Droite,
+        saut,
+        bas: false,
+    };
+    std::fs::create_dir_all("../target/qa").unwrap();
+    // 1. Le crabe : attendre, courir à droite, sauter ; un rebond sur la carapace.
+    let mut trouve = false;
+    'crabe: for attente in (0..120).step_by(10) {
+        for saut_a in (0..40).step_by(2) {
+            for duree in [4, 8, 12, 16] {
+                let mut p = vec![Entrees::default(); 40 + attente];
+                for k in 0..120 {
+                    p.push(droite(k >= saut_a && k < saut_a + duree));
+                }
+                let mut m = Monde::charger(i, false);
+                for (k, e) in p.iter().enumerate() {
+                    m.avancer(e);
+                    if m.derniere_mort.is_some() {
+                        break;
+                    }
+                    if matches!(phase(&m, TypeEnnemi::Crabe), Some(PhaseEau::Attaque(_)))
+                        && m.contacts.contains(&Contact::Rebond)
+                    {
+                        let script = encoder(&p[..k + 1 + 30]);
+                        std::fs::write("../target/qa/script-94-crabe.txt", &script).unwrap();
+                        println!("crabe : rebond au pas {k}, capture au pas {}", k + 4);
+                        trouve = true;
+                        break 'crabe;
+                    }
+                }
+            }
+        }
+    }
+    assert!(trouve, "aucun rebond sur le crabe");
+    // 2. Le rat : le parcours du robot jusqu'avant le tunnel, attendre que le rat
+    // s'éloigne, puis courir à droite et s'arrêter dans le tunnel ; le rat se dresse
+    // puis fonce.
+    let parcours = parcours_essai_ennemis_eau();
+    let mut trouve = false;
+    'rat: for attente in (0..400).step_by(20) {
+        for course in (10..60).step_by(4) {
+            let mut p = parcours[..380].to_vec();
+            p.extend(std::iter::repeat_n(Entrees::default(), attente));
+            p.extend((0..course).map(|_| droite(false)));
+            p.extend(std::iter::repeat_n(Entrees::default(), 150));
+            let mut m = Monde::charger(i, false);
+            let (mut annonce, mut fonce) = (None, None);
+            for (k, e) in p.iter().enumerate() {
+                m.avancer(e);
+                if m.derniere_mort.is_some() {
+                    break;
+                }
+                match phase(&m, TypeEnnemi::Rat) {
+                    Some(PhaseEau::Annonce(12)) => {
+                        // Pépin assez loin : la course se voit avant de l'atteindre.
+                        let rat = m.entites.iter().find_map(|e| match e {
+                            Entite::Ennemi(c) if c.type_ennemi == TypeEnnemi::Rat => Some(c.boite),
+                            _ => None,
+                        });
+                        if rat.is_some_and(|r| (r.x - m.joueur.boite.x).abs() > 56.0) {
+                            annonce = Some(k);
+                        }
+                    }
+                    Some(PhaseEau::Attaque(6)) => fonce = Some(k),
+                    _ => {}
+                }
+                if fonce.is_some() {
+                    break;
+                }
+            }
+            if let (Some(a), Some(f)) = (annonce, fonce) {
+                std::fs::write("../target/qa/script-94-rat.txt", encoder(&p[..f + 60])).unwrap();
+                println!("rat : annonce au pas {a}, fonce au pas {f}");
+                trouve = true;
+                break 'rat;
+            }
+        }
+    }
+    assert!(trouve, "le rat ne fonce jamais");
+}
+
+/// Le robot finit le niveau d'essai « eau 2 » (carte 9.3, touche F12 du build de
+/// QA) sans mourir, les trois gouttes prises : il passe sous la stalactite, saute
+/// de nénuphar en nénuphar, monte dans les bulles, attend la marée en barque et
+/// descend la chute d'eau parapluie ouvert.
+#[test]
+#[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
+fn le_robot_finit_le_niveau_d_essai_eau2() {
+    let parcours = parcours_essai_eau2();
+    let partie = jouer_essai_eau2(&parcours);
+    assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
+    assert_eq!(partie.morts, 0, "le robot ne doit jamais mourir");
+    assert_eq!(
+        partie.gouttes, 3,
+        "les trois gouttes du niveau d'essai eau 2"
+    );
+    let essai: Vec<&ImageEssai> = partie.images.iter().filter(|i| i.en_essai).collect();
+    println!("essai eau 2 : {} images de jeu", essai.len());
+}
+
+/// Écrit le parcours du robot dans le niveau d'essai « eau 2 » pour les captures
+/// de la carte 9.3 (`docs/capture-93.mjs`) : `target/qa/script-93-eau2.txt`, un
+/// chiffre hexadécimal par pas (2 gauche, 4 droite, 8 saut). Ignoré : on le
+/// lance à la main (`--ignored ecrire_script_essai_eau2_93`).
+#[test]
+#[ignore]
+fn ecrire_script_essai_eau2_93() {
+    let parcours = parcours_essai_eau2();
+    let script: String = parcours
+        .iter()
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
+        .collect();
+    std::fs::create_dir_all("../target/qa").unwrap();
+    std::fs::write("../target/qa/script-93-eau2.txt", &script).unwrap();
+    // Images du navigateur entre l'appui sur F12 (compris) et le premier pas du
+    // niveau d'essai : le pilote les laisse passer avant de rejouer le script,
+    // pour que la marée soit à la même heure que dans ce test.
+    let images = jouer_essai_eau2(&parcours).images;
+    let appui = images.iter().position(|i| i.touche_essai).unwrap();
+    let jeu = images.iter().position(|i| i.en_essai).unwrap();
+    println!(
+        "script-93-eau2.txt : {} pas ; {} images de F12 au jeu",
+        script.len(),
+        jeu - appui
+    );
+    // Les moments du parcours à capturer (pas du script) : la première image de
+    // chaque mécanique en action, et l'heure de la marée.
+    use pepin_core::entities::stalactite::EtatStalactite;
+    use pepin_core::entities::Entite;
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_EAU2, false);
+    let mut vus: Vec<&str> = Vec::new();
+    for (pas, e) in parcours.iter().enumerate() {
+        m.avancer(e);
+        let j = &m.joueur;
+        let mut moment = |nom: &'static str, vrai: bool| {
+            if vrai && !vus.contains(&nom) {
+                vus.push(nom);
+                let maree = m.entites.iter().find_map(|e| match e {
+                    Entite::Maree(r) => Some((r.phase(), r.pas())),
+                    _ => None,
+                });
+                println!(
+                    "{nom} : pas {pas}, x {:.0}, y {:.0}, marée {maree:?}",
+                    j.boite.x, j.boite.y
+                );
+            }
+        };
+        let stal = m.entites.iter().find_map(|e| match e {
+            Entite::Stalactite(s) => Some(s.etat),
+            _ => None,
+        });
+        moment("tremble", matches!(stal, Some(EtatStalactite::Tremble(_))));
+        moment(
+            "chute_stalactite",
+            matches!(stal, Some(EtatStalactite::Chute(_))),
+        );
+        let sur_feuille = m.entites.iter().any(|e| {
+            matches!(e, Entite::Nenuphar(n) if j.au_sol && n.enfoncement() > 0.2
+                && (j.boite.bas() - n.boite.y).abs() < 0.5)
+        });
+        moment("nenuphar", sur_feuille);
+        moment(
+            "bulles",
+            (330.0..355.0).contains(&j.boite.x) && j.boite.y < 120.0,
+        );
+        moment(
+            "barque_maree",
+            j.en_barque() && (496.0..656.0).contains(&j.boite.x),
+        );
+        moment(
+            "chute_d_eau",
+            (778.0..812.0).contains(&j.boite.x) && j.boite.y > 120.0,
+        );
+        moment("arrivee", m.termine);
+    }
+    // Le nénuphar (le robot n'en a pas besoin : il traverse le bassin en barque) :
+    // le début du parcours, puis la recherche du robot jusqu'à une feuille, et
+    // Pépin y reste immobile : elle le met à l'eau. `script-93-nenuphar.txt`.
+    use crate::bot_qa::parcours::{chercher, plans};
+    let debut = 150;
+    let mut m = Monde::charger(crate::monde::INDICE_ESSAI_EAU2, false);
+    for e in &parcours[..debut] {
+        m.avancer(e);
+    }
+    let sur_feuille = |m: &Monde| {
+        m.joueur.au_sol
+            && m.entites.iter().any(|e| {
+                matches!(e, Entite::Nenuphar(n) if (m.joueur.boite.bas() - n.boite.y).abs() < 0.5)
+            })
+    };
+    let etapes = chercher(&m, &plans(false), &sur_feuille, 50_000).expect("une feuille");
+    let mut feuille: Vec<Entrees> = parcours[..debut].to_vec();
+    for e in etapes {
+        feuille.extend(e.entrees);
+    }
+    let pose = feuille.len();
+    feuille.extend(vec![Entrees::default(); 120]);
+    let texte: String = feuille
+        .iter()
+        .map(|e| crate::bot_qa::code_entrees(e, false).to_ascii_uppercase())
+        .collect();
+    std::fs::write("../target/qa/script-93-nenuphar.txt", &texte).unwrap();
+    println!(
+        "script-93-nenuphar.txt : {} pas, posé sur la feuille au pas {pose}",
+        texte.len()
+    );
 }

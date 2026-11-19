@@ -13,21 +13,31 @@
 //! `char` fautif comme erreur, itérateurs, `HashMap`, tests unitaires.
 
 // Les dessins sont des grilles de texte : rustfmt les tasserait sur une seule
-// ligne et les rendrait illisibles, donc on l'exclut de ces six fichiers.
+// ligne et les rendrait illisibles, donc on l'exclut de ces fichiers.
 #[rustfmt::skip]
 pub mod ennemis;
+#[rustfmt::skip]
+pub mod ennemis_eau;
+#[rustfmt::skip]
+pub mod jetee;
 #[rustfmt::skip]
 pub mod objets;
 #[rustfmt::skip]
 pub mod objets_decor;
 #[rustfmt::skip]
+pub mod objets_eau;
+#[rustfmt::skip]
 pub mod pepin;
 #[rustfmt::skip]
 pub mod pepinette;
+#[rustfmt::skip]
+pub mod pieuvre;
 #[cfg(test)]
 mod planche;
 #[rustfmt::skip]
 pub mod tuiles;
+#[rustfmt::skip]
+pub mod tuiles_monde2;
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -85,6 +95,11 @@ pub struct JeuImages {
     pub attente: [&'static str; 3],
     /// Parapluie ouvert (20x20, les franges oscillent).
     pub planer: [&'static str; 2],
+    /// Parapluie retourné SOUS le personnage, debout dans la coque de la barque
+    /// (carte 9.2b, BAS tenu ; dessin sous les pieds depuis la 9.2c ; 16x16).
+    pub retourne: &'static str,
+    /// Barque (carte 9.2) : le parapluie retourné avec le personnage assis dedans.
+    pub barque: &'static str,
     /// Réapparition après une mort (étincelles qui se rassemblent).
     pub reapparition: [&'static str; 3],
     /// Icône des vies du HUD (10x10).
@@ -93,7 +108,7 @@ pub struct JeuImages {
 
 impl JeuImages {
     #[cfg(test)]
-    /// Tous les noms du jeu (16 images du personnage, puis l'icône des vies).
+    /// Tous les noms du jeu (18 images du personnage, puis l'icône des vies).
     pub fn noms(&self) -> Vec<&'static str> {
         let mut noms = Vec::new();
         noms.extend(self.repos);
@@ -101,6 +116,8 @@ impl JeuImages {
         noms.extend([self.saut, self.chute]);
         noms.extend(self.attente);
         noms.extend(self.planer);
+        noms.push(self.retourne);
+        noms.push(self.barque);
         noms.extend(self.reapparition);
         noms.push(self.vie);
         noms
@@ -132,12 +149,17 @@ pub fn tous() -> Vec<(&'static str, Image)> {
     liste.extend(
         [
             ennemis::SPRITES,
+            ennemis_eau::SPRITES,
+            pieuvre::SPRITES,
             objets::SPRITES,
             objets_decor::SPRITES,
+            objets_eau::SPRITES,
             tuiles::SPRITES,
+            jetee::SPRITES,
         ]
         .concat(),
     );
+    liste.extend(tuiles_monde2::JEUX.concat());
     liste
 }
 
@@ -163,6 +185,8 @@ fn remplacer(c: char, theme: Theme) -> char {
         .unwrap_or(c),
         // Les briques violettes virent à l'orange sous le soleil.
         'F' if teinte.briques_orangees => 'A',
+        // Monde 2 (carte 9.5) : les briques mouillées virent au cyan sombre.
+        'F' if teinte.briques_mouillees => 'E',
         _ => c,
     }
 }
@@ -211,6 +235,8 @@ pub struct Banque {
     nuages_trames: HashMap<&'static str, Texture2D>,
     /// Les personnages tramés en damier : le fantôme de la course (carte 8.7).
     personnages_trames: HashMap<&'static str, Texture2D>,
+    /// Les personnages tout en blanc cassé : le flash d'un dégât (carte 9.24).
+    personnages_blancs: HashMap<&'static str, Texture2D>,
 }
 
 impl Banque {
@@ -218,17 +244,34 @@ impl Banque {
     pub fn charger() -> Self {
         let sprites = personnages()
             .into_iter()
-            .chain([ennemis::SPRITES, objets::SPRITES, objets_decor::SPRITES].concat())
+            .chain(
+                [
+                    ennemis::SPRITES,
+                    ennemis_eau::SPRITES,
+                    pieuvre::SPRITES,
+                    objets::SPRITES,
+                    objets_decor::SPRITES,
+                    objets_eau::SPRITES,
+                    jetee::SPRITES,
+                ]
+                .concat(),
+            )
             .map(|(nom, dessin)| (nom, texture(dessin, None)))
             .collect();
         let jeu = |trame: bool| -> Vec<HashMap<&'static str, Texture2D>> {
             Theme::TOUS
                 .iter()
                 .map(|&t| {
-                    tuiles::SPRITES
+                    // Les tuiles du Monde 1 prennent la teinte du thème ; celles d'un
+                    // jeu du Monde 2 (carte 9.6b) se dessinent telles quelles.
+                    let monde_1 = tuiles::SPRITES
                         .iter()
-                        .map(|&(nom, dessin)| (nom, texture_tramee(dessin, Some(t), trame)))
-                        .collect()
+                        .map(|&(nom, dessin)| (nom, texture_tramee(dessin, Some(t), trame)));
+                    let monde_2 = tuiles_monde2::JEUX
+                        .iter()
+                        .flat_map(|jeu| jeu.iter())
+                        .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, trame)));
+                    monde_1.chain(monde_2).collect()
                 })
                 .collect()
         };
@@ -242,14 +285,28 @@ impl Banque {
                 }
             }
         }
-        let nuages_trames = ennemis::SPRITES
+        // Le boss du mode facile, plus pâle : le Grand Nuage et la tête de la Pieuvre.
+        let nuages_trames = [ennemis::SPRITES, pieuvre::SPRITES]
+            .concat()
             .iter()
-            .filter(|(nom, _)| nom.starts_with("nuage_"))
+            .filter(|(nom, _)| nom.starts_with("nuage_") || nom.starts_with("pieuvre_"))
             .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
             .collect();
         let personnages_trames = personnages()
             .into_iter()
             .map(|(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
+            .collect();
+        // Silhouettes blanches : chaque pixel du dessin passe au blanc cassé (`7`).
+        let personnages_blancs = personnages()
+            .into_iter()
+            .map(|(nom, dessin)| {
+                let blanc: Vec<String> = dessin
+                    .iter()
+                    .map(|l| l.chars().map(|c| if c == '.' { c } else { '7' }).collect())
+                    .collect();
+                let lignes: Vec<&str> = blanc.iter().map(String::as_str).collect();
+                (nom, texture(&lignes, None))
+            })
             .collect();
         Self {
             sprites,
@@ -259,6 +316,7 @@ impl Banque {
             motif: Cell::new(None),
             nuages_trames,
             personnages_trames,
+            personnages_blancs,
         }
     }
 
@@ -312,6 +370,82 @@ impl Banque {
         if let Some(t) = self.personnages_trames.get(nom) {
             Self::poser(t, x, y, miroir);
         }
+    }
+
+    /// Le personnage `nom` en silhouette blanche : le flash d'un dégât (carte 9.24).
+    pub fn dessiner_blanc(&self, nom: &str, x: f32, y: f32, miroir: bool) {
+        if let Some(t) = self.personnages_blancs.get(nom) {
+            Self::poser(t, x, y, miroir);
+        }
+    }
+
+    /// Animation de mort (carte 9.24) : le rectangle `source` (x, y, largeur, hauteur,
+    /// en pixels de l'image) du sprite `nom`, avec le motif en service, posé en
+    /// `(x, y)` et tourné de `quarts` quarts de tour autour de son centre (des
+    /// quarts seulement : les pixels restent sur la grille).
+    pub fn dessiner_partie(
+        &self,
+        nom: &str,
+        (x, y): (f32, f32),
+        source: (f32, f32, f32, f32),
+        quarts: u8,
+        miroir: bool,
+    ) {
+        let avec_motif = self.motif.get().and_then(|m| self.motifs.get(&(m, nom)));
+        let Some(t) = avec_motif.or_else(|| self.sprites.get(nom)) else {
+            return;
+        };
+        let (sx, sy, l, h) = source;
+        if l <= 0.0 || h <= 0.0 {
+            return;
+        }
+        macroquad::prelude::draw_texture_ex(
+            t,
+            x.round(),
+            y.round(),
+            WHITE,
+            DrawTextureParams {
+                source: Some(macroquad::prelude::Rect::new(sx, sy, l, h.round())),
+                rotation: f32::from(quarts % 4) * std::f32::consts::FRAC_PI_2,
+                flip_x: miroir,
+                ..Default::default()
+            },
+        );
+    }
+
+    /// Dessine seulement les `hauteur` premières rangées de la tuile `nom` du thème
+    /// (le reste est sous l'eau) : la plateforme que la Pieuvre emporte (carte 9.12f).
+    pub fn dessiner_tuile_haut(&self, theme: Theme, nom: &str, x: f32, y: f32, hauteur: f32) {
+        if let Some(t) = self.tuiles[theme.indice()].get(nom) {
+            Self::poser_haut(t, x, y, hauteur);
+        }
+    }
+
+    /// Dessine seulement les `hauteur` premières rangées du sprite `nom` (le reste est
+    /// sous l'eau) : la tête de la Pieuvre qui replonge, un tentacule qui redescend
+    /// (carte 9.12a). Un découpage de l'image, pas une mise à l'échelle.
+    pub fn dessiner_haut(&self, nom: &str, x: f32, y: f32, hauteur: f32) {
+        let Some(t) = self.sprites.get(nom) else {
+            return;
+        };
+        Self::poser_haut(t, x, y, hauteur);
+    }
+
+    fn poser_haut(t: &Texture2D, x: f32, y: f32, hauteur: f32) {
+        let h = hauteur.round().clamp(0.0, t.height());
+        if h <= 0.0 {
+            return;
+        }
+        macroquad::prelude::draw_texture_ex(
+            t,
+            x.round(),
+            y.round(),
+            WHITE,
+            DrawTextureParams {
+                source: Some(macroquad::prelude::Rect::new(0.0, 0.0, t.width(), h)),
+                ..Default::default()
+            },
+        );
     }
 
     fn poser(t: &Texture2D, x: f32, y: f32, miroir: bool) {
@@ -431,6 +565,11 @@ mod tests {
         // Le thème du soleil éclaircit l'ardoise : '2' devient '5'.
         assert_eq!(remplacer('2', Theme::Soleil), '5');
         assert_eq!(remplacer('2', Theme::Toits), '2');
+        // Monde 2 (carte 9.5) : les briques mouillées virent au cyan sombre ('F'
+        // devient 'E'), aux égouts et au port ; ailleurs elles restent violettes.
+        assert_eq!(remplacer('F', Theme::Egouts), 'E');
+        assert_eq!(remplacer('F', Theme::Port), 'E');
+        assert_eq!(remplacer('F', Theme::Toits), 'F');
     }
 
     // --- Corrections de lisibilité (audit des sprites) ---
@@ -1640,6 +1779,8 @@ mod tests {
     /// Taille d'un objet de décor : une tuile de large au plus (il tient sur sa case) et
     /// moins de deux tuiles de haut (il ne déborde que sur la case du dessus, que les
     /// tests des niveaux gardent libre de tout danger et de tout objet).
+    /// (La descente de gouttière de la rue, plus grande, n'est plus un sprite depuis
+    /// la carte 9.20h : `decor_rue` la dessine avec sa maison.)
     #[test]
     fn les_objets_de_decor_tiennent_dans_leur_case_et_celle_du_dessus() {
         for &(nom, d) in objets_decor::SPRITES {

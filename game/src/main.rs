@@ -11,7 +11,8 @@
 //! point-virgule). Dans les menus : flèches + Entrée, ou clic / toucher. Sur écran
 //! tactile : boutons virtuels. Touches 1 à 9, Page suivante / N et Page précédente / B
 //! (changer de niveau), K (skin suivant), T, Y (traînée, motif de parapluie
-//! suivants), G (100 gouttes en poche), F9 (plantage
+//! suivants), G (100 gouttes en poche), V (défilé des 7 fonds du Monde 2, carte 9.5),
+//! F9 (plantage
 //! volontaire) et F11 (force la musique suivante) : uniquement dans le build de mise au point
 //! (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
@@ -26,10 +27,22 @@ mod contenu;
 mod cosmetiques;
 mod course;
 mod decor;
+mod decor_cascade;
+mod decor_egouts;
+mod decor_grotte;
+mod decor_rue;
 mod defis;
 mod demo;
+mod dessin_courant;
+mod dessin_eau;
+mod dessin_mort;
+mod dessin_pieuvre;
+mod dessin_port;
+// La mesure de difficulté décrit la courbe du MONDE 1 (tableaux de
+// `NB_NIVEAUX_MONDE_1` cases, carte 9.6) : elle ne dépend pas du Monde 2.
 #[cfg(test)]
 mod difficulte;
+mod eau;
 mod ecrans;
 mod effets;
 mod entrees;
@@ -38,7 +51,9 @@ mod focus;
 mod grele;
 mod hud;
 mod menu;
+mod mobilier_rue;
 mod monde;
+mod mort;
 mod mur_pluie;
 mod musiques;
 mod navigation;
@@ -54,6 +69,7 @@ mod sprites;
 mod tactile;
 mod texte;
 mod transition;
+mod tuiles_theme;
 
 use macroquad::prelude::*;
 use pepin_core::sons::Effet;
@@ -104,12 +120,27 @@ async fn main() {
     // Sons fabriqués en mémoire. Désactivés tant que le joueur ne les demande pas
     // (et un navigateur n'autorise l'audio qu'après une première interaction).
     let mut audio = Audio::charger().await;
+    // Site de test (build de QA) : toute la carte des niveaux ouverte, Monde 2 compris
+    // (`plan::ouvrir_tout_qa`), AVANT de construire l'application et son titre.
+    #[cfg(feature = "debug_niveaux")]
+    plan::ouvrir_tout_qa();
     let mut app = Application::new(true);
     // Musique imposée par-dessus celle de la zone (`None` : la musique de la zone).
     // Aujourd'hui seule la touche F11 du build de QA la règle.
     let mut forcage: Option<musiques::Musique> = None;
+    // Build de QA seulement (carte 9.5) : la touche V défile les 7 nouveaux fonds
+    // du Monde 2, plein écran (captures `docs/qa/95-*.png`). `planche_pas` anime
+    // la pluie et les motifs du fond affiché, indépendamment de la simulation.
+    #[cfg(feature = "debug_niveaux")]
+    let mut fonds_qa: Option<usize> = None;
+    #[cfg(feature = "debug_niveaux")]
+    let mut fonds_v_appuyee = false;
+    #[cfg(feature = "debug_niveaux")]
+    let mut planche_pas: u32 = 0;
 
     loop {
+        // Le bouton tactile BAS (carte 9.2b) : en jeu, dans un niveau qui a de l'eau.
+        tactile.montrer_bas(matches!(app.ecran, Ecran::Jeu) && app.monde.a_de_l_eau());
         let commandes = sources.lire();
         let nav = navigation.lire();
         // Focus perdu en pleine partie : la pause s'ouvre AVANT tout pas de simulation.
@@ -197,8 +228,32 @@ async fn main() {
         if a_tourner {
             orientation::dessiner(get_time());
         } else {
-            banque.choisir_motif(app.cosmetiques.motif);
-            app.dessiner(&banque, pas_fixe.alpha());
+            // Build de QA seulement (carte 9.5) : la touche V (appuyée, un appui
+            // = un fond) remplace le jeu par le défilé plein écran des 7 nouveaux
+            // fonds du Monde 2 ; sans V, le jeu se dessine comme d'habitude.
+            #[cfg(feature = "debug_niveaux")]
+            {
+                let v_appuyee = entrees::fonds_qa_demande();
+                if v_appuyee && !fonds_v_appuyee {
+                    fonds_qa = Some(match fonds_qa {
+                        None => 0,
+                        Some(k) => (k + 1) % 7,
+                    });
+                }
+                fonds_v_appuyee = v_appuyee;
+                if let Some(k) = fonds_qa {
+                    planche_pas = planche_pas.wrapping_add(1);
+                    decor::planche_fonds_qa(k, planche_pas);
+                } else {
+                    banque.choisir_motif(app.cosmetiques.motif);
+                    app.dessiner(&banque, pas_fixe.alpha());
+                }
+            }
+            #[cfg(not(feature = "debug_niveaux"))]
+            {
+                banque.choisir_motif(app.cosmetiques.motif);
+                app.dessiner(&banque, pas_fixe.alpha());
+            }
         }
         cible.afficher();
         if !a_tourner && matches!(app.ecran, Ecran::Jeu) {

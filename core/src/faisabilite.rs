@@ -58,13 +58,47 @@
 //!   coup se refait trois fois de la même façon, Pépin retombant chaque fois dans
 //!   l'arène. Les tests du niveau d'essai vérifient la tête depuis CHACUN des deux
 //!   courants (ils changent de côté d'un motif à l'autre) ;
+//! - la Pieuvre du port (boss du Monde 2, carte 9.12a) est remplacée par TROIS
+//!   pieuvres à la tête toujours sortie, une à chacune de ses places (un joueur
+//!   patient attend la fin d'un motif de tentacules) ; ses tentacules sont donc
+//!   ignorés, comme les éclairs. Toucher la tête de côté reste mortel ; un plan qui
+//!   lui retombe dessus « arrive » (`Fin::Arrivee`), comme sur le Grand Nuage ;
 //! - un escargot est remplacé par un tremplin IMMOBILE qui couvre tout son
 //!   trajet (`Escargot::etendu_au_trajet`) : partout où il peut passer, un
 //!   joueur patient qui l'attend au bon endroit lui tombe dessus et rebondit.
 //!   Le temps n'existe pas pour le robot : il ne sait pas qu'il faut attendre,
 //!   ni qu'en sautant au-dessus de ce trajet on peut aussi retomber à côté de
 //!   l'escargot (il rebondit toujours). Le robot de QA, sur la vraie
-//!   simulation, attend vraiment l'escargot.
+//!   simulation, attend vraiment l'escargot ;
+//! - les ennemis d'eau du Monde 2 (carte 9.4 : grenouille, poisson, crabe, rat,
+//!   mouette) sont ignorés comme la flaque et le pigeon : chacun s'évite en
+//!   attendant (le poisson saute à heure fixe sur sa colonne, comme un éclair),
+//!   en sautant par-dessus ou en l'écrasant (le crabe fait même rebondir). Le
+//!   robot de QA, sur la vraie simulation, les évite pour de bon : il attend
+//!   (leur phase est dans sa case) et écarte tout plan qui meurt.
+//! - mécaniques d'eau (carte 9.3) : les bulles et les chutes d'eau sont des
+//!   courants (vers le haut, vers le bas) toujours actifs, avec la vraie
+//!   physique ; un nénuphar reste solide à sa place (comme la friable : on
+//!   peut toujours en repartir avant d'être mis à l'eau) ; une stalactite ne
+//!   tombe jamais (on passe dessous sans s'arrêter), mais le robot ne s'arrête
+//!   jamais dans sa colonne (aucun état posé dessous), comme sous un chat ;
+//! - la marée (carte 9.3) : chaque état sait si la mer est BASSE (l'eau du
+//!   niveau seule) ou PLEINE (chaque zone de marée remplie, `Noeud::haute`).
+//!   Un joueur patient attend la marée qu'il lui faut : depuis un état stable,
+//!   on passe à l'autre marée (une demi-période de coût) si l'on n'y est pas
+//!   noyé ; la barque monte et descend avec l'eau (posée au fond de la zone si
+//!   l'eau s'en va). Un plan se joue tout entier dans la même marée.
+//! - la barque (cartes 9.2 et 9.2b) : à l'approche de l'eau (`MARGE_BAS`),
+//!   chaque plan tient BAS (parapluie retourné) ; il entre donc dans l'eau en
+//!   barque. Un plan « planer » lâche le saut au ras de l'eau (planer dedans
+//!   noierait). Sans eau, jamais de BAS : Monde 1 inchangé.
+//! - le bateau hérité (carte 9.2e) : une barque qui quitte l'eau SANS saut
+//!   (dérive par-dessus un bord, courant) garde le parapluie retourné pendant
+//!   la chute ; c'est la vraie physique (`Joueur::actualiser`) qui le fait, le
+//!   robot n'a rien à tenir. Une barque partie à bord qui retombe dans l'eau
+//!   est un nouveau point de décision (`Fin::Barque`) : descendre de bassin en
+//!   bassin en barque est un chemin. Un plan « planer » le lâche (comme un
+//!   joueur qui ouvre son parapluie).
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -76,11 +110,13 @@ use std::collections::{BinaryHeap, HashMap};
 
 use crate::aabb::{touche_un_obstacle, Aabb};
 use crate::entities::contacts::{resoudre_contacts, verifier_vide, Contact};
+use crate::entities::maree::PERIODE_MAREE;
 use crate::entities::montgolfiere::VITESSE_MONTEE;
 use crate::entities::{solides_des_entites, Entite, TypeEnnemi};
 use crate::level::{Niveau, VITESSE_PLATEFORMES};
 use crate::physics::{
-    CourantAscendant, Environnement, VentLateral, HZ, JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
+    eau_touchee, CourantAscendant, Eau, Environnement, VentLateral, ENFONCEMENT_BARQUE, HZ,
+    JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
 };
 use crate::player::{Direction, Entrees, Joueur};
 
@@ -97,6 +133,13 @@ pub struct Options {
     /// et durées de saut grossiers). Un niveau que le robot maladroit termine
     /// n'exige pas de précision au pixel près.
     pub precis: bool,
+    /// S'arrêter dès que l'arrivée est touchée (carte 9.23, tri des tests). Pour
+    /// les vérifications qui ne lisent QUE `Rapport::arrivee` (reprise depuis une
+    /// lanterne, robot maladroit) : la recherche suit exactement le même ordre
+    /// (Dijkstra sur la durée), elle s'interrompt seulement plus tôt, donc
+    /// `arrivee` est la même qu'avec une exploration complète. Les autres champs
+    /// du rapport (gouttes, lanternes, durée) sont alors PARTIELS.
+    pub jusqu_a_l_arrivee: bool,
 }
 
 impl Default for Options {
@@ -106,6 +149,17 @@ impl Default for Options {
             courants: true,
             vents: true,
             precis: true,
+            jusqu_a_l_arrivee: false,
+        }
+    }
+}
+
+impl Options {
+    /// Les options par défaut, arrêt dès l'arrivée (voir `jusqu_a_l_arrivee`).
+    pub fn arrivee_seule() -> Self {
+        Self {
+            jusqu_a_l_arrivee: true,
+            ..Self::default()
         }
     }
 }
@@ -143,6 +197,26 @@ struct Plan {
     dir_montee: bool,
     /// Direction conservée pendant la descente ?
     dir_descente: bool,
+}
+
+/// Carte 9.2b : à moins de `MARGE_BAS` px au-dessus de l'eau (pieds), le robot
+/// tient BAS (le parapluie retourné), comme un joueur qui voit l'eau venir. BAS
+/// ne change rien au mouvement (seule l'eau le remarque) : c'est sans risque, et
+/// sans eau dans le niveau, jamais tenu (Monde 1 inchangé). 16 px : plus que la
+/// chute d'un pas à pleine vitesse (`VITESSE_MAX_CHUTE`, 6 px).
+pub const MARGE_BAS: f32 = 16.0;
+/// À moins de `MARGE_PLANE` px au-dessus de l'eau, un plan « planer » lâche le
+/// saut : le parapluie se retourne et Pépin entre en barque (planer dedans
+/// noierait). Si près, cela revient au plané d'avant la carte 9.2b, qui donnait
+/// la barque au contact ; un plané qui rase l'eau plus haut n'est pas coupé.
+pub const MARGE_PLANE: f32 = 2.0;
+
+/// L'eau est-elle à moins de `marge` px sous les pieds de `boite` (carte 9.2b) ?
+/// Même règle que la noyade (`eau_touchee` : la colonne du centre ET la hauteur).
+/// Servi aux deux robots (celui-ci et celui de QA du jeu).
+pub fn eau_sous_les_pieds(boite: &Aabb, eaux: &[Eau], marge: f32) -> bool {
+    let sonde = Aabb::new(boite.x, boite.y, boite.w, boite.h + marge);
+    eau_touchee(&sonde, eaux).is_some()
 }
 
 const ELANS: [u16; 9] = [0, 4, 8, 14, 22, 32, 50, 80, 120];
@@ -187,6 +261,9 @@ enum Fin {
     /// Relancé par un auvent en `(x, y)` : un nouveau choix commence en l'air
     /// (voir `Noeud::lance`).
     Lance(f32, f32),
+    /// Entré dans l'eau parapluie retourné (carte 9.2b) : BARQUE en `(x, y)`. Un
+    /// nouveau choix commence à bord (ramer, ou sauter hors de l'eau).
+    Barque(f32, f32),
     /// Temps écoulé ou état instable : on abandonne ce plan.
     Abandon,
 }
@@ -208,16 +285,23 @@ struct Noeud {
     x: f32,
     y: f32,
     lance: bool,
+    /// Barque (carte 9.2) : le noeud est À BORD d'une barque (l'eau calme ou le
+    /// courant l'y ont porté). L'état du joueur ne dépend que de la position :
+    /// la barque est à la surface, pieds à `ENFONCEMENT_BARQUE` sous l'eau.
+    barque: bool,
     chats: u32,
+    /// Marée (carte 9.3) : la mer est PLEINE (chaque zone `=` remplie) ; faux
+    /// à basse mer, et toujours faux dans un niveau sans marée.
+    haute: bool,
 }
 
 /// Clé de fusion d'un noeud (voir `Noeud::cle`).
-type CleNoeud = (i32, i32, bool, u32);
+type CleNoeud = (i32, i32, bool, bool, u32, bool);
 
-/// Entrée de la file de priorité : `(coût en pas, x, y, lancé, chats écrasés)`.
-/// `x` et `y` sont rangés en bits (`f32::to_bits`) : un `f32` n'est pas `Ord`,
-/// ses bits si (et ils redonnent exactement le même `f32`).
-type EntreeTas = (u32, u32, u32, bool, u32);
+/// Entrée de la file de priorité : `(coût en pas, x, y, lancé, barque, chats
+/// écrasés, mer pleine)` ; `x` et `y` sont rangés en bits (`f32::to_bits`) : un
+/// `f32` n'est pas `Ord`, ses bits si (et ils redonnent exactement le même `f32`).
+type EntreeTas = (u32, u32, u32, bool, bool, u32, bool);
 
 impl Noeud {
     fn pose(x: f32, y: f32, chats: u32) -> Self {
@@ -225,20 +309,85 @@ impl Noeud {
             x,
             y,
             lance: false,
+            barque: false,
             chats,
+            haute: false,
         }
     }
 
-    /// Clé de fusion : une case de 8 px en x, y arrondi, le genre du noeud et
-    /// les chats écrasés.
+    /// Le même noeud, à la marée `haute` (un plan se joue dans une seule marée).
+    fn a_maree(self, haute: bool) -> Self {
+        Self { haute, ..self }
+    }
+
+    /// Clé de fusion : une case de 8 px en x, y arrondi, le genre du noeud, les
+    /// chats écrasés et la marée.
     fn cle(self) -> CleNoeud {
         let (kx, ky) = cle((self.x, self.y));
-        (kx, ky, self.lance, self.chats)
+        (kx, ky, self.lance, self.barque, self.chats, self.haute)
+    }
+}
+
+/// Coût (pas) d'un changement de marée : une demi-période.
+const ATTENTE_MAREE: u32 = PERIODE_MAREE / 2;
+
+/// Les états où mène l'attente d'un changement de marée (carte 9.3), depuis le
+/// noeud stable `n` (posé ou à bord) : `eaux_apres` est l'eau de la marée
+/// d'arrivée, `marees` les zones de marée. Posé : il reste où il est, sauf si
+/// l'eau qui monte le noie. À bord : la barque reste à la surface sous son
+/// centre ; plus d'eau sous elle (la zone se vide), elle se pose au fond.
+fn changer_de_maree(n: Noeud, eaux_apres: &[Eau], marees: &[Aabb]) -> Option<Noeud> {
+    let cx = n.x + JOUEUR_L / 2.0;
+    let haute = !n.haute;
+    // L'eau compte À LA HAUTEUR de Pépin, pas seulement dans sa colonne
+    // (`eau_touchee`, correctif d'AGA) : un bassin suspendu au-dessus ne compte pas.
+    let boite = Aabb::new(n.x, n.y, JOUEUR_L, JOUEUR_H);
+    if !n.barque {
+        let noye = eau_touchee(&boite, eaux_apres).is_some();
+        return (!noye).then_some(n.a_maree(haute));
+    }
+    // À bord : la zone de marée où flotte la barque, puis son eau d'arrivée.
+    // Mer qui monte : la nouvelle eau recouvre la barque (`eau_touchee`). Mer
+    // qui descend : la surface est plus bas, dans la même zone de marée.
+    let zone = marees
+        .iter()
+        .find(|z| z.x < cx && cx < z.droite() && z.y < boite.bas() && boite.y < z.bas());
+    let eau = eau_touchee(&boite, eaux_apres).or_else(|| {
+        let z = zone?;
+        eaux_apres
+            .iter()
+            .find(|e| e.couvre_x(cx) && e.zone.y >= boite.bas() && e.zone.y < z.bas())
+    });
+    match eau.map(Eau::surface) {
+        Some(s) => Some(Noeud {
+            y: s - JOUEUR_H + ENFONCEMENT_BARQUE,
+            ..n.a_maree(haute)
+        }),
+        None => {
+            let fond = zone?.bas();
+            Some(Noeud {
+                y: fond - JOUEUR_H,
+                barque: false,
+                ..n.a_maree(haute)
+            })
+        }
     }
 }
 
 /// Au plus 32 chats par niveau (un bit chacun dans `Noeud::chats`).
 const CHATS_MAX: usize = 32;
+
+/// Fenêtre (px, en x entre les centres et en y entre les pieds) dans laquelle un
+/// chat écrasé compte dans la CLÉ de fusion d'un noeud : un écran de chaque côté.
+///
+/// Pourquoi (allègement des outils) : avec tous les chats du niveau dans la clé,
+/// chaque chat doublait le nombre d'états de TOUTE la suite du niveau (6 chats :
+/// 64 fois plus), alors qu'un chat écrasé trois écrans plus tôt ne change rien à
+/// ce que Pépin peut faire ici. Le noeud, lui, garde TOUS ses chats écrasés
+/// (`Noeud::chats`) : chaque plan est simulé avec le vrai état des chats, seuls
+/// deux états qui ne diffèrent que par un chat lointain fusionnent (le moins
+/// coûteux reste, comme pour deux positions voisines).
+const FENETRE_CHATS: (f32, f32) = (320.0, 180.0);
 
 /// Un chat vivant de `ents` bondirait-il sur Pépin posé en `(x, y)` (coin
 /// haut-gauche) s'il se réveillait maintenant ? (`Ennemi::bond_atteint` : il le
@@ -358,6 +507,15 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 essouffle.essouffler();
                 entites.push(Entite::Nuage(essouffle));
             }
+            // La Pieuvre du port (carte 9.12a) : sa tête TOUJOURS sortie, à ses trois
+            // places à la fois (trois copies), sans tentacule. Voir l'en-tête.
+            Entite::Pieuvre(p) => {
+                for place in 0..p.places.len() {
+                    let mut sortie = p.clone();
+                    sortie.sortir_la_tete(place);
+                    entites.push(Entite::Pieuvre(sortie));
+                }
+            }
             Entite::Escargot(s) => {
                 // Son trajet sur la grille et les solides immobiles du niveau.
                 let fixes = solides_des_entites(&niveau.entites);
@@ -366,6 +524,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                     solides: &fixes,
                     courants: &[],
                     vents: &[],
+                    eaux: &[],
                 };
                 entites.push(Entite::Escargot(s.etendu_au_trajet(&env)));
             }
@@ -390,6 +549,31 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         .map(|(i, _)| i)
         .collect();
     assert!(chats.len() <= CHATS_MAX, "trop de chats : {}", chats.len());
+    // Le centre et les pieds de chaque chat, à sa place : pour la clé de fusion.
+    let places_des_chats: Vec<(f32, f32)> = chats
+        .iter()
+        .map(|&i| match &entites[i] {
+            Entite::Ennemi(c) => {
+                let (px, py) = c.place();
+                (px + c.boite.w / 2.0, py + c.boite.h)
+            }
+            _ => unreachable!("`chats` ne liste que des ennemis"),
+        })
+        .collect();
+    // Clé de fusion d'un noeud : celle de `Noeud::cle`, où seuls comptent les
+    // chats écrasés PROCHES du noeud (`FENETRE_CHATS`).
+    let cle_de = |n: Noeud| -> CleNoeud {
+        let (kx, ky, lance, barque, ecrases, haute) = n.cle();
+        let (cx, pieds) = (n.x + JOUEUR_L / 2.0, n.y + JOUEUR_H);
+        let proches = places_des_chats
+            .iter()
+            .enumerate()
+            .filter(|(_, &(x, y))| {
+                (x - cx).abs() <= FENETRE_CHATS.0 && (y - pieds).abs() <= FENETRE_CHATS.1
+            })
+            .fold(0u32, |m, (k, _)| m | (1 << k));
+        (kx, ky, lance, barque, ecrases & proches, haute)
+    };
 
     let mut courants: Vec<CourantAscendant> = if options.courants {
         niveau.courants.clone()
@@ -410,6 +594,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 Entite::Nuage(n) => {
                     courants.extend(n.courants.iter().map(|&z| CourantAscendant::new(z)));
                 }
+                // Bulles et chutes d'eau (carte 9.3) : toujours actives.
+                Entite::Bulles(b) => courants.push(b.courant()),
+                Entite::Chute(c) => courants.push(c.courant()),
                 _ => {}
             }
         }
@@ -423,12 +610,42 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     } else {
         Vec::new()
     };
+    // L'eau (carte 9.2) avec la VRAIE physique aussi : y entrer parapluie
+    // retourné (BAS, carte 9.2b) donne la barque (un point de décision,
+    // `Fin::Barque`), y entrer autrement (planer compris) noie.
     let env = Environnement {
         grille: niveau,
         solides: &solides,
         courants: &courants,
         vents: &vents,
+        eaux: &niveau.eaux,
     };
+    // La marée (carte 9.3) : à basse mer, l'eau du niveau seule (`env`) ; en
+    // pleine mer, chaque zone `=` remplie (`env_haute`). Vide sans marée.
+    let marees: Vec<Aabb> = niveau
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Maree(m) => Some(m.zone),
+            _ => None,
+        })
+        .collect();
+    let mut eaux_hautes: Vec<Eau> = niveau.eaux.clone();
+    eaux_hautes.extend(marees.iter().map(|&zone| Eau { zone, courant: 0 }));
+    eaux_hautes.sort_by(|a, b| a.surface().total_cmp(&b.surface()));
+    let env_haute = Environnement {
+        eaux: &eaux_hautes,
+        ..env
+    };
+    // Les colonnes des stalactites (carte 9.3) : aucun état posé dedans.
+    let stalactites: Vec<Aabb> = niveau
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Stalactite(s) => Some(s.colonne),
+            _ => None,
+        })
+        .collect();
 
     let mut rapport = Rapport {
         arrivee: false,
@@ -445,29 +662,45 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // transforme le tas max en tas min).
     let mut meilleur: HashMap<CleNoeud, u32> = HashMap::new();
     let mut tas: BinaryHeap<Reverse<EntreeTas>> = BinaryHeap::new();
-    let n0 = Noeud::pose(depart.0, depart.1, 0);
-    meilleur.insert(n0.cle(), 0);
+    // Un départ au ras de l'eau (une lanterne posée sur l'eau, carte 9.2) part
+    // À BORD : dans le jeu, Pépin y réapparaît protégé, et l'eau recueille en
+    // barque un Pépin protégé au lieu de le noyer (`Joueur::actualiser`).
+    // La boîte de départ, allongée d'un demi-pixel vers le bas : posée au ras
+    // de l'eau, elle la touche ; posée sur un sol SOUS un bassin suspendu, non
+    // (`eau_touchee` regarde aussi la hauteur, correctif d'AGA).
+    let boite_depart = Aabb::new(depart.0, depart.1, JOUEUR_L, JOUEUR_H + 0.5);
+    let sur_l_eau = niveau.eau_touchee(&boite_depart).is_some();
+    let n0 = Noeud {
+        barque: sur_l_eau,
+        ..Noeud::pose(depart.0, depart.1, 0)
+    };
+    meilleur.insert(cle_de(n0), 0);
     tas.push(Reverse((
         0,
         depart.0.to_bits(),
         depart.1.to_bits(),
         false,
+        sur_l_eau,
         0,
+        false,
     )));
     let tous_les_plans: Vec<Plan> = plans(options).collect();
     // Après un rebond d'auvent, on est en l'air : seuls les choix « en vol »
     // ont un sens (ni élan au sol ni saut).
     let plans_lance: Vec<Plan> = plans_en_vol(options).collect();
 
-    while let Some(Reverse((cout, bx, by, lance, ecrases))) = tas.pop() {
+    while let Some(Reverse((cout, bx, by, lance, barque, ecrases, haute))) = tas.pop() {
         let noeud = Noeud {
             x: f32::from_bits(bx),
             y: f32::from_bits(by),
             lance,
+            barque,
             chats: ecrases,
+            haute,
         };
+        let env_noeud = if haute { &env_haute } else { &env };
         let etat = (noeud.x, noeud.y);
-        if meilleur.get(&noeud.cle()).is_some_and(|&c| c < cout) {
+        if meilleur.get(&cle_de(noeud)).is_some_and(|&c| c < cout) {
             continue; // version périmée : un chemin plus court existe
         }
         rapport.etats += 1;
@@ -476,7 +709,25 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             rapport.dernier_etat = etat;
         }
         let a_essayer = if lance { &plans_lance } else { &tous_les_plans };
-        for plan in a_essayer {
+        // Chaque plan est simulé à part, sur les cœurs libres (`parallele`), puis
+        // les résultats sont dépouillés ici dans l'ordre des plans : la recherche
+        // trouve exactement ce qu'elle trouvait en série. L'environnement est
+        // refait dans chaque fil à partir de ses morceaux (une référence
+        // `&dyn Grille` ne se partage pas entre fils, `&Niveau` si).
+        let (solides_noeud, courants_noeud, vents_noeud, eaux_noeud) = (
+            env_noeud.solides,
+            env_noeud.courants,
+            env_noeud.vents,
+            env_noeud.eaux,
+        );
+        let essais = crate::parallele::appliquer(a_essayer, |plan| {
+            let env_plan = Environnement {
+                grille: niveau,
+                solides: solides_noeud,
+                courants: courants_noeud,
+                vents: vents_noeud,
+                eaux: eaux_noeud,
+            };
             let mut ents = entites.clone();
             // Les chats déjà écrasés dans cet état le restent.
             for (k, &i) in chats.iter().enumerate() {
@@ -487,7 +738,14 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
             }
             let mut touches: Vec<Contact> = Vec::new();
-            let (fin, duree) = simuler(niveau, &env, noeud, *plan, &mut ents, &mut touches);
+            let (fin, duree) = simuler(niveau, &env_plan, noeud, *plan, &mut ents, &mut touches);
+            if matches!(fin, Fin::Mort | Fin::Abandon) {
+                // Rien à dépouiller : on ne garde ni les entités ni les contacts.
+                return (fin, duree, Vec::new(), Vec::new());
+            }
+            (fin, duree, ents, touches)
+        });
+        for (fin, duree, ents, touches) in essais {
             if matches!(fin, Fin::Mort | Fin::Abandon) {
                 continue;
             }
@@ -514,11 +772,21 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             let mut ajouter = |arrive: Noeud, cout: u32| {
                 // Posé là où un chat vivant bondirait sur lui : pas un lieu
                 // d'attente (voir l'en-tête). Lancé par un auvent, il est en l'air.
-                if !arrive.lance && chat_bondirait(niveau, env.solides, &ents, (arrive.x, arrive.y))
+                if !arrive.lance
+                    && !arrive.barque
+                    && chat_bondirait(niveau, env.solides, &ents, (arrive.x, arrive.y))
                 {
                     return;
                 }
-                let k = arrive.cle();
+                // Ni sous une stalactite (carte 9.3) : elle tomberait sur lui.
+                let boite = Aabb::new(arrive.x, arrive.y, JOUEUR_L, JOUEUR_H);
+                if !arrive.lance
+                    && !arrive.barque
+                    && stalactites.iter().any(|c| c.chevauche(&boite))
+                {
+                    return;
+                }
+                let k = cle_de(arrive);
                 if meilleur.get(&k).is_none_or(|&c| cout < c) {
                     meilleur.insert(k, cout);
                     tas.push(Reverse((
@@ -526,7 +794,9 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         arrive.x.to_bits(),
                         arrive.y.to_bits(),
                         arrive.lance,
+                        arrive.barque,
                         arrive.chats,
+                        arrive.haute,
                     )));
                 }
             };
@@ -537,18 +807,31 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                     if mieux {
                         rapport.pas_arrivee = Some(cout_plan);
                     }
+                    if options.jusqu_a_l_arrivee {
+                        return rapport;
+                    }
                 }
                 Fin::Lance(x, y) => ajouter(
                     Noeud {
                         x,
                         y,
                         lance: true,
+                        barque: false,
                         chats: ecrases,
+                        haute,
                     },
                     cout_plan,
                 ),
                 Fin::Pose(x, y) => {
-                    ajouter(Noeud::pose(x, y, ecrases), cout_plan);
+                    ajouter(Noeud::pose(x, y, ecrases).a_maree(haute), cout_plan);
+                    // Attendre l'autre marée (carte 9.3), si le niveau en a une.
+                    if !marees.is_empty() {
+                        let apres = if haute { &niveau.eaux } else { &eaux_hautes };
+                        let ici = Noeud::pose(x, y, ecrases).a_maree(haute);
+                        if let Some(n) = changer_de_maree(ici, apres, &marees) {
+                            ajouter(n, cout_plan + ATTENTE_MAREE);
+                        }
+                    }
                     // Debout sur un bout de plateforme mobile ? On peut attendre
                     // d'être emporté à l'autre bout : on ajoute cet état-là aussi,
                     // avec le temps de trajet comme coût.
@@ -561,7 +844,10 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                                 let (dx, dy) = (vers.0 - de.0, vers.1 - de.1);
                                 let trajet = (dx * dx + dy * dy).sqrt() / VITESSE_PLATEFORMES;
                                 let attente = (trajet * HZ as f32) as u32;
-                                ajouter(Noeud::pose(x + dx, y + dy, ecrases), cout_plan + attente);
+                                ajouter(
+                                    Noeud::pose(x + dx, y + dy, ecrases).a_maree(haute),
+                                    cout_plan + attente,
+                                );
                             }
                         }
                     }
@@ -580,7 +866,10 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         let balayage = Aabb::new(x, y + dy, JOUEUR_L, JOUEUR_H - dy);
                         if !touche_un_obstacle(&balayage, niveau, &[]) {
                             let attente = (-dy / VITESSE_MONTEE * HZ as f32).ceil() as u32;
-                            ajouter(Noeud::pose(x, y + dy, ecrases), cout_plan + attente);
+                            ajouter(
+                                Noeud::pose(x, y + dy, ecrases).a_maree(haute),
+                                cout_plan + attente,
+                            );
                         }
                     }
                     // Debout sur une place d'aiguille d'horloge ? On attend qu'elle
@@ -599,9 +888,32 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                                 if let Some(((ax, ay), attente)) =
                                     cadran.trajet(niveau, (x, y), heure, n)
                                 {
-                                    ajouter(Noeud::pose(ax, ay, ecrases), cout_plan + attente);
+                                    ajouter(
+                                        Noeud::pose(ax, ay, ecrases).a_maree(haute),
+                                        cout_plan + attente,
+                                    );
                                 }
                             }
+                        }
+                    }
+                }
+                Fin::Barque(x, y) => {
+                    // Barque (carte 9.2) : le prochain choix se fait À BORD
+                    // (ramer, ou sauter hors de l'eau).
+                    let noeud = Noeud {
+                        x,
+                        y,
+                        lance: false,
+                        barque: true,
+                        chats: ecrases,
+                        haute,
+                    };
+                    ajouter(noeud, cout_plan);
+                    // La barque monte (ou descend) avec la marée (carte 9.3).
+                    if !marees.is_empty() {
+                        let apres = if haute { &niveau.eaux } else { &eaux_hautes };
+                        if let Some(n) = changer_de_maree(noeud, apres, &marees) {
+                            ajouter(n, cout_plan + ATTENTE_MAREE);
                         }
                     }
                 }
@@ -711,6 +1023,11 @@ fn simuler(
     if depart.lance {
         // Exactement l'état laissé par l'auvent : seule la position compte.
         j.lancer_par_auvent();
+    } else if depart.barque {
+        // Exactement l'état d'une barque posée à la surface (carte 9.2) : la
+        // vitesse et la planée repartent de zéro, seule la position compte.
+        j.vitesse.x = 0.0;
+        j.entrer_en_barque();
     } else {
         // Un pas à vide pour que `au_sol` soit vrai dès le début.
         j.actualiser(&Entrees::default(), env);
@@ -722,9 +1039,20 @@ fn simuler(
     let mut a_decolle = depart.lance;
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
+    // Barque : compteur de pas sans avancer (la barque est bloquée), et la
+    // position du pas précédent pour la détecter.
+    let mut repos_barque: u16 = 0;
+    let mut x_barque_prec: Option<f32> = None;
+    // Carte 9.2e : partie à bord, Pépin a-t-il quitté la barque ?
+    let mut a_quitte_l_eau = false;
 
     for pas in 0..pas_max {
-        let mut entrees = Entrees::default();
+        // BAS (carte 9.2b) : tenu à l'approche de l'eau (`MARGE_BAS`), JAMAIS
+        // au sol (carte 9.2d : au sol, BAS assied Pépin, il ne court plus).
+        let mut entrees = Entrees {
+            bas: !j.au_sol && eau_sous_les_pieds(&j.boite, env.eaux, MARGE_BAS),
+            ..Entrees::default()
+        };
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
         if !a_decolle && stable == 0 && !marche_finie {
             // --- Au sol : élan, puis saut ---
@@ -746,7 +1074,10 @@ fn simuler(
                 entrees.saut = true; // maintien du saut pendant la montée
                 saut_envoye += 1;
             } else if plan.planer && !montee && en_l_air >= 7 {
-                entrees.saut = true; // parapluie ouvert en descente
+                // Parapluie ouvert en descente. Au ras de l'eau, il le lâche :
+                // le parapluie se retourne (BAS est tenu) et Pépin entre dans
+                // l'eau en barque (carte 9.2b ; planer dedans le noierait).
+                entrees.saut = !eau_sous_les_pieds(&j.boite, env.eaux, MARGE_PLANE);
             }
         }
         // Après l'atterrissage : aucune entrée (on laisse la vitesse s'éteindre).
@@ -759,7 +1090,8 @@ fn simuler(
                 Contact::Mort(_) => return (Fin::Mort, pas),
                 Contact::Auvent => relance = true,
                 // Un saut sur la tête du Grand Nuage : le combat se gagne ainsi.
-                Contact::Nuage => return (Fin::Arrivee, pas),
+                // Ou sur la tête sortie de la Pieuvre du port (carte 9.12a).
+                Contact::Nuage | Contact::Pieuvre => return (Fin::Arrivee, pas),
                 autre => touches.push(autre),
             }
         }
@@ -771,6 +1103,36 @@ fn simuler(
         }
         if relance {
             return (Fin::Lance(j.boite.x, j.boite.y), pas + 1);
+        }
+        // Barque (carte 9.2) : le plan s'arrête quand Pépin entre dans l'eau
+        // (parapluie retourné, carte 9.2b) : à bord est un point de décision, comme un atterrissage.
+        // Un plan qui DÉMARRAIT à bord s'arrête aussi quand la barque est à
+        // REPOS (10 pas sans avancer : bloquée au quai, sans courant) : le
+        // prochain choix (sauter) part de cet état immobile.
+        if j.en_barque() {
+            // Bateau hérité (carte 9.2e) : partie à bord, la barque a quitté
+            // l'eau (dérive sans saut, ou saut) et vient de retomber dans l'eau
+            // en barque : un nouveau point de décision, comme une entrée.
+            if !depart.barque || a_quitte_l_eau {
+                return (Fin::Barque(j.boite.x, j.boite.y), pas + 1);
+            }
+            // À bord depuis le départ : la barque est à REPOS quand elle ne
+            // bouge plus (bloquée au quai, sans courant) : 10 pas immobiles
+            // et le plan s'arrête, le prochain choix (sauter) part de là.
+            let x = j.boite.x;
+            match x_barque_prec {
+                Some(xp) if (x - xp).abs() < 0.001 => repos_barque += 1,
+                Some(_) => repos_barque = 0,
+                None => {}
+            }
+            x_barque_prec = Some(x);
+            if repos_barque >= 10 {
+                return (Fin::Barque(j.boite.x, j.boite.y), pas + 1);
+            }
+        }
+        // Partie à bord, Pépin n'est plus en barque (carte 9.2e).
+        if depart.barque && !j.en_barque() {
+            a_quitte_l_eau = true;
         }
 
         if !j.au_sol {
@@ -840,6 +1202,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_parapluie_allonge_nettement_la_portee() {
         let sans = Options {
             planer: false,
@@ -968,6 +1331,7 @@ mod tests {
     /// Bande de vent de face au niveau du sol : le robot la résiste (course à
     /// 36 px/s nets) et arrive quand même, mais le vent ralentit la traversée.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_robot_resiste_au_vent_de_face_au_sol() {
         let n = niveau_vent(0, -1, true);
         assert!(!n.vents.is_empty());
@@ -1069,6 +1433,7 @@ mod tests {
     /// Un vide de 4 tuiles que l'on saute sans parapluie (témoin) ; avec un rideau
     /// de grêle au-dessus, le même saut tue : il faut sauter plus tôt et planer.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer() {
         let temoin = niveau_grele(false, false, 4);
         assert!(analyser(&temoin, temoin.depart, sans_planer()).arrivee);
@@ -1160,6 +1525,7 @@ mod tests {
     /// Chaque rebond est un nouveau point de décision (noeud « lancé ») ; le robot
     /// peut aussi sauter un auvent en planant, s'il le trouve plus rapide.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_robot_traverse_le_vide_par_les_auvents() {
         for ecarts in ECARTS {
             let temoin = niveau_auvents(ecarts, false);
@@ -1381,6 +1747,7 @@ mod tests {
                 solides: &solides,
                 courants: &[],
                 vents: &[],
+                eaux: &[],
             };
             let mut ents = n.entites.clone();
             for e in &mut ents {
@@ -1471,6 +1838,7 @@ o.o.o.................
     /// Le robot monte au balcon en se laissant porter par l'aiguille (robot précis
     /// et maladroit) ; sans aiguille, il n'y arrive pas.
     #[test]
+    #[ignore = "lot : recherche complète du robot de faisabilité"]
     fn le_robot_monte_au_balcon_par_l_aiguille() {
         let n = niveau_horloge(true);
         let r = analyser(&n, n.depart, Options::default());

@@ -19,7 +19,10 @@
   };
   Date.now = () => P.t;
   window.requestAnimationFrame = () => 0; // arrête la boucle propre du jeu
-  const CODES = { 1: 'Enter', 2: 'ArrowLeft', 4: 'ArrowRight', 8: 'Space' };
+  // Un caractère du script par image, lu en BASE 32 (carte 9.2b) : 1 Entrée, 2 gauche,
+  // 4 droite, 8 saut, 16 bas (le parapluie retourné : lettres g à v). Sans bas, c'est
+  // le chiffre hexadécimal d'avant.
+  const CODES = { 1: 'Enter', 2: 'ArrowLeft', 4: 'ArrowRight', 8: 'Space', 16: 'ArrowDown' };
   const ev = (code) => ({
     code, key: code, ctrlKey: false, shiftKey: false, altKey: false, metaKey: false,
     repeat: false, preventDefault() {}, stopPropagation() {},
@@ -27,7 +30,7 @@
   P.bas = (code) => canvas.onkeydown(ev(code));
   P.haut = (code) => canvas.onkeyup(ev(code));
   P.appliquer = (m) => {
-    for (const bit of [1, 2, 4, 8]) {
+    for (const bit of [1, 2, 4, 8, 16]) {
       const veut = (m & bit) !== 0, a = (P.masque & bit) !== 0;
       if (veut && !a) P.bas(CODES[bit]);
       if (!veut && a) P.haut(CODES[bit]);
@@ -45,7 +48,7 @@
         if (P.pos < P.cible && P.pos < P.script.length) {
           const touche = P.touches[P.pos];
           if (touche) P.bas(touche);
-          P.appliquer(parseInt(P.script[P.pos], 16)); P.pos++; image(true); fait++;
+          P.appliquer(parseInt(P.script[P.pos], 32)); P.pos++; image(true); fait++;
           if (touche) P.haut(touche);
         } else if (P.file.length) {
           const s = P.file[0];

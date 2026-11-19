@@ -15,15 +15,15 @@ const X_TOUCHES: f32 = 16.0;
 const X_EFFETS: f32 = 118.0;
 
 /// Mise en page verticale. Sept astuces depuis la carte 6.2 (six à la carte 5.18,
-/// quatre avant) : commandes tous les 11 px à partir de y = 34 (au lieu de 12 px à
-/// partir de 36), astuces tous les 10 px à partir de y = 92 (au lieu de 98) ; la
-/// dernière finit en y = 160, avant la ligne « retour » (y = 163 au lieu de 162).
-/// Vérifiée à la compilation (`const _` plus bas).
-const Y_COMMANDES: f32 = 34.0;
-const PAS_COMMANDES: f32 = 11.0;
-const Y_ASTUCES: f32 = 92.0;
+/// quatre avant), six commandes depuis la carte 9.2b (BAS) : commandes tous les
+/// 10 px à partir de y = 32, astuces tous les 10 px à partir de y = 94 ; la
+/// dernière finit en y = 162, avant la ligne « retour » (y = 165). Vérifiée à la
+/// compilation (`const _` plus bas).
+const Y_COMMANDES: f32 = 32.0;
+const PAS_COMMANDES: f32 = 10.0;
+const Y_ASTUCES: f32 = 94.0;
 const PAS_ASTUCES: f32 = 10.0;
-const Y_RETOUR: f32 = 163.0;
+const Y_RETOUR: f32 = 165.0;
 /// Panneau : de y = 4 à y = 176.
 const Y_PANNEAU: f32 = 4.0;
 const H_PANNEAU: f32 = 172.0;

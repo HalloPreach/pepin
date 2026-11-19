@@ -147,6 +147,16 @@ pub fn musique_du_niveau(niveau: &InfosNiveau) -> Musique {
         Theme::Altitude | Theme::Mer | Theme::Soleil => Musique::ValseDesNuages,
         // Le bonus et l'épilogue : l'orage est fini, le soleil est réveillé.
         Theme::ArcEnCiel | Theme::Descente => Musique::Soleil,
+        // Monde 2, « Là où va la pluie » (carte 9.5) : les sept thèmes ont chacun
+        // un REPLI sur une musique existante ; leurs musiques propres (eau, port,
+        // pieuvre) arriveront avec la carte 9.14.
+        Theme::Caniveau => Musique::ToitsDeNuit,
+        Theme::Egouts => Musique::Orage,
+        Theme::Cascade => Musique::ValseDesNuages,
+        Theme::Grotte => Musique::Orage,
+        Theme::Riviere => Musique::ValseDesNuages,
+        Theme::Port => Musique::ValseDesNuages,
+        Theme::Maree => Musique::Poursuite,
         // L'orage (le grand orage, le clocher) et tout thème non rangé : repli sur la
         // boucle d'origine.
         _ => Musique::Orage,
@@ -1046,8 +1056,17 @@ mod tests {
             Soleil,         // l'arc-en-ciel (bonus)
             Soleil,         // la descente (épilogue)
         ];
-        let obtenu: Vec<Musique> = NIVEAUX.iter().map(musique_du_niveau).collect();
+        let obtenu: Vec<Musique> = pepin_core::levels::NIVEAUX_MONDE_1
+            .iter()
+            .map(musique_du_niveau)
+            .collect();
         assert_eq!(obtenu, attendu);
+        // Monde 2 (carte 9.6) : le caniveau garde la musique de repli de son thème
+        // (`ToitsDeNuit`) ; ses vraies musiques viendront avec la carte 9.14.
+        assert_eq!(
+            musique_du_niveau(&pepin_core::levels::caniveau::INFOS),
+            ToitsDeNuit
+        );
         // Le boss a une musique à lui seul.
         assert_eq!(obtenu.iter().filter(|&&m| m == Cyclone).count(), 1);
         let cyclone = &NIVEAUX[5];

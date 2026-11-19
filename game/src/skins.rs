@@ -2,7 +2,7 @@
 //!
 //! Un skin ne change QUE le dessin : la physique, la boîte de collision (10x14) et les
 //! animations restent celles de Pépin. Chaque skin fournit donc un jeu d'images
-//! complet (`sprites::JeuImages`, 16 images + l'icône des vies), aux mêmes tailles.
+//! complet (`sprites::JeuImages`, 18 images + l'icône des vies), aux mêmes tailles.
 //!
 //! Ajouter un skin = un fichier de sprites dans `sprites/` (sur le modèle de
 //! `pepinette.rs`) + une variante ici, avec sa ligne dans chaque `match` et dans
@@ -102,7 +102,7 @@ mod tests {
                 .1
         };
         let modele = Skin::Pepin.images().noms();
-        assert_eq!(modele.len(), 17, "16 images + l'icône des vies");
+        assert_eq!(modele.len(), 19, "18 images + l'icône des vies");
         let mut noms_vus = std::collections::HashSet::new();
         for skin in Skin::TOUS {
             assert!(!skin.nom().is_empty());

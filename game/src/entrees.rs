@@ -19,6 +19,9 @@ pub struct Commandes {
     pub droite: bool,
     /// Saut MAINTENU (en l'air, maintenir ouvre le parapluie).
     pub saut: bool,
+    /// Bas MAINTENU (carte 9.2b) : le parapluie retourné, qui devient une
+    /// barque en touchant l'eau.
+    pub bas: bool,
     /// Demande de pause : vrai seulement à l'image de l'appui (front montant).
     pub pause: bool,
 }
@@ -38,6 +41,7 @@ impl Commandes {
         Entrees {
             direction: self.direction(),
             saut: self.saut,
+            bas: self.bas,
         }
     }
 
@@ -48,6 +52,7 @@ impl Commandes {
             gauche: self.gauche || autre.gauche,
             droite: self.droite || autre.droite,
             saut: self.saut || autre.saut,
+            bas: self.bas || autre.bas,
             pause: self.pause || autre.pause,
         }
     }
@@ -88,14 +93,15 @@ pub const TOUCHES_SON: [KeyCode; 2] = [KeyCode::M, KeyCode::Semicolon];
 
 /// Menus : monter, comme pour le saut (flèche, W, Z).
 pub const TOUCHES_HAUT: [KeyCode; 3] = [KeyCode::Up, KeyCode::W, KeyCode::Z];
-/// Menus : descendre (flèche et S, même position sur les deux dispositions).
+/// Menus : descendre (flèche et S, même position sur les deux dispositions). En jeu,
+/// les mêmes touches retournent le parapluie (carte 9.2b, `Commandes::bas`).
 pub const TOUCHES_BAS: [KeyCode; 2] = [KeyCode::Down, KeyCode::S];
 /// Menus : valider.
 pub const TOUCHES_VALIDER: [KeyCode; 3] = [KeyCode::Enter, KeyCode::KpEnter, KeyCode::Space];
 /// Menus : retour.
 pub const TOUCHES_RETOUR: [KeyCode; 2] = [KeyCode::Escape, KeyCode::Backspace];
 
-/// Le clavier : flèches, Q/A/D (WASD et ZQSD), Espace, Haut, W, Z, Échap, P.
+/// Le clavier : flèches, Q/A/D (WASD et ZQSD), Espace, Haut, W, Z, Bas, S, Échap, P.
 pub struct Clavier;
 
 /// Une touche de la liste est-elle enfoncée ?
@@ -111,6 +117,9 @@ impl SourceEntrees for Clavier {
             gauche: une_enfoncee(&TOUCHES_GAUCHE),
             droite: une_enfoncee(&TOUCHES_DROITE),
             saut,
+            // Les touches du « bas » des menus (flèche et S) : en jeu, elles
+            // retournent le parapluie (carte 9.2b).
+            bas: une_enfoncee(&TOUCHES_BAS),
             pause: TOUCHES_PAUSE.iter().any(|&t| is_key_pressed(t)),
         }
     }
@@ -176,6 +185,14 @@ pub enum RaccourciNiveau {
     Essai9,
     /// Niveau d'essai « nuage » (touche F10), hors de la table : carte 5.11.
     Essai10,
+    /// Niveau d'essai « eau » (touche F11), hors de la table : carte 9.2.
+    Essai11,
+    /// Niveau d'essai « eau 2 » (touche F12), hors de la table : carte 9.3.
+    Essai12,
+    /// Niveau d'essai « ennemis d'eau » (touche J), hors de la table : carte 9.4.
+    Essai13,
+    /// Niveau d'essai « pieuvre » (touche L), hors de la table : carte 9.12a.
+    Essai14,
 }
 
 /// Touches de saut direct, dans l'ordre des niveaux 1 à 9. Une touche au-delà du
@@ -217,6 +234,15 @@ const TOUCHES_ESSAI8: [KeyCode; 1] = [KeyCode::F7];
 const TOUCHES_ESSAI9: [KeyCode; 1] = [KeyCode::F8];
 /// Niveau d'essai « nuage » : F10 (F9 est déjà le plantage volontaire).
 const TOUCHES_ESSAI10: [KeyCode; 1] = [KeyCode::F10];
+/// Niveau d'essai « eau » : F11, à côté de F10 (même raison).
+const TOUCHES_ESSAI11: [KeyCode; 1] = [KeyCode::F11];
+/// Niveau d'essai « eau 2 » : F12, à côté de F11 (même raison).
+const TOUCHES_ESSAI12: [KeyCode; 1] = [KeyCode::F12];
+/// Niveau d'essai « ennemis d'eau » (carte 9.4) : J, libre dans les deux
+/// dispositions de clavier (les touches de fonction sont toutes prises).
+const TOUCHES_ESSAI13: [KeyCode; 1] = [KeyCode::J];
+/// Niveau d'essai « pieuvre » (carte 9.12a) : L, libre dans les deux dispositions.
+const TOUCHES_ESSAI14: [KeyCode; 1] = [KeyCode::L];
 
 /// Raccourci demandé d'après les touches appuyées cette image (saut direct d'abord).
 /// Toujours `None` quand `actif` est faux : la logique est isolée ici pour être
@@ -251,6 +277,14 @@ pub fn niveau_demande(actif: bool, appuyee: impl Fn(KeyCode) -> bool) -> Option<
         Some(RaccourciNiveau::Essai9)
     } else if TOUCHES_ESSAI10.iter().any(|&k| appuyee(k)) {
         Some(RaccourciNiveau::Essai10)
+    } else if TOUCHES_ESSAI11.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai11)
+    } else if TOUCHES_ESSAI12.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai12)
+    } else if TOUCHES_ESSAI13.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai13)
+    } else if TOUCHES_ESSAI14.iter().any(|&k| appuyee(k)) {
+        Some(RaccourciNiveau::Essai14)
     } else {
         None
     }
@@ -275,6 +309,10 @@ pub fn cible_raccourci(r: RaccourciNiveau, courant: usize, nb: usize) -> Option<
         RaccourciNiveau::Essai8 => return Some(nb + 7),
         RaccourciNiveau::Essai9 => return Some(nb + 8),
         RaccourciNiveau::Essai10 => return Some(nb + 9),
+        RaccourciNiveau::Essai11 => return Some(nb + 10),
+        RaccourciNiveau::Essai12 => return Some(nb + 11),
+        RaccourciNiveau::Essai13 => return Some(nb + 12),
+        RaccourciNiveau::Essai14 => return Some(nb + 13),
     };
     cible.filter(|&i| i < nb)
 }
@@ -322,6 +360,36 @@ const TOUCHE_PROGRESSION: KeyCode = KeyCode::U;
 /// touche U est inerte en production.
 pub fn progression_qa_demandee() -> bool {
     RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_PROGRESSION)
+}
+
+/// Touche de mise au point « défilé des fonds du Monde 2 » (carte 9.5) : V, même
+/// position en QWERTY et en AZERTY. Chaque appui fait défiler les 7 nouveaux fonds
+/// (`decor::planche_fonds_qa`), plein écran, pour les captures `docs/qa/95-*.png`.
+/// Build de QA seulement (`debug_niveaux`) : la définition n'existe que là, pour
+/// éviter un avertissement `dead_code` dans le build de production.
+#[cfg(feature = "debug_niveaux")]
+const TOUCHE_FONDS_QA: KeyCode = KeyCode::V;
+
+/// Le défilé des fonds du Monde 2 est-il demandé ? Ne compile que dans le build de
+/// QA (`debug_niveaux`), où seule `main` l'appelle ; la touche V est inerte en
+/// production.
+#[cfg(feature = "debug_niveaux")]
+pub fn fonds_qa_demande() -> bool {
+    RACCOURCIS_NIVEAUX && is_key_pressed(TOUCHE_FONDS_QA)
+}
+
+/// Test de lisibilité (carte 9.20g), build de QA seulement : la touche O allume ou
+/// éteint le repassage des cases SOLIDES de la grille en couleur vive
+/// (`mobilier_rue::dessiner_solides_qa`), pour vérifier sur une capture que ce qui
+/// paraît solide l'est. Inerte en production (la fonction n'y existe pas).
+#[cfg(feature = "debug_niveaux")]
+pub fn solides_qa() -> bool {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static ALLUME: AtomicBool = AtomicBool::new(false);
+    if RACCOURCIS_NIVEAUX && is_key_pressed(KeyCode::O) {
+        ALLUME.fetch_xor(true, Ordering::Relaxed);
+    }
+    ALLUME.load(Ordering::Relaxed)
 }
 
 /// Plantage volontaire (touche F9) : n'existe que dans le build de QA, fonctionnalité
@@ -383,6 +451,14 @@ mod tests {
         let e = c.vers_entrees();
         assert_eq!(e.direction, Direction::Droite);
         assert!(e.saut);
+        assert!(!e.bas);
+        // Carte 9.2b : BAS passe aussi jusqu'à la simulation.
+        let bas = Commandes {
+            bas: true,
+            ..Commandes::default()
+        };
+        assert!(bas.vers_entrees().bas);
+        assert!(gauche().fusionner(bas).bas, "la fusion garde BAS");
     }
 
     #[test]
@@ -429,6 +505,7 @@ mod tests {
             ("gauche", &TOUCHES_GAUCHE),
             ("droite", &TOUCHES_DROITE),
             ("saut", &TOUCHES_SAUT),
+            ("bas", &TOUCHES_BAS),
             ("pause", &TOUCHES_PAUSE),
             ("son", &TOUCHES_SON),
         ]);

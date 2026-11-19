@@ -9,6 +9,7 @@ pub mod lettres;
 pub mod level;
 pub mod levels;
 pub mod palette;
+pub mod parallele;
 pub mod physics;
 pub mod player;
 pub mod poursuite;
