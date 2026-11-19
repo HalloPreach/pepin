@@ -19,7 +19,8 @@
 
 use macroquad::prelude::draw_rectangle;
 use pepin_core::aabb::TAILLE_TUILE;
-use pepin_core::level::Niveau;
+use pepin_core::entities::Entite;
+use pepin_core::level::{Niveau, Tuile};
 use pepin_core::palette::{
     Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE,
     BRUME, NUAGE, PLUIE, PLUIE_SOMBRE, VIOLET_ORAGE,
@@ -42,9 +43,10 @@ const RIDEAU_L: i32 = 10 * T;
 /// Hauteur (px) de la lèvre de roche d'où l'eau bascule, en haut du niveau.
 const LEVRE: i32 = 12;
 /// Les paliers du rideau (px, dans le niveau) : l'eau y rebondit dans l'écume. Pris
-/// là où le rideau se voit (la salle des chutes, la salle des bras au ras du bassin
-/// E, la mare aux nénuphars ; carte 9.21b, le niveau allongé à 94 rangées).
-const PALIERS: [i32; 3] = [15 * T, 45 * T, 82 * T];
+/// là où le rideau se voit (carte 9.21b, le niveau allongé à 94 rangées). Carte
+/// 9.26c : chacun à la surface d'un bassin (B, E et la mare aux nénuphars), pour
+/// que le rideau tombe dans l'eau et non sur une corniche.
+const PALIERS: [i32; 3] = [18 * T, 46 * T, 82 * T];
 /// Le pied de la falaise : la roche du fond borde le rideau sur les douze dernières
 /// rangées au-dessus du bassin d'arrivée (elle suit la hauteur du niveau).
 const PIED_FALAISE: i32 = 12 * T;
@@ -112,6 +114,113 @@ pub fn dessiner_fond(monde: &Monde, cx: i32, cy: i32) {
     dessiner_falaise_du_pied(bas, n.largeur_px() as i32, (cx, cy));
     dessiner_rideau(bas, pas, (cx, cy));
     dessiner_brume(bas, pas, (cx, cy));
+    for p in pieds_des_chutes(monde) {
+        if p.eau > p.haut {
+            dessiner_filet(&p, pas, (cx, cy));
+        }
+    }
+}
+
+/// Le pied d'une chute `|` (px du niveau), carte 9.26c : chaque chute finit dans
+/// l'eau. `haut` est le bas de la chute jouable, `eau` la surface de l'eau où elle
+/// retombe (sous elle, au plus près). `eau == haut` : elle tombe droit dans un
+/// bassin ; plus bas, son eau continue en filet de décor, DERRIÈRE les tuiles (le
+/// puits, au-dessus du palier de la salle des bras).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Pied {
+    pub g: i32,
+    pub d: i32,
+    pub haut: i32,
+    pub eau: i32,
+}
+
+/// Les pieds des chutes du niveau ; une chute sans eau dessous n'en a pas.
+pub(crate) fn pieds_des_chutes(monde: &Monde) -> Vec<Pied> {
+    let n = &monde.niveau;
+    monde
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Chute(c) => Some(c.zone),
+            _ => None,
+        })
+        .filter_map(|z| {
+            let (g, d, haut) = (z.x as i32, z.droite() as i32, z.bas() as i32);
+            let tx = ((g + d) / 2).div_euclid(T);
+            let ty =
+                (haut / T..n.hauteur() as i32).find(|&ty| n.tuile_decor(tx, ty) == Tuile::Eau)?;
+            Some(Pied {
+                g,
+                d,
+                haut,
+                eau: ty * T,
+            })
+        })
+        .collect()
+}
+
+/// Le filet : l'eau d'une chute qui débouche au-dessus d'un vide continue de
+/// tomber jusqu'à l'eau du dessous, plus étroite et plus sombre que la chute
+/// jouable (elle ne pousse pas), ses traits clairs qui dévalent. Derrière les
+/// tuiles : elle passe derrière les corniches.
+fn dessiner_filet(p: &Pied, pas: u32, (cx, cy): (i32, i32)) {
+    let (y0, y1) = (p.haut.max(cy), p.eau.min(cy + H));
+    if y0 >= y1 {
+        return;
+    }
+    let (g, l) = (p.g + 4, p.d - p.g - 8);
+    rect(g - cx, y0 - cy, l, y1 - y0, PLUIE_SOMBRE);
+    rect(g - cx, y0 - cy, 1, y1 - y0, ARDOISE_NUIT);
+    rect(g + l - 1 - cx, y0 - cy, 1, y1 - y0, ARDOISE_NUIT);
+    let defile = pas as i32 * VITESSE_RIDEAU;
+    for k in 0..(l - 2) / 2 {
+        let x = g + 1 + k * 2 + (k % 2);
+        let phase = (hache(k + 900 + p.g) % 32) as i32;
+        let premier = (y0 - phase - defile - 8).div_euclid(32);
+        let dernier = (y1 - phase - defile).div_euclid(32);
+        for i in premier..=dernier {
+            let ya = (p.haut.max(i * 32 + phase + defile)).max(y0);
+            let yb = (i * 32 + phase + defile + 8).min(y1);
+            rect(x - cx, ya - cy, 1, yb - ya, PLUIE);
+        }
+    }
+}
+
+/// Au pied de chaque chute, sur l'eau où elle tombe (carte 9.26c) : des
+/// éclaboussures blanches et cyan qui sautent, et, au pied d'un filet (qui n'a pas
+/// l'écume dessinée des chutes jouables), un liseré d'écume qui bout.
+fn dessiner_eclaboussures(p: &Pied, pas: u32, (cx, cy): (i32, i32)) {
+    if p.eau + 4 < cy || p.eau - 16 > cy + H {
+        return;
+    }
+    let (g, d) = if p.eau > p.haut {
+        (p.g + 2, p.d - 2)
+    } else {
+        (p.g - 2, p.d + 2)
+    };
+    if p.eau > p.haut {
+        let mut x = g;
+        let mut k = 0;
+        while x < d {
+            let bout = (hache(k * 3 + p.g + (pas / 4) as i32) % 3) as i32;
+            let c = if (k + (pas / 8) as i32) % 3 == 0 {
+                BLANC_CASSE
+            } else {
+                BRUME
+            };
+            rect(x - cx, p.eau - 1 - bout - cy, 2, 1 + bout, c);
+            x += 2;
+            k += 1;
+        }
+    }
+    let largeur = (d - g).max(1) as u32;
+    for i in 0..5i32 {
+        let cycle = (pas as i32 + i * 7 + p.g).rem_euclid(20);
+        let hauteur = cycle * (20 - cycle) / 10;
+        let x = g + (hache(i + 1000 + p.g + (pas as i32 + i * 7 + p.g) / 20) % largeur) as i32;
+        let c = if i % 2 == 0 { BLANC_CASSE } else { PLUIE };
+        rect(x - cx, p.eau - 2 - hauteur - cy, 1, 2, c);
+    }
 }
 
 /// Devant les tuiles : le grand tuyau du départ et le bouillon du bassin d'arrivée.
@@ -126,6 +235,9 @@ pub fn dessiner(monde: &Monde, cx: i32, cy: i32) {
     }
     if let Some(surface) = bassin_d_arrivee(n) {
         dessiner_bouillon(surface, pas, (cx, cy));
+    }
+    for p in pieds_des_chutes(monde) {
+        dessiner_eclaboussures(&p, pas, (cx, cy));
     }
 }
 

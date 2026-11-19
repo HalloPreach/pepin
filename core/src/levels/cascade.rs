@@ -126,8 +126,12 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// - Chutes : C1 colonnes 27-28 (rangées 8 à 17), C2 colonnes 2 à 5 (11 à 26),
 ///   le puits colonne 22 (25 à 31), sous la stalactite (22, 24) ; les bras de la
 ///   salle, colonnes 15-16 et 7-8 (31 à 45) ; la chute du bassin F, colonnes
-///   28-29 (53 à 59) ; celles des marches, colonnes 11-12 (69 à 71) et 21-22 (72
-///   à 74).
+///   28-29 (53 à 61) ; celles des marches, colonnes 11-12 (69 à 71) et 21-22 (72
+///   à 74). Carte 9.26c : chaque chute finit dans l'eau. Celle du bassin F tombe
+///   dans le bassin G (le rocher où elle finissait, rangée 60, est ôté) ; l'eau du
+///   puits, qui débouche au plafond de la salle des bras, retombe en filet de décor
+///   DERRIÈRE le palier jusqu'au bassin E (`game/src/decor_cascade.rs`) : le
+///   palier, où l'on se pose parapluie fermé, reste sec.
 /// - Gouttes : (13, 5), (1, 17) dans la niche, (12, 88) ; poissons (20, 17) et
 ///   (25, 52) ; mouette (10, 37) ; crabe (7, 60) ; grenouille (3, 81) ;
 ///   poissons de la courbe du chapitre 2 (carte 9.25c), tous au-dessus d'un
@@ -201,8 +205,8 @@ BBBBBBBBBBBBBBBBBBBBBBBBBBBB||BB
 ............................||BB
 ............................||BB
 ............................||BB
-.......k....................BBBB
-..##########..................BB
+.......k....................||BB
+..##########................||BB
 ..BBBBBBBBBB~~~~~~~~~~~~~~~~~~BB
 ..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
@@ -236,3 +240,50 @@ BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::aabb::TAILLE_TUILE;
+    use crate::entities::Entite;
+    use crate::level::{Niveau, Tuile};
+
+    /// Carte 9.26c (AGA : « des cascades qui finissent sur des plateformes plutôt
+    /// que dans l'eau ») : sous le pied de chaque chute `|`, jamais un appui. Elle
+    /// tombe droit dans un bassin, sauf l'eau du puits, qui débouche au-dessus du
+    /// vide de la salle des bras et retombe (filet de décor, derrière le palier)
+    /// dans le bassin E.
+    #[test]
+    fn chaque_chute_finit_dans_l_eau() {
+        let n = Niveau::depuis_ascii(ASCII).expect("niveau valide");
+        let t = TAILLE_TUILE;
+        let mut au_dessus_du_vide = Vec::new();
+        let mut chutes = 0;
+        for e in &n.entites {
+            let Entite::Chute(c) = e else { continue };
+            chutes += 1;
+            let pied = (c.zone.bas() / t) as i32;
+            for tx in (c.zone.x / t) as i32..(c.zone.droite() / t) as i32 {
+                match n.tuile_decor(tx, pied) {
+                    Tuile::Eau => {}
+                    Tuile::Vide => {
+                        assert!(
+                            (pied..n.hauteur() as i32)
+                                .any(|ty| n.tuile_decor(tx, ty) == Tuile::Eau),
+                            "la chute ({tx}, {pied}) ne retombe dans aucune eau"
+                        );
+                        au_dessus_du_vide.push((tx, pied));
+                    }
+                    autre => panic!("la chute ({tx}, {pied}) finit sur {autre:?}"),
+                }
+            }
+        }
+        // C1, C2, le puits, les 2 bras, la chute du bassin F, les 2 des marches.
+        assert_eq!(chutes, 8);
+        assert_eq!(
+            au_dessus_du_vide,
+            vec![(22, 32)],
+            "seul le puits débouche sur le vide"
+        );
+    }
+}

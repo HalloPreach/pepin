@@ -121,6 +121,15 @@ pub fn dessiner(
                     );
                 }
                 let pied = z.bas() as i32 - 4;
+                // Carte 9.26c : l'écume, là où la chute tombe DANS L'EAU. Une chute
+                // qui débouche au-dessus d'un vide n'en a pas (son eau continue de
+                // tomber, en décor : `decor_cascade`).
+                let dessous = monde
+                    .niveau
+                    .tuile_decor(x.div_euclid(t), z.bas() as i32 / t);
+                if dessous != Tuile::Eau {
+                    continue;
+                }
                 banque.dessiner(
                     image(&objets_eau::ECUME, pas, 8),
                     (x - cx) as f32,
