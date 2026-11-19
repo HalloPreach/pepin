@@ -333,6 +333,51 @@ pub const CANOT: Image = &[
     "...0000000000...",
 ];
 
+/// « Le port » (carte 9.11) : un bateau en va-et-vient (32 x 15), dessiné sur une
+/// plateforme mobile horizontale. Les 8 premières rangées couvrent sa collision
+/// (32 x 8) : le pont de bois, clair sur le dessus (on s'y pose), puis la coque
+/// corail et sa bande blanche ; le bas, sombre, est la ligne de flottaison.
+pub const PORT_BATEAU: Image = &[
+    "0CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0",
+    "0BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB0",
+    "0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0",
+    "00000000000000000000000000000000",
+    "08999999999999999999999999999980",
+    "08888888888888888888888888888880",
+    "08777777777777777777777777777780",
+    "08888888888888888888888888888880",
+    "08888308888888888888888888038880",
+    ".088888888888888888888888888880.",
+    ".088888888888888888888888888880.",
+    "..0888888888888888888888888880..",
+    "..0111111111111111111111111110..",
+    "...01111111111111111111111110...",
+    "....000000000000000000000000....",
+];
+
+/// « Le port » (carte 9.11) : la caisse de la grue (32 x 16), dessinée sur une
+/// plateforme mobile verticale. Les 8 rangées du haut sont les élingues qui
+/// montent au crochet (le câble part de là vers le haut, `dessin_port`) ; les 8
+/// du bas couvrent la collision : la caisse de bois cerclée, claire sur le dessus.
+pub const PORT_CAISSE_GRUE: Image = &[
+    "...............00...............",
+    ".............00..00.............",
+    "...........00......00...........",
+    ".........00..........00.........",
+    ".......00..............00.......",
+    ".....00..................00.....",
+    "...00......................00...",
+    ".00..........................00.",
+    "0CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0",
+    "0BAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0",
+    "0BA00AAAAAAAAAAAAAAAAAAAAAA00AB0",
+    "0BAAA00AAAAAAAAAAAAAAAAAA00AAAB0",
+    "0BAAAAA00AAAAAAAAAAAAAA00AAAAAB0",
+    "0BAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0",
+    "0BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB0",
+    "00000000000000000000000000000000",
+];
+
 /// Les sprites de la jetée : (nom, dessin).
 pub const SPRITES: &[(&str, Image)] = &[
     ("jetee_grue", GRUE),
@@ -349,4 +394,6 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("jetee_chalutier", CHALUTIER),
     ("jetee_barque", BARQUE),
     ("jetee_canot", CANOT),
+    ("port_bateau", PORT_BATEAU),
+    ("port_caisse_grue", PORT_CAISSE_GRUE),
 ];

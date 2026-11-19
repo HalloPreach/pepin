@@ -126,6 +126,48 @@ pub fn feu_allume(pas: u32) -> bool {
     (pas / PERIODE_FEU).is_multiple_of(2)
 }
 
+/// Clé du niveau « Le port » (carte 9.11) : ses plateformes mobiles sont des
+/// bateaux et une caisse de grue.
+pub const CLE_PORT: &str = "port";
+
+/// Sprite d'une plateforme mobile en aller-retour du port, et son décalage
+/// vertical (px) au-dessus de sa boîte : un trajet horizontal est un BATEAU (le
+/// pont sur la boîte, la coque dessous), un trajet vertical la CAISSE de la grue
+/// (ses élingues au-dessus). `None` hors du port. Pure.
+pub fn sprite_du_port(cle: &str, a: (f32, f32), b: (f32, f32)) -> Option<(&'static str, i32)> {
+    if cle != CLE_PORT {
+        return None;
+    }
+    Some(if a.0 == b.0 {
+        ("port_caisse_grue", 8)
+    } else {
+        ("port_bateau", 0)
+    })
+}
+
+/// Dessine une plateforme mobile du port (boîte dessinée en `(sx, sy)`, écran) :
+/// le bateau, ou la caisse de la grue et son câble qui monte jusqu'en haut de
+/// l'écran (la flèche de la grue est au-dessus). Faux hors du port.
+pub fn dessiner_mobile(
+    monde: &Monde,
+    banque: &Banque,
+    extremites: Option<((f32, f32), (f32, f32))>,
+    sx: f32,
+    sy: f32,
+) -> bool {
+    let Some((nom, haut)) = extremites.and_then(|(a, b)| sprite_du_port(monde.infos.cle, a, b))
+    else {
+        return false;
+    };
+    let y = sy - haut as f32;
+    if haut > 0 {
+        // Le câble (2 px, ardoise d'ombre) du crochet jusqu'au haut de l'écran.
+        draw_rectangle(sx + 15.0, 0.0, 2.0, y.max(0.0), couleur_mq(ARDOISE_OMBRE));
+    }
+    banque.dessiner(nom, sx, y, false);
+    true
+}
+
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
 }
@@ -435,5 +477,43 @@ mod tests {
     fn le_feu_du_phare_clignote_une_periode_sur_deux() {
         assert!(feu_allume(0) && feu_allume(PERIODE_FEU - 1));
         assert!(!feu_allume(PERIODE_FEU) && feu_allume(2 * PERIODE_FEU));
+    }
+
+    /// Carte 9.11 : au port, chaque plateforme mobile horizontale est un bateau,
+    /// la verticale la caisse de la grue ; leur dessin couvre toute la collision
+    /// (32 x 8, sous le décalage), clair sur le dessus. Ailleurs, rien ne change.
+    #[test]
+    fn au_port_les_plateformes_mobiles_sont_des_bateaux_et_une_caisse_de_grue() {
+        use pepin_core::entities::Entite;
+        use pepin_core::levels::port as niveau_port;
+        let n = niveau_port::INFOS.charger().unwrap();
+        let mut noms = Vec::new();
+        for e in &n.entites {
+            let Entite::Mobile(m) = e else { continue };
+            let (a, b) = m.extremites().unwrap();
+            let (nom, haut) = sprite_du_port(CLE_PORT, a, b).unwrap();
+            let dessin = jetee::SPRITES.iter().find(|(m, _)| *m == nom).unwrap().1;
+            assert_eq!(dessin[0].len() as f32, m.boite.w, "{nom}");
+            let collision = dessin.iter().skip(haut as usize).take(m.boite.h as usize);
+            for (y, rangee) in collision.enumerate() {
+                assert!(!rangee.contains('.'), "{nom} : rangée {y} percée");
+            }
+            assert!(
+                dessin[haut as usize][1..31].chars().all(|c| c == 'C'),
+                "{nom}"
+            );
+            noms.push(nom);
+        }
+        noms.sort();
+        assert_eq!(
+            noms,
+            [
+                "port_bateau",
+                "port_bateau",
+                "port_bateau",
+                "port_caisse_grue"
+            ]
+        );
+        assert_eq!(sprite_du_port("pieuvre", (0.0, 0.0), (16.0, 0.0)), None);
     }
 }

@@ -798,6 +798,10 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
             // Une aiguille d'horloge (cadran et tige dessinés avant, voir
             // `dessiner_cadrans`) ou une plateforme en aller-retour.
             Entite::Mobile(m) => {
+                // Au port (carte 9.11) : bateaux et caisse de grue.
+                if crate::dessin_port::dessiner_mobile(monde, banque, m.extremites(), sx, sy) {
+                    continue;
+                }
                 let nom = if m.cercle().is_some() {
                     "aiguille"
                 } else {

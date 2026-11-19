@@ -251,6 +251,13 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
         },
     ),
     (
+        "port",
+        Intro {
+            texte: "La pluie arrive au port. Au bout de la jetée, quelque chose remue dans l'eau.",
+            astuce: "Un bateau va et vient : attends-le au bord du quai.",
+        },
+    ),
+    (
         "pieuvre",
         Intro {
             texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",

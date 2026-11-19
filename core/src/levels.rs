@@ -56,6 +56,7 @@ pub mod mer;
 pub mod nuages;
 pub mod orage;
 pub mod pieuvre;
+pub mod port;
 pub mod poursuite;
 pub mod toits;
 pub mod variantes;
@@ -96,6 +97,7 @@ pub const NIVEAUX: &[InfosNiveau] = &[
     egouts::INFOS,
     cascade::INFOS,
     grotte::INFOS,
+    port::INFOS,
     pieuvre::INFOS,
 ];
 
