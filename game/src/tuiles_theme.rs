@@ -201,15 +201,12 @@ fn egouts(v: &Voisinage) -> &'static str {
     if v.dessus == Tuile::Eau {
         return "ego_fond";
     }
-    if v.dessous == Tuile::Vide {
-        // Sous un plafond : la voûte, une arche de deux cases (colonne paire, puis
-        // impaire) ; aux bouts, l'angle du mur.
-        return match (g, d) {
-            (true, _) => "ego_angle_g",
-            (false, true) => "ego_angle_d",
-            _ if v.tx.rem_euclid(2) == 0 => "ego_voute_g",
-            _ => "ego_voute_d",
-        };
+    if v.dessous == Tuile::Vide && (g || d) {
+        // Sous un plafond, aux bouts : l'angle du mur. Carte 9.27b (AGA : « des
+        // voûtes bizarres ») : entre les deux, plus d'arches aveugles
+        // `ego_voute_*`, qui faisaient une guirlande de festons sous chaque
+        // plafond ; des briques, comme le reste du mur.
+        return if g { "ego_angle_g" } else { "ego_angle_d" };
     }
     match (g, d) {
         (true, _) => "ego_mur_g",
