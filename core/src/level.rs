@@ -97,7 +97,8 @@
 //!   =  marée (carte 9.3) : zone où l'eau monte et descend par cycles
 //!      (`entities::maree`) ; elle repose sur un solide ou sur de l'eau
 //!   V  stalactite (carte 9.3), sous un solide : elle tremble 0,75 s quand
-//!      Pépin passe dessous, puis tombe (mortelle) et se brise au sol
+//!      Pépin passe dessous, puis tombe et se brise au sol ; mortelle au
+//!      toucher, même accrochée (carte 9.26a)
 //!   |  chute d'eau (carte 9.3) : colonne qui pousse vers le BAS (lente
 //!      parapluie ouvert, rapide parapluie fermé)
 //!   8  la Pieuvre du port, boss du Monde 2 (carte 9.12a, un boss au plus) : le
