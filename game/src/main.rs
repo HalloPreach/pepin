@@ -35,6 +35,7 @@ mod defis;
 mod demo;
 mod dessin_courant;
 mod dessin_eau;
+mod dessin_mort;
 mod dessin_pieuvre;
 mod dessin_port;
 // La mesure de difficulté décrit la courbe du MONDE 1 (tableaux de
@@ -52,6 +53,7 @@ mod hud;
 mod menu;
 mod mobilier_rue;
 mod monde;
+mod mort;
 mod mur_pluie;
 mod musiques;
 mod navigation;

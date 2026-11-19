@@ -27,7 +27,7 @@ use crate::cosmetiques::Trainees;
 use crate::course::{self, Bord};
 use crate::decor;
 use crate::grele;
-use crate::monde::{Monde, REAPPARITION_PAS};
+use crate::monde::Monde;
 use crate::mur_pluie;
 use crate::particules::Particules;
 use crate::rendu::couleur_mq;
@@ -1207,40 +1207,28 @@ pub(crate) fn image_attente(images: &JeuImages, immobile: u32) -> Option<&'stati
 /// skins, seuls les noms des images changent (`JeuImages`).
 fn dessiner_pepin(monde: &Monde, banque: &Banque, skin: Skin, alpha: f32, cx: i32, cy: i32) {
     let poser = |nom: &str, x: f32, y: f32, miroir: bool| banque.dessiner(nom, x, y, miroir);
-    poser_pepin(monde, skin.images(), alpha, (cx, cy), true, &poser);
+    // Le temps de mort (carte 9.24) : l'animation de la cause, à l'endroit de la mort.
+    crate::dessin_mort::dessiner(monde, banque, skin.images(), (cx, cy));
+    poser_pepin(monde, skin.images(), alpha, (cx, cy), &poser);
 }
 
 /// Le dessin de Pépin, quelles que soient ses images (`images`) et la façon de les
 /// poser (`poser` : pleines, ou tramées pour le fantôme de la course, carte 8.7).
-/// `borner` : garder l'animation de mort dans le cadre (Pépin ; pas le fantôme, qui
-/// peut mourir hors champ).
 fn poser_pepin(
     monde: &Monde,
     images: &JeuImages,
     alpha: f32,
     (cx, cy): (i32, i32),
-    borner: bool,
     poser: &dyn Fn(&str, f32, f32, bool),
 ) {
     let pas = monde.pas;
     let j = &monde.joueur;
     let miroir = !j.regarde_droite;
 
-    // Mort : trois images jouées à l'endroit de la mort, puis réapparition clignotante.
-    if monde.reapparition > 0 {
-        let ecoule = REAPPARITION_PAS - monde.reapparition;
-        let k = (ecoule as usize * 3 / REAPPARITION_PAS as usize).min(2);
-        // Chute dans le vide ou réapparition lointaine : l'animation reste dans le cadre.
-        let (mort_x, mort_y) = if borner {
-            borner_mort(monde.pos_mort, (cx as f32, cy as f32))
-        } else {
-            monde.pos_mort
-        };
-        let (mx, my) = (
-            mort_x.round() as i32 - cx - 3,
-            mort_y.round() as i32 - cy - 2,
-        );
-        poser(images.reapparition[k], mx as f32, my as f32, false);
+    // Temps de mort (carte 9.24) : déjà replacé à la lanterne, Pépin n'y paraît
+    // qu'à l'ouverture du rideau (l'animation est dans `dessin_mort`).
+    if monde.temps_de_mort && crate::dessin_mort::pepin_cache(monde.reapparition) {
+        return;
     }
     // Tout juste réapparu, Pépin est protégé des dangers (1 s) : il clignote.
     if pepin_cache(j.protection_restante(), pas) {
@@ -1313,7 +1301,7 @@ pub fn dessiner_fantome(
     etiquette: &str,
 ) {
     let poser = |nom: &str, x: f32, y: f32, miroir: bool| banque.dessiner_trame(nom, x, y, miroir);
-    poser_pepin(monde, Skin::Pepin.images(), alpha, (cx, cy), false, &poser);
+    poser_pepin(monde, Skin::Pepin.images(), alpha, (cx, cy), &poser);
     let j = &monde.joueur;
     let (px, py) = monde.joueur_interpole(alpha);
     let (bx, by) = (
@@ -1496,6 +1484,10 @@ pub fn dessiner(
     dessiner_repere_pepin(monde, alpha, cx, cy);
     // L'encre de la Pieuvre (carte 9.12a), devant tout.
     crate::dessin_pieuvre::dessiner_encre(monde);
+    // Le rideau du temps de mort (carte 9.24), devant tout.
+    if monde.temps_de_mort {
+        crate::dessin_mort::dessiner_rideau(monde.reapparition);
+    }
     // Build de QA seulement (carte 9.20g) : la touche O repasse les cases SOLIDES
     // de la grille en couleur vive (test de lisibilité des captures).
     #[cfg(feature = "debug_niveaux")]
