@@ -798,6 +798,12 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
             // Une aiguille d'horloge (cadran et tige dessinés avant, voir
             // `dessiner_cadrans`) ou une plateforme en aller-retour.
             Entite::Mobile(m) => {
+                // Au port (carte 9.11) : bateaux et caisse de grue.
+                if crate::dessin_port::dessiner_mobile(monde, banque, m.extremites(), sx, sy)
+                    || crate::decor_riviere::dessiner_tronc(monde, sx, sy)
+                {
+                    continue;
+                }
                 let nom = if m.cercle().is_some() {
                     "aiguille"
                 } else {
@@ -1447,7 +1453,14 @@ pub fn dessiner(
     // Le fond compte la caméra depuis le bas du niveau (parallaxe verticale d'un niveau
     // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
-    decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    // Le fond du port (carte 9.11b) : sans son phare lointain sur la jetée de la
+    // Pieuvre, qui a le sien, rayé, plus près.
+    if monde.infos.theme == pepin_core::zones::Theme::Port {
+        let phare = !crate::dessin_port::est_la_jetee(monde);
+        crate::decor_port::dessiner_fond(cx, cy_fond, monde.pas, phare);
+    } else {
+        decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+    }
     // La Pieuvre du port (carte 9.20e) : la mer, le phare et les bateaux du port.
     crate::dessin_port::dessiner_fond(monde, banque, cx, cy);
     mur_pluie::dessiner_soleil(monde);
@@ -1455,6 +1468,8 @@ pub fn dessiner(
     dessiner_facades(monde, banque, cx, cy);
     // La grande chute en fond de la cascade (carte 9.20c), derrière les tuiles.
     crate::decor_cascade::dessiner_fond(monde, cx, cy);
+    // La vallée au soleil couchant de la rivière (carte 9.10b), derrière les tuiles.
+    crate::decor_riviere::dessiner_fond(monde, cx, cy);
     // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
     crate::eau::dessiner_marees(monde, banque, cx, cy);
     // Les roues de l'autobus du caniveau (carte 9.20f), dans l'eau qui les couvre.
@@ -1472,6 +1487,8 @@ pub fn dessiner(
     crate::decor_egouts::dessiner(monde, cx, cy);
     // L'habillage de la grotte (carte 9.20d) : rideau de la cascade, sources, jour.
     crate::decor_grotte::dessiner(monde, cx, cy);
+    // La rivière (carte 9.10b) : reflets, écume des rochers et des chutes, roseaux.
+    crate::decor_riviere::dessiner(monde, cx, cy);
     // Le mobilier de rue du caniveau (carte 9.20f) : voitures, autobus, abribus...
     crate::mobilier_rue::dessiner(monde, cx, cy);
     dessiner_decors(monde, banque, cx, cy);

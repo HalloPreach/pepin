@@ -56,6 +56,56 @@ fn fini(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> bool {
     progres(niveaux, s, i).fini()
 }
 
+/// Site de test (AGA, 2026-11-19 : « pourquoi tout est pas débloqué sur
+/// dev.elsay.dev, c'est l'environnement de test ») : le build de QA ouvre TOUTE la
+/// carte des niveaux, Monde 2 compris, SANS rien écrire de faux dans la sauvegarde
+/// (records, gouttes et médailles restent les vrais). Le drapeau est levé par `main`
+/// au démarrage du navigateur seulement : les tests ne le lèvent jamais, ils gardent
+/// les vraies règles. En production (elsay.dev), la fonctionnalité `debug_niveaux` est
+/// absente : `tout_ouvert_qa` vaut toujours faux et la carte se débloque au fur et à
+/// mesure.
+///
+/// `AtomicBool` : un booléen global qu'on peut lire et écrire sans `unsafe` (une
+/// `static mut` l'exigerait). `Relaxed` suffit : un seul fil d'exécution le lit.
+#[cfg(feature = "debug_niveaux")]
+static TOUT_OUVERT_QA: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Lève le drapeau « tout ouvert » du site de test (appelé par `main`, build de QA).
+#[cfg(feature = "debug_niveaux")]
+pub fn ouvrir_tout_qa() {
+    TOUT_OUVERT_QA.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Toute la carte est-elle ouverte (site de test) ? Toujours faux en production.
+fn tout_ouvert_qa() -> bool {
+    #[cfg(feature = "debug_niveaux")]
+    {
+        TOUT_OUVERT_QA.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    #[cfg(not(feature = "debug_niveaux"))]
+    {
+        false
+    }
+}
+
+/// Calcule `f` avec les VRAIES règles de déblocage, même sur le site de test. Sert à
+/// JOUER (« qu'il reprenne où j'en suis ») : sans cela, la carte tout ouverte du site
+/// de test le ferait toujours partir au dernier niveau du Monde 2.
+pub fn selon_la_vraie_progression<T>(f: impl FnOnce() -> T) -> T {
+    #[cfg(feature = "debug_niveaux")]
+    {
+        use std::sync::atomic::Ordering::Relaxed;
+        let avant = TOUT_OUVERT_QA.swap(false, Relaxed);
+        let r = f();
+        TOUT_OUVERT_QA.store(avant, Relaxed);
+        r
+    }
+    #[cfg(not(feature = "debug_niveaux"))]
+    {
+        f()
+    }
+}
+
 /// La clé du niveau qui ouvre les mondes suivants (carte 9.1) : « Le retour du
 /// Grand Nuage » (`poursuite`), terminé au moins une fois. Tant qu'il n'est pas fini,
 /// la carte des niveaux ne montre que le Monde 1 et une partie ne peut pas s'y lancer.
@@ -65,6 +115,9 @@ pub const CLE_ACCES_MONDES_SUIVANTS: &str = "poursuite";
 /// `CLE_ACCES_MONDES_SUIVANTS` est terminé au moins une fois (la règle du Monde 2,
 /// carte 9.1). Pure (la sauvegarde est en lecture).
 pub fn mondes_suivants_ouverts(niveaux: &[InfosNiveau], s: &Sauvegarde) -> bool {
+    if tout_ouvert_qa() {
+        return true;
+    }
     let Some(n) = indice_de_cle(niveaux, CLE_ACCES_MONDES_SUIVANTS).and_then(|i| niveaux.get(i))
     else {
         return false;
@@ -128,6 +181,14 @@ fn etat_etape_monde(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEt
     let Some(n) = niveaux.get(i) else {
         return EtatEtape::Verrouillee;
     };
+    // Site de test : toutes les étapes ouvertes, bonus compris.
+    if tout_ouvert_qa() {
+        return if fini(niveaux, s, i) {
+            EtatEtape::Finie
+        } else {
+            EtatEtape::Ouverte
+        };
+    }
     let ouverte = match n.genre {
         GenreNiveau::Bonus => {
             let toutes = gouttes_trouvees_normales(niveaux, s) >= gouttes_pour_le_bonus(niveaux);

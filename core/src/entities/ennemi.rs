@@ -168,6 +168,20 @@ pub struct Ennemi {
     eau: PhaseEau,
     /// Grenouille : vitesse horizontale (px/s) du bond en cours, 0 sinon.
     elan: f32,
+    /// Ce qui, au départ, n'est pas celui de `new` (sens du regard, premier
+    /// sommeil du chat, premier repos du poisson) : `revenir_a_l_origine` le
+    /// remet (carte 9.29).
+    depart: Depart,
+}
+
+/// La part de l'état de départ d'un ennemi que `Ennemi::new` ne fixe pas seul :
+/// les constructeurs (`pigeon`, `chat`, `poisson`) et le chargeur de niveau la
+/// règlent. Tout le reste se reconstruit avec `new` (type, origine, portée).
+#[derive(Debug, Clone, Copy)]
+struct Depart {
+    vers_la_droite: bool,
+    sommeil: PhaseChat,
+    eau: PhaseEau,
 }
 
 impl Ennemi {
@@ -192,7 +206,39 @@ impl Ennemi {
             bond: None,
             eau: PhaseEau::Guet,
             elan: 0.0,
+            depart: Depart {
+                vers_la_droite: false,
+                sommeil: PhaseChat::Dort(DORT_PAS),
+                eau: PhaseEau::Guet,
+            },
         }
+    }
+
+    /// Fixe le sens du regard au départ : l'ennemi regarde de ce côté dès
+    /// maintenant, et y regardera de nouveau après une mort de Pépin.
+    pub fn regarder_au_depart(&mut self, vers_la_droite: bool) {
+        self.vers_la_droite = vers_la_droite;
+        self.depart.vers_la_droite = vers_la_droite;
+    }
+
+    /// Pépin vient de mourir (carte 9.29) : un ennemi VIVANT reprend sa place,
+    /// son sens et son état de départ (chat endormi, pigeon perché, corbeau en
+    /// début de patrouille), compteurs remis à zéro comme dans `new`. Un ennemi
+    /// écrasé (ou disparu) le reste : le chemin déjà gagné reste gagné.
+    ///
+    /// On RECONSTRUIT avec `new` à l'origine (même type, donc même taille et
+    /// même portée), puis on remet la part du départ que `new` ne connaît pas
+    /// (`Depart`) : aucun compteur ne peut être oublié.
+    pub fn revenir_a_l_origine(&mut self) {
+        if self.etat != EtatEnnemi::Actif {
+            return;
+        }
+        let depart = self.depart;
+        *self = Ennemi::new(self.type_ennemi, self.origine_x, self.origine_y);
+        self.depart = depart;
+        self.vers_la_droite = depart.vers_la_droite;
+        self.sommeil = depart.sommeil;
+        self.eau = depart.eau;
     }
 
     /// Peut-il blesser le joueur (ou être écrasé) ?

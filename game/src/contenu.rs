@@ -253,6 +253,20 @@ pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
         },
     ),
     (
+        "riviere",
+        Intro {
+            texte: "L'orage est passé. La rivière descend la vallée : par les ponts, ou en barque.",
+            astuce: "Les ponts du haut sont plus sûrs, la barque du bas va plus vite.",
+        },
+    ),
+    (
+        "port",
+        Intro {
+            texte: "La pluie arrive au port. Au bout de la jetée, quelque chose remue dans l'eau.",
+            astuce: "Un bateau va et vient : attends-le au bord du quai.",
+        },
+    ),
+    (
         "pieuvre",
         Intro {
             texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
@@ -557,14 +571,17 @@ pub const TITRE_PLAN: &str = "CARTE DES NIVEAUX";
 pub fn libelle_chapitre(monde: u8) -> String {
     format!("CHAPITRE {monde}")
 }
+/// Le titre du chapitre 1 (carte 9.28), pendant de « Là où va la pluie » : Pépin
+/// y monte des toits jusqu'aux nuages et au soleil.
+pub const TITRE_CHAPITRE_1: &str = "CHAPITRE 1 : LÀ D'OÙ VIENT LA PLUIE";
 /// Le titre du chapitre 2 (« Là où va la pluie », étape 9).
 pub const TITRE_CHAPITRE_2: &str = "CHAPITRE 2 : LÀ OÙ VA LA PLUIE";
 /// Titre de la carte des niveaux d'un chapitre (carte 9.1b), dans son bandeau du
-/// haut : le Monde 1 n'en a pas (son bandeau reste « CARTE DES NIVEAUX ») ; le
-/// Monde 2 porte le nom de son chapitre. Il tient dans le bandeau (test
-/// `etiquette_de_niveau`).
+/// haut : chaque chapitre porte son nom (carte 9.28 : le Monde 1 aussi, au lieu de
+/// « CARTE DES NIVEAUX »). Il tient dans le bandeau (test `etiquette_de_niveau`).
 pub fn titre_chapitre(monde: u8) -> Option<&'static str> {
     match monde {
+        1 => Some(TITRE_CHAPITRE_1),
         2 => Some(TITRE_CHAPITRE_2),
         _ => None,
     }
@@ -730,6 +747,7 @@ pub(crate) mod tests {
             CARTE,
             TITRE_PLAN,
             AIDE_PLAN,
+            TITRE_CHAPITRE_1,
             TITRE_CHAPITRE_2,
             NIVEAU_SECRET,
             INDICE_SECRET,
@@ -932,16 +950,19 @@ pub(crate) mod tests {
         assert!(pepin_core::font::largeur_texte("CHAPITRE 2 · NIVEAU BONUS", 1) <= 280);
         // Le titre du chapitre 2 tient dans le bandeau de la carte des niveaux : centré
         // sur l'écran (320 px), à droite du compteur de gouttes (x < 48), soit 224 px.
-        assert!(pepin_core::font::largeur_texte(TITRE_CHAPITRE_2, 1) <= 224);
-        assert_eq!(
-            titre_chapitre(1),
-            None,
-            "le Monde 1 n'a pas de titre de chapitre"
-        );
+        for titre in [TITRE_CHAPITRE_1, TITRE_CHAPITRE_2] {
+            assert!(pepin_core::font::largeur_texte(titre, 1) <= 224, "{titre}");
+        }
+        assert_eq!(titre_chapitre(1), Some(TITRE_CHAPITRE_1));
+        assert_eq!(titre_chapitre(2), Some(TITRE_CHAPITRE_2));
         // Chaque caractère existe dans la police.
         for e in ["NIVEAU BONUS", "ÉPILOGUE", "NIVEAU 10/10", "NIVEAU D'ESSAI"]
             .into_iter()
-            .chain(["CHAPITRE 2 · NIVEAU 3/8", TITRE_CHAPITRE_2])
+            .chain([
+                "CHAPITRE 2 · NIVEAU 3/8",
+                TITRE_CHAPITRE_1,
+                TITRE_CHAPITRE_2,
+            ])
             .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
             .chain([INTRO_ESSAI_CHAT.texte, INTRO_ESSAI_CHAT.astuce])
             .chain([INTRO_ESSAI_HORLOGE.texte, INTRO_ESSAI_HORLOGE.astuce])

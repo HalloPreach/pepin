@@ -719,7 +719,7 @@ impl Application {
             // l'histoire du Monde 1) ; REJOUER garde le monde de la partie finie.
             Choix::Jouer | Choix::Rejouer | Choix::NouvellePartiePlus => {
                 let monde = match choix {
-                    Choix::Jouer => self.monde_de_jouer(),
+                    Choix::Jouer => plan::selon_la_vraie_progression(|| self.monde_de_jouer()),
                     Choix::Rejouer => self.monde.infos.monde,
                     _ => 1,
                 };
@@ -737,7 +737,9 @@ impl Application {
                 // REJOUER et NOUVELLE PARTIE + repartent du début du monde.
                 let debut = levels::debut_monde(NIVEAUX, monde).unwrap_or(0);
                 let indice = if choix == Choix::Jouer {
-                    plan::EtatPlan::ou_on_en_est_du_monde(NIVEAUX, &self.sauvegarde, monde)
+                    plan::selon_la_vraie_progression(|| {
+                        plan::EtatPlan::ou_on_en_est_du_monde(NIVEAUX, &self.sauvegarde, monde)
+                    })
                 } else {
                     debut
                 };

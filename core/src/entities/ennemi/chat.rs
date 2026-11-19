@@ -164,6 +164,7 @@ impl Ennemi {
     pub fn chat(x: f32, y: f32, decalage_pas: u16) -> Self {
         let mut c = Ennemi::new(TypeEnnemi::Chat, x, y);
         c.sommeil = PhaseChat::Dort(DORT_PAS - decalage_pas.min(DORT_PAS - 1));
+        c.depart.sommeil = c.sommeil;
         c
     }
 

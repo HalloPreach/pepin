@@ -37,7 +37,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     // caniveau (numéro 1), donc 2 ici. Sa place finale est la 7e (avant la marée) :
     // à la fusion, le coordinateur range la ligne et corrige les numéros
     // (`verifier_ordre` refuse un 7 tant que les niveaux 2 à 6 manquent).
-    numero: 5,
+    numero: 7,
     cle: "pieuvre",
     sans_planer: false,
     nom: "La Pieuvre du port",

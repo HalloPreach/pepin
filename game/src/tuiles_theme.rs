@@ -31,14 +31,25 @@ struct Voisinage {
     /// Hachage fixe de la case (`scene::hachage_case`) : les variantes d'un dessin
     /// tombent toujours au même endroit.
     hachage: u32,
+    /// Le port (carte 9.11b) : la case est-elle à la hauteur de l'eau (de l'eau sur
+    /// sa rangée, à moins de `PORTEE_EAU` cases) ? Toujours faux ailleurs.
+    rangee_d_eau: bool,
 }
+
+/// Distance (cases) à laquelle le port cherche l'eau sur la rangée d'une case.
+const PORTEE_EAU: i32 = 24;
 
 /// Le thème a-t-il son propre jeu de tuiles ? (La bande d'ombre sous les toits du
 /// Monde 1 ne s'y pose pas.)
 pub(crate) fn a_son_jeu(theme: Theme) -> bool {
     matches!(
         theme,
-        Theme::Caniveau | Theme::Egouts | Theme::Cascade | Theme::Grotte | Theme::Port
+        Theme::Caniveau
+            | Theme::Egouts
+            | Theme::Cascade
+            | Theme::Grotte
+            | Theme::Riviere
+            | Theme::Port
     )
 }
 
@@ -56,8 +67,9 @@ pub(crate) fn nom_du_theme(
         Theme::Egouts => egouts,
         Theme::Cascade => cascade,
         Theme::Grotte => grotte,
+        Theme::Riviere => riviere,
         Theme::Port => port,
-        // La rivière et la marée : leurs niveaux viendront avec leur jeu.
+        // La marée : son niveau viendra avec son jeu.
         _ => return None,
     };
     if !tuile.est_solide() {
@@ -78,6 +90,9 @@ pub(crate) fn nom_du_theme(
         gauche: vue(tx - 1, ty),
         droite: vue(tx + 1, ty),
         hachage,
+        rangee_d_eau: theme == Theme::Port
+            && (1..=PORTEE_EAU)
+                .any(|d| vue(tx - d, ty) == Tuile::Eau || vue(tx + d, ty) == Tuile::Eau),
     }))
 }
 
@@ -195,15 +210,12 @@ fn egouts(v: &Voisinage) -> &'static str {
     if v.dessus == Tuile::Eau {
         return "ego_fond";
     }
-    if v.dessous == Tuile::Vide {
-        // Sous un plafond : la voûte, une arche de deux cases (colonne paire, puis
-        // impaire) ; aux bouts, l'angle du mur.
-        return match (g, d) {
-            (true, _) => "ego_angle_g",
-            (false, true) => "ego_angle_d",
-            _ if v.tx.rem_euclid(2) == 0 => "ego_voute_g",
-            _ => "ego_voute_d",
-        };
+    if v.dessous == Tuile::Vide && (g || d) {
+        // Sous un plafond, aux bouts : l'angle du mur. Carte 9.27b (AGA : « des
+        // voûtes bizarres ») : entre les deux, plus d'arches aveugles
+        // `ego_voute_*`, qui faisaient une guirlande de festons sous chaque
+        // plafond ; des briques, comme le reste du mur.
+        return if g { "ego_angle_g" } else { "ego_angle_d" };
     }
     match (g, d) {
         (true, _) => "ego_mur_g",
@@ -273,9 +285,46 @@ fn grotte(v: &Voisinage) -> &'static str {
     }
 }
 
+/// La rivière (carte 9.10) : la terre (`B`) fait les berges, herbe rousse sur les
+/// dessus, galets au bord et au fond de l'eau ; le `#` fait les rochers du courant,
+/// gris, coiffés de mousse.
+fn riviere(v: &Voisinage) -> &'static str {
+    if v.tuile == Tuile::Toit {
+        // Carte 9.10b : un `#` d'une rangée au-dessus du vide est un PONT de bois.
+        if sol(v) && v.dessous == Tuile::Vide {
+            return "riv_pont";
+        }
+        return if sol(v) {
+            "riv_rocher_haut"
+        } else {
+            "riv_rocher"
+        };
+    }
+    if sol(v) {
+        return dessus_borde(
+            v,
+            ["riv_herbe_seul", "riv_herbe_g", "riv_herbe_d", "riv_herbe"],
+        );
+    }
+    if v.dessus == Tuile::Eau {
+        return "riv_galets";
+    }
+    if v.gauche == Tuile::Eau || v.droite == Tuile::Eau {
+        return "riv_berge";
+    }
+    if v.hachage.is_multiple_of(3) {
+        "riv_terre_b"
+    } else {
+        "riv_terre"
+    }
+}
+
 /// Le port (carte 9.6c) : le bois (`#`) fait des pontons en planches sur leurs
 /// pieux, ou une caisse quand il est posé sur un solide ; la pierre (`B`) fait le
 /// quai (dalles claires sur le dessus, anneaux d'amarrage aux parois, fond noyé).
+/// Carte 9.11b : le mur du quai varie. À la hauteur de l'eau, la pierre noircie et
+/// ses algues ; aux parois d'une colonne sur trois, une échelle de fer d'un seul
+/// tenant jusqu'à l'eau ; dans le plein, des pierres de taille et des barbacanes.
 fn port(v: &Voisinage) -> &'static str {
     if v.tuile == Tuile::Toit {
         if v.dessous.est_solide() {
@@ -297,10 +346,23 @@ fn port(v: &Voisinage) -> &'static str {
     if v.dessus == Tuile::Eau {
         return "por_fond";
     }
-    if (ouvert(v.gauche) || ouvert(v.droite)) && v.hachage.is_multiple_of(5) {
+    if v.gauche == Tuile::Eau || v.droite == Tuile::Eau || v.rangee_d_eau {
+        return "por_algues";
+    }
+    // La paroi d'un quai : de l'air, de l'eau ou un ponton (qui s'y amarre) à côté.
+    let bord = |t: Tuile| ouvert(t) || t == Tuile::Toit;
+    if (bord(v.gauche) || bord(v.droite)) && v.tx.rem_euclid(3) == 1 {
+        return "por_echelle";
+    }
+    let paroi = ouvert(v.gauche) || ouvert(v.droite);
+    if paroi && v.hachage.is_multiple_of(5) {
         return "por_anneau";
     }
-    "por_pierre"
+    match v.hachage % 9 {
+        0 | 5 => "por_taille",
+        3 => "por_barbacane",
+        _ => "por_pierre",
+    }
 }
 
 /// Objet de décor posé SUR une tuile (dessiné dans la case du dessus, sans
@@ -376,5 +438,79 @@ mod tests_bouche_d_egout {
             ),
             (x, y)
         );
+    }
+}
+
+#[cfg(test)]
+mod tests_quai_du_port {
+    use super::*;
+    use pepin_core::levels::port;
+
+    /// Carte 9.11b : le mur du quai du port n'est plus uniforme. Dans « Le port »,
+    /// chaque nom choisi a son dessin ; la rangée de l'eau est en pierre aux algues
+    /// d'un bout à l'autre ; chaque échelle descend d'un seul tenant de sous le
+    /// dessus du quai jusqu'aux algues ; le plein mêle pierres de taille,
+    /// barbacanes et pierres ordinaires.
+    #[test]
+    fn le_mur_du_quai_varie_et_ses_echelles_descendent_a_l_eau() {
+        let niveau = port::INFOS.charger().expect("port");
+        let (larg, bas) = (niveau.largeur() as i32, niveau.hauteur() as i32);
+        let vue = |x: i32, y: i32| {
+            if y >= bas {
+                Tuile::Brique
+            } else {
+                niveau.tuile_decor(x, y)
+            }
+        };
+        let nom = |tx: i32, ty: i32| {
+            let h = (tx as u32).wrapping_mul(0x9E37_79B1) ^ (ty as u32).wrapping_mul(0x85EB_CA77);
+            nom_du_theme(Theme::Port, (tx, ty, vue(tx, ty)), vue, h)
+        };
+        let mut vus = std::collections::BTreeSet::new();
+        for ty in 0..bas {
+            for tx in 0..larg {
+                if let Some(n) = nom(tx, ty) {
+                    assert!(
+                        crate::sprites::tuiles_monde2::port::SPRITES
+                            .iter()
+                            .any(|(dessin, _)| *dessin == n),
+                        "{n} ({tx}, {ty}) n'a pas de dessin"
+                    );
+                    vus.insert(n);
+                }
+            }
+        }
+        for n in [
+            "por_taille",
+            "por_barbacane",
+            "por_algues",
+            "por_echelle",
+            "por_pierre",
+        ] {
+            assert!(vus.contains(n), "{n} absent du port");
+        }
+        // La rangée de l'eau : chaque pierre (sous le dessus du quai) y est aux algues.
+        let eau = (0..bas)
+            .find(|&y| (0..larg).any(|x| vue(x, y) == Tuile::Eau))
+            .expect("eau");
+        for tx in 0..larg {
+            if vue(tx, eau) == Tuile::Brique && vue(tx, eau - 1).est_solide() {
+                assert_eq!(nom(tx, eau), Some("por_algues"), "colonne {tx}");
+            }
+        }
+        // Chaque échelle : sous le dessus du quai, d'un seul tenant jusqu'aux algues.
+        let mut echelles = 0;
+        for tx in 0..larg {
+            let cases: Vec<i32> = (0..bas)
+                .filter(|&y| nom(tx, y) == Some("por_echelle"))
+                .collect();
+            if let (Some(&haut), Some(&fin)) = (cases.first(), cases.last()) {
+                echelles += 1;
+                assert_eq!(cases.len() as i32, fin - haut + 1, "colonne {tx}");
+                assert!(nom(tx, haut - 1).is_some_and(|n| n.starts_with("por_quai")));
+                assert_eq!(nom(tx, fin + 1), Some("por_algues"), "colonne {tx}");
+            }
+        }
+        assert!(echelles >= 2, "{echelles} échelles");
     }
 }

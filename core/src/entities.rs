@@ -314,6 +314,13 @@ impl Entite {
 /// ramène toujours au départ ; sans cette règle, après une chute aux premiers
 /// vides, le pont du départ était encore effondré (une dalle ne revient que 3 s
 /// après sa chute) et l'on retombait aussitôt.
+///
+/// Les ennemis et les escargots (carte 9.29). AGA l'a demandé : « il faudrait
+/// que lors d'une mort les monstres reprennent leur emplacement d'origine ».
+/// Chaque ennemi VIVANT revient donc à sa place, à son sens et à son état de
+/// départ (`Ennemi::revenir_a_l_origine`) : la scène que Pépin retrouve est
+/// celle qu'il a déjà vue, il peut la rejouer à l'identique. Un ennemi ÉCRASÉ
+/// reste écrasé : le chemin déjà gagné reste gagné.
 pub fn reprendre_apres_une_mort(entites: &mut [Entite], occupant: &Aabb) {
     for e in entites {
         match e {
@@ -323,6 +330,9 @@ pub fn reprendre_apres_une_mort(entites: &mut [Entite], occupant: &Aabb) {
             // Carte 9.3 : le nénuphar remonte, la stalactite est raccrochée.
             Entite::Nenuphar(n) => n.remettre(),
             Entite::Stalactite(s) => s.raccrocher(),
+            // Carte 9.29 : les monstres reprennent leur place d'origine.
+            Entite::Ennemi(en) => en.revenir_a_l_origine(),
+            Entite::Escargot(es) => es.revenir_a_l_origine(),
             _ => {}
         }
     }
@@ -370,5 +380,62 @@ mod tests {
             _ => unreachable!(),
         }
         assert_eq!(e.boite().h, 64.0);
+    }
+
+    /// Carte 9.29 : après une mort, un corbeau déplacé et un pigeon en plein
+    /// piqué reviennent exactement à leur place et à leur état de départ.
+    #[test]
+    fn apres_une_mort_les_ennemis_reprennent_leur_depart() {
+        use crate::entities::ennemi::PhasePigeon;
+        use crate::physics::{JOUEUR_H, JOUEUR_L};
+        let grille = GrilleTuiles::vide(40, 20);
+        let env = Environnement::simple(&grille);
+        let corbeau = Ennemi::new(TypeEnnemi::Corbeau, 300.0, 50.0);
+        let pigeon = Ennemi::pigeon(100.0, 54.0, true);
+        let mut entites = vec![
+            Entite::Ennemi(corbeau.clone()),
+            Entite::Ennemi(pigeon.clone()),
+        ];
+        // Pépin passe sous le pigeon, devant lui : annonce, puis piqué.
+        let proie = Aabb::new(120.0 - JOUEUR_L / 2.0, 104.0, JOUEUR_L, JOUEUR_H);
+        if let Entite::Ennemi(p) = &mut entites[1] {
+            p.guetter(&proie);
+        }
+        for _ in 0..u32::from(ennemi::ANNONCE_PIGEON_PAS) + 8 {
+            for e in entites.iter_mut() {
+                e.actualiser(&env);
+            }
+        }
+        let (Entite::Ennemi(c), Entite::Ennemi(p)) = (&entites[0], &entites[1]) else {
+            unreachable!()
+        };
+        assert_ne!(c.boite.x, corbeau.boite.x, "le corbeau a bougé");
+        assert!(
+            matches!(p.phase(), PhasePigeon::Plongee(_)),
+            "{:?}",
+            p.phase()
+        );
+        reprendre_apres_une_mort(&mut entites, &Aabb::new(0.0, 0.0, 12.0, 14.0));
+        for (e, depart) in entites.iter().zip([&corbeau, &pigeon]) {
+            let Entite::Ennemi(en) = e else {
+                unreachable!()
+            };
+            // `Debug` montre TOUS les champs, privés compris : rien n'est oublié.
+            assert_eq!(format!("{en:?}"), format!("{depart:?}"));
+        }
+    }
+
+    /// Carte 9.29 : un ennemi écrasé le reste après une mort de Pépin.
+    #[test]
+    fn apres_une_mort_un_ennemi_ecrase_le_reste() {
+        use crate::entities::ennemi::EtatEnnemi;
+        let mut f = Ennemi::new(TypeEnnemi::Flaque, 64.0, 40.0);
+        f.ecraser();
+        let mut entites = vec![Entite::Ennemi(f)];
+        reprendre_apres_une_mort(&mut entites, &Aabb::new(0.0, 0.0, 12.0, 14.0));
+        let Entite::Ennemi(f) = &entites[0] else {
+            unreachable!()
+        };
+        assert!(matches!(f.etat, EtatEnnemi::Ecrase(_)), "{:?}", f.etat);
     }
 }

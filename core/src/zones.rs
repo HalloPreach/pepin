@@ -142,7 +142,11 @@ impl Theme {
     /// (seule la grêle y tombe, en colonnes), ni sous l'arc-en-ciel (la pluie
     /// vient de s'arrêter), ni pendant la descente (l'orage est fini : on rentre), ni
     /// devant le front d'orage du Grand Nuage (il ne pleut que dedans), ni dans la
-    /// grotte du Monde 2 (carte 9.5 : la pluie est restée dehors).
+    /// grotte du Monde 2 (carte 9.5 : la pluie est restée dehors), ni dans les
+    /// égouts (carte 9.27 : sous terre ; seuls les filets d'eau des grilles y
+    /// tombent, dessinés par leur habillage), ni sur la rivière (carte 9.10b :
+    /// l'orage est passé, le soleil se couche). Rendu seulement : aucune règle de
+    /// jeu n'en dépend.
     pub fn pluie(self) -> bool {
         !matches!(
             self,
@@ -151,7 +155,9 @@ impl Theme {
                 | Theme::ArcEnCiel
                 | Theme::Descente
                 | Theme::Poursuite
+                | Theme::Egouts
                 | Theme::Grotte
+                | Theme::Riviere
         )
     }
 }
@@ -1381,8 +1387,16 @@ mod tests {
             // Chaque niveau a son décor, sauf l'arène du Grand Nuage (pas de
             // drapeau) : ses 17 colonnes d'éclairs couvrent tout le sol, et un objet
             // de décor n'est jamais devant un danger (carte 4.2). Son décor, c'est
-            // le fond (trouée d'or, tours de nuages) et le nuage lui-même.
-            if avec.arrivee.is_some() {
+            // le fond (trouée d'or, tours de nuages) et le nuage lui-même. Les
+            // égouts non plus (carte 9.27 : leurs souches se lisaient comme des
+            // cheminées de toit ; tous les objets de décor sont de dehors) : leur
+            // décor, c'est leur habillage (grilles, tuyaux, voûtes).
+            if infos.theme == Theme::Egouts {
+                assert!(
+                    avec.decors.is_empty(),
+                    "niveau {n} : décor de dehors sous terre"
+                );
+            } else if avec.arrivee.is_some() {
                 assert!(!avec.decors.is_empty(), "niveau {n} : aucun décor");
             }
             assert!(sans.decors.is_empty());
