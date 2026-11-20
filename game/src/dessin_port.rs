@@ -505,15 +505,7 @@ mod tests {
             noms.push(nom);
         }
         noms.sort();
-        assert_eq!(
-            noms,
-            [
-                "port_bateau",
-                "port_bateau",
-                "port_bateau",
-                "port_caisse_grue"
-            ]
-        );
+        assert_eq!(noms, ["port_bateau", "port_bateau", "port_caisse_grue"]);
         assert_eq!(sprite_du_port("pieuvre", (0.0, 0.0), (16.0, 0.0)), None);
     }
 }
