@@ -114,6 +114,9 @@ pub(super) fn analyser(
     // haut de la tour `&`.
     let mut bache: Vec<Case> = Vec::new();
     let mut tetes_finales: Vec<Case> = Vec::new();
+    // La montée de la carte 9.13b : rencontres `$`, trappes `-`, arrachables `%`,
+    // balayeurs `!`.
+    let mut tour = ReperesTour::default();
     let mut gouttes = 0usize;
     let mut lettres = 0usize;
     // Secrets (carte 8.5) : faux murs `m` et sortie secrète `x`.
@@ -230,6 +233,16 @@ pub(super) fn analyser(
                 // la bâche est une boîte solide de la pieuvre (`Entite::solide`).
                 '_' => bache.push(case),
                 '&' => tetes_finales.push(case),
+                // Carte 9.13b : la tête d'une rencontre et la trappe qu'elle tient
+                // (cases libres de la grille), le balayeur (case libre), les
+                // plateformes arrachables (solides, comme un toit).
+                '$' => tour.rencontres.push(case),
+                '-' => tour.trappes.push(case),
+                '!' => tour.balayeurs.push(case),
+                '%' => {
+                    tuiles[ty * largeur + tx] = Tuile::Toit;
+                    tour.arrachables.push(case);
+                }
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -285,7 +298,7 @@ pub(super) fn analyser(
     }
     // Une bâche `_` ou une tête finale `&` sans Pieuvre n'a pas de sens.
     if pieuvres.is_empty() {
-        if let Some(&(tx, ty)) = bache.first().or(tetes_finales.first()) {
+        if let Some(&(tx, ty)) = bache.first().or(tetes_finales.first()).or(tour.premier()) {
             return Err(ErreurNiveau::PieuvreSansPlace {
                 ligne: ty + 1,
                 colonne: tx + 1,
@@ -508,7 +521,7 @@ pub(super) fn analyser(
     }
     // Pieuvre du port : voir `poser_pieuvre`.
     for &case in &pieuvres {
-        let p = poser_pieuvre(&tuiles, largeur, case, &bache, &tetes_finales)?;
+        let p = poser_pieuvre(&tuiles, largeur, case, &bache, &tetes_finales, &tour)?;
         entites.push(Entite::Pieuvre(Box::new(p)));
     }
 
@@ -822,6 +835,7 @@ fn poser_pieuvre(
     (tx, ty): Case,
     bache: &[Case],
     tetes_finales: &[Case],
+    tour: &ReperesTour,
 ) -> Result<Pieuvre, ErreurNiveau> {
     let erreur = ErreurNiveau::PieuvreSansPlace {
         ligne: ty + 1,
@@ -915,7 +929,107 @@ fn poser_pieuvre(
             .filter(|&s| s > p.arret_mer)
             .collect();
     }
+    if !tour.est_vide() && rangee_bache.is_none() {
+        return Err(erreur);
+    }
+    p.tour = tour.poser(tuiles, largeur).ok_or(erreur)?;
     Ok(p)
+}
+
+/// Les repères de la montée de la carte 9.13b, tels que lus dans la grille.
+#[derive(Default)]
+struct ReperesTour {
+    rencontres: Vec<Case>,
+    trappes: Vec<Case>,
+    arrachables: Vec<Case>,
+    balayeurs: Vec<Case>,
+}
+
+/// Les suites de cases voisines sur une même rangée (dans l'ordre de lecture).
+fn suites(cases: &[Case]) -> Vec<Vec<Case>> {
+    let mut suites: Vec<Vec<Case>> = Vec::new();
+    for &c in cases {
+        match suites.last_mut() {
+            Some(s) if s.last().is_some_and(|d| d.1 == c.1 && d.0 + 1 == c.0) => s.push(c),
+            _ => suites.push(vec![c]),
+        }
+    }
+    suites
+}
+
+impl ReperesTour {
+    fn est_vide(&self) -> bool {
+        self.premier().is_none()
+    }
+
+    fn premier(&self) -> Option<&Case> {
+        self.rencontres
+            .first()
+            .or(self.trappes.first())
+            .or(self.arrachables.first())
+            .or(self.balayeurs.first())
+    }
+
+    /// La montée de la Pieuvre (`pieuvre::Tour`) :
+    /// - chaque `$` est le coin bas-gauche d'une tête de rencontre (48 x 32, ses
+    ///   6 cases libres, posée sur une case solide) ; chaque suite de `-` sur une
+    ///   rangée est une trappe ; la k-ième tête (du bas) tient la k-ième trappe (du
+    ///   bas), qui doit être au-dessus d'elle ;
+    /// - chaque suite de `%` est une plateforme arrachable ;
+    /// - chaque `!` est un balayeur, au-dessus de la corniche qu'il balaie : il sort
+    ///   du mur le plus proche et glisse jusqu'au premier solide de sa rangée.
+    ///
+    /// `None` si un repère est mal placé.
+    fn poser(&self, tuiles: &[Tuile], largeur: usize) -> Option<pieuvre::Tour> {
+        let t = TAILLE_TUILE;
+        let solide = |x: usize, y: usize| tuiles[y * largeur + x].est_solide();
+        let mut tour = pieuvre::Tour::default();
+        let mut tetes = self.rencontres.clone();
+        tetes.sort_by_key(|c| std::cmp::Reverse(c.1));
+        let mut trappes = suites(&self.trappes);
+        trappes.sort_by_key(|s| std::cmp::Reverse(s[0].1));
+        if tetes.len() != trappes.len() {
+            return None;
+        }
+        for (&(fx, fy), trappe) in tetes.iter().zip(&trappes) {
+            let libre = fy >= 1
+                && fx + 3 <= largeur
+                && (fy - 1..=fy).all(|y| (fx..fx + 3).all(|x| !solide(x, y)))
+                && solide(fx, fy + 1);
+            if !libre || trappe[0].1 >= fy {
+                return None;
+            }
+            let (x0, y0) = trappe[0];
+            tour.rencontres.push(pieuvre::Rencontre {
+                tete: Aabb::new(
+                    fx as f32 * t,
+                    (fy as f32 - 1.0) * t,
+                    TAILLE_TETE.0,
+                    TAILLE_TETE.1,
+                ),
+                trappe: Aabb::new(x0 as f32 * t, y0 as f32 * t, trappe.len() as f32 * t, t),
+            });
+        }
+        tour.arrachables = suites(&self.arrachables)
+            .into_iter()
+            .map(|s| s.iter().map(|&(x, y)| (x as i32, y as i32)).collect())
+            .collect();
+        for &(bx, by) in &self.balayeurs {
+            let de_gauche = bx < largeur / 2;
+            let fin = if de_gauche {
+                (bx..largeur).find(|&x| solide(x, by))? as f32 * t
+            } else {
+                ((0..=bx).rev().find(|&x| solide(x, by))? + 1) as f32 * t
+            };
+            let depart = if de_gauche { bx } else { bx + 1 } as f32 * t;
+            tour.balayeurs.push(pieuvre::Balayeur {
+                y: (by + 1) as f32 * t,
+                depart,
+                arrivee: fin,
+            });
+        }
+        Some(tour)
+    }
 }
 
 /// Les plateformes que la Pieuvre peut saisir (carte 9.12f) : chaque groupe de

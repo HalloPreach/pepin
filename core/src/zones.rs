@@ -978,7 +978,8 @@ mod tests {
             let tour = niv.entites.iter().any(
                 |e| matches!(e, crate::entities::Entite::Pieuvre(p) if p.tete_finale.is_some()),
             );
-            let attendues = if tour { 2 } else { 1 };
+            // Carte 9.13b : et une troisième à mi-hauteur de la tour.
+            let attendues = if tour { 3 } else { 1 };
             assert_eq!(niv.nb_lanternes(), attendues, "niveau {n} : arène du boss");
         }
 

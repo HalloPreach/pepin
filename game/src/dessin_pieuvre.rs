@@ -174,7 +174,7 @@ pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
 /// Un tentacule de `h` px dressé au-dessus de `surface` (à l'écran) : des tronçons
 /// empilés depuis l'eau, puis le bout recourbé en haut (dessiné en dernier, il couvre
 /// le tronçon qui dépasse).
-fn dessiner_tentacule(banque: &Banque, x: f32, surface: f32, h: f32, pas: u32) {
+pub(crate) fn dessiner_tentacule(banque: &Banque, x: f32, surface: f32, h: f32, pas: u32) {
     if h <= 0.0 {
         return;
     }
@@ -219,6 +219,9 @@ fn dessiner_tete(p: &Pieuvre, banque: &Banque, pas: u32, cx: f32, cy: f32) {
                 false,
             );
         }
+        // Carte 9.13b : la tête d'une rencontre qui surgit ou qui replonge est
+        // dessinée par `dessin_montee`, et la vigie est vide pendant ce temps.
+        PhasePieuvre::Montee if p.surgissement().is_some() || p.tete_lachee().is_some() => {}
         PhasePieuvre::Tete | PhasePieuvre::Montee => {
             let nom = image(["pieuvre_colere0", "pieuvre_colere1"], pas, 20);
             if p.est_facile() {
@@ -266,7 +269,7 @@ pub fn dessiner_encre(monde: &Monde) {
 }
 
 /// La pieuvre du niveau, s'il y en a une.
-fn la_pieuvre(monde: &Monde) -> Option<&Pieuvre> {
+pub(crate) fn la_pieuvre(monde: &Monde) -> Option<&Pieuvre> {
     monde.entites.iter().find_map(|e| match e {
         Entite::Pieuvre(p) => Some(p.as_ref()),
         _ => None,
@@ -280,8 +283,11 @@ pub fn case_saisie(monde: &Monde, tx: i32, ty: i32) -> bool {
         .and_then(|p| {
             p.saisie()
                 .map(|s| p.plateformes[s.cible].contains(&(tx, ty)))
-                // Le quai cassé de la phase 2 (carte 9.13a) : tombé à l'eau.
-                .or(Some(p.case_engloutie(tx, ty)))
+                // Le quai cassé de la phase 2 (carte 9.13a) : tombé à l'eau ;
+                // les plateformes arrachées de la tour (carte 9.13b).
+                .or(Some(
+                    p.case_engloutie(tx, ty) || crate::dessin_montee::case_arrachee(p, tx, ty),
+                ))
         })
         .unwrap_or(false)
 }
@@ -368,7 +374,7 @@ pub fn dessiner_saisie(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
 /// d'un tentacule d'attaque (dont les 2 rangées cyan redoublaient l'eau du
 /// bassin). `(g, d)` : bords de la plateforme, `bassin` : bords de l'eau (monde) ;
 /// `(sx, sy)` : décalage de la caméra en x et surface à l'écran.
-fn dessiner_eau_saisie(
+pub(crate) fn dessiner_eau_saisie(
     banque: &Banque,
     etat: EtatSaisie,
     (g, d): (f32, f32),
