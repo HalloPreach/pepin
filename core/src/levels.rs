@@ -373,6 +373,7 @@ mod tests {
             duree_cible_s: 0,
             ascii: "",
             aiguilles: &[],
+            poissons_hauts: &[],
         }
     }
 

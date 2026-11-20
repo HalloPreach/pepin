@@ -26,6 +26,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 40,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// 35 x 11 tuiles, thème Orage (le ciel violet du futur clocher).

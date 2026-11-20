@@ -103,6 +103,9 @@ pub enum ErreurNiveau {
         colonne: usize,
         caractere: char,
     },
+    /// Un réglage de saut de poisson (carte 9.11e, `InfosNiveau::poissons_hauts`)
+    /// vise une case sans poisson `i`.
+    PoissonIntrouvable { ligne: usize, colonne: usize },
 }
 
 impl fmt::Display for ErreurNiveau {
@@ -195,6 +198,11 @@ impl fmt::Display for ErreurNiveau {
             ErreurNiveau::VentilateurSansAppui { ligne, colonne } => write!(
                 f,
                 "ligne {ligne}, colonne {colonne} : le ventilateur « w » n'est pas posé sur un solide"
+            ),
+            ErreurNiveau::PoissonIntrouvable { ligne, colonne } => write!(
+                f,
+                "ligne {ligne}, colonne {colonne} : un saut de poisson est réglé là, mais il \
+                 n'y a pas de poisson « i »"
             ),
             ErreurNiveau::MontgolfiereSansPlace { ligne, colonne } => write!(
                 f,

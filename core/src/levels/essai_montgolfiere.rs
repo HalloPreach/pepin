@@ -28,6 +28,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 30,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// 28 x 18 tuiles, thème Altitude.

@@ -144,7 +144,7 @@ pub const VITESSE_PLATEFORMES: f32 = ascii::VITESSE_MOBILE;
 pub const TAILLE_AIGUILLE: (f32, f32) = ascii::TAILLE_AIGUILLE;
 
 use crate::aabb::{self, Aabb, Grille, TAILLE_TUILE};
-use crate::entities::Entite;
+use crate::entities::{Entite, TypeEnnemi};
 use crate::physics::{CourantAscendant, Eau, VentLateral};
 
 /// Réglage d'une aiguille d'horloge (pivot `h`). Le fichier de niveau en donne
@@ -422,6 +422,37 @@ impl Niveau {
         aiguilles: &[ReglageAiguille],
     ) -> Result<Niveau, ErreurNiveau> {
         ascii::analyser(texte, aiguilles)
+    }
+
+    /// Règle la hauteur de saut (px) de poissons précis (carte 9.11e) : chaque
+    /// ligne `(colonne, rangée, hauteur)` vise le poisson dont la lettre `i` est
+    /// dans cette case (comptée depuis 0). Les autres gardent `HAUT_SAUT_POISSON`.
+    /// Une case sans poisson est une erreur (une faute de frappe ne passe pas).
+    pub fn regler_sauts_poissons(
+        &mut self,
+        reglages: &[(usize, usize, f32)],
+    ) -> Result<(), ErreurNiveau> {
+        for &(colonne, rangee, hauteur) in reglages {
+            let poisson = self.entites.iter_mut().find_map(|e| match e {
+                Entite::Ennemi(p)
+                    if p.type_ennemi == TypeEnnemi::Poisson
+                        && p.case_du_poisson() == (colonne, rangee) =>
+                {
+                    Some(p)
+                }
+                _ => None,
+            });
+            match poisson {
+                Some(p) => p.regler_saut_poisson(hauteur),
+                None => {
+                    return Err(ErreurNiveau::PoissonIntrouvable {
+                        ligne: rangee + 1,
+                        colonne: colonne + 1,
+                    })
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Largeur en tuiles.

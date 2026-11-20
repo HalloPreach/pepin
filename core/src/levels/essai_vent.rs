@@ -26,6 +26,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 30,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// Écran plat (36 x 11 tuiles), thème Soleil.
