@@ -26,6 +26,14 @@
 //! tête l'achève. Une mort en phase 2 ramène à la lanterne du bas de la tour, au
 //! début de la phase 2 (voir `entities::pieuvre::fuite`).
 //!
+//! LA MONTÉE (carte 9.13b, AGA : « la montée est trop simple et trop courte, il
+//! faudrait des interactions avec la pieuvre ») : une tour deux fois plus haute,
+//! deux RENCONTRES avec la tête (au tiers et aux deux tiers : elle bloque le
+//! passage jusqu'à ce qu'on lui saute dessus, la mer recule alors de 2 tuiles),
+//! deux BALAYEURS qui glissent sur une corniche, deux plateformes ARRACHÉES sous
+//! le nez de Pépin, et une lanterne de mi-hauteur (voir
+//! `entities::pieuvre::montee`).
+//!
 //! L'arène reprend la géométrie du niveau d'essai « pieuvre » (`essai_pieuvre`),
 //! sur laquelle le robot de QA a appris à battre la pieuvre : mêmes murs, même
 //! bassin, même place de la pieuvre, des pontons, des gouttes et de la
@@ -63,7 +71,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     poissons_hauts: &[],
 };
 
-/// 20 x 44 tuiles (4 écrans de haut, caméra verticale), thème Port.
+/// 20 x 80 tuiles (7,5 écrans de haut, caméra verticale), thème Port.
 ///
 /// En BAS (les 11 dernières rangées), l'arène de la phase 1, qui reprend la
 /// géométrie du niveau d'essai « pieuvre » : bassin de toute l'arène, la pieuvre
@@ -72,23 +80,37 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// 9.12c ; carte 9.12e : plus de petit ponton au-dessus de la tête du milieu), les
 /// trois gouttes sous le départ (prises en tombant) et la lanterne.
 ///
-/// Au-dessus, la phase 2 (carte 9.13a) : la BÂCHE `_` (le plafond de l'arène),
-/// puis la TOUR du port à escalader en zigzag, jamais le même motif plus de deux
-/// fois de suite :
-/// - la corniche du bas (rangée 30), de part et d'autre du trou de la trombe,
-///   et la lanterne de la reprise de la phase 2 ;
-/// - deux caisses (rangées 27 et 24) : vers la droite, puis vers la gauche ;
-/// - le pied d'un MÂT (colonne 7) sur une caisse plus large (rangée 22) ;
-/// - la corniche LARGE du quai de la grue (rangée 19, palier de la mer) ;
-/// - la VERGUE en haut du mât (rangée 16), puis une passerelle de grue FRIABLE
-///   `F` contre le mur gauche (rangée 13) ;
-/// - la seconde corniche large (rangée 10, palier), la caisse de la grue
-///   (rangée 7), puis la VIGIE du dernier mât (rangée 4), où la tête attend sur
-///   le bord (`&`).
+/// Au-dessus, la phase 2 : la BÂCHE `_` (le plafond de l'arène, carte 9.13a),
+/// puis la TOUR du port, doublée par la carte 9.13b (AGA : « la montée est trop
+/// simple et trop courte, il faudrait des interactions avec la pieuvre ») : 66
+/// rangées en zigzag, aucun motif plus de deux fois. Du bas vers le haut :
+/// - la corniche du bas (rangée 66) et sa lanterne, la reprise de la phase 2 ;
+/// - deux caisses (63, 60), une PLATEFORME MOBILE (`1`, rangée 57) qui mène à
+///   gauche, une caisse contre le mur (54), un saut plongeant par le trou de la
+///   corniche large 49 ;
+/// - RENCONTRE 1 (`$`, rangée 48) : la tête agrippée à la corniche 49 tient la
+///   TRAPPE `-` de la corniche 44 ; frappée, elle ouvre le passage ;
+/// - la LANTERNE de mi-hauteur (rangée 43), sur la corniche 44 ;
+/// - une VERGUE sur son mât (41-43), deux caisses (38) dont une ARRACHABLE `%`, à
+///   droite (l'autre chemin passe à gauche), deux corniches de mur (35) ;
+/// - le quai de la grue (32), que BALAIE un tentacule sorti du mur gauche (`!`) ;
+/// - une passerelle FRIABLE `F` (29), un passage étroit par le trou de la
+///   corniche 27 ;
+/// - RENCONTRE 2 (`$`, rangée 26), sur la corniche 27 : sa trappe est sur la
+///   corniche 22, au-dessus de la caisse 24 ;
+/// - la corniche 22, que balaie un tentacule sorti du mur droit (`!`) ;
+/// - deux caisses (19) dont une ARRACHABLE à gauche (l'autre chemin passe à
+///   droite), deux autres (16), la corniche large 13, une caisse (10), puis la
+///   VIGIE du dernier mât (7), où la tête attend (`&`), gardée par deux
+///   tentacules.
 ///
 /// Chaque saut monte de 2 ou 3 rangées et passe par une colonne libre à côté de
-/// l'appui suivant (le robot de faisabilité le vérifie).
+/// l'appui suivant (le robot de faisabilité le vérifie, avec et sans les
+/// plateformes arrachables).
 const ASCII: &str = r"
+B..................B
+B..................B
+B..................B
 B..................B
 B..................B
 B..................B
@@ -102,16 +124,49 @@ B..................B
 B....#########.....B
 B..................B
 B..................B
-BFFF...............B
+B..###........###..B
 B..................B
 B..................B
-B....####..........B
-B......#...........B
-B......#...........B
-B......#..#########B
-B......#...........B
-B......#...........B
-B.....####.........B
+B.....%%%..###.....B
+B..................B
+B.................!B
+B#---##############B
+B..................B
+B.###..............B
+B..................B
+B.....$............B
+B############...###B
+B..................B
+B............FFF...B
+B..................B
+B!.................B
+B...############...B
+B..................B
+B..................B
+B##.............###B
+B..................B
+B..................B
+B..###.......%%%...B
+B..................B
+B..................B
+B......#####.......B
+B........#.........B
+B..L.....#.........B
+B##############---#B
+B..................B
+B..............###.B
+B..................B
+B...........$......B
+B###...############B
+B..................B
+B...###............B
+B..................B
+B..................B
+B##................B
+B..................B
+B..................B
+B...1....1.........B
+B..................B
 B..................B
 B..........###.....B
 B..................B
@@ -141,7 +196,9 @@ mod tests {
     use crate::aabb::{Aabb, TAILLE_TUILE};
     use crate::entities::contacts::{resoudre_contacts, Contact};
     use crate::entities::pieuvre::{
-        PhasePieuvre, Pieuvre, ANNONCE_PAS, FURIE_PAS, PLONGEE_PAS, RYTHME_TENTACULE_PAS,
+        EtatArrachage, EtatBalai, EtatTentacule, PhasePieuvre, Pieuvre, ANNONCE_BALAI_PAS,
+        ANNONCE_PAS, ANNONCE_SAISIE_PAS, BOUT_BALAI, FURIE_PAS, GARDE_PAS, PLONGEE_PAS, RECUL_MER,
+        RYTHME_TENTACULE_PAS, SURGIT_PAS, VITESSE_BALAI,
     };
     use crate::entities::{Actualisable, Entite};
     use crate::level::Niveau;
@@ -150,10 +207,11 @@ mod tests {
     use crate::player::Joueur;
 
     /// Première rangée de l'arène : la tour et la bâche sont au-dessus.
-    const HAUT_ARENE: i32 = 33;
+    const HAUT_ARENE: i32 = 69;
 
-    /// L'arène du boss : pas de drapeau, une seule pieuvre, deux lanternes (au
-    /// départ, et au début de la tour : carte 9.13a), trois gouttes ; et, dans ses
+    /// L'arène du boss : pas de drapeau, une seule pieuvre, trois lanternes (au
+    /// départ, au début de la tour : carte 9.13a, à mi-hauteur : carte 9.13b),
+    /// trois gouttes ; et, dans ses
     /// 11 dernières rangées, EXACTEMENT la géométrie du niveau d'essai « pieuvre »
     /// (mêmes cases vides ou pleines, même pieuvre, même bassin, mêmes pontons,
     /// mêmes gouttes, même départ), sur laquelle le combat a été réglé et le robot
@@ -163,9 +221,9 @@ mod tests {
         let n = INFOS.charger().unwrap();
         let e = essai_pieuvre::INFOS.charger().unwrap();
         let dy = HAUT_ARENE as f32 * TAILLE_TUILE;
-        assert_eq!((n.largeur(), n.hauteur()), (20, 44));
+        assert_eq!((n.largeur(), n.hauteur()), (20, 80));
         assert!(n.arrivee.is_none(), "l'arène n'a pas de drapeau");
-        assert_eq!(n.nb_lanternes(), 2);
+        assert_eq!(n.nb_lanternes(), 3);
         assert_eq!(n.depart, (e.depart.0, e.depart.1 + dy));
         for ty in 0..11 {
             for tx in 0..20 {
@@ -215,9 +273,14 @@ mod tests {
                     .collect::<Vec<_>>())
                 .collect::<Vec<_>>()
         );
-        // Carte 9.13a : la tour a sa tête finale, sa bâche et deux paliers.
+        // Carte 9.13a : la tour a sa tête finale et sa bâche ; carte 9.13b : six
+        // paliers (sous ses six corniches larges), deux rencontres, deux
+        // balayeurs, deux plateformes arrachables.
         assert!(p.tete_finale.is_some() && p.bache.is_some());
-        assert_eq!(p.paliers.len(), 2, "{:?}", p.paliers);
+        assert_eq!(p.paliers.len(), 6, "{:?}", p.paliers);
+        assert_eq!(p.tour.rencontres.len(), 2);
+        assert_eq!(p.tour.balayeurs.len(), 2);
+        assert_eq!(p.tour.arrachables.len(), 2);
         assert!(
             q.tete_finale.is_none(),
             "le niveau d'essai reste en une phase"
@@ -415,6 +478,7 @@ mod tests {
     fn le_dernier_coup_finit_le_niveau() {
         let n = INFOS.charger().unwrap();
         let mut p = en_montee(&n, 300);
+        gagner_les_rencontres(&mut p, &n);
         let tete = p.tete_finale.unwrap();
         assert_eq!(p.tete(), Some(tete));
         let mut j = Joueur::new(tete.x + 19.0, tete.y - 12.0);
@@ -428,5 +492,278 @@ mod tests {
         // Jamais de tentacule de la montée sans la montée.
         let q = pieuvre(&n);
         assert!(q.tentacule_de_montee().is_none());
+    }
+
+    /// Pépin debout à `x` (milieu), les pieds en `bas`.
+    fn pepin_debout(x: f32, bas: f32) -> Aabb {
+        Aabb::new(x - JOUEUR_L / 2.0, bas - 14.0, JOUEUR_L, 14.0)
+    }
+
+    /// Un saut qui retombe sur `tete`.
+    fn saut_sur(tete: Aabb) -> Joueur {
+        let mut j = Joueur::new(tete.x + 19.0, tete.y - 12.0);
+        j.vitesse.y = 100.0;
+        j
+    }
+
+    /// Les deux rencontres, gagnées dans l'ordre comme en jeu (Pépin approche,
+    /// attend que la tête s'agrippe, lui saute dessus). Vérifie au passage que
+    /// chacune BLOQUE (sa trappe solide, la mer arrêtée) puis se DÉBLOQUE (la
+    /// trappe ouverte, la mer qui RECULE de 2 tuiles).
+    fn gagner_les_rencontres(p: &mut Pieuvre, n: &Niveau) {
+        for k in 0..p.tour.rencontres.len() {
+            let r = p.tour.rencontres[k];
+            assert_eq!(p.solide(), Some(r.trappe), "rencontre {k} : trappe fermée");
+            assert!(p.rencontre().is_none());
+            p.voir_pepin(pepin_debout(r.tete.x - 40.0, r.tete.bas()));
+            pas(p, n, 1);
+            assert_eq!(p.rencontre(), Some(&r), "rencontre {k} : la tête surgit");
+            assert!(!p.recoit(&saut_sur(r.tete)), "pas frappable en surgissant");
+            let mer = p.surface_mer().unwrap();
+            pas(p, n, u32::from(SURGIT_PAS) + 200);
+            assert_eq!(p.surface_mer().unwrap(), mer, "la mer s'arrête");
+            assert_eq!(p.solide(), Some(r.trappe), "elle bloque toujours");
+            let pv = p.pv();
+            assert!(p.recoit(&saut_sur(r.tete)));
+            p.toucher();
+            assert_eq!(p.pv(), pv - 1);
+            assert!(p.rencontre().is_none() && p.tete_lachee().is_some());
+            assert_ne!(p.solide(), Some(r.trappe), "la trappe s'ouvre");
+            // Le plus bas où elle redescend (puis elle remonte).
+            let mut plus_bas = mer;
+            for _ in 0..120 {
+                pas(p, n, 1);
+                plus_bas = plus_bas.max(p.surface_mer().unwrap());
+            }
+            let recul = plus_bas - mer;
+            assert!(
+                (recul - RECUL_MER).abs() < 2.0,
+                "rencontre {k} : la mer recule de 2 tuiles ({recul})"
+            );
+            // Puis elle reprend sa montée.
+            pas(p, n, 200);
+            assert!(p.surface_mer().unwrap() < plus_bas);
+        }
+        assert_eq!(p.solide(), None);
+        assert_eq!(p.rencontres_gagnees(), 2);
+    }
+
+    /// Carte 9.13b : chaque rencontre bloque le passage et se débloque d'un saut
+    /// sur la tête ; deux points de vie, puis le coup final (3 en tout).
+    #[test]
+    fn chaque_rencontre_bloque_puis_se_debloque() {
+        let n = INFOS.charger().unwrap();
+        let mut p = en_montee(&n, 300);
+        assert_eq!(p.pv(), 3);
+        // Les rencontres sont au tiers et aux deux tiers de la tour.
+        let bas = p.bache.unwrap().y;
+        let haut = p.tete_finale.unwrap().bas();
+        for (r, part) in p.tour.rencontres.iter().zip([1.0 / 3.0, 2.0 / 3.0]) {
+            let ou = (bas - r.tete.bas()) / (bas - haut);
+            assert!((ou - part).abs() < 0.12, "{ou}");
+            assert!(
+                r.trappe.bas() <= r.tete.y,
+                "la trappe est au-dessus de la tête"
+            );
+        }
+        gagner_les_rencontres(&mut p, &n);
+        assert_eq!(p.pv(), 1);
+    }
+
+    /// Les tentacules de garde d'une rencontre et du coup final : annoncés comme en
+    /// phase 1, un seul à la fois, à gauche puis à droite de la tête ; il reste
+    /// toujours une place sûre sur la corniche, et la tête à frapper.
+    #[test]
+    fn les_gardes_laissent_une_issue() {
+        let n = INFOS.charger().unwrap();
+        let mut p = en_montee(&n, 300);
+        let r = p.tour.rencontres[0];
+        p.voir_pepin(pepin_debout(r.tete.x - 40.0, r.tete.bas()));
+        let mut cotes = Vec::new();
+        for _ in 0..(SURGIT_PAS + 4 * GARDE_PAS) {
+            pas(&mut p, &n, 1);
+            if let Some((corps, etat)) = p.garde_en_cours() {
+                assert!(!corps.chevauche(&r.tete), "jamais sur la tête");
+                if etat == EtatTentacule::Dresse {
+                    if cotes.last() != Some(&corps.x) {
+                        cotes.push(corps.x);
+                    }
+                    // Une place sûre sur la corniche, de chaque côté possible.
+                    let surs = (16..304)
+                        .filter(|&x| !p.blesse(&pepin_debout(x as f32, r.tete.bas())))
+                        .count();
+                    assert!(surs > 200, "{surs}");
+                }
+            }
+        }
+        assert_eq!(cotes.len(), 4, "gauche, droite, gauche, droite : {cotes:?}");
+        assert!(cotes[0] < r.tete.x && cotes[1] > r.tete.x && cotes[0] == cotes[2]);
+    }
+
+    /// Les balayeurs : au moins deux, chacun annoncé 1 s puis qui glisse d'un mur
+    /// à l'autre au ras de sa corniche ; un saut le passe (son bout est plus bas
+    /// qu'un saut, et passe sous Pépin bien avant qu'il retombe).
+    #[test]
+    fn le_balayeur_s_annonce_et_se_saute() {
+        use crate::physics::{GRAVITE, VITESSE_SAUT};
+        let n = INFOS.charger().unwrap();
+        let p0 = en_montee(&n, 300);
+        assert!(p0.tour.balayeurs.len() >= 2);
+        for (k, b) in p0.tour.balayeurs.iter().enumerate() {
+            let mut p = p0.clone();
+            let x = (b.depart + b.arrivee) / 2.0;
+            p.voir_pepin(pepin_debout(x, b.y));
+            pas(&mut p, &n, 1);
+            assert!(matches!(p.etat_balayeur(k), Some(EtatBalai::Annonce(_))));
+            let mut touche = false;
+            for _ in 0..ANNONCE_BALAI_PAS - 1 {
+                pas(&mut p, &n, 1);
+                assert!(!p.blesse(&pepin_debout(x, b.y)), "l'annonce ne tue pas");
+            }
+            for _ in 0..b.course_pas() {
+                pas(&mut p, &n, 1);
+                let Some(EtatBalai::Balaie(bout)) = p.etat_balayeur(k) else {
+                    panic!("balayeur {k} : il glisse");
+                };
+                assert!(bout.bas() <= b.y + 0.01 && bout.y >= b.y - 12.01);
+                touche |= p.blesse(&pepin_debout(x, b.y));
+            }
+            assert!(touche, "balayeur {k} : il balaie toute la corniche");
+        }
+        // Le saut : les pieds au-dessus du bout (12 px) pendant plus longtemps
+        // que le bout ne met à passer sous Pépin.
+        let (v, g) = (VITESSE_SAUT / 60.0, GRAVITE / 3600.0);
+        let mut y = 0.0;
+        let mut vy = v;
+        let mut au_dessus = 0;
+        while y >= 0.0 {
+            y += vy;
+            vy -= g;
+            if y > BOUT_BALAI.1 {
+                au_dessus += 1;
+            }
+        }
+        let passage = ((BOUT_BALAI.0 + JOUEUR_L) / VITESSE_BALAI).ceil() as i32;
+        assert!(au_dessus > 2 * passage, "{au_dessus} pas contre {passage}");
+    }
+
+    /// Les arrachages : annoncés 1,3 s (elle porte encore), puis emportés pour de
+    /// bon ; et après CHAQUE arrachage (et tous à la fois), le robot de
+    /// faisabilité trouve encore un chemin jusqu'à la vigie.
+    #[test]
+    fn apres_chaque_arrachage_un_chemin_existe() {
+        use crate::faisabilite::{analyser, Options};
+        let n = INFOS.charger().unwrap();
+        let mut p = en_montee(&n, 300);
+        assert!((2..=3).contains(&p.tour.arrachables.len()));
+        let cases = p.tour.arrachables[0].clone();
+        let (x, y) = cases[0];
+        let dessous = pepin_debout(x as f32 * TAILLE_TUILE, (y + 3) as f32 * TAILLE_TUILE);
+        p.voir_pepin(dessous);
+        pas(&mut p, &n, 1);
+        assert!(matches!(
+            p.etat_arrachage(0),
+            Some(EtatArrachage::Annonce(_))
+        ));
+        assert!(
+            !p.cases_englouties().contains(&cases[0]),
+            "elle porte encore"
+        );
+        pas(&mut p, &n, u32::from(ANNONCE_SAISIE_PAS));
+        assert!(p.cases_englouties().contains(&cases[0]), "emportée");
+        pas(&mut p, &n, 600);
+        assert_eq!(p.etat_arrachage(0), Some(EtatArrachage::Partie));
+        assert!(
+            p.cases_englouties().contains(&cases[0]),
+            "elle ne revient pas"
+        );
+        // L'autre chemin : la grille sans la plateforme arrachée.
+        let lignes: Vec<&str> = ASCII.lines().skip(1).collect();
+        let sans = |garde: &dyn Fn(usize, usize) -> bool| {
+            let texte: String = lignes
+                .iter()
+                .enumerate()
+                .map(|(ty, l)| {
+                    let l: String = l
+                        .chars()
+                        .enumerate()
+                        .map(|(tx, c)| if c == '%' && !garde(tx, ty) { '.' } else { c })
+                        .collect();
+                    l + "\n"
+                })
+                .collect();
+            crate::level::Niveau::depuis_ascii(&texte).unwrap()
+        };
+        let mut grilles = vec![sans(&|_, _| false)];
+        for cases in &p.tour.arrachables {
+            let cases = cases.clone();
+            grilles.push(sans(&move |tx, ty| {
+                !cases.contains(&(tx as i32, ty as i32))
+            }));
+        }
+        let depart = p.bache.unwrap();
+        for (k, g) in grilles.iter().enumerate() {
+            let r = analyser(
+                g,
+                (depart.x + 40.0, depart.y - 40.0),
+                Options::arrivee_seule(),
+            );
+            assert!(r.arrivee, "grille {k} : plus de chemin");
+        }
+    }
+
+    /// Carte 9.13b : une mort après la lanterne de mi-hauteur y ramène ; la 1re
+    /// rencontre reste gagnée, la 2e repart à neuf, la mer revient sous la
+    /// lanterne (pas tout en bas).
+    #[test]
+    fn reprise_a_la_lanterne_de_mi_hauteur() {
+        let n = INFOS.charger().unwrap();
+        let mut p = en_montee(&n, 300);
+        gagner_les_rencontres(&mut p, &n);
+        let bache = p.bache.unwrap();
+        let mi = n
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.point_de_reapparition()),
+                _ => None,
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .unwrap();
+        let r = p.tour.rencontres.clone();
+        assert!(
+            mi.1 < r[0].tete.y && mi.1 > r[1].tete.y,
+            "entre les deux rencontres"
+        );
+        let mut entites = n.entites.clone();
+        for e in &mut entites {
+            if let Entite::Pieuvre(q) = e {
+                **q = p.clone();
+            }
+        }
+        let j = Joueur::new(mi.0, mi.1);
+        crate::entities::reprendre_apres_une_mort(&mut entites, &j.boite);
+        let q = pieuvre_de(&entites);
+        assert_eq!(q.rencontres_gagnees(), 1);
+        assert_eq!(q.pv(), 2);
+        assert_eq!(q.solide(), Some(r[1].trappe));
+        let mer = q.surface_mer().unwrap();
+        assert!(mer > j.boite.bas() && mer <= j.boite.bas() + 3.0 * TAILLE_TUILE + 1.0);
+        // Depuis la lanterne du bas : tout repart à neuf.
+        let mut entites2 = entites.clone();
+        let bas = Joueur::new(40.0, bache.y - 40.0);
+        crate::entities::reprendre_apres_une_mort(&mut entites2, &bas.boite);
+        let q = pieuvre_de(&entites2);
+        assert_eq!((q.rencontres_gagnees(), q.horloge_mer()), (0, 0));
+        // La lanterne de la tour s'allume d'office une seule fois : celle de
+        // mi-hauteur, allumée à la main, ne s'éteint pas au pas suivant.
+        let mut j = Joueur::new(mi.0, mi.1);
+        resoudre_contacts(&mut j, &mut entites);
+        resoudre_contacts(&mut j, &mut entites);
+        let allumee = entites.iter().find_map(|e| match e {
+            Entite::Lanterne(l) if l.est_active() => Some(l.point_de_reapparition()),
+            _ => None,
+        });
+        assert_eq!(allumee, Some(mi));
     }
 }

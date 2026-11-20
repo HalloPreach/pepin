@@ -328,7 +328,7 @@ mod tests {
         let (l, h) = (n.largeur() as i32, n.hauteur() as i32);
         // Carte 9.13a : l'arène est sous la tour, dans les 11 dernières rangées.
         let a = haut_de_l_arene(&n);
-        assert_eq!(a, 33);
+        assert_eq!(a, 69); // carte 9.13b : la tour est deux fois plus haute
         assert_eq!(rangee_du_quai(&n, 1), a + 6);
         assert_eq!(rangee_du_quai(&n, l - 2), a + 6);
         let gauche: Vec<_> = (a..h - 1)

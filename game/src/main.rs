@@ -37,6 +37,7 @@ mod defis;
 mod demo;
 mod dessin_courant;
 mod dessin_eau;
+mod dessin_montee;
 mod dessin_mort;
 mod dessin_pieuvre;
 mod dessin_port;

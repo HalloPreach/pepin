@@ -204,7 +204,8 @@ impl Entite {
             // La feuille du nénuphar : on s'y pose (elle s'enfonce ensuite).
             Entite::Nenuphar(n) => Some(n.boite),
             // La bâche de l'arène de la Pieuvre (carte 9.13a), tant qu'elle tient.
-            Entite::Pieuvre(p) => p.bache_solide(),
+            // Carte 9.13b : en phase 2, la trappe de la rencontre suivante.
+            Entite::Pieuvre(p) => p.solide(),
             _ => None,
         }
     }
@@ -329,7 +330,8 @@ pub fn reprendre_apres_une_mort(entites: &mut [Entite], occupant: &Aabb) {
     for e in entites {
         match e {
             Entite::Nuage(n) => n.reprendre(),
-            Entite::Pieuvre(p) => p.reprendre(),
+            // Carte 9.13b : en phase 2, selon la lanterne où Pépin réapparaît.
+            Entite::Pieuvre(p) => p.reprendre_a(occupant),
             Entite::Friable(f) => f.reformer(occupant),
             // Carte 9.3 : le nénuphar remonte, la stalactite est raccrochée.
             Entite::Nenuphar(n) => n.remettre(),

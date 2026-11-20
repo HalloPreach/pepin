@@ -1484,6 +1484,8 @@ pub fn dessiner(
     // La bâche de l'arène, et la mer qui monte de la phase 2 (carte 9.13a).
     crate::dessin_pieuvre::dessiner_bache(monde, banque, cx, cy);
     crate::dessin_pieuvre::dessiner_mer(monde, banque, cx, cy);
+    // La montée (carte 9.13b) : trappes, balayeurs, arrachages, gardes, rencontres.
+    crate::dessin_montee::dessiner(monde, banque, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
     // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.

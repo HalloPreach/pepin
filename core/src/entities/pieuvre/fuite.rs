@@ -73,6 +73,7 @@ impl Pieuvre {
         self.fuite = true;
         self.saisie = None;
         self.tentacule_montee = None;
+        self.remettre_la_tour();
     }
 
     /// La phase 2 a-t-elle commencé ?
@@ -89,7 +90,10 @@ impl Pieuvre {
     /// la furie à la fin du niveau.
     pub(super) fn cases_de_la_fuite(&self) -> Vec<(i32, i32)> {
         if self.quai_casse() {
-            self.plateformes.iter().flatten().copied().collect()
+            let mut cases: Vec<(i32, i32)> = self.plateformes.iter().flatten().copied().collect();
+            // Carte 9.13b : les plateformes arrachées de la tour.
+            cases.extend(self.cases_arrachees());
+            cases
         } else {
             Vec::new()
         }
@@ -156,7 +160,9 @@ impl Pieuvre {
             return None;
         }
         Some(match self.phase {
-            PhasePieuvre::Montee => self.surface_mer_a(self.ecoule),
+            // Carte 9.13b : l'horloge de la mer s'arrête pendant une rencontre
+            // et recule après chaque coup (`montee`).
+            PhasePieuvre::Montee => self.surface_mer_a(self.horloge_mer()),
             // Après le coup final, elle reste où elle était (`arret_mer`).
             PhasePieuvre::Plongee | PhasePieuvre::Vaincue => self.arret_mer,
             _ => self.depart_mer(),
@@ -185,7 +191,7 @@ impl Pieuvre {
         if self.phase != PhasePieuvre::Montee {
             return None;
         }
-        let t = self.ecoule;
+        let t = self.horloge_mer();
         if self.au_palier(t) {
             return Some(1.0);
         }
@@ -284,15 +290,22 @@ impl Pieuvre {
             return;
         }
         let t = self.ecoule;
+        // L'horloge de la mer (carte 9.13b) : les paliers et l'issue se jugent sur
+        // elle ; pendant la garde d'une tête, ses tentacules à elle frappent.
+        let h = self.horloge_mer();
         let prochain = match self.tentacule_montee {
             Some((_, debut)) => debut.saturating_add(self.rythme_montee()),
             None => self.fin_de_crue(),
         };
-        if t < prochain || self.au_palier(t) || self.au_palier(t.saturating_add(SALVE_PAS)) {
+        if t < prochain
+            || self.sous_garde()
+            || self.au_palier(h)
+            || self.au_palier(h.saturating_add(SALVE_PAS))
+        {
             return;
         }
         let x = self.pepin.map_or(self.depart_mer(), |p| p.x + p.w / 2.0);
-        if let Some(i) = self.colonne_de_montee(grille, x, t) {
+        if let Some(i) = self.colonne_de_montee(grille, x, h) {
             self.tentacule_montee = Some((i, t));
         }
     }
@@ -361,6 +374,8 @@ impl Pieuvre {
     pub fn pour_le_robot(&mut self) {
         if self.tete_finale.is_some() {
             self.entrer(PhasePieuvre::Montee);
+            // Carte 9.13b : les rencontres gagnées, les trappes ouvertes.
+            self.gagner_toute_la_tour();
         }
     }
 }

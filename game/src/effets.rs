@@ -131,7 +131,9 @@ pub fn effets(
     // et une dernière fois quand le quai casse.
     let furie = monde.entites.iter().any(|e| {
         matches!(e, Entite::Pieuvre(p) if p.phase() == PhasePieuvre::Furie
-            || (p.phase() == PhasePieuvre::Montee && p.ecoule() == 0))
+            || (p.phase() == PhasePieuvre::Montee && p.ecoule() == 0)
+            // Carte 9.13b : elle hurle aussi en lâchant la corniche d'une rencontre.
+            || p.tete_lachee().is_some_and(|(_, a)| a < 0.5))
     });
     if furie && monde.pas.is_multiple_of(10) {
         secousse.declencher(2, 10);
