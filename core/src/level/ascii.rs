@@ -110,6 +110,10 @@ pub(super) fn analyser(
     let mut nuages: Vec<Case> = Vec::new();
     // Pieuvre du port (carte 9.12a, au plus un boss en tout) : son bassin entier.
     let mut pieuvres: Vec<Case> = Vec::new();
+    // Sa phase 2 (carte 9.13a) : la bâche `_` (plafond de l'arène) et la tête du
+    // haut de la tour `&`.
+    let mut bache: Vec<Case> = Vec::new();
+    let mut tetes_finales: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
     let mut lettres = 0usize;
     // Secrets (carte 8.5) : faux murs `m` et sortie secrète `x`.
@@ -222,6 +226,10 @@ pub(super) fn analyser(
                     eaux_cases.push((case, 0));
                     pieuvres.push(case);
                 }
+                // Phase 2 de la Pieuvre (carte 9.13a) : cases LIBRES de la grille ;
+                // la bâche est une boîte solide de la pieuvre (`Entite::solide`).
+                '_' => bache.push(case),
+                '&' => tetes_finales.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -274,6 +282,15 @@ pub(super) fn analyser(
         return Err(ErreurNiveau::BossMultiple {
             nombre: nuages.len() + pieuvres.len(),
         });
+    }
+    // Une bâche `_` ou une tête finale `&` sans Pieuvre n'a pas de sens.
+    if pieuvres.is_empty() {
+        if let Some(&(tx, ty)) = bache.first().or(tetes_finales.first()) {
+            return Err(ErreurNiveau::PieuvreSansPlace {
+                ligne: ty + 1,
+                colonne: tx + 1,
+            });
+        }
     }
     let arrivee_case = match (
         arrivees.as_slice(),
@@ -491,7 +508,7 @@ pub(super) fn analyser(
     }
     // Pieuvre du port : voir `poser_pieuvre`.
     for &case in &pieuvres {
-        let p = poser_pieuvre(&tuiles, largeur, case)?;
+        let p = poser_pieuvre(&tuiles, largeur, case, &bache, &tetes_finales)?;
         entites.push(Entite::Pieuvre(Box::new(p)));
     }
 
@@ -792,10 +809,19 @@ fn poser_nuage(
 ///   hauteur » : il traverse les pontons et les caisses ;
 /// - ses 3 places de tête (`PLACES_TETE` : milieu, gauche, droite), 48 x 32,
 ///   centrées sur leur colonne et posées sur l'eau, ne touchent aucun solide.
+///
+/// Phase 2 (carte 9.13a), si la grille a une bâche `_` ET une tête finale `&` :
+/// - la bâche (une seule rangée, au-dessus de l'arène) devient une boîte solide ;
+///   les tentacules de la phase 1 et les plateformes à saisir s'arrêtent dessous ;
+/// - la tête finale (48 x 32) a son coin bas-gauche sur le `&`, ses 6 cases libres ;
+///   la mer s'arrête 3 tuiles sous elle ;
+/// - les paliers de la mer : sous chaque corniche large de la tour.
 fn poser_pieuvre(
     tuiles: &[Tuile],
     largeur: usize,
     (tx, ty): Case,
+    bache: &[Case],
+    tetes_finales: &[Case],
 ) -> Result<Pieuvre, ErreurNiveau> {
     let erreur = ErreurNiveau::PieuvreSansPlace {
         ligne: ty + 1,
@@ -809,6 +835,25 @@ fn poser_pieuvre(
         return Err(erreur);
     }
     let t = TAILLE_TUILE;
+    // Phase 2 : les deux repères vont ensemble, la bâche sur une rangée au-dessus
+    // du bassin, une seule tête finale au-dessus de la bâche.
+    let rangee_bache = match (bache, tetes_finales) {
+        ([], []) => None,
+        ([premiere, ..], [(fx, fy)]) => {
+            let y = premiere.1;
+            let libre = |x: usize, y: usize| !tuiles[y * largeur + x].est_solide();
+            let place = *fy >= 1
+                && *fy < y
+                && fx + 2 < largeur
+                && (*fy - 1..=*fy).all(|yy| (*fx..fx + 3).all(|xx| libre(xx, yy)));
+            if bache.iter().any(|c| c.1 != y) || y + 2 >= ty || !place {
+                return Err(erreur);
+            }
+            Some(y)
+        }
+        _ => return Err(erreur),
+    };
+    let plafond = rangee_bache.map_or(0.0, |y| (y + 1) as f32 * t);
     let surface = ty as f32 * t;
     // Abscisse (px) du bord gauche de la colonne `k` (de -4 à 4).
     let gauche = |k: i8| (tx as f32 + 2.0 * f32::from(k)) * t;
@@ -816,9 +861,9 @@ fn poser_pieuvre(
         let k = i as i8 - pieuvre::PORTEE_COLONNES;
         Aabb::new(
             gauche(k) + MARGE_TENTACULE,
-            0.0,
+            plafond,
             pieuvre::LARGEUR_COLONNE - 2.0 * MARGE_TENTACULE,
-            surface,
+            surface - plafond,
         )
     });
     let places = PLACES_TETE.map(|k| {
@@ -838,28 +883,60 @@ fn poser_pieuvre(
         }
     }
     let mut p = Pieuvre::new(colonnes, places);
-    p.plateformes = plateformes_du_bassin(tuiles, largeur, (tx - portee, tx + portee + 1), ty);
+    let haut_arene = rangee_bache.map_or(0, |y| y + 1);
+    p.plateformes = plateformes_du_bassin(
+        tuiles,
+        largeur,
+        (tx - portee, tx + portee + 1),
+        (haut_arene, ty),
+    );
+    if let (Some(y), [(fx, fy)]) = (rangee_bache, tetes_finales) {
+        let x0 = bache.iter().map(|c| c.0).min().unwrap_or(0);
+        let x1 = bache.iter().map(|c| c.0).max().unwrap_or(0);
+        p.bache = Some(Aabb::new(
+            x0 as f32 * t,
+            y as f32 * t,
+            (x1 + 1 - x0) as f32 * t,
+            t,
+        ));
+        let tete = Aabb::new(
+            *fx as f32 * t,
+            (*fy as f32 - 1.0) * t,
+            TAILLE_TETE.0,
+            TAILLE_TETE.1,
+        );
+        p.tete_finale = Some(tete);
+        p.arret_mer = tete.bas() + pieuvre::SOUS_LA_CORNICHE;
+        // Les paliers : au-dessus de la corniche du bas de la tour (2 rangées
+        // au-dessus de la bâche), et sous la vigie.
+        let solide = |x: usize, y: usize| tuiles[y * largeur + x].est_solide();
+        p.paliers = pieuvre::paliers_de_la_tour(solide, largeur, y.saturating_sub(2))
+            .into_iter()
+            .filter(|&s| s > p.arret_mer)
+            .collect();
+    }
     Ok(p)
 }
 
 /// Les plateformes que la Pieuvre peut saisir (carte 9.12f) : chaque groupe de
 /// cases solides qui se touchent (par un côté), au-dessus du bassin (colonnes
-/// `x0..=x1`, rangées au-dessus de la surface `surface`). Les murs du bord sont
-/// hors du bassin : ils ne coulent jamais. Un parcours en largeur tout simple.
+/// `x0..=x1`, rangées de `haut` à la surface exclue ; `haut` : le dessous de la
+/// bâche d'une arène à tour, carte 9.13a, sinon 0). Les murs du bord sont hors du
+/// bassin : ils ne coulent jamais. Un parcours en largeur tout simple.
 fn plateformes_du_bassin(
     tuiles: &[Tuile],
     largeur: usize,
     (x0, x1): (usize, usize),
-    surface: usize,
+    (haut, surface): (usize, usize),
 ) -> Vec<Vec<(i32, i32)>> {
     let dedans = |x: i32, y: i32| {
         (x0 as i32..=x1 as i32).contains(&x)
-            && (0..surface as i32).contains(&y)
+            && (haut as i32..surface as i32).contains(&y)
             && tuiles[y as usize * largeur + x as usize].est_solide()
     };
     let mut vues = std::collections::HashSet::new();
     let mut plateformes = Vec::new();
-    for y in 0..surface as i32 {
+    for y in haut as i32..surface as i32 {
         for x in x0 as i32..=x1 as i32 {
             if !dedans(x, y) || !vues.insert((x, y)) {
                 continue;

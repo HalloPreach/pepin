@@ -457,6 +457,13 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // Solides immobiles : friables + extrémités des plateformes mobiles + nacelles
     // des montgolfières (au repos et en haut).
     let mut solides: Vec<Aabb> = solides_des_entites(&niveau.entites);
+    // La bâche de l'arène de la Pieuvre (carte 9.13a) : déchirée pour le robot,
+    // qui joue la phase 2 (un joueur patient attend la furie).
+    for e in &niveau.entites {
+        if let Entite::Pieuvre(p) = e {
+            solides.retain(|s| Some(*s) != p.bache);
+        }
+    }
     let mut entites: Vec<Entite> = Vec::new();
     let mut lanternes: Vec<(f32, f32)> = Vec::new();
     // (extrémité a, extrémité b, largeur) de chaque plateforme mobile.
@@ -509,6 +516,15 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             }
             // La Pieuvre du port (carte 9.12a) : sa tête TOUJOURS sortie, à ses trois
             // places à la fois (trois copies), sans tentacule. Voir l'en-tête.
+            // Carte 9.13a : dans une arène à tour, la tête du HAUT de la tour
+            // seulement (la phase 1 mène à la trombe : un joueur patient attend
+            // la furie), et la mer ne monte pas pour le robot (voir
+            // `Pieuvre::pour_le_robot`).
+            Entite::Pieuvre(p) if p.tete_finale.is_some() => {
+                let mut sommet = p.clone();
+                sommet.pour_le_robot();
+                entites.push(Entite::Pieuvre(sommet));
+            }
             Entite::Pieuvre(p) => {
                 for place in 0..p.places.len() {
                     let mut sortie = p.clone();
@@ -597,6 +613,8 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 // Bulles et chutes d'eau (carte 9.3) : toujours actives.
                 Entite::Bulles(b) => courants.push(b.courant()),
                 Entite::Chute(c) => courants.push(c.courant()),
+                // La trombe de la phase 2 de la Pieuvre (carte 9.13a) : toujours.
+                Entite::Pieuvre(p) => courants.extend(p.zone_trombe().map(CourantAscendant::new)),
                 _ => {}
             }
         }

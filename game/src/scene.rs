@@ -1481,6 +1481,9 @@ pub fn dessiner(
     crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
     // La plateforme que la Pieuvre emporte sous l'eau (carte 9.12f).
     crate::dessin_pieuvre::dessiner_saisie(monde, banque, cx, cy);
+    // La bâche de l'arène, et la mer qui monte de la phase 2 (carte 9.13a).
+    crate::dessin_pieuvre::dessiner_bache(monde, banque, cx, cy);
+    crate::dessin_pieuvre::dessiner_mer(monde, banque, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
     // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.

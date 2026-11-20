@@ -49,9 +49,20 @@
 //! motif ; quand la tête remonte, elle lâche la plateforme. La grille du niveau ne change pas : le jeu
 //! l'enveloppe d'une `GrilleSaisie` qui perce les cases englouties.
 //!
+//! LA PHASE 2, « fuite et montée » (carte 9.13a, demande d'AGA : « J'aime pas la
+//! pieuvre, elle manque toujours de quelque chose pour un boss final… Une phase
+//! deux ? »). Seulement dans une arène qui a une TOUR (une tête finale `&` dans
+//! la grille, `Pieuvre::tete_finale`) : au dernier coup de la phase 1, au lieu de
+//! plonger, elle entre en FURIE, casse le quai et la mer monte. Tout est dans le
+//! sous-module `fuite` ; sans tour (le niveau d'essai), rien ne change.
+//!
 //! Notions Rust : on RÉUTILISE la `Salve` du Grand Nuage (`use super::nuage::Salve`)
 //! au lieu de la recopier ; un `enum` à données (`EtatTentacule::Annonce(f32)`) ; des
-//! tableaux de taille fixe (`[Aabb; NB_COLONNES]`) construits par le parseur.
+//! tableaux de taille fixe (`[Aabb; NB_COLONNES]`) construits par le parseur ; un
+//! SOUS-MODULE (`pieuvre/fuite.rs`) qui voit les champs privés de son parent.
+
+mod fuite;
+pub use fuite::*;
 
 use super::nuage::Salve;
 use super::{Actualisable, Entite};
@@ -219,7 +230,7 @@ pub fn cases_englouties(entites: &[Entite]) -> Vec<(i32, i32)> {
     entites
         .iter()
         .filter_map(|e| match e {
-            Entite::Pieuvre(p) => Some(p.cases_englouties().to_vec()),
+            Entite::Pieuvre(p) => Some(p.cases_englouties()),
             _ => None,
         })
         .flatten()
@@ -398,6 +409,12 @@ pub enum PhasePieuvre {
     Touchee,
     Plongee,
     Vaincue,
+    /// Phase 2 (carte 9.13a) : elle hurle, l'écran tremble, la bâche se déchire
+    /// et un jet d'eau emporte Pépin dans la tour ; le quai casse à la fin.
+    Furie,
+    /// Phase 2 : la mer monte, les tentacules jaillissent de dessous, la tête
+    /// attend en haut de la tour.
+    Montee,
 }
 
 #[derive(Debug, Clone)]
@@ -425,6 +442,20 @@ pub struct Pieuvre {
     /// Où était Pépin au dernier pas (`voir_pepin`) : pour viser sa plateforme
     /// et ne jamais la faire remonter dans lui.
     pepin: Option<Aabb>,
+    /// Phase 2 (carte 9.13a) : la BÂCHE (`_`), le plafond de l'arène : une boîte
+    /// solide (`Entite::solide`) tant que la phase 1 dure, déchirée dès la furie.
+    pub bache: Option<Aabb>,
+    /// La tête en haut de la tour (`&`, 48 x 32) ; `None` : pas de phase 2.
+    pub tete_finale: Option<Aabb>,
+    /// Ordonnées (px) où la mer marque un palier de répit (sous les corniches
+    /// larges de la tour, posées par le parseur), de la plus basse à la plus haute.
+    pub paliers: Vec<f32>,
+    /// Ordonnée (px) où la mer s'arrête pour de bon, sous la vigie.
+    pub arret_mer: f32,
+    /// La phase 2 a commencé (la bâche est déchirée, puis le quai cassé).
+    fuite: bool,
+    /// Le dernier tentacule de la montée : sa colonne et son pas de départ.
+    tentacule_montee: Option<(usize, u16)>,
 }
 
 impl Pieuvre {
@@ -443,6 +474,12 @@ impl Pieuvre {
             saisie: None,
             avant_saisie: PREMIERE_SAISIE_PAS,
             pepin: None,
+            bache: None,
+            tete_finale: None,
+            paliers: Vec::new(),
+            arret_mer: 0.0,
+            fuite: false,
+            tentacule_montee: None,
         }
     }
 
@@ -453,11 +490,15 @@ impl Pieuvre {
 
     /// Les cases qui ne portent plus en ce moment : celles de la plateforme
     /// saisie, de sa plongée jusqu'à la fin de sa remontée. Le jeu en perce la
-    /// grille (`GrilleSaisie`).
-    pub fn cases_englouties(&self) -> &[(i32, i32)] {
+    /// grille (`GrilleSaisie`). En phase 2 (carte 9.13a) : la bâche déchirée, et,
+    /// après la furie, tout le quai de l'arène (`fuite::cases_de_la_fuite`).
+    pub fn cases_englouties(&self) -> Vec<(i32, i32)> {
+        if self.fuite {
+            return self.cases_de_la_fuite();
+        }
         match self.saisie {
-            Some(s) if !s.porte() => &self.plateformes[s.cible],
-            _ => &[],
+            Some(s) if !s.porte() => self.plateformes[s.cible].clone(),
+            _ => Vec::new(),
         }
     }
 
@@ -581,7 +622,8 @@ impl Pieuvre {
             PhasePieuvre::Tete => Some(TETE_PAS),
             PhasePieuvre::Touchee => Some(TOUCHEE_PAS),
             PhasePieuvre::Plongee => Some(PLONGEE_PAS),
-            PhasePieuvre::Vaincue => None,
+            PhasePieuvre::Furie => Some(FURIE_PAS),
+            PhasePieuvre::Vaincue | PhasePieuvre::Montee => None,
         }
     }
 
@@ -592,7 +634,12 @@ impl Pieuvre {
             PhasePieuvre::Remous
             | PhasePieuvre::Tete
             | PhasePieuvre::Touchee
-            | PhasePieuvre::Plongee => Some(self.places[self.place]),
+            | PhasePieuvre::Furie => Some(self.places[self.place]),
+            // Phase 2 (carte 9.13a) : la tête attend en haut de la tour, et y
+            // replonge.
+            PhasePieuvre::Montee => self.tete_finale,
+            PhasePieuvre::Plongee if self.fuite => self.tete_finale,
+            PhasePieuvre::Plongee => Some(self.places[self.place]),
             _ => None,
         }
     }
@@ -610,16 +657,27 @@ impl Pieuvre {
     /// ennemi : il descend, et ses pieds ne dépassent pas de plus de
     /// `MARGE_ECRASEMENT` le dessus de la tête.
     pub fn recoit(&self, joueur: &Joueur) -> bool {
-        let tete = self.places[self.place];
-        self.phase == PhasePieuvre::Tete
-            && joueur.vitesse.y > 0.0
+        let tete = match self.phase {
+            PhasePieuvre::Tete => self.places[self.place],
+            // Le coup final (carte 9.13a) : la tête du haut de la tour.
+            PhasePieuvre::Montee => match self.tete_finale {
+                Some(t) => t,
+                None => return false,
+            },
+            _ => return false,
+        };
+        joueur.vitesse.y > 0.0
             && joueur.boite.chevauche(&tete)
             && joueur.boite.bas() - tete.y <= MARGE_ECRASEMENT
     }
 
     /// `boite` meurt-elle ? Un tentacule dressé la touche, ou la tête sortie la
-    /// touche (autrement qu'en tombant dessus : `recoit` est vérifié avant).
+    /// touche (autrement qu'en tombant dessus : `recoit` est vérifié avant). En
+    /// phase 2 : la mer en furie, ou un tentacule de la montée (`fuite`).
     pub fn blesse(&self, boite: &Aabb) -> bool {
+        if self.blesse_en_fuite(boite) {
+            return true;
+        }
         let tete = self.phase == PhasePieuvre::Tete && boite.chevauche(&self.places[self.place]);
         tete || (0..NB_COLONNES).any(|i| {
             self.etat_tentacule(i) == EtatTentacule::Dresse && self.colonnes[i].chevauche(boite)
@@ -627,23 +685,41 @@ impl Pieuvre {
     }
 
     /// Un saut sur la tête : un point en moins ; touchée, ou, au dernier point, la
-    /// plongée. Sans effet si la tête n'est pas sortie.
+    /// plongée. Sans effet si la tête n'est pas sortie. Carte 9.13a : dans une
+    /// arène à tour, le dernier point de la phase 1 donne la FURIE (la phase 2) ;
+    /// le coup sur la tête du haut de la tour, la plongée.
     pub fn toucher(&mut self) {
+        if self.phase == PhasePieuvre::Montee && self.tete_finale.is_some() {
+            self.figer_la_mer();
+            self.entrer(PhasePieuvre::Plongee);
+            return;
+        }
         if self.phase != PhasePieuvre::Tete {
             return;
         }
         self.pv = self.pv.saturating_sub(1);
-        let phase = if self.pv == 0 {
-            PhasePieuvre::Plongee
-        } else {
+        let phase = if self.pv > 0 {
             PhasePieuvre::Touchee
+        } else if self.tete_finale.is_some() {
+            self.commencer_la_fuite();
+            PhasePieuvre::Furie
+        } else {
+            PhasePieuvre::Plongee
         };
         self.entrer(phase);
     }
 
     /// Pépin est mort : elle reprend au prélude, avec ses points perdus. Sans effet
-    /// quand elle plonge déjà pour de bon (ou une fois vaincue).
+    /// quand elle plonge déjà pour de bon (ou une fois vaincue). En phase 2 (carte
+    /// 9.13a) : au DÉBUT DE LA PHASE 2 (la mer en bas, aucun tentacule).
     pub fn reprendre(&mut self) {
+        if self.fuite {
+            if matches!(self.phase, PhasePieuvre::Furie | PhasePieuvre::Montee) {
+                self.entrer(PhasePieuvre::Montee);
+                self.tentacule_montee = None;
+            }
+            return;
+        }
         if !matches!(self.phase, PhasePieuvre::Plongee | PhasePieuvre::Vaincue) {
             self.entrer(PhasePieuvre::Prelude);
         }
@@ -689,6 +765,12 @@ impl Pieuvre {
     }
 
     fn avancer(&mut self) {
+        // La montée (carte 9.13a) n'a pas de fin fixée : elle dure jusqu'au coup
+        // final. Son temps fait monter la mer (`fuite::surface_mer`).
+        if self.phase == PhasePieuvre::Montee {
+            self.ecoule = self.ecoule.saturating_add(1);
+            return;
+        }
         let Some(duree) = self.duree_phase() else {
             return; // vaincue : plus rien ne bouge
         };
@@ -706,6 +788,7 @@ impl Pieuvre {
                 PhasePieuvre::Remous
             }
             PhasePieuvre::Remous => PhasePieuvre::Tete,
+            PhasePieuvre::Furie | PhasePieuvre::Montee => PhasePieuvre::Montee,
             PhasePieuvre::Plongee | PhasePieuvre::Vaincue => PhasePieuvre::Vaincue,
         };
         self.entrer(suivante);
@@ -718,9 +801,10 @@ impl Pieuvre {
 }
 
 impl Actualisable for Pieuvre {
-    fn actualiser(&mut self, _env: &Environnement<'_>) {
+    fn actualiser(&mut self, env: &Environnement<'_>) {
         self.avancer_saisie();
         self.avancer();
+        self.avancer_montee(env.grille);
     }
 }
 
@@ -1034,7 +1118,7 @@ mod tests {
             let s = p.saisie();
             // Une seule saisie : les cases englouties sont celles d'UNE plateforme.
             let trous = p.cases_englouties();
-            assert!(trous.is_empty() || p.plateformes.iter().any(|c| c == trous));
+            assert!(trous.is_empty() || p.plateformes.contains(&trous));
             match (avant, s) {
                 (None, Some(s)) => {
                     saisies += 1;
