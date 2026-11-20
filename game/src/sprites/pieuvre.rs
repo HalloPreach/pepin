@@ -313,6 +313,36 @@ pub const TENTACULE_ENROULE1: Image = &[
     ".00000000000000.",
 ];
 
+/// Une bulle qui remonte sous une plateforme saisie (4x4, carte 9.12g) : contour
+/// sombre, reflet blanc cassé, cyan. Elle crève à la surface.
+pub const BULLE_SAISIE: Image = &[
+    ".00.",
+    "07D0",
+    "0DD0",
+    ".00.",
+];
+
+/// Bout gauche du cercle de remous de la saisie (4x5, carte 9.12g ; le bout droit
+/// est son miroir) : l'anneau d'écume posé à plat sur la surface, la 3e rangée au
+/// ras de l'eau. Entre les deux bouts, deux traits d'écume (`dessiner_saisie`).
+pub const ONDE_SAISIE: Image = &[
+    "..00",
+    ".077",
+    "07..",
+    ".077",
+    "..00",
+];
+
+/// Lèvre d'écume au bord gauche du creux (6x4, carte 9.12g ; le bord droit est son
+/// miroir) : l'eau bourrelée qui tourne, contour sombre au dehors, la dernière
+/// rangée au ras de la surface. Pas de gerbe : 3 px au-dessus de l'eau, pas plus.
+pub const BORD_CREUX_SAISIE: Image = &[
+    "...00.",
+    "..0770",
+    ".07777",
+    "0777DD",
+];
+
 /// Tous les sprites de la Pieuvre, par nom.
 pub const SPRITES: &[(&str, Image)] = &[
     ("pieuvre_colere0", PIEUVRE_COLERE0),
@@ -329,6 +359,9 @@ pub const SPRITES: &[(&str, Image)] = &[
     ("remous_pieuvre0", REMOUS_PIEUVRE0),
     ("remous_pieuvre1", REMOUS_PIEUVRE1),
     ("ombre_pieuvre", OMBRE_PIEUVRE),
+    ("bulle_saisie", BULLE_SAISIE),
+    ("onde_saisie", ONDE_SAISIE),
+    ("bord_creux_saisie", BORD_CREUX_SAISIE),
     ("cle_pieuvre", CLE_PIEUVRE),
     ("pv_pieuvre", PV_PIEUVRE),
     ("pv_pieuvre_perdu", PV_PIEUVRE_PERDU),
