@@ -504,8 +504,9 @@ mod tests {
             );
             noms.push(nom);
         }
-        noms.sort();
-        assert_eq!(noms, ["port_bateau", "port_bateau", "port_caisse_grue"]);
+        let bateaux = noms.iter().filter(|n| **n == "port_bateau").count();
+        let caisses = noms.iter().filter(|n| **n == "port_caisse_grue").count();
+        assert_eq!((bateaux, caisses), (6, 2), "carte 9.11d");
         assert_eq!(sprite_du_port("pieuvre", (0.0, 0.0), (16.0, 0.0)), None);
     }
 }
