@@ -27,6 +27,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 30,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// 36 x 11 tuiles, thème Altitude (ciel corail : le plus clair des ciels où la

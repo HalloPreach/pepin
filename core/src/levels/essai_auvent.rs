@@ -27,6 +27,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 30,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// 44 x 11 tuiles, thème Gouttières (nuit bleue, comme le futur marché couvert).

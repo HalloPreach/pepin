@@ -28,6 +28,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 30,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// 42 x 11 tuiles, thème Toits (la nuit bleue du futur marché couvert).

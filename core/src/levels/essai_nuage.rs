@@ -27,6 +27,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 40,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// 20 x 11 tuiles (un seul écran), thème Orage (le violet du futur œil du cyclone).

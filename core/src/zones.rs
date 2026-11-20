@@ -204,13 +204,19 @@ pub struct InfosNiveau {
     /// Réglage des aiguilles d'horloge du dessin : une ligne par pivot `h`, dans
     /// l'ordre de lecture (voir `level::ReglageAiguille`). Vide sans aiguille.
     pub aiguilles: &'static [ReglageAiguille],
+    /// Poissons qui sautent plus (ou moins) haut que `HAUT_SAUT_POISSON` (carte
+    /// 9.11e) : `(colonne, rangée, hauteur_px)` de leur lettre `i`, comptées
+    /// depuis 0 (voir `Niveau::regler_sauts_poissons`). Vide le plus souvent.
+    pub poissons_hauts: &'static [(usize, usize, f32)],
 }
 
 impl InfosNiveau {
     /// Lit le dessin ASCII (et le réglage de ses aiguilles). Ne peut échouer que
     /// si le niveau embarqué est invalide, ce que les tests de ce module interdisent.
     pub fn charger(&self) -> Result<Niveau, ErreurNiveau> {
-        Niveau::depuis_ascii_avec_aiguilles(self.ascii, self.aiguilles)
+        let mut niveau = Niveau::depuis_ascii_avec_aiguilles(self.ascii, self.aiguilles)?;
+        niveau.regler_sauts_poissons(self.poissons_hauts)?;
+        Ok(niveau)
     }
 }
 
@@ -1382,7 +1388,9 @@ mod tests {
                     None => c,
                 })
                 .collect();
-            let sans = Niveau::depuis_ascii_avec_aiguilles(&sans_texte, infos.aiguilles).unwrap();
+            let mut sans =
+                Niveau::depuis_ascii_avec_aiguilles(&sans_texte, infos.aiguilles).unwrap();
+            sans.regler_sauts_poissons(infos.poissons_hauts).unwrap();
             let n = infos.numero;
             // Chaque niveau a son décor, sauf l'arène du Grand Nuage (pas de
             // drapeau) : ses 17 colonnes d'éclairs couvrent tout le sol, et un objet

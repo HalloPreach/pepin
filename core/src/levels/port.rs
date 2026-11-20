@@ -40,7 +40,8 @@
 //! 10. le QUAI 5 (150 à 159, lanterne 5), la DARSE de la grue (sa caisse,
 //!     colonnes 163-164, monte au TOIT DE L'ENTREPÔT, 165 à 172) d'où l'on PLANE
 //!     au-dessus du bassin 6 et de son poisson jusqu'au quai 6 (lanterne 6) ;
-//! 11. le BASSIN 7 (191 à 204) : trois PIEUX d'amarrage, deux poissons entre eux ;
+//! 11. le BASSIN 7 (191 à 204) : trois PIEUX d'amarrage, deux poissons entre eux
+//!     qui sautent PLUS HAUT (6 tuiles, `poissons_hauts`, carte 9.11e) ;
 //! 12. le BOUT DE LA JETÉE (205 à 226) : la lanterne 7, la MOUETTE 3 sur sa
 //!     passerelle (colonnes 214 à 216), un crabe entre deux caisses, le drapeau.
 //!
@@ -71,7 +72,17 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 60,
     ascii: ASCII,
     aiguilles: &[],
+    // Les 2 poissons de la fin (bassin 7, entre les pieux) sautent 6 tuiles au
+    // lieu de 3,5 : ils menacent Pépin qui saute de pieu en pieu (carte 9.11e).
+    // Debout sur un pieu, on ne les touche pas : on attend qu'ils retombent.
+    poissons_hauts: &[
+        (196, 8, HAUT_POISSONS_DE_LA_FIN),
+        (200, 8, HAUT_POISSONS_DE_LA_FIN),
+    ],
 };
+
+/// Hauteur (px) du saut des 2 poissons de la fin du port (carte 9.11e).
+pub const HAUT_POISSONS_DE_LA_FIN: f32 = 96.0;
 
 /// 227 x 11 tuiles, thème Port. `1`, `3`, `4`, `6`, `7`, `9` : les bateaux
 /// (rangée 8, posés sur l'eau) ; `5`, `2` : les caisses des grues (colonnes 77
@@ -260,5 +271,111 @@ mod tests {
                 m0.perchoir()
             );
         }
+    }
+
+    /// Carte 9.11e : seuls les 2 poissons de la fin du port sautent plus haut ;
+    /// tous les autres poissons du jeu (NG+ compris) gardent `HAUT_SAUT_POISSON`,
+    /// et la hauteur réglée survit à une mort de Pépin.
+    #[test]
+    fn seuls_les_deux_poissons_de_la_fin_sautent_plus_haut() {
+        use crate::entities::ennemi::HAUT_SAUT_POISSON;
+        use crate::levels::{variantes::charger_ng_plus, NIVEAUX};
+        let mut hauts = 0;
+        let mut autres = 0;
+        for infos in NIVEAUX {
+            for n in [infos.charger().unwrap(), charger_ng_plus(infos).unwrap()] {
+                for e in &n.entites {
+                    let Entite::Ennemi(p) = e else { continue };
+                    if p.type_ennemi != TypeEnnemi::Poisson {
+                        continue;
+                    }
+                    let fin =
+                        infos.cle == "port" && [(196, 8), (200, 8)].contains(&p.case_du_poisson());
+                    let attendu = if fin {
+                        hauts += 1;
+                        HAUT_POISSONS_DE_LA_FIN
+                    } else {
+                        autres += 1;
+                        HAUT_SAUT_POISSON
+                    };
+                    assert_eq!(
+                        p.saut_poisson(),
+                        attendu,
+                        "{} {:?}",
+                        infos.cle,
+                        p.case_du_poisson()
+                    );
+                    let mut mort = p.clone();
+                    mort.revenir_a_l_origine();
+                    assert_eq!(mort.saut_poisson(), attendu);
+                }
+            }
+        }
+        assert_eq!(hauts, 4, "2 poissons, chargement normal et NG+");
+        assert!(autres > 0);
+        assert_eq!(HAUT_SAUT_POISSON, 56.0);
+    }
+
+    /// Carte 9.11e : au sommet, le poisson de la fin monte à la hauteur de Pépin
+    /// en plein saut de pieu en pieu, mais il ne touche JAMAIS Pépin debout sur un
+    /// pieu (ni sur un quai) : on attend qu'il retombe. Et il reste caché sous
+    /// l'eau plus longtemps qu'un saut complet ne dure : on a le temps de passer.
+    #[test]
+    fn les_poissons_de_la_fin_menacent_le_saut_sans_toucher_les_pieux() {
+        use crate::aabb::Grille;
+        use crate::entities::ennemi::{PERIODE_POISSON_PAS, SOUS_L_EAU_PAS};
+        use crate::physics::{GRAVITE, HZ, VITESSE_SAUT};
+        let n = INFOS.charger().unwrap();
+        let env = Environnement::simple(&n);
+        let t = TAILLE_TUILE;
+        // Les appuis du bassin 7 et de ses bords : le dessus de chaque case
+        // solide sous une case d'air (pas d'eau), des colonnes 189 à 206.
+        let mut appuis = Vec::new();
+        for tx in 189..=206 {
+            for ty in 1..n.hauteur() as i32 {
+                if n.est_solide(tx, ty) && n.tuile_decor(tx, ty - 1) == Tuile::Vide {
+                    appuis.push((tx, ty));
+                    break;
+                }
+            }
+        }
+        let pieu = appuis.iter().find(|&&(tx, _)| tx == 194).unwrap().1 as f32 * t;
+        for e in &n.entites {
+            let Entite::Ennemi(p0) = e else { continue };
+            if p0.type_ennemi != TypeEnnemi::Poisson || p0.case_du_poisson().0 < 190 {
+                continue;
+            }
+            let mut p = p0.clone();
+            let mut sommet = f32::MAX;
+            for _ in 0..PERIODE_POISSON_PAS {
+                p.actualiser(&env);
+                sommet = sommet.min(p.boite.y);
+                if !p.est_dangereux() {
+                    continue;
+                }
+                for &(tx, ty) in &appuis {
+                    let sol = ty as f32 * t;
+                    let mut x = tx as f32 * t - JOUEUR_L + 1.0;
+                    while x < (tx + 1) as f32 * t {
+                        let pepin = Aabb::new(x, sol - JOUEUR_H, JOUEUR_L, JOUEUR_H);
+                        assert!(
+                            !p.boite.chevauche(&pepin),
+                            "poisson {:?} : touche Pépin debout en x = {x}",
+                            p0.case_du_poisson()
+                        );
+                        x += 1.0;
+                    }
+                }
+            }
+            // Pépin en plein saut au-dessus du poisson a les pieds 40 à 57 px
+            // au-dessus du pieu : le poisson monte au moins jusque-là.
+            assert!(
+                sommet <= pieu - 40.0,
+                "poisson {:?} : sommet {sommet}, pieu {pieu}",
+                p0.case_du_poisson()
+            );
+        }
+        let duree_saut = 2.0 * VITESSE_SAUT / GRAVITE;
+        assert!(f32::from(SOUS_L_EAU_PAS) / HZ as f32 > 1.5 * duree_saut);
     }
 }

@@ -26,6 +26,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 35,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// 24 x 22 tuiles, thème Gouttières (nuit bleue).
