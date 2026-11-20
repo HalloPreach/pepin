@@ -9,14 +9,16 @@
 //!
 //! La saisie (carte 9.12f) : un tentacule monte de l'eau et s'enroule sur la
 //! plateforme, qui tremble (l'annonce) ; elle s'enfonce, découpée à la surface ;
-//! sous l'eau, des remous marquent sa place ; puis elle remonte.
+//! sous l'eau, un cercle d'écume marque sa place ; puis elle remonte. Son eau
+//! est la sienne (carte 9.12g) : bulles, cercle de remous, tourbillon, jamais les
+//! remous ni l'ombre d'un tentacule d'attaque.
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::pieuvre::{
     EtatSaisie, EtatTentacule, PhasePieuvre, Pieuvre, LARGEUR_COLONNE, MARGE_TENTACULE, NB_COLONNES,
 };
 use pepin_core::entities::Entite;
-use pepin_core::palette::ARDOISE_OMBRE;
+use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, PLUIE, PLUIE_SOMBRE};
 
 use crate::monde::{Monde, ENCRE_PAS};
 use crate::rendu::couleur_mq;
@@ -221,6 +223,12 @@ pub fn dessiner_saisie(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     );
     let etat = saisie.etat();
     let (dy, dx) = enfoncement(etat, surface - haut, monde.pas);
+    // L'eau d'abord : la plateforme, dessinée par-dessus, cache le fond du cercle.
+    let bassin = (
+        p.colonnes[0].x - MARGE_TENTACULE,
+        p.colonnes[NB_COLONNES - 1].droite() + MARGE_TENTACULE,
+    );
+    dessiner_eau_saisie(banque, etat, (g, d), bassin, (-cx, surface - cy), monde.pas);
     // Les tuiles, et l'objet posé dessus : seulement ce qui dépasse de l'eau.
     for &(tx, ty) in cases {
         let (nom, objet) = crate::scene::noms_de_la_case(monde, tx, ty);
@@ -234,7 +242,6 @@ pub fn dessiner_saisie(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     // Le tentacule : il sort au milieu de la plateforme, monte pendant la 1re
     // moitié de l'annonce, s'enroule sur le dessus ensuite et l'entraîne.
     let milieu = ((g + d) / 2.0 - 12.0).round();
-    let remous = image(["remous_pieuvre0", "remous_pieuvre1"], monde.pas, 6);
     let tirage = match etat {
         EtatSaisie::Annonce(a) => (a * 2.0).min(1.0),
         EtatSaisie::Plongee(_) => 1.0,
@@ -253,23 +260,119 @@ pub fn dessiner_saisie(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
                 x += t;
             }
         }
-        banque.dessiner(
-            "ombre_pieuvre",
-            milieu - 4.0 - cx,
-            surface + 1.0 - cy,
-            false,
-        );
     }
-    // Des remous sur toute la largeur de la plateforme, de la plongée à la
-    // remontée (sa place sous l'eau), et au pied du tentacule pendant l'annonce.
-    let (r0, r1) = if matches!(etat, EtatSaisie::Annonce(_)) {
-        (milieu - 4.0, milieu + 28.0)
-    } else {
-        (g, d)
-    };
-    let mut x = r0;
-    while x < r1 {
-        banque.dessiner(remous, x - cx, surface - 5.0 - cy, false);
-        x += LARGEUR_COLONNE;
+}
+
+/// L'effet d'eau d'une saisie (carte 9.12g, AGA : « la même gerbe d'eau qu'une
+/// attaque normale ») : le sien, posé à la surface, jamais les remous ni l'ombre
+/// d'un tentacule d'attaque (dont les 2 rangées cyan redoublaient l'eau du
+/// bassin). `(g, d)` : bords de la plateforme, `bassin` : bords de l'eau (monde) ;
+/// `(sx, sy)` : décalage de la caméra en x et surface à l'écran.
+fn dessiner_eau_saisie(
+    banque: &Banque,
+    etat: EtatSaisie,
+    (g, d): (f32, f32),
+    bassin: (f32, f32),
+    (sx, sy): (f32, f32),
+    pas: u32,
+) {
+    let (w, milieu) = (d - g, (g + d) / 2.0);
+    match etat {
+        // Des bulles remontent, un cercle de remous s'élargit autour de son pied
+        // (de 4 à 12 px au-delà de ses bords : jamais jusqu'à l'appui voisin).
+        EtatSaisie::Annonce(a) => {
+            let r = w / 2.0 + 4.0 + 4.0 * (a * 3.0).floor().min(2.0);
+            dessiner_onde(banque, (milieu - r, milieu + r), bassin, sx, sy);
+            dessiner_bulles(banque, &[g + 3.0, milieu - 2.0, d - 7.0], sx, sy, pas);
+        }
+        // Un tourbillon la creuse et l'avale, l'écume aux bords ; pas de gerbe.
+        EtatSaisie::Plongee(_) => {
+            dessiner_creux((g, d), sx, sy, pas);
+            if g - 6.0 >= bassin.0 {
+                banque.dessiner("bord_creux_saisie", g - 6.0 + sx, sy - 3.0, false);
+            }
+            if d + 6.0 <= bassin.1 {
+                banque.dessiner("bord_creux_saisie", d + sx, sy - 3.0, true);
+            }
+        }
+        // Sa place sous l'eau : un cercle calme, des bulles.
+        EtatSaisie::SousLEau => {
+            let r = w / 2.0 + 4.0;
+            dessiner_onde(banque, (milieu - r, milieu + r), bassin, sx, sy);
+            dessiner_bulles(banque, &[g + 5.0, d - 9.0], sx, sy, pas);
+        }
+        // Elle remonte : quelques bulles.
+        EtatSaisie::Remontee(_) => {
+            dessiner_bulles(banque, &[milieu - 2.0, d - 5.0], sx, sy, pas);
+        }
+    }
+}
+
+/// Le creux du tourbillon qui avale la plateforme, de `g` à `d` (monde) : la ligne
+/// claire de la surface plonge en cuvette (3 px au plus au milieu) au-dessus d'un
+/// creux d'ardoise d'ombre, un filet cyan sombre dessous, et des traits d'écume
+/// qui glissent le long de la ligne (l'eau tourne). Une seule couche, sous la
+/// surface : la plateforme découpée passe par-dessus.
+fn dessiner_creux((g, d): (f32, f32), sx: f32, sy: f32, pas: u32) {
+    let (creux, ligne, filet, ecume) = (
+        couleur_mq(ARDOISE_OMBRE),
+        couleur_mq(PLUIE),
+        couleur_mq(PLUIE_SOMBRE),
+        couleur_mq(BLANC_CASSE),
+    );
+    let n = (d - g).max(1.0) as u32;
+    for i in 0..n {
+        let x = g + i as f32 + sx;
+        let t = (i as f32 + 0.5) / n as f32;
+        let fond = (3.0 * (std::f32::consts::PI * t).sin()).round();
+        if fond > 0.0 {
+            macroquad::prelude::draw_rectangle(x, sy, 1.0, fond, creux);
+        }
+        let mousse = (i + pas / 3) % 8 < 2;
+        let c = if mousse { ecume } else { ligne };
+        macroquad::prelude::draw_rectangle(x, sy + fond, 1.0, 1.0, c);
+        macroquad::prelude::draw_rectangle(x, sy + fond + 1.0, 1.0, 1.0, filet);
+    }
+}
+
+/// Le cercle de remous de la saisie, vu de côté : un anneau d'écume à plat sur la
+/// surface, de `g` à `d` (monde), rogné aux bords du `bassin` (un bout rogné n'a
+/// pas sa courbe). Le trait du fond passe derrière la plateforme (dessinée
+/// ensuite), celui de devant dans l'eau. Que de l'écume : aucune bande d'eau.
+fn dessiner_onde(banque: &Banque, (g, d): (f32, f32), bassin: (f32, f32), sx: f32, sy: f32) {
+    let (g, d) = (g.round(), d.round());
+    let (mut a, mut b) = (g.max(bassin.0), d.min(bassin.1));
+    if g >= bassin.0 {
+        banque.dessiner("onde_saisie", g + sx, sy - 2.0, false);
+        a = g + 4.0;
+    }
+    if d <= bassin.1 {
+        banque.dessiner("onde_saisie", d - 4.0 + sx, sy - 2.0, true);
+        b = d - 4.0;
+    }
+    if b <= a {
+        return;
+    }
+    let (ecume, contour) = (couleur_mq(BLANC_CASSE), couleur_mq(ARDOISE_OMBRE));
+    for (dy, c) in [(-2.0, contour), (-1.0, ecume), (1.0, ecume), (2.0, contour)] {
+        macroquad::prelude::draw_rectangle(a + sx, sy + dy, b - a, 1.0, c);
+    }
+}
+
+/// Des bulles qui remontent de 12 px sous la surface `sy` (à l'écran) jusqu'à
+/// elle et y crèvent, une par abscisse de `xs` (monde, décalées de `sx`), chacune
+/// à son rythme. Pure animation : rien ne dépend du hasard.
+fn dessiner_bulles(banque: &Banque, xs: &[f32], sx: f32, sy: f32, pas: u32) {
+    const MONTEE: u32 = 24;
+    for (k, &x) in xs.iter().enumerate() {
+        let phase = (pas + 9 * k as u32) % MONTEE;
+        let y = sy + 12.0 - (phase * 11 / MONTEE) as f32;
+        // Elles oscillent d'un pixel en montant.
+        let ecart = if (phase / 6).is_multiple_of(2) {
+            0.0
+        } else {
+            1.0
+        };
+        banque.dessiner("bulle_saisie", x + ecart + sx, y, false);
     }
 }
