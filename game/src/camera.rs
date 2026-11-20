@@ -570,14 +570,16 @@ mod tests {
             // haut, sont les seuls niveaux du jeu que la caméra suit en hauteur : ils n'ont pas d'« ancienne » caméra à comparer
             // (la caméra verticale a ses propres tests, plus bas).
             if Camera::suit_en_hauteur(h) {
-                use pepin_core::levels::{cascade, clocher, descente, grotte, riviere};
+                // Et la tour de la Pieuvre (carte 9.13a, sa phase 2).
+                use pepin_core::levels::{cascade, clocher, descente, grotte, pieuvre, riviere};
                 assert!(
                     [
                         clocher::INFOS.nom,
                         descente::INFOS.nom,
                         cascade::INFOS.nom,
                         grotte::INFOS.nom,
-                        riviere::INFOS.nom
+                        riviere::INFOS.nom,
+                        pieuvre::INFOS.nom
                     ]
                     .contains(&infos.nom),
                     "{}",

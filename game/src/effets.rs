@@ -3,6 +3,7 @@
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::Contact;
+use pepin_core::entities::pieuvre::PhasePieuvre;
 use pepin_core::entities::Entite;
 use pepin_core::palette::{
     BLANC_CASSE, CORAIL_CLAIR, OR, OR_PALE, PLUIE, PLUIE_SOMBRE, VIOLET_ORAGE,
@@ -125,6 +126,15 @@ pub fn effets(
                 );
             }
         }
+    }
+    // La furie de la Pieuvre (carte 9.13a) : l'écran tremble tant qu'elle hurle,
+    // et une dernière fois quand le quai casse.
+    let furie = monde.entites.iter().any(|e| {
+        matches!(e, Entite::Pieuvre(p) if p.phase() == PhasePieuvre::Furie
+            || (p.phase() == PhasePieuvre::Montee && p.ecoule() == 0))
+    });
+    if furie && monde.pas.is_multiple_of(10) {
+        secousse.declencher(2, 10);
     }
     for c in &monde.contacts {
         match c {

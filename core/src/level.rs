@@ -108,6 +108,10 @@
 //!      haut de la carte (mortels 0,5 s) ; entre deux motifs, sa tête (3 x 2 cases)
 //!      sort sur l'eau au milieu (colonne 0), à gauche (-3) ou à droite (3) : on lui
 //!      saute dessus, trois coups. Pas de drapeau `X` : la vaincre finit le niveau
+//!   _  la bâche de l'arène de la Pieuvre (carte 9.13a, une rangée) : solide en
+//!      phase 1, déchirée au 3e coup ; la tour de la phase 2 est au-dessus
+//!   &  la tête de la Pieuvre en haut de la tour (carte 9.13a) : coin bas-gauche
+//!      de ses 3 x 2 cases ; un saut dessus finit le niveau. Va avec `_`
 //!   Mobilier de rue du Monde 2 (carte 9.20f) : des cases SOLIDES (des toits
 //!   pour la collision) que le jeu dessine comme un seul objet par groupe de
 //!   cases voisines de la même lettre (`Mobilier`) :

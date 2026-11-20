@@ -15,7 +15,8 @@
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::pieuvre::{
-    EtatSaisie, EtatTentacule, PhasePieuvre, Pieuvre, LARGEUR_COLONNE, MARGE_TENTACULE, NB_COLONNES,
+    EtatSaisie, EtatTentacule, PhasePieuvre, Pieuvre, HAUTEUR_TENTACULE_MONTEE, LARGEUR_COLONNE,
+    MARGE_TENTACULE, NB_COLONNES,
 };
 use pepin_core::entities::Entite;
 use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, PLUIE, PLUIE_SOMBRE};
@@ -80,7 +81,94 @@ pub fn dessiner(p: &Pieuvre, banque: &Banque, pas: u32, cx: i32, cy: i32) {
             }
         }
     }
+    // Phase 2 (carte 9.13a) : le tentacule de la montée sort de la mer, avec la
+    // même annonce qu'en phase 1, et ne monte que de 4 tuiles.
+    if let (Some((i, etat)), Some(mer)) = (p.tentacule_de_montee(), p.surface_mer()) {
+        let corps = p.colonnes[i];
+        let surface = mer - cy;
+        let gauche = corps.x - MARGE_TENTACULE - cx;
+        let remous = image(["remous_pieuvre0", "remous_pieuvre1"], pas, 6);
+        if let EtatTentacule::Annonce(a) = etat {
+            banque.dessiner("ombre_pieuvre", gauche, surface + 1.0, false);
+            if a >= 0.5 {
+                let nom = image(["tentacule_pointe0", "tentacule_pointe1"], pas, 8);
+                banque.dessiner(nom, corps.x - cx, surface - 11.0, false);
+            }
+        } else {
+            let h = hauteur_tentacule(etat, HAUTEUR_TENTACULE_MONTEE);
+            dessiner_tentacule(banque, corps.x - cx, surface, h, pas);
+        }
+        banque.dessiner(remous, gauche, surface - 5.0, false);
+    }
     dessiner_tete(p, banque, pas, cx, cy);
+}
+
+/// La bâche de l'arène (carte 9.13a), tant qu'elle tient : une rangée de toiles
+/// (les tuiles de toit du thème, en attendant son dessin : carte 9.13b).
+pub fn dessiner_bache(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let Some(bache) = la_pieuvre(monde).and_then(|p| p.bache_solide()) else {
+        return;
+    };
+    let mut x = bache.x;
+    while x < bache.droite() {
+        let (sx, sy) = (x - cx as f32, bache.y - cy as f32);
+        banque.dessiner_tuile(monde.infos.theme, "toit_haut", sx, sy);
+        x += TAILLE_TUILE;
+    }
+}
+
+/// La mer qui monte (carte 9.13a), devant la tour : les tuiles d'eau du thème
+/// jusqu'au bas de l'écran, la surface qui ondule ; aux murs, la graduation qui
+/// clignote quand un palier s'annonce (et reste allumée pendant le répit). La
+/// trombe de la furie : des bulles qui montent.
+pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let Some(p) = la_pieuvre(monde) else {
+        return;
+    };
+    let t = TAILLE_TUILE as i32;
+    if let Some(z) = p.trombe().map(|c| c.zone) {
+        let h = z.h as i32;
+        for k in 0..(h / 10).max(1) {
+            let monte = (monde.pas as i32 * 3 + k * 10).rem_euclid(h);
+            let x = z.x as i32 + (k * 13).rem_euclid(z.w as i32 - 6);
+            let y = z.bas() as i32 - monte;
+            let nom = image(
+                ["remous_pieuvre0", "remous_pieuvre1"],
+                monde.pas + k as u32,
+                6,
+            );
+            banque.dessiner(nom, (x - cx) as f32, (y - cy) as f32, false);
+        }
+    }
+    let Some(mer) = p.surface_mer() else {
+        return;
+    };
+    let surface = mer.round() as i32;
+    let bas = cy + HAUTEUR_LOGIQUE as i32;
+    let largeur = monde.niveau.largeur_px() as i32;
+    for x in (t..largeur - t).step_by(t as usize) {
+        let mut y = surface + t;
+        while y < bas {
+            banque.dessiner("jetee_eau_plein", (x - cx) as f32, (y - cy) as f32, false);
+            y += t;
+        }
+        let vague = (monde.pas / 10) as i32 + x / t;
+        let nom = if vague.rem_euclid(2) == 1 {
+            "jetee_eau_vague"
+        } else {
+            "jetee_eau_haut"
+        };
+        banque.dessiner(nom, (x - cx) as f32, (surface - cy) as f32, false);
+    }
+    if let Some(a) = p.annonce_palier() {
+        let clignote = a >= 1.0 || (monde.pas / (8 - (a * 6.0) as u32).max(2)).is_multiple_of(2);
+        if clignote {
+            for x in [t, largeur - 2 * t] {
+                let y = surface - 3 * t;
+                banque.dessiner("graduation", (x - cx) as f32, (y - cy) as f32, false);
+            }
+        }
+    }
 }
 
 /// Un tentacule de `h` px dressé au-dessus de `surface` (à l'écran) : des tronçons
@@ -121,7 +209,17 @@ fn dessiner_tete(p: &Pieuvre, banque: &Banque, pas: u32, cx: f32, cy: f32) {
                 banque.dessiner(remous, x + dx, surface - 5.0, false);
             }
         }
-        PhasePieuvre::Tete => {
+        // Phase 2 (carte 9.13a) : la furie, elle hurle (la colère, plus vite) ;
+        // la montée, elle attend en haut de la tour.
+        PhasePieuvre::Furie => {
+            banque.dessiner(
+                image(["pieuvre_colere0", "pieuvre_colere1"], pas, 4),
+                x,
+                y,
+                false,
+            );
+        }
+        PhasePieuvre::Tete | PhasePieuvre::Montee => {
             let nom = image(["pieuvre_colere0", "pieuvre_colere1"], pas, 20);
             if p.est_facile() {
                 banque.dessiner_pale(nom, x, y);
@@ -182,6 +280,8 @@ pub fn case_saisie(monde: &Monde, tx: i32, ty: i32) -> bool {
         .and_then(|p| {
             p.saisie()
                 .map(|s| p.plateformes[s.cible].contains(&(tx, ty)))
+                // Le quai cassé de la phase 2 (carte 9.13a) : tombé à l'eau.
+                .or(Some(p.case_engloutie(tx, ty)))
         })
         .unwrap_or(false)
 }

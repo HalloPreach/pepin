@@ -203,6 +203,8 @@ impl Entite {
             Entite::Ventilateur(v) => Some(v.boite),
             // La feuille du nénuphar : on s'y pose (elle s'enfonce ensuite).
             Entite::Nenuphar(n) => Some(n.boite),
+            // La bâche de l'arène de la Pieuvre (carte 9.13a), tant qu'elle tient.
+            Entite::Pieuvre(p) => p.bache_solide(),
             _ => None,
         }
     }
@@ -229,6 +231,8 @@ pub fn courants_des_entites(entites: &[Entite]) -> Vec<CourantAscendant> {
             Entite::Nuage(n) => n.courant_actif(),
             Entite::Bulles(b) => Some(b.courant()),
             Entite::Chute(c) => Some(c.courant()),
+            // La trombe de la phase 2 de la Pieuvre (carte 9.13a).
+            Entite::Pieuvre(p) => p.trombe(),
             _ => None,
         })
         .collect()

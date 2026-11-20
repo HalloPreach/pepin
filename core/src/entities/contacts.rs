@@ -330,6 +330,25 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
         }
     }
 
+    // Carte 9.13a : dès la phase 2 de la Pieuvre, la lanterne de la tour (au-dessus
+    // de la bâche) s'allume d'elle-même : une mort ramène au début de la phase 2,
+    // jamais dans l'arène dont le quai a cassé.
+    let bache = entites.iter().find_map(|e| match e {
+        Entite::Pieuvre(p) if p.en_fuite() => p.bache,
+        _ => None,
+    });
+    if let Some(bache) = bache {
+        for (i, entite) in entites.iter_mut().enumerate() {
+            if let Entite::Lanterne(l) = entite {
+                if l.boite.y < bache.y && l.activer() {
+                    let (x, y) = l.point_de_reapparition();
+                    contacts.push(Contact::Lanterne(x, y));
+                    lanterne_allumee = Some(i);
+                }
+            }
+        }
+    }
+
     // Une seule lanterne allumée à la fois : on éteint les autres.
     if let Some(allumee) = lanterne_allumee {
         for (i, entite) in entites.iter_mut().enumerate() {
