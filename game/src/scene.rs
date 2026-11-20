@@ -21,7 +21,6 @@ use pepin_core::level::{GenreDecor, GenrePanneau, Niveau, Tuile};
 use pepin_core::palette::*;
 use pepin_core::physics::{CourantAscendant, VentLateral, ENFONCEMENT_BARQUE, HZ};
 use pepin_core::player::EtatJoueur;
-use pepin_core::zones::Theme;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
 use crate::cosmetiques::Trainees;
@@ -912,14 +911,9 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
                         // Le corbeau du dessin regarde à droite. Sprite 18x14 centré
                         // sur la boîte 12x10 (3 px de chaque côté, 2 px en haut et en
                         // bas) : le miroir garde le corps sur la boîte. Au Monde 2
-                        // (carte 9.26b), même ennemi dessiné en chauve-souris, sauf
-                        // au port (carte 9.11d).
+                        // (carte 9.26b), même ennemi dessiné en chauve-souris.
                         banque.dessiner(
-                            image(
-                                images_corbeau(monde.infos.monde, monde.infos.theme),
-                                pas,
-                                10,
-                            ),
+                            image(images_corbeau(monde.infos.monde), pas, 10),
                             sx - 3.0,
                             sy - 2.0,
                             !e.vers_la_droite,
@@ -976,11 +970,9 @@ fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i32, cy: i32
 
 /// Images du corbeau selon le monde du niveau (carte 9.26b) : un corbeau au
 /// Monde 1, une chauve-souris à partir du Monde 2 (grotte, égouts…). Même ennemi,
-/// même boîte : seul le dessin change. Au port (carte 9.11d), en plein air
-/// au-dessus de l'eau, il reste un corbeau (AGA : pas de chauve-souris au port).
-/// Fonction pure.
-pub(crate) fn images_corbeau(monde: u8, theme: Theme) -> &'static [&'static str; 2] {
-    if monde >= 2 && theme != Theme::Port {
+/// même boîte : seul le dessin change. Fonction pure.
+pub(crate) fn images_corbeau(monde: u8) -> &'static [&'static str; 2] {
+    if monde >= 2 {
         &ennemis::CHAUVE_SOURIS
     } else {
         &ennemis::CORBEAU
@@ -1541,14 +1533,12 @@ mod tests {
     // --- Corbeau / chauve-souris (carte 9.26b) ---
 
     /// Le corbeau reste un corbeau au Monde 1 ; à partir du Monde 2 il est
-    /// dessiné en chauve-souris, avec le même battement (2 images, même taille),
-    /// sauf au port (carte 9.11d), en plein air.
+    /// dessiné en chauve-souris, avec le même battement (2 images, même taille).
     #[test]
     fn le_corbeau_devient_une_chauve_souris_au_monde_2() {
-        assert_eq!(images_corbeau(1, Theme::Toits), &ennemis::CORBEAU);
-        assert_eq!(images_corbeau(2, Theme::Grotte), &ennemis::CHAUVE_SOURIS);
-        assert_eq!(images_corbeau(3, Theme::Grotte), &ennemis::CHAUVE_SOURIS);
-        assert_eq!(images_corbeau(2, Theme::Port), &ennemis::CORBEAU);
+        assert_eq!(images_corbeau(1), &ennemis::CORBEAU);
+        assert_eq!(images_corbeau(2), &ennemis::CHAUVE_SOURIS);
+        assert_eq!(images_corbeau(3), &ennemis::CHAUVE_SOURIS);
     }
     // --- Grand Nuage (carte 5.11) ---
 
