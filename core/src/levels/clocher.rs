@@ -72,6 +72,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 55,
     ascii: ASCII,
     aiguilles: AIGUILLES,
+    poissons_hauts: &[],
 };
 
 /// Réglage des deux aiguilles, dans l'ordre de lecture de la grille (de haut en

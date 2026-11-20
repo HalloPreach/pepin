@@ -114,6 +114,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 60,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 /// Dessin du niveau (32 x 94 tuiles). Légende : voir `crate::level`.

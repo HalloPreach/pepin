@@ -253,6 +253,7 @@ fn joindre(grille: &[Vec<char>]) -> String {
 /// les toits).
 pub fn charger_ng_plus(infos: &InfosNiveau) -> Result<Niveau, ErreurVariante> {
     let mut niveau = Niveau::depuis_ascii_avec_aiguilles(&texte_ng_plus(infos)?, infos.aiguilles)?;
+    niveau.regler_sauts_poissons(infos.poissons_hauts)?;
     for e in &mut niveau.entites {
         match e {
             Entite::Eclair(eclair) => eclair.changer_repos(REPOS_ECLAIR_NG_PLUS),

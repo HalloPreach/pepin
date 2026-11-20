@@ -41,6 +41,7 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     duree_cible_s: 60,
     ascii: ASCII,
     aiguilles: &[],
+    poissons_hauts: &[],
 };
 
 const ASCII: &str = r#"

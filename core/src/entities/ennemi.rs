@@ -168,9 +168,12 @@ pub struct Ennemi {
     eau: PhaseEau,
     /// Grenouille : vitesse horizontale (px/s) du bond en cours, 0 sinon.
     elan: f32,
+    /// Poisson : hauteur (px) de son saut, `HAUT_SAUT_POISSON` sauf réglage du
+    /// niveau (carte 9.11e). Inutilisée pour les autres.
+    saut_poisson: f32,
     /// Ce qui, au départ, n'est pas celui de `new` (sens du regard, premier
-    /// sommeil du chat, premier repos du poisson) : `revenir_a_l_origine` le
-    /// remet (carte 9.29).
+    /// sommeil du chat, premier repos et hauteur de saut du poisson) :
+    /// `revenir_a_l_origine` le remet (cartes 9.29 et 9.11e).
     depart: Depart,
 }
 
@@ -182,6 +185,7 @@ struct Depart {
     vers_la_droite: bool,
     sommeil: PhaseChat,
     eau: PhaseEau,
+    saut_poisson: f32,
 }
 
 impl Ennemi {
@@ -206,10 +210,12 @@ impl Ennemi {
             bond: None,
             eau: PhaseEau::Guet,
             elan: 0.0,
+            saut_poisson: HAUT_SAUT_POISSON,
             depart: Depart {
                 vers_la_droite: false,
                 sommeil: PhaseChat::Dort(DORT_PAS),
                 eau: PhaseEau::Guet,
+                saut_poisson: HAUT_SAUT_POISSON,
             },
         }
     }
@@ -239,6 +245,7 @@ impl Ennemi {
         self.vers_la_droite = depart.vers_la_droite;
         self.sommeil = depart.sommeil;
         self.eau = depart.eau;
+        self.saut_poisson = depart.saut_poisson;
     }
 
     /// Peut-il blesser le joueur (ou être écrasé) ?

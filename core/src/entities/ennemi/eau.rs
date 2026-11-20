@@ -61,7 +61,9 @@ pub const SOUS_L_EAU_PAS: u16 = 90;
 pub const REMOUS_PAS: u16 = 42;
 /// Poisson : durée du saut hors de l'eau, 0,8 s.
 pub const SAUT_POISSON_PAS: u16 = 48;
-/// Poisson : hauteur du saut (px) : son dos monte 3,5 tuiles au-dessus de la surface.
+/// Poisson : hauteur du saut (px) par défaut : son dos monte 3,5 tuiles au-dessus
+/// de la surface. Un niveau peut la changer pour des poissons précis (carte 9.11e :
+/// `InfosNiveau::poissons_hauts`, `Ennemi::regler_saut_poisson`).
 pub const HAUT_SAUT_POISSON: f32 = 56.0;
 /// Poisson : au repos, le haut de sa boîte est 2 px sous la surface (caché).
 pub const PROFONDEUR_POISSON: f32 = 2.0;
@@ -88,10 +90,11 @@ pub const ANNONCE_RAT_PAS: u16 = 30;
 pub const REPOS_RAT_PAS: u16 = 45;
 
 /// Décalage vertical (px, vers le HAUT) du poisson pendant son saut, au pas `n`
-/// (parabole : 0 au départ et à l'arrivée, `HAUT_SAUT_POISSON` au milieu).
-pub fn hauteur_saut_poisson(n: u16) -> f32 {
+/// (parabole : 0 au départ et à l'arrivée, `haut` au milieu : la hauteur de saut
+/// de CE poisson, `HAUT_SAUT_POISSON` par défaut).
+pub fn hauteur_saut_poisson(n: u16, haut: f32) -> f32 {
     let f = f32::from(n.min(SAUT_POISSON_PAS)) / f32::from(SAUT_POISSON_PAS);
-    HAUT_SAUT_POISSON * 4.0 * f * (1.0 - f)
+    haut * 4.0 * f * (1.0 - f)
 }
 
 impl TypeEnnemi {
@@ -151,6 +154,26 @@ impl Ennemi {
     pub fn hors_de_l_eau(&self) -> bool {
         self.type_ennemi != TypeEnnemi::Poisson
             || matches!(self.eau, PhaseEau::Attaque(n) if n < SAUT_POISSON_PAS)
+    }
+
+    /// Hauteur (px) du saut du poisson (`HAUT_SAUT_POISSON` sauf réglage du niveau).
+    pub fn saut_poisson(&self) -> f32 {
+        self.saut_poisson
+    }
+
+    /// Règle la hauteur du saut (px) du poisson, gardée après une mort de Pépin
+    /// (carte 9.11e : les poissons de la fin du port sautent plus haut).
+    pub fn regler_saut_poisson(&mut self, haut: f32) {
+        self.saut_poisson = haut;
+        self.depart.saut_poisson = haut;
+    }
+
+    /// Case (colonne, rangée) de la lettre `i` du poisson : la case d'air juste
+    /// au-dessus de la surface (voir `level::ascii`).
+    pub fn case_du_poisson(&self) -> (usize, usize) {
+        let colonne = ((self.origine_x - 3.0) / TAILLE_TUILE).round() as usize;
+        let rangee = (self.surface_du_poisson() / TAILLE_TUILE).round() as usize - 1;
+        (colonne, rangee)
     }
 
     /// Ordonnée (px) de la surface au-dessus du poisson (`origine_y` moins sa profondeur).
@@ -313,7 +336,7 @@ impl Ennemi {
             PhaseEau::Attaque(_) => PhaseEau::Repos(SOUS_L_EAU_PAS),
         };
         let haut = match self.eau {
-            PhaseEau::Attaque(n) => hauteur_saut_poisson(n),
+            PhaseEau::Attaque(n) => hauteur_saut_poisson(n, self.saut_poisson),
             _ => 0.0,
         };
         self.boite.y = self.origine_y - haut;
