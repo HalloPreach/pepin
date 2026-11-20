@@ -19,13 +19,14 @@
 //! ```
 //!
 //! - colère : un MOTIF de tentacules sur les 9 colonnes du bassin (2 tuiles de
-//!   large chacune). Chaque tentacule est d'abord ANNONCÉ (72 pas, 1,2 s : remous
+//!   large chacune). Chaque tentacule est d'abord ANNONCÉ (84 pas, 1,4 s : remous
 //!   et ombre sur l'eau, puis le bout du tentacule qui pointe), sans danger ; puis
 //!   il se DRESSE de toute la hauteur (30 pas, 0,5 s) : mortel ; puis il redescend
 //!   (12 pas), sans danger. Un motif par point perdu (`MOTIFS`), de plus en plus
 //!   gros et rapide : 5 colonnes sur 9 par salve, puis 7, puis 7 ou 8 en VAGUE qui
 //!   balaie le bassin, aller, un souffle, puis retour (carte 9.12d : plus lente
-//!   et lisible pour un humain, nettement sous l'orage à la mesure).
+//!   et lisible pour un humain, nettement sous l'orage à la mesure ; carte 9.12h :
+//!   encore environ 25 % plus lente).
 //! - remous : la tête remonte (l'eau bouillonne à sa place), sans danger.
 //! - tête sortie : la tête est posée sur l'eau, au milieu ou d'un côté
 //!   (`PLACES_TETE`), 2 s. Lui tomber dessus la touche (`recoit`, même règle que
@@ -65,11 +66,15 @@ pub const PV_PIEUVRE: u8 = 3;
 pub const PV_PIEUVRE_FACILE: u8 = 2;
 /// Prélude : 1,5 s de calme avant le premier motif (et après une mort).
 pub const PRELUDE_PAS: u16 = 90;
-/// Annonce d'un tentacule : 1,2 s (remous et ombre, puis le bout qui pointe).
+/// Annonce d'un tentacule : 1,4 s (remous et ombre, puis le bout qui pointe).
 /// Carte 9.12d (AGA : « la pieuvre est trop rapide, c'est plus dur que l'orage
 /// pour un humain ») : 0,8 s auparavant, le robot réagit à l'image près, un humain
 /// non (voir `un_humain_a_le_temps_de_changer_de_colonne`).
-pub const ANNONCE_PAS: u16 = 72;
+/// Carte 9.12h (AGA : « la pieuvre tape encore un peu trop vite pour un
+/// humain ») : 1,2 s (72 pas) auparavant. La frappe (`DRESSE_PAS`) et la
+/// redescente ne changent pas : on voit plus longtemps venir le coup, il ne dure
+/// pas plus.
+pub const ANNONCE_PAS: u16 = 84;
 /// Moitié de l'annonce : avant, remous et ombre ; après, le bout du tentacule pointe.
 pub const POINTE_PAS: u16 = ANNONCE_PAS / 2;
 /// Tentacule dressé de toute la hauteur : 0,5 s, mortel.
@@ -232,6 +237,16 @@ pub fn cases_englouties(entites: &[Entite]) -> Vec<(i32, i32)> {
 /// 1,2 s, une salve de moins par motif, et un souffle de 140 pas entre l'aller et
 /// le retour de la vague.
 ///
+/// Carte 9.12h (AGA : « la pieuvre tape encore un peu trop vite pour un
+/// humain ») : une salve dure 114 pas (1,9 s) ; annoncées toutes les 78 ou 60
+/// pas, la suivante s'annonçait pendant que la précédente frappait encore. Les
+/// débuts de chaque motif sont donc ÉTIRÉS, tous du même facteur : une salve
+/// toutes les 120, 104, puis 84 pas (100, 78, 60 auparavant), soit x 1,2, x 4/3
+/// et x 1,4 ; au motif 3, l'écart avant l'aller passe de 100 à 140 pas et le
+/// souffle de 140 à 196. La fin de chaque motif (donc la sortie de la tête) suit
+/// toute seule : `duree_motif` part du dernier début. Colonnes frappées, saisie,
+/// tête et points de vie : inchangés.
+///
 /// Carte 9.12e (AGA : la Pieuvre doit rester le boss au-dessus des niveaux 1 à 4
 /// du chapitre 2 ; sans le petit ponton du milieu, l'Habitué n'y mourait plus que
 /// 0,44 fois) : des attaques PLUS LARGES, jamais plus rapides. Chaque salve des
@@ -241,11 +256,11 @@ pub fn cases_englouties(entites: &[Entite]) -> Vec<(i32, i32)> {
 /// Part du bassin frappée par salve : 56 %, 78 %, 85 % (44, 67, 78 % avant).
 /// Réglés à la MESURE (`difficulte::tests::mesure_d_un_niveau_du_monde_2`,
 /// CLE=pieuvre).
-/// - Motif 1 : 5 colonnes sur 9, une salve toutes les 100 pas : les bords et un
+/// - Motif 1 : 5 colonnes sur 9, une salve toutes les 120 pas : les bords et un
 ///   peu du milieu, puis le milieu, puis les bords... on fait la navette.
-/// - Motif 2 : 7 colonnes sur 9, toutes les 78 pas : trois bandes, deux trous
+/// - Motif 2 : 7 colonnes sur 9, toutes les 104 pas : trois bandes, deux trous
 ///   d'une colonne qui sautent d'un côté à l'autre, d'une colonne à la fois.
-/// - Motif 3 : 7 ou 8 colonnes sur 9, toutes les 60 pas : deux trous d'une
+/// - Motif 3 : 7 ou 8 colonnes sur 9, toutes les 84 pas : deux trous d'une
 ///   colonne se rejoignent au milieu ; ce trou glisse vers la droite (l'ALLER de
 ///   la VAGUE), elle souffle, puis il revient au milieu (le RETOUR), et la tête
 ///   sort à droite : on retraverse l'arène.
@@ -263,17 +278,17 @@ pub const MOTIFS: [&[Salve]; PV_PIEUVRE as usize] = [
         },
         // Le bord gauche et le milieu : à gauche ou à droite.
         Salve {
-            debut: 100,
+            debut: 120,
             bandes: &[(-4, -4), (-2, 1)],
         },
         // Les bords : au milieu.
         Salve {
-            debut: 200,
+            debut: 240,
             bandes: &[(-4, -2), (3, 4)],
         },
         // Le milieu et le bord droit : à gauche (la tête sort ensuite au milieu).
         Salve {
-            debut: 300,
+            debut: 360,
             bandes: &[(-1, 2), (4, 4)],
         },
     ],
@@ -283,20 +298,20 @@ pub const MOTIFS: [&[Salve]; PV_PIEUVRE as usize] = [
             bandes: &[(-4, -3), (-1, 1), (3, 4)],
         },
         Salve {
-            debut: 78,
+            debut: 104,
             bandes: &[(-4, -2), (0, 2), (4, 4)],
         },
         Salve {
-            debut: 156,
+            debut: 208,
             bandes: &[(-4, -3), (-1, 2), (4, 4)],
         },
         Salve {
-            debut: 234,
+            debut: 312,
             bandes: &[(-4, -2), (0, 2), (4, 4)],
         },
         // La gauche et la droite : au milieu, puis à gauche (la tête y sort).
         Salve {
-            debut: 312,
+            debut: 416,
             bandes: &[(-4, -2), (0, 1), (3, 4)],
         },
     ],
@@ -306,28 +321,28 @@ pub const MOTIFS: [&[Salve]; PV_PIEUVRE as usize] = [
             debut: 0,
             bandes: &[(-4, -3), (-1, 1), (3, 4)],
         },
-        // ... qui se rejoignent au milieu (100 pas : le temps d'y courir).
+        // ... qui se rejoignent au milieu (140 pas : le temps d'y courir).
         Salve {
-            debut: 100,
+            debut: 140,
             bandes: &[(-4, -1), (1, 4)],
         },
-        // L'aller : le trou glisse vers la droite, une colonne toutes les 60 pas...
+        // L'aller : le trou glisse vers la droite, une colonne toutes les 84 pas...
         Salve {
-            debut: 160,
+            debut: 224,
             bandes: &[(-4, -1), (2, 4)],
         },
         Salve {
-            debut: 220,
+            debut: 308,
             bandes: &[(-4, 0), (2, 4)],
         },
-        // ... elle souffle (140 pas), puis le retour, au milieu (la tête sort
+        // ... elle souffle (196 pas), puis le retour, au milieu (la tête sort
         // ensuite à droite).
         Salve {
-            debut: 360,
+            debut: 504,
             bandes: &[(-4, -1), (1, 4)],
         },
         Salve {
-            debut: 420,
+            debut: 588,
             bandes: &[(-4, -1), (1, 4)],
         },
     ],
@@ -741,7 +756,7 @@ mod tests {
     fn la_tete_ne_se_touche_qu_en_lui_tombant_dessus() {
         let mut p = pieuvre();
         // Prélude, puis le 1er motif : sa 1re salve frappe le bord gauche et trois
-        // colonnes isolées, dont la colonne 2 (corps de x = 212 à 236), annoncée 72
+        // colonnes isolées, dont la colonne 2 (corps de x = 212 à 236), annoncée 84
         // pas (sans danger), dressée 30 (mortelle), puis elle redescend. La colonne
         // 0 (x = 148 à 172) est libre.
         let sur_la_colonne = Aabb::new(218.0, 114.0, 10.0, 14.0);
