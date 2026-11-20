@@ -1,4 +1,5 @@
-//! Monde 2, niveau 6 : « Le port » (carte 9.11, refait à la carte 9.11c). Juste
+//! Monde 2, niveau 6 : « Le port » (carte 9.11, refait aux cartes 9.11c et
+//! 9.11d). Juste
 //! avant le repaire de la Pieuvre : la pluie arrive au port, et Pépin le traverse
 //! de quai en quai, porté par les bateaux et par la caisse d'une grue, jusqu'au
 //! BOUT DE LA JETÉE, là où commence « La Pieuvre du port ». Plan d'AGA : « Le
@@ -13,26 +14,35 @@
 //! l'écrase alors d'un saut). Leur temps n'a pas changé (celui du pigeon).
 //! Et chaque passage est différent : aucun ne revient plus de deux fois.
 //!
-//! Lecture du niveau (110 x 11 tuiles, un écran de haut), de gauche à droite :
+//! Carte 9.11d (AGA : « le port : il est devenu court et trop simple ») : deux
+//! fois plus long, plus dur (enchaînements de bateaux sans repos, poissons dans
+//! les trous, crabes sur des pontons étroits, conteneurs et grue au-dessus du
+//! vide, corbeaux au-dessus de l'eau) ; 3 mouettes, toujours sur des passerelles.
+//!
+//! Lecture du niveau (227 x 11 tuiles, un écran de haut), de gauche à droite :
 //! 1. le QUAI DU DÉPART (colonnes 0 à 10) : une caisse et sa goutte ;
-//! 2. le BASSIN 1 (colonnes 11 à 24, trop large pour un saut plané) : le BATEAU 1
-//!    va et vient ; un poisson guette dans l'eau libre avant le quai 2 ;
-//! 3. le QUAI 2 (colonnes 25 à 42) : la lanterne 1, une PILE DE CONTENEURS
-//!    qu'on gravit et redescend (la 2e goutte au sommet), puis la MOUETTE 1 sur
-//!    sa passerelle (colonnes 40 à 42, rangée 1) au-dessus du quai ;
-//! 4. la DARSE de la GRUE (colonnes 43 à 47) : sa caisse (colonnes 46-47) monte
-//!    de l'eau jusqu'au toit de l'entrepôt, trop haut pour un saut ;
-//! 5. le TOIT DE L'ENTREPÔT (colonnes 48 à 55, rangée 1 : la lanterne 2, une
-//!    mouette au repos en décor) d'où l'on PLANE au-dessus du bassin suivant
-//!    (colonnes 56 à 63) jusqu'au quai bas ; la 3e goutte, un peu cachée, attend
-//!    au ras de l'eau : il faut s'y laisser tomber, puis remonter en barque ;
-//! 6. le QUAI BAS (colonnes 64 à 77) : la lanterne 3, deux caisses empilées, la
-//!    MOUETTE 2 sur sa passerelle (colonnes 73 à 75) ;
-//! 7. le PONTON FLOTTANT étroit (colonnes 81 à 83) et son crabe, puis le DUC
-//!    D'ALBE (le pilier d'amarrage, colonnes 87-88, la lanterne 4) ;
-//! 8. le BASSIN 2 (colonnes 89 à 99) : le BATEAU 2, un poisson avant la jetée ;
-//! 9. le BOUT DE LA JETÉE (colonnes 100 à 109) : un crabe entre deux caisses, et
-//!    le drapeau.
+//! 2. le BASSIN 1 (11 à 24) : le BATEAU 1, lent, et un poisson avant le quai 2 ;
+//! 3. le QUAI 2 (25 à 44) : la lanterne 1, une caisse, la MOUETTE 1 sur sa
+//!    passerelle (colonnes 38 à 40, rangée 1) au-dessus du quai où l'on court ;
+//! 4. le BASSIN 2 (45 à 59) : DEUX bateaux à la suite, de courses différentes
+//!    (ils se rapprochent puis s'éloignent), un poisson qui saute dans le trou ;
+//! 5. le QUAI 3 (60 à 66, lanterne 2) puis la CALE SÈCHE (67 à 82), vide jusqu'en
+//!    bas : deux piles de conteneurs, la caisse d'une grue (colonne 77, la 2e
+//!    goutte au-dessus de son point haut), la 3e pile ;
+//! 6. le VOL PLANÉ au-dessus du bassin 3 (83 à 92), un corbeau dans le vol ; la
+//!    3e goutte, cachée, attend au ras de l'eau (barque, puis ponton) ;
+//! 7. le QUAI 4 (93 à 110) : la lanterne 3, la MOUETTE 2 sur sa passerelle
+//!    (colonnes 102 à 104) ;
+//! 8. le BASSIN 4 (111 à 124) : deux PONTONS étroits, chacun son crabe, un
+//!    poisson entre eux, puis le DUC D'ALBE (125-126, lanterne 4) ;
+//! 9. le BASSIN 5 (127 à 149) : TROIS bateaux sans repos, de courses
+//!    différentes, un corbeau au-dessus, un poisson entre les deux derniers ;
+//! 10. le QUAI 5 (150 à 159, lanterne 5), la DARSE de la grue (sa caisse,
+//!     colonnes 163-164, monte au TOIT DE L'ENTREPÔT, 165 à 172) d'où l'on PLANE
+//!     au-dessus du bassin 6 et de son poisson jusqu'au quai 6 (lanterne 6) ;
+//! 11. le BASSIN 7 (191 à 204) : trois PIEUX d'amarrage, deux poissons entre eux ;
+//! 12. le BOUT DE LA JETÉE (205 à 226) : la lanterne 7, la MOUETTE 3 sur sa
+//!     passerelle (colonnes 214 à 216), un crabe entre deux caisses, le drapeau.
 //!
 //! Tombé à l'eau en planant : la barque. Contre chaque quai de départ d'un bateau
 //! et au bord du quai bas, un ponton (`#` rangée 7) fait l'échelle : barque,
@@ -55,29 +65,29 @@ pub const INFOS: InfosNiveau = InfosNiveau {
     theme: Theme::Port,
     genre: GenreNiveau::Normal,
     intro: "La pluie arrive au port. Au bout de la jetée, quelque chose remue dans l'eau.",
-    mecanique: "Bateaux en va-et-vient, pile de conteneurs, caisse de grue qui monte au \
-                toit de l'entrepôt, vol plané au-dessus du bassin, ponton flottant, \
-                mouettes perchées sur les passerelles.",
+    mecanique: "Bateaux en va-et-vient et à la suite, conteneurs et grue au-dessus du \
+                vide, caisse de grue qui monte au toit de l'entrepôt, vols planés, \
+                pontons étroits à crabes, pieux, mouettes perchées sur les passerelles.",
     duree_cible_s: 60,
     ascii: ASCII,
     aiguilles: &[],
 };
 
-/// 110 x 11 tuiles, thème Port. `1`, `3` : les bateaux (rangée 8, posés sur
-/// l'eau) ; `2` : la caisse de la grue (colonne 46, rangées 8 à 1) ; `u` : les
-/// mouettes, sur leurs passerelles.
+/// 227 x 11 tuiles, thème Port. `1`, `3`, `4`, `6`, `7`, `9` : les bateaux
+/// (rangée 8, posés sur l'eau) ; `5`, `2` : les caisses des grues (colonnes 77
+/// et 163) ; `u` : les mouettes, sur leurs passerelles ; `c` : les corbeaux.
 const ASCII: &str = r"
-........................................u.........L...K..................u....................................
-................................o.......###...2.BBBBBBBB.................###..................................
-...............................##...............BBBBBBBB......................................................
-.....o........................####..............BBBBBBBB...........#..........................................
-.@...#....................L..######.............BBBBBBBB.........L.#...................L..............#.k.#.X.
-BBBBBBBBBBB..............BBBBBBBBBBBBBBBBBB.....BBBBBBBB........BBBBBBBBBBBBBB.........BB...........BBBBBBBBBB
-BBBBBBBBBBB..............BBBBBBBBBBBBBBBBBB.....BBBBBBBB....o...BBBBBBBBBBBBBB....k....BB...........BBBBBBBBBB
-BBBBBBBBBBB#.............BBBBBBBBBBBBBBBBBB.....BBBBBBBB.......#BBBBBBBBBBBBBB...###...BB#..........BBBBBBBBBB
-BBBBBBBBBBB.1........1.i.BBBBBBBBBBBBBBBBBB...2.BBBBBBBB........BBBBBBBBBBBBBB.........BB.3.....3.i.BBBBBBBBBB
-BBBBBBBBBBB~~~~~~~~~~~~~~BBBBBBBBBBBBBBBBBB~~~~~BBBBBBBB~~~~~~~~BBBBBBBBBBBBBB~~~~~~~~~BB~~~~~~~~~~~BBBBBBBBBB
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+......................................u.......................................o.......................u....................................................................K..........................................u............
+......................................###.............................................................###..........................................................2.BBBBBBBB.........................................###..........
+.............................................................................5...##..................................................................................BBBBBBBB......................................................
+.....o..............................................................##...........##....c.............................................c...............................BBBBBBBB......................................................
+.@...#.....................L...#.............................L......##..##.......##...........L..............................L.........................L.............BBBBBBBB.........L.......................L............#.k.#.X.
+BBBBBBBBBBB..............BBBBBBBBBBBBBBBBBBBB...............BBBBBBB.##..##.......##..........BBBBBBBBBBBBBBBBBB..............BB.......................BBBBBBBBBB.....BBBBBBBB........BBBBBBBBBB..............BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB..............BBBBBBBBBBBBBBBBBBBB...............BBBBBBB.##..##.......##..........BBBBBBBBBBBBBBBBBB....k.....k...BB.......................BBBBBBBBBB.....BBBBBBBB........BBBBBBBBBB...#...#...#..BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB#.............BBBBBBBBBBBBBBBBBBBB#..............BBBBBBB.##..##.......##......o..#BBBBBBBBBBBBBBBBBB#..###...###..BB#......................BBBBBBBBBB.....BBBBBBBB.......#BBBBBBBBBB#..#...#...#..BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB.1........1.i.BBBBBBBBBBBBBBBBBBBB.3..3.i4....4..BBBBBBB.##..##...5...##..........BBBBBBBBBBBBBBBBBB.......i......BB.6..6..7....7.i9...9...BBBBBBBBBB...2.BBBBBBBB....i...BBBBBBBBBB...#.i.#.i.#..BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB~~~~~~~~~~~~~~BBBBBBBBBBBBBBBBBBBB~~~~~~~~~~~~~~~BBBBBBB.##..##.......##~~~~~~~~~~BBBBBBBBBBBBBBBBBB~~~~~~~~~~~~~~BB~~~~~~~~~~~~~~~~~~~~~~~BBBBBBBBBB~~~~~BBBBBBBB~~~~~~~~BBBBBBBBBB~~~~~~~~~~~~~~BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.##..##.......##BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 ";
 
 #[cfg(test)]
@@ -89,8 +99,8 @@ mod tests {
     use crate::level::{Niveau, Tuile};
     use crate::physics::{Environnement, JOUEUR_H, JOUEUR_L, VITESSE_COURSE};
 
-    /// Deux bateaux horizontaux et une caisse de grue verticale, trois gouttes,
-    /// quatre lanternes, un drapeau au bout de la jetée.
+    /// Six bateaux horizontaux et deux caisses de grue verticales, trois gouttes,
+    /// sept lanternes, un drapeau au bout de la jetée (carte 9.11d).
     #[test]
     fn le_port_a_ses_bateaux_sa_grue_et_ses_gouttes() {
         let n = INFOS.charger().unwrap();
@@ -104,14 +114,14 @@ mod tests {
             .collect();
         let horizontaux = mobiles.iter().filter(|(a, b)| a.1 == b.1).count();
         let verticaux = mobiles.iter().filter(|(a, b)| a.0 == b.0).count();
-        assert_eq!((horizontaux, verticaux), (2, 1));
+        assert_eq!((horizontaux, verticaux), (6, 2));
         let gouttes = n
             .entites
             .iter()
             .filter(|e| matches!(e, Entite::Goutte(_)))
             .count();
         assert_eq!(gouttes, 3);
-        assert_eq!(n.nb_lanternes(), 4);
+        assert_eq!(n.nb_lanternes(), 7);
         assert!(n.arrivee.is_some());
     }
 
@@ -136,7 +146,8 @@ mod tests {
             .collect()
     }
 
-    /// Carte 9.11c : 2 mouettes, chacune tournée vers Pépin qui arrive (vers la
+    /// Carte 9.11c (3 depuis la carte 9.11d) : les mouettes, chacune tournée
+    /// vers Pépin qui arrive (vers la
     /// gauche), écrasable, et dont la plongée ne passe sur AUCUN endroit où l'on
     /// s'arrête : le départ, une lanterne, un bateau ou la caisse de la grue à
     /// l'un de leurs bouts, et toute case de sol à moins de 4 tuiles d'un bassin
@@ -145,7 +156,7 @@ mod tests {
     fn aucune_mouette_ne_garde_un_endroit_ou_l_on_s_arrete() {
         let n = INFOS.charger().unwrap();
         let ms = mouettes(&n);
-        assert_eq!(ms.len(), 2);
+        assert_eq!(ms.len(), 3);
         let mut arrets: Vec<(Aabb, String)> = vec![(
             Aabb::new(n.depart.0, n.depart.1, JOUEUR_L, JOUEUR_H),
             "départ".into(),
