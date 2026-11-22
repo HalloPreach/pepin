@@ -31,7 +31,15 @@
 //! deux RENCONTRES avec la tête (au tiers et aux deux tiers : elle bloque le
 //! passage jusqu'à ce qu'on lui saute dessus, la mer recule alors de 2 tuiles),
 //! deux BALAYEURS qui glissent sur une corniche, deux plateformes ARRACHÉES sous
-//! le nez de Pépin, et une lanterne de mi-hauteur (voir
+//! le nez de Pépin, et une lanterne de mi-hauteur.
+//!
+//! LA GÉANTE (carte 9.13c, AGA : « je n'aime pas la montée, les attaques n'ont
+//! pas de sens », il a choisi « la Pieuvre géante et visible qui grimpe à côté
+//! de la tour ») : la tour n'a plus que 13 colonnes ; dans le couloir de 5
+//! colonnes à sa droite, la géante monte avec la mer, son œil suit Pépin, et
+//! chaque attaque part de son corps : frappe visée, balayage, secousse (des
+//! caisses tombent), arrachage, et deux JETÉS où, sonnée, elle se laisse frapper
+//! (la mer recule). Plus de trappe ni de gardes (voir
 //! `entities::pieuvre::montee`).
 //!
 //! L'arène reprend la géométrie du niveau d'essai « pieuvre » (`essai_pieuvre`),
@@ -81,28 +89,22 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// trois gouttes sous le départ (prises en tombant) et la lanterne.
 ///
 /// Au-dessus, la phase 2 : la BÂCHE `_` (le plafond de l'arène, carte 9.13a),
-/// puis la TOUR du port, doublée par la carte 9.13b (AGA : « la montée est trop
-/// simple et trop courte, il faudrait des interactions avec la pieuvre ») : 66
-/// rangées en zigzag, aucun motif plus de deux fois. Du bas vers le haut :
+/// puis la TOUR du port (66 rangées, carte 9.13b), resserrée par la carte 9.13c
+/// sur les 13 colonnes de gauche : les 5 colonnes de droite sont le COULOIR de
+/// la géante, toujours vide. Un zigzag, aucun motif plus de deux fois. Du bas
+/// vers le haut :
 /// - la corniche du bas (rangée 66) et sa lanterne, la reprise de la phase 2 ;
-/// - deux caisses (63, 60), une PLATEFORME MOBILE (`1`, rangée 57) qui mène à
-///   gauche, une caisse contre le mur (54), un saut plongeant par le trou de la
-///   corniche large 49 ;
-/// - RENCONTRE 1 (`$`, rangée 48) : la tête agrippée à la corniche 49 tient la
-///   TRAPPE `-` de la corniche 44 ; frappée, elle ouvre le passage ;
-/// - la LANTERNE de mi-hauteur (rangée 43), sur la corniche 44 ;
-/// - une VERGUE sur son mât (41-43), deux caisses (38) dont une ARRACHABLE `%`, à
-///   droite (l'autre chemin passe à gauche), deux corniches de mur (35) ;
-/// - le quai de la grue (32), que BALAIE un tentacule sorti du mur gauche (`!`) ;
-/// - une passerelle FRIABLE `F` (29), un passage étroit par le trou de la
-///   corniche 27 ;
-/// - RENCONTRE 2 (`$`, rangée 26), sur la corniche 27 : sa trappe est sur la
-///   corniche 22, au-dessus de la caisse 24 ;
-/// - la corniche 22, que balaie un tentacule sorti du mur droit (`!`) ;
-/// - deux caisses (19) dont une ARRACHABLE à gauche (l'autre chemin passe à
-///   droite), deux autres (16), la corniche large 13, une caisse (10), puis la
-///   VIGIE du dernier mât (7), où la tête attend (`&`), gardée par deux
-///   tentacules.
+/// - quatre caisses (64, 61, 58, 55) ;
+/// - JETÉ 1 (`$`) sur la corniche large 52 : elle se jette sur son bout droit ;
+/// - la LANTERNE de mi-hauteur (49), puis deux caisses (46) dont une ARRACHABLE
+///   `%` à droite (l'autre chemin passe à gauche), une caisse (43) ;
+/// - la corniche 40, que BALAIE un tentacule (`!`, contre le couloir) ;
+/// - SECOUSSE 1 (`+`) en arrivant sur la caisse 37, une caisse (34), une
+///   passerelle FRIABLE `F` (31) ;
+/// - JETÉ 2 sur la corniche large 28, une caisse (25), la corniche 22 BALAYÉE ;
+/// - SECOUSSE 2 en arrivant sur la caisse 19, deux caisses (16) dont une
+///   ARRACHABLE à droite, deux caisses (13, 10), puis la VIGIE (7), où elle se
+///   jette pour le coup final (`&`).
 ///
 /// Chaque saut monte de 2 ou 3 rangées et passe par une colonne libre à côté de
 /// l'appui suivant (le robot de faisabilité le vérifie, avec et sans les
@@ -114,67 +116,67 @@ B..................B
 B..................B
 B..................B
 B..................B
-B........&.........B
-B........#####.....B
-B..........#.......B
-B..........#.......B
-B..............###.B
-B..................B
-B..................B
+B.........&........B
 B....#########.....B
 B..................B
 B..................B
-B..###........###..B
+B###...............B
 B..................B
-B..................B
-B.....%%%..###.....B
-B..................B
-B.................!B
-B#---##############B
-B..................B
-B.###..............B
-B..................B
-B.....$............B
-B############...###B
-B..................B
-B............FFF...B
-B..................B
-B!.................B
-B...############...B
-B..................B
-B..................B
-B##.............###B
-B..................B
-B..................B
-B..###.......%%%...B
-B..................B
-B..................B
-B......#####.......B
-B........#.........B
-B..L.....#.........B
-B##############---#B
-B..................B
-B..............###.B
-B..................B
-B...........$......B
-B###...############B
 B..................B
 B...###............B
+B..................B
+B..................B
+B##....%%%.........B
+B..................B
+B.+................B
+B####..............B
+B..................B
+B............!.....B
+B....#########.....B
+B..................B
+B..................B
+B###...............B
+B..................B
+B.........$........B
+B.....########.....B
+B..................B
+B..................B
+B.FFF..............B
+B..................B
+B..................B
+B.....###..........B
+B..................B
+B.+................B
+B####..............B
+B..................B
+B............!.....B
+B......#######.....B
+B..................B
+B..................B
+B..###.............B
+B..................B
+B..................B
+B##...%%%..........B
+B..................B
+B.L................B
+B####..............B
+B..................B
+B.........$........B
+B.....########.....B
+B..................B
+B..................B
+B..###.............B
 B..................B
 B..................B
 B##................B
 B..................B
 B..................B
-B...1....1.........B
+B....###...........B
 B..................B
 B..................B
-B..........###.....B
-B..................B
-B..................B
-B..............###.B
-B..................B
-B............L.....B
-B#######....#######B
+B.........###......B
+B.L................B
+B#######....##.....B
 B..................B
 B__________________B
 B@.................B
@@ -196,14 +198,15 @@ mod tests {
     use crate::aabb::{Aabb, TAILLE_TUILE};
     use crate::entities::contacts::{resoudre_contacts, Contact};
     use crate::entities::pieuvre::{
-        EtatArrachage, EtatBalai, EtatTentacule, PhasePieuvre, Pieuvre, ANNONCE_BALAI_PAS,
-        ANNONCE_PAS, ANNONCE_SAISIE_PAS, BOUT_BALAI, FURIE_PAS, GARDE_PAS, PLONGEE_PAS, RECUL_MER,
-        RYTHME_TENTACULE_PAS, SURGIT_PAS, VITESSE_BALAI,
+        EtatArrachage, EtatBalai, EtatFrappe, EtatJete, EtatSecousse, PhasePieuvre, Pieuvre,
+        ANNONCE_BALAI_PAS, ANNONCE_FRAPPE_PAS, ANNONCE_SAISIE_PAS, ANNONCE_SECOUSSE_PAS,
+        BOUT_BALAI, CABRE_PAS, CHUTE_JETE_PAS, FURIE_PAS, PLONGEE_PAS, RECUL_MER, REPIT_PAS,
+        RYTHME_FRAPPE_PAS, SOUS_PEPIN, TAILLE_GEANTE, VISEE_MAX, VITESSE_BALAI,
     };
     use crate::entities::{Actualisable, Entite};
     use crate::level::Niveau;
     use crate::levels::essai_pieuvre;
-    use crate::physics::{Environnement, JOUEUR_L};
+    use crate::physics::{Environnement, JOUEUR_H, JOUEUR_L};
     use crate::player::Joueur;
 
     /// Première rangée de l'arène : la tour et la bâche sont au-dessus.
@@ -273,14 +276,25 @@ mod tests {
                     .collect::<Vec<_>>())
                 .collect::<Vec<_>>()
         );
-        // Carte 9.13a : la tour a sa tête finale et sa bâche ; carte 9.13b : six
-        // paliers (sous ses six corniches larges), deux rencontres, deux
-        // balayeurs, deux plateformes arrachables.
+        // Carte 9.13a : la tour a sa tête finale et sa bâche ; carte 9.13c : trois
+        // paliers (sous ses trois corniches larges), deux jetés, deux balayages,
+        // deux secousses, deux plateformes arrachables, et le couloir de la
+        // géante (5 colonnes contre le mur droit), toujours vide.
         assert!(p.tete_finale.is_some() && p.bache.is_some());
-        assert_eq!(p.paliers.len(), 6, "{:?}", p.paliers);
-        assert_eq!(p.tour.rencontres.len(), 2);
+        assert_eq!(p.paliers.len(), 3, "{:?}", p.paliers);
+        assert_eq!(p.tour.jetes.len(), 2);
         assert_eq!(p.tour.balayeurs.len(), 2);
+        assert_eq!(p.tour.secousses.len(), 2);
         assert_eq!(p.tour.arrachables.len(), 2);
+        assert_eq!(
+            p.tour.couloir,
+            Some((14.0 * TAILLE_TUILE, 19.0 * TAILLE_TUILE))
+        );
+        for ty in 0..HAUT_ARENE - 1 {
+            for tx in 14..19 {
+                assert!(!n.tuile_decor(tx, ty).est_solide(), "couloir ({tx}, {ty})");
+            }
+        }
         assert!(
             q.tete_finale.is_none(),
             "le niveau d'essai reste en une phase"
@@ -423,80 +437,9 @@ mod tests {
             .unwrap()
     }
 
-    /// Une issue à chaque tentacule de la montée (le raisonnement de
-    /// `chaque_motif_se_traverse`, sur la vraie tour) : à chaque lancer possible,
-    /// pour chaque place de Pépin (au px près) sur un appui que le tentacule dressé
-    /// frappera, il existe sur le MÊME appui une place qu'il épargne, que Pépin
-    /// rejoint en courant pendant l'annonce (1,6 px par pas). Et le rythme : un
-    /// tentacule toutes les 2 à 2,5 s.
-    #[test]
-    fn une_issue_a_chaque_tentacule() {
-        let n = INFOS.charger().unwrap();
-        let p = en_montee(&n, 0);
-        let rythme = f32::from(RYTHME_TENTACULE_PAS) / 60.0;
-        assert!((2.0..=2.5).contains(&rythme));
-        let fin = (0..u16::MAX)
-            .find(|&t| (p.surface_mer_a(t) - p.arret_mer).abs() < 0.01)
-            .unwrap();
-        let appuis = p.appuis(&n);
-        let mut lancers = 0;
-        for t in (p.fin_de_crue()..fin).step_by(3) {
-            for x in (16..304).step_by(8) {
-                let Some(i) = p.colonne_de_montee(&n, x as f32, t) else {
-                    continue;
-                };
-                lancers += 1;
-                for k in 0..30 {
-                    let mer = p.surface_mer_a(t + ANNONCE_PAS + k);
-                    let corps = p.boite_tentacule_montee(i, mer);
-                    for &(y, a, b) in &appuis {
-                        let pepin = |q: f32| Aabb::new(q, y - 14.0, JOUEUR_L, 14.0);
-                        let frappe = |q: f32| corps.chevauche(&pepin(q));
-                        let places: Vec<f32> = (a as i32..=(b - JOUEUR_L) as i32)
-                            .map(|q| q as f32)
-                            .collect();
-                        for &q in places.iter().filter(|&&q| frappe(q)) {
-                            let issue = places.iter().any(|&r| {
-                                !frappe(r) && (r - q).abs() <= 1.6 * f32::from(ANNONCE_PAS)
-                            });
-                            assert!(
-                                issue,
-                                "t = {t}, colonne {i}, appui {:?}, Pépin en {q}",
-                                (y, a, b)
-                            );
-                        }
-                    }
-                }
-            }
-        }
-        assert!(lancers > 1000, "{lancers}");
-    }
-
-    /// Le dernier coup : Pépin tombe sur la tête du haut de la tour, elle plonge,
-    /// puis elle est vaincue : le niveau est fini.
-    #[test]
-    fn le_dernier_coup_finit_le_niveau() {
-        let n = INFOS.charger().unwrap();
-        let mut p = en_montee(&n, 300);
-        gagner_les_rencontres(&mut p, &n);
-        let tete = p.tete_finale.unwrap();
-        assert_eq!(p.tete(), Some(tete));
-        let mut j = Joueur::new(tete.x + 19.0, tete.y - 12.0);
-        j.vitesse.y = 100.0;
-        assert!(p.recoit(&j));
-        p.toucher();
-        assert_eq!(p.phase(), PhasePieuvre::Plongee);
-        pas(&mut p, &n, u32::from(PLONGEE_PAS));
-        assert!(p.est_vaincue());
-        assert!(Entite::Pieuvre(Box::new(p)).boss_vaincu());
-        // Jamais de tentacule de la montée sans la montée.
-        let q = pieuvre(&n);
-        assert!(q.tentacule_de_montee().is_none());
-    }
-
     /// Pépin debout à `x` (milieu), les pieds en `bas`.
     fn pepin_debout(x: f32, bas: f32) -> Aabb {
-        Aabb::new(x - JOUEUR_L / 2.0, bas - 14.0, JOUEUR_L, 14.0)
+        Aabb::new(x - JOUEUR_L / 2.0, bas - JOUEUR_H, JOUEUR_L, JOUEUR_H)
     }
 
     /// Un saut qui retombe sur `tete`.
@@ -506,136 +449,167 @@ mod tests {
         j
     }
 
-    /// Les deux rencontres, gagnées dans l'ordre comme en jeu (Pépin approche,
-    /// attend que la tête s'agrippe, lui saute dessus). Vérifie au passage que
-    /// chacune BLOQUE (sa trappe solide, la mer arrêtée) puis se DÉBLOQUE (la
-    /// trappe ouverte, la mer qui RECULE de 2 tuiles).
-    fn gagner_les_rencontres(p: &mut Pieuvre, n: &Niveau) {
-        for k in 0..p.tour.rencontres.len() {
-            let r = p.tour.rencontres[k];
-            assert_eq!(p.solide(), Some(r.trappe), "rencontre {k} : trappe fermée");
-            assert!(p.rencontre().is_none());
-            p.voir_pepin(pepin_debout(r.tete.x - 40.0, r.tete.bas()));
-            pas(p, n, 1);
-            assert_eq!(p.rencontre(), Some(&r), "rencontre {k} : la tête surgit");
-            assert!(!p.recoit(&saut_sur(r.tete)), "pas frappable en surgissant");
-            let mer = p.surface_mer().unwrap();
-            pas(p, n, u32::from(SURGIT_PAS) + 200);
-            assert_eq!(p.surface_mer().unwrap(), mer, "la mer s'arrête");
-            assert_eq!(p.solide(), Some(r.trappe), "elle bloque toujours");
-            let pv = p.pv();
-            assert!(p.recoit(&saut_sur(r.tete)));
-            p.toucher();
-            assert_eq!(p.pv(), pv - 1);
-            assert!(p.rencontre().is_none() && p.tete_lachee().is_some());
-            assert_ne!(p.solide(), Some(r.trappe), "la trappe s'ouvre");
-            // Le plus bas où elle redescend (puis elle remonte).
-            let mut plus_bas = mer;
-            for _ in 0..120 {
-                pas(p, n, 1);
-                plus_bas = plus_bas.max(p.surface_mer().unwrap());
+    /// Avance pas à pas (au plus `max`) jusqu'à ce que `fini` soit vrai.
+    fn jusqu_a(p: &mut Pieuvre, n: &Niveau, max: u32, fini: impl Fn(&Pieuvre) -> bool) {
+        for _ in 0..max {
+            if fini(p) {
+                return;
             }
-            let recul = plus_bas - mer;
-            assert!(
-                (recul - RECUL_MER).abs() < 2.0,
-                "rencontre {k} : la mer recule de 2 tuiles ({recul})"
-            );
-            // Puis elle reprend sa montée.
-            pas(p, n, 200);
-            assert!(p.surface_mer().unwrap() < plus_bas);
+            pas(p, n, 1);
         }
-        assert_eq!(p.solide(), None);
-        assert_eq!(p.rencontres_gagnees(), 2);
+        assert!(fini(p), "jamais en {max} pas");
     }
 
-    /// Carte 9.13b : chaque rencontre bloque le passage et se débloque d'un saut
-    /// sur la tête ; deux points de vie, puis le coup final (3 en tout).
+    /// Carte 9.13c : la géante monte AVEC la mer dans son couloir ; son corps
+    /// tue (pas la tour à côté), dès que la mer est dans la tour.
     #[test]
-    fn chaque_rencontre_bloque_puis_se_debloque() {
+    fn la_geante_monte_avec_la_mer() {
         let n = INFOS.charger().unwrap();
-        let mut p = en_montee(&n, 300);
-        assert_eq!(p.pv(), 3);
-        // Les rencontres sont au tiers et aux deux tiers de la tour.
-        let bas = p.bache.unwrap().y;
-        let haut = p.tete_finale.unwrap().bas();
-        for (r, part) in p.tour.rencontres.iter().zip([1.0 / 3.0, 2.0 / 3.0]) {
-            let ou = (bas - r.tete.bas()) / (bas - haut);
-            assert!((ou - part).abs() < 0.12, "{ou}");
+        let p = en_montee(&n, 1);
+        assert!(p.corps().is_none(), "pendant la crue, elle sort du bassin");
+        let (g, d) = p.tour.couloir.unwrap();
+        for t in [p.fin_de_crue() + 5, 900, 1500] {
+            let mut q = en_montee(&n, 0);
+            pas(&mut q, &n, u32::from(t));
+            let mer = q.surface_mer().unwrap();
+            let (corps, tete) = (q.corps().unwrap(), q.geante().unwrap());
+            assert!(corps.x >= g && corps.droite() <= d, "dans le couloir");
+            assert!((tete.bas() - mer).abs() <= 1.0 && tete.h == TAILLE_GEANTE.1);
             assert!(
-                r.trappe.bas() <= r.tete.y,
-                "la trappe est au-dessus de la tête"
+                q.blesse(&pepin_debout(g + 30.0, mer - 20.0)),
+                "son corps tue"
+            );
+            assert!(
+                !q.blesse(&pepin_debout(g - 20.0, mer - 20.0)),
+                "la tour, non"
             );
         }
-        gagner_les_rencontres(&mut p, &n);
-        assert_eq!(p.pv(), 1);
+        // Pépin loin devant la mer : elle grimpe hors de l'eau, à 4 tuiles sous
+        // ses pieds (toujours à l'écran), et tout le couloir sous sa tête tue.
+        let mut q = en_montee(&n, 0);
+        let pieds = 31.0 * TAILLE_TUILE;
+        q.voir_pepin(pepin_debout(3.0 * TAILLE_TUILE, pieds));
+        let crue = u32::from(q.fin_de_crue());
+        pas(&mut q, &n, crue + 400);
+        let tete = q.geante().unwrap();
+        assert!(q.grimpe(), "{tete:?}");
+        assert!((tete.bas() - (pieds + SOUS_PEPIN)).abs() <= 1.0, "{tete:?}");
+        let mer = q.surface_mer().unwrap();
+        assert!(q.blesse(&pepin_debout(g + 30.0, (tete.bas() + mer) / 2.0)));
     }
 
-    /// Les tentacules de garde d'une rencontre et du coup final : annoncés comme en
-    /// phase 1, un seul à la fois, à gauche puis à droite de la tête ; il reste
-    /// toujours une place sûre sur la corniche, et la tête à frapper.
+    /// Chaque frappe visée laisse une issue : pour CHAQUE place de Pépin (au px
+    /// près) sur chaque appui de la tour, la place visée est à moins de 3 tuiles
+    /// de lui (le plus souvent sur lui), et sur chaque appui qu'elle touche il
+    /// reste une place épargnée, que Pépin rejoint en courant pendant l'annonce
+    /// (1,6 px par pas). En jeu : annoncée 1,4 s sans danger, puis elle frappe
+    /// la place visée, toutes les 2,5 s.
     #[test]
-    fn les_gardes_laissent_une_issue() {
+    fn chaque_frappe_visee_laisse_une_issue() {
         let n = INFOS.charger().unwrap();
-        let mut p = en_montee(&n, 300);
-        let r = p.tour.rencontres[0];
-        p.voir_pepin(pepin_debout(r.tete.x - 40.0, r.tete.bas()));
-        let mut cotes = Vec::new();
-        for _ in 0..(SURGIT_PAS + 4 * GARDE_PAS) {
-            pas(&mut p, &n, 1);
-            if let Some((corps, etat)) = p.garde_en_cours() {
-                assert!(!corps.chevauche(&r.tete), "jamais sur la tête");
-                if etat == EtatTentacule::Dresse {
-                    if cotes.last() != Some(&corps.x) {
-                        cotes.push(corps.x);
+        let p = en_montee(&n, 0);
+        let appuis = p.appuis(&n);
+        let (mut places, mut sur_lui) = (0, 0);
+        for &(y, a, b) in &appuis {
+            for q in (a as i32..=(b - JOUEUR_L) as i32).map(|q| q as f32) {
+                let pepin = Aabb::new(q, y - JOUEUR_H, JOUEUR_L, JOUEUR_H);
+                let cible = p.viser(&n, &pepin);
+                places += 1;
+                sur_lui += usize::from(cible.chevauche(&pepin));
+                let milieu = |c: &Aabb| c.x + c.w / 2.0;
+                assert!((milieu(&cible) - milieu(&pepin)).abs() <= VISEE_MAX + 0.01);
+                for &(y2, a2, b2) in &appuis {
+                    let debout = |r: f32| Aabb::new(r, y2 - JOUEUR_H, JOUEUR_L, JOUEUR_H);
+                    let touchees: Vec<f32> = (a2 as i32..=(b2 - JOUEUR_L) as i32)
+                        .map(|r| r as f32)
+                        .collect();
+                    for &r in touchees.iter().filter(|&&r| cible.chevauche(&debout(r))) {
+                        let issue = touchees.iter().any(|&s| {
+                            !cible.chevauche(&debout(s))
+                                && (s - r).abs() <= 1.6 * f32::from(ANNONCE_FRAPPE_PAS)
+                        });
+                        assert!(
+                            issue,
+                            "Pépin en {q} sur {:?} : appui {:?}",
+                            (y, a, b),
+                            (y2, a2, b2)
+                        );
                     }
-                    // Une place sûre sur la corniche, de chaque côté possible.
-                    let surs = (16..304)
-                        .filter(|&x| !p.blesse(&pepin_debout(x as f32, r.tete.bas())))
-                        .count();
-                    assert!(surs > 200, "{surs}");
                 }
             }
         }
-        assert_eq!(cotes.len(), 4, "gauche, droite, gauche, droite : {cotes:?}");
-        assert!(cotes[0] < r.tete.x && cotes[1] > r.tete.x && cotes[0] == cotes[2]);
+        assert!(
+            sur_lui * 10 >= places * 8,
+            "{sur_lui} visées sur lui pour {places}"
+        );
+        // En jeu, sur la caisse de la rangée 64.
+        let mut p = en_montee(&n, 0);
+        let pepin = pepin_debout(11.0 * TAILLE_TUILE, 64.0 * TAILLE_TUILE);
+        p.voir_pepin(pepin);
+        jusqu_a(&mut p, &n, 400, |p| p.etat_frappe().is_some());
+        let (cible, _) = p.etat_frappe().unwrap();
+        assert_eq!(cible, p.viser(&n, &pepin));
+        let debut = p.ecoule();
+        for _ in 1..ANNONCE_FRAPPE_PAS {
+            assert!(matches!(p.etat_frappe(), Some((_, EtatFrappe::Annonce(_)))));
+            assert!(
+                p.annonce_en_cours() && !p.blesse(&pepin),
+                "l'annonce ne tue pas"
+            );
+            pas(&mut p, &n, 1);
+        }
+        pas(&mut p, &n, 1);
+        assert_eq!(p.etat_frappe(), Some((cible, EtatFrappe::Frappe)));
+        assert!(p.blesse(&pepin), "elle frappe la place visée");
+        jusqu_a(&mut p, &n, 400, |p| {
+            matches!(p.etat_frappe(), Some((_, EtatFrappe::Annonce(_))))
+        });
+        assert_eq!(p.ecoule() - debut, RYTHME_FRAPPE_PAS);
     }
 
-    /// Les balayeurs : au moins deux, chacun annoncé 1 s puis qui glisse d'un mur
-    /// à l'autre au ras de sa corniche ; un saut le passe (son bout est plus bas
-    /// qu'un saut, et passe sous Pépin bien avant qu'il retombe).
+    /// Les balayages et les caisses sont annoncés. Un balayage : 1 s sans danger
+    /// (le tentacule recule et se tend), puis il glisse sur toute sa corniche, de
+    /// droite à gauche, au ras du sol ; un saut le passe. Une secousse : 1 s sans
+    /// danger (l'ombre des caisses), puis les caisses tombent ; l'une sur Pépin,
+    /// jamais sur les places à une colonne de lui.
     #[test]
-    fn le_balayeur_s_annonce_et_se_saute() {
+    fn balayages_et_caisses_sont_annonces() {
         use crate::physics::{GRAVITE, VITESSE_SAUT};
         let n = INFOS.charger().unwrap();
-        let p0 = en_montee(&n, 300);
-        assert!(p0.tour.balayeurs.len() >= 2);
+        let p0 = en_montee(&n, 0);
+        let t = TAILLE_TUILE;
         for (k, b) in p0.tour.balayeurs.iter().enumerate() {
+            assert!(
+                (b.depart - p0.tour.couloir.unwrap().0).abs() < 0.01,
+                "du couloir"
+            );
             let mut p = p0.clone();
-            let x = (b.depart + b.arrivee) / 2.0;
+            let x = b.arrivee + 2.0 * t;
             p.voir_pepin(pepin_debout(x, b.y));
-            pas(&mut p, &n, 1);
-            assert!(matches!(p.etat_balayeur(k), Some(EtatBalai::Annonce(_))));
-            let mut touche = false;
-            for _ in 0..ANNONCE_BALAI_PAS - 1 {
-                pas(&mut p, &n, 1);
+            jusqu_a(&mut p, &n, 900, |p| p.etat_balayeur(k).is_some());
+            for _ in 1..ANNONCE_BALAI_PAS {
+                assert!(matches!(p.etat_balayeur(k), Some(EtatBalai::Annonce(_))));
                 assert!(!p.blesse(&pepin_debout(x, b.y)), "l'annonce ne tue pas");
+                pas(&mut p, &n, 1);
             }
+            let mut touche = false;
+            let mut avant = f32::MAX;
             for _ in 0..b.course_pas() {
                 pas(&mut p, &n, 1);
                 let Some(EtatBalai::Balaie(bout)) = p.etat_balayeur(k) else {
-                    panic!("balayeur {k} : il glisse");
+                    panic!("balayage {k} : il glisse");
                 };
                 assert!(bout.bas() <= b.y + 0.01 && bout.y >= b.y - 12.01);
+                assert!(bout.x <= avant, "de droite à gauche");
+                avant = bout.x;
                 touche |= p.blesse(&pepin_debout(x, b.y));
             }
-            assert!(touche, "balayeur {k} : il balaie toute la corniche");
+            assert!(touche, "balayage {k} : il balaie toute la corniche");
         }
         // Le saut : les pieds au-dessus du bout (12 px) pendant plus longtemps
         // que le bout ne met à passer sous Pépin.
         let (v, g) = (VITESSE_SAUT / 60.0, GRAVITE / 3600.0);
-        let mut y = 0.0;
-        let mut vy = v;
-        let mut au_dessus = 0;
+        let (mut y, mut vy, mut au_dessus) = (0.0, v, 0);
         while y >= 0.0 {
             y += vy;
             vy -= g;
@@ -645,6 +619,29 @@ mod tests {
         }
         let passage = ((BOUT_BALAI.0 + JOUEUR_L) / VITESSE_BALAI).ceil() as i32;
         assert!(au_dessus > 2 * passage, "{au_dessus} pas contre {passage}");
+        // La secousse 1 : Pépin arrive sur la caisse de la rangée 37.
+        let mut p = p0.clone();
+        let sol = 37.0 * t;
+        let x = 2.5 * t;
+        p.voir_pepin(pepin_debout(x, sol));
+        jusqu_a(&mut p, &n, 400, |p| p.etat_secousse().is_some());
+        let caisses = p.etat_secousse().unwrap().0.to_vec();
+        assert!((2..=3).contains(&caisses.len()), "{caisses:?}");
+        for _ in 1..ANNONCE_SECOUSSE_PAS {
+            assert!(matches!(
+                p.etat_secousse(),
+                Some((_, EtatSecousse::Annonce(_)))
+            ));
+            assert!(p.annonce_en_cours() && !p.blesse(&pepin_debout(x, sol)));
+            pas(&mut p, &n, 1);
+        }
+        let (mut sur_lui, mut a_cote) = (false, false);
+        while p.etat_secousse().is_some() {
+            pas(&mut p, &n, 1);
+            sur_lui |= p.blesse(&pepin_debout(x, sol));
+            a_cote |= p.blesse(&pepin_debout(x + t, sol)) || p.blesse(&pepin_debout(x - t, sol));
+        }
+        assert!(sur_lui && !a_cote, "sur lui : {sur_lui}, à côté : {a_cote}");
     }
 
     /// Les arrachages : annoncés 1,3 s (elle porte encore), puis emportés pour de
@@ -655,7 +652,7 @@ mod tests {
         use crate::faisabilite::{analyser, Options};
         let n = INFOS.charger().unwrap();
         let mut p = en_montee(&n, 300);
-        assert!((2..=3).contains(&p.tour.arrachables.len()));
+        assert!((1..=2).contains(&p.tour.arrachables.len()));
         let cases = p.tour.arrachables[0].clone();
         let (x, y) = cases[0];
         let dessous = pepin_debout(x as f32 * TAILLE_TUILE, (y + 3) as f32 * TAILLE_TUILE);
@@ -665,6 +662,7 @@ mod tests {
             p.etat_arrachage(0),
             Some(EtatArrachage::Annonce(_))
         ));
+        assert!(p.annonce_en_cours());
         assert!(
             !p.cases_englouties().contains(&cases[0]),
             "elle porte encore"
@@ -712,14 +710,115 @@ mod tests {
         }
     }
 
-    /// Carte 9.13b : une mort après la lanterne de mi-hauteur y ramène ; la 1re
-    /// rencontre reste gagnée, la 2e repart à neuf, la mer revient sous la
-    /// lanterne (pas tout en bas).
+    /// Le jeté `k` gagné comme en jeu : Pépin arrive sur sa corniche (loin du
+    /// bout), elle se cabre, se jette, le rate, reste sonnée, et il lui saute
+    /// dessus. Vérifie au passage : l'annonce sans danger, la mer arrêtée, la
+    /// chute mortelle au bout de la corniche, la mer qui RECULE de 3 tuiles et
+    /// 3 s sans attaque.
+    fn jeter_et_frapper(p: &mut Pieuvre, n: &Niveau, k: usize) {
+        let tete = p.tour.jetes[k];
+        let pepin = pepin_debout(tete.x - 3.0 * TAILLE_TUILE, tete.bas());
+        p.voir_pepin(pepin);
+        jusqu_a(p, n, 900, |p| p.etat_jete().is_some());
+        let mer = p.surface_mer().unwrap();
+        for _ in 1..CABRE_PAS {
+            assert!(matches!(p.etat_jete(), Some((_, EtatJete::Cabre(_)))));
+            assert!(p.annonce_en_cours() && !p.blesse(&pepin), "elle se cabre");
+            assert!(!p.recoit(&saut_sur(tete)), "pas frappable cabrée");
+            pas(p, n, 1);
+        }
+        pas(p, n, 1);
+        assert!(matches!(p.etat_jete(), Some((_, EtatJete::Chute(_)))));
+        assert!(
+            p.blesse(&pepin_debout(tete.x + 30.0, tete.bas())),
+            "au bout : mortelle"
+        );
+        assert!(!p.blesse(&pepin), "elle le rate");
+        pas(p, n, u32::from(CHUTE_JETE_PAS));
+        assert!(matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_)))));
+        assert_eq!(p.geante(), Some(tete), "la tête posée sur la corniche");
+        assert_eq!(p.surface_mer().unwrap(), mer, "la mer s'arrête");
+        let pv = p.pv();
+        assert!(p.recoit(&saut_sur(tete)));
+        p.toucher();
+        assert_eq!(p.pv(), pv - 1);
+        assert!(p.etat_jete().is_none() && p.tete_lachee().is_some());
+        // Le plus bas où elle redescend (puis elle remonte) ; aucune attaque.
+        let mut plus_bas = mer;
+        for _ in 0..REPIT_PAS - 1 {
+            pas(p, n, 1);
+            plus_bas = plus_bas.max(p.surface_mer().unwrap());
+            assert!(p.attaque().is_none(), "3 s sans attaque");
+        }
+        let recul = plus_bas - mer;
+        assert!(
+            (recul - RECUL_MER).abs() < 2.0,
+            "jeté {k} : la mer recule ({recul})"
+        );
+        assert!(p.surface_mer().unwrap() < plus_bas, "puis elle remonte");
+    }
+
+    /// Carte 9.13c : à chaque jeté, sonnée, un saut sur sa tête la fait retomber
+    /// et la mer recule (un point de vie chacun, puis le coup final). Si on ne la
+    /// frappe pas, elle repart et la mer reste haute.
+    #[test]
+    fn jete_sonnee_coup_sur_la_tete_la_mer_recule() {
+        let n = INFOS.charger().unwrap();
+        let mut p = en_montee(&n, 0);
+        assert_eq!(p.pv(), 3);
+        let mut q = p.clone();
+        for k in 0..p.tour.jetes.len() {
+            jeter_et_frapper(&mut p, &n, k);
+        }
+        assert_eq!((p.pv(), p.jetes_frappes()), (1, 2));
+        // Ratée et pas frappée : elle repart, le jeté est passé.
+        let tete = q.tour.jetes[0];
+        q.voir_pepin(pepin_debout(tete.x - 3.0 * TAILLE_TUILE, tete.bas()));
+        jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_some());
+        let mer = q.surface_mer().unwrap();
+        jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_none());
+        assert_eq!((q.jetes_faits(), q.jetes_frappes(), q.pv()), (1, 0, 3));
+        assert!(q.surface_mer().unwrap() <= mer, "la mer reste haute");
+    }
+
+    /// Le coup final : sur la vigie, elle se jette encore (et recommence si on la
+    /// rate) ; sonnée, un saut sur sa tête, elle plonge, puis elle est vaincue :
+    /// le niveau est fini.
+    #[test]
+    fn le_dernier_coup_finit_le_niveau() {
+        let n = INFOS.charger().unwrap();
+        let mut p = en_montee(&n, 300);
+        let tete = p.tete_finale.unwrap();
+        p.voir_pepin(pepin_debout(tete.x - 3.0 * TAILLE_TUILE, tete.bas()));
+        jusqu_a(&mut p, &n, 400, |p| p.etat_jete().is_some());
+        assert_eq!(p.etat_jete().unwrap().0, tete);
+        // Ratée : elle repart, puis se jette de nouveau.
+        let mut q = p.clone();
+        jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_none());
+        jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_some());
+        jusqu_a(&mut p, &n, 400, |p| {
+            matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_))))
+        });
+        assert_eq!(p.tete(), Some(tete));
+        assert!(p.recoit(&saut_sur(tete)));
+        p.toucher();
+        assert_eq!(p.phase(), PhasePieuvre::Plongee);
+        pas(&mut p, &n, u32::from(PLONGEE_PAS));
+        assert!(p.est_vaincue());
+        assert!(Entite::Pieuvre(Box::new(p)).boss_vaincu());
+        // Jamais d'attaque sans la montée.
+        let q = pieuvre(&n);
+        assert!(q.attaque().is_none() && q.geante().is_none());
+    }
+
+    /// Une mort après la lanterne de mi-hauteur y ramène ; le 1er jeté reste
+    /// fait (et frappé), le 2e repart à neuf, la mer revient sous la lanterne
+    /// (pas tout en bas).
     #[test]
     fn reprise_a_la_lanterne_de_mi_hauteur() {
         let n = INFOS.charger().unwrap();
-        let mut p = en_montee(&n, 300);
-        gagner_les_rencontres(&mut p, &n);
+        let mut p = en_montee(&n, 0);
+        jeter_et_frapper(&mut p, &n, 0);
         let bache = p.bache.unwrap();
         let mi = n
             .entites
@@ -730,10 +829,10 @@ mod tests {
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .unwrap();
-        let r = p.tour.rencontres.clone();
+        let jetes = p.tour.jetes.clone();
         assert!(
-            mi.1 < r[0].tete.y && mi.1 > r[1].tete.y,
-            "entre les deux rencontres"
+            mi.1 < jetes[0].y && mi.1 > jetes[1].y,
+            "entre les deux jetés"
         );
         let mut entites = n.entites.clone();
         for e in &mut entites {
@@ -744,9 +843,7 @@ mod tests {
         let j = Joueur::new(mi.0, mi.1);
         crate::entities::reprendre_apres_une_mort(&mut entites, &j.boite);
         let q = pieuvre_de(&entites);
-        assert_eq!(q.rencontres_gagnees(), 1);
-        assert_eq!(q.pv(), 2);
-        assert_eq!(q.solide(), Some(r[1].trappe));
+        assert_eq!((q.jetes_faits(), q.jetes_frappes(), q.pv()), (1, 1, 2));
         let mer = q.surface_mer().unwrap();
         assert!(mer > j.boite.bas() && mer <= j.boite.bas() + 3.0 * TAILLE_TUILE + 1.0);
         // Depuis la lanterne du bas : tout repart à neuf.
@@ -754,7 +851,7 @@ mod tests {
         let bas = Joueur::new(40.0, bache.y - 40.0);
         crate::entities::reprendre_apres_une_mort(&mut entites2, &bas.boite);
         let q = pieuvre_de(&entites2);
-        assert_eq!((q.rencontres_gagnees(), q.horloge_mer()), (0, 0));
+        assert_eq!((q.jetes_faits(), q.horloge_mer(), q.pv()), (0, 0, 3));
         // La lanterne de la tour s'allume d'office une seule fois : celle de
         // mi-hauteur, allumée à la main, ne s'éteint pas au pas suivant.
         let mut j = Joueur::new(mi.0, mi.1);

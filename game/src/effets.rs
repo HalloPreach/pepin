@@ -3,7 +3,7 @@
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::Contact;
-use pepin_core::entities::pieuvre::PhasePieuvre;
+use pepin_core::entities::pieuvre::{EtatJete, PhasePieuvre};
 use pepin_core::entities::Entite;
 use pepin_core::palette::{
     BLANC_CASSE, CORAIL_CLAIR, OR, OR_PALE, PLUIE, PLUIE_SOMBRE, VIOLET_ORAGE,
@@ -132,8 +132,11 @@ pub fn effets(
     let furie = monde.entites.iter().any(|e| {
         matches!(e, Entite::Pieuvre(p) if p.phase() == PhasePieuvre::Furie
             || (p.phase() == PhasePieuvre::Montee && p.ecoule() == 0)
-            // Carte 9.13b : elle hurle aussi en lâchant la corniche d'une rencontre.
-            || p.tete_lachee().is_some_and(|(_, a)| a < 0.5))
+            // Carte 9.13c : la géante hurle quand on la frappe, se jette sur une
+            // corniche, et SECOUE la tour (tant que les caisses ne sont pas tombées).
+            || p.tete_lachee().is_some_and(|(_, a)| a < 0.5)
+            || matches!(p.etat_jete(), Some((_, EtatJete::Chute(_))))
+            || p.etat_secousse().is_some())
     });
     if furie && monde.pas.is_multiple_of(10) {
         secousse.declencher(2, 10);

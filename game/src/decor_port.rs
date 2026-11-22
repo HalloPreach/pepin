@@ -24,6 +24,11 @@
 //! masses d'ardoise de nuit, les couleurs vives en touches de quelques pixels. Les
 //! animations sont lentes. La pluie se calme : une bruine fine et clairsemée
 //! (`dessiner_bruine`).
+//!
+//! Sous la TOUR de la Pieuvre (carte 9.13c : « la bande du coucher de soleil du
+//! fond se répète au milieu de la tour ») : le fond reste celui de l'arène, il
+//! descend avec elle quand Pépin grimpe, et au-dessus de son ciel la nuit continue,
+//! étoilée (`dessiner_fond_sous_la_tour`) : un fond CONTINU en hauteur.
 
 use macroquad::prelude::draw_rectangle;
 use pepin_core::palette::{
@@ -32,7 +37,16 @@ use pepin_core::palette::{
 };
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
+use std::cell::Cell;
+
 use crate::decor::{decalage, enfoncement};
+
+thread_local! {
+    /// Décalage vertical (px, vers le bas) de tout le fond du port : 0, sauf sous
+    /// la tour de la Pieuvre (`dessiner_fond_sous_la_tour`). Une `Cell` dans un
+    /// `thread_local!` : une variable globale qu'on peut changer sans `unsafe`.
+    static DECALAGE: Cell<i32> = const { Cell::new(0) };
+}
 use crate::rendu::couleur_mq;
 
 const L: i32 = LARGEUR_LOGIQUE as i32;
@@ -78,7 +92,8 @@ pub(crate) const TOUR_FAISCEAU: u32 = 360;
 pub(crate) const LENTEUR_CARGO: u32 = 24;
 
 fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
-    if w > 0 && h > 0 {
+    let y = y + DECALAGE.with(Cell::get);
+    if w > 0 && h > 0 && y < H && y + h > 0 {
         draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
     }
 }
@@ -482,6 +497,36 @@ pub fn dessiner_fond(cam_x: i32, cam_y: i32, pas: u32, avec_phare: bool) {
     dessiner_port(cam_x, cam_y, pas);
     dessiner_voiliers(cam_x, cam_y, pas);
     dessiner_pontons(cam_x, cam_y, pas);
+}
+
+/// Le fond du port sous la tour de la Pieuvre (carte 9.13c) : `monte` px de
+/// caméra au-dessus du bas du niveau (0 dans l'arène). Le port de l'arène descend
+/// d'autant, et au-dessus de son ciel (dont le haut est déjà l'ardoise la plus
+/// sombre), la NUIT continue, de la même ardoise, avec des étoiles qui
+/// descendent avec lui : aucune bande ne se répète, le fond est continu.
+pub fn dessiner_fond_sous_la_tour(cam_x: i32, pas: u32, monte: i32) {
+    let monte = monte.max(0);
+    rect(0, 0, L, monte.min(H), ARDOISE_OMBRE);
+    // Les étoiles de la nuit, posées au-dessus du ciel du port (y < 0 dans son
+    // repère), plus serrées en montant.
+    let dec = decalage(cam_x, 0.02);
+    for k in 0..90 {
+        let h = hache(k * 13 + 5);
+        let y = -2 - (h >> 9) as i32 % 1100;
+        let ecran = y + monte;
+        if !(0..H).contains(&ecran) || (h % 5) as i32 * 300 > -y {
+            continue;
+        }
+        if (pas / 30 + k as u32).is_multiple_of(9) {
+            continue;
+        }
+        let x = ((h % 640) as i32 - dec).rem_euclid(L);
+        let c = if k % 4 == 0 { NUAGE } else { ARDOISE_PALE };
+        rect(x, ecran, 1, 1, c);
+    }
+    DECALAGE.with(|d| d.set(monte));
+    dessiner_fond(cam_x, 0, pas, false);
+    DECALAGE.with(|d| d.set(0));
 }
 
 /// La bruine du port, devant tout : des gouttes fines et clairsemées qui tombent

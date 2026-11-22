@@ -8,9 +8,9 @@
 //!
 //! ```text
 //!   phase 1 (inchangée) ── 3e coup ──► FURIE (2 s) ──► MONTÉE ── coup final ──► plongée ──► vaincue
-//!                                       la bâche se       la mer monte, les
-//!                                       déchire, la       tentacules jaillissent,
-//!                                       trombe s'élève    la tête attend en haut
+//!                                       la bâche se       la mer monte, la
+//!                                       déchire, la       géante grimpe avec elle
+//!                                       trombe s'élève    et attaque (`montee`)
 //! ```
 //!
 //! - FURIE (`FURIE_PAS`, 2 s, sans danger hors de l'eau) : elle hurle, l'écran
@@ -24,27 +24,30 @@
 //!   palier de répit, annoncé, sous chaque corniche large de la tour. Sa surface
 //!   en furie TUE au contact, BARQUE COMPRISE : pas de bateau en phase 2 (elle
 //!   noierait la barque comme Pépin : `blesse_en_fuite` regarde seulement si les
-//!   pieds passent sous la surface). Depuis la surface, un tentacule jaillit
-//!   toutes les 2,2 s dans une colonne ANNONCÉE comme en phase 1 (1,4 s), monte
-//!   de 4 tuiles puis redescend ; jamais sur la seule place d'un appui : il y a
-//!   toujours une issue (`laisse_une_issue`).
-//! - COUP FINAL : la tête attend sur la vigie, en haut de la tour (`&`). Un saut
-//!   dessus donne la plongée, puis vaincue : le niveau est fini comme avant.
+//!   pieds passent sous la surface). Carte 9.13c : la Pieuvre GÉANTE monte avec
+//!   la mer, dans un couloir à droite de la tour, et toutes ses attaques partent
+//!   visiblement de son corps (frappe visée, balayage, secousse, arrachage,
+//!   jeté) : voir `montee`. Plus aucun tentacule ne jaillit de la surface sans
+//!   corps.
+//! - COUP FINAL : sur la vigie, en haut de la tour (`&`), elle se jette une
+//!   dernière fois ; sonnée, un saut sur sa tête donne la plongée, puis vaincue :
+//!   le niveau est fini comme avant.
 //!
 //! Une mort pendant la phase 2 ramène au DÉBUT DE LA PHASE 2 : la lanterne de la
 //! tour s'allume d'elle-même dès la furie (`entities::contacts`), et `reprendre`
-//! remet la mer en bas.
+//! remet la mer en bas (carte 9.13b : ou à la lanterne de mi-hauteur, voir
+//! `montee::reprendre_a`).
 //!
-//! MODE FACILE : la mer monte 0,75 fois moins vite, les tentacules sont plus
-//! espacés d'autant.
+//! MODE FACILE : la mer monte 0,75 fois moins vite, les attaques s'annoncent et
+//! reviennent 0,75 fois moins vite.
 //!
 //! Notions Rust : un sous-module qui ajoute des méthodes à la structure de son
 //! parent (un second bloc `impl Pieuvre`) et voit ses champs privés ; une
 //! fonction pure du temps (`surface_mer_a`) parcourue segment par segment.
 
-use super::{EtatTentacule, PhasePieuvre, Pieuvre, ANNONCE_PAS, DRESSE_PAS, SALVE_PAS};
+use super::{PhasePieuvre, Pieuvre};
 use crate::aabb::{Aabb, Grille, Tuile, TAILLE_TUILE};
-use crate::physics::{CourantAscendant, JOUEUR_H, JOUEUR_L};
+use crate::physics::CourantAscendant;
 
 /// La furie : 2 s, elle hurle et l'écran tremble ; le quai casse à la fin.
 pub const FURIE_PAS: u16 = 120;
@@ -62,17 +65,12 @@ pub const ANNONCE_PALIER_PAS: u16 = 60;
 pub const CORNICHE_LARGE: usize = 8;
 /// Le palier : la mer s'arrête 3 tuiles sous la corniche.
 pub const SOUS_LA_CORNICHE: f32 = 3.0 * TAILLE_TUILE;
-/// Hauteur d'un tentacule de la montée au-dessus de la surface : 4 tuiles.
-pub const HAUTEUR_TENTACULE_MONTEE: f32 = 4.0 * TAILLE_TUILE;
-/// Un tentacule de la montée toutes les 2,2 s (entre 2 et 2,5 s).
-pub const RYTHME_TENTACULE_PAS: u16 = 132;
 
 impl Pieuvre {
     /// La phase 2 commence (le dernier coup de la phase 1) : plus de saisie.
     pub(super) fn commencer_la_fuite(&mut self) {
         self.fuite = true;
         self.saisie = None;
-        self.tentacule_montee = None;
         self.remettre_la_tour();
     }
 
@@ -160,8 +158,8 @@ impl Pieuvre {
             return None;
         }
         Some(match self.phase {
-            // Carte 9.13b : l'horloge de la mer s'arrête pendant une rencontre
-            // et recule après chaque coup (`montee`).
+            // Carte 9.13b : l'horloge de la mer s'arrête pendant un jeté et
+            // recule après chaque coup (`montee`).
             PhasePieuvre::Montee => self.surface_mer_a(self.horloge_mer()),
             // Après le coup final, elle reste où elle était (`arret_mer`).
             PhasePieuvre::Plongee | PhasePieuvre::Vaincue => self.arret_mer,
@@ -225,118 +223,10 @@ impl Pieuvre {
             .map(CourantAscendant::new)
     }
 
-    /// Le tentacule de la montée en ce moment : sa colonne et son état.
-    pub fn tentacule_de_montee(&self) -> Option<(usize, EtatTentacule)> {
-        if !self.fuite || self.phase != PhasePieuvre::Montee {
-            return None;
-        }
-        let (i, debut) = self.tentacule_montee?;
-        let dans = self.ecoule.checked_sub(debut)?;
-        let etat = if dans < ANNONCE_PAS {
-            EtatTentacule::Annonce(f32::from(dans) / f32::from(ANNONCE_PAS))
-        } else if dans < ANNONCE_PAS + DRESSE_PAS {
-            EtatTentacule::Dresse
-        } else if dans < SALVE_PAS {
-            let fin = dans - ANNONCE_PAS - DRESSE_PAS;
-            EtatTentacule::Redescente(
-                f32::from(fin) / f32::from(SALVE_PAS - ANNONCE_PAS - DRESSE_PAS),
-            )
-        } else {
-            return None;
-        };
-        Some((i, etat))
-    }
-
-    /// Le corps du tentacule de la colonne `i` dressé au-dessus de la mer `mer`.
-    pub fn boite_tentacule_montee(&self, i: usize, mer: f32) -> Aabb {
-        let c = self.colonnes[i];
-        Aabb::new(
-            c.x,
-            mer - HAUTEUR_TENTACULE_MONTEE,
-            c.w,
-            HAUTEUR_TENTACULE_MONTEE,
-        )
-    }
-
-    /// Phase 2 : la mer, ou le tentacule dressé de la montée, touche-t-il `boite` ?
+    /// Phase 2 : la mer en furie touche-t-elle `boite` (ses pieds sous la
+    /// surface) ?
     pub(super) fn blesse_en_fuite(&self, boite: &Aabb) -> bool {
-        let Some(mer) = self.surface_mer() else {
-            return false;
-        };
-        if boite.bas() > mer {
-            return true;
-        }
-        matches!(
-            self.tentacule_de_montee(),
-            Some((i, EtatTentacule::Dresse)) if self.boite_tentacule_montee(i, mer).chevauche(boite)
-        )
-    }
-
-    /// Rythme des tentacules de la montée (plus espacés en mode facile).
-    fn rythme_montee(&self) -> u16 {
-        if self.est_facile() {
-            (f32::from(RYTHME_TENTACULE_PAS) / FACTEUR_FACILE) as u16
-        } else {
-            RYTHME_TENTACULE_PAS
-        }
-    }
-
-    /// Un pas des tentacules de la montée : quand le précédent a fini et que le
-    /// rythme le permet (jamais pendant un palier : c'est le répit), un nouveau
-    /// tentacule s'annonce, dans la colonne de Pépin si elle laisse une issue,
-    /// sinon dans la plus proche qui en laisse une.
-    pub(super) fn avancer_montee(&mut self, grille: &dyn Grille) {
-        if !self.fuite || self.phase != PhasePieuvre::Montee {
-            return;
-        }
-        let t = self.ecoule;
-        // L'horloge de la mer (carte 9.13b) : les paliers et l'issue se jugent sur
-        // elle ; pendant la garde d'une tête, ses tentacules à elle frappent.
-        let h = self.horloge_mer();
-        let prochain = match self.tentacule_montee {
-            Some((_, debut)) => debut.saturating_add(self.rythme_montee()),
-            None => self.fin_de_crue(),
-        };
-        if t < prochain
-            || self.sous_garde()
-            || self.au_palier(h)
-            || self.au_palier(h.saturating_add(SALVE_PAS))
-        {
-            return;
-        }
-        let x = self.pepin.map_or(self.depart_mer(), |p| p.x + p.w / 2.0);
-        if let Some(i) = self.colonne_de_montee(grille, x, h) {
-            self.tentacule_montee = Some((i, t));
-        }
-    }
-
-    /// La colonne d'un tentacule lancé au pas `t` de la montée, Pépin au milieu
-    /// `x` : la sienne, ou la plus proche qui laisse une issue (`None` : aucune).
-    pub fn colonne_de_montee(&self, grille: &dyn Grille, x: f32, t: u16) -> Option<usize> {
-        let milieu = |i: usize| self.colonnes[i].x + self.colonnes[i].w / 2.0;
-        let mut ordre: Vec<usize> = (0..self.colonnes.len()).collect();
-        ordre.sort_by(|&a, &b| (milieu(a) - x).abs().total_cmp(&(milieu(b) - x).abs()));
-        ordre
-            .into_iter()
-            .find(|&i| self.laisse_une_issue(grille, i, t))
-    }
-
-    /// Règle d'équité (« jamais sur la seule case d'appui obligée ») : un
-    /// tentacule lancé au pas `t` dans la colonne `i` laisse-t-il, sur CHAQUE
-    /// appui à sa portée, une place sûre assez large pour Pépin ? Un appui : une
-    /// suite de cases solides de la grille, libres au-dessus, sur la même rangée.
-    /// À sa portée : Pépin debout dessus toucherait le tentacule dressé, la mer
-    /// prise au début et à la fin de la frappe.
-    pub fn laisse_une_issue(&self, grille: &dyn Grille, i: usize, t: u16) -> bool {
-        let haut_mer = self.surface_mer_a(t.saturating_add(ANNONCE_PAS + DRESSE_PAS));
-        let bas_mer = self.surface_mer_a(t.saturating_add(ANNONCE_PAS));
-        let corps = self.boite_tentacule_montee(i, haut_mer);
-        let (g, d) = (corps.x, corps.droite());
-        self.appuis(grille)
-            .into_iter()
-            .filter(|&(y, _, _)| y > haut_mer - HAUTEUR_TENTACULE_MONTEE && y - JOUEUR_H < bas_mer)
-            .filter(|&(_, a, b)| a < d && b > g)
-            .all(|(_, a, b)| g - a > JOUEUR_L || b - d > JOUEUR_L)
+        self.surface_mer().is_some_and(|mer| boite.bas() > mer)
     }
 
     /// Les appuis de la tour au-dessus de la bâche : `(dessus, gauche, droite)` en
@@ -368,14 +258,14 @@ impl Pieuvre {
     }
 
     /// Pour le robot de faisabilité, qui ne connaît pas le temps : la pieuvre est
-    /// déjà en montée, la tête en haut de la tour ; la mer ne monte pas pour lui
-    /// (un joueur patient de la phase 1 attend la furie, et la mer laisse le temps
-    /// de grimper : `levels::pieuvre::tests`). Sans tour, rien ne change.
+    /// déjà en montée, la tête offerte sur la vigie, en haut de la tour ; la mer ne
+    /// monte pas pour lui et la géante n'attaque pas (un joueur patient de la
+    /// phase 1 attend la furie, et la mer laisse le temps de grimper :
+    /// `levels::pieuvre::tests`). Sans tour, rien ne change.
     pub fn pour_le_robot(&mut self) {
         if self.tete_finale.is_some() {
             self.entrer(PhasePieuvre::Montee);
-            // Carte 9.13b : les rencontres gagnées, les trappes ouvertes.
-            self.gagner_toute_la_tour();
+            self.offrir_la_vigie();
         }
     }
 }

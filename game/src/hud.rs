@@ -156,6 +156,19 @@ pub fn dessiner(
         ),
         None => (chrono::temps_court(pas), style),
     };
+    if pieuvre {
+        // Carte 9.13c : dans la tour de la Pieuvre, le dernier chiffre tombait sur la
+        // rayure claire du quai de droite (« 0:0A ») : une plaque d'ardoise sombre
+        // derrière le chrono le garde lisible.
+        let l = largeur_texte(&temps, 1) as f32;
+        macroquad::prelude::draw_rectangle(
+            LARGEUR_LOGIQUE as f32 - 6.0 - l - 2.0,
+            4.0,
+            l + 4.0,
+            11.0,
+            crate::rendu::couleur_mq(ARDOISE_OMBRE),
+        );
+    }
     texte::dessiner_a_droite(&temps, LARGEUR_LOGIQUE as f32 - 6.0, 6.0, style_chrono);
     if ng_plus {
         let x = LARGEUR_LOGIQUE as f32 - 6.0 - largeur_texte(&temps, 1) as f32 - 10.0;

@@ -204,7 +204,6 @@ impl Entite {
             // La feuille du nénuphar : on s'y pose (elle s'enfonce ensuite).
             Entite::Nenuphar(n) => Some(n.boite),
             // La bâche de l'arène de la Pieuvre (carte 9.13a), tant qu'elle tient.
-            // Carte 9.13b : en phase 2, la trappe de la rencontre suivante.
             Entite::Pieuvre(p) => p.solide(),
             _ => None,
         }
