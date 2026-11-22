@@ -1489,6 +1489,9 @@ pub fn dessiner(
     crate::dessin_pieuvre::dessiner_mer(monde, banque, cx, cy);
     // La montée (carte 9.13c) : la géante et ses attaques, qui partent de son corps.
     crate::dessin_montee::dessiner(monde, banque, cx, cy);
+    // Carte 9.13e : la mer toujours sensible, DEVANT la géante (elle y plonge) :
+    // sa crête et ses embruns, ou la bande d'écume au bas de l'écran.
+    crate::mer_montee::dessiner_devant(monde, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
     // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.
@@ -1519,6 +1522,8 @@ pub fn dessiner(
         decor::dessiner_avant(monde.infos.theme, monde.pas, monde.ng_plus);
     }
     dessiner_repere_pepin(monde, alpha, cx, cy);
+    // La jauge de la montée de la Pieuvre (carte 9.13e), sur le mur gauche.
+    crate::mer_montee::dessiner_jauge(monde);
     // L'encre de la Pieuvre (carte 9.12a), devant tout.
     crate::dessin_pieuvre::dessiner_encre(monde);
     // Le rideau du temps de mort (carte 9.24), devant tout.

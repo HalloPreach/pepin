@@ -870,6 +870,8 @@ impl Application {
         // Temps de mort (carte 9.24) : la caméra reste sur l'endroit de la mort (elle
         // ne suit pas une chute dans le vide), puis saute à la lanterne quand le rideau
         // est fermé.
+        // Carte 9.13e : la mer de la montée, que la caméra garde dans le cadre.
+        self.camera.mer = crate::mer_montee::surface(&self.monde);
         if self.monde.reapparition > mort::RIDEAU_FERME {
             self.camera.figer();
         } else if self.monde.reapparition == mort::RIDEAU_FERME {
@@ -1028,6 +1030,7 @@ impl Application {
         self.monde.avancer(&entrees);
         self.trainees
             .actualiser(self.cosmetiques.trainee, &self.monde);
+        self.camera.mer = crate::mer_montee::surface(&self.monde);
         self.camera.suivre(&self.monde.joueur, largeur, hauteur);
         effets(
             &self.monde,

@@ -91,20 +91,29 @@ pub const INFOS: InfosNiveau = InfosNiveau {
 /// Au-dessus, la phase 2 : la BÂCHE `_` (le plafond de l'arène, carte 9.13a),
 /// puis la TOUR du port (66 rangées, carte 9.13b), resserrée par la carte 9.13c
 /// sur les 13 colonnes de gauche : les 5 colonnes de droite sont le COULOIR de
-/// la géante, toujours vide. Un zigzag, aucun motif plus de deux fois. Du bas
-/// vers le haut :
+/// la géante, toujours vide. Carte 9.13e (AGA : « la tour est monotone, c'est
+/// le même zigzag environ huit fois ») : des SECTIONS différentes, aucune plus
+/// de deux fois. Du bas vers le haut :
 /// - la corniche du bas (rangée 66) et sa lanterne, la reprise de la phase 2 ;
-/// - quatre caisses (64, 61, 58, 55) ;
-/// - JETÉ 1 (`$`) sur la corniche large 52 : elle se jette sur son bout droit ;
-/// - la LANTERNE de mi-hauteur (49), puis deux caisses (46) dont une ARRACHABLE
-///   `%` à droite (l'autre chemin passe à gauche), une caisse (43) ;
-/// - la corniche 40, que BALAIE un tentacule (`!`, contre le couloir) ;
-/// - SECOUSSE 1 (`+`) en arrivant sur la caisse 37, une caisse (34), une
-///   passerelle FRIABLE `F` (31) ;
-/// - JETÉ 2 sur la corniche large 28, une caisse (25), la corniche 22 BALAYÉE ;
+/// - PILE DE CONTENEURS en escalier : un ponton (64), deux piles de caisses de
+///   deux étages (61, 55) et, entre elles, un NUAGE FRIABLE `F` (58) ;
+/// - QUAI DE PIERRE : JETÉ 1 (`$`) sur la corniche large 52 (des pierres `B`),
+///   puis la LANTERNE de 29 % (49) sur son môle ;
+/// - MÂT ET VERGUE : deux caisses (46) dont une ARRACHABLE `%` à droite (l'autre
+///   chemin passe à gauche), la vergue (43) sur son mât d'une case ;
+/// - la corniche large 40, que BALAIE un tentacule (`!`, contre le couloir) ;
+/// - CHEMINÉE DE CARGO : SECOUSSE 1 (`+`) en arrivant sur la caisse 37, puis le
+///   haut d'une cheminée de pierre (34), un NUAGE FRIABLE (31) ;
+/// - JETÉ 2 sur la corniche large 28, puis la LANTERNE de 69 % (carte 9.13e :
+///   « j'en ajouterais une juste après le deuxième jeté ») sur la corniche
+///   large et CALME 25 (aucune attaque n'y est liée), la corniche large 22
+///   BALAYÉE ;
 /// - SECOUSSE 2 en arrivant sur la caisse 19, deux caisses (16) dont une
-///   ARRACHABLE à droite, deux caisses (13, 10), puis la VIGIE (7), où elle se
-///   jette pour le coup final (`&`).
+///   ARRACHABLE à droite, un NUAGE FRIABLE (13), une caisse (10), puis la
+///   VIGIE (7), où elle se jette pour le coup final (`&`).
+///
+/// Six corniches larges (52, 40, 28, 25, 22 et la vigie) : un palier de la mer
+/// sous chacune, et la place d'un jeté.
 ///
 /// Chaque saut monte de 2 ou 3 rangées et passe par une colonne libre à côté de
 /// l'appui suivant (le robot de faisabilité le vérifie, avec et sans les
@@ -123,7 +132,7 @@ B..................B
 B###...............B
 B..................B
 B..................B
-B...###............B
+B...FFF............B
 B..................B
 B..................B
 B##....%%%.........B
@@ -132,10 +141,10 @@ B.+................B
 B####..............B
 B..................B
 B............!.....B
-B....#########.....B
+B.....########.....B
 B..................B
-B..................B
-B###...............B
+B.L................B
+B########..........B
 B..................B
 B.........$........B
 B.....########.....B
@@ -144,35 +153,35 @@ B..................B
 B.FFF..............B
 B..................B
 B..................B
-B.....###..........B
-B..................B
+B.....BBB..........B
+B.....BBB..........B
 B.+................B
 B####..............B
 B..................B
 B............!.....B
-B......#######.....B
-B..................B
-B..................B
-B..###.............B
-B..................B
-B..................B
-B##...%%%..........B
-B..................B
-B.L................B
-B####..............B
-B..................B
-B.........$........B
 B.....########.....B
 B..................B
 B..................B
 B..###.............B
+B...#..............B
+B...#..............B
+B##...%%%..........B
+B..................B
+B.L................B
+BBBBB..............B
+B..................B
+B.........$........B
+B.....BBBBBBBB.....B
 B..................B
 B..................B
-B##................B
+B..###.............B
+B..###.............B
+B..................B
+BFF................B
 B..................B
 B..................B
 B....###...........B
-B..................B
+B....###...........B
 B..................B
 B.........###......B
 B.L................B
@@ -212,8 +221,9 @@ mod tests {
     /// Première rangée de l'arène : la tour et la bâche sont au-dessus.
     const HAUT_ARENE: i32 = 69;
 
-    /// L'arène du boss : pas de drapeau, une seule pieuvre, trois lanternes (au
-    /// départ, au début de la tour : carte 9.13a, à mi-hauteur : carte 9.13b),
+    /// L'arène du boss : pas de drapeau, une seule pieuvre, quatre lanternes (au
+    /// départ, au début de la tour : carte 9.13a, à 29 % : carte 9.13b, à 69 % :
+    /// carte 9.13e),
     /// trois gouttes ; et, dans ses
     /// 11 dernières rangées, EXACTEMENT la géométrie du niveau d'essai « pieuvre »
     /// (mêmes cases vides ou pleines, même pieuvre, même bassin, mêmes pontons,
@@ -226,7 +236,7 @@ mod tests {
         let dy = HAUT_ARENE as f32 * TAILLE_TUILE;
         assert_eq!((n.largeur(), n.hauteur()), (20, 80));
         assert!(n.arrivee.is_none(), "l'arène n'a pas de drapeau");
-        assert_eq!(n.nb_lanternes(), 3);
+        assert_eq!(n.nb_lanternes(), 4);
         assert_eq!(n.depart, (e.depart.0, e.depart.1 + dy));
         for ty in 0..11 {
             for tx in 0..20 {
@@ -276,12 +286,13 @@ mod tests {
                     .collect::<Vec<_>>())
                 .collect::<Vec<_>>()
         );
-        // Carte 9.13a : la tour a sa tête finale et sa bâche ; carte 9.13c : trois
-        // paliers (sous ses trois corniches larges), deux jetés, deux balayages,
-        // deux secousses, deux plateformes arrachables, et le couloir de la
-        // géante (5 colonnes contre le mur droit), toujours vide.
+        // Carte 9.13a : la tour a sa tête finale et sa bâche ; carte 9.13c : deux
+        // jetés, deux balayages, deux secousses, deux plateformes arrachables, et
+        // le couloir de la géante (5 colonnes contre le mur droit), toujours
+        // vide ; carte 9.13e : cinq paliers (sous ses cinq corniches larges sous
+        // la vigie).
         assert!(p.tete_finale.is_some() && p.bache.is_some());
-        assert_eq!(p.paliers.len(), 3, "{:?}", p.paliers);
+        assert_eq!(p.paliers.len(), 5, "{:?}", p.paliers);
         assert_eq!(p.tour.jetes.len(), 2);
         assert_eq!(p.tour.balayeurs.len(), 2);
         assert_eq!(p.tour.secousses.len(), 2);
@@ -820,20 +831,28 @@ mod tests {
         let mut p = en_montee(&n, 0);
         jeter_et_frapper(&mut p, &n, 0);
         let bache = p.bache.unwrap();
-        let mi = n
+        // Les lanternes de la tour, du haut vers le bas : 69 %, 29 %, le bas.
+        let mut de_la_tour: Vec<(f32, f32)> = n
             .entites
             .iter()
             .filter_map(|e| match e {
                 Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.point_de_reapparition()),
                 _ => None,
             })
-            .min_by(|a, b| a.1.total_cmp(&b.1))
-            .unwrap();
+            .collect();
+        de_la_tour.sort_by(|a, b| a.1.total_cmp(&b.1));
+        let (haut, mi) = (de_la_tour[0], de_la_tour[1]);
         let jetes = p.tour.jetes.clone();
         assert!(
             mi.1 < jetes[0].y && mi.1 > jetes[1].y,
             "entre les deux jetés"
         );
+        // Carte 9.13e : la 2e lanterne, juste après le 2e jeté, vers 65 % de la
+        // montée (de la lanterne du bas à la vigie).
+        assert!(haut.1 < jetes[1].y, "après le 2e jeté");
+        let (bas, sommet) = (de_la_tour[2].1, p.tete_finale.unwrap().bas());
+        let part = (bas - haut.1) / (bas - sommet);
+        assert!((0.6..0.75).contains(&part), "{part}");
         let mut entites = n.entites.clone();
         for e in &mut entites {
             if let Entite::Pieuvre(q) = e {
@@ -862,5 +881,49 @@ mod tests {
             _ => None,
         });
         assert_eq!(allumee, Some(mi));
+    }
+
+    /// Carte 9.13e : une mort après la lanterne de 69 % (juste après le 2e jeté)
+    /// y ramène : les deux jetés restent faits et frappés, la mer revient SOUS la
+    /// lanterne (3 tuiles au plus sous ses pieds), et ne la noie pas d'emblée :
+    /// la seconde suivante, elle est encore sous ses pieds.
+    #[test]
+    fn reprise_a_la_lanterne_de_69_pour_cent() {
+        let n = INFOS.charger().unwrap();
+        let mut p = en_montee(&n, 0);
+        jeter_et_frapper(&mut p, &n, 0);
+        jeter_et_frapper(&mut p, &n, 1);
+        let bache = p.bache.unwrap();
+        let haut = n
+            .entites
+            .iter()
+            .filter_map(|e| match e {
+                Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.point_de_reapparition()),
+                _ => None,
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .unwrap();
+        let mut entites = n.entites.clone();
+        for e in &mut entites {
+            if let Entite::Pieuvre(q) = e {
+                **q = p.clone();
+            }
+        }
+        let j = Joueur::new(haut.0, haut.1);
+        crate::entities::reprendre_apres_une_mort(&mut entites, &j.boite);
+        let mut q = pieuvre_de(&entites).clone();
+        assert_eq!((q.jetes_faits(), q.jetes_frappes(), q.pv()), (2, 2, 1));
+        let mer = q.surface_mer().unwrap();
+        assert!(
+            mer > j.boite.bas() && mer <= j.boite.bas() + 3.0 * TAILLE_TUILE + 1.0,
+            "mer {mer}, pieds {}",
+            j.boite.bas()
+        );
+        q.voir_pepin(j.boite);
+        pas(&mut q, &n, 60);
+        assert!(
+            q.surface_mer().unwrap() > j.boite.bas(),
+            "pas noyé d'emblée"
+        );
     }
 }
