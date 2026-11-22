@@ -5,6 +5,9 @@
 //!   racines dans l'eau, deux tentacules agrippés au flanc de la tour, et son grand
 //!   ŒIL dont la pupille suit Pépin ; pendant l'annonce d'une attaque, l'œil se
 //!   plisse et rougit ;
+//! - son HUMEUR (carte 9.13d) : énervée, veines violettes au front, œil injecté et
+//!   pupille cerclée d'orange ; furieuse, la tête qui chauffe (reflet et taches
+//!   orange), l'œil très injecté, la pupille rouge et de la vapeur qui fume ;
 //! - chaque attaque est un tentacule dessiné EN ENTIER, du corps jusqu'au bout (un
 //!   chapelet de tronçons ronds de plus en plus fins, `dessiner_bras`) : la frappe
 //!   visée (levé au-dessus du REPÈRE rouge, puis abattu), le balayage (tiré en
@@ -20,7 +23,8 @@
 
 use pepin_core::aabb::{Aabb, TAILLE_TUILE};
 use pepin_core::entities::pieuvre::{
-    EtatArrachage, EtatBalai, EtatFrappe, EtatJete, EtatSaisie, EtatSecousse, PhasePieuvre, Pieuvre,
+    EtatArrachage, EtatBalai, EtatFrappe, EtatJete, EtatSaisie, EtatSecousse, Humeur, PhasePieuvre,
+    Pieuvre,
 };
 
 use crate::dessin_pieuvre::{dessiner_eau_saisie, la_pieuvre};
@@ -198,14 +202,24 @@ fn dessiner_geante(monde: &Monde, p: &Pieuvre, banque: &Banque, tete: &Aabb, cam
             agripper(banque, pied, prise, tremble, pas, camera);
         }
     }
-    // La tête (coupée à la surface quand elle remonte de l'eau).
-    let nom = image(["geante0", "geante1"], pas, 16);
+    // La tête (coupée à la surface quand elle remonte de l'eau). Carte 9.13d :
+    // son humeur se voit, la tête chauffe quand elle est furieuse, les veines
+    // du front gonflent dès qu'elle est énervée.
+    let humeur = p.humeur();
+    let nom = if humeur == Humeur::Furieuse {
+        image(["geante_furieuse0", "geante_furieuse1"], pas, 16)
+    } else {
+        image(["geante0", "geante1"], pas, 16)
+    };
     let (x, y) = ((tete.x - cx).round(), (tete.y - cy).round());
     let visible = (mer - tete.y).clamp(0.0, tete.h);
     if p.est_facile() && visible >= tete.h {
         banque.dessiner_pale(nom, x, y);
     } else {
         banque.dessiner_haut(nom, x, y, visible);
+    }
+    if humeur >= Humeur::Enervee {
+        banque.dessiner_haut("veines_geante", x, y, visible);
     }
     if visible < CENTRE_OEIL.1 + 6.0 {
         return;
@@ -215,28 +229,39 @@ fn dessiner_geante(monde: &Monde, p: &Pieuvre, banque: &Banque, tete: &Aabb, cam
     if sonnee || lachee.is_some() {
         banque.dessiner("oeil_sonne", ox, oy, false);
     } else {
+        // L'œil s'injecte de sang avec l'humeur.
+        match humeur {
+            Humeur::Calme => {}
+            Humeur::Enervee => banque.dessiner("oeil_injecte1", ox, oy, false),
+            Humeur::Furieuse => banque.dessiner("oeil_injecte2", ox, oy, false),
+        }
         // La pupille regarde Pépin.
         let j = milieu(&monde.joueur.boite);
         let (ex, ey) = (tete.x + CENTRE_OEIL.0, tete.y + CENTRE_OEIL.1);
         let (dx, dy) = (j.0 - ex, j.1 - ey);
         let n = dx.hypot(dy).max(1.0);
         let (px, py) = ((dx / n * REGARD.0).round(), (dy / n * REGARD.1).round());
+        let (gx, gy) = (x + CENTRE_OEIL.0 + px, y + CENTRE_OEIL.1 + py);
         if p.annonce_en_cours() {
             // L'annonce : la pupille rougit, la paupière plisse l'œil.
-            banque.dessiner(
-                "pupille_rouge",
-                x + CENTRE_OEIL.0 - 4.0 + px,
-                y + CENTRE_OEIL.1 - 4.0 + py,
-                false,
-            );
+            banque.dessiner("pupille_rouge", gx - 4.0, gy - 4.0, false);
             banque.dessiner("paupiere_geante", ox, oy, false);
         } else {
-            banque.dessiner(
-                "pupille_geante",
-                x + CENTRE_OEIL.0 - 3.0 + px,
-                y + CENTRE_OEIL.1 - 3.0 + py,
-                false,
-            );
+            match humeur {
+                Humeur::Calme => banque.dessiner("pupille_geante", gx - 3.0, gy - 3.0, false),
+                Humeur::Enervee => banque.dessiner("pupille_enervee", gx - 4.0, gy - 4.0, false),
+                Humeur::Furieuse => banque.dessiner("pupille_rouge", gx - 4.0, gy - 4.0, false),
+            }
+        }
+        // Furieuse : elle fume, deux bouffées qui montent de son crâne.
+        if humeur == Humeur::Furieuse {
+            for k in 0..2u32 {
+                let phase = ((pas + k * 24) % 48) as f32;
+                let vx = x + 28.0 + 14.0 * k as f32 + (phase / 12.0).floor();
+                let vy = y - 4.0 - (phase / 2.0).floor();
+                let bouffee = image(["vapeur_geante0", "vapeur_geante1"], pas + k * 8, 8);
+                banque.dessiner(bouffee, vx, vy, false);
+            }
         }
     }
     // Elle hurle : en se jetant, et quand on la frappe.

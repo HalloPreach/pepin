@@ -22,35 +22,42 @@
 //!   ses pieds : elle est toujours à l'écran. Toucher son corps tue, comme un
 //!   tentacule (`corps` : tout le couloir, de sa tête jusque dans la mer). Son œil suit Pépin et ROUGIT pendant
 //!   l'annonce d'une attaque (`annonce_en_cours`) : c'est le repère du joueur.
-//! - Une seule ATTAQUE à la fois (`Attaque`), et chacune part de son corps :
-//!   - FRAPPE VISÉE, toutes les 2,5 s : elle lève un tentacule et VISE la place de
-//!     Pépin au moment de l'annonce (un repère rouge, 1,4 s), puis frappe cette
-//!     place (0,5 s) ; on esquive en bougeant. Jamais sur la seule place sûre d'un
-//!     appui (`viser`).
-//!   - BALAYAGE (`!`, au bout d'une corniche, contre le couloir) : quand Pépin
-//!     arrive sur la corniche, le tentacule recule et se tend (1 s), puis balaie la
-//!     corniche de droite à gauche, au ras du sol : on saute par-dessus son bout.
-//!   - SECOUSSE (`+`, une rangée que les pieds de Pépin dépassent) : elle agrippe
-//!     la tour à deux tentacules et la secoue ; 2 ou 3 caisses tombent du haut,
-//!     dans la colonne de Pépin et près de lui (jamais deux voisines), annoncées
-//!     1 s par leur ombre sur le sol où elles vont se briser.
+//! - Ses ATTAQUES (`Attaque`) partent toutes de son corps. Carte 9.13d : plus
+//!   aucune n'est attachée à une rangée ; c'est son CERVEAU (`cerveau`) qui
+//!   choisit, selon ce qu'elle voit de Pépin, avec un tirage pseudo-aléatoire
+//!   dont la graine change à chaque tentative :
+//!   - FRAPPE VISÉE : elle lève un tentacule et VISE l'appui où Pépin VA
+//!     ATTERRIR (un repère rouge, 1,4 s), puis frappe cette place (0,5 s). Arrêté,
+//!     il est visé sur place. Jamais sur la seule place sûre d'un appui
+//!     (`viser`).
+//!   - BALAYAGE : sur une corniche qui touche son couloir, le tentacule recule et
+//!     se tend (1 s), puis balaie de droite à gauche, au ras du sol : on saute
+//!     par-dessus son bout.
+//!   - SECOUSSE : elle agrippe la tour et la secoue ; 2 ou 3 caisses tombent du
+//!     haut, dans la colonne de Pépin et près de lui (jamais deux voisines),
+//!     annoncées 1 s par leur ombre sur le sol où elles vont se briser.
 //!   - ARRACHAGE (`%`) : son tentacule va jusqu'à la plateforme et s'y enroule
 //!     (1,3 s, elle porte encore), puis la tire dans la mer. Il reste toujours un
 //!     autre chemin (les tests le vérifient).
-//!   - JETÉ (`$`, sur une corniche large) : quand Pépin y arrive, elle se CABRE
-//!     (1,2 s, l'œil fixé sur lui), puis se jette tête la première sur le bout de
-//!     la corniche. Si elle le rate, elle reste SONNÉE 2 s, la tête posée. Un saut
-//!     sur sa tête : elle hurle et retombe, la mer RECULE de 3 tuiles et ses
-//!     attaques s'arrêtent 3 s (un point de vie en moins). Sinon elle repart : on
-//!     peut continuer, mais la mer reste haute.
-//! - COUP FINAL : sur la vigie (`&`), elle se jette encore, autant de fois qu'il le
-//!   faut ; sonnée, un saut sur sa tête donne la plongée, puis vaincue.
+//!   - JETÉ, sur une corniche large : elle se CABRE (1,2 s, l'œil fixé sur lui),
+//!     puis se jette tête la première sur le bout de la corniche. Si elle le
+//!     rate, elle reste SONNÉE 2 s, la tête posée. Un saut sur sa tête : elle
+//!     hurle et retombe, la mer RECULE de 3 tuiles et ses attaques s'arrêtent
+//!     3 s (une tête en moins). Sinon elle repart, la mer reste haute.
+//!
+//!   Son HUMEUR monte (calme, énervée, furieuse) avec les coups reçus et la
+//!   hauteur de Pépin : recharges plus courtes, et des COMBOS (un balayage ou
+//!   une secousse, puis une frappe visée enchaînée).
+//! - COUP FINAL : sur la vigie (`&`), elle se jette DEUX fois de suite, la
+//!   seconde plus vite (0,8 s), et n'est sonnée qu'après la seconde. Il faut lui
+//!   prendre TOUTES les têtes qui restent (3 au début de la phase 2, une de moins
+//!   par coup pendant la montée) : autant de doubles jetés que de têtes.
 //!
 //! La mer s'arrête pendant un jeté (elle a mieux à faire). Une mort ramène à la
-//! dernière lanterne : ce qui est AU-DESSUS de Pépin repart à neuf (jetés,
-//! secousses, arrachages), ce qui est dessous reste fait ; la mer est remise sous
-//! la lanterne. MODE FACILE : annonces et rythme des attaques 0,75 fois moins
-//! rapides (`lent`).
+//! dernière lanterne (n'importe laquelle) : la mer est remise sous la lanterne,
+//! l'humeur et les têtes reviennent à leur état au passage de la lanterne, les
+//! plateformes arrachées dessous restent parties, et la graine change. MODE
+//! FACILE : annonces et recharges 0,75 fois moins rapides (`lent`).
 //!
 //! Notions Rust : un `enum` dont chaque variante porte ses données
 //! (`Attaque::Secousse { debut, caisses }`) et un `match` qui les déballe ;
@@ -61,6 +68,11 @@ use super::{PhasePieuvre, Pieuvre, ANNONCE_PAS, ANNONCE_SAISIE_PAS, DRESSE_PAS};
 use super::{FACTEUR_FACILE, PLONGEE_SAISIE_PAS};
 use crate::aabb::{Aabb, Grille, Tuile, TAILLE_TUILE};
 use crate::physics::{JOUEUR_H, JOUEUR_L};
+
+mod cerveau;
+pub use cerveau::*;
+#[cfg(test)]
+mod tests;
 
 /// La tête de la géante (px) : sa boîte dans le couloir, et quand elle se jette.
 pub const TAILLE_GEANTE: (f32, f32) = (64.0, 40.0);
@@ -77,7 +89,7 @@ pub const ANNONCE_FRAPPE_PAS: u16 = ANNONCE_PAS;
 pub const FRAPPE_PAS: u16 = DRESSE_PAS;
 /// … puis se retire en 0,2 s, sans danger.
 pub const RETRAIT_FRAPPE_PAS: u16 = 12;
-/// Une frappe visée toutes les 2,5 s.
+/// Une frappe visée toutes les 2,5 s quand elle est calme (voir `RECHARGES`).
 pub const RYTHME_FRAPPE_PAS: u16 = 150;
 /// La place frappée : 24 x 40 px, posée sur les pieds de Pépin.
 pub const TAILLE_FRAPPE: (f32, f32) = (24.0, 40.0);
@@ -119,6 +131,8 @@ pub const EMPORTEE_PAS: u16 = PLONGEE_SAISIE_PAS;
 
 /// Le jeté : elle se cabre 1,2 s (de 24 px), l'œil fixé sur Pépin…
 pub const CABRE_PAS: u16 = 72;
+/// … 0,8 s seulement pour le second jeté de la vigie (carte 9.13d) …
+pub const CABRE_VIF_PAS: u16 = 48;
 pub const CABRE_HAUT: f32 = 24.0;
 /// … se jette en 1/6 s (mortelle) …
 pub const CHUTE_JETE_PAS: u16 = 10;
@@ -136,6 +150,9 @@ pub const RECUL_MER: f32 = 3.0 * TAILLE_TUILE;
 pub const RECUL_PAR_PAS: u16 = 4;
 /// … et ses attaques s'arrêtent 3 s.
 pub const REPIT_PAS: u16 = 180;
+/// Ses têtes au début de la phase 2 (au plus les cases du HUD) : une par coup
+/// pendant la montée, les autres à la vigie.
+pub const TETES_FUITE: u8 = 3;
 
 /// Un balayage : la corniche qu'il balaie (son dessus `y`), le bord du couloir
 /// d'où part le bout (`depart`) et le bout gauche de la corniche (`arrivee`).
@@ -181,7 +198,8 @@ impl Caisse {
     }
 }
 
-/// L'attaque en cours (une seule à la fois), avec le pas où elle a commencé.
+/// L'attaque en cours (une seule à la fois, plus la frappe d'un combo), avec le
+/// pas où elle a commencé.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Attaque {
     /// La place visée.
@@ -190,8 +208,30 @@ pub enum Attaque {
     Balayage { k: usize, debut: u16 },
     /// Les caisses qui vont tomber.
     Secousse { debut: u16, caisses: Vec<Caisse> },
-    /// Le jeté `k` (`k == jetes.len()` : la vigie, le coup final).
-    Jete { k: usize, debut: u16 },
+    /// La plateforme arrachable `k` (carte 9.13d : une attaque choisie).
+    Arrachage { k: usize, debut: u16 },
+    /// Le jeté sur la place `k` (`k == jetes.len()` : la vigie, le coup final).
+    /// `vif` : la cabre courte ; `sonne` : ratée, elle reste sonnée (pas après le
+    /// premier jeté de la vigie, qui enchaîne sur le second).
+    Jete {
+        k: usize,
+        debut: u16,
+        vif: bool,
+        sonne: bool,
+    },
+}
+
+impl Attaque {
+    /// Le pas où elle a commencé.
+    pub fn debut(&self) -> u16 {
+        match self {
+            Attaque::Frappe { debut, .. }
+            | Attaque::Balayage { debut, .. }
+            | Attaque::Secousse { debut, .. }
+            | Attaque::Arrachage { debut, .. }
+            | Attaque::Jete { debut, .. } => *debut,
+        }
+    }
 }
 
 /// Où en est une frappe visée.
@@ -250,15 +290,17 @@ pub enum EtatArrachage {
 }
 
 /// Tout ce que la montée ajoute à la Pieuvre. Posé par le parseur (`jetes`,
-/// `balayeurs`, `secousses`, `arrachables`, `couloir`), le reste est l'état du
-/// combat.
+/// `balayeurs`, `arrachables`, `couloir` ; carte 9.13d : complété au début de
+/// la montée par les corniches larges et celles qui touchent le couloir), le
+/// reste est l'état du combat.
 #[derive(Debug, Clone, Default)]
 pub struct Tour {
-    /// Les jetés : la tête posée sur sa corniche (64 x 40), du bas vers le haut.
+    /// Les places du jeté : la tête posée sur le bout droit d'une corniche large
+    /// (64 x 40), du bas vers le haut.
     pub jetes: Vec<Aabb>,
     pub balayeurs: Vec<Balayeur>,
-    /// Les secousses : la rangée (px) que les pieds de Pépin dépassent, du bas
-    /// vers le haut.
+    /// Les anciennes rangées de secousse (`+`, carte 9.13c) : plus lues par le
+    /// cerveau (carte 9.13d), gardées pour le parseur.
     pub secousses: Vec<f32>,
     /// Les plateformes arrachables : leurs cases `(tx, ty)`.
     pub arrachables: Vec<Vec<(i32, i32)>>,
@@ -270,14 +312,9 @@ pub struct Tour {
     /// Pour le robot de faisabilité : aucune attaque, la tête de la vigie offerte.
     robot: bool,
     attaque: Option<Attaque>,
-    /// Jetés passés (les premiers de `jetes`), frappés ou non.
+    /// Jetés lancés pendant cette tentative.
     faits: usize,
-    /// Les jetés où Pépin l'a frappée.
-    frappes: Vec<usize>,
-    secousses_faites: usize,
-    /// Pas où peut partir la prochaine frappe visée.
-    prochaine_frappe: u16,
-    /// Pas avant lequel aucune attaque ne part (le répit).
+    /// Pas avant lequel aucune attaque ne part (le répit, son souffle).
     repit: u16,
     /// La tête frappée qui retombe et le pas du coup.
     lachee: Option<(Aabb, u16)>,
@@ -285,10 +322,10 @@ pub struct Tour {
     horloge_mer: u16,
     /// Pas d'horloge de la mer qu'il reste à reculer.
     recul: u16,
-    /// Début du dernier balayage de chaque balayeur (son repos).
-    balayages: Vec<Option<u16>>,
     /// Début de chaque arrachage (ou rien).
     arrachages: Vec<Option<u16>>,
+    /// Ce qu'elle voit, ce qu'elle ressent et ce qu'elle décide (carte 9.13d).
+    cerveau: Cerveau,
 }
 
 /// La boîte à mi-chemin (`k` de 0 à 1) entre `a` et `b`, au pixel près.
@@ -308,14 +345,14 @@ impl Pieuvre {
         self.tour.horloge_mer
     }
 
-    /// Jetés passés (frappés ou non).
+    /// Jetés lancés pendant cette tentative (frappés ou non).
     pub fn jetes_faits(&self) -> usize {
         self.tour.faits
     }
 
-    /// Jetés où Pépin l'a frappée.
+    /// Coups reçus pendant la phase 2 (une tête chacun).
     pub fn jetes_frappes(&self) -> usize {
-        self.tour.frappes.len()
+        usize::from(self.pv_de_la_fuite().saturating_sub(self.pv))
     }
 
     fn en_montee(&self) -> bool {
@@ -359,9 +396,7 @@ impl Pieuvre {
     /// Durée totale d'une attaque (pas).
     fn duree_attaque(&self, a: &Attaque) -> u16 {
         match a {
-            Attaque::Frappe { .. } => {
-                self.lent(ANNONCE_FRAPPE_PAS) + FRAPPE_PAS + RETRAIT_FRAPPE_PAS
-            }
+            Attaque::Frappe { .. } => self.duree_frappe(),
             Attaque::Balayage { k, .. } => {
                 let course = self.tour.balayeurs.get(*k).map_or(0, |b| b.course_pas());
                 self.lent(ANNONCE_BALAI_PAS) + course + RETRAIT_BALAI_PAS
@@ -371,17 +406,41 @@ impl Pieuvre {
                 // Et 1/6 s pour que les débris retombent.
                 self.lent(ANNONCE_SECOUSSE_PAS) + chute + 10
             }
-            Attaque::Jete { .. } => {
-                self.lent(CABRE_PAS) + CHUTE_JETE_PAS + self.lent(SONNEE_PAS) + RETOUR_PAS
+            Attaque::Arrachage { .. } => ANNONCE_SAISIE_PAS + EMPORTEE_PAS,
+            &Attaque::Jete { vif, sonne, .. } => {
+                let (cabre, sonnee) = self.durees_du_jete(vif, sonne);
+                cabre + CHUTE_JETE_PAS + sonnee + RETOUR_PAS
             }
+        }
+    }
+
+    /// Durée d'une frappe visée (pas) : annonce, frappe, retrait.
+    fn duree_frappe(&self) -> u16 {
+        self.lent(ANNONCE_FRAPPE_PAS) + FRAPPE_PAS + RETRAIT_FRAPPE_PAS
+    }
+
+    /// La cabre et la sonnée d'un jeté (pas) : la cabre courte s'il est `vif`,
+    /// aucune sonnée s'il ne `sonne` pas.
+    fn durees_du_jete(&self, vif: bool, sonne: bool) -> (u16, u16) {
+        let cabre = self.lent(if vif { CABRE_VIF_PAS } else { CABRE_PAS });
+        (cabre, if sonne { self.lent(SONNEE_PAS) } else { 0 })
+    }
+
+    /// La frappe visée en cours (seule, ou enchaînée dans un combo) : son début
+    /// et la place visée.
+    fn frappe_en_cours(&self) -> Option<(u16, Aabb)> {
+        if !self.en_montee() {
+            return None;
+        }
+        match self.tour.attaque {
+            Some(Attaque::Frappe { debut, cible }) => Some((debut, cible)),
+            _ => self.tour.cerveau.combo,
         }
     }
 
     /// La frappe visée en cours : la place visée et son état.
     pub fn etat_frappe(&self) -> Option<(Aabb, EtatFrappe)> {
-        let Some(&Attaque::Frappe { debut, cible }) = self.attaque() else {
-            return None;
-        };
+        let (debut, cible) = self.frappe_en_cours()?;
         let d = self.depuis(debut)?;
         let annonce = self.lent(ANNONCE_FRAPPE_PAS);
         let etat = if d < annonce {
@@ -438,12 +497,18 @@ impl Pieuvre {
 
     /// Le jeté en cours : la place de la tête sur la corniche et son état.
     pub fn etat_jete(&self) -> Option<(Aabb, EtatJete)> {
-        let Some(&Attaque::Jete { k, debut }) = self.attaque() else {
+        let Some(&Attaque::Jete {
+            k,
+            debut,
+            vif,
+            sonne,
+        }) = self.attaque()
+        else {
             return None;
         };
         let tete = self.place_du_jete(k)?;
         let d = self.depuis(debut)?;
-        let (cabre, sonnee) = (self.lent(CABRE_PAS), self.lent(SONNEE_PAS));
+        let (cabre, sonnee) = self.durees_du_jete(vif, sonne);
         let part = |x: u16, duree: u16| f32::from(x) / f32::from(duree);
         let etat = if d < cabre {
             EtatJete::Cabre(part(d, cabre))
@@ -686,29 +751,34 @@ impl Pieuvre {
         }
     }
 
-    /// Un saut sur la tête sonnée (`toucher`, en montée). Sur la vigie (ou pour
-    /// le robot) : le coup final, la plongée. Ailleurs : elle hurle et retombe, la
-    /// mer recule de 3 tuiles, 3 s sans attaque, un point de vie en moins.
+    /// Un saut sur la tête sonnée (`toucher`, en montée) : une tête en moins.
+    /// Sur la vigie, à la dernière tête (ou pour le robot) : le coup final, la
+    /// plongée. Sinon elle hurle et retombe, la mer recule de 3 tuiles, 3 s sans
+    /// attaque ; sur la vigie, elle se jettera encore deux fois.
     pub(super) fn frapper_en_montee(&mut self) {
         if self.tete_a_frapper().is_none() {
             return;
         }
+        let vigie = self.tour.jetes.len();
         let k = match self.tour.attaque {
             Some(Attaque::Jete { k, .. }) => k,
-            _ => self.tour.jetes.len(),
+            _ => vigie,
         };
-        if k >= self.tour.jetes.len() {
+        self.pv = self.pv.saturating_sub(1);
+        if self.tour.robot || (k >= vigie && self.pv == 0) {
             self.pv = 0;
             self.tour.attaque = None;
+            self.annuler_le_combo();
             self.figer_la_mer();
             self.entrer(PhasePieuvre::Plongee);
             return;
         }
+        // Pendant la montée, jamais la dernière tête (le choix du jeté le garantit).
+        self.pv = self.pv.max(1);
         let t = self.ecoule();
         self.tour.attaque = None;
-        self.tour.faits = self.tour.faits.max(k + 1);
-        self.tour.frappes.push(k);
-        self.tour.lachee = Some((self.tour.jetes[k], t));
+        self.annuler_le_combo();
+        self.tour.lachee = self.place_du_jete(k).map(|tete| (tete, t));
         self.tour.repit = t.saturating_add(REPIT_PAS);
         // Le recul se compte en HAUTEUR : on cherche, en remontant l'horloge, le
         // dernier pas où la mer était 3 tuiles plus bas (la crue et les paliers
@@ -719,14 +789,12 @@ impl Pieuvre {
             .rev()
             .find(|&t| self.surface_mer_a(t) >= cible - 0.01);
         self.tour.recul = h - avant.unwrap_or(0);
-        // Jamais 0 avant le coup final (le HUD de 2 cases du mode facile).
-        self.pv = self.pv.saturating_sub(1).max(1);
     }
 
-    /// Le début de la phase 2 : un point par jeté, plus le coup final (au plus
-    /// les cases du HUD : `pv_max`, 2 en mode facile).
+    /// Ses têtes au début de la phase 2 : `TETES_FUITE`, au plus les cases du
+    /// HUD (`pv_max`, 2 en mode facile).
     pub(super) fn pv_de_la_fuite(&self) -> u8 {
-        (self.tour.jetes.len() as u8 + 1).min(self.pv_max)
+        TETES_FUITE.min(self.pv_max)
     }
 
     /// Pour le robot de faisabilité : aucune attaque, la tête de la vigie offerte.
@@ -734,12 +802,13 @@ impl Pieuvre {
         self.tour.robot = true;
     }
 
-    /// Un pas de la montée (après `avancer`) : la mer, l'attaque en cours, les
-    /// arrachages, puis une nouvelle attaque selon où est Pépin.
+    /// Un pas de la montée (après `avancer`) : la mer, l'attaque en cours et son
+    /// combo, puis, si elle est libre, ce que son cerveau choisit.
     pub(super) fn avancer_tour(&mut self, grille: &dyn Grille) {
         if !self.en_montee() || self.tour.robot {
             return;
         }
+        self.preparer_la_tour(grille);
         let t = self.ecoule();
         // La mer : elle recule après un coup, s'arrête pendant un jeté.
         if self.tour.recul > 0 {
@@ -749,23 +818,34 @@ impl Pieuvre {
         } else if !self.mer_arretee() {
             self.tour.horloge_mer = self.tour.horloge_mer.saturating_add(1);
         }
-        // L'attaque finie s'en va. Un jeté raté : elle repart, il est passé
-        // (sauf sur la vigie, où elle recommence).
-        let fin = self.tour.attaque.as_ref().map(|a| {
-            let debut = match a {
-                Attaque::Frappe { debut, .. }
-                | Attaque::Balayage { debut, .. }
-                | Attaque::Secousse { debut, .. }
-                | Attaque::Jete { debut, .. } => *debut,
-            };
-            debut.saturating_add(self.duree_attaque(a))
-        });
+        let combo = self.avancer_le_combo(grille, t);
+        // L'attaque finie s'en va. Le 1er jeté de la vigie enchaîne aussitôt sur
+        // le second, plus vif, qui la laisse sonnée.
+        let fin = self
+            .tour
+            .attaque
+            .as_ref()
+            .map(|a| a.debut().saturating_add(self.duree_attaque(a)));
         if fin.is_some_and(|f| t >= f) {
-            if let Some(Attaque::Jete { k, .. }) = self.tour.attaque.take() {
-                if k < self.tour.jetes.len() {
-                    self.tour.faits = self.tour.faits.max(k + 1);
+            match self.tour.attaque.take() {
+                Some(Attaque::Jete {
+                    k, sonne: false, ..
+                }) => {
+                    self.tour.faits += 1;
+                    self.tour.attaque = Some(Attaque::Jete {
+                        k,
+                        debut: t,
+                        vif: true,
+                        sonne: true,
+                    });
                 }
-                self.tour.repit = t.saturating_add(APRES_JETE_PAS);
+                Some(Attaque::Jete { .. }) => {
+                    self.tour.repit = t.saturating_add(APRES_JETE_PAS);
+                }
+                _ => {
+                    let s = self.souffle();
+                    self.tour.repit = self.tour.repit.max(t.saturating_add(s));
+                }
             }
         }
         let Some(pepin) = self.pepin else {
@@ -782,145 +862,74 @@ impl Pieuvre {
             };
             self.tour.bas_geante = Some(bas.min(mer));
         }
-        self.lancer_les_arrachages(&pepin, t);
-        // Le repos des balayeurs.
-        self.tour.balayages.resize(self.tour.balayeurs.len(), None);
-        for k in 0..self.tour.balayeurs.len() {
-            let fin = self.lent(ANNONCE_BALAI_PAS)
-                + self.tour.balayeurs[k].course_pas()
-                + RETRAIT_BALAI_PAS
-                + REPOS_BALAI_PAS;
-            if self.tour.balayages[k].is_some_and(|d| t >= d.saturating_add(fin)) {
-                self.tour.balayages[k] = None;
-            }
-        }
-        // Les jetés que Pépin a dépassés sans s'y arrêter sont passés.
-        while let Some(j) = self.tour.jetes.get(self.tour.faits) {
-            if pepin.bas() < j.bas() - 2.0 * TAILLE_TUILE {
-                self.tour.faits += 1;
-            } else {
-                break;
-            }
-        }
+        self.observer(&pepin);
         if self.tour.attaque.is_some()
+            || combo
             || t < self.tour.repit
             || self.horloge_mer() < self.fin_de_crue()
         {
             return;
         }
-        self.tour.attaque = self.nouvelle_attaque(grille, &pepin, t);
+        self.tour.attaque = self.choisir(grille, &pepin, t);
     }
 
-    /// L'attaque qui part au pas `t`, Pépin en `pepin` (`None` : aucune), dans
-    /// l'ordre : le jeté de sa corniche, la secousse de la rangée qu'il dépasse,
-    /// le balayage de sa corniche, puis la frappe visée à son rythme.
-    fn nouvelle_attaque(&mut self, grille: &dyn Grille, pepin: &Aabb, t: u16) -> Option<Attaque> {
-        let mer = self.surface_mer().unwrap_or(f32::MAX);
-        let debout_sur = |y: f32| pepin.bas() <= y + 1.0 && pepin.bas() >= y - 2.0;
-        let k = self.tour.faits;
-        if let Some(place) = self.place_du_jete(k) {
-            if debout_sur(place.bas()) && pepin.x < place.droite() && place.bas() < mer {
-                return Some(Attaque::Jete { k, debut: t });
-            }
-        }
-        if let Some(&seuil) = self.tour.secousses.get(self.tour.secousses_faites) {
-            if pepin.bas() <= seuil + 1.0 {
-                self.tour.secousses_faites += 1;
-                let caisses = self.caisses_pour(grille, pepin, mer);
-                return Some(Attaque::Secousse { debut: t, caisses });
-            }
-        }
-        for k in 0..self.tour.balayeurs.len() {
-            let b = self.tour.balayeurs[k];
-            let sur = pepin.bas() <= b.y + 1.0 && pepin.bas() >= b.y - 2.0 * TAILLE_TUILE;
-            if self.tour.balayages[k].is_none() && sur && pepin.x < b.depart && b.y < mer {
-                self.tour.balayages[k] = Some(t);
-                return Some(Attaque::Balayage { k, debut: t });
-            }
-        }
-        if t >= self.tour.prochaine_frappe {
-            self.tour.prochaine_frappe = t.saturating_add(self.lent(RYTHME_FRAPPE_PAS));
-            let cible = self.viser(grille, pepin);
-            return Some(Attaque::Frappe { debut: t, cible });
-        }
-        None
-    }
-
-    /// Un arrachage part quand Pépin arrive sous la plateforme.
-    fn lancer_les_arrachages(&mut self, pepin: &Aabb, t: u16) {
-        self.tour
-            .arrachages
-            .resize(self.tour.arrachables.len(), None);
-        let milieu = pepin.x + pepin.w / 2.0;
-        for k in 0..self.tour.arrachables.len() {
-            if self.tour.arrachages[k].is_some() {
-                continue;
-            }
-            let cases = &self.tour.arrachables[k];
-            let (g, d) = super::etendue(cases);
-            let haut = cases.iter().map(|c| c.1).min().unwrap_or(0) as f32 * TAILLE_TUILE;
-            let sous = pepin.bas() - haut;
-            let cote = (g - milieu).max(milieu - d).max(0.0);
-            if sous >= ARRACHAGE_SOUS.0 && sous <= ARRACHAGE_SOUS.1 && cote < ARRACHAGE_COTE {
-                self.tour.arrachages[k] = Some(t);
-            }
-        }
-    }
-
-    /// Remet la montée à neuf (début de la phase 2).
+    /// Remet la montée à neuf (début de la phase 2) ; la graine, la tentative
+    /// et les places tirées de la grille restent.
     pub(super) fn remettre_la_tour(&mut self) {
         self.tour.attaque = None;
         self.tour.faits = 0;
-        self.tour.frappes.clear();
-        self.tour.secousses_faites = 0;
-        self.tour.prochaine_frappe = 0;
         self.tour.repit = 0;
         self.tour.lachee = None;
         self.tour.bas_geante = None;
         self.tour.horloge_mer = 0;
         self.tour.recul = 0;
-        self.tour.balayages.clear();
         self.tour.arrachages.clear();
+        self.tour.cerveau.oublier();
         self.pv = self.pv_de_la_fuite();
     }
 
-    /// Pépin est mort en phase 2 et réapparaît dans `occupant` (sa lanterne) : ce
-    /// qui est au-dessus de lui repart à neuf, ce qui est dessous reste fait ; la
-    /// mer revient 3 tuiles sous ses pieds (au début de la phase 2 si aucun jeté
-    /// n'est dessous).
+    /// Pépin est mort en phase 2 et réapparaît dans `occupant` (sa lanterne,
+    /// n'importe laquelle) : la graine change (une tentative de plus) ; depuis
+    /// la lanterne du bas, tout repart à neuf ; plus haut, ses têtes et son
+    /// humeur reviennent à leur état au passage de la lanterne, les plateformes
+    /// arrachées dessous restent parties et la mer revient 3 tuiles sous ses
+    /// pieds.
     pub fn reprendre_a(&mut self, occupant: &Aabb) {
         if !self.en_fuite() || !matches!(self.phase(), PhasePieuvre::Furie | PhasePieuvre::Montee) {
             self.reprendre();
             return;
         }
-        let frappes = std::mem::take(&mut self.tour.frappes);
+        let marques = std::mem::take(&mut self.tour.cerveau.marques);
+        let jetes_tentes = std::mem::take(&mut self.tour.cerveau.jetes_tentes);
         let arrachages = std::mem::take(&mut self.tour.arrachages);
-        let avant = self.tour.faits;
+        self.tour.cerveau.tentative = self.tour.cerveau.tentative.wrapping_add(1);
         self.reprendre();
-        let dessous = |y: f32| y > occupant.bas();
-        // Les jetés déjà passés ET sous Pépin restent faits.
-        let faits = self
-            .tour
-            .jetes
-            .iter()
-            .take_while(|j| dessous(j.bas()))
-            .count()
-            .min(avant);
-        if faits == 0 {
+        let t = TAILLE_TUILE;
+        let au_bas = self.bache.is_none_or(|b| occupant.bas() >= b.y - 3.0 * t);
+        if au_bas {
             return;
         }
-        self.tour.faits = faits;
-        self.tour.frappes = frappes.into_iter().filter(|&k| k < faits).collect();
-        self.tour.secousses_faites = self
-            .tour
-            .secousses
-            .iter()
-            .take_while(|&&s| dessous(s))
-            .count();
-        self.pv = self
-            .pv_de_la_fuite()
-            .saturating_sub(self.tour.frappes.len() as u8)
-            .max(1);
+        let pieds = occupant.bas();
+        // Son état la première fois que Pépin est arrivé à cette hauteur (les
+        // marques suivent l'ordre du temps) ; ce qui a suivi est oublié. S'il
+        // n'y est jamais monté pendant cette tentative, tout repart du bas.
+        let mut marques = marques;
+        let Some(ici) = marques.iter().position(|m| m.0 <= pieds + 2.0) else {
+            return;
+        };
+        self.pv = marques[ici].1.max(1);
+        marques.truncate(ici + 1);
+        self.tour.cerveau.marques = marques;
+        self.tour.cerveau.progres = self.progres_a(pieds);
+        let dessous = |y: f32| y > pieds;
+        // Les jetés tentés sous la lanterne restent faits (elle ne s'y jette
+        // plus) ; ceux du dessus repartent à neuf.
+        let tentes: Vec<usize> = jetes_tentes
+            .into_iter()
+            .filter(|&k| self.tour.jetes.get(k).is_some_and(|j| dessous(j.bas())))
+            .collect();
+        self.tour.faits = tentes.len();
+        self.tour.cerveau.jetes_tentes = tentes;
         // Les plateformes arrachées sous Pépin restent parties (horloge 0 : partie).
         self.tour.arrachages = arrachages
             .iter()
@@ -931,13 +940,12 @@ impl Pieuvre {
                     .map(|c| c.1)
                     .min()
                     .unwrap_or(0);
-                a.filter(|_| dessous(haut as f32 * TAILLE_TUILE))
-                    .map(|_| u16::MAX)
+                a.filter(|_| dessous(haut as f32 * t)).map(|_| u16::MAX)
             })
             .collect();
-        let cible = occupant.bas() + 3.0 * TAILLE_TUILE;
+        let cible = pieds + 3.0 * t;
         self.tour.horloge_mer = (0..u16::MAX)
-            .find(|&t| self.surface_mer_a(t) <= cible)
+            .find(|&h| self.surface_mer_a(h) <= cible)
             .unwrap_or(0);
     }
 }
