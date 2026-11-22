@@ -1455,9 +1455,12 @@ pub fn dessiner(
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     // Le fond du port (carte 9.11b) : sans son phare lointain sur la jetée de la
     // Pieuvre, qui a le sien, rayé, plus près.
-    if monde.infos.theme == pepin_core::zones::Theme::Port {
-        let phare = !crate::dessin_port::est_la_jetee(monde);
-        crate::decor_port::dessiner_fond(cx, cy_fond, monde.pas, phare);
+    if crate::dessin_port::est_la_jetee(monde) {
+        // Carte 9.13c : sous la tour de la Pieuvre, le fond de l'arène descend
+        // quand Pépin grimpe, et la nuit continue au-dessus (un fond continu).
+        crate::decor_port::dessiner_fond_sous_la_tour(cx, monde.pas, -cy_fond);
+    } else if monde.infos.theme == pepin_core::zones::Theme::Port {
+        crate::decor_port::dessiner_fond(cx, cy_fond, monde.pas, true);
     } else {
         decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
     }
@@ -1484,7 +1487,7 @@ pub fn dessiner(
     // La bâche de l'arène, et la mer qui monte de la phase 2 (carte 9.13a).
     crate::dessin_pieuvre::dessiner_bache(monde, banque, cx, cy);
     crate::dessin_pieuvre::dessiner_mer(monde, banque, cx, cy);
-    // La montée (carte 9.13b) : trappes, balayeurs, arrachages, gardes, rencontres.
+    // La montée (carte 9.13c) : la géante et ses attaques, qui partent de son corps.
     crate::dessin_montee::dessiner(monde, banque, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);

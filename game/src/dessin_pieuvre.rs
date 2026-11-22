@@ -15,8 +15,7 @@
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::pieuvre::{
-    EtatSaisie, EtatTentacule, PhasePieuvre, Pieuvre, HAUTEUR_TENTACULE_MONTEE, LARGEUR_COLONNE,
-    MARGE_TENTACULE, NB_COLONNES,
+    EtatSaisie, EtatTentacule, PhasePieuvre, Pieuvre, LARGEUR_COLONNE, MARGE_TENTACULE, NB_COLONNES,
 };
 use pepin_core::entities::Entite;
 use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, PLUIE, PLUIE_SOMBRE};
@@ -80,25 +79,6 @@ pub fn dessiner(p: &Pieuvre, banque: &Banque, pas: u32, cx: i32, cy: i32) {
                 );
             }
         }
-    }
-    // Phase 2 (carte 9.13a) : le tentacule de la montée sort de la mer, avec la
-    // même annonce qu'en phase 1, et ne monte que de 4 tuiles.
-    if let (Some((i, etat)), Some(mer)) = (p.tentacule_de_montee(), p.surface_mer()) {
-        let corps = p.colonnes[i];
-        let surface = mer - cy;
-        let gauche = corps.x - MARGE_TENTACULE - cx;
-        let remous = image(["remous_pieuvre0", "remous_pieuvre1"], pas, 6);
-        if let EtatTentacule::Annonce(a) = etat {
-            banque.dessiner("ombre_pieuvre", gauche, surface + 1.0, false);
-            if a >= 0.5 {
-                let nom = image(["tentacule_pointe0", "tentacule_pointe1"], pas, 8);
-                banque.dessiner(nom, corps.x - cx, surface - 11.0, false);
-            }
-        } else {
-            let h = hauteur_tentacule(etat, HAUTEUR_TENTACULE_MONTEE);
-            dessiner_tentacule(banque, corps.x - cx, surface, h, pas);
-        }
-        banque.dessiner(remous, gauche, surface - 5.0, false);
     }
     dessiner_tete(p, banque, pas, cx, cy);
 }
@@ -219,10 +199,10 @@ fn dessiner_tete(p: &Pieuvre, banque: &Banque, pas: u32, cx: f32, cy: f32) {
                 false,
             );
         }
-        // Carte 9.13b : la tête d'une rencontre qui surgit ou qui replonge est
-        // dessinée par `dessin_montee`, et la vigie est vide pendant ce temps.
-        PhasePieuvre::Montee if p.surgissement().is_some() || p.tete_lachee().is_some() => {}
-        PhasePieuvre::Tete | PhasePieuvre::Montee => {
+        // Carte 9.13c : en phase 2, la géante (montée, plongée finale) est
+        // dessinée par `dessin_montee`.
+        PhasePieuvre::Montee | PhasePieuvre::Plongee | PhasePieuvre::Vaincue if p.en_fuite() => {}
+        PhasePieuvre::Tete => {
             let nom = image(["pieuvre_colere0", "pieuvre_colere1"], pas, 20);
             if p.est_facile() {
                 banque.dessiner_pale(nom, x, y);

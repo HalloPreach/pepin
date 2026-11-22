@@ -54,7 +54,9 @@
 //! deux ? »). Seulement dans une arène qui a une TOUR (une tête finale `&` dans
 //! la grille, `Pieuvre::tete_finale`) : au dernier coup de la phase 1, au lieu de
 //! plonger, elle entre en FURIE, casse le quai et la mer monte. Tout est dans le
-//! sous-module `fuite` ; sans tour (le niveau d'essai), rien ne change.
+//! sous-module `fuite` ; sans tour (le niveau d'essai), rien ne change. La
+//! montée (carte 9.13c) : la Pieuvre GÉANTE grimpe avec la mer à côté de la
+//! tour, et toutes ses attaques partent de son corps (sous-module `montee`).
 //!
 //! Notions Rust : on RÉUTILISE la `Salve` du Grand Nuage (`use super::nuage::Salve`)
 //! au lieu de la recopier ; un `enum` à données (`EtatTentacule::Annonce(f32)`) ; des
@@ -456,9 +458,7 @@ pub struct Pieuvre {
     pub arret_mer: f32,
     /// La phase 2 a commencé (la bâche est déchirée, puis le quai cassé).
     fuite: bool,
-    /// Le dernier tentacule de la montée : sa colonne et son pas de départ.
-    tentacule_montee: Option<(usize, u16)>,
-    /// La montée de la carte 9.13b : rencontres, balayeurs, arrachages
+    /// La montée (cartes 9.13b et 9.13c) : la géante et ses attaques
     /// (`pieuvre::montee`).
     pub tour: Tour,
 }
@@ -484,7 +484,6 @@ impl Pieuvre {
             paliers: Vec::new(),
             arret_mer: 0.0,
             fuite: false,
-            tentacule_montee: None,
             tour: Tour::default(),
         }
     }
@@ -641,9 +640,10 @@ impl Pieuvre {
             | PhasePieuvre::Tete
             | PhasePieuvre::Touchee
             | PhasePieuvre::Furie => Some(self.places[self.place]),
-            // Phase 2 (carte 9.13a) : la tête attend en haut de la tour, et y
-            // replonge. Carte 9.13b : pendant une rencontre, la tête agrippée.
-            PhasePieuvre::Montee => self.rencontre().map(|r| r.tete).or(self.tete_finale),
+            // Phase 2 (carte 9.13a) : la tête en haut de la tour, où elle
+            // replonge. Carte 9.13c : en montée, la tête de la géante quand on
+            // peut la frapper (sonnée après un jeté ; dessin : `geante`).
+            PhasePieuvre::Montee => self.tete_a_frapper(),
             PhasePieuvre::Plongee if self.fuite => self.tete_finale,
             PhasePieuvre::Plongee => Some(self.places[self.place]),
             _ => None,
@@ -666,7 +666,7 @@ impl Pieuvre {
         let tete = match self.phase {
             PhasePieuvre::Tete => self.places[self.place],
             // Le coup final (carte 9.13a) : la tête du haut de la tour ; carte
-            // 9.13b : avant elle, la tête de chaque rencontre, une fois agrippée.
+            // 9.13c : la tête de la géante, sonnée après un jeté.
             PhasePieuvre::Montee => match self.tete_a_frapper() {
                 Some(t) => t,
                 None => return false,
@@ -680,7 +680,8 @@ impl Pieuvre {
 
     /// `boite` meurt-elle ? Un tentacule dressé la touche, ou la tête sortie la
     /// touche (autrement qu'en tombant dessus : `recoit` est vérifié avant). En
-    /// phase 2 : la mer en furie, ou un tentacule de la montée (`fuite`).
+    /// phase 2 : la mer en furie (`fuite`), la géante ou une de ses attaques
+    /// (`montee`).
     pub fn blesse(&self, boite: &Aabb) -> bool {
         if self.blesse_en_fuite(boite) || self.blesse_en_montee(boite) {
             return true;
@@ -696,13 +697,9 @@ impl Pieuvre {
     /// arène à tour, le dernier point de la phase 1 donne la FURIE (la phase 2) ;
     /// le coup sur la tête du haut de la tour, la plongée.
     pub fn toucher(&mut self) {
-        if self.phase == PhasePieuvre::Montee && self.gagner_la_rencontre() {
-            return;
-        }
-        if self.phase == PhasePieuvre::Montee && self.tete_finale.is_some() {
-            self.pv = 0;
-            self.figer_la_mer();
-            self.entrer(PhasePieuvre::Plongee);
+        if self.phase == PhasePieuvre::Montee {
+            // Carte 9.13c : un jeté (elle retombe), ou la vigie (la plongée).
+            self.frapper_en_montee();
             return;
         }
         if self.phase != PhasePieuvre::Tete {
@@ -727,7 +724,6 @@ impl Pieuvre {
         if self.fuite {
             if matches!(self.phase, PhasePieuvre::Furie | PhasePieuvre::Montee) {
                 self.entrer(PhasePieuvre::Montee);
-                self.tentacule_montee = None;
                 self.remettre_la_tour();
             }
             return;
@@ -816,8 +812,7 @@ impl Actualisable for Pieuvre {
     fn actualiser(&mut self, env: &Environnement<'_>) {
         self.avancer_saisie();
         self.avancer();
-        self.avancer_tour();
-        self.avancer_montee(env.grille);
+        self.avancer_tour(env.grille);
     }
 }
 
