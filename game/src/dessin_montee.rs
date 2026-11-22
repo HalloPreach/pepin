@@ -70,11 +70,11 @@ fn dessiner_bras(banque: &Banque, a: Point, c: Point, b: Point, pas: u32, (cx, c
         let (x, y) = sur_la_courbe(a, c, b, k);
         // L'ondulation : nulle au pied et au bout, un pixel au milieu.
         let onde = ((pas as f32 * 0.12 + k * 7.0).sin() * 1.4 * (k * (1.0 - k) * 4.0)).round();
-        let (nom, r) = if k < 0.35 {
+        let (nom, r) = if k < 0.5 {
             ("bras_gros", 5.0)
-        } else if k < 0.7 {
+        } else if k < 0.8 {
             ("bras_moyen", 4.0)
-        } else if k < 0.93 {
+        } else if k < 0.96 {
             ("bras_fin", 3.0)
         } else {
             ("bras_pointe", 2.0)
@@ -82,6 +82,38 @@ fn dessiner_bras(banque: &Banque, a: Point, c: Point, b: Point, pas: u32, (cx, c
         let (sx, sy) = ((x - r - cx).round(), (y - r + onde - cy).round());
         banque.dessiner(nom, sx, sy, false);
     }
+}
+
+/// Les PRISES de la géante sur la tour : le bout droit des corniches qui touchent
+/// son couloir, de la plus proche au-dessus de sa tête (au plus `portee` px
+/// au-dessus) à la plus lointaine ; au plus `n`. Ses tentacules s'y enroulent.
+fn prises(monde: &Monde, p: &Pieuvre, tete: &Aabb, portee: f32, n: usize) -> Vec<Point> {
+    let g = p.tour.couloir.map_or(tete.x, |c| c.0);
+    let mut bouts: Vec<Point> = p
+        .appuis(&monde.niveau)
+        .into_iter()
+        .filter(|&(y, _, b)| b >= g - TAILLE_TUILE && y <= tete.bas() && y >= tete.y - portee)
+        .map(|(y, _, b)| (b, y))
+        .collect();
+    bouts.sort_by(|a, b| b.1.total_cmp(&a.1));
+    bouts.truncate(n);
+    bouts
+}
+
+/// Un tentacule de la géante enroulé sur la prise `(x, y)` (le bout droit d'une
+/// corniche) : il part de `pied`, monte le long du couloir et serre le bord.
+fn agripper(banque: &Banque, pied: Point, (x, y): Point, tremble: f32, pas: u32, camera: Point) {
+    let (cx, cy) = camera;
+    let bout = (x - 10.0 + tremble, y + 2.0);
+    let coude = (x + 14.0, (pied.1 + y) / 2.0);
+    dessiner_bras(banque, pied, coude, bout, pas, camera);
+    let enroule = image(["tentacule_enroule0", "tentacule_enroule1"], pas, 8);
+    banque.dessiner(
+        enroule,
+        (x - 16.0 + tremble - cx).round(),
+        (y - 3.0 - cy).round(),
+        false,
+    );
 }
 
 /// Les cases arrachables qui ne se dessinent plus comme des tuiles (le jeu de
@@ -107,7 +139,7 @@ pub fn dessiner(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     };
     let pas = monde.pas;
     dessiner_arrachages(monde, p, banque, &tete, camera);
-    dessiner_secousse(p, banque, &tete, pas, camera);
+    dessiner_secousse(monde, p, banque, &tete, camera);
     dessiner_geante(monde, p, banque, &tete, camera);
     dessiner_balayages(p, banque, &tete, pas, camera);
     dessiner_frappe(p, banque, &tete, pas, camera);
@@ -126,10 +158,11 @@ fn dessiner_geante(monde: &Monde, p: &Pieuvre, banque: &Banque, tete: &Aabb, cam
     let jete = p.etat_jete();
     let lachee = p.tete_lachee();
     // Le cou : de son corps, dans la mer au milieu du couloir, jusque sous la
-    // tête jetée (un chapelet de gros tronçons).
+    // tête jetée, ou hissée hors de l'eau quand elle grimpe (un chapelet de gros
+    // tronçons).
     let pied = ((g + d) / 2.0, mer + 4.0);
     let sous_la_tete = (tete.x + tete.w * 0.7, tete.bas() - 6.0);
-    if jete.is_some() || lachee.is_some() {
+    if jete.is_some() || lachee.is_some() || p.grimpe() {
         let coude = (d - 8.0, (pied.1 + sous_la_tete.1) / 2.0);
         let n = (((pied.1 - sous_la_tete.1).abs() + (pied.0 - sous_la_tete.0).abs()) / 4.0)
             .ceil()
@@ -154,11 +187,15 @@ fn dessiner_geante(monde: &Monde, p: &Pieuvre, banque: &Banque, tete: &Aabb, cam
         } else {
             0.0
         };
-        for (h, depart) in [(28.0, 30.0), (60.0, 22.0)] {
-            let a = (tete.x + 8.0, tete.y + depart);
-            let b = (g + 1.0 + tremble, tete.y - h + 30.0);
-            let c = (g - 10.0, (a.1 + b.1) / 2.0 + 6.0);
-            dessiner_bras(banque, a, c, b, pas, camera);
+        // Ses deux tentacules serrent les corniches les plus proches ; sans
+        // corniche à portée, ils se tendent contre le flanc de la tour.
+        let mut bouts = prises(monde, p, tete, 72.0, 2);
+        if bouts.is_empty() {
+            bouts.push((g + 10.0, tete.y + 6.0));
+        }
+        for (k, &prise) in bouts.iter().enumerate() {
+            let pied = (tete.x + 8.0, tete.y + 30.0 - 8.0 * k as f32);
+            agripper(banque, pied, prise, tremble, pas, camera);
         }
     }
     // La tête (coupée à la surface quand elle remonte de l'eau).
@@ -217,7 +254,7 @@ fn dessiner_frappe(p: &Pieuvre, banque: &Banque, tete: &Aabb, pas: u32, camera: 
     let (cx, cy) = camera;
     let epaule = (tete.x + 14.0, tete.y + 6.0);
     let (vx, sol) = (cible.x + cible.w / 2.0, cible.bas());
-    let leve = (vx, cible.y - 18.0);
+    let leve = (vx, cible.y - 4.0);
     let abattu = (vx, sol - 6.0);
     let bout = match etat {
         EtatFrappe::Annonce(a) => (leve.0, leve.1 - 10.0 * a),
@@ -240,6 +277,11 @@ fn dessiner_frappe(p: &Pieuvre, banque: &Banque, tete: &Aabb, pas: u32, camera: 
     let haut = epaule.1.min(bout.1) - 36.0;
     let coude = ((epaule.0 + bout.0) / 2.0 + 10.0, haut);
     dessiner_bras(banque, epaule, coude, bout, pas, camera);
+    // Levé, son bout se recourbe au-dessus de la place visée.
+    if matches!(etat, EtatFrappe::Annonce(_)) {
+        let (x, y) = ((bout.0 - 12.0 - cx).round(), (bout.1 - 14.0 - cy).round());
+        banque.dessiner("tentacule_bout", x, y, false);
+    }
 }
 
 /// Les balayages : le tentacule part du bas du corps ; à l'annonce, son bout est
@@ -273,28 +315,34 @@ fn dessiner_balayages(p: &Pieuvre, banque: &Banque, tete: &Aabb, pas: u32, camer
 /// La secousse : deux tentacules serrent la tour (dessinés par `dessiner_geante`,
 /// qui tremblent), l'ombre des caisses sur leur sol pendant l'annonce, puis les
 /// caisses qui tombent et se brisent.
-fn dessiner_secousse(p: &Pieuvre, banque: &Banque, tete: &Aabb, pas: u32, camera: Point) {
+fn dessiner_secousse(monde: &Monde, p: &Pieuvre, banque: &Banque, tete: &Aabb, camera: Point) {
+    let pas = monde.pas;
     let Some((caisses, etat)) = p.etat_secousse() else {
         return;
     };
     let (cx, cy) = camera;
-    // Deux tentacules de plus, qui serrent la tour plus haut, là où les caisses
-    // vont partir.
-    let g = p.tour.couloir.map_or(tete.x, |c| c.0);
-    let tremble = [0.0, 1.0, 0.0, -1.0][(pas / 2 % 4) as usize];
-    for (h, depart) in [(90.0, 12.0), (124.0, 4.0)] {
-        let a = (tete.x + 12.0, tete.y + depart);
-        let b = (g - 2.0 + tremble, tete.y - h + 30.0);
-        let c = (g + 8.0, (a.1 + b.1) / 2.0);
-        dessiner_bras(banque, a, c, b, pas, camera);
+    // Deux tentacules de plus serrent la tour (les corniches les plus proches, ou
+    // deux fois la même, l'un à côté de l'autre) et la secouent : ils tremblent.
+    let tremble = [0.0, 2.0, 0.0, -2.0][(pas / 2 % 4) as usize];
+    let mut ps = prises(monde, p, tete, 110.0, 2);
+    if let [seule] = ps[..] {
+        ps.push((seule.0 - 22.0, seule.1));
+    }
+    for (k, &prise) in ps.iter().enumerate() {
+        let pied = (tete.x + 14.0, tete.y + 14.0 - 6.0 * k as f32);
+        agripper(banque, pied, prise, tremble, pas, camera);
     }
     for c in caisses {
         let (x, sol) = ((c.x - cx).round(), (c.sol - cy).round());
         match etat {
-            EtatSecousse::Annonce(_) => banque.dessiner("ombre_caisse", x, sol - 3.0, false),
+            // L'ombre clignote sur le sol où la caisse va se briser.
+            EtatSecousse::Annonce(_) if (pas / 6).is_multiple_of(2) => {
+                banque.dessiner("ombre_caisse", x, sol, false)
+            }
+            EtatSecousse::Annonce(_) => {}
             EtatSecousse::Chute(s) => match c.boite(s) {
                 Some(b) => {
-                    banque.dessiner("ombre_caisse", x, sol - 3.0, false);
+                    banque.dessiner("ombre_caisse", x, sol, false);
                     banque.dessiner("caisse_chute", x, (b.y - cy).round(), false);
                 }
                 None if s <= c.chute_pas() + 10 => {

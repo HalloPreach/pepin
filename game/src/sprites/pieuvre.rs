@@ -615,12 +615,12 @@ pub const CAISSE_CHUTE: Image = &[
     "0000000000000000",
 ];
 
-/// L'ombre d'une caisse qui va tomber (16x4), sur le sol où elle se brisera.
+/// L'ombre d'une caisse qui va tomber (16x4), posée sur le sol où elle se brisera.
 pub const OMBRE_CAISSE: Image = &[
-    "...0000000000...",
     ".00000000000000.",
+    "0000000000000000",
+    "0000000000000000",
     ".00000000000000.",
-    "...0000000000...",
 ];
 
 /// Les éclats d'une caisse brisée (16x6).

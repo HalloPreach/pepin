@@ -17,8 +17,10 @@
 //!
 //! - LA GÉANTE vit dans le COULOIR, contre le mur droit (`Tour::couloir`, posé
 //!   par le parseur) : son corps est dans la mer, sa tête et son grand œil juste
-//!   au-dessus, et ils montent AVEC la mer (`geante`). Toucher son corps tue,
-//!   comme un tentacule (`corps`). Son œil suit Pépin et ROUGIT pendant
+//!   au-dessus, et ils montent AVEC la mer (`geante`). Si Pépin grimpe trop vite,
+//!   elle GRIMPE hors de l'eau, agrippée à la tour, pour rester à 4 tuiles sous
+//!   ses pieds : elle est toujours à l'écran. Toucher son corps tue, comme un
+//!   tentacule (`corps` : tout le couloir, de sa tête jusque dans la mer). Son œil suit Pépin et ROUGIT pendant
 //!   l'annonce d'une attaque (`annonce_en_cours`) : c'est le repère du joueur.
 //! - Une seule ATTAQUE à la fois (`Attaque`), et chacune part de son corps :
 //!   - FRAPPE VISÉE, toutes les 2,5 s : elle lève un tentacule et VISE la place de
@@ -29,9 +31,9 @@
 //!     arrive sur la corniche, le tentacule recule et se tend (1 s), puis balaie la
 //!     corniche de droite à gauche, au ras du sol : on saute par-dessus son bout.
 //!   - SECOUSSE (`+`, une rangée que les pieds de Pépin dépassent) : elle agrippe
-//!     la tour à deux tentacules et la secoue ; des caisses tombent du haut, dans
-//!     la colonne de Pépin et à 3 colonnes de part et d'autre, annoncées 1 s par
-//!     leur ombre sur le sol où elles vont se briser.
+//!     la tour à deux tentacules et la secoue ; 2 ou 3 caisses tombent du haut,
+//!     dans la colonne de Pépin et près de lui (jamais deux voisines), annoncées
+//!     1 s par leur ombre sur le sol où elles vont se briser.
 //!   - ARRACHAGE (`%`) : son tentacule va jusqu'à la plateforme et s'y enroule
 //!     (1,3 s, elle porte encore), puis la tire dans la mer. Il reste toujours un
 //!     autre chemin (les tests le vérifient).
@@ -64,6 +66,10 @@ use crate::physics::{JOUEUR_H, JOUEUR_L};
 pub const TAILLE_GEANTE: (f32, f32) = (64.0, 40.0);
 /// Largeur (en tuiles) du couloir de la géante, contre le mur droit de la tour.
 pub const COULOIR_TUILES: usize = 5;
+/// Sa tête reste au plus 4 tuiles sous les pieds de Pépin (toujours à l'écran)…
+pub const SOUS_PEPIN: f32 = 4.0 * TAILLE_TUILE;
+/// … et grimpe (ou redescend vers la mer) de 2 px par pas au plus.
+pub const GRIMPE_GEANTE: f32 = 2.0;
 
 /// La frappe visée s'annonce 1,4 s (le tentacule levé, le repère rouge)…
 pub const ANNONCE_FRAPPE_PAS: u16 = ANNONCE_PAS;
@@ -96,8 +102,11 @@ pub const ANNONCE_SECOUSSE_PAS: u16 = 60;
 pub const CHUTE_CAISSE: f32 = 5.0;
 /// … depuis 9 tuiles au-dessus des pieds de Pépin (hors de l'écran).
 pub const HAUT_CHUTE: f32 = 9.0 * TAILLE_TUILE;
-/// Les caisses : dans la colonne de Pépin, et à 3 colonnes de part et d'autre.
-pub const ECART_CAISSES: i32 = 3;
+/// Les caisses : dans la colonne de Pépin, puis dans les colonnes au moins à 2
+/// colonnes de lui et de la caisse voisine, jusqu'à 5 colonnes de lui…
+pub const ECART_CAISSES: i32 = 5;
+/// … là où elles se brisent au plus 3 tuiles sous ses pieds (leur ombre se voit).
+pub const SOL_CAISSES: f32 = 3.0 * TAILLE_TUILE;
 /// Une caisse fait une tuile.
 pub const TAILLE_CAISSE: f32 = TAILLE_TUILE;
 
@@ -255,6 +264,9 @@ pub struct Tour {
     pub arrachables: Vec<Vec<(i32, i32)>>,
     /// Le couloir de la géante (gauche, droite en px) ; `None` : pas de géante.
     pub couloir: Option<(f32, f32)>,
+    /// Le bas de sa tête au repos (px), quand elle grimpe hors de l'eau ; `None` :
+    /// posée sur la mer.
+    bas_geante: Option<f32>,
     /// Pour le robot de faisabilité : aucune attaque, la tête de la vigie offerte.
     robot: bool,
     attaque: Option<Attaque>,
@@ -468,21 +480,31 @@ impl Pieuvre {
             || matches!(self.etat_jete(), Some((_, EtatJete::Cabre(_))))
     }
 
-    /// La tête de la géante dans le couloir, au repos : posée sur la mer, au
-    /// milieu du couloir. `None` sans géante ou hors de la montée.
+    /// La tête de la géante dans le couloir, au repos : posée sur la mer (ou
+    /// plus haut quand elle grimpe), au milieu du couloir. `None` sans géante ou
+    /// hors de la montée.
     fn tete_au_repos(&self) -> Option<Aabb> {
         let (g, d) = self.tour.couloir?;
         if !self.en_montee() {
             return None;
         }
         let mer = self.surface_mer()?;
+        let bas = self.tour.bas_geante.unwrap_or(mer).min(mer);
         let (w, h) = TAILLE_GEANTE;
         Some(Aabb::new(
             ((g + d - w) / 2.0).round(),
-            mer.round() - h,
+            bas.round() - h,
             w,
             h,
         ))
+    }
+
+    /// Grimpe-t-elle hors de l'eau (le bas de sa tête au-dessus de la mer) ?
+    pub fn grimpe(&self) -> bool {
+        match (self.tour.bas_geante, self.surface_mer()) {
+            (Some(b), Some(m)) => b < m - 1.0,
+            _ => false,
+        }
     }
 
     /// Où est la tête de la géante en ce moment (le dessin) : au repos sur la
@@ -511,12 +533,9 @@ impl Pieuvre {
         }
         let (g, d) = self.tour.couloir?;
         let repos = self.tete_au_repos()?;
-        Some(Aabb::new(
-            g + 4.0,
-            repos.y,
-            d - g - 4.0,
-            repos.h + TAILLE_TUILE,
-        ))
+        let mer = self.surface_mer()?;
+        let h = mer - repos.y + TAILLE_TUILE;
+        Some(Aabb::new(g + 4.0, repos.y, d - g - 4.0, h))
     }
 
     /// La mer est-elle arrêtée (pendant un jeté, jusqu'à ce qu'elle reparte) ?
@@ -554,31 +573,49 @@ impl Pieuvre {
             .unwrap_or_else(|| boite(x0))
     }
 
-    /// Les caisses d'une secousse lancée sur Pépin : dans sa colonne et à
-    /// `ECART_CAISSES` colonnes de part et d'autre (dans la tour), du haut
-    /// jusqu'au premier sol sous ses pieds (ou la mer `mer`). Pure.
+    /// Les caisses d'une secousse lancée sur Pépin : au plus 3, du haut jusqu'au
+    /// premier sol sous elles (ou la mer `mer`). La 1re dans sa colonne ; les
+    /// autres dans les colonnes de la tour les plus proches de lui (à
+    /// `ECART_CAISSES` au plus) dont le sol est au plus `SOL_CAISSES` sous ses
+    /// pieds (leur ombre se voit), jamais à moins de 2 colonnes d'une autre
+    /// caisse : à côté de chaque caisse, une place sûre. Pure.
     pub fn caisses_pour(&self, grille: &dyn Grille, pepin: &Aabb, mer: f32) -> Vec<Caisse> {
         let t = TAILLE_TUILE;
         let bord = self.tour.couloir.map_or(f32::MAX, |c| c.0);
         let colonne = ((pepin.x + pepin.w / 2.0) / t).floor() as i32;
         let rangee = (pepin.bas() / t).floor() as i32 - 1;
         let depart = pepin.bas() - HAUT_CHUTE;
-        [0, -ECART_CAISSES, ECART_CAISSES]
-            .into_iter()
-            .map(|dx| colonne + dx)
-            .filter(|&tx| tx >= 1 && (tx + 1) as f32 * t <= bord)
-            .map(|tx| {
-                let sol = (rangee..rangee + 40)
-                    .find(|&ty| grille.tuile(tx, ty) == Tuile::Solide)
-                    .map_or(mer, |ty| ty as f32 * t)
-                    .min(mer);
-                Caisse {
+        let sol = |tx: i32| {
+            (rangee..rangee + 40)
+                .find(|&ty| grille.tuile(tx, ty) == Tuile::Solide)
+                .map_or(mer, |ty| ty as f32 * t)
+                .min(mer)
+        };
+        // Le plus bas solide au-dessus des pieds de Pépin dans la colonne `tx`
+        // (une caisse n'y passe pas) : le bas de sa case, ou rien.
+        let haut = (depart / t).floor() as i32;
+        let plafond = |tx: i32| {
+            (haut..=rangee)
+                .rev()
+                .find(|&ty| grille.tuile(tx, ty) == Tuile::Solide)
+                .map(|ty| (ty + 1) as f32 * t)
+        };
+        let mut caisses: Vec<Caisse> = Vec::new();
+        let ecarts = std::iter::once(0).chain((2..=ECART_CAISSES).flat_map(|k| [-k, k]));
+        for tx in ecarts.map(|dx| colonne + dx) {
+            let dans_la_tour = tx >= 1 && (tx + 1) as f32 * t <= bord;
+            let loin = caisses.iter().all(|c| ((c.x / t) as i32 - tx).abs() >= 2);
+            let proche = sol(tx) <= pepin.bas() + SOL_CAISSES && plafond(tx).is_none();
+            if caisses.len() < 3 && dans_la_tour && loin && (tx == colonne || proche) {
+                // Sous un plafond, celle de Pépin part de dessous lui.
+                caisses.push(Caisse {
                     x: tx as f32 * t,
-                    depart,
-                    sol,
-                }
-            })
-            .collect()
+                    depart: plafond(tx).unwrap_or(depart),
+                    sol: sol(tx),
+                });
+            }
+        }
+        caisses
     }
 
     /// L'état de la plateforme arrachable `k` (`None` : intacte).
@@ -734,6 +771,17 @@ impl Pieuvre {
         let Some(pepin) = self.pepin else {
             return;
         };
+        // Elle grimpe pour rester sous Pépin (jamais sous la mer).
+        if let Some(mer) = self.surface_mer() {
+            let cible = mer.min(pepin.bas() + SOUS_PEPIN);
+            let bas = self.tour.bas_geante.unwrap_or(mer);
+            let bas = if cible < bas {
+                (bas - GRIMPE_GEANTE).max(cible)
+            } else {
+                (bas + GRIMPE_GEANTE).min(cible)
+            };
+            self.tour.bas_geante = Some(bas.min(mer));
+        }
         self.lancer_les_arrachages(&pepin, t);
         // Le repos des balayeurs.
         self.tour.balayages.resize(self.tour.balayeurs.len(), None);
@@ -828,6 +876,7 @@ impl Pieuvre {
         self.tour.prochaine_frappe = 0;
         self.tour.repit = 0;
         self.tour.lachee = None;
+        self.tour.bas_geante = None;
         self.tour.horloge_mer = 0;
         self.tour.recul = 0;
         self.tour.balayages.clear();

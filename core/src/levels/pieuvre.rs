@@ -201,7 +201,7 @@ mod tests {
         EtatArrachage, EtatBalai, EtatFrappe, EtatJete, EtatSecousse, PhasePieuvre, Pieuvre,
         ANNONCE_BALAI_PAS, ANNONCE_FRAPPE_PAS, ANNONCE_SAISIE_PAS, ANNONCE_SECOUSSE_PAS,
         BOUT_BALAI, CABRE_PAS, CHUTE_JETE_PAS, FURIE_PAS, PLONGEE_PAS, RECUL_MER, REPIT_PAS,
-        RYTHME_FRAPPE_PAS, TAILLE_GEANTE, VISEE_MAX, VITESSE_BALAI,
+        RYTHME_FRAPPE_PAS, SOUS_PEPIN, TAILLE_GEANTE, VISEE_MAX, VITESSE_BALAI,
     };
     use crate::entities::{Actualisable, Entite};
     use crate::level::Niveau;
@@ -484,6 +484,18 @@ mod tests {
                 "la tour, non"
             );
         }
+        // Pépin loin devant la mer : elle grimpe hors de l'eau, à 4 tuiles sous
+        // ses pieds (toujours à l'écran), et tout le couloir sous sa tête tue.
+        let mut q = en_montee(&n, 0);
+        let pieds = 31.0 * TAILLE_TUILE;
+        q.voir_pepin(pepin_debout(3.0 * TAILLE_TUILE, pieds));
+        let crue = u32::from(q.fin_de_crue());
+        pas(&mut q, &n, crue + 400);
+        let tete = q.geante().unwrap();
+        assert!(q.grimpe(), "{tete:?}");
+        assert!((tete.bas() - (pieds + SOUS_PEPIN)).abs() <= 1.0, "{tete:?}");
+        let mer = q.surface_mer().unwrap();
+        assert!(q.blesse(&pepin_debout(g + 30.0, (tete.bas() + mer) / 2.0)));
     }
 
     /// Chaque frappe visée laisse une issue : pour CHAQUE place de Pépin (au px
