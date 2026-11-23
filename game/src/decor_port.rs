@@ -28,7 +28,11 @@
 //! Sous la TOUR de la Pieuvre (carte 9.13c : « la bande du coucher de soleil du
 //! fond se répète au milieu de la tour ») : le fond reste celui de l'arène, il
 //! descend avec elle quand Pépin grimpe, et au-dessus de son ciel la nuit continue,
-//! étoilée (`dessiner_fond_sous_la_tour`) : un fond CONTINU en hauteur.
+//! étoilée (`dessiner_fond_sous_la_tour`) : un fond CONTINU en hauteur. Carte
+//! 9.13e : au-dessus de lui, le PORT LOINTAIN (phare et faisceau, grues,
+//! cargos, lumières), tout petit, qui s'enfonce lentement vers le bas de
+//! l'écran pendant la montée, sous un crépuscule qui devient nuit, et la lune
+//! tout en haut.
 
 use macroquad::prelude::draw_rectangle;
 use pepin_core::palette::{
@@ -506,27 +510,160 @@ pub fn dessiner_fond(cam_x: i32, cam_y: i32, pas: u32, avec_phare: bool) {
 /// descendent avec lui : aucune bande ne se répète, le fond est continu.
 pub fn dessiner_fond_sous_la_tour(cam_x: i32, pas: u32, monte: i32) {
     let monte = monte.max(0);
-    rect(0, 0, L, monte.min(H), ARDOISE_OMBRE);
-    // Les étoiles de la nuit, posées au-dessus du ciel du port (y < 0 dans son
-    // repère), plus serrées en montant.
+    // Carte 9.13e (AGA : « le fond est vide […] le phare ou la grue visibles
+    // pendant la montée donneraient la sensation de hauteur ») : au-dessus du
+    // port de l'arène (qui descend toujours avec elle), le PORT LOINTAIN, en
+    // petit : son horizon suit d'abord le haut du ciel de l'arène, puis, posé
+    // à `HORIZON_LOIN`, ne descend plus que très lentement (`F_LOIN`) jusqu'en
+    // bas de l'écran ; le crépuscule au-dessus de lui s'éteint en montant
+    // (`nuit`), les étoiles s'allument, la lune se lève tout en haut.
+    let horizon = horizon_lointain(monte);
+    let nuit = (monte as f32 / MONTEE_TOUR as f32).clamp(0.0, 1.0);
+    rect(0, 0, L, horizon.min(H), ARDOISE_OMBRE);
+    // La lueur du crépuscule, de plus en plus mince : ardoise, violet, corail.
+    let reste = |n: f32| ((1.0 - nuit) * n).round() as i32;
+    let lueur = [
+        (ARDOISE, 2 + reste(10.0)),
+        (VIOLET_ORAGE, 1 + reste(6.0)),
+        (CORAIL, reste(3.0)),
+    ];
+    let mut y = horizon;
+    for (c, e) in lueur.iter().rev() {
+        y -= e;
+        rect(0, y, L, *e, *c);
+    }
+    let ciel_noir = y;
+    // Les étoiles, au-dessus de la lueur, plus nombreuses à mesure qu'elle
+    // s'éteint ; elles glissent un peu avec la montée (`F_ETOILES`).
     let dec = decalage(cam_x, 0.02);
-    for k in 0..90 {
+    let n = 30 + (60.0 * nuit) as i32;
+    for k in 0..n {
         let h = hache(k * 13 + 5);
-        let y = -2 - (h >> 9) as i32 % 1100;
-        let ecran = y + monte;
-        if !(0..H).contains(&ecran) || (h % 5) as i32 * 300 > -y {
-            continue;
-        }
-        if (pas / 30 + k as u32).is_multiple_of(9) {
+        let ecran = ((h >> 9) as i32 + (monte as f32 * F_ETOILES) as i32).rem_euclid(H + 40) - 20;
+        if !(0..ciel_noir - 2).contains(&ecran) || (pas / 30 + k as u32).is_multiple_of(9) {
             continue;
         }
         let x = ((h % 640) as i32 - dec).rem_euclid(L);
         let c = if k % 4 == 0 { NUAGE } else { ARDOISE_PALE };
         rect(x, ecran, 1, 1, c);
     }
-    DECALAGE.with(|d| d.set(monte));
-    dessiner_fond(cam_x, 0, pas, false);
-    DECALAGE.with(|d| d.set(0));
+    dessiner_lune(cam_x, monte);
+    dessiner_port_lointain(cam_x, horizon, pas);
+    // Le port de l'arène, tant qu'il en reste à l'écran (son ciel compris).
+    if monte < H {
+        DECALAGE.with(|d| d.set(monte));
+        dessiner_fond(cam_x, 0, pas, false);
+        DECALAGE.with(|d| d.set(0));
+    }
+}
+
+/// Horizon du port lointain (px à l'écran) quand la caméra a monté de `monte`
+/// px dans la tour : juste au-dessus du ciel de l'arène qui descend, puis posé
+/// à `HORIZON_LOIN`, il ne descend plus que de `F_LOIN` px par px de montée.
+/// Continu (aucun saut). Pure.
+pub(crate) fn horizon_lointain(monte: i32) -> i32 {
+    let colle = monte - 4;
+    if colle <= HORIZON_LOIN {
+        colle
+    } else {
+        HORIZON_LOIN + ((colle - HORIZON_LOIN) as f32 * F_LOIN) as i32
+    }
+}
+
+/// Le port lointain sur son horizon `horizon` (px à l'écran) : la mer en
+/// dessous, le phare et son faisceau qui tourne, les grues, les cargos (l'un
+/// glisse), les lumières du quai et leur reflet. Tout petit, terne : ardoise de
+/// nuit, des touches de lumière d'un pixel.
+fn dessiner_port_lointain(cam_x: i32, horizon: i32, pas: u32) {
+    if horizon >= H {
+        return;
+    }
+    let dec = decalage(cam_x, 0.01);
+    let y = horizon;
+    rect(0, y, L, H - y, ARDOISE_NUIT);
+    rect(0, y, L, 1, ARDOISE);
+    // Le quai lointain, une ligne d'entrepôts bas.
+    for &(x0, w, h) in &[(96, 40, 3), (150, 24, 5), (226, 52, 4), (296, 30, 3)] {
+        rect(x0 - dec, y - h, w, h, ARDOISE_OMBRE);
+    }
+    // Les grues : mât, flèche vers la gauche, câble, feu rouge qui clignote.
+    for (k, &x0) in [140, 206, 250].iter().enumerate() {
+        let x = x0 - dec;
+        let haut = 13 + 3 * (k as i32 % 2);
+        rect(x, y - haut, 2, haut, ARDOISE_OMBRE);
+        rect(x - 14, y - haut, 20, 1, ARDOISE_OMBRE);
+        rect(x - 11, y - haut + 1, 1, haut - 6, ARDOISE);
+        if (pas / 40 + k as u32).is_multiple_of(2) {
+            rect(x, y - haut - 1, 1, 1, CORAIL);
+        }
+    }
+    // Deux cargos au mouillage : coque, château, cheminée ; le second glisse.
+    let cargo = |x: i32, long: i32| {
+        rect(x, y - 2, long, 2, ARDOISE_OMBRE);
+        rect(x + long - 7, y - 5, 4, 3, ARDOISE_OMBRE);
+        rect(x + 2, y - 3, long - 11, 1, ARDOISE_OMBRE);
+        rect(x + long - 6, y - 4, 1, 1, ORANGE_SOLEIL);
+    };
+    cargo(26 - dec, 22);
+    cargo(
+        (300 - (pas / (2 * LENTEUR_CARGO)) as i32 - dec).rem_euclid(L + 40) - 20,
+        16,
+    );
+    // Les lumières du quai : des points or pâle, quelques-uns qui vacillent,
+    // leur reflet d'un pixel dans la mer.
+    for k in 0..14 {
+        let h = hache(k * 7 + 3);
+        let x = 90 + (h % 220) as i32 - dec;
+        if (pas / 20 + h).is_multiple_of(7) {
+            continue;
+        }
+        let c = if k % 3 == 0 { ORANGE_SOLEIL } else { OR_PALE };
+        rect(x, y - 2 - (h >> 8) as i32 % 2, 1, 1, c);
+        rect(x, y + 2 + (k % 2), 1, 1, ARDOISE_CLAIRE);
+    }
+    // Le phare, sur sa jetée lointaine, et son faisceau qui tourne (deux fois
+    // plus court que celui de l'arène).
+    let xp = X_PHARE - dec;
+    rect(xp - 4, y - 1, 26, 1, ARDOISE_OMBRE);
+    rect(xp - 1, y - 11, 3, 10, ARDOISE_OMBRE);
+    rect(xp - 1, y - 8, 3, 1, ARDOISE_PALE);
+    rect(xp - 1, y - 5, 3, 1, ARDOISE_PALE);
+    let (sens, long) = faisceau(pas);
+    let yl = y - 13;
+    for d in 2..long / 2 {
+        let px = if sens > 0 { xp + 1 + d } else { xp - d };
+        rect(px, yl, 1, 1 + d / 12, ARDOISE_CLAIRE);
+    }
+    rect(xp - 1, yl - 1, 3, 2, OR_PALE);
+}
+
+/// Parallaxe des étoiles au-dessus du port lointain.
+const F_ETOILES: f32 = 0.30;
+/// Le port lointain se pose à 150 px du haut de l'écran…
+const HORIZON_LOIN: i32 = 150;
+/// … puis ne descend plus que de 1 px pour 60 px de montée (16 px pour toute
+/// la tour : il finit au ras du bas de l'écran, sous la bande d'écume).
+const F_LOIN: f32 = 1.0 / 60.0;
+/// La montée de la caméra dans la tour (px) : 80 rangées moins un écran.
+const MONTEE_TOUR: i32 = 80 * 16 - H;
+
+/// La lune, tout en haut de la tour : un disque de nuage, son ombre et deux
+/// mers de brume, qui descend dans l'écran pendant le dernier tiers de la
+/// montée.
+fn dessiner_lune(cam_x: i32, monte: i32) {
+    let y = 18 - (MONTEE_TOUR - monte) / 8;
+    let x = 250 - decalage(cam_x, 0.02);
+    if y < -8 {
+        return;
+    }
+    for dy in -6..=6i32 {
+        let demi = (((36 - dy * dy) as f32).sqrt() + 0.3) as i32;
+        rect(x - demi, y + dy, 2 * demi, 1, NUAGE);
+        let ombre = (demi - 2).max(0) / 2;
+        rect(x + demi - ombre, y + dy, ombre, 1, BRUME);
+    }
+    rect(x - 3, y - 2, 2, 2, BRUME);
+    rect(x, y + 2, 3, 2, BRUME);
 }
 
 /// La bruine du port, devant tout : des gouttes fines et clairsemées qui tombent
@@ -650,5 +787,19 @@ mod tests {
         const { assert!(LENTEUR_CARGO >= 20) };
         assert_ne!(balise_allumee(0, 0), balise_allumee(60, 0));
         assert!((0..120).any(|p| balise_allumee(p, 0) != balise_allumee(p, 1)));
+    }
+
+    /// Carte 9.13e : l'horizon du port lointain descend sans jamais sauter ni
+    /// remonter, d'abord avec le ciel de l'arène, puis très lentement ; en haut
+    /// de la tour, il est encore à l'écran, dans son bas.
+    #[test]
+    fn le_port_lointain_descend_sans_sauter() {
+        let mut avant = horizon_lointain(0);
+        for m in 1..=MONTEE_TOUR {
+            let h = horizon_lointain(m);
+            assert!(h >= avant && h - avant <= 1, "{m} : {avant} puis {h}");
+            avant = h;
+        }
+        assert!((HORIZON_LOIN..H).contains(&avant), "{avant}");
     }
 }

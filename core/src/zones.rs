@@ -978,8 +978,9 @@ mod tests {
             let tour = niv.entites.iter().any(
                 |e| matches!(e, crate::entities::Entite::Pieuvre(p) if p.tete_finale.is_some()),
             );
-            // Carte 9.13b : et une troisième à mi-hauteur de la tour.
-            let attendues = if tour { 3 } else { 1 };
+            // Carte 9.13b : et une troisième à mi-hauteur de la tour ; carte
+            // 9.13e : une quatrième juste après le 2e jeté (69 % de la montée).
+            let attendues = if tour { 4 } else { 1 };
             assert_eq!(niv.nb_lanternes(), attendues, "niveau {n} : arène du boss");
         }
 

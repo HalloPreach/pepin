@@ -55,6 +55,7 @@ mod fond_egouts;
 mod grele;
 mod hud;
 mod menu;
+mod mer_montee;
 mod mobilier_rue;
 mod monde;
 mod mort;
