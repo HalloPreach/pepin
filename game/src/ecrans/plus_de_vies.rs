@@ -1,7 +1,7 @@
 //! Écran « PLUS DE VIES » (carte 6.2) : Pépin a perdu sa dernière vie. Le niveau
 //! figé reste derrière, assombri ; le panneau dit ce qui va se passer (le niveau
-//! recommence, avec `VIES_DEPART` vies). Il se passe d'un appui (Entrée, toucher)
-//! ou tout seul au bout de `DUREE_PAS`.
+//! recommence, avec `VIES_DEPART` vies). Il se passe d'un appui (Entrée, toucher),
+//! accepté après le court délai de l'histoire ; jamais tout seul (carte 9.31).
 
 use pepin_core::font::HAUTEUR_GLYPHE;
 use pepin_core::palette::{
@@ -15,7 +15,8 @@ use crate::contenu;
 use crate::sprites::Banque;
 use crate::texte::{self, Style};
 
-/// Durée d'affichage de l'écran (pas) si le joueur ne le passe pas : 4 s.
+/// Valeur portée par `Ecran::PlusDeVies` à l'ouverture. Depuis la carte 9.31, l'écran
+/// ne se passe plus jamais seul : ce nombre ne déclenche plus rien.
 pub const DUREE_PAS: u16 = 240;
 
 /// Cadre du panneau `(x, y, largeur, hauteur)`.
@@ -72,7 +73,8 @@ pub fn dessiner(banque: &Banque, anim: u32) {
         let couleur = if i == 0 { BLANC_CASSE } else { CORAIL_CLAIR };
         texte::dessiner_centre(phrase, Y_PHRASES + i as f32 * 12.0, ombre(couleur));
     }
-    if (anim / 30).is_multiple_of(2) {
+    // Rien tant qu'un appui serait ignoré, puis un clignotement doux (carte 9.31).
+    if super::histoire::invite_visible(anim) {
         texte::dessiner_centre(contenu::CONTINUER, Y_CONTINUER, ombre(BRUME));
     }
 }

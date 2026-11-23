@@ -43,12 +43,13 @@ pub enum Ecran {
     /// Une image de l'histoire (carte 8.4) : avant certains niveaux, ou revue depuis
     /// le titre.
     Histoire(histoire::Chapitre),
-    /// Carte de présentation d'un niveau ; le nombre est le nombre de pas restants.
+    /// Carte de présentation d'un niveau. Le nombre (sa valeur à l'ouverture) ne
+    /// déclenche plus rien : la carte attend un appui (carte 9.31).
     Carte(u16),
     Jeu,
     Pause,
-    /// Pépin a perdu sa dernière vie (carte 6.2) ; le nombre est le nombre de pas
-    /// restants avant que le niveau ne recommence tout seul.
+    /// Pépin a perdu sa dernière vie (carte 6.2). Le nombre (sa valeur à l'ouverture)
+    /// ne déclenche plus rien : un appui fait recommencer le niveau (carte 9.31).
     PlusDeVies(u16),
     Fin,
     /// La carte des niveaux (carte 7.4) : sa logique est dans `crate::plan`.

@@ -1,5 +1,6 @@
 //! Carte de présentation d'un niveau : numéro, nom, phrase d'ambiance et conseil.
-//! Elle s'affiche par-dessus le niveau figé, juste après la transition.
+//! Elle s'affiche par-dessus le niveau figé, juste après la transition, et attend
+//! un appui du joueur (carte 9.31), accepté après le court délai de l'histoire.
 
 use pepin_core::font::largeur_texte;
 use pepin_core::lettres::{rang_du_niveau, NB_LETTRES};
@@ -14,8 +15,13 @@ use super::{panneau, trame};
 use crate::contenu;
 use crate::texte::{self, couper_lignes, Style};
 
-/// Durée d'affichage de la carte (pas) si le joueur ne la passe pas.
+/// Valeur portée par `Ecran::Carte` à l'ouverture. Depuis la carte 9.31, la carte ne
+/// se passe plus jamais seule : ce nombre ne déclenche plus rien.
 pub const DUREE_PAS: u16 = 180;
+/// Valeur de `Ecran::Carte` quand le joueur vient de la passer : le jeu commence au
+/// pas suivant, sans avancer pendant ce pas-là (comme avant la carte 9.31, quand la
+/// carte finissait seule), pour que les parcours du robot QA gardent leur premier pas.
+pub const PASSEE: u16 = 0;
 /// Largeur maximale d'une ligne de texte, en caractères (320 px / 6 px = 53 ; marge comprise).
 const LIGNE_MAX: usize = 46;
 
@@ -73,7 +79,8 @@ pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32, lettres: &[bool; 
     if let Some(ligne) = ligne_vies(infos) {
         texte::dessiner_centre(ligne, y, ombre(OR_PALE));
     }
-    if (anim / 30).is_multiple_of(2) {
+    // Rien tant qu'un appui serait ignoré, puis un clignotement doux (carte 9.31).
+    if super::histoire::invite_visible(anim) {
         texte::dessiner_centre(contenu::CONTINUER, 134.0, ombre(BRUME));
     }
 }

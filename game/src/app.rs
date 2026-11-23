@@ -442,12 +442,15 @@ impl Application {
         self.eclat_vie
     }
 
-    /// Une image de l'histoire attend qu'on la passe (robot de QA : il appuie alors sur
-    /// Entrée, comme un joueur, pour ne pas y rester bloqué).
+    /// Un écran de texte (image de l'histoire, carte du niveau, « PLUS DE VIES ») attend
+    /// qu'on le passe et accepte l'appui (robot de QA : il appuie alors sur Entrée,
+    /// comme un joueur, pour ne pas y rester bloqué ; aucun ne se passe seul).
     #[cfg(test)]
-    pub fn histoire_en_attente(&self) -> bool {
-        matches!(self.ecran, Ecran::Histoire(_))
-            && !self.transition.est_active()
+    pub fn texte_en_attente(&self) -> bool {
+        matches!(
+            self.ecran,
+            Ecran::Histoire(_) | Ecran::Carte(_) | Ecran::PlusDeVies(_)
+        ) && !self.transition.est_active()
             && histoire::prete(self.anim)
     }
 
@@ -493,8 +496,8 @@ impl Application {
             | Some(Suite::EcranFin)
             | Some(Suite::Plan)
             | Some(Suite::Histoire(_)) => false,
-            // Rien en attente : carte de présentation, écran « plus de vies » (il finit
-            // tout seul sur le niveau recommencé), ou volets qui s'ouvrent sur le niveau
+            // Rien en attente : carte de présentation, écran « plus de vies » (un appui
+            // y mène au niveau recommencé, carte 9.31), ou volets qui s'ouvrent sur le niveau
             // recommencé.
             None => {
                 matches!(self.ecran, Ecran::Carte(_) | Ecran::PlusDeVies(_))
@@ -609,9 +612,13 @@ impl Application {
                     self.apres_histoire(chapitre);
                 }
             }
+            // Carte 9.31 : la carte du niveau et « PLUS DE VIES » ne se passent plus
+            // seules ; elles attendent un appui, ignoré pendant le court délai de
+            // l'histoire (un saut tenu ne les fait pas disparaître sans être lues).
             Ecran::Carte(_) => {
-                if nav.valider || nav.clic.is_some() {
-                    self.ecran = Ecran::Jeu;
+                if histoire::prete(self.anim) && (nav.valider || nav.clic.is_some()) {
+                    // Le jeu commence au prochain pas (`pas`).
+                    self.ecran = Ecran::Carte(carte::PASSEE);
                 }
             }
             Ecran::PlusDeVies(_) => {
@@ -619,7 +626,7 @@ impl Application {
                     // Pause demandée : elle s'ouvrira sur le niveau recommencé, avant
                     // son premier pas (l'écran, lui, est déjà à l'arrêt).
                     self.pause_differee = true;
-                } else if nav.valider || nav.clic.is_some() {
+                } else if histoire::prete(self.anim) && (nav.valider || nav.clic.is_some()) {
                     self.lancer(Suite::PlusDeVies);
                 }
             }
@@ -796,14 +803,12 @@ impl Application {
             }
         } else {
             match self.ecran {
-                Ecran::Carte(n) => {
-                    self.ecran = if n <= 1 {
-                        // Les défis du niveau précédent ont été vus.
-                        self.resultat_niveau = None;
-                        Ecran::Jeu
-                    } else {
-                        Ecran::Carte(n - 1)
-                    };
+                // La carte vient d'être passée (`reagir`) : le jeu commence, son
+                // premier pas au prochain (le monde ne bouge pas pendant celui-ci).
+                Ecran::Carte(carte::PASSEE) => {
+                    // Les défis du niveau précédent (bande sous la carte) ont été vus.
+                    self.resultat_niveau = None;
+                    self.ecran = Ecran::Jeu;
                 }
                 // Bannière du mode facile (carte 8.14) : le monde attend la réponse.
                 Ecran::Jeu if self.facile.proposition.is_some() => {
@@ -818,13 +823,6 @@ impl Application {
                     } else {
                         self.pas_jeu(entrees);
                         monde_avance = true;
-                    }
-                }
-                Ecran::PlusDeVies(n) => {
-                    if n <= 1 {
-                        self.lancer(Suite::PlusDeVies);
-                    } else {
-                        self.ecran = Ecran::PlusDeVies(n - 1);
                     }
                 }
                 Ecran::Fin => fin::confettis(&mut self.particules, self.anim),
@@ -843,6 +841,9 @@ impl Application {
                 | Ecran::BilanNiveau
                 | Ecran::ChoixForce
                 | Ecran::BilanCourse
+                // Carte 9.31 : ces écrans de texte attendent un appui (`reagir`).
+                | Ecran::Carte(_)
+                | Ecran::PlusDeVies(_)
                 | Ecran::Histoire(_) => {}
             }
         }
@@ -1524,13 +1525,20 @@ mod tests {
 
     /// Avance jusqu'à ce que l'écran satisfasse `ok` (borné pour ne jamais boucler).
     /// Une image de l'histoire (carte 8.4) qui n'est pas l'écran attendu est passée
-    /// d'un appui sur Entrée dès qu'elle l'accepte, comme le ferait le joueur.
+    /// d'un appui sur Entrée dès qu'elle l'accepte, comme le ferait le joueur. De même
+    /// pour la carte du niveau et « PLUS DE VIES », qui ne se passent plus seuls (carte
+    /// 9.31) ; quand c'est l'écran attendu, on attend qu'il accepte l'appui, pour que
+    /// le test puisse le passer aussitôt.
     fn jusqu_a(app: &mut Application, ok: impl Fn(Ecran) -> bool) {
         for _ in 0..600 {
-            if ok(app.ecran) && !app.transition.est_active() {
+            let texte = matches!(app.ecran, Ecran::Carte(_) | Ecran::PlusDeVies(_));
+            if ok(app.ecran)
+                && !app.transition.est_active()
+                && (!texte || histoire::prete(app.anim))
+            {
                 return;
             }
-            if app.histoire_en_attente() {
+            if app.texte_en_attente() {
                 app.reagir(&valider(), &Commandes::default(), None);
             }
             app.pas(&Entrees::default());
@@ -1543,9 +1551,19 @@ mod tests {
         let mut app = Application::new(true);
         app.reagir(&valider(), &Commandes::default(), None);
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
-        app.reagir(&valider(), &Commandes::default(), None);
-        assert_eq!(app.ecran, Ecran::Jeu);
+        passer_la_carte(&mut app);
         app
+    }
+
+    /// Le joueur passe la carte (prête) d'un appui ; le jeu commence au pas suivant,
+    /// sans que le monde ait bougé (carte 9.31).
+    fn passer_la_carte(app: &mut Application) {
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert_eq!(app.ecran, Ecran::Carte(carte::PASSEE));
+        let pas = app.monde.pas;
+        avancer(app, 1);
+        assert_eq!(app.ecran, Ecran::Jeu);
+        assert_eq!(app.monde.pas, pas, "aucun pas de jeu pendant celui-ci");
     }
 
     /// Carte 9.1b (AGA : « c'est juste la suite du jeu ») : jamais de ligne MONDE 2 au
@@ -1669,10 +1687,76 @@ mod tests {
         );
         assert!(app.transition.est_active());
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
-        // La carte est passée toute seule au bout de DUREE_PAS.
-        avancer(&mut app, carte::DUREE_PAS as u32 + 2);
-        assert_eq!(app.ecran, Ecran::Jeu);
+        // La carte attend un appui (carte 9.31) : le joueur valide.
+        passer_la_carte(&mut app);
         assert_eq!(app.monde.infos.numero, 1);
+    }
+
+    /// Carte 9.31 (AGA : « qu'on soit obligé d'appuyer pour passer les textes ») : sans
+    /// appui, la carte du niveau reste affichée, même 10 s, et le monde reste figé.
+    #[test]
+    fn la_carte_reste_affichee_dix_secondes_sans_appui() {
+        let mut app = Application::new(true);
+        app.reagir(&valider(), &Commandes::default(), None);
+        jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
+        avancer(&mut app, 10 * 60);
+        assert!(matches!(app.ecran, Ecran::Carte(_)), "{:?}", app.ecran);
+        assert_eq!(app.monde.pas, 0, "le monde attend le joueur");
+        // « PLUS DE VIES » non plus ne se passe pas seul.
+        let mut app = en_jeu();
+        for _ in 0..VIES_DEPART {
+            tomber(&mut app);
+        }
+        avancer(&mut app, 10 * 60);
+        assert!(matches!(app.ecran, Ecran::PlusDeVies(_)), "{:?}", app.ecran);
+    }
+
+    /// Carte 9.31 : un appui pendant le court délai d'ouverture (un saut encore tenu)
+    /// est ignoré ; après le délai, il passe la carte, et « PLUS DE VIES » de même.
+    #[test]
+    fn un_appui_avant_le_delai_est_ignore_apres_il_passe() {
+        let mut app = Application::new(true);
+        app.reagir(&valider(), &Commandes::default(), None);
+        // Dès la fin des volets, la carte est là mais pas encore prête (l'image de
+        // l'histoire d'avant est passée d'un appui, comme dans `jusqu_a`).
+        for _ in 0..600 {
+            if matches!(app.ecran, Ecran::Carte(_)) && !app.transition.est_active() {
+                break;
+            }
+            if app.texte_en_attente() {
+                app.reagir(&valider(), &Commandes::default(), None);
+            }
+            app.pas(&Entrees::default());
+        }
+        assert!(matches!(app.ecran, Ecran::Carte(_)));
+        assert!(!histoire::prete(app.anim), "anim = {}", app.anim);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert!(matches!(app.ecran, Ecran::Carte(_)), "trop tôt : ignoré");
+        while !histoire::prete(app.anim) {
+            app.pas(&Entrees::default());
+        }
+        passer_la_carte(&mut app);
+        // « PLUS DE VIES » : ouvert à anim = 0, un appui aussitôt est ignoré.
+        for _ in 0..VIES_DEPART {
+            tomber(&mut app);
+        }
+        assert!(matches!(app.ecran, Ecran::PlusDeVies(_)));
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert!(!app.transition.est_active(), "trop tôt : ignoré");
+        avancer(&mut app, histoire::DELAI_PAS);
+        app.reagir(&valider(), &Commandes::default(), None);
+        assert!(app.transition.est_active(), "les volets partent");
+    }
+
+    /// Carte 9.31 : l'invitation « continuer » n'apparaît qu'une fois l'appui accepté,
+    /// puis clignote doucement (0,5 s allumée, 0,5 s éteinte), comme dans l'histoire.
+    #[test]
+    fn l_invitation_clignote_une_fois_l_appui_accepte() {
+        assert!(!histoire::invite_visible(0));
+        assert!(!histoire::invite_visible(histoire::DELAI_PAS - 1));
+        assert!(histoire::invite_visible(histoire::DELAI_PAS));
+        assert!(!histoire::invite_visible(histoire::DELAI_PAS + 30));
+        assert!(histoire::invite_visible(histoire::DELAI_PAS + 60));
     }
 
     #[test]
@@ -1685,6 +1769,7 @@ mod tests {
             ..Navigation::default()
         };
         app.reagir(&toucher, &Commandes::default(), None);
+        avancer(&mut app, 1);
         assert_eq!(app.ecran, Ecran::Jeu);
     }
 
@@ -2123,9 +2208,8 @@ mod tests {
                 Some(RaccourciNiveau::Suivant),
             );
             jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
-            app.reagir(&valider(), &Commandes::default(), None);
+            passer_la_carte(&mut app);
             assert_eq!(app.monde.indice, attendu);
-            assert_eq!(app.ecran, Ecran::Jeu);
         }
         app.reagir(
             &rien(),
@@ -2196,7 +2280,7 @@ mod tests {
                     "NIVEAU BONUS"
                 );
                 // Le bonus fini avec 2 de ses gouttes (32 dans la partie) : l'épilogue.
-                app.reagir(&valider(), &Commandes::default(), None);
+                passer_la_carte(&mut app);
                 app.monde.gouttes_niveau = [true, false, true];
                 app.monde.etat.gouttes = 32;
                 app.monde.termine = true;
@@ -2356,9 +2440,12 @@ mod tests {
             matches!(app.ecran, Ecran::Carte(_)),
             "pas de pause sur la carte"
         );
-        // La carte se termine seule (fenêtre visible mais sans focus) : la pause s'ouvre
-        // au premier pas de jeu, AVANT que le monde ne bouge.
-        avancer(&mut app, carte::DUREE_PAS as u32 + 2);
+        // La carte attend (carte 9.31), puis elle est passée sans que le focus soit
+        // revenu : la pause s'ouvre au premier pas de jeu, AVANT que le monde ne bouge.
+        avancer(&mut app, 600);
+        assert!(matches!(app.ecran, Ecran::Carte(_)));
+        app.reagir(&valider(), &Commandes::default(), None);
+        avancer(&mut app, 2);
         assert_eq!(app.ecran, Ecran::Pause);
         assert_eq!(app.monde.pas, 0);
         assert_eq!(app.pas_partie, 0);
@@ -2377,7 +2464,8 @@ mod tests {
         app.focus(false);
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
         app.focus(true);
-        avancer(&mut app, carte::DUREE_PAS as u32 + 12);
+        app.reagir(&valider(), &Commandes::default(), None);
+        avancer(&mut app, 12);
         assert_eq!(app.ecran, Ecran::Jeu);
         assert!(app.monde.pas > 0);
     }
@@ -2427,7 +2515,7 @@ mod tests {
         // « Rejouer » (au clic, sans que le focus soit revenu) : le jeu démarre normalement.
         app.valider_choix(Choix::Rejouer);
         jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
-        app.reagir(&valider(), &Commandes::default(), None);
+        passer_la_carte(&mut app);
         avancer(&mut app, 5);
         assert_eq!(app.ecran, Ecran::Jeu);
         assert_eq!(app.monde.pas, 5);
@@ -2507,8 +2595,7 @@ mod tests {
         let mut poche = Vec::new();
         for _ in 0..2 {
             jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
-            app.reagir(&valider(), &Commandes::default(), None);
-            assert_eq!(app.ecran, Ecran::Jeu);
+            passer_la_carte(&mut app);
             ramasser_les_gouttes(&mut app);
             app.monde.termine = true;
             avancer(&mut app, 1);
@@ -2562,7 +2649,7 @@ mod tests {
         let chrono = app.pas_partie;
         let morts = app.monde.etat.morts;
         assert_eq!(morts, u32::from(VIES_DEPART) + 1);
-        // L'écran attend (le monde est figé), puis le niveau recommence tout seul.
+        // L'écran attend (le monde est figé), puis le joueur appuie (carte 9.31).
         let pas_monde = app.monde.pas;
         avancer(&mut app, 60);
         assert!(matches!(app.ecran, Ecran::PlusDeVies(_)));
@@ -2602,6 +2689,8 @@ mod tests {
             tomber(&mut app);
         }
         assert!(matches!(app.ecran, Ecran::PlusDeVies(_)));
+        // L'appui est accepté après le court délai d'ouverture (carte 9.31).
+        avancer(&mut app, histoire::DELAI_PAS);
         app.reagir(&valider(), &Commandes::default(), None);
         assert!(
             app.transition.est_active(),
@@ -2618,6 +2707,7 @@ mod tests {
             clic: Some((160.0, 90.0)),
             ..Navigation::default()
         };
+        avancer(&mut app, histoire::DELAI_PAS);
         app.reagir(&toucher, &Commandes::default(), None);
         jusqu_a(&mut app, |e| e == Ecran::Jeu);
         assert_eq!(app.monde.etat.morts, 2 * u32::from(VIES_DEPART));
@@ -2801,7 +2891,9 @@ mod tests {
 
     /// Termine le niveau en cours (gouttes de la partie inchangées).
     fn finir_le_niveau(app: &mut Application) {
-        app.reagir(&valider(), &Commandes::default(), None);
+        if matches!(app.ecran, Ecran::Carte(_)) {
+            passer_la_carte(app);
+        }
         assert_eq!(app.ecran, Ecran::Jeu);
         app.monde.termine = true;
         avancer(app, 1);
@@ -2860,7 +2952,7 @@ mod tests {
                 }
                 if app.monde.indice == 1 {
                     // « Recommencer » ne remontre pas d'image.
-                    app.reagir(&valider(), &Commandes::default(), None);
+                    passer_la_carte(&mut app);
                     app.valider_choix(Choix::Recommencer);
                     jusqu_a(&mut app, |e| e == Ecran::Jeu);
                 }
