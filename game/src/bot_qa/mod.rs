@@ -242,11 +242,11 @@ fn jouer_depuis_le_titre(
     let mut fin_atteinte = false;
     let mut fin_secrete_vue = false;
     for image in 0..60 * 60 * 15 {
-        // Image 0 : « JOUER » au titre. Ensuite les cartes passent toutes seules ; les
-        // images de l'histoire (carte 8.4), elles, attendent un appui : le robot appuie
-        // sur Entrée dès qu'elles l'acceptent.
+        // Image 0 : « JOUER » au titre. Ensuite les écrans de texte (images de
+        // l'histoire, carte 8.4 ; cartes des niveaux et « PLUS DE VIES », carte 9.31)
+        // attendent un appui : le robot appuie sur Entrée dès qu'ils l'acceptent.
         let mut trame = Trame {
-            valider: image == image_jouer || app.histoire_en_attente(),
+            valider: image == image_jouer || app.texte_en_attente(),
             ..Trame::default()
         };
         if app.ecran == Ecran::Jeu && app.en_jeu() {

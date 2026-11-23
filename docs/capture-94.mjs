@@ -79,7 +79,9 @@ const script = fs.readFileSync(fichierScript, 'utf8').trim();
 // Le pilote appuie sur J AVANT une image, mais le jeu ne lit la touche qu'à l'image suivante :
 // une image de plus (vérifié : à +1, Pépin finit sans mourir ; à +0 le poisson le touche).
 const decalage = Number(process.env.DECALAGE ?? Number(fs.readFileSync(path.join(path.dirname(fichierScript), 'decalage-94.txt'), 'utf8')) + 1);
-const prolonge = '0'.repeat(decalage) + script;
+// Carte 9.31 : la carte du niveau ne passe plus seule ; Entrée (1) à la dernière image
+// immobile, comme le robot (le jeu commence à l'image suivante).
+const prolonge = '0'.repeat(decalage - 1) + '1' + script;
 const rejouer = async (de, a) => {
   await evalue(`window.__P.script = ${JSON.stringify(prolonge)}; window.__P.touches = { 0: 'KeyJ' }; window.__P.pos = ${de + (de > 0 ? decalage : 0)}; window.__P.cible = ${a + decalage}; window.__P.parRaf = 8; 1`);
   for (let i = 0; i < 3000 && !(await evalue('window.__P.pos >= window.__P.cible')); i++) await dormir(50);
