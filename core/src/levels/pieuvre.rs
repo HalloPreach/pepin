@@ -918,13 +918,18 @@ mod tests {
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .unwrap();
+        // Carte 9.13d : la reprise rend l'état de la Pieuvre « au passage de la
+        // lanterne », noté quand elle VOIT Pépin à cette hauteur (`observer`).
+        // Il faut donc qu'elle l'y ait vu au moins une fois avant la mort.
+        let j = Joueur::new(haut.0, haut.1);
+        p.voir_pepin(j.boite);
+        pas(&mut p, &n, 1);
         let mut entites = n.entites.clone();
         for e in &mut entites {
             if let Entite::Pieuvre(q) = e {
                 **q = p.clone();
             }
         }
-        let j = Joueur::new(haut.0, haut.1);
         crate::entities::reprendre_apres_une_mort(&mut entites, &j.boite);
         let mut q = pieuvre_de(&entites).clone();
         assert_eq!((q.jetes_faits(), q.jetes_frappes(), q.pv()), (2, 2, 1));
