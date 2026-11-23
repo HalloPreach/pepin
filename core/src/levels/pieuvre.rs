@@ -546,7 +546,7 @@ mod tests {
         let mut p = en_montee(&n, 0);
         let pepin = pepin_debout(11.0 * TAILLE_TUILE, 64.0 * TAILLE_TUILE);
         p.voir_pepin(pepin);
-        jusqu_a(&mut p, &n, 400, |p| p.etat_frappe().is_some());
+        jusqu_a(&mut p, &n, 900, |p| p.etat_frappe().is_some());
         let (cible, _) = p.etat_frappe().unwrap();
         assert_eq!(cible, p.viser(&n, &pepin));
         let debut = p.ecoule();
@@ -561,10 +561,11 @@ mod tests {
         pas(&mut p, &n, 1);
         assert_eq!(p.etat_frappe(), Some((cible, EtatFrappe::Frappe)));
         assert!(p.blesse(&pepin), "elle frappe la place visée");
-        jusqu_a(&mut p, &n, 400, |p| {
+        jusqu_a(&mut p, &n, 900, |p| {
             matches!(p.etat_frappe(), Some((_, EtatFrappe::Annonce(_))))
         });
-        assert_eq!(p.ecoule() - debut, RYTHME_FRAPPE_PAS);
+        // Carte 9.13d : au moins sa recharge (le cerveau tire au sort ensuite).
+        assert!(p.ecoule() - debut >= RYTHME_FRAPPE_PAS);
     }
 
     /// Les balayages et les caisses sont annoncés. Un balayage : 1 s sans danger
@@ -586,7 +587,7 @@ mod tests {
             let mut p = p0.clone();
             let x = b.arrivee + 2.0 * t;
             p.voir_pepin(pepin_debout(x, b.y));
-            jusqu_a(&mut p, &n, 900, |p| p.etat_balayeur(k).is_some());
+            jusqu_a(&mut p, &n, 1500, |p| p.etat_balayeur(k).is_some());
             for _ in 1..ANNONCE_BALAI_PAS {
                 assert!(matches!(p.etat_balayeur(k), Some(EtatBalai::Annonce(_))));
                 assert!(!p.blesse(&pepin_debout(x, b.y)), "l'annonce ne tue pas");
@@ -624,7 +625,7 @@ mod tests {
         let sol = 37.0 * t;
         let x = 2.5 * t;
         p.voir_pepin(pepin_debout(x, sol));
-        jusqu_a(&mut p, &n, 400, |p| p.etat_secousse().is_some());
+        jusqu_a(&mut p, &n, 1500, |p| p.etat_secousse().is_some());
         let caisses = p.etat_secousse().unwrap().0.to_vec();
         assert!((2..=3).contains(&caisses.len()), "{caisses:?}");
         for _ in 1..ANNONCE_SECOUSSE_PAS {
@@ -657,7 +658,8 @@ mod tests {
         let (x, y) = cases[0];
         let dessous = pepin_debout(x as f32 * TAILLE_TUILE, (y + 3) as f32 * TAILLE_TUILE);
         p.voir_pepin(dessous);
-        pas(&mut p, &n, 1);
+        // Carte 9.13d : quand son cerveau la choisit.
+        jusqu_a(&mut p, &n, 900, |p| p.etat_arrachage(0).is_some());
         assert!(matches!(
             p.etat_arrachage(0),
             Some(EtatArrachage::Annonce(_))
@@ -767,7 +769,8 @@ mod tests {
         let mut p = en_montee(&n, 0);
         assert_eq!(p.pv(), 3);
         let mut q = p.clone();
-        for k in 0..p.tour.jetes.len() {
+        // Carte 9.13d : deux coups pendant la montée (la 3e tête est pour la vigie).
+        for k in 0..2 {
             jeter_et_frapper(&mut p, &n, k);
         }
         assert_eq!((p.pv(), p.jetes_frappes()), (1, 2));
@@ -781,9 +784,10 @@ mod tests {
         assert!(q.surface_mer().unwrap() <= mer, "la mer reste haute");
     }
 
-    /// Le coup final : sur la vigie, elle se jette encore (et recommence si on la
-    /// rate) ; sonnée, un saut sur sa tête, elle plonge, puis elle est vaincue :
-    /// le niveau est fini.
+    /// Le coup final : sur la vigie, elle se jette DEUX fois (carte 9.13d), et
+    /// recommence si on la rate ; sonnée, un saut sur sa tête lui prend une
+    /// tête ; à la dernière (ici les 3, aucune prise pendant la montée), elle
+    /// plonge, puis elle est vaincue : le niveau est fini.
     #[test]
     fn le_dernier_coup_finit_le_niveau() {
         let n = INFOS.charger().unwrap();
@@ -796,13 +800,20 @@ mod tests {
         let mut q = p.clone();
         jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_none());
         jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_some());
-        jusqu_a(&mut p, &n, 400, |p| {
-            matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_))))
-        });
-        assert_eq!(p.tete(), Some(tete));
-        assert!(p.recoit(&saut_sur(tete)));
-        p.toucher();
-        assert_eq!(p.phase(), PhasePieuvre::Plongee);
+        for reste in (1..=3).rev() {
+            jusqu_a(&mut p, &n, 900, |p| {
+                matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_))))
+            });
+            assert_eq!(p.tete(), Some(tete));
+            assert!(p.recoit(&saut_sur(tete)));
+            p.toucher();
+            let phase = if reste > 1 {
+                PhasePieuvre::Montee
+            } else {
+                PhasePieuvre::Plongee
+            };
+            assert_eq!(p.phase(), phase, "{reste} têtes");
+        }
         pas(&mut p, &n, u32::from(PLONGEE_PAS));
         assert!(p.est_vaincue());
         assert!(Entite::Pieuvre(Box::new(p)).boss_vaincu());
@@ -835,6 +846,10 @@ mod tests {
             "entre les deux jetés"
         );
         let mut entites = n.entites.clone();
+        // Carte 9.13d : Pépin est passé par la lanterne (elle garde l'état de
+        // ce moment-là).
+        p.voir_pepin(Joueur::new(mi.0, mi.1).boite);
+        pas(&mut p, &n, 1);
         for e in &mut entites {
             if let Entite::Pieuvre(q) = e {
                 **q = p.clone();

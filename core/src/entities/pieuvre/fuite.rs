@@ -28,15 +28,18 @@
 //!   la mer, dans un couloir à droite de la tour, et toutes ses attaques partent
 //!   visiblement de son corps (frappe visée, balayage, secousse, arrachage,
 //!   jeté) : voir `montee`. Plus aucun tentacule ne jaillit de la surface sans
-//!   corps.
-//! - COUP FINAL : sur la vigie, en haut de la tour (`&`), elle se jette une
-//!   dernière fois ; sonnée, un saut sur sa tête donne la plongée, puis vaincue :
-//!   le niveau est fini comme avant.
+//!   corps. Carte 9.13d : c'est son CERVEAU qui choisit ses attaques (plus aucune
+//!   rangée fixe ; une graine qui change à chaque tentative), la frappe vise
+//!   l'appui où Pépin va atterrir, et son humeur monte (`montee::cerveau`).
+//! - COUP FINAL : sur la vigie (`&`), elle se jette deux fois de suite (la
+//!   seconde plus vive) ; sonnée, un saut sur sa tête lui prend une tête. Il faut
+//!   lui prendre toutes celles qui restent (3 moins les coups de la montée) ;
+//!   à la dernière, la plongée, puis vaincue : le niveau est fini comme avant.
 //!
 //! Une mort pendant la phase 2 ramène au DÉBUT DE LA PHASE 2 : la lanterne de la
 //! tour s'allume d'elle-même dès la furie (`entities::contacts`), et `reprendre`
-//! remet la mer en bas (carte 9.13b : ou à la lanterne de mi-hauteur, voir
-//! `montee::reprendre_a`).
+//! remet la mer en bas (carte 9.13b : ou sous n'importe quelle lanterne plus
+//! haute, voir `montee::reprendre_a`).
 //!
 //! MODE FACILE : la mer monte 0,75 fois moins vite, les attaques s'annoncent et
 //! reviennent 0,75 fois moins vite.
