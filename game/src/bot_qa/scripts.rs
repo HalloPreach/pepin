@@ -554,7 +554,7 @@ fn ecrire_script_vies() {
     let mut fin = false;
     for image in 0..60 * 60 * 20 {
         let mut trame = Trame {
-            valider: image == 0 || app.histoire_en_attente(),
+            valider: image == 0 || app.texte_en_attente(),
             ..Trame::default()
         };
         if app.ecran == Ecran::Jeu && app.en_jeu() {
@@ -728,7 +728,7 @@ fn ecrire_script_chats() {
     let mut etait_eveille = false;
     for image in 0..60 * 60 {
         let mut trame = Trame {
-            valider: image == 0 || app.histoire_en_attente(),
+            valider: image == 0 || app.texte_en_attente(),
             ..Trame::default()
         };
         let raccourci = if touche.is_none() && app.en_jeu() && app.monde.indice == 0 {
@@ -1079,7 +1079,7 @@ fn ecrire_scripts_des_parcours(
         // boucle s'arrête au drapeau.
         for image in 0..60 * 60 * 3 {
             let mut trame = Trame {
-                valider: image == 0 || app.histoire_en_attente(),
+                valider: image == 0 || app.texte_en_attente(),
                 ..Trame::default()
             };
             // En jeu, mais pas encore dans le niveau voulu : une touche. Chiffre

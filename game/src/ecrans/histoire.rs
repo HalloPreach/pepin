@@ -98,6 +98,13 @@ pub fn prete(anim: u32) -> bool {
     anim >= DELAI_PAS
 }
 
+/// L'invitation à continuer est-elle visible à ce pas ? Rien avant `DELAI_PAS` (un
+/// appui serait ignoré), puis un clignotement doux : 0,5 s allumée, 0,5 s éteinte.
+/// La carte du niveau et l'écran « PLUS DE VIES » s'en servent aussi (carte 9.31).
+pub fn invite_visible(anim: u32) -> bool {
+    prete(anim) && ((anim - DELAI_PAS) / 30).is_multiple_of(2)
+}
+
 /// Haut du bandeau de texte (il va jusqu'en bas de l'écran).
 const Y_BANDEAU: f32 = 136.0;
 /// Les deux lignes du récit, puis l'invitation.
@@ -149,7 +156,7 @@ fn dessiner_bandeau(chapitre: Chapitre, anim: u32) {
     let [a, b] = chapitre.lignes();
     texte::dessiner_centre(a, Y_LIGNE_1, ombre(BLANC_CASSE));
     texte::dessiner_centre(b, Y_LIGNE_2, ombre(OR_PALE));
-    if prete(anim) && ((anim - DELAI_PAS) / 30).is_multiple_of(2) {
+    if invite_visible(anim) {
         texte::dessiner_centre(contenu::APPUIE_POUR_CONTINUER, Y_CONTINUER, ombre(BRUME));
     }
     let numero = format!("{}/{}", chapitre.indice() + 1, Chapitre::TOUS.len());

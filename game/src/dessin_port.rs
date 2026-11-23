@@ -103,9 +103,16 @@ pub fn piece_du_bord(gauche: bool, ty: i32, quai: i32, eau: bool) -> Piece {
 /// raccorde). Pure.
 pub fn rangee_du_quai(niveau: &Niveau, voisin: i32) -> i32 {
     let h = niveau.hauteur() as i32;
-    (0..h)
+    // Carte 9.13a : l'arène est dans les 11 dernières rangées (la tour au-dessus).
+    (haut_de_l_arene(niveau)..h)
         .find(|&ty| niveau.tuile_decor(voisin, ty).est_solide())
         .unwrap_or(h)
+}
+
+/// Première rangée de l'arène : 0, ou, sous la tour de la phase 2 de la Pieuvre
+/// (carte 9.13a), les 11 dernières rangées (un écran).
+pub fn haut_de_l_arene(niveau: &Niveau) -> i32 {
+    (niveau.hauteur() as i32 - 11).max(0)
 }
 
 /// La case `(tx, ty)` (tuile `t`) est-elle dessinée par la jetée plutôt que par
@@ -180,6 +187,8 @@ pub fn dessiner_fond(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     }
     let pas = monde.pas;
     let (l, hh) = (LARGEUR_LOGIQUE as i32, HAUTEUR_LOGIQUE as i32);
+    // Carte 9.13a : le port est derrière l'arène, en bas de la tour.
+    let cy = cy - haut_de_l_arene(&monde.niveau) * TAILLE_TUILE as i32;
     let horizon = HORIZON - cy;
     // La mer, jusqu'au bas de l'écran (on la voit sous la jetée, entre les piles).
     rect(0, horizon, l, hh - horizon, ARDOISE_NUIT);
@@ -317,14 +326,17 @@ mod tests {
     fn les_bords_de_l_arene_sont_des_quais_avec_une_grue_et_des_caisses() {
         let n = pieuvre::INFOS.charger().unwrap();
         let (l, h) = (n.largeur() as i32, n.hauteur() as i32);
-        assert_eq!(rangee_du_quai(&n, 1), 6);
-        assert_eq!(rangee_du_quai(&n, l - 2), 6);
-        let gauche: Vec<_> = (0..h - 1)
+        // Carte 9.13a : l'arène est sous la tour, dans les 11 dernières rangées.
+        let a = haut_de_l_arene(&n);
+        assert_eq!(a, 69); // carte 9.13b : la tour est deux fois plus haute
+        assert_eq!(rangee_du_quai(&n, 1), a + 6);
+        assert_eq!(rangee_du_quai(&n, l - 2), a + 6);
+        let gauche: Vec<_> = (a..h - 1)
             .map(|ty| {
                 nom(piece_du_bord(
                     true,
                     ty,
-                    6,
+                    a + 6,
                     n.tuile_decor(1, ty) == Tuile::Eau,
                 ))
             })
@@ -367,12 +379,13 @@ mod tests {
             }
             assert!(!case_de_la_jetee(&n, tx, h - 1, n.tuile_decor(tx, h - 1)));
         }
+        let a = haut_de_l_arene(&n);
         let eaux = (1..l - 1)
-            .filter(|&tx| n.tuile_decor(tx, 9) == Tuile::Eau)
+            .filter(|&tx| n.tuile_decor(tx, a + 9) == Tuile::Eau)
             .count();
         assert_eq!(eaux, (l - 2) as usize, "le bassin couvre toute la rangée 9");
         assert!(
-            !case_de_la_jetee(&n, 1, 6, n.tuile_decor(1, 6)),
+            !case_de_la_jetee(&n, 1, a + 6, n.tuile_decor(1, a + 6)),
             "le platelage reste au thème"
         );
         // Le niveau d'essai garde l'ancien rendu.

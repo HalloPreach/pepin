@@ -83,10 +83,78 @@ pub fn dessiner(p: &Pieuvre, banque: &Banque, pas: u32, cx: i32, cy: i32) {
     dessiner_tete(p, banque, pas, cx, cy);
 }
 
+/// La bâche de l'arène (carte 9.13a), tant qu'elle tient : une rangée de toiles
+/// (les tuiles de toit du thème, en attendant son dessin : carte 9.13b).
+pub fn dessiner_bache(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let Some(bache) = la_pieuvre(monde).and_then(|p| p.bache_solide()) else {
+        return;
+    };
+    let mut x = bache.x;
+    while x < bache.droite() {
+        let (sx, sy) = (x - cx as f32, bache.y - cy as f32);
+        banque.dessiner_tuile(monde.infos.theme, "toit_haut", sx, sy);
+        x += TAILLE_TUILE;
+    }
+}
+
+/// La mer qui monte (carte 9.13a), devant la tour : les tuiles d'eau du thème
+/// jusqu'au bas de l'écran, la surface qui ondule ; aux murs, la graduation qui
+/// clignote quand un palier s'annonce (et reste allumée pendant le répit). La
+/// trombe de la furie : des bulles qui montent.
+pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let Some(p) = la_pieuvre(monde) else {
+        return;
+    };
+    let t = TAILLE_TUILE as i32;
+    if let Some(z) = p.trombe().map(|c| c.zone) {
+        let h = z.h as i32;
+        for k in 0..(h / 10).max(1) {
+            let monte = (monde.pas as i32 * 3 + k * 10).rem_euclid(h);
+            let x = z.x as i32 + (k * 13).rem_euclid(z.w as i32 - 6);
+            let y = z.bas() as i32 - monte;
+            let nom = image(
+                ["remous_pieuvre0", "remous_pieuvre1"],
+                monde.pas + k as u32,
+                6,
+            );
+            banque.dessiner(nom, (x - cx) as f32, (y - cy) as f32, false);
+        }
+    }
+    let Some(mer) = p.surface_mer() else {
+        return;
+    };
+    let surface = mer.round() as i32;
+    let bas = cy + HAUTEUR_LOGIQUE as i32;
+    let largeur = monde.niveau.largeur_px() as i32;
+    for x in (t..largeur - t).step_by(t as usize) {
+        let mut y = surface + t;
+        while y < bas {
+            banque.dessiner("jetee_eau_plein", (x - cx) as f32, (y - cy) as f32, false);
+            y += t;
+        }
+        let vague = (monde.pas / 10) as i32 + x / t;
+        let nom = if vague.rem_euclid(2) == 1 {
+            "jetee_eau_vague"
+        } else {
+            "jetee_eau_haut"
+        };
+        banque.dessiner(nom, (x - cx) as f32, (surface - cy) as f32, false);
+    }
+    if let Some(a) = p.annonce_palier() {
+        let clignote = a >= 1.0 || (monde.pas / (8 - (a * 6.0) as u32).max(2)).is_multiple_of(2);
+        if clignote {
+            for x in [t, largeur - 2 * t] {
+                let y = surface - 3 * t;
+                banque.dessiner("graduation", (x - cx) as f32, (y - cy) as f32, false);
+            }
+        }
+    }
+}
+
 /// Un tentacule de `h` px dressé au-dessus de `surface` (à l'écran) : des tronçons
 /// empilés depuis l'eau, puis le bout recourbé en haut (dessiné en dernier, il couvre
 /// le tronçon qui dépasse).
-fn dessiner_tentacule(banque: &Banque, x: f32, surface: f32, h: f32, pas: u32) {
+pub(crate) fn dessiner_tentacule(banque: &Banque, x: f32, surface: f32, h: f32, pas: u32) {
     if h <= 0.0 {
         return;
     }
@@ -121,6 +189,19 @@ fn dessiner_tete(p: &Pieuvre, banque: &Banque, pas: u32, cx: f32, cy: f32) {
                 banque.dessiner(remous, x + dx, surface - 5.0, false);
             }
         }
+        // Phase 2 (carte 9.13a) : la furie, elle hurle (la colère, plus vite) ;
+        // la montée, elle attend en haut de la tour.
+        PhasePieuvre::Furie => {
+            banque.dessiner(
+                image(["pieuvre_colere0", "pieuvre_colere1"], pas, 4),
+                x,
+                y,
+                false,
+            );
+        }
+        // Carte 9.13c : en phase 2, la géante (montée, plongée finale) est
+        // dessinée par `dessin_montee`.
+        PhasePieuvre::Montee | PhasePieuvre::Plongee | PhasePieuvre::Vaincue if p.en_fuite() => {}
         PhasePieuvre::Tete => {
             let nom = image(["pieuvre_colere0", "pieuvre_colere1"], pas, 20);
             if p.est_facile() {
@@ -168,7 +249,7 @@ pub fn dessiner_encre(monde: &Monde) {
 }
 
 /// La pieuvre du niveau, s'il y en a une.
-fn la_pieuvre(monde: &Monde) -> Option<&Pieuvre> {
+pub(crate) fn la_pieuvre(monde: &Monde) -> Option<&Pieuvre> {
     monde.entites.iter().find_map(|e| match e {
         Entite::Pieuvre(p) => Some(p.as_ref()),
         _ => None,
@@ -182,6 +263,11 @@ pub fn case_saisie(monde: &Monde, tx: i32, ty: i32) -> bool {
         .and_then(|p| {
             p.saisie()
                 .map(|s| p.plateformes[s.cible].contains(&(tx, ty)))
+                // Le quai cassé de la phase 2 (carte 9.13a) : tombé à l'eau ;
+                // les plateformes arrachées de la tour (carte 9.13b).
+                .or(Some(
+                    p.case_engloutie(tx, ty) || crate::dessin_montee::case_arrachee(p, tx, ty),
+                ))
         })
         .unwrap_or(false)
 }
@@ -268,7 +354,7 @@ pub fn dessiner_saisie(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
 /// d'un tentacule d'attaque (dont les 2 rangées cyan redoublaient l'eau du
 /// bassin). `(g, d)` : bords de la plateforme, `bassin` : bords de l'eau (monde) ;
 /// `(sx, sy)` : décalage de la caméra en x et surface à l'écran.
-fn dessiner_eau_saisie(
+pub(crate) fn dessiner_eau_saisie(
     banque: &Banque,
     etat: EtatSaisie,
     (g, d): (f32, f32),

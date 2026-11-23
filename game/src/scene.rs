@@ -1455,9 +1455,12 @@ pub fn dessiner(
     let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     // Le fond du port (carte 9.11b) : sans son phare lointain sur la jetée de la
     // Pieuvre, qui a le sien, rayé, plus près.
-    if monde.infos.theme == pepin_core::zones::Theme::Port {
-        let phare = !crate::dessin_port::est_la_jetee(monde);
-        crate::decor_port::dessiner_fond(cx, cy_fond, monde.pas, phare);
+    if crate::dessin_port::est_la_jetee(monde) {
+        // Carte 9.13c : sous la tour de la Pieuvre, le fond de l'arène descend
+        // quand Pépin grimpe, et la nuit continue au-dessus (un fond continu).
+        crate::decor_port::dessiner_fond_sous_la_tour(cx, monde.pas, -cy_fond);
+    } else if monde.infos.theme == pepin_core::zones::Theme::Port {
+        crate::decor_port::dessiner_fond(cx, cy_fond, monde.pas, true);
     } else {
         decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
     }
@@ -1481,6 +1484,14 @@ pub fn dessiner(
     crate::dessin_port::dessiner_jetee(monde, banque, cx, cy);
     // La plateforme que la Pieuvre emporte sous l'eau (carte 9.12f).
     crate::dessin_pieuvre::dessiner_saisie(monde, banque, cx, cy);
+    // La bâche de l'arène, et la mer qui monte de la phase 2 (carte 9.13a).
+    crate::dessin_pieuvre::dessiner_bache(monde, banque, cx, cy);
+    crate::dessin_pieuvre::dessiner_mer(monde, banque, cx, cy);
+    // La montée (carte 9.13c) : la géante et ses attaques, qui partent de son corps.
+    crate::dessin_montee::dessiner(monde, banque, cx, cy);
+    // Carte 9.13e : la mer toujours sensible, DEVANT la géante (elle y plonge) :
+    // sa crête et ses embruns, ou la bande d'écume au bas de l'écran.
+    crate::mer_montee::dessiner_devant(monde, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
     crate::dessin_courant::dessiner(monde, cx, cy);
     // L'habillage des égouts (carte 9.20b) : grilles, tuyaux des bassins, sortie.
@@ -1511,6 +1522,8 @@ pub fn dessiner(
         decor::dessiner_avant(monde.infos.theme, monde.pas, monde.ng_plus);
     }
     dessiner_repere_pepin(monde, alpha, cx, cy);
+    // La jauge de la montée de la Pieuvre (carte 9.13e), sur le mur gauche.
+    crate::mer_montee::dessiner_jauge(monde);
     // L'encre de la Pieuvre (carte 9.12a), devant tout.
     crate::dessin_pieuvre::dessiner_encre(monde);
     // Le rideau du temps de mort (carte 9.24), devant tout.

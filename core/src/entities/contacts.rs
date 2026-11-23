@@ -330,6 +330,41 @@ pub fn resoudre_contacts(joueur: &mut Joueur, entites: &mut [Entite]) -> Vec<Con
         }
     }
 
+    // Carte 9.13a : dès la phase 2 de la Pieuvre, la lanterne de la tour (au-dessus
+    // de la bâche) s'allume d'elle-même : une mort ramène au début de la phase 2,
+    // jamais dans l'arène dont le quai a cassé. Carte 9.13b : la tour a aussi une
+    // lanterne à mi-hauteur ; on n'allume d'office que la PLUS BASSE, et seulement
+    // si aucune lanterne de la tour ne brûle (sinon elles s'éteindraient l'une
+    // l'autre à chaque pas).
+    let bache = entites.iter().find_map(|e| match e {
+        Entite::Pieuvre(p) if p.en_fuite() => p.bache,
+        _ => None,
+    });
+    if let Some(bache) = bache {
+        let de_la_tour = |e: &Entite| match e {
+            Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.boite.y),
+            _ => None,
+        };
+        let deja = entites
+            .iter()
+            .any(|e| matches!(e, Entite::Lanterne(l) if l.boite.y < bache.y && l.est_active()));
+        let plus_basse = entites
+            .iter()
+            .enumerate()
+            .filter_map(|(i, e)| de_la_tour(e).map(|y| (i, y)))
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(i, _)| i);
+        if let (false, Some(i)) = (deja, plus_basse) {
+            if let Entite::Lanterne(l) = &mut entites[i] {
+                if l.activer() {
+                    let (x, y) = l.point_de_reapparition();
+                    contacts.push(Contact::Lanterne(x, y));
+                    lanterne_allumee = Some(i);
+                }
+            }
+        }
+    }
+
     // Une seule lanterne allumée à la fois : on éteint les autres.
     if let Some(allumee) = lanterne_allumee {
         for (i, entite) in entites.iter_mut().enumerate() {

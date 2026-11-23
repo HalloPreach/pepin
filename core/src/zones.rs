@@ -973,7 +973,15 @@ mod tests {
             // L'arène du Grand Nuage (pas de drapeau) : un seul écran, une seule
             // lanterne, au début de l'arène (décision du coordinateur : une mort
             // ramène au début de l'arène).
-            assert_eq!(niv.nb_lanternes(), 1, "niveau {n} : arène du boss");
+            // Carte 9.13a : l'arène à tour de la Pieuvre a une seconde lanterne,
+            // au début de la tour (la reprise de la phase 2).
+            let tour = niv.entites.iter().any(
+                |e| matches!(e, crate::entities::Entite::Pieuvre(p) if p.tete_finale.is_some()),
+            );
+            // Carte 9.13b : et une troisième à mi-hauteur de la tour ; carte
+            // 9.13e : une quatrième juste après le 2e jeté (69 % de la montée).
+            let attendues = if tour { 4 } else { 1 };
+            assert_eq!(niv.nb_lanternes(), attendues, "niveau {n} : arène du boss");
         }
 
         // Le robot maladroit ne sert qu'à l'arrivée : il s'arrête dès qu'il l'a
@@ -1065,8 +1073,37 @@ mod tests {
             .entites
             .iter()
             .any(|e| matches!(e, crate::entities::Entite::Pieuvre(_)));
+        let tour = niv
+            .entites
+            .iter()
+            .any(|e| matches!(e, crate::entities::Entite::Pieuvre(p) if p.tete_finale.is_some()));
         let pas = if niv.arrivee.is_some() {
             r.pas_arrivee.unwrap()
+        } else if tour {
+            // Carte 9.13a : la phase 1 (le combat le plus court, sans la plongée :
+            // le 3e coup donne la furie) et la phase 2 (la furie, la course du
+            // robot jusqu'à la tête du haut, la plongée) se vérifient CHACUNE
+            // comme un niveau : le boss final dure deux niveaux.
+            let pv = pieuvre::PV_PIEUVRE;
+            let motifs: u32 = (0..pv as usize)
+                .map(|m| u32::from(pieuvre::duree_motif(m)))
+                .sum();
+            let phase1 = u32::from(pieuvre::PRELUDE_PAS)
+                + motifs
+                + u32::from(pv) * u32::from(pieuvre::REMOUS_PAS)
+                + u32::from(pv - 1) * u32::from(pieuvre::TOUCHEE_PAS);
+            let phase2 = u32::from(pieuvre::FURIE_PAS)
+                + r.pas_arrivee.unwrap()
+                + u32::from(pieuvre::PLONGEE_PAS);
+            println!(
+                "niveau {} : phase 1 {:.1} s, phase 2 {:.1} s",
+                infos.numero,
+                phase1 as f32 / 60.0,
+                phase2 as f32 / 60.0
+            );
+            assert!((12.0..=60.0).contains(&(phase1 as f32 / 60.0)));
+            assert!((5.0..=60.0).contains(&(phase2 as f32 / 60.0)));
+            phase1 + phase2
         } else if a_une_pieuvre {
             let pv = pieuvre::PV_PIEUVRE;
             let motifs: u32 = (0..pv as usize)

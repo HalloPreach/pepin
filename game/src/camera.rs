@@ -57,6 +57,39 @@ const DESCENTE_REGARD: f32 = 96.0;
 /// que `LISSAGE_Y`.
 const LISSAGE_Y_HAUT: f32 = 0.12;
 
+// --- La mer de la montée de la Pieuvre (carte 9.13e) ---------------------------------
+//
+// AGA : « on ne voit pas la mer […] ce qui presse le joueur est hors champ ». Quand la
+// surface est proche sous l'écran, la caméra descend un peu pour la garder dans le
+// cadre, au bas de l'écran.
+
+/// Eau visible sous la surface (px), au bas de l'écran, quand la caméra la garde.
+const MARGE_MER: f32 = 16.0;
+/// Portée (px) de la descente : au-delà, la mer est trop loin, la caméra ne bouge pas.
+/// La descente monte puis redescend en douceur (un « toit ») : aucun à-coup quand la
+/// mer entre dans la portée.
+const PORTEE_MER: f32 = 112.0;
+/// Pour la mer, Pépin ne monte jamais au-dessus de cette part de l'écran (54 px du
+/// haut) : on voit toujours où il saute.
+const PART_PEPIN_MER: f32 = 0.30;
+
+/// La visée verticale `visee` (haut de l'écran), descendue pour garder la mer
+/// `mer` dans le cadre si elle est proche ; `centre` : le centre de Pépin. Pure.
+pub fn cadrer_la_mer(visee: f32, mer: f32, centre: f32) -> f32 {
+    let h = HAUTEUR_LOGIQUE as f32;
+    // De combien la caméra devrait descendre pour voir `MARGE_MER` px d'eau.
+    let manque = mer + MARGE_MER - h - visee;
+    let voulu = if manque <= 0.0 || manque >= PORTEE_MER {
+        0.0
+    } else if manque <= PORTEE_MER / 2.0 {
+        manque
+    } else {
+        PORTEE_MER - manque
+    };
+    let au_plus = (centre - h * PART_PEPIN_MER - visee).max(0.0);
+    visee + voulu.min(au_plus)
+}
+
 /// Coin haut-gauche de la zone visible, en pixels du niveau.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Camera {
@@ -74,6 +107,9 @@ pub struct Camera {
     /// Niveau haut seulement : ordonnée du centre de Pépin la dernière fois qu'il était
     /// posé (« point de décollage ») ; mesure de combien il est descendu depuis.
     decollage_y: f32,
+    /// Carte 9.13e : la surface de la mer qui monte (px du niveau), à garder dans le
+    /// cadre quand elle est proche (`cadrer_la_mer`) ; `None` hors de la montée.
+    pub mer: Option<f32>,
 }
 
 impl Camera {
@@ -87,6 +123,7 @@ impl Camera {
             en_hauteur: false,
             visee_y: 0.0,
             decollage_y: 0.0,
+            mer: None,
         };
         c.recentrer(joueur, largeur_niveau, hauteur_niveau);
         c
@@ -196,7 +233,13 @@ impl Camera {
             self.decollage_y = centre;
         }
         self.visee_y = Self::borner(self.visee_y, hauteur_niveau, h);
-        self.y += (self.visee_y - self.y) * LISSAGE_Y_HAUT;
+        // Carte 9.13e : la mer proche reste au bas de l'écran (la visée de Pépin,
+        // elle, ne change pas : la mer partie, la caméra y revient en douceur).
+        let visee = match self.mer {
+            Some(mer) => Self::borner(cadrer_la_mer(self.visee_y, mer, centre), hauteur_niveau, h),
+            None => self.visee_y,
+        };
+        self.y += (visee - self.y) * LISSAGE_Y_HAUT;
         let descente = ((centre - self.decollage_y) / DESCENTE_REGARD).clamp(0.0, 1.0);
         let bas = ZONE_BAS + (ZONE_BAS_DESCENTE - ZONE_BAS) * descente;
         // `clamp(min, max)` : la caméra la plus haute garde Pépin au-dessus du bas de la
@@ -570,14 +613,16 @@ mod tests {
             // haut, sont les seuls niveaux du jeu que la caméra suit en hauteur : ils n'ont pas d'« ancienne » caméra à comparer
             // (la caméra verticale a ses propres tests, plus bas).
             if Camera::suit_en_hauteur(h) {
-                use pepin_core::levels::{cascade, clocher, descente, grotte, riviere};
+                // Et la tour de la Pieuvre (carte 9.13a, sa phase 2).
+                use pepin_core::levels::{cascade, clocher, descente, grotte, pieuvre, riviere};
                 assert!(
                     [
                         clocher::INFOS.nom,
                         descente::INFOS.nom,
                         cascade::INFOS.nom,
                         grotte::INFOS.nom,
-                        riviere::INFOS.nom
+                        riviere::INFOS.nom,
+                        pieuvre::INFOS.nom
                     ]
                     .contains(&infos.nom),
                     "{}",
@@ -904,5 +949,42 @@ mod tests {
                 assert!((r - e).abs() <= 0.5 + 1e-3, "réel {r} / écran {e}");
             }
         }
+    }
+
+    /// Carte 9.13e : la mer proche sous l'écran reste dans le cadre (au bas, avec
+    /// 16 px d'eau), sans jamais pousser Pépin plus haut que 30 % de l'écran ;
+    /// loin, ou déjà à l'écran, la caméra ne bouge pas ; et la descente est
+    /// continue (1 px de mer en plus, au plus 1 px de caméra : aucun à-coup).
+    #[test]
+    fn la_mer_proche_reste_au_bas_de_l_ecran() {
+        let h = HAUTEUR_LOGIQUE as f32;
+        let (visee, centre) = (1000.0, 1000.0 + 0.58 * h);
+        assert_eq!(cadrer_la_mer(visee, visee + h + 300.0, centre), visee);
+        assert_eq!(cadrer_la_mer(visee, visee + h - 40.0, centre), visee);
+        let mer = visee + h + 20.0;
+        let y = cadrer_la_mer(visee, mer, centre);
+        assert!((mer - y - (h - MARGE_MER)).abs() < 0.01, "{y}");
+        assert!(
+            centre - y >= PART_PEPIN_MER * h - 0.01,
+            "Pépin reste à l'écran"
+        );
+        let mut avant = visee;
+        for k in 0..400 {
+            let m = visee + h - 40.0 + k as f32 * 0.5;
+            let y = cadrer_la_mer(visee, m, centre);
+            assert!((y - avant).abs() <= 0.51, "mer {m} : {avant} puis {y}");
+            avant = y;
+        }
+        // Dans la caméra : la mer proche entre dans le cadre, Pépin reste dedans.
+        let mut j = Joueur::new(100.0, 600.0);
+        j.au_sol = true;
+        let mut c = Camera::new(&j, 320.0, 1280.0);
+        c.mer = Some(j.boite.bas() + 90.0);
+        for _ in 0..200 {
+            c.suivre(&j, 320.0, 1280.0);
+        }
+        let mer = c.mer.unwrap();
+        assert!(mer < c.y + h && mer > c.y + h * 0.5, "{} {}", c.y, mer);
+        assert!(j.boite.y > c.y && j.boite.bas() < c.y + h);
     }
 }
