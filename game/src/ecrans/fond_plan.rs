@@ -447,6 +447,14 @@ pub fn bande_du_theme(t: Theme) -> Option<Bande> {
     }
 }
 
+/// Le chapitre se dessine-t-il en DESCENTE de l'eau (le fond `chapitre_2`) plutôt
+/// qu'en ascension (`chapitre_1`) ? Oui si un de ses niveaux a un thème qui a sa
+/// bande (`bande_du_theme`) : une donnée portée par les niveaux (carte 11.2), plus
+/// le numéro du monde. Monde 1 : non ; Monde 2 : oui. Pure.
+pub fn fond_en_descente(tranche: &[InfosNiveau]) -> bool {
+    tranche.iter().any(|n| bande_du_theme(n.theme).is_some())
+}
+
 /// Hauteur de la bande de la mer au-dessus du centre du port, au moins.
 const AU_DESSUS_DU_PORT: f32 = 22.0;
 
@@ -985,12 +993,37 @@ mod tests {
         assert!(riviere.2 - riviere.1 >= 10.0, "{riviere:?}");
     }
 
-    /// Le Monde 1 n'a aucun thème du chapitre 2.
+    /// Le Monde 1 n'a aucun thème du chapitre 2. Carte 11.2 : le fond choisi par les
+    /// thèmes redonne celui d'avant (choisi par le numéro du monde).
     #[test]
     fn aucun_theme_du_monde_1_n_a_de_bande() {
         for n in niveaux_du_monde(niveaux::niveaux(), 1) {
             assert_eq!(bande_du_theme(n.theme), None, "{}", n.cle);
         }
+        assert!(!fond_en_descente(niveaux_du_monde(niveaux::niveaux(), 1)));
+        assert!(fond_en_descente(niveaux_du_monde(niveaux::niveaux(), 2)));
+    }
+
+    /// Le faux Monde 3 (carte 11.2) a un niveau du caniveau parmi ses thèmes : sa
+    /// carte se dessine en descente, avec des bandes qui couvrent toute la carte.
+    #[test]
+    fn le_faux_monde_3_a_un_fond_de_carte() {
+        let t = crate::faux_monde_3::table_trois_mondes();
+        let tranche = crate::faux_monde_3::faux_monde_3(&t);
+        assert!(fond_en_descente(tranche));
+        let g = Geometrie::new(tranche);
+        let bandes = bandes_chapitre_2(tranche, &g);
+        assert_eq!(bandes[0].2, g.hauteur, "la première bande touche le pied");
+        assert_eq!(
+            bandes.last().map(|b| b.1),
+            Some(0.0),
+            "la mer touche le haut"
+        );
+        for w in bandes.windows(2) {
+            assert_eq!(w[0].1, w[1].2, "{:?} et {:?} se touchent", w[0].0, w[1].0);
+        }
+        // Sans thème du chapitre 2, un monde garde le fond de l'ascension.
+        assert!(!fond_en_descente(&tranche[..2]));
     }
 
     #[test]

@@ -476,6 +476,9 @@ pub const INTRO_ESSAI_NUAGE: Intro = Intro {
 /// d'avant, sans le mot chapitre.
 pub fn etiquette_niveau(infos: &InfosNiveau, nb_normaux: usize) -> String {
     let base = etiquette_dans_le_chapitre(infos, nb_normaux);
+    // Règle GÉNÉRALE (carte 11.2), pas un cas du Monde 2 : seul le Monde 1 n'a pas de
+    // chapitre écrit ; tout monde suivant (2, 3...) affiche le sien, numéroté par
+    // `libelle_chapitre`.
     if infos.monde > 1 {
         format!("{} · {base}", libelle_chapitre(infos.monde))
     } else {

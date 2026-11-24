@@ -210,17 +210,17 @@ pub fn noter_niveau(s: &mut Sauvegarde, infos: &InfosNiveau, t: &Tentative) -> R
 pub const BONUS_FIN: &str = "fin";
 pub const BONUS_SANS_GAME_OVER: &str = "sans_game_over";
 pub const BONUS_TOUTES_LES_GOUTTES: &str = "toutes_les_gouttes";
-/// Les mêmes pour une partie du Monde 2 (carte 9.1) : chaque monde a ses bonus de fin,
-/// crédités une seule fois chacun.
-pub const BONUS_FIN_MONDE2: &str = "monde2_fin";
-pub const BONUS_SANS_GAME_OVER_MONDE2: &str = "monde2_sans_game_over";
-pub const BONUS_TOUTES_LES_GOUTTES_MONDE2: &str = "monde2_toutes_les_gouttes";
+// Chaque monde a ses bonus de fin, crédités une seule fois chacun (carte 9.1) : hors
+// du Monde 1, l'identifiant est préfixé par le monde (`monde2_fin`, `monde3_fin`...),
+// voir `LigneBonus::cle_sauvegarde`.
 
 /// Une ligne du bonus de fin de partie.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LigneBonus {
-    /// Identifiant dans la sauvegarde (`BONUS_*`).
+    /// Identifiant de la ligne (`BONUS_*`), le même dans tous les mondes.
     pub id: &'static str,
+    /// Monde de la partie : il entre dans la clé de sauvegarde (carte 11.2).
+    pub monde: u8,
     pub nom: &'static str,
     /// Ce que rapporte la ligne la première fois qu'elle est gagnée.
     pub gouttes: u32,
@@ -235,6 +235,7 @@ pub struct LigneBonus {
 pub fn bonus_fin(sans_game_over: bool, toutes_les_gouttes: bool) -> [LigneBonus; 3] {
     let ligne = |id, nom, gouttes, gagne| LigneBonus {
         id,
+        monde: 1,
         nom,
         gouttes,
         gagne,
@@ -257,26 +258,29 @@ pub fn bonus_fin(sans_game_over: bool, toutes_les_gouttes: bool) -> [LigneBonus;
     ]
 }
 
-/// Le bonus de fin d'une partie du monde `monde` (carte 9.1) : celui du Monde 1
-/// (`bonus_fin`, mêmes identifiants qu'avant), ou les mêmes lignes sous les
-/// identifiants du Monde 2.
+impl LigneBonus {
+    /// Clé de la ligne dans la sauvegarde (`bonus_credites`). Le Monde 1 garde ses
+    /// identifiants d'avant les mondes (`fin`...) ; les autres mondes les préfixent
+    /// de leur numéro (`monde2_fin`, `monde3_fin`...) : un nouveau monde a ses
+    /// propres bonus sans une ligne de code de plus (carte 11.2). Les clés du
+    /// Monde 2 sont exactement celles écrites depuis la carte 9.1.
+    pub fn cle_sauvegarde(&self) -> String {
+        if self.monde <= 1 {
+            self.id.to_string()
+        } else {
+            format!("monde{}_{}", self.monde, self.id)
+        }
+    }
+}
+
+/// Le bonus de fin d'une partie du monde `monde` (cartes 9.1 et 11.2) : les lignes de
+/// `bonus_fin`, rangées sous la clé de sauvegarde de CE monde.
 pub fn bonus_fin_du_monde(
     monde: u8,
     sans_game_over: bool,
     toutes_les_gouttes: bool,
 ) -> [LigneBonus; 3] {
-    let mut lignes = bonus_fin(sans_game_over, toutes_les_gouttes);
-    if monde > 1 {
-        let ids = [
-            BONUS_FIN_MONDE2,
-            BONUS_SANS_GAME_OVER_MONDE2,
-            BONUS_TOUTES_LES_GOUTTES_MONDE2,
-        ];
-        for (l, id) in lignes.iter_mut().zip(ids) {
-            l.id = id;
-        }
-    }
-    lignes
+    bonus_fin(sans_game_over, toutes_les_gouttes).map(|l| LigneBonus { monde, ..l })
 }
 
 /// Crédite le bonus de fin : chaque ligne gagnée pour la PREMIÈRE fois rapporte (et
@@ -284,7 +288,7 @@ pub fn bonus_fin_du_monde(
 /// Renvoie le gain crédité. N'enregistre pas.
 pub fn crediter_bonus_fin(s: &mut Sauvegarde, bonus: &mut [LigneBonus]) -> u32 {
     for l in bonus.iter_mut().filter(|l| l.gagne) {
-        l.deja = !s.crediter_bonus(l.id);
+        l.deja = !s.crediter_bonus(&l.cle_sauvegarde());
     }
     let gain = total_bonus(bonus);
     s.ajouter_gouttes(gain);
@@ -369,12 +373,25 @@ mod tests {
         // ses bonus de fin se gagnent une fois de plus, une seule fois.
         assert_eq!(bonus_fin_du_monde(1, true, true), bonus_fin(true, true));
         let mut b2 = bonus_fin_du_monde(2, true, true);
-        assert_eq!(b2[0].id, BONUS_FIN_MONDE2);
+        // Les clés du Monde 2 n'ont pas bougé depuis la carte 9.1 (sauvegardes déjà
+        // écrites) : la règle générale de la carte 11.2 les redonne à l'identique.
+        assert_eq!(
+            b2.map(|l| l.cle_sauvegarde()),
+            [
+                "monde2_fin",
+                "monde2_sans_game_over",
+                "monde2_toutes_les_gouttes"
+            ]
+        );
         assert_eq!(crediter_bonus_fin(&mut s, &mut b2), 20);
         assert_eq!(
             crediter_bonus_fin(&mut s, &mut bonus_fin_du_monde(2, true, true)),
             0
         );
+        // Carte 11.2 : un Monde 3 a ses bonus à lui, sans code de plus.
+        let mut b3 = bonus_fin_du_monde(3, true, true);
+        assert_eq!(b3[0].cle_sauvegarde(), "monde3_fin");
+        assert_eq!(crediter_bonus_fin(&mut s, &mut b3), 20);
         // Les bandes d'affichage tiennent dans l'écran, pour chaque niveau.
         for n in niveaux::niveaux() {
             let r = noter_niveau(&mut Sauvegarde::default(), n, &lente);

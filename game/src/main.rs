@@ -53,6 +53,9 @@ mod entrees;
 #[cfg(any(test, feature = "debug_niveaux"))]
 mod essai_externe;
 mod facile;
+// Un faux Monde 3 (carte 11.2) : un monde de plus par des données, en test seulement.
+#[cfg(test)]
+mod faux_monde_3;
 mod focus;
 mod fond_egouts;
 mod fonds;
