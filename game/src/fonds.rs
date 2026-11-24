@@ -23,7 +23,8 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use macroquad::prelude::{
-    draw_texture_ex, vec2, DrawTextureParams, FilterMode, Image as ImageMq, Texture2D, BLANK, WHITE,
+    draw_texture_ex, vec2, DrawTextureParams, FilterMode, Image as ImageMq, Rect, Texture2D, BLANK,
+    WHITE,
 };
 use pepin_core::palette::Couleur;
 
@@ -114,6 +115,29 @@ pub fn dessiner(theme: &'static str, nom: &'static str, x: i32, y: i32) {
         y as f32,
         WHITE,
         DrawTextureParams::default(),
+    );
+}
+
+/// Pose UNE bande verticale de la couche (les colonnes `debut .. debut + largeur`
+/// du fichier, sur toute sa hauteur), son coin haut gauche en `(x, y)` : un dessin
+/// d'une planche qui en range plusieurs côte à côte (les cristaux de la grotte).
+pub fn dessiner_bande(
+    theme: &'static str,
+    nom: &'static str,
+    (debut, largeur): (i32, i32),
+    x: i32,
+    y: i32,
+) {
+    let t = texture(theme, nom);
+    draw_texture_ex(
+        &t,
+        x as f32,
+        y as f32,
+        WHITE,
+        DrawTextureParams {
+            source: Some(Rect::new(debut as f32, 0.0, largeur as f32, t.height())),
+            ..Default::default()
+        },
     );
 }
 

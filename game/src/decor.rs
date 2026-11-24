@@ -161,38 +161,21 @@ pub struct TeinteTuiles {
 }
 
 /// Motif de décor du Monde 2 (carte 9.5) : un élément du fond qui n'est PAS une
-/// couche de silhouettes : l'eau au pied de l'écran, les chutes, les bulles, les
-/// grues... (dessinés par `dessiner_detail`, devant ou derrière la couche lointaine
-/// selon le groupe).
+/// couche de silhouettes (dessiné par `dessiner_detail`, entre les deux couches de
+/// silhouettes ou devant la couche proche selon le groupe). Carte 10.4f : il n'en
+/// reste que trois, tous ANIMÉS (donc du code) ; les motifs des égouts et du port
+/// (tuyaux, lueur, eau du port, grues, mouettes, phare) n'étaient plus dessinés depuis
+/// que ces thèmes ont leur propre pile (cartes 9.11b et 9.27b), et ceux de la rivière
+/// (forêt, eau) étaient entièrement cachés par le ciel de la vallée : supprimés.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Detail {
-    /// Les égouts : deux tuyaux qui traversent le tunnel et leurs colliers.
-    Tuyaux,
-    /// La lueur cyan des égouts : une bande d'eau sombre au sol, ses reflets.
-    Lueur,
     /// Les chutes d'eau de la cascade : trois ruisselles qui tombent devant
     /// les falaises, leur mousse au pied.
     Chutes,
     /// La brume de la cascade : deux nappes basses qui dérivent.
     Brume,
-    /// Les cristaux cyan de la grotte : des pointes au pied de l'écran.
-    Cristaux,
-    /// L'eau de la rivière : une bande de courant sombre, ses reflets.
-    EauRiviere,
-    /// La forêt de la rivière (carte 9.10) : deux rangs de sapins sombres à
-    /// mi-hauteur, au-dessus des berges hautes du niveau.
-    Foret,
-    /// L'eau du port : une bande plus haute, une écume claire au bord.
-    EauPort,
     /// L'eau de la marée : une bande sombre plus épaisse, l'écume qui monte.
     EauMaree,
-    /// Les grues du port : deux mâts sombres, leur flèche et leur treuil.
-    Grues,
-    /// Les mouettes du port : trois petits oiseaux qui traversent le ciel.
-    Mouettes,
-    /// Le phare au loin, à l'entrée du port : une tour blanche cerclée de corail,
-    /// sa lanterne qui clignote et son faisceau.
-    Phare,
 }
 
 /// Ambiance d'un thème : l'orage noir s'éclaircit jusqu'au soleil doré.
@@ -687,7 +670,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 1.0,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Tuyaux), Some(Detail::Lueur), None, None],
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // La grande cascade : niveau vertical (`vertige`) entre les chutes d'eau ;
@@ -763,7 +746,9 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 2.5,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Cristaux), None, None, None],
+            // Carte 10.4f : les cristaux ne sont plus un motif mais une couche
+            // PNG de la pile (`Couche::Cristaux`).
+            details: [None, None, None, None],
             vent: VENT_NUIT,
         },
         // La rivière : berges de fond et roseaux devant, ciel grisé qui
@@ -794,7 +779,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 1.0,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Foret), Some(Detail::EauRiviere), None, None],
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // Le port : quais et coques de bateaux, grues au premier plan, mouettes au
@@ -827,12 +812,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 1.0,
             arc: false,
             voyage: false,
-            details: [
-                Some(Detail::EauPort),
-                Some(Detail::Grues),
-                Some(Detail::Mouettes),
-                Some(Detail::Phare),
-            ],
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // La marée (bonus) : le mur de blocs du port, l'eau sombre qui monte au
@@ -1520,53 +1500,22 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
 }
 
 /// Motif de décor du Monde 2 (carte 9.5) : le dessin d'un motif (`Detail`) pour
-/// une ambiance, en trois groupes de parallaxe : les motifs du fond (mouettes,
-/// phare) restent fixés à l'écran (« à l'infini »), les motifs du milieu
-/// (chutes, brume, tuyaux, lueur) suivent la couche des îlots, les motifs du
-/// premier plan (eau, lampadaires, grues, cristaux) suivent la couche proche.
+/// une ambiance, en deux groupes de parallaxe : les motifs du milieu (chutes,
+/// brume) suivent la couche des îlots, ceux du premier plan (l'eau de la marée)
+/// suivent la couche proche.
 /// Pur : ne dépend que de `cam_x`, `cam_y` et `pas`.
 fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let (facteur, vert) = match d {
-        Detail::Mouettes => (0.0, 0),
-        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Foret => {
+        Detail::Chutes | Detail::Brume => {
             (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige))
         }
-        _ => (FACTEUR_PROCHE, enfoncement(cam_y, VERT_PROCHE * a.vertige)),
+        Detail::EauMaree => (FACTEUR_PROCHE, enfoncement(cam_y, VERT_PROCHE * a.vertige)),
     };
     let dec = decalage(cam_x, facteur);
     // Le « pied » du décor : le bas de l'écran, qui s'enfonce avec la parallaxe
     // verticale du groupe (nulle en bas d'un niveau d'un écran).
     let pied = H + vert;
     match d {
-        Detail::Tuyaux => {
-            // Deux tuyaux qui traversent le tunnel (segments en parallaxe),
-            // leurs colliers, et une grille d'évacuation au fond. Carte 9.20b :
-            // tuyaux sombres (ardoise, plus d'arête claire), pour qu'aucun ne se
-            // lise comme une plate-forme.
-            for (y, gy) in [(H / 3, 21), (2 * H / 3, 29)] {
-                for seg in 0..3 {
-                    let x0 = (seg * 120 + gy - dec).rem_euclid(L);
-                    rect(x0, y, 80, 3, ARDOISE);
-                    rect(x0, y + 3, 80, 1, ARDOISE_OMBRE);
-                    rect(x0 + 20, y - 1, 4, 5, ARDOISE_NUIT);
-                    rect(x0 + 60, y - 1, 4, 5, ARDOISE_NUIT);
-                }
-            }
-            let gx = (200i32 - dec).rem_euclid(L);
-            rect(gx, H / 3 + 10, 14, 22, ARDOISE_NUIT);
-            for b in 0..4 {
-                rect(gx + 2 + b * 3, H / 3 + 12, 1, 18, ARDOISE_CLAIRE);
-            }
-        }
-        Detail::Lueur => {
-            // L'eau stagnante du fond des égouts : une bande sombre et sa
-            // lueur cyan, qui dérive lentement.
-            rect(0, H - 10, L, 10, PLUIE_SOMBRE);
-            for k in 0..4 {
-                let x = (k * 83 + pas as i32 / 6).rem_euclid(L);
-                rect(x, H - 8 + (k % 2) * 3, 6, 1, PLUIE);
-            }
-        }
         Detail::Chutes => {
             // Trois ruisselles qui tombent devant les falaises : le corps sombre,
             // le courant clair, des éclats qui dévalent, la mousse au pied. Carte
@@ -1598,60 +1547,6 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
                 }
             }
         }
-        Detail::Cristaux => {
-            // Des cristaux cyan au pied de la grotte : des pointes en trois
-            // gradins, un liseré clair sur l'arête.
-            for k in 0..5 {
-                let x = (k * 68 + 16 - dec).rem_euclid(L);
-                let h = 12 + (k * 7) % 10;
-                rect(x, pied - 4, 8, 4, PLUIE_SOMBRE);
-                rect(x + 1, pied - 4 - h / 2, 6, h / 2, PLUIE_SOMBRE);
-                rect(x + 3, pied - 4 - h, 2, h / 2, PLUIE_SOMBRE);
-                rect(x + 3, pied - 4 - h, 1, h, PLUIE);
-            }
-        }
-        Detail::Foret => {
-            // Deux rangs de sapins : le rang du fond (ardoise claire), puis un
-            // rang plus sombre, plus bas ; chaque sapin est un empilement de
-            // gradins. Le pied de chaque rang descend jusqu'au bas de l'écran
-            // (les berges du niveau le cachent).
-            for (rang, (couleur, sommet, pas_x)) in [(ARDOISE_CLAIRE, 44, 13), (ARDOISE, 58, 17)]
-                .into_iter()
-                .enumerate()
-            {
-                let dec_rang = dec * (rang as i32 + 1) / 2;
-                rect(0, sommet + 22, L, pied - sommet - 22, couleur);
-                for k in 0..(L / pas_x + 2) {
-                    let h = hache(k + rang as i32 * 97, 0x5A9) as i32;
-                    let x = (k * pas_x - dec_rang).rem_euclid(L + pas_x) - pas_x / 2;
-                    let haut = sommet + h % 9;
-                    for g in 0..6 {
-                        let demi = 1 + g;
-                        rect(x - demi, haut + g * 4, 2 * demi + 1, 4, couleur);
-                    }
-                }
-            }
-        }
-        Detail::EauRiviere => {
-            // L'eau du courant au pied de l'écran : une bande sombre, sa surface
-            // claire, des reflets en pointillés qui dérivent.
-            rect(0, pied - 16, L, 16, PLUIE_SOMBRE);
-            rect(0, pied - 16, L, 2, PLUIE);
-            for k in 0..4 {
-                let x = (k * 79 + pas as i32 / 5).rem_euclid(L);
-                rect(x, pied - 13 + (k % 3) * 3, 1, 6, BLANC_CASSE);
-            }
-        }
-        Detail::EauPort => {
-            // L'eau du port : une bande plus haute, l'écume claire qui bouge au
-            // bord.
-            rect(0, pied - 24, L, 24, PLUIE_SOMBRE);
-            rect(0, pied - 24, L, 2, PLUIE);
-            for k in 0..6 {
-                let x = (k * 57 + 30 + pas as i32 / 7).rem_euclid(L);
-                rect(x, pied - 21, 5, 1, BLANC_CASSE);
-            }
-        }
         Detail::EauMaree => {
             // La marée : une bande d'eau sombre plus épaisse encore, l'écume qui
             // grimpe le long du mur (la course du bonus, carte 9.13).
@@ -1662,66 +1557,21 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
                 rect(x, pied - 33 + (k % 2), 4, 1, BLANC_CASSE);
             }
         }
-        Detail::Grues => {
-            // Deux grues de port au premier plan : un mât, une flèche, un treuil
-            // (des silhouettes claires sur la nuit : elles ne se lisent pas
-            // comme des plateformes, trop fines et trop hautes).
-            for (i, gx) in [58i32, 232].into_iter().enumerate() {
-                let x = (gx - dec).rem_euclid(L);
-                let haut = 34 + (i as i32) * 6;
-                rect(x, pied - haut, 2, haut, ARDOISE_OMBRE);
-                rect(x - 6, pied - haut, 18, 2, ARDOISE_OMBRE);
-                rect(x + 8, pied - haut + 2, 1, 8 + (i as i32) * 4, ARDOISE_OMBRE);
-            }
-        }
-        Detail::Mouettes => {
-            // Trois mouettes qui traversent le ciel du port : un V de trois
-            // pixels, qui dérivent lentement.
-            for k in 0..3u32 {
-                let x = (k as i32 * 97 + 20 - pas as i32 / 5).rem_euclid(L);
-                let y = 30 + (k as i32) * 22 + ((pas / 20 + k) % 4) as i32 - 2;
-                rect(x, y, 1, 1, BLANC_CASSE);
-                rect(x - 2, y - 1, 1, 1, NUAGE);
-                rect(x + 2, y - 1, 1, 1, NUAGE);
-            }
-        }
-        Detail::Phare => {
-            // Le phare au loin, fixé à l'écran comme les mouettes (« à
-            // l'infini ») : une tour blanche à trois anneaux corail, sa galerie et
-            // sa lanterne sombres. Le pied passe derrière les coques et l'eau
-            // (dessinées après). La lampe s'allume une seconde sur deux (60 pas)
-            // et lance deux traits de faisceau or pâle.
-            let (x, haut) = (L - 64, 98);
-            rect(x, haut + 8, 6, H - 20 - haut - 8, BLANC_CASSE);
-            for k in 0..3 {
-                rect(x, haut + 14 + k * 12, 6, 3, CORAIL);
-            }
-            rect(x - 1, haut + 6, 8, 2, ARDOISE_OMBRE);
-            rect(x + 1, haut, 4, 6, ARDOISE_OMBRE);
-            if (pas / 60).is_multiple_of(2) {
-                rect(x + 2, haut + 2, 2, 3, OR);
-                rect(x - 26, haut + 3, 24, 1, OR_PALE);
-                rect(x + 8, haut + 3, 24, 1, OR_PALE);
-            }
-        }
     }
 }
 
-/// Dessine les motifs du Monde 2 rangés dans `a.details`, groupe par groupe :
-/// `groupe` 0 = derrière les couches de silhouettes (le plus lointain : mouettes,
-/// phare), `groupe` 1 = entre les deux couches (chutes, brume, tuyaux, lueur),
-/// `groupe` 2 = devant la couche proche (eau, lampadaires, grues, cristaux).
-/// Le groupe d'un motif du Monde 2 (carte 9.5) dans la pile : 0 le plus lointain
-/// (derrière le plafond et les silhouettes), 1 entre les deux couches de
-/// silhouettes, 2 devant la couche proche.
+/// Le groupe d'un motif du Monde 2 (carte 9.5) dans la pile : 1 entre les deux
+/// couches de silhouettes (chutes, brume), 2 devant la couche proche (l'eau de la
+/// marée). Le groupe 0 (derrière le plafond : les mouettes et le phare du port) a
+/// disparu avec eux (carte 10.4f).
 fn groupe_du_motif(d: Detail) -> u8 {
     match d {
-        Detail::Mouettes | Detail::Phare => 0,
-        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Foret => 1,
-        _ => 2,
+        Detail::Chutes | Detail::Brume => 1,
+        Detail::EauMaree => 2,
     }
 }
 
+/// Dessine les motifs du Monde 2 rangés dans `a.details` qui sont du `groupe` donné.
 fn dessiner_details(a: &Ambiance, groupe: u8, cam_x: i32, cam_y: i32, pas: u32) {
     for d in a.details.iter().copied().flatten() {
         if groupe_du_motif(d) == groupe {
@@ -1764,6 +1614,14 @@ pub enum Couche {
     Port(crate::decor_port::Plan),
     /// Un plan de la rue du caniveau (carte 10.4d, suite), dessiné par `decor_rue`.
     Rue(crate::decor_rue::Plan),
+    /// Un plan de la grande chute de la cascade (carte 10.4f), dessiné par
+    /// `decor_cascade` d'après le niveau (rien sans niveau).
+    Chute(crate::decor_cascade::Plan),
+    /// Un plan de la vallée de la rivière (carte 10.4f), dessiné par `decor_riviere`.
+    Vallee(crate::decor_riviere::Plan),
+    /// Les cristaux de la grotte (carte 10.4f), `grotte/cristaux.png` : une planche
+    /// de cinq cristaux, chacun posé à son abscisse modulo la largeur de l'écran.
+    Cristaux,
     /// Le niveau lui-même (tuiles, entités, décors posés d'après la grille).
     Niveau,
     /// La pluie, devant tout (ou la bruine du port).
@@ -1784,6 +1642,8 @@ impl Couche {
             Couche::Egouts(p) => format!("egouts/{}.png", p.fichier()?),
             Couche::Port(p) => format!("port/{}.png", p.fichier()?),
             Couche::Rue(p) => format!("caniveau/{}.png", p.fichier()?),
+            Couche::Vallee(p) => format!("riviere/{}.png", p.fichier()?),
+            Couche::Cristaux => "grotte/cristaux.png".into(),
             _ => return None,
         })
     }
@@ -1809,6 +1669,10 @@ impl Couche {
             Couche::Port(p) => format!("{} CALCULÉ", p.nom()),
             Couche::Rue(p) if p.fichier().is_some() => png(p.nom()),
             Couche::Rue(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Chute(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Vallee(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Vallee(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Cristaux => png("cristaux"),
             Couche::Niveau => "NIVEAU".into(),
             Couche::Pluie => "pluie CALCULÉ".into(),
             Couche::Bruine => "bruine CALCULÉ".into(),
@@ -1853,9 +1717,6 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
         if a.arc {
             p.push(Couche::Arc);
         }
-        // Motifs du Monde 2 (carte 9.5) : le groupe 0 (mouettes, phare) est le plus
-        // lointain, derrière le plafond et les deux couches de silhouettes.
-        motifs(&mut p, 0);
         if a.plafond.is_some() {
             p.extend([Couche::PlafondLointain, Couche::PlafondProche]);
         }
@@ -1863,10 +1724,10 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
             p.push(Couche::Ilots);
         }
         p.push(Couche::Lointaine);
-        // Le groupe 1 (chutes, brume, tuyaux, lueur) se glisse entre les deux
-        // couches de silhouettes ; le groupe 2 (eau, grues, cristaux) est devant
-        // la couche proche. La rue du caniveau aussi : les maisons et leurs
-        // fenêtres entre les silhouettes, les lampadaires devant.
+        // Motifs du Monde 2 (carte 9.5) : le groupe 1 (chutes, brume) se glisse
+        // entre les deux couches de silhouettes ; le groupe 2 (l'eau de la marée)
+        // est devant la couche proche. La rue du caniveau aussi : les maisons et
+        // leurs fenêtres entre les silhouettes, les lampadaires devant.
         motifs(&mut p, 1);
         if theme == Theme::Caniveau {
             use crate::decor_rue::Plan;
@@ -1874,9 +1735,21 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
         }
         p.push(Couche::Proche);
         motifs(&mut p, 2);
+        // Les cristaux de la grotte, devant la couche proche (carte 10.4f : ils
+        // étaient un motif du groupe 2).
+        if theme == Theme::Grotte {
+            p.push(Couche::Cristaux);
+        }
         if theme == Theme::Caniveau {
             p.push(Couche::Rue(crate::decor_rue::Plan::Lampadaires));
         }
+    }
+    // Carte 10.4f : la grande chute de la cascade et la vallée de la rivière,
+    // devant le fond générique (la vallée le recouvre en entier).
+    if theme == Theme::Cascade {
+        p.extend(crate::decor_cascade::PILE.map(Couche::Chute));
+    } else if theme == Theme::Riviere {
+        p.extend(crate::decor_riviere::PILE.map(Couche::Vallee));
     }
     p.push(Couche::Niveau);
     if theme == Theme::Port {
@@ -1887,8 +1760,38 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
     p
 }
 
+/// Les abscisses (dans le motif) des cinq cristaux de la grotte ; le cristal `k` est
+/// la bande `k` de `grotte/cristaux.png` (8 px de large chacune).
+const CRISTAUX: [i32; 5] = [16, 84, 152, 220, 288];
+/// Largeur d'un cristal de `grotte/cristaux.png`.
+const LARGEUR_CRISTAL: i32 = 8;
+
+/// Les cristaux cyan au pied de la grotte (pointes en trois gradins, liseré clair
+/// sur l'arête) : chacun posé en UN exemplaire à son abscisse modulo la largeur de
+/// l'écran (coupé au bord droit, sans copie à gauche), le bas du fichier sur
+/// `pied`. `dec` : le décalage de la couche proche.
+fn dessiner_cristaux(dec: i32, pied: i32) {
+    let (_, h) = crate::fonds::taille("grotte", "cristaux");
+    for (k, cx) in CRISTAUX.into_iter().enumerate() {
+        let x = (cx - dec).rem_euclid(L);
+        let bande = (k as i32 * LARGEUR_CRISTAL, LARGEUR_CRISTAL);
+        crate::fonds::dessiner_bande("grotte", "cristaux", bande, x, pied - h);
+    }
+}
+
+/// Le niveau dont on dessine le fond, pour les couches qui le suivent : le monde, et
+/// l'ordonnée de la caméra de la SCÈNE (pas celle du fond). `None` : un écran sans
+/// niveau (titre, histoire, boutique, fin, planche de QA).
+type DuNiveau<'a> = Option<(&'a crate::monde::Monde, i32)>;
+
 /// Dessine une couche du fond (avant `Niveau` dans la pile).
-fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
+fn dessiner_couche_de_pile(
+    c: Couche,
+    a: &Ambiance,
+    (cam_x, cam_y): (i32, i32),
+    pas: u32,
+    niveau: DuNiveau,
+) {
     // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale),
     // davantage au clocher (`vertige`).
     let vert = |f: f32| enfoncement(cam_y, f * a.vertige);
@@ -1913,7 +1816,23 @@ fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas:
             };
             crate::decor_rue::dessiner_plan(p, decalage(cam_x, facteur), H + vert(v) - 48);
         }
+        // La grande chute se pose d'après le niveau : rien sans niveau.
+        Couche::Chute(p) => {
+            if let Some((monde, cy)) = niveau {
+                crate::decor_cascade::dessiner_plan(p, monde, cam_x, cy);
+            }
+        }
+        // La vallée s'enfonce depuis le milieu de la course de la caméra (un écran
+        // sans niveau : comme un niveau d'un écran de haut).
+        Couche::Vallee(p) => {
+            let hauteur = niveau.map_or(H, |(m, _)| m.niveau.hauteur_px() as i32);
+            let milieu = crate::decor_riviere::milieu(cam_y, hauteur);
+            crate::decor_riviere::dessiner_plan(p, cam_x, milieu, pas);
+        }
         Couche::Ciel(dossier) => crate::fonds::repeter(dossier, "ciel", 0, 0, L),
+        Couche::Cristaux => {
+            dessiner_cristaux(decalage(cam_x, FACTEUR_PROCHE), H + vert(VERT_PROCHE));
+        }
         // Le ciel du voyage : la colonne de `voyage.png`, répétée sur la largeur, son
         // haut (la 1re bande) remonté de `r`.
         Couche::CielDuVoyage => crate::fonds::repeter("descente", "voyage", 0, y_voyage(0, r), L),
@@ -2013,15 +1932,30 @@ fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas:
     }
 }
 
-/// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes).
-/// `cam_y` : ordonnée de la caméra vue par le fond (`camera_fond`).
+/// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes)
+/// sur un écran sans niveau. `cam_y` : ordonnée de la caméra vue par le fond
+/// (`camera_fond`).
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
+    dessiner_pile_de_fond(theme, (cam_x, cam_y), pas, None);
+}
+
+/// Dessine tout ce qui est DERRIÈRE le niveau du monde (la même pile, avec les
+/// couches qui suivent la grille : la grande chute de la cascade). `(cx, cy)` : la
+/// caméra de la scène.
+pub fn dessiner_fond_du_niveau(monde: &crate::monde::Monde, cx: i32, cy: i32) {
+    let cy_fond = camera_fond(cy, monde.niveau.hauteur_px() as i32);
+    let theme = monde.infos.theme;
+    dessiner_pile_de_fond(theme, (cx, cy_fond), monde.pas, Some((monde, cy)));
+}
+
+/// La pile du thème jusqu'au niveau (exclu), couche par couche.
+fn dessiner_pile_de_fond(theme: Theme, camera: (i32, i32), pas: u32, niveau: DuNiveau) {
     let a = ambiance(theme);
     for c in pile(theme) {
         if c == Couche::Niveau {
             break;
         }
-        dessiner_couche_de_pile(c, &a, cam_x, cam_y, pas);
+        dessiner_couche_de_pile(c, &a, camera, pas, niveau);
     }
 }
 
@@ -2312,6 +2246,62 @@ mod tests {
         );
     }
 
+    /// Carte 10.4f : la grande chute et la vallée sont entrées dans la pile, donc
+    /// AVANT ce que la scène dessine juste après le fond (la mer de la Pieuvre, le
+    /// soleil du mur de pluie, la déchirure du Grand Nuage, les façades des
+    /// auvents). Aucun niveau de ces deux thèmes n'a rien de tout cela : l'ordre
+    /// ne change donc aucun pixel. Les niveaux (et leurs variantes NG+) sont tous
+    /// vérifiés, ceux d'essai compris.
+    #[test]
+    fn la_chute_et_la_vallee_peuvent_passer_avant_le_reste_du_fond() {
+        use crate::monde::{infos_niveau, Monde};
+        use pepin_core::entities::Entite;
+        let mut vus = 0;
+        for indice in (0..).take_while(|&i| infos_niveau(i).is_some()) {
+            let theme = infos_niveau(indice).unwrap().theme;
+            if theme != Theme::Cascade && theme != Theme::Riviere {
+                continue;
+            }
+            for ng_plus in [false, true] {
+                let m = Monde::charger(indice, ng_plus);
+                assert!(!crate::dessin_port::est_la_jetee(&m), "{indice}");
+                assert!(m.mur.is_none(), "{indice}");
+                assert!(
+                    !m.entites
+                        .iter()
+                        .any(|e| matches!(e, Entite::Nuage(_) | Entite::Auvent(_))),
+                    "{indice}"
+                );
+                vus += 1;
+            }
+        }
+        assert!(vus >= 6, "cascade, rivière, essai : {vus}");
+    }
+
+    /// Carte 10.4f : les cristaux de la grotte, une planche : chaque bande est UN
+    /// cristal posé sur le bas du fichier (une base pleine de 8 px), sa pointe et
+    /// son liseré clair, sans rien qui déborde dans la bande voisine ; et les
+    /// cristaux ne se chevauchent pas dans le motif.
+    #[test]
+    fn chaque_bande_des_cristaux_est_un_cristal_pose() {
+        use pepin_core::palette::{PLUIE, PLUIE_SOMBRE};
+        let (_, h) = crate::fonds::taille("grotte", "cristaux");
+        let px =
+            |x: i32, y: i32| crate::fonds::couleur("grotte", "cristaux", x as usize, y as usize);
+        for k in 0..CRISTAUX.len() as i32 {
+            let x0 = k * LARGEUR_CRISTAL;
+            for x in x0..x0 + LARGEUR_CRISTAL {
+                assert_eq!(px(x, h - 1), Some(PLUIE_SOMBRE), "base du cristal {k}");
+            }
+            let liseres = (0..h).filter(|&y| px(x0 + 3, y) == Some(PLUIE)).count();
+            assert!(liseres >= 12, "liseré du cristal {k}");
+        }
+        for paire in CRISTAUX.windows(2) {
+            assert!(paire[1] - paire[0] >= LARGEUR_CRISTAL);
+        }
+        assert!(CRISTAUX[4] + LARGEUR_CRISTAL <= L);
+    }
+
     /// Chaque couche PNG d'une pile existe, et chaque fichier de `assets/fonds` sert à
     /// une pile : aucun fichier manquant ni orphelin.
     #[test]
@@ -2351,6 +2341,19 @@ mod tests {
                 // bas du trottoir d'en face) et un lampadaire.
                 "maisons" => (496, 154),
                 "lampadaire" => (15, 51),
+                // Carte 10.4f : le ciel de la vallée (deux colonnes, la période de
+                // sa trame, jusqu'à la 1re rangée pleine de la dernière bande), le
+                // soleil couchant (son disque) et le moulin (un exemplaire).
+                "ciel_vallee" => (2, 89),
+                "soleil_couchant" => (31, 31),
+                "moulin" => (36, 38),
+                // La planche des cinq cristaux de la grotte, 8 px chacun, posés sur
+                // le bas du fichier.
+                "cristaux" => (LARGEUR_CRISTAL * CRISTAUX.len() as i32, 24),
+                // Carte 10.4f (fin) : la planche des deux cargos du port (38 et 28
+                // px, sur la ligne de flottaison) et le phare au large sur sa jetée.
+                "cargos" => (66, 14),
+                "phare" => (77, 31),
                 _ => panic!("{f} : couche inconnue"),
             };
             assert_eq!(crate::fonds::taille(d, n), attendue, "{f}");

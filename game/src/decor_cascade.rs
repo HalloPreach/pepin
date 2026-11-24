@@ -13,8 +13,9 @@
 //!    en rivière vers la droite (le courant `}` de la grille), sous le drapeau.
 //!
 //! Tout se place d'après la grille : la passerelle sous le départ, la bouche au bout
-//! de la passerelle, le bassin d'arrivée (la plus basse étendue d'eau). La scène appelle
-//! `dessiner_fond` derrière les tuiles et `dessiner` devant elles ; rien hors du thème
+//! de la passerelle, le bassin d'arrivée (la plus basse étendue d'eau). La grande
+//! chute est dans la pile du fond (`Plan`, `dessiner_plan`, repris par `decor::pile`,
+//! carte 10.4f) ; la scène appelle `dessiner` devant les tuiles ; rien hors du thème
 //! Cascade.
 
 use macroquad::prelude::draw_rectangle;
@@ -102,21 +103,58 @@ pub(crate) fn bassin_d_arrivee(n: &Niveau) -> Option<i32> {
     n.eaux.iter().map(|e| e.surface().round() as i32).max()
 }
 
-/// Derrière les tuiles : la grande chute (le rideau, sa lèvre, ses paliers), la
-/// falaise du pied et la brume du bas.
-pub fn dessiner_fond(monde: &Monde, cx: i32, cy: i32) {
+/// Les plans de la grande chute, du plus loin au plus près (carte 10.4f). Tous
+/// CALCULÉS : ils se posent d'après la grille du niveau (le bas de la chute est le
+/// bassin d'arrivée, la falaise court sur toute la largeur du niveau, les filets
+/// suivent les chutes `|`) ou s'animent (l'eau qui dévale, la brume). `decor::pile`
+/// les reprend tels quels pour le thème `Cascade`, après le fond générique.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Plan {
+    /// La falaise du pied, de part et d'autre de la chute.
+    Falaise,
+    /// Le rideau : la nappe, ses filets qui dévalent, la lèvre, l'écume des paliers.
+    Rideau,
+    /// La brume du bas de la chute.
+    Brume,
+    /// Les filets des chutes `|` qui continuent derrière les tuiles jusqu'à l'eau.
+    Filets,
+}
+
+/// La pile de la grande chute (lue par `decor::pile`).
+pub const PILE: [Plan; 4] = [Plan::Falaise, Plan::Rideau, Plan::Brume, Plan::Filets];
+
+impl Plan {
+    /// Le nom du plan dans `assets/fonds/LISEZMOI.md` (aucun n'est un fichier).
+    #[cfg(test)]
+    pub fn nom(self) -> &'static str {
+        match self {
+            Plan::Falaise => "falaise du pied",
+            Plan::Rideau => "rideau de la chute",
+            Plan::Brume => "brume de la chute",
+            Plan::Filets => "filets des chutes",
+        }
+    }
+}
+
+/// Dessine un plan de la grande chute, derrière les tuiles (rien hors du thème
+/// Cascade). `(cx, cy)` : la caméra de la scène.
+pub fn dessiner_plan(plan: Plan, monde: &Monde, cx: i32, cy: i32) {
     if monde.infos.theme != Theme::Cascade {
         return;
     }
     let n = &monde.niveau;
     let pas = monde.pas;
     let bas = bassin_d_arrivee(n).unwrap_or(n.hauteur_px() as i32);
-    dessiner_falaise_du_pied(bas, n.largeur_px() as i32, (cx, cy));
-    dessiner_rideau(bas, pas, (cx, cy));
-    dessiner_brume(bas, pas, (cx, cy));
-    for p in pieds_des_chutes(monde) {
-        if p.eau > p.haut {
-            dessiner_filet(&p, pas, (cx, cy));
+    match plan {
+        Plan::Falaise => dessiner_falaise_du_pied(bas, n.largeur_px() as i32, (cx, cy)),
+        Plan::Rideau => dessiner_rideau(bas, pas, (cx, cy)),
+        Plan::Brume => dessiner_brume(bas, pas, (cx, cy)),
+        Plan::Filets => {
+            for p in pieds_des_chutes(monde) {
+                if p.eau > p.haut {
+                    dessiner_filet(&p, pas, (cx, cy));
+                }
+            }
         }
     }
 }

@@ -17,6 +17,8 @@
 //! (`./build.sh --qa`, fonctionnalités `debug_niveaux` et `qa_plantage`).
 
 mod app;
+#[cfg(test)]
+mod assets;
 mod audio;
 #[cfg(test)]
 mod bot_qa;

@@ -7337,3 +7337,120 @@ Décision d'Aga sur le blocage, mot pour mot : « tout en wav plutôt histoire q
 - Démarrage (`node docs/mesure-demarrage.mjs PORT 4`, dist/ de production, six séries alternées, médianes) : écran titre 236, 213, 230, 260 ms avant ; 270, 241, 230, 221 ms après ; premier dessin 579, 536, 546, 572 avant ; 599, 576, 563, 562 après. Écart dans le bruit d'une série à l'autre du même build : pas de ralentissement visible.
 - RESTE (pas fait, arrêt propre après cette étape complète) : la grande chute de la cascade (`decor_cascade::dessiner_fond`) et la vallée de la rivière (`decor_riviere::dessiner_fond`), dessinées par la SCÈNE après `decor::dessiner_fond`, hors de `decor::pile` : les faire d'abord entrer dans la pile (ou une pile de scène testée de la même façon) ; la grotte (`decor_grotte`), la Pieuvre (`dessin_port::dessiner_fond`), la montée (`dessin_montee`), les motifs du Monde 2 restants (`decor::dessiner_detail` : tuyaux, lueur, chutes, brume, cristaux, eaux, forêt, grues, mouettes, phare) ; le plan « large » du port (premier cargo, phare lointain) ; toujours ouverts depuis 10.4c : la carte des niveaux (`ecrans/fond_plan.rs`) et une capture de l'écran de fin.
 - Pas testé : joueur humain, téléphone, Safari.
+
+## Carte 10.4f (1re étape) : la grande chute de la CASCADE et la vallée de la RIVIÈRE entrent dans la pile ; le ciel, le soleil et le moulin de la vallée deviennent des fichiers PNG (`assets/fonds/riviere`)
+- Fait : la grande chute (`decor_cascade`) et la vallée (`decor_riviere`) n'étaient pas dans `decor::pile` : la SCÈNE les dessinait après `decor::dessiner_fond`. Elles y sont entrées, en plans comme le port et la rue : `decor_cascade::Plan` (falaise du pied, rideau de la chute, brume de la chute, filets des chutes) en `Couche::Chute(plan)`, `decor_riviere::Plan` (15 plans) en `Couche::Vallee(plan)`, après le fond générique du thème. La scène dessine désormais la pile par `decor::dessiner_fond_du_niveau(monde, cx, cy)` : les couches qui suivent la grille reçoivent le monde (sans niveau, titre, histoire, fin, planche de QA : `decor::dessiner_fond`, la grande chute n'y dessine rien, la vallée y prend un niveau d'un écran de haut). Bloc de pile du LISEZMOI mis à jour (cascade et rivière), vérifié par `la_pile_documentee_est_celle_du_rendu`.
+- Pile de la rivière : ciel PNG `riviere/ciel.png`, silhouettes lointaines, motifs 1, silhouettes proches, motifs 2 (le fond générique, recouvert en entier, gardé : son ciel nourrit les garde-fous de contraste), puis ciel de la vallée PNG, halo du soleil CALCULÉ, soleil couchant PNG, nuages fins, oiseaux, montagnes, collines, rang clair, rivière du fond (CALCULÉ), moulin PNG, roue du moulin, rang sombre, versant, grands arbres, lucioles (CALCULÉ), NIVEAU. Le soleil d'avant (trois disques) est coupé en trois plans pour que le halo qui respire reste DERRIÈRE le disque fixe ; le moulin d'avant est coupé en deux (le corps fixe, PNG ; la roue qui tourne, devant).
+- Ordre : la chute et la vallée passent maintenant AVANT la mer de la Pieuvre, le soleil du mur de pluie, la déchirure et les façades d'auvent (la scène les dessinait après). Aucun niveau de ces deux thèmes n'en a : test `la_chute_et_la_vallee_peuvent_passer_avant_le_reste_du_fond` (tous les niveaux cascade et rivière, essais compris, normaux et NG+ : pas de jetée, pas de mur, ni Nuage ni Auvent).
+- Restent du code (listés dans le LISEZMOI) : toute la grande chute (son bas est le bassin d'arrivée du niveau, la falaise court sur toute sa largeur, les filets suivent les chutes `|`, et elle s'anime) ; dans la vallée, ce qui s'anime (halo, nuages, oiseaux, rivière du fond, roue, lucioles) et ce qui est SEMÉ AU HASARD sans période (montagnes et collines en sinus et `hache`, rangs d'arbres, versant, grands arbres qui ondulent), comme les silhouettes du Monde 1.
+- Code de dessin supprimé : `bandes_du_ciel` et la trame du ciel (9 appels de `rect` en boucle), les deux disques fixes du soleil, le corps du moulin (murs, toit en gradins, cheminée, fenêtre, porte). Les PNG ont été tirés UNE fois de ce code (générateur jetable : crochet `#[cfg(test)]` dans `rect`, test ignoré qui écrit la grille ; supprimé), écrits par `sprite ecrire` puis relus par `sprite lire` : aller-retour identique.
+- Tests : `le_ciel_va_du_sombre_au_clair_sans_or_vif` lit désormais le FICHIER (six bandes, jamais l'or des gouttes), `le_ciel_du_fichier_se_prolonge_par_ses_bouts` (période de deux colonnes, premier et dernier rang pleins), `la_roue_tourne_contre_le_mur_du_moulin` (le mur droit du fichier sous l'axe de la roue), le test d'ordre ci-dessus ; table des tailles de `aucune_couche_png_manquante_ni_orpheline` étendue ; palette, blocs permis et 16 Ko vérifiés par les tests existants pour les 3 nouveaux fichiers.
+- Poids (plafonds de la carte : +120 Ko NET depuis son début, 16 Ko par couche) : 3 couches, 677 octets ; wasm de production 1 069 007 → 1 070 242 octets (+1 235 : les PNG et les deux tables de plans pèsent plus que le code retiré ; gzip 442 397 → 443 211) ; QA 1 093 017 → 1 094 251. Aucun fichier servi en plus.
+
+| Couche | Dimensions | Octets |
+| --- | --- | --- |
+| `riviere/ciel_vallee.png` | 2 x 89 | 196 |
+| `riviere/soleil_couchant.png` | 31 x 31 | 246 |
+| `riviere/moulin.png` | 36 x 38 | 235 |
+
+- Preuves : `lint` LINT-OK ; `test --workspace --no-default-features` VERT (core 314, game 418, niveaux 16 + 89, outils 9, robot 4) et game avec `debug_niveaux,qa_plantage` 417 ; `carte cascade` VERTE (54 s), `carte riviere` (15 s), `carte grotte`, `carte port`, `carte pieuvre` (10 à 11 s chacune) VERTES. Captures (build de QA copié AVANT toute modification, puis celui de la fin, servis côte à côte, `comparer-captures.py` par paires) : `docs/capture-104d.sh` (départ et milieu des 7 niveaux du Monde 2, Pieuvre 300 et 900 images plus tard, montée à deux hauteurs, rue x 8) et le nouveau `docs/capture-104f.sh` (la cascade x 6 et la rivière x 8, Pépin court et saute, 4 sauts entre deux captures : la caméra avance, monte et descend ; le halo, les nuages, les montagnes, la rivière du fond et la roue passent ENTRE les couches PNG) : 42/42 IDENTIQUES, 0 pixel différent. Exemples : `docs/qa/104f-riviere-moulin.png`, `docs/qa/104f-cascade-chute.png`.
+- `./build.sh` et `./build.sh --qa` OK, 0 nom interdit (aucun nom ni chemin /home dans dist/, dist-qa/ et assets/fonds) ; les trois PNG n'ont que IHDR, PLTE, tRNS, IDAT, IEND.
+- Démarrage (`node docs/mesure-demarrage.mjs PORT 4`, dist/ de production, huit séries alternées, médianes ; machine très chargée, charge moyenne 22 à 26) : écran titre 738, 668, 699, 681, 695, 692, 657, 752 ms avant ; 752, 739, 747, 728, 686, 737, 708, 733 ms après ; premier dessin 836, 727, 697, 678, 692, 688, 654, 751 avant ; 751, 898, 739, 726, 684, 734, 706, 731 après. Les deux plages se recouvrent (et rien ne change au démarrage : le titre dessine les toits, dont la pile n'a pas bougé) ; la médiane des séries « après » est plus haute d'environ 40 ms, dans le bruit de cette machine : à revérifier sur une machine au repos.
+- RESTE après la 1re étape : voir la 2e étape ci-dessous.
+- Pas testé : joueur humain, téléphone, Safari.
+
+## Carte 10.4f (2e étape) : les CRISTAUX de la grotte deviennent un fichier PNG (`assets/fonds/grotte/cristaux.png`)
+- Fait : les cristaux n'étaient pas une couche à part mais un motif du Monde 2 (`Detail::Cristaux`, groupe 2, le seul motif de la grotte). Le motif est supprimé ; ils sont une couche PNG de la pile, `Couche::Cristaux`, à la même place (devant la couche proche, avant le niveau). Pile de la grotte : ciel PNG, plafond lointain, plafond proche, silhouettes lointaines, silhouettes proches (CALCULÉ), cristaux PNG `grotte/cristaux.png`, NIVEAU (bloc du LISEZMOI mis à jour, vérifié par `la_pile_documentee_est_celle_du_rendu`).
+- Le fichier est une PLANCHE : les cinq cristaux (hauteurs différentes) côte à côte, une bande de 8 px chacun ; le code pose chaque bande en UN exemplaire à son abscisse (`CRISTAUX` : 16, 84, 152, 220, 288) modulo la largeur de l'écran, comme les lampadaires de la rue (coupés au bord droit, sans copie à gauche), avec la parallaxe de la couche proche (vertige de la grotte compris). Nouvelle fonction `fonds::dessiner_bande` (une bande de colonnes d'une couche, par le rectangle source de la texture).
+- Reste du code à la grotte : les deux plafonds et les silhouettes (semés au hasard) ; l'habillage `decor_grotte` (rideau de la cascade à l'entrée, sources sur les vasques et fissures, jour de la sortie) se pose d'après la grille et reste dessiné par la scène.
+- Test : `chaque_bande_des_cristaux_est_un_cristal_pose` (chaque bande a sa base pleine et son liseré, les cristaux ne se chevauchent pas dans le motif) ; table des tailles étendue (40 x 24). Fichier tiré une fois du code supprimé (mêmes rectangles, hors du jeu), écrit par `sprite ecrire`, relu par `sprite lire` : aller-retour identique.
+- Poids : 1 couche, 219 octets ; wasm de production 1 070 242 → 1 070 743 (+501) ; depuis le début de la carte : 1 069 007 → 1 070 743, +1 736 octets (gzip 442 397 → 443 528), très loin du plafond de +120 Ko ; QA 1 094 752. Aucun fichier servi en plus.
+
+| Couche | Dimensions | Octets |
+| --- | --- | --- |
+| `grotte/cristaux.png` | 40 x 24 | 219 |
+
+- Preuves : `lint` LINT-OK ; `test --workspace --no-default-features` VERT (core 314, game 419, niveaux 16 + 89, outils 9, robot 4), game avec `debug_niveaux,qa_plantage` 418 ; `carte grotte`, `carte cascade`, `carte riviere` VERTES après cette étape (`carte port` et `carte pieuvre` VERTES à la 1re, leur code n'a pas bougé depuis). `./build.sh` et `./build.sh --qa` OK, aucun nom ni chemin /home dans dist/, dist-qa/ et assets/fonds ; le PNG n'a que IHDR, PLTE, tRNS, IDAT, IEND.
+- Captures : `docs/capture-104f.sh` va maintenant aussi plus loin dans la grotte (6 captures, Pépin court et saute, la caméra monte : les plafonds et les silhouettes, calculés, passent entre le ciel et les cristaux PNG), et `docs/capture-104d.sh` a été repris sur le build de la fin. Le départ et le milieu de la grotte (n15) et les 6 captures de plus : IDENTIQUES au pixel au build d'avant la carte.
+- ATTENTION, honnêteté sur les captures : la machine était très chargée pendant cette étape (charge moyenne 22 puis 45). Trois passages de `capture-104f.sh` sur le MÊME build d'avant la carte ont donné, pour 4 images sur 20 (cascade 2, 3, 6 et rivière 7), des captures différentes d'un passage à l'autre (Pépin dans l'eau décalé, toute la scène décalée d'un pixel de caméra) : le pilote n'est pas parfaitement déterministe sous forte charge. Ce n'est pas le code de la carte : le même écart apparaît entre deux passages du build d'AVANT. Bilan sur tous les passages (82 captures avant, 110 après, 48 images distinctes) : 47 images après sur 48 sont identiques au pixel à une capture avant de la même image ; la 48e (cascade 6) a donné trois variantes en tout, et l'après est identique à l'avant dans les deux passages par paires faits machine moins chargée (1er passage : 42/42 ; 3e passage : 19/20, la seule différence, rivière 7, étant l'écart d'un passage d'avant avec lui-même). À refaire sur une machine au repos pour une preuve propre en un seul passage.
+- Démarrage : pas de nouvelle série pour cette étape (la machine était à une charge de 45, toute mesure aurait été du bruit) ; le titre dessine les toits, dont la pile n'a pas bougé.
+- RESTE (pas fait, arrêt propre après cette 2e étape complète, durée visée dépassée) : la Pieuvre phase 1 (`dessin_port::dessiner_fond`, hors pile), la montée (`dessin_montee`), les motifs du Monde 2 restants (`decor::dessiner_detail` : tuyaux, lueur, chutes, brume, eaux, forêt, grues, mouettes, phare ; la forêt et l'eau de la rivière, sous la vallée, ne se voient plus), le plan « large » du port (premier cargo, phare lointain) ; toujours ouverts depuis 10.4c : la carte des niveaux (`ecrans/fond_plan.rs`, chapitres 1 et 2) et une capture de l'écran de fin.
+- Pas testé : joueur humain, téléphone, Safari.
+
+## Carte 10.4f (AGA, clôture) : la chaîne « assets en fichiers » se termine : sons téléchargés seulement au premier son, fin des fonds du Monde 2, compression des WAV proposée, `assets/LISEZMOI.md`
+
+Même worktree que les deux étapes précédentes (`carte-10.4f`, parti de `fbd5f8c`).
+
+### 1. Les sons ne partent qu'à la première activation du son
+
+- AVANT : le jeu téléchargeait les 19 WAV (3,1 Mo) dès la 2e image, que le joueur active le son ou non (et le son est coupé par défaut).
+- `game/src/audio.rs` : nouvelle `FileDeSons`, pure et testée, qui décide QUOI télécharger et QUAND ; `Chargement` (les coroutines de macroquad) ne fait plus que lui demander la suivante. Règles :
+  - son coupé : la file ne rend RIEN (aucune requête) ; recoupé en cours de chargement, plus aucune nouvelle requête (seuls les téléchargements déjà partis finissent) ;
+  - première activation : le bip des menus, LA MUSIQUE DE LA ZONE EN COURS (Orage au titre, celle du niveau en jeu), la pluie, puis les 12 bruitages ; aucune autre musique ;
+  - une autre musique ne part que quand sa zone arrive (la musique voulue change, son actif), EN TÊTE de file ; chaque fichier n'est demandé qu'une fois.
+  - `Audio::avancer` donne à chaque image l'état du son et la musique voulue à la file ; `Piste::dans_l_ordre` est remplacée par `Piste::au_premier_son(zone)` (et `Piste::toutes`, pour les tests).
+- Tests (crate `game`) : `son_coupe_aucun_telechargement` (toutes les zones, 6 000 images chacune, son coupé : zéro), `premiere_activation_la_zone_d_abord_et_rien_d_autre` (en cours de niveau, zone Poursuite : menu, poursuite, pluie dès la 1re image, puis les bruitages, une seule musique), `une_musique_part_quand_sa_zone_arrive` (en tête de file, une fois ; à la fin des zones, les 20 pistes demandées une fois chacune), `son_recoupe_la_file_s_arrete_et_reprend`.
+- Dans le navigateur : nouveau `docs/sons-a-la-demande.mjs` (Chromium sans écran, navigateur neuf, cache coupé, vraies touches) sur `dist/` :
+  - `coupe` : titre 4 s, puis le premier niveau 6 s, son jamais activé : 0 requête audio (3 requêtes en tout : la page, le JS, le wasm). AVANT (build de `fbd5f8c`, même sonde) : 19 requêtes audio, 3 100 254 octets.
+  - `titre` : M au titre : `sons/menu.wav`, `musiques/orage.wav`, `sons/pluie.wav` demandés 22 à 44 ms après l'appui, puis les 11 autres bruitages ; la musique (boucle de 9,6 s) démarre 134 ms puis 156 ms après l'appui (deux passages). 14 fichiers, 685 931 octets.
+  - `niveau` : 3 s de jeu son coupé (0 requête), puis M EN COURS DE NIVEAU : `menu`, `musiques/toits_de_nuit.wav` (la musique de la zone), `pluie` d'abord ; la musique démarre 122 ms puis 183 ms après l'appui, sans blocage (le jeu continue, 0 erreur de console). 14 fichiers, 770 603 octets.
+  - `zone` : M au titre, puis entrée dans le premier niveau : seul `musiques/toits_de_nuit.wav` est demandé en entrant, et sa boucle (11,52 s) part.
+  - SONS-A-LA-DEMANDE-OK. Seuil de la carte (« le son démarre avec plus d'une seconde de retard ») : jamais atteint, 183 ms au pire, en local, machine à une charge de 40 à 68.
+  - À savoir : sur un vrai réseau, le retard de la musique sera celui du téléchargement de la boucle (orage : 423 Ko, 386 Ko en gzip) ; les bruitages arrivent après. Rien à faire de plus tant qu'on n'a pas une mesure réseau réelle.
+
+### 2. Compression des WAV par le serveur : PROPOSITION (rien n'est modifié en prod)
+
+- Constat (lecture seule de la configuration nginx de la prod, et de `mime.types` dans son conteneur) : `gzip_types` ne contient pas l'audio, et `.wav` n'a même pas de type (`mime.types` ne le connaît pas : servi en `application/octet-stream`). Les WAV partent donc NON compressés.
+- Lignes à ajouter dans le bloc `http` de `nginx.conf`, à côté de `gzip_types` (deux lignes : le type, puis la compression) :
+
+      gzip_types application/wasm application/javascript text/css image/svg+xml audio/wav;
+      types { audio/wav wav; }
+
+  (la 1re remplace la ligne `gzip_types` actuelle en y ajoutant `audio/wav` ; la 2e ajoute le type des `.wav` aux types déjà inclus.)
+- Essayée sur une COPIE de la configuration, dans un conteneur jetable (même image `nginxinc/nginx-unprivileged:1-alpine`, port de boucle local, `dist/` monté en lecture seule, conteneurs supprimés ensuite) : `.wav` en `audio/wav` + `Content-Encoding: gzip` ; `game.wasm` toujours `application/wasm` gzip, `mq_js_bundle.js` et `index.html` inchangés (le `types {}` s'ajoute bien à `mime.types`).
+- Gain mesuré (octets reçus par `curl`, 19 fichiers) : 3 096 644 -> 2 394 858 (-23 %) ; au premier son du titre (14 fichiers) : 683 276 -> 609 534. Le décodage par le navigateur ne change pas (il reçoit les mêmes octets décompressés).
+- À appliquer avec l'accord d'Aga (puis redémarrer le conteneur du site) ; rien n'a été touché à la prod.
+
+### 3. Fin des fonds du Monde 2 (« finir la 10.4d »)
+
+Liste reprise de la 2e étape (`t_be104fce`) et rendue finale :
+
+| Fond du Monde 2 | État |
+| --- | --- |
+| Égouts (mur, arches) | FAIT (10.4d) |
+| Port (crépuscule, mer, port d'en face, pontons) | FAIT (10.4d) |
+| Port, le large : les deux cargos, le phare | FAIT ICI : `port/cargos.png` (66 x 14, planche des deux cargos) et `port/phare.png` (77 x 31) ; restent du code le glissement du petit cargo, le faisceau qui tourne et la lampe |
+| Rue du caniveau (maisons, lampadaire) | FAIT (10.4d suite) |
+| Cascade (grande chute) | Dans la pile (10.4f 1re étape), reste du code : elle suit la grille et s'anime |
+| Rivière (ciel, soleil couchant, moulin) | FAIT (10.4f 1re étape) |
+| Grotte (cristaux) | FAIT (10.4f 2e étape) |
+| Motifs du Monde 2 (`decor::Detail`) | FINI ICI : 8 motifs sur 11 n'étaient plus jamais visibles (tuyaux, lueur, eau du port, grues, mouettes, phare : leurs thèmes ont leur propre pile depuis 9.11b et 9.27b, `decor::pile` ne les posait plus ; forêt et eau de la rivière : sous le ciel de la vallée, opaque sur tout l'écran) : supprimés (environ 150 lignes). Restent les 3 motifs ANIMÉS : chutes et brume de la cascade, eau de la marée |
+| Pieuvre, phase de la jetée (`dessin_port::dessiner_fond`) | Rien à sortir : mer unie, houle, feu, reflet animés ; bateaux et phare déjà des sprites (`jetee_*`). Seul dessin fixe resté en code : l'îlot du phare, deux rectangles d'une couleur (un fichier de 26 x 5 n'apporterait rien) |
+| Montée de la Pieuvre (`dessin_montee`, `mer_montee`, fond sous la tour) | Rien à sortir : sprites de la Pieuvre déjà en fichiers, mer et fond qui suivent la simulation ou la caméra |
+
+- Code : `decor_port::Plan::Large` devient trois plans, `Cargos` (PNG, posé en deux bandes de la planche par `fonds::dessiner_bande`), `Phare` (PNG) et `Faisceau` (code) ; `decor_port::phare()` (les rectangles) est supprimé, le test `le_phare_est_pose_au_bout_de_sa_jetee` lit maintenant le fichier. Sous la tour de la Pieuvre, toujours ni phare ni faisceau ; les cargos y restent, décalés comme avant (`DECALAGE`).
+- `assets/fonds/LISEZMOI.md` : deux lignes de plus au tableau des couches, la pile du port et celle de la rivière à jour (vérifié par `la_pile_documentee_est_celle_du_rendu`), et la liste « ce qui reste calculé » close pour le Monde 2. Toujours ouverts HORS Monde 2, depuis 10.4c : la carte des niveaux (`ecrans/fond_plan.rs`) et une capture de l'écran de fin.
+- PNG : `sprite lire` redonne la grille d'origine ; blocs IHDR, PLTE, tRNS, IDAT, IEND seulement (208 et 217 octets).
+
+### 4. `assets/LISEZMOI.md`
+
+- Nouveau : ce qui est un fichier (tableau des 5 dossiers : contenu, embarqué dans le wasm ou servi à côté, LISEZMOI de règles) et ce qui reste CALCULÉ, avec pourquoi : la pluie, les éclairs, l'eau du Monde 2, les particules, les tuiles éclaircies, les plans semés au hasard ou animés des fonds, le texte. Il dit aussi que les sons ne partent qu'au premier son.
+- `assets/musiques/LISEZMOI.md` : le point 3 (« comment le jeu les charge ») suit la nouvelle règle.
+- Nouveau `game/src/assets.rs` (tests seulement) : `chaque_fichier_d_assets_est_lu_par_le_jeu` (chaque fichier de `assets/` est un `.png`, `.ron` ou `.wav` de son dossier, ou un LISEZMOI : un `.ogg` oublié ou un dossier inconnu ferait échouer) et `chaque_dossier_d_assets_est_decrit`. Avec les tests par dossier qui existaient (sprites, fonds, sons, niveaux), c'est le « aucun fichier orphelin ni manquant dans chaque dossier d'assets » de la carte.
+
+### Preuves
+
+- `./docker-cargo.sh lint` : LINT-OK. `test --workspace --no-default-features` VERT : core 314, game 424 (419 + 4 tests de la file des sons - 1 remplacé + 2 tests d'assets), niveaux 16 + 89, outils 9, robot 4. Et game avec `debug_niveaux,qa_plantage` : 423 VERT.
+- `./build.sh` et `./build.sh --qa` OK. wasm 1 070 743 -> 1 069 153 octets (-1 590 : les motifs morts).
+- Poids par dossier d'`assets/` (fichiers, octets) : sprites 335 / 74 436 ; fonds 32 / 9 841 (+425 : cargos et phare) ; levels 33 / 175 617 ; musiques 6 / 2 836 772 ; sons 13 / 259 872.
+- Poids téléchargé, mesuré en servant `dist/` par la configuration nginx de la prod (copie, conteneur jetable) :
+
+| | AVANT (`fbd5f8c`) | APRÈS, nginx actuel | APRÈS, nginx proposé |
+| --- | --- | --- | --- |
+| Son coupé (page : HTML, JS, wasm, en gzip) | 460 402 + 3 096 644 de sons = 3 557 046 | 460 825 (aucun son) | 460 825 |
+| Son activé au titre | idem (tout est déjà là) | + 683 276 (14 fichiers) | + 609 534 |
+| Toutes les zones visitées | idem | + 3 096 644 (19 fichiers) | + 2 394 858 |
+
+- Démarrage (`node docs/mesure-demarrage.mjs PORT 5`, navigateur neuf, deux séries alternées avant / après, machine à une charge de 50 à 68 : mesures très bruitées) : premier dessin, médianes : série 1, avant 1 333 ms, après 1 330 ms ; série 2, avant 876 ms, après 655 ms. Avant, les 19 sons étaient décodés à 1,6 s à 2,6 s ; après, aucun son n'est téléchargé tant que le son est coupé. Le titre n'apparaît pas plus tard ; il n'a plus 3 Mo de sons en concurrence sur le réseau.
+- Captures (build de QA copié AVANT toute modification de cette carte, `fbd5f8c`, puis celui de la fin, servis côte à côte, `docs/capture-104d.sh` et `docs/capture-104f.sh`, `comparer-captures.py` par paires), deux passages de chaque build, machine à une charge de 40 à 68 : 48 images (départ et milieu des 7 niveaux du Monde 2, Pieuvre 300 et 900 images plus tard, montée à deux hauteurs, rue x 8, cascade x 6, grotte x 6, rivière x 8 ; le port montre le phare et les cargos, désormais en PNG). 1er passage d'avant contre 2e passage d'après : 48/48 IDENTIQUES au pixel. Les autres croisements ont 2 ou 3 images différentes (rivière 1 et 2 ; montée haute b), mais des écarts du même genre apparaissent entre deux passages du MÊME build (avant contre avant : rivière 1 et 2 ; après contre après : rivière 1, 2 et montée haute b) : c'est Pépin (une autre image de son animation) et les lucioles, le pilote n'étant pas parfaitement déterministe sous forte charge (déjà noté à la 2e étape), pas le fond. Aucune image d'après qui ne soit identique à une image d'avant.
+- Rien de personnel dans le dépôt : ni nom, ni chemin `/home`, ni IP dans le diff, `assets/`, `dist/` et `dist-qa/` (vérifié par `grep`).
