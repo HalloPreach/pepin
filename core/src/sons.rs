@@ -55,6 +55,25 @@ impl Effet {
         Effet::Secret,
     ];
 
+    /// Nom du fichier du son, sans `.ogg` (`assets/sons/<clé>.ogg`, carte 10.4e).
+    /// STABLE : renommer une clé, c'est renommer le fichier.
+    pub fn cle(self) -> &'static str {
+        match self {
+            Effet::Saut => "saut",
+            Effet::Plane => "plane",
+            Effet::Atterrissage => "atterrissage",
+            Effet::Goutte => "goutte",
+            Effet::Ecrase => "ecrase",
+            Effet::Rebond => "rebond",
+            Effet::Lanterne => "lanterne",
+            Effet::Mort => "mort",
+            Effet::Eclair => "eclair",
+            Effet::Victoire => "victoire",
+            Effet::Menu => "menu",
+            Effet::Secret => "secret",
+        }
+    }
+
     /// Volume de lecture conseillé (de 0.0 à 1.0) : les bruits forts sont baissés.
     pub fn volume(self) -> f32 {
         match self {

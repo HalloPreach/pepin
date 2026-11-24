@@ -346,6 +346,7 @@ name = "outils"
 version = "0.1.0"
 dependencies = [
  "core",
+ "lewton",
  "png",
 ]
 

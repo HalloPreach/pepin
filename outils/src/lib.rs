@@ -20,6 +20,9 @@
 
 use pepin_core::palette::TOUTES;
 
+/// Les sons en OGG Vorbis (carte 10.4e) : lecture et contrôle des fichiers.
+pub mod son;
+
 /// Indice du transparent dans la palette du PNG (après les 16 couleurs du jeu).
 pub const INDICE_TRANSPARENT: u8 = 16;
 

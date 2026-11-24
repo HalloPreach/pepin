@@ -5,7 +5,11 @@
 // - `wasm` : la fin de l'instanciation du module (le jeu est téléchargé et compilé) ;
 // - `titre` : la fin de la 3e image du jeu (l'écran titre est dessiné, les premières
 //   images, celles du chargement, sont passées) ;
-// - `max` : la plus longue des 10 premières images (celle qui charge les sprites).
+// - `max` : la plus longue des 10 premières images (celle qui charge les sprites) ;
+// - `sons` (carte 10.4e) : la fin du décodage du DERNIER son par le navigateur
+//   (`decodeAudioData`). Le jeu attend tous ses sons avant de dessiner l'écran titre :
+//   c'est donc aussi une borne du titre. On compte les sons décodés et les ÉCHECS
+//   de décodage (un son que le navigateur ne sait pas lire).
 // Chaque mesure se fait dans un navigateur NEUF (profil vide, pas de cache).
 // Usage : node docs/mesure-demarrage.mjs PORT_HTTP [ESSAIS=5]  (variable CHROME).
 import { spawn } from 'node:child_process';
@@ -24,7 +28,15 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 // Installé avant tout script de la page : on chronomètre chaque rappel de
 // requestAnimationFrame (une image du jeu) et l'instanciation du wasm.
 const SONDE = `
-window.__D = { images: [], wasm: null };
+window.__D = { images: [], wasm: null, sons: { debut: 0, fin: 0, echecs: 0, dernier: null } };
+const decoderOrig = BaseAudioContext.prototype.decodeAudioData;
+BaseAudioContext.prototype.decodeAudioData = function (octets, reussite, echec) {
+  const s = window.__D.sons;
+  s.debut++;
+  return decoderOrig.call(this, octets,
+    (b) => { s.fin++; s.dernier = performance.now(); if (reussite) reussite(b); },
+    (e) => { s.echecs++; if (echec) echec(e); });
+};
 const rafOrig = window.requestAnimationFrame.bind(window);
 window.requestAnimationFrame = (f) => rafOrig((t) => {
   const debut = performance.now();
@@ -65,18 +77,28 @@ async function essai() {
     await cdp('Page.addScriptToEvaluateOnNewDocument', { source: SONDE });
     await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
     let d;
+    // Le jeu demande ses sons UN PAR UN (il attend chacun) : on attend dix images ET
+    // une seconde sans nouvelle demande, tous les sons demandés étant décodés.
+    let demandes = -1, calme = 0;
     for (let i = 0; i < 300; i++) {
       await dormir(100);
       d = await evalue('JSON.stringify(window.__D)');
-      if (d && JSON.parse(d).images.length >= 10) break;
+      const e = d && JSON.parse(d);
+      if (!e) continue;
+      calme = e.sons.debut === demandes ? calme + 1 : 0;
+      demandes = e.sons.debut;
+      if (e.images.length >= 10 && calme >= 10 && e.sons.fin + e.sons.echecs === e.sons.debut) break;
     }
     ws.close();
-    const { images, wasm } = JSON.parse(d);
+    const { images, wasm, sons } = JSON.parse(d);
     if (images.length < 3) throw new Error('moins de 3 images');
     return {
       wasm: Math.round(wasm),
       titre: Math.round(images[2][1]),
       max: Math.round(Math.max(...images.map(([a, b]) => b - a))),
+      sons: Math.round(sons.dernier ?? -1),
+      nsons: `${sons.fin}/${sons.debut}`,
+      echecs: sons.echecs,
     };
   } finally {
     try { chrome.kill('SIGKILL'); } catch {}
@@ -89,7 +111,7 @@ const mesures = [];
 for (let i = 0; i < ESSAIS; i++) {
   const m = await essai();
   mesures.push(m);
-  console.log(`essai ${i + 1} : wasm ${m.wasm} ms, titre ${m.titre} ms, plus longue image ${m.max} ms`);
+  console.log(`essai ${i + 1} : wasm ${m.wasm} ms, titre ${m.titre} ms, plus longue image ${m.max} ms, sons décodés ${m.nsons} à ${m.sons} ms, échecs ${m.echecs}`);
 }
 const mediane = (cle) => mesures.map((m) => m[cle]).sort((a, b) => a - b)[Math.floor(mesures.length / 2)];
-console.log(`MÉDIANES (${ESSAIS} essais) : wasm ${mediane('wasm')} ms, titre ${mediane('titre')} ms, plus longue image ${mediane('max')} ms`);
+console.log(`MÉDIANES (${ESSAIS} essais) : wasm ${mediane('wasm')} ms, titre ${mediane('titre')} ms, plus longue image ${mediane('max')} ms, sons ${mediane('sons')} ms`);

@@ -258,6 +258,25 @@ mod tests {
     use super::*;
     use pepin_core::entities::contacts::CauseMort;
 
+    /// TEMPORAIRE (carte 10.4e) : rend une fois chaque son en WAV de référence.
+    #[test]
+    #[ignore]
+    fn rendre_les_wav_de_reference() {
+        let racine =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/sons-reference");
+        std::fs::create_dir_all(racine.join("musiques")).unwrap();
+        std::fs::create_dir_all(racine.join("sons")).unwrap();
+        for m in Musique::TOUTES {
+            let chemin = racine.join(format!("musiques/{}.wav", m.id()));
+            std::fs::write(chemin, vers_wav(&m.echantillons())).unwrap();
+        }
+        for e in Effet::TOUS {
+            let chemin = racine.join(format!("sons/{}.wav", e.cle()));
+            std::fs::write(chemin, vers_wav(&echantillons(e))).unwrap();
+        }
+        std::fs::write(racine.join("sons/pluie.wav"), vers_wav(&pluie())).unwrap();
+    }
+
     #[test]
     fn rien_ne_se_passe_rien_ne_sonne() {
         assert!(effets_du_pas(&Evenements::default(), &[]).is_empty());

@@ -3,7 +3,7 @@ license = "MIT"
 name = "outils"
 version = "0.1.0"
 edition = "2021"
-description = "Outils de PÉPIN hors du jeu : l'outil `sprite` (grille de texte vers PNG et retour, carte 10.4a)"
+description = "Outils de PÉPIN hors du jeu : l'outil `sprite` (grille de texte vers PNG et retour, carte 10.4a) et l'outil `son` (contrôle des OGG, carte 10.4e)"
 
 # Pourquoi un crate à part : l'ENCODEUR PNG (crate `png`, avec sa compression
 # deflate) ne sert qu'à fabriquer les fichiers de `assets/sprites`. Le jeu, lui,
@@ -14,7 +14,14 @@ description = "Outils de PÉPIN hors du jeu : l'outil `sprite` (grille de texte 
 [dependencies]
 pepin_core = { package = "core", path = "../core" }
 png = "0.17"
+# Le DÉCODEUR OGG Vorbis de l'outil `son` (carte 10.4e). Déjà dans le Cargo.lock :
+# c'est celui de macroquad hors du web (quad-snd, via audrey). Sans la partie async.
+lewton = { version = "0.9", default-features = false, features = ["ogg"] }
 
 [[bin]]
 name = "sprite"
 path = "src/bin/sprite.rs"
+
+[[bin]]
+name = "son"
+path = "src/bin/son.rs"
