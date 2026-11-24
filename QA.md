@@ -7376,3 +7376,81 @@ Décision d'Aga sur le blocage, mot pour mot : « tout en wav plutôt histoire q
 - Démarrage : pas de nouvelle série pour cette étape (la machine était à une charge de 45, toute mesure aurait été du bruit) ; le titre dessine les toits, dont la pile n'a pas bougé.
 - RESTE (pas fait, arrêt propre après cette 2e étape complète, durée visée dépassée) : la Pieuvre phase 1 (`dessin_port::dessiner_fond`, hors pile), la montée (`dessin_montee`), les motifs du Monde 2 restants (`decor::dessiner_detail` : tuyaux, lueur, chutes, brume, eaux, forêt, grues, mouettes, phare ; la forêt et l'eau de la rivière, sous la vallée, ne se voient plus), le plan « large » du port (premier cargo, phare lointain) ; toujours ouverts depuis 10.4c : la carte des niveaux (`ecrans/fond_plan.rs`, chapitres 1 et 2) et une capture de l'écran de fin.
 - Pas testé : joueur humain, téléphone, Safari.
+
+## Carte 10.4f (AGA, clôture) : la chaîne « assets en fichiers » se termine : sons téléchargés seulement au premier son, fin des fonds du Monde 2, compression des WAV proposée, `assets/LISEZMOI.md`
+
+Même worktree que les deux étapes précédentes (`carte-10.4f`, parti de `fbd5f8c`).
+
+### 1. Les sons ne partent qu'à la première activation du son
+
+- AVANT : le jeu téléchargeait les 19 WAV (3,1 Mo) dès la 2e image, que le joueur active le son ou non (et le son est coupé par défaut).
+- `game/src/audio.rs` : nouvelle `FileDeSons`, pure et testée, qui décide QUOI télécharger et QUAND ; `Chargement` (les coroutines de macroquad) ne fait plus que lui demander la suivante. Règles :
+  - son coupé : la file ne rend RIEN (aucune requête) ; recoupé en cours de chargement, plus aucune nouvelle requête (seuls les téléchargements déjà partis finissent) ;
+  - première activation : le bip des menus, LA MUSIQUE DE LA ZONE EN COURS (Orage au titre, celle du niveau en jeu), la pluie, puis les 12 bruitages ; aucune autre musique ;
+  - une autre musique ne part que quand sa zone arrive (la musique voulue change, son actif), EN TÊTE de file ; chaque fichier n'est demandé qu'une fois.
+  - `Audio::avancer` donne à chaque image l'état du son et la musique voulue à la file ; `Piste::dans_l_ordre` est remplacée par `Piste::au_premier_son(zone)` (et `Piste::toutes`, pour les tests).
+- Tests (crate `game`) : `son_coupe_aucun_telechargement` (toutes les zones, 6 000 images chacune, son coupé : zéro), `premiere_activation_la_zone_d_abord_et_rien_d_autre` (en cours de niveau, zone Poursuite : menu, poursuite, pluie dès la 1re image, puis les bruitages, une seule musique), `une_musique_part_quand_sa_zone_arrive` (en tête de file, une fois ; à la fin des zones, les 20 pistes demandées une fois chacune), `son_recoupe_la_file_s_arrete_et_reprend`.
+- Dans le navigateur : nouveau `docs/sons-a-la-demande.mjs` (Chromium sans écran, navigateur neuf, cache coupé, vraies touches) sur `dist/` :
+  - `coupe` : titre 4 s, puis le premier niveau 6 s, son jamais activé : 0 requête audio (3 requêtes en tout : la page, le JS, le wasm). AVANT (build de `fbd5f8c`, même sonde) : 19 requêtes audio, 3 100 254 octets.
+  - `titre` : M au titre : `sons/menu.wav`, `musiques/orage.wav`, `sons/pluie.wav` demandés 22 à 44 ms après l'appui, puis les 11 autres bruitages ; la musique (boucle de 9,6 s) démarre 134 ms puis 156 ms après l'appui (deux passages). 14 fichiers, 685 931 octets.
+  - `niveau` : 3 s de jeu son coupé (0 requête), puis M EN COURS DE NIVEAU : `menu`, `musiques/toits_de_nuit.wav` (la musique de la zone), `pluie` d'abord ; la musique démarre 122 ms puis 183 ms après l'appui, sans blocage (le jeu continue, 0 erreur de console). 14 fichiers, 770 603 octets.
+  - `zone` : M au titre, puis entrée dans le premier niveau : seul `musiques/toits_de_nuit.wav` est demandé en entrant, et sa boucle (11,52 s) part.
+  - SONS-A-LA-DEMANDE-OK. Seuil de la carte (« le son démarre avec plus d'une seconde de retard ») : jamais atteint, 183 ms au pire, en local, machine à une charge de 40 à 68.
+  - À savoir : sur un vrai réseau, le retard de la musique sera celui du téléchargement de la boucle (orage : 423 Ko, 386 Ko en gzip) ; les bruitages arrivent après. Rien à faire de plus tant qu'on n'a pas une mesure réseau réelle.
+
+### 2. Compression des WAV par le serveur : PROPOSITION (rien n'est modifié en prod)
+
+- Constat (lecture seule de la configuration nginx de la prod, et de `mime.types` dans son conteneur) : `gzip_types` ne contient pas l'audio, et `.wav` n'a même pas de type (`mime.types` ne le connaît pas : servi en `application/octet-stream`). Les WAV partent donc NON compressés.
+- Lignes à ajouter dans le bloc `http` de `nginx.conf`, à côté de `gzip_types` (deux lignes : le type, puis la compression) :
+
+      gzip_types application/wasm application/javascript text/css image/svg+xml audio/wav;
+      types { audio/wav wav; }
+
+  (la 1re remplace la ligne `gzip_types` actuelle en y ajoutant `audio/wav` ; la 2e ajoute le type des `.wav` aux types déjà inclus.)
+- Essayée sur une COPIE de la configuration, dans un conteneur jetable (même image `nginxinc/nginx-unprivileged:1-alpine`, port de boucle local, `dist/` monté en lecture seule, conteneurs supprimés ensuite) : `.wav` en `audio/wav` + `Content-Encoding: gzip` ; `game.wasm` toujours `application/wasm` gzip, `mq_js_bundle.js` et `index.html` inchangés (le `types {}` s'ajoute bien à `mime.types`).
+- Gain mesuré (octets reçus par `curl`, 19 fichiers) : 3 096 644 -> 2 394 858 (-23 %) ; au premier son du titre (14 fichiers) : 683 276 -> 609 534. Le décodage par le navigateur ne change pas (il reçoit les mêmes octets décompressés).
+- À appliquer avec l'accord d'Aga (puis redémarrer le conteneur du site) ; rien n'a été touché à la prod.
+
+### 3. Fin des fonds du Monde 2 (« finir la 10.4d »)
+
+Liste reprise de la 2e étape (`t_be104fce`) et rendue finale :
+
+| Fond du Monde 2 | État |
+| --- | --- |
+| Égouts (mur, arches) | FAIT (10.4d) |
+| Port (crépuscule, mer, port d'en face, pontons) | FAIT (10.4d) |
+| Port, le large : les deux cargos, le phare | FAIT ICI : `port/cargos.png` (66 x 14, planche des deux cargos) et `port/phare.png` (77 x 31) ; restent du code le glissement du petit cargo, le faisceau qui tourne et la lampe |
+| Rue du caniveau (maisons, lampadaire) | FAIT (10.4d suite) |
+| Cascade (grande chute) | Dans la pile (10.4f 1re étape), reste du code : elle suit la grille et s'anime |
+| Rivière (ciel, soleil couchant, moulin) | FAIT (10.4f 1re étape) |
+| Grotte (cristaux) | FAIT (10.4f 2e étape) |
+| Motifs du Monde 2 (`decor::Detail`) | FINI ICI : 8 motifs sur 11 n'étaient plus jamais visibles (tuyaux, lueur, eau du port, grues, mouettes, phare : leurs thèmes ont leur propre pile depuis 9.11b et 9.27b, `decor::pile` ne les posait plus ; forêt et eau de la rivière : sous le ciel de la vallée, opaque sur tout l'écran) : supprimés (environ 150 lignes). Restent les 3 motifs ANIMÉS : chutes et brume de la cascade, eau de la marée |
+| Pieuvre, phase de la jetée (`dessin_port::dessiner_fond`) | Rien à sortir : mer unie, houle, feu, reflet animés ; bateaux et phare déjà des sprites (`jetee_*`). Seul dessin fixe resté en code : l'îlot du phare, deux rectangles d'une couleur (un fichier de 26 x 5 n'apporterait rien) |
+| Montée de la Pieuvre (`dessin_montee`, `mer_montee`, fond sous la tour) | Rien à sortir : sprites de la Pieuvre déjà en fichiers, mer et fond qui suivent la simulation ou la caméra |
+
+- Code : `decor_port::Plan::Large` devient trois plans, `Cargos` (PNG, posé en deux bandes de la planche par `fonds::dessiner_bande`), `Phare` (PNG) et `Faisceau` (code) ; `decor_port::phare()` (les rectangles) est supprimé, le test `le_phare_est_pose_au_bout_de_sa_jetee` lit maintenant le fichier. Sous la tour de la Pieuvre, toujours ni phare ni faisceau ; les cargos y restent, décalés comme avant (`DECALAGE`).
+- `assets/fonds/LISEZMOI.md` : deux lignes de plus au tableau des couches, la pile du port et celle de la rivière à jour (vérifié par `la_pile_documentee_est_celle_du_rendu`), et la liste « ce qui reste calculé » close pour le Monde 2. Toujours ouverts HORS Monde 2, depuis 10.4c : la carte des niveaux (`ecrans/fond_plan.rs`) et une capture de l'écran de fin.
+- PNG : `sprite lire` redonne la grille d'origine ; blocs IHDR, PLTE, tRNS, IDAT, IEND seulement (208 et 217 octets).
+
+### 4. `assets/LISEZMOI.md`
+
+- Nouveau : ce qui est un fichier (tableau des 5 dossiers : contenu, embarqué dans le wasm ou servi à côté, LISEZMOI de règles) et ce qui reste CALCULÉ, avec pourquoi : la pluie, les éclairs, l'eau du Monde 2, les particules, les tuiles éclaircies, les plans semés au hasard ou animés des fonds, le texte. Il dit aussi que les sons ne partent qu'au premier son.
+- `assets/musiques/LISEZMOI.md` : le point 3 (« comment le jeu les charge ») suit la nouvelle règle.
+- Nouveau `game/src/assets.rs` (tests seulement) : `chaque_fichier_d_assets_est_lu_par_le_jeu` (chaque fichier de `assets/` est un `.png`, `.ron` ou `.wav` de son dossier, ou un LISEZMOI : un `.ogg` oublié ou un dossier inconnu ferait échouer) et `chaque_dossier_d_assets_est_decrit`. Avec les tests par dossier qui existaient (sprites, fonds, sons, niveaux), c'est le « aucun fichier orphelin ni manquant dans chaque dossier d'assets » de la carte.
+
+### Preuves
+
+- `./docker-cargo.sh lint` : LINT-OK. `test --workspace --no-default-features` VERT : core 314, game 424 (419 + 4 tests de la file des sons - 1 remplacé + 2 tests d'assets), niveaux 16 + 89, outils 9, robot 4. Et game avec `debug_niveaux,qa_plantage` : 423 VERT.
+- `./build.sh` et `./build.sh --qa` OK. wasm 1 070 743 -> 1 069 153 octets (-1 590 : les motifs morts).
+- Poids par dossier d'`assets/` (fichiers, octets) : sprites 335 / 74 436 ; fonds 32 / 9 841 (+425 : cargos et phare) ; levels 33 / 175 617 ; musiques 6 / 2 836 772 ; sons 13 / 259 872.
+- Poids téléchargé, mesuré en servant `dist/` par la configuration nginx de la prod (copie, conteneur jetable) :
+
+| | AVANT (`fbd5f8c`) | APRÈS, nginx actuel | APRÈS, nginx proposé |
+| --- | --- | --- | --- |
+| Son coupé (page : HTML, JS, wasm, en gzip) | 460 402 + 3 096 644 de sons = 3 557 046 | 460 825 (aucun son) | 460 825 |
+| Son activé au titre | idem (tout est déjà là) | + 683 276 (14 fichiers) | + 609 534 |
+| Toutes les zones visitées | idem | + 3 096 644 (19 fichiers) | + 2 394 858 |
+
+- Démarrage (`node docs/mesure-demarrage.mjs PORT 5`, navigateur neuf, deux séries alternées avant / après, machine à une charge de 50 à 68 : mesures très bruitées) : premier dessin, médianes : série 1, avant 1 333 ms, après 1 330 ms ; série 2, avant 876 ms, après 655 ms. Avant, les 19 sons étaient décodés à 1,6 s à 2,6 s ; après, aucun son n'est téléchargé tant que le son est coupé. Le titre n'apparaît pas plus tard ; il n'a plus 3 Mo de sons en concurrence sur le réseau.
+- Captures (build de QA copié AVANT toute modification de cette carte, `fbd5f8c`, puis celui de la fin, servis côte à côte, `docs/capture-104d.sh` et `docs/capture-104f.sh`, `comparer-captures.py` par paires), deux passages de chaque build, machine à une charge de 40 à 68 : 48 images (départ et milieu des 7 niveaux du Monde 2, Pieuvre 300 et 900 images plus tard, montée à deux hauteurs, rue x 8, cascade x 6, grotte x 6, rivière x 8 ; le port montre le phare et les cargos, désormais en PNG). 1er passage d'avant contre 2e passage d'après : 48/48 IDENTIQUES au pixel. Les autres croisements ont 2 ou 3 images différentes (rivière 1 et 2 ; montée haute b), mais des écarts du même genre apparaissent entre deux passages du MÊME build (avant contre avant : rivière 1 et 2 ; après contre après : rivière 1, 2 et montée haute b) : c'est Pépin (une autre image de son animation) et les lucioles, le pilote n'étant pas parfaitement déterministe sous forte charge (déjà noté à la 2e étape), pas le fond. Aucune image d'après qui ne soit identique à une image d'avant.
+- Rien de personnel dans le dépôt : ni nom, ni chemin `/home`, ni IP dans le diff, `assets/`, `dist/` et `dist-qa/` (vérifié par `grep`).

@@ -8,18 +8,20 @@
 //!
 //! Ils ne sont PAS dans le wasm (3 Mo) : `./build.sh` les copie à côté du jeu
 //! (`dist/musiques`, `dist/sons`), `build.rs` en écrit la LISTE (`FICHIERS`), et
-//! `Chargement` les télécharge EN ARRIÈRE-PLAN, après la première image (l'écran
-//! titre n'attend rien), trois à la fois, ceux du titre d'abord. Tant qu'un son n'est
-//! pas arrivé, il est muet ; une boucle qui arrive pendant que les boucles tournent
-//! démarre aussitôt.
+//! `Chargement` les télécharge EN ARRIÈRE-PLAN, trois à la fois, dans l'ordre que
+//! décide `FileDeSons` (carte 10.4f) : RIEN tant que le son est coupé (un joueur qui
+//! ne l'active jamais ne télécharge aucun son) ; à la première activation, le bip des
+//! menus, la musique de la zone en cours, la pluie et les bruitages ; une autre
+//! musique seulement quand sa zone arrive. Tant qu'un son n'est pas arrivé, il est
+//! muet ; une boucle qui arrive pendant que les boucles tournent démarre aussitôt.
 //!
 //! Le son est DÉSACTIVÉ par défaut (et un navigateur n'autorise de toute façon
 //! l'audio qu'après une première interaction : clic, touche ou toucher). Tant
 //! que `regler(false)` est en vigueur, rien ne joue et les boucles sont arrêtées.
 //!
 //! La partie « que doit-on entendre ? » (`effets_du_pas`, `Detecteur`, `EtatSon`,
-//! l'ordre de chargement) est pure et testée ; seuls `Audio` et `Chargement` parlent
-//! à macroquad.
+//! `FileDeSons` : quoi télécharger et quand) est pure et testée ; seuls `Audio` et
+//! `Chargement` parlent à macroquad.
 //!
 //! Notions Rust illustrées ici : les coroutines de macroquad (une tâche `async`
 //! avancée à chaque image, dont on relève le résultat quand elle a fini), `enum` à
@@ -177,13 +179,14 @@ impl Piste {
         }
     }
 
-    /// Toutes les pistes, dans l'ORDRE DE CHARGEMENT : ce qu'on entend au titre
-    /// d'abord (le bip des menus, la musique Orage, la pluie), puis les bruitages
-    /// (petits), puis les autres musiques (les plus lourdes).
-    pub fn dans_l_ordre() -> Vec<Piste> {
+    /// Ce qu'on télécharge à la PREMIÈRE activation du son, dans l'ordre : ce qu'on
+    /// entend tout de suite (le bip des menus, la musique de la zone en cours, la
+    /// pluie), puis les bruitages (petits). Aucune autre musique : chacune attendra
+    /// que sa zone arrive.
+    pub fn au_premier_son(zone: Musique) -> Vec<Piste> {
         let mut v = vec![
             Piste::Effet(Effet::Menu),
-            Piste::Musique(Musique::Orage),
+            Piste::Musique(zone),
             Piste::Pluie,
         ];
         for e in Effet::TOUS {
@@ -191,6 +194,14 @@ impl Piste {
                 v.push(Piste::Effet(e));
             }
         }
+        v
+    }
+
+    /// Toutes les pistes du jeu : chaque effet, chaque musique, la pluie (pour les
+    /// tests : le jeu, lui, ne les demande qu'au fil des zones).
+    #[cfg(test)]
+    pub fn toutes() -> Vec<Piste> {
+        let mut v = Piste::au_premier_son(Musique::Orage);
         for m in Musique::TOUTES {
             if m != Musique::Orage {
                 v.push(Piste::Musique(m));
@@ -200,30 +211,76 @@ impl Piste {
     }
 }
 
-/// Le téléchargement en arrière-plan des sons : une file d'attente, et au plus
+/// QUOI télécharger, et QUAND (carte 10.4f ; pur, sans macroquad, donc testé) :
+/// - tant que le son est coupé, la file ne rend RIEN (aucune requête : un joueur qui
+///   ne l'active jamais ne télécharge aucun son ; recoupé en cours de route, elle
+///   s'arrête, seuls les téléchargements déjà partis finissent) ;
+/// - à la première activation : `Piste::au_premier_son` de la zone en cours ;
+/// - ensuite, quand une zone arrive (sa musique devient la musique voulue) le son
+///   étant actif, sa musique passe EN TÊTE de file.
+///
+/// Chaque fichier n'est demandé qu'une fois.
+#[derive(Debug, Default)]
+pub struct FileDeSons {
+    actif: bool,
+    attente: VecDeque<Piste>,
+    /// Toutes les pistes déjà mises en file (parties ou non).
+    demandees: Vec<Piste>,
+}
+
+impl FileDeSons {
+    /// À chaque image, avant `suivante` : le son est-il activé, et quelle musique
+    /// la zone en cours veut-elle ?
+    pub fn regler(&mut self, actif: bool, zone: Musique) {
+        self.actif = actif;
+        if !actif {
+            return;
+        }
+        if self.demandees.is_empty() {
+            for p in Piste::au_premier_son(zone) {
+                self.mettre_en_file(p, false);
+            }
+        }
+        self.mettre_en_file(Piste::Musique(zone), true);
+    }
+
+    /// Met en file une piste pas encore demandée (et qui a son fichier : un son sans
+    /// fichier, impossible d'après `chaque_son_demande_a_son_fichier`, resterait muet).
+    fn mettre_en_file(&mut self, p: Piste, en_tete: bool) {
+        if self.demandees.contains(&p) || !FICHIERS.contains(&p.fichier()) {
+            return;
+        }
+        self.demandees.push(p);
+        if en_tete {
+            self.attente.push_front(p);
+        } else {
+            self.attente.push_back(p);
+        }
+    }
+
+    /// Le prochain fichier à télécharger (`None` si le son est coupé ou si rien
+    /// n'attend).
+    pub fn suivante(&mut self) -> Option<Piste> {
+        if !self.actif {
+            return None;
+        }
+        self.attente.pop_front()
+    }
+}
+
+/// Le téléchargement en arrière-plan des sons : la file (`FileDeSons`), et au plus
 /// `EN_PARALLELE` coroutines de macroquad en cours (chacune télécharge un fichier
 /// puis attend que le navigateur l'ait décodé).
+#[derive(Default)]
 struct Chargement {
-    attente: VecDeque<Piste>,
+    file: FileDeSons,
     en_cours: Vec<(Piste, Coroutine<Result<Sound, String>>)>,
 }
 
 impl Chargement {
-    fn new() -> Self {
-        // Un son sans fichier (impossible : test `chaque_son_demande_a_son_fichier`)
-        // resterait muet.
-        Self {
-            attente: Piste::dans_l_ordre()
-                .into_iter()
-                .filter(|p| FICHIERS.contains(&p.fichier()))
-                .collect(),
-            en_cours: Vec::new(),
-        }
-    }
-
     /// À chaque image : relève les sons arrivés et lance les téléchargements
-    /// suivants. Un fichier absent ou illisible est signalé une fois et reste muet :
-    /// le jeu ne s'arrête jamais pour un son.
+    /// suivants que la file autorise. Un fichier absent ou illisible est signalé une
+    /// fois et reste muet : le jeu ne s'arrête jamais pour un son.
     fn avancer(&mut self) -> Vec<(Piste, Sound)> {
         let mut arrives = Vec::new();
         self.en_cours.retain(|(piste, tache)| {
@@ -242,7 +299,7 @@ impl Chargement {
             false
         });
         while self.en_cours.len() < EN_PARALLELE {
-            let Some(piste) = self.attente.pop_front() else {
+            let Some(piste) = self.file.suivante() else {
                 break;
             };
             let (genre, cle) = piste.fichier();
@@ -255,11 +312,6 @@ impl Chargement {
             self.en_cours.push((piste, tache));
         }
         arrives
-    }
-
-    /// Tout est-il arrivé (ou abandonné) ?
-    fn fini(&self) -> bool {
-        self.attente.is_empty() && self.en_cours.is_empty()
     }
 }
 
@@ -274,8 +326,7 @@ pub struct Audio {
     pluie: Option<Sound>,
     etat: EtatSon,
     detecteur: Detecteur,
-    /// `None` avant la première image (rien ne part avant l'écran titre).
-    chargement: Option<Chargement>,
+    chargement: Chargement,
 }
 
 impl Audio {
@@ -288,19 +339,20 @@ impl Audio {
             pluie: None,
             etat: EtatSon::default(),
             detecteur: Detecteur::default(),
-            chargement: None,
+            chargement: Chargement::default(),
         }
     }
 
-    /// À appeler une fois par image, APRÈS la première : la première fois, lance le
-    /// chargement des sons ; ensuite, range ceux qui arrivent. Une boucle (musique
-    /// active ou pluie) qui arrive pendant que les boucles tournent démarre aussitôt.
+    /// À appeler une fois par image, APRÈS `choisir_musique` et `regler` (et après
+    /// la première image : l'écran titre n'attend rien) : lance les téléchargements
+    /// que la file autorise (aucun tant que le son est coupé) et range les sons
+    /// arrivés. Une boucle (musique active ou pluie) qui arrive pendant que les
+    /// boucles tournent démarre aussitôt.
     pub fn avancer(&mut self) {
-        let chargement = self.chargement.get_or_insert_with(Chargement::new);
-        if chargement.fini() {
-            return;
-        }
-        for (piste, son) in chargement.avancer() {
+        self.chargement
+            .file
+            .regler(self.etat.actif, self.musique_active);
+        for (piste, son) in self.chargement.avancer() {
             match piste {
                 Piste::Effet(e) => {
                     self.effets.insert(e, son);
@@ -424,7 +476,7 @@ mod tests {
     /// Ajouter un son = ajouter un fichier ET sa clé.
     #[test]
     fn chaque_son_demande_a_son_fichier() {
-        let pistes = Piste::dans_l_ordre();
+        let pistes = Piste::toutes();
         assert_eq!(pistes.len(), Effet::TOUS.len() + Musique::TOUTES.len() + 1);
         let demandes: Vec<(&str, &str)> = pistes.iter().map(|p| p.fichier()).collect();
         for (i, d) in demandes.iter().enumerate() {
@@ -447,17 +499,100 @@ mod tests {
         assert_eq!(FICHIERS.len(), demandes.len());
     }
 
-    /// Ce qu'on entend au titre arrive d'abord : le bip des menus, la musique du
-    /// titre, la pluie.
+    /// Les pistes que la file rend en `images` images (au plus `EN_PARALLELE` par
+    /// image, comme `Chargement`), le son et la zone étant réglés à chaque image.
+    fn vider(file: &mut FileDeSons, actif: bool, zone: Musique, images: usize) -> Vec<Piste> {
+        let mut rendues = Vec::new();
+        for _ in 0..images {
+            file.regler(actif, zone);
+            for _ in 0..EN_PARALLELE {
+                if let Some(p) = file.suivante() {
+                    rendues.push(p);
+                }
+            }
+        }
+        rendues
+    }
+
+    /// Son coupé : AUCUN téléchargement, quelles que soient les zones traversées
+    /// (titre, puis chaque zone du jeu, 10 minutes d'images en tout).
     #[test]
-    fn le_titre_se_charge_en_premier() {
+    fn son_coupe_aucun_telechargement() {
+        let mut file = FileDeSons::default();
+        for zone in Musique::TOUTES {
+            assert!(vider(&mut file, false, zone, 6_000).is_empty(), "{zone:?}");
+        }
+    }
+
+    /// Première activation (ici en cours de niveau, zone Poursuite) : le bip des
+    /// menus, LA MUSIQUE DE LA ZONE, la pluie, puis les bruitages ; aucune autre
+    /// musique. La musique de la zone part dès la première image, en tête.
+    #[test]
+    fn premiere_activation_la_zone_d_abord_et_rien_d_autre() {
+        let mut file = FileDeSons::default();
+        assert!(vider(&mut file, false, Musique::Poursuite, 100).is_empty());
+        let premiere_image = vider(&mut file, true, Musique::Poursuite, 1);
         assert_eq!(
-            Piste::dans_l_ordre()[..3],
+            premiere_image,
             [
                 Piste::Effet(Effet::Menu),
-                Piste::Musique(Musique::Orage),
+                Piste::Musique(Musique::Poursuite),
                 Piste::Pluie
             ]
+        );
+        let tout = [
+            premiere_image,
+            vider(&mut file, true, Musique::Poursuite, 100),
+        ]
+        .concat();
+        assert_eq!(tout, Piste::au_premier_son(Musique::Poursuite));
+        assert_eq!(
+            tout.iter()
+                .filter(|p| matches!(p, Piste::Musique(_)))
+                .count(),
+            1,
+            "une seule musique : celle de la zone"
+        );
+    }
+
+    /// Une autre musique ne part que quand sa zone arrive, en tête de file (avant
+    /// les bruitages qui attendent encore), une seule fois ; revenir dans une zone
+    /// déjà chargée ne redemande rien.
+    #[test]
+    fn une_musique_part_quand_sa_zone_arrive() {
+        let mut file = FileDeSons::default();
+        // Titre : son activé, zone Orage ; une image seulement (bruitages en attente).
+        vider(&mut file, true, Musique::Orage, 1);
+        let suite = vider(&mut file, true, Musique::Soleil, 1);
+        assert_eq!(suite[0], Piste::Musique(Musique::Soleil));
+        let reste = vider(&mut file, true, Musique::Soleil, 100);
+        assert!(!reste.contains(&Piste::Musique(Musique::Soleil)));
+        assert!(vider(&mut file, true, Musique::Orage, 100).is_empty());
+        assert_eq!(
+            vider(&mut file, true, Musique::Cyclone, 100),
+            [Piste::Musique(Musique::Cyclone)]
+        );
+        // Toutes les zones traversées : chaque fichier demandé une fois, au total.
+        for zone in Musique::TOUTES {
+            vider(&mut file, true, zone, 10);
+        }
+        assert_eq!(file.demandees.len(), Piste::toutes().len());
+    }
+
+    /// Son recoupé pendant le chargement : la file s'arrête (plus aucune nouvelle
+    /// requête) ; une zone traversée son coupé n'est pas demandée ; réactivé, tout
+    /// reprend, la musique de la zone du moment en tête.
+    #[test]
+    fn son_recoupe_la_file_s_arrete_et_reprend() {
+        let mut file = FileDeSons::default();
+        vider(&mut file, true, Musique::Orage, 1);
+        assert!(vider(&mut file, false, Musique::Orage, 100).is_empty());
+        assert!(vider(&mut file, false, Musique::ValseDesNuages, 100).is_empty());
+        let reprise = vider(&mut file, true, Musique::ValseDesNuages, 100);
+        assert_eq!(reprise[0], Piste::Musique(Musique::ValseDesNuages));
+        assert_eq!(
+            reprise.len(),
+            Piste::au_premier_son(Musique::Orage).len() - 3 + 1
         );
     }
 

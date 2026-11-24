@@ -23,11 +23,15 @@ lourd à télécharger avant l'écran titre).
    chaque son demandé a son fichier et qu'aucun fichier n'est orphelin.
 2. `./build.sh` les copie à côté du jeu : `dist/musiques/`, `dist/sons/` (et vérifie
    que ce sont des WAV canoniques sans nom interdit).
-3. Le jeu les télécharge EN ARRIÈRE-PLAN, après la première image (l'écran titre
-   n'attend rien), trois à la fois, ceux du titre d'abord (le bip des menus, la
-   musique Orage, la pluie). Tant qu'un son n'est pas arrivé, il est muet ; une
-   boucle qui arrive pendant que le son est actif démarre aussitôt. Un fichier
-   absent est signalé dans la console et reste muet : le jeu continue.
+3. Le jeu ne télécharge RIEN tant que le son est coupé (il l'est par défaut : un
+   joueur qui ne l'active jamais ne télécharge aucun son). À la PREMIÈRE activation
+   (touche M, icône du son ou menu), il télécharge EN ARRIÈRE-PLAN, trois à la fois :
+   le bip des menus, la musique de la zone en cours, la pluie, puis les bruitages.
+   Une autre musique ne part que quand sa zone arrive (en tête de file). Son recoupé :
+   plus aucune nouvelle requête. Règle et tests : `audio::FileDeSons` (carte 10.4f).
+   Tant qu'un son n'est pas arrivé, il est muet ; une boucle qui arrive pendant que
+   le son est actif démarre aussitôt. Un fichier absent est signalé dans la console
+   et reste muet : le jeu continue.
 
 Hors du web (`cargo run` depuis la racine du dépôt), le jeu lit `assets/` directement.
 

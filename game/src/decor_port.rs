@@ -122,30 +122,12 @@ pub(crate) fn faisceau(pas: u32) -> (i32, i32) {
     (sens, (c.abs() * PORTEE as f32) as i32)
 }
 
-/// Le phare et sa jetée lointaine, l'axe de la tour en `x`, la jetée posée sur
-/// l'horizon : la tour (silhouette, galerie, lanterne) se dresse SUR le musoir.
-pub(crate) fn phare(x: i32) -> Vec<Rect> {
-    let jetee = HORIZON - 3;
-    let pied = jetee;
-    let galerie = pied - TOUR;
-    let mut r = vec![
-        // La jetée : une longue digue basse vers la droite, ses blocs, le musoir.
-        (x - 6, jetee, 76, 3, ARDOISE_OMBRE),
-        (x - 7, jetee + 1, 1, 2, ARDOISE_OMBRE),
-        (x - 5, jetee - 1, 12, 1, ARDOISE_OMBRE),
-    ];
-    for k in 0..6 {
-        r.push((x + 10 + k * 11, jetee - 1, 4, 1, ARDOISE_OMBRE));
-    }
-    // La tour, plus large au pied, posée sur le musoir.
-    r.push((x - 3, pied - 6, 6, 6, ARDOISE_OMBRE));
-    r.push((x - 2, galerie, 4, TOUR - 6, ARDOISE_OMBRE));
-    // La galerie, la lanterne, le toit.
-    r.push((x - 3, galerie - 1, 6, 1, ARDOISE_OMBRE));
-    r.push((x - 1, galerie - 5, 2, 4, ARDOISE_OMBRE));
-    r.push((x - 2, galerie - 6, 4, 1, ARDOISE_OMBRE));
-    r
-}
+/// Le phare et sa jetée lointaine, `port/phare.png` (carte 10.4f) : la tour
+/// (silhouette, galerie, lanterne) dressée SUR le musoir d'une longue digue basse
+/// vers la droite. L'axe de la tour est la colonne 7 du fichier, son bas la
+/// dernière rangée sous l'horizon (la digue est posée sur l'horizon, à 3 px).
+const AXE_PHARE: i32 = 7;
+const HAUTEUR_PHARE: i32 = 31;
 
 /// Le faisceau du phare dont la lampe est en `(x, yl)`, tourné du côté `sens`, long
 /// de `long` px : un CÔNE de lumière terne qui s'évase en s'éloignant (une colonne
@@ -250,28 +232,39 @@ fn dessiner_reflets(cam_x: i32, pas: u32) {
     }
 }
 
-fn dessiner_large(cam_x: i32, pas: u32, avec_phare: bool) {
+/// Les deux cargos au mouillage, `port/cargos.png` (carte 10.4f) : une planche de
+/// 14 px de haut, le grand cargo (38 px : coque, piles de conteneurs, château, sa
+/// fenêtre orange, cheminée) dans les colonnes 0 à 37, le petit (28 px) dans les
+/// colonnes 38 à 65 ; le bas du fichier est la ligne de flottaison, sur l'horizon.
+/// Le grand est mouillé en 196 (parallaxe `F_LARGE`) ; le petit glisse très
+/// lentement vers la gauche, puis revient au large.
+fn dessiner_cargos(cam_x: i32, pas: u32) {
     let dec = decalage(cam_x, F_LARGE);
-    // Le cargo au mouillage : coque, piles de conteneurs, château, cheminée.
-    let cargo = |x: i32, long: i32| {
-        let w = HORIZON;
-        rect(x, w - 3, long, 3, ARDOISE_OMBRE);
-        rect(x + 1, w - 4, long - 2, 1, ARDOISE_OMBRE);
-        rect(x + 4, w - 7, long - 16, 3, ARDOISE_OMBRE);
-        rect(x + long - 10, w - 11, 6, 7, ARDOISE_OMBRE);
-        rect(x + long - 9, w - 14, 2, 3, ARDOISE_OMBRE);
-        rect(x + long - 9, w - 9, 1, 1, ORANGE_SOLEIL);
-    };
-    cargo(196 - dec, 38);
-    // Le second cargo glisse très lentement vers la gauche, puis revient au large.
+    let y = HORIZON - 14 + DECALAGE.with(Cell::get);
+    crate::fonds::dessiner_bande("port", "cargos", (0, 38), 196 - dec, y);
     let x = (330 - (pas / LENTEUR_CARGO) as i32 - dec).rem_euclid(L + 80) - 40;
-    cargo(x, 28);
+    crate::fonds::dessiner_bande("port", "cargos", (38, 28), x, y);
+}
+
+/// Le phare au large, sur sa jetée, `port/phare.png` (pas sous la tour de la
+/// Pieuvre : `avec_phare`).
+fn dessiner_phare(cam_x: i32, avec_phare: bool) {
     if !avec_phare {
         return;
     }
-    // Le phare sur sa jetée, et son faisceau qui tourne.
+    let x = X_PHARE - decalage(cam_x, F_LARGE) - AXE_PHARE;
+    let y = HORIZON - HAUTEUR_PHARE + DECALAGE.with(Cell::get);
+    crate::fonds::dessiner("port", "phare", x, y);
+}
+
+/// Le faisceau du phare, qui tourne, et sa lampe (pas sous la tour de la Pieuvre :
+/// `avec_phare`).
+fn dessiner_faisceau(cam_x: i32, pas: u32, avec_phare: bool) {
+    if !avec_phare {
+        return;
+    }
+    let dec = decalage(cam_x, F_LARGE);
     let xp = X_PHARE - dec;
-    poser(&phare(xp));
     let yl = y_lampe();
     let (sens, long) = faisceau(pas);
     poser(&cone(xp, yl, sens, long));
@@ -376,8 +369,13 @@ pub enum Plan {
     Mer,
     /// Le reflet de la lueur et la houle de la darse, qui dérivent.
     Reflets,
-    /// Le large : les deux cargos (l'un glisse), le phare et son faisceau.
-    Large,
+    /// Les deux cargos au mouillage (l'un glisse), `port/cargos.png` : une planche
+    /// de deux cargos, chacun posé par le code (carte 10.4f).
+    Cargos,
+    /// Le phare au large et sa jetée, `port/phare.png` (carte 10.4f).
+    Phare,
+    /// Le faisceau du phare, qui tourne, et sa lampe.
+    Faisceau,
     /// Le port d'en face (entrepôts, conteneurs, grues, quai),
     /// `port/port_d_en_face.png` : UNE période de `MOTIF` px, répétée par le code.
     PortDEnFace,
@@ -393,13 +391,15 @@ pub enum Plan {
 }
 
 /// La pile du fond du port (lue par `dessiner_fond` et par `decor::pile`).
-pub const PILE: [Plan; 11] = [
+pub const PILE: [Plan; 13] = [
     Plan::Crepuscule,
     Plan::Etoiles,
     Plan::Mouettes,
     Plan::Mer,
     Plan::Reflets,
-    Plan::Large,
+    Plan::Cargos,
+    Plan::Phare,
+    Plan::Faisceau,
     Plan::PortDEnFace,
     Plan::Balises,
     Plan::Voiliers,
@@ -420,6 +420,8 @@ impl Plan {
         match self {
             Plan::Crepuscule => Some("crepuscule"),
             Plan::Mer => Some("mer"),
+            Plan::Cargos => Some("cargos"),
+            Plan::Phare => Some("phare"),
             Plan::PortDEnFace => Some("port_d_en_face"),
             Plan::Pontons => Some("pontons"),
             _ => None,
@@ -435,7 +437,9 @@ impl Plan {
             Plan::Mouettes => "mouettes",
             Plan::Mer => "mer",
             Plan::Reflets => "reflets",
-            Plan::Large => "large",
+            Plan::Cargos => "cargos",
+            Plan::Phare => "phare",
+            Plan::Faisceau => "faisceau du phare",
             Plan::PortDEnFace => "port d'en face",
             Plan::Balises => "balises",
             Plan::Voiliers => "voiliers",
@@ -466,7 +470,9 @@ pub fn dessiner_plan(plan: Plan, cam_x: i32, cam_y: i32, pas: u32, avec_phare: b
         Plan::Mouettes => dessiner_mouettes(cam_x, pas),
         Plan::Mer => crate::fonds::repeter("port", "mer", 0, HORIZON + decale, L),
         Plan::Reflets => dessiner_reflets(cam_x, pas),
-        Plan::Large => dessiner_large(cam_x, pas, avec_phare),
+        Plan::Cargos => dessiner_cargos(cam_x, pas),
+        Plan::Phare => dessiner_phare(cam_x, avec_phare),
+        Plan::Faisceau => dessiner_faisceau(cam_x, pas, avec_phare),
         Plan::PortDEnFace => {
             let base = QUAI_FACE + enfoncement(cam_y, F_PORT);
             let dec = decalage(cam_x, F_PORT);
@@ -690,19 +696,24 @@ mod tests {
     }
 
     /// Le phare est POSÉ : sa tour touche le musoir de sa jetée, d'un seul tenant
-    /// de la lanterne au pied, et la jetée est sur l'horizon.
+    /// de la lanterne au pied, et la jetée est sur l'horizon (`port/phare.png`, la
+    /// tour sur la colonne `AXE_PHARE`, le bas du fichier sous l'horizon).
     #[test]
     fn le_phare_est_pose_au_bout_de_sa_jetee() {
-        let x = 100;
-        let p = pixels(&phare(x));
+        use crate::fonds::{couleur, taille};
+        assert_eq!(taille("port", "phare"), (77, HAUTEUR_PHARE));
+        // Le pixel du fichier qui tombe sur le point (x, y) de l'écran, phare en 0.
+        let plein = |x: i32, y: i32| {
+            let (fx, fy) = (x + AXE_PHARE, y - (HORIZON - HAUTEUR_PHARE));
+            couleur("port", "phare", fx as usize, fy as usize).is_some()
+        };
         let jetee = HORIZON - 3;
-        assert!((x - 5..x + 60).all(|px| p.contains_key(&(px, jetee))));
-        assert!((jetee..HORIZON).all(|y| p.contains_key(&(x, y))));
+        assert!((-5..60).all(|px| plein(px, jetee)));
+        assert!((jetee..HORIZON).all(|y| plein(0, y)));
         // La tour, sans trou, de la lampe à la jetée.
-        assert!(
-            (y_lampe() - 2..jetee).all(|y| p.contains_key(&(x, y))),
-            "tour"
-        );
+        assert!((y_lampe() - 2..jetee).all(|y| plein(0, y)), "tour");
+        // Le toit de la lanterne est la première rangée du fichier.
+        assert_eq!(y_lampe() - 2, HORIZON - HAUTEUR_PHARE);
     }
 
     /// Le faisceau tourne : il porte d'un côté puis de l'autre, jamais plus loin que

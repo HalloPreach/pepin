@@ -33,6 +33,8 @@ Même chaîne que les sprites (`assets/sprites/LISEZMOI.md`, carte 10.4a) :
 | `egouts/arches.png` | 112 x 88 | UNE arche du collecteur (sa période, 112 px) : l'anneau de claveaux et sa clé, les joints, les pierres d'angle, la bouche et la galerie qui s'enfonce. Le haut du fichier est posé en y = 30 (`HAUT_ARCHES`), le bas touche l'eau (y = 118). | La répétition tous les 112 px, la parallaxe (`FACTEUR_MUR`, `VERT_MUR`). |
 | `port/crepuscule.png` | 1 x 56 | Le ciel du crépuscule du port : ardoise, nuit, violet, corail, avec la trame de deux rangées entre deux bandes. | La répétition sur la largeur ; le décalage sous la tour de la Pieuvre. |
 | `port/mer.png` | 1 x 124 | La mer unie et sa ligne d'horizon (posée en y = 56). | Idem. |
+| `port/cargos.png` | 66 x 14 | Les deux cargos au mouillage (carte 10.4f) : le grand (38 px, colonnes 0 à 37) et le petit (28 px, colonnes 38 à 65), coque, piles de conteneurs, château et sa fenêtre orange, cheminée. Le bas du fichier est la ligne de flottaison, sur l'horizon. | La place de chacun, posé comme une bande de la planche (`fonds::dessiner_bande`) : le grand mouillé en 196, le petit qui glisse très lentement vers la gauche puis revient au large ; la parallaxe (`F_LARGE`), le décalage sous la tour de la Pieuvre. |
+| `port/phare.png` | 77 x 31 | Le phare au large (carte 10.4f) : la tour, sa galerie, sa lanterne et son toit, dressés sur le musoir d'une longue digue basse et de ses blocs. L'axe de la tour est la colonne 7 ; le bas du fichier est sous l'horizon. | Sa place (`X_PHARE`, parallaxe `F_LARGE`) ; le faisceau qui tourne et la lampe (plan « faisceau du phare ») ; pas de phare sous la tour de la Pieuvre. |
 | `port/port_d_en_face.png` | 640 x 60 | Le port d'en face sur UNE période (640 px) : entrepôts et leurs fenêtres, piles de conteneurs, les trois grues à portique, le quai. La colonne x est le point x du motif ; le haut est 56 px au-dessus du quai. | La répétition (`poser_motif`), la parallaxe (`F_PORT`), les feux de balisage qui clignotent. |
 | `port/pontons.png` | 640 x 92 | Les pontons sur pieux sur UNE période (640 px), les filets qui sèchent, les lampadaires et leur halo. Les pieux continuent 8 rangées sous l'écran (une secousse ne laisse jamais de trou). | La répétition, la parallaxe (`F_PONTONS`), les bouées qui dansent et le reflet des halos qui ondule. |
 | `caniveau/maisons.png` | 496 x 154 | La rue du caniveau sur UNE période (496 px, les huit maisons de `decor_rue::RUE`) : façades d'ardoise, toits en mansarde et lucarnes, vitres ÉTEINTES et leurs croisées, stores et vitrines, portes, descentes de gouttière, puis le trottoir d'en face (62 rangées sous le sol). Le haut du fichier est le faîte de la plus haute maison, 92 px au-dessus du sol. | La répétition (`tour * 496 - dec`), la parallaxe (`FACTEUR_ILOTS`, `VERT_ILOTS`), et les fenêtres ALLUMÉES (plan « fenêtres allumées ») : elles changent d'un tour de la rue à l'autre (`allumee(tour * 8 + maison, ..)`), peintes en violet carreau par carreau sur les vitres éteintes. |
@@ -85,10 +87,10 @@ Monde 2 (carte 10.4d) :
   tuyaux (semés au hasard cellule par cellule). La grille et la lumière du départ
   (`decor_egouts`) suivent le niveau.
 - Port : les étoiles et les mouettes (animées), le reflet de la lueur et la houle
-  (animés), le large (le second cargo glisse, le faisceau du phare tourne ; le premier
-  cargo et le phare lointain sont dessinés avec lui, dans le doute ils restent du code
-  pour l'instant), les feux de balisage, les voiliers (bercés par la houle), les bouées
-  et le reflet des halos. La bruine passe devant le niveau.
+  (animés), le faisceau du phare (il tourne) et sa lampe, les feux de balisage, les
+  voiliers (bercés par la houle), les bouées et le reflet des halos. La bruine passe
+  devant le niveau. Les deux cargos et le phare au large sont des fichiers depuis la
+  carte 10.4f (le petit cargo glisse, mais son dessin ne change pas).
 - Sous la tour de la Pieuvre (`dessiner_fond_sous_la_tour`) : le crépuscule qui
   s'éteint selon la montée, les étoiles, la lune, le port lointain qui s'enfonce :
   tout dépend de la hauteur de la caméra. Le fond de l'arène, en dessous, est la même
@@ -118,19 +120,35 @@ Monde 2 (carte 10.4d) :
   silhouettes (semés au hasard, comme au Monde 1). L'habillage de la grotte
   (`decor_grotte` : rideau de la cascade, sources, jour) suit la grille du niveau :
   il reste du code, dessiné par la scène.
-- PAS ENCORE traités (voir QA.md, carte 10.4f) : la Pieuvre
-  (`dessin_port`) et la montée (`dessin_montee`), les motifs du Monde 2 (`decor`).
-  Tout ce qui y est posé d'après la grille (phare de la jetée de la Pieuvre, habillage
-  des quais, gouttières, bords de toits, chutes jouables, mobilier du trottoir) restera
-  du code.
+- Les motifs du Monde 2 (`decor::Detail`, carte 10.4f) : il en reste trois, tous
+  ANIMÉS : les chutes et la brume de la cascade (les éclats dévalent, les nappes
+  dérivent) et l'eau de la marée (l'écume monte). Ceux des égouts et du port
+  (tuyaux, lueur, eau du port, grues, mouettes, phare) n'étaient plus dessinés depuis
+  que ces deux thèmes ont leur propre pile, et ceux de la rivière (forêt, eau)
+  étaient entièrement cachés par le ciel de la vallée : supprimés (captures
+  identiques).
+- La Pieuvre, phase de la jetée (`dessin_port::dessiner_fond`, hors pile : elle
+  dépend du niveau) : la mer unie, la houle qui dérive, le feu du phare qui clignote
+  et son reflet qui tremble, les bateaux qui se balancent (sprites
+  `jetee_*`, déjà des fichiers). Seul dessin FIXE resté en code : l'îlot du phare,
+  deux rectangles d'une seule couleur collés au sprite du phare ; un fichier de
+  26 x 5 pour deux rectangles n'apporterait rien (choix de la carte 10.4f).
+- La montée de la Pieuvre (`dessin_montee`, `mer_montee`) : la géante est faite de
+  sprites (`sprites/pieuvre`) posés selon son état ; la mer qui monte suit la
+  simulation ; le fond sous la tour suit la hauteur de la caméra (ci-dessus). Rien
+  de FIXE non plus.
+- Tout ce qui est posé d'après la grille (habillage des quais, gouttières, bords de
+  toits, chutes jouables, mobilier du trottoir) reste du code.
+- Hors Monde 2, toujours ouverts depuis la carte 10.4c : la carte des niveaux
+  (ci-dessus) et une capture de l'écran de fin.
 
 ## La pile de dessin
 
 Pour chaque thème, dans l'ordre RÉEL du rendu, du plus loin au plus près. « PNG » : un
 fichier de ce dossier ; « CALCULÉ » : du code. NIVEAU : le niveau lui-même (tuiles,
 entités, et les décors posés d'après sa grille) ; ce qui le suit passe devant. Les
-motifs 0, 1, 2 sont ceux du Monde 2 (carte 9.5 : 0 derrière le plafond, 1 entre les
-deux couches de silhouettes, 2 devant la couche proche).
+motifs 1 et 2 sont ceux du Monde 2 (carte 9.5 : 1 entre les deux couches de
+silhouettes, 2 devant la couche proche).
 
 Cette liste est la sortie EXACTE de `decor::pile`, la liste que suivent
 `decor::dessiner_fond` et `decor::dessiner_avant` : le test
@@ -153,8 +171,8 @@ Cette liste est la sortie EXACTE de `decor::pile`, la liste que suivent
 - `Egouts` : mur PNG egouts/mur.png, arches PNG egouts/arches.png, piliers CALCULÉ, eau CALCULÉ, tuyaux CALCULÉ, NIVEAU
 - `Cascade` : ciel PNG cascade/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, falaise du pied CALCULÉ, rideau de la chute CALCULÉ, brume de la chute CALCULÉ, filets des chutes CALCULÉ, NIVEAU, pluie CALCULÉ
 - `Grotte` : ciel PNG grotte/ciel.png, plafond lointain CALCULÉ, plafond proche CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, cristaux PNG grotte/cristaux.png, NIVEAU
-- `Riviere` : ciel PNG riviere/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, ciel de la vallée PNG riviere/ciel_vallee.png, halo du soleil CALCULÉ, soleil couchant PNG riviere/soleil_couchant.png, nuages fins CALCULÉ, oiseaux CALCULÉ, montagnes CALCULÉ, collines CALCULÉ, rang clair CALCULÉ, rivière du fond CALCULÉ, moulin PNG riviere/moulin.png, roue du moulin CALCULÉ, rang sombre CALCULÉ, versant CALCULÉ, grands arbres CALCULÉ, lucioles CALCULÉ, NIVEAU
-- `Port` : crépuscule PNG port/crepuscule.png, étoiles du port CALCULÉ, mouettes CALCULÉ, mer PNG port/mer.png, reflets CALCULÉ, large CALCULÉ, port d'en face PNG port/port_d_en_face.png, balises CALCULÉ, voiliers CALCULÉ, pontons PNG port/pontons.png, bouées CALCULÉ, NIVEAU, bruine CALCULÉ
+- `Riviere` : ciel PNG riviere/ciel.png, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, ciel de la vallée PNG riviere/ciel_vallee.png, halo du soleil CALCULÉ, soleil couchant PNG riviere/soleil_couchant.png, nuages fins CALCULÉ, oiseaux CALCULÉ, montagnes CALCULÉ, collines CALCULÉ, rang clair CALCULÉ, rivière du fond CALCULÉ, moulin PNG riviere/moulin.png, roue du moulin CALCULÉ, rang sombre CALCULÉ, versant CALCULÉ, grands arbres CALCULÉ, lucioles CALCULÉ, NIVEAU
+- `Port` : crépuscule PNG port/crepuscule.png, étoiles du port CALCULÉ, mouettes CALCULÉ, mer PNG port/mer.png, reflets CALCULÉ, cargos PNG port/cargos.png, phare PNG port/phare.png, faisceau du phare CALCULÉ, port d'en face PNG port/port_d_en_face.png, balises CALCULÉ, voiliers CALCULÉ, pontons PNG port/pontons.png, bouées CALCULÉ, NIVEAU, bruine CALCULÉ
 - `Maree` : ciel PNG maree/ciel.png, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU, pluie CALCULÉ
 <!-- pile -->
 
