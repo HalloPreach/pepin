@@ -20,6 +20,10 @@
 //!    pieux, filets qui sèchent, bouées, lampadaires et le reflet de leur halo qui
 //!    ondule sur l'eau.
 //!
+//! Carte 10.4d : le ciel, la mer unie, le port d'en face et les pontons sont des
+//! fichiers de `assets/fonds/port` (FIXES) ; tout le reste est CALCULÉ. L'ordre est
+//! la pile `PILE` (voir `Plan`), la même que `decor::pile` et le LISEZMOI.
+//!
 //! Tout reste plus terne et plus sombre que le premier plan jouable : de grandes
 //! masses d'ardoise de nuit, les couleurs vives en touches de quelques pixels. Les
 //! animations sont lentes. La pluie se calme : une bruine fine et clairsemée
@@ -59,15 +63,6 @@ const H: i32 = HAUTEUR_LOGIQUE as i32;
 /// Un rectangle de couleur : (x, y, largeur, hauteur, couleur), à l'écran.
 pub(crate) type Rect = (i32, i32, i32, i32, Couleur);
 
-/// Les bandes du ciel, de haut en bas : (bas de la bande en px, couleur). La
-/// dernière s'arrête à l'horizon.
-pub(crate) const CIEL: [(i32, Couleur); 5] = [
-    (14, ARDOISE_OMBRE),
-    (26, ARDOISE_NUIT),
-    (36, ARDOISE),
-    (46, VIOLET_ORAGE),
-    (HORIZON, CORAIL),
-];
 /// L'horizon de la mer (px à l'écran, au pied du niveau) : sous lui la mer.
 pub(crate) const HORIZON: i32 = 56;
 /// Le dessus du quai d'en face (px à l'écran) : les entrepôts, les conteneurs et
@@ -117,24 +112,6 @@ fn hache(n: i32) -> u32 {
     h
 }
 
-/// Couleur du ciel à l'ordonnée `y` (au-dessus de l'horizon). Les bandes se
-/// fondent l'une dans l'autre sur deux rangées alternées (pas de demi-teinte).
-pub(crate) fn ciel_a(y: i32) -> Couleur {
-    let mut haut = 0;
-    for (k, &(bas, c)) in CIEL.iter().enumerate() {
-        if y < bas {
-            // Les deux dernières rangées d'une bande : une sur deux prend la
-            // couleur de la bande suivante.
-            if k + 1 < CIEL.len() && y >= bas - 2 && (y - haut) % 2 == 1 {
-                return CIEL[k + 1].1;
-            }
-            return c;
-        }
-        haut = bas;
-    }
-    CIEL[CIEL.len() - 1].1
-}
-
 /// Le faisceau du phare au pas `pas` : (sens, longueur en px). Il tourne : vu de
 /// profil il porte loin, d'un côté puis de l'autre ; tourné vers nous ou de dos il
 /// se réduit à la lampe.
@@ -145,30 +122,12 @@ pub(crate) fn faisceau(pas: u32) -> (i32, i32) {
     (sens, (c.abs() * PORTEE as f32) as i32)
 }
 
-/// Le phare et sa jetée lointaine, l'axe de la tour en `x`, la jetée posée sur
-/// l'horizon : la tour (silhouette, galerie, lanterne) se dresse SUR le musoir.
-pub(crate) fn phare(x: i32) -> Vec<Rect> {
-    let jetee = HORIZON - 3;
-    let pied = jetee;
-    let galerie = pied - TOUR;
-    let mut r = vec![
-        // La jetée : une longue digue basse vers la droite, ses blocs, le musoir.
-        (x - 6, jetee, 76, 3, ARDOISE_OMBRE),
-        (x - 7, jetee + 1, 1, 2, ARDOISE_OMBRE),
-        (x - 5, jetee - 1, 12, 1, ARDOISE_OMBRE),
-    ];
-    for k in 0..6 {
-        r.push((x + 10 + k * 11, jetee - 1, 4, 1, ARDOISE_OMBRE));
-    }
-    // La tour, plus large au pied, posée sur le musoir.
-    r.push((x - 3, pied - 6, 6, 6, ARDOISE_OMBRE));
-    r.push((x - 2, galerie, 4, TOUR - 6, ARDOISE_OMBRE));
-    // La galerie, la lanterne, le toit.
-    r.push((x - 3, galerie - 1, 6, 1, ARDOISE_OMBRE));
-    r.push((x - 1, galerie - 5, 2, 4, ARDOISE_OMBRE));
-    r.push((x - 2, galerie - 6, 4, 1, ARDOISE_OMBRE));
-    r
-}
+/// Le phare et sa jetée lointaine, `port/phare.png` (carte 10.4f) : la tour
+/// (silhouette, galerie, lanterne) dressée SUR le musoir d'une longue digue basse
+/// vers la droite. L'axe de la tour est la colonne 7 du fichier, son bas la
+/// dernière rangée sous l'horizon (la digue est posée sur l'horizon, à 3 px).
+const AXE_PHARE: i32 = 7;
+const HAUTEUR_PHARE: i32 = 31;
 
 /// Le faisceau du phare dont la lampe est en `(x, yl)`, tourné du côté `sens`, long
 /// de `long` px : un CÔNE de lumière terne qui s'évase en s'éloignant (une colonne
@@ -192,52 +151,12 @@ pub(crate) fn y_lampe() -> i32 {
     HORIZON - 3 - TOUR - 4
 }
 
-/// Une grande grue à portique posée sur le quai d'en face en `base` (le pied des
-/// jambes), sa flèche au-dessus de l'eau vers la gauche. Le chariot, ses deux
-/// câbles tendus et le palonnier qui tient un conteneur au-dessus du quai.
-pub(crate) fn portique(x: i32, base: i32) -> Vec<Rect> {
-    let haut = base - 46;
-    let c = ARDOISE_OMBRE;
-    let mut r = vec![
-        // Les deux jambes et leur traverse.
-        (x, haut, 2, base - haut, c),
-        (x + 16, haut, 2, base - haut, c),
-        (x, base - 14, 18, 2, c),
-        // La poutre de la flèche (au-dessus de l'eau à gauche, contre-flèche à
-        // droite), en treillis : deux membrures, des montants.
-        (x - 34, haut - 1, 62, 1, c),
-        (x - 34, haut + 2, 62, 1, c),
-        // La cabine de la machinerie, le haubanage au sommet.
-        (x + 18, haut - 5, 8, 5, c),
-        (x + 4, haut - 9, 2, 8, c),
-        (x + 12, haut - 9, 2, 8, c),
-        (x + 4, haut - 10, 10, 1, c),
-    ];
-    for k in 0..16 {
-        r.push((x - 34 + k * 4, haut, 1, 2, c));
-    }
-    // Le chariot, ses deux câbles tendus, le palonnier et son conteneur.
-    let chariot = x - 22;
-    let palonnier = base - 26;
-    r.push((chariot, haut + 3, 6, 2, c));
-    r.push((chariot + 1, haut + 5, 1, palonnier - haut - 5, c));
-    r.push((chariot + 4, haut + 5, 1, palonnier - haut - 5, c));
-    r.push((chariot - 2, palonnier, 10, 1, c));
-    r.push((chariot - 3, palonnier + 1, 12, 5, ARDOISE));
-    r.push((chariot - 3, palonnier + 5, 12, 1, ARDOISE_OMBRE));
-    r
-}
-
 /// Le feu de balisage rouge du sommet d'une grue : allumé une seconde sur deux,
 /// chaque grue à son rythme.
 pub(crate) fn balise_allumee(pas: u32, k: i32) -> bool {
     ((pas + k as u32 * 37) / 60).is_multiple_of(2)
 }
 
-/// Un entrepôt du quai d'en face : (x, largeur, hauteur) dans le motif.
-const ENTREPOTS: [(i32, i32, i32); 4] = [(96, 50, 20), (271, 60, 16), (470, 84, 22), (20, 40, 26)];
-/// Les piles de conteneurs : (x, nombre de piles, hauteur de la plus haute).
-const CONTENEURS: [(i32, i32, i32); 4] = [(156, 3, 4), (341, 3, 3), (566, 2, 4), (70, 2, 2)];
 /// Les grues à portique : x dans le motif.
 const PORTIQUES: [i32; 3] = [236, 400, 620];
 /// Les voiliers amarrés : (x dans le motif, hauteur du mât).
@@ -258,10 +177,7 @@ fn dans_motif(x: i32, dec: i32) -> i32 {
     (x - dec).rem_euclid(MOTIF) - 96
 }
 
-fn dessiner_ciel(cam_x: i32, pas: u32) {
-    for y in 0..HORIZON {
-        rect(0, y, L, 1, ciel_a(y));
-    }
+fn dessiner_etoiles(cam_x: i32, pas: u32) {
     // Les étoiles, dans le haut du ciel seulement ; une sur sept s'éteint un
     // instant, chacune à son tour.
     let dec = decalage(cam_x, 0.02);
@@ -294,9 +210,7 @@ fn dessiner_mouettes(cam_x: i32, pas: u32) {
     }
 }
 
-fn dessiner_mer(cam_x: i32, pas: u32) {
-    rect(0, HORIZON, L, H - HORIZON, ARDOISE_NUIT);
-    rect(0, HORIZON, L, 1, ARDOISE);
+fn dessiner_reflets(cam_x: i32, pas: u32) {
     // Le reflet de la lueur : de courts traits sur les premières rangées de la mer,
     // collés à l'horizon (corail sur la première, violets dessous).
     let dec = decalage(cam_x, F_LARGE);
@@ -318,28 +232,39 @@ fn dessiner_mer(cam_x: i32, pas: u32) {
     }
 }
 
-fn dessiner_large(cam_x: i32, pas: u32, avec_phare: bool) {
+/// Les deux cargos au mouillage, `port/cargos.png` (carte 10.4f) : une planche de
+/// 14 px de haut, le grand cargo (38 px : coque, piles de conteneurs, château, sa
+/// fenêtre orange, cheminée) dans les colonnes 0 à 37, le petit (28 px) dans les
+/// colonnes 38 à 65 ; le bas du fichier est la ligne de flottaison, sur l'horizon.
+/// Le grand est mouillé en 196 (parallaxe `F_LARGE`) ; le petit glisse très
+/// lentement vers la gauche, puis revient au large.
+fn dessiner_cargos(cam_x: i32, pas: u32) {
     let dec = decalage(cam_x, F_LARGE);
-    // Le cargo au mouillage : coque, piles de conteneurs, château, cheminée.
-    let cargo = |x: i32, long: i32| {
-        let w = HORIZON;
-        rect(x, w - 3, long, 3, ARDOISE_OMBRE);
-        rect(x + 1, w - 4, long - 2, 1, ARDOISE_OMBRE);
-        rect(x + 4, w - 7, long - 16, 3, ARDOISE_OMBRE);
-        rect(x + long - 10, w - 11, 6, 7, ARDOISE_OMBRE);
-        rect(x + long - 9, w - 14, 2, 3, ARDOISE_OMBRE);
-        rect(x + long - 9, w - 9, 1, 1, ORANGE_SOLEIL);
-    };
-    cargo(196 - dec, 38);
-    // Le second cargo glisse très lentement vers la gauche, puis revient au large.
+    let y = HORIZON - 14 + DECALAGE.with(Cell::get);
+    crate::fonds::dessiner_bande("port", "cargos", (0, 38), 196 - dec, y);
     let x = (330 - (pas / LENTEUR_CARGO) as i32 - dec).rem_euclid(L + 80) - 40;
-    cargo(x, 28);
+    crate::fonds::dessiner_bande("port", "cargos", (38, 28), x, y);
+}
+
+/// Le phare au large, sur sa jetée, `port/phare.png` (pas sous la tour de la
+/// Pieuvre : `avec_phare`).
+fn dessiner_phare(cam_x: i32, avec_phare: bool) {
     if !avec_phare {
         return;
     }
-    // Le phare sur sa jetée, et son faisceau qui tourne.
+    let x = X_PHARE - decalage(cam_x, F_LARGE) - AXE_PHARE;
+    let y = HORIZON - HAUTEUR_PHARE + DECALAGE.with(Cell::get);
+    crate::fonds::dessiner("port", "phare", x, y);
+}
+
+/// Le faisceau du phare, qui tourne, et sa lampe (pas sous la tour de la Pieuvre :
+/// `avec_phare`).
+fn dessiner_faisceau(cam_x: i32, pas: u32, avec_phare: bool) {
+    if !avec_phare {
+        return;
+    }
+    let dec = decalage(cam_x, F_LARGE);
     let xp = X_PHARE - dec;
-    poser(&phare(xp));
     let yl = y_lampe();
     let (sens, long) = faisceau(pas);
     poser(&cone(xp, yl, sens, long));
@@ -351,61 +276,17 @@ fn dessiner_large(cam_x: i32, pas: u32, avec_phare: bool) {
     }
 }
 
-fn dessiner_port(cam_x: i32, cam_y: i32, pas: u32) {
+/// Le feu de balisage de chaque grue du port d'en face (posée dans
+/// `port/port_d_en_face.png`) : un point corail au-dessus de sa cabine.
+fn dessiner_balises(cam_x: i32, cam_y: i32, pas: u32) {
     let dec = decalage(cam_x, F_PORT);
     let base = QUAI_FACE + enfoncement(cam_y, F_PORT);
-    for (i, &(x0, w, h)) in ENTREPOTS.iter().enumerate() {
-        let x = dans_motif(x0, dec);
-        // Le corps, le toit en dents de scie, les fenêtres (quelques-unes allumées).
-        rect(x, base - h, w, h, ARDOISE_NUIT);
-        for k in 0..w / 10 {
-            for d in 0..4 {
-                rect(
-                    x + k * 10 + d * 2,
-                    base - h - 4 + d,
-                    10 - d * 2,
-                    1,
-                    ARDOISE_NUIT,
-                );
-            }
-        }
-        for fx in 0..(w - 4) / 6 {
-            for fy in 0..(h - 8) / 6 {
-                let allume = hache(i as i32 * 101 + fx * 13 + fy * 7).is_multiple_of(4);
-                let c = if allume { ORANGE_SOLEIL } else { ARDOISE_OMBRE };
-                rect(x + 3 + fx * 6, base - h + 4 + fy * 6, 3, 2, c);
-            }
-        }
-        // La grande porte du quai.
-        rect(x + w / 2 - 5, base - 8, 10, 8, ARDOISE_OMBRE);
-    }
-    const TEINTES: [Couleur; 4] = [ARDOISE, VIOLET_ORAGE, ARDOISE_NUIT, ARDOISE];
-    for (i, &(x0, piles, plus_haute)) in CONTENEURS.iter().enumerate() {
-        let x = dans_motif(x0, dec);
-        for p in 0..piles {
-            let n = 1 + (hache(i as i32 * 17 + p) % plus_haute as u32) as i32;
-            for e in 0..n {
-                let (cx, cy) = (x + p * 15, base - 5 * (e + 1));
-                let c = TEINTES[(hache(i as i32 * 31 + p * 5 + e) % 4) as usize];
-                rect(cx, cy, 14, 5, c);
-                // Les nervures et le liseré sombre.
-                rect(cx, cy + 4, 14, 1, ARDOISE_OMBRE);
-                for n in 0..4 {
-                    rect(cx + 2 + n * 3, cy + 1, 1, 3, ARDOISE_OMBRE);
-                }
-            }
-        }
-    }
     for (k, &x0) in PORTIQUES.iter().enumerate() {
         let x = dans_motif(x0, dec);
-        poser(&portique(x, base));
         if balise_allumee(pas, k as i32) {
             rect(x + 8, base - 46 - 11, 2, 1, CORAIL);
         }
     }
-    // Le quai d'en face : son arête, son mur.
-    rect(0, base, L, 4, ARDOISE_OMBRE);
-    rect(0, base, L, 1, ARDOISE);
 }
 
 fn dessiner_voiliers(cam_x: i32, cam_y: i32, pas: u32) {
@@ -435,47 +316,20 @@ fn dessiner_voiliers(cam_x: i32, cam_y: i32, pas: u32) {
     }
 }
 
-fn dessiner_pontons(cam_x: i32, cam_y: i32, pas: u32) {
+/// Les bouées amarrées devant les pontons (`port/pontons.png`), qui dansent sur
+/// l'eau, et le reflet du halo des lampadaires, qui ondule.
+fn dessiner_bouees(cam_x: i32, cam_y: i32, pas: u32) {
     let dec = decalage(cam_x, F_PONTONS);
     let pont = PONTON + enfoncement(cam_y, F_PONTONS);
     for (k, &x0) in LAMPADAIRES.iter().enumerate() {
         let x = dans_motif(x0, dec);
-        // Le ponton : platelage sur ses pieux.
-        // Sombre et sans arête claire : ce n'est pas une plateforme.
-        rect(x - 40, pont, 90, 2, ARDOISE_NUIT);
-        rect(x - 40, pont + 2, 90, 2, ARDOISE_OMBRE);
-        for p in 0..8 {
-            let px = x - 38 + p * 12;
-            let haut = if p % 4 == 0 { pont - 10 } else { pont };
-            rect(px, haut, 3, H - haut, ARDOISE_OMBRE);
-        }
-        // Le filet qui sèche entre les deux grands pieux, en mailles qui pendent.
-        let (g, d) = (x - 38 + 3, x + 10);
-        for m in 0..(d - g) / 3 {
-            let creux = (m * (d - g) / 3 - m * m) / 12;
-            for r in 0..3 {
-                rect(g + m * 3 + r % 2, pont - 9 + creux + r * 2, 1, 1, ARDOISE);
-            }
-        }
         // La bouée amarrée devant le ponton : elle danse sur l'eau.
         let bx = x + 30;
         let by = pont + 12 + ((pas / 25 + k as u32) % 2) as i32;
         rect(bx, by, 5, 4, VIOLET_ORAGE);
         rect(bx, by + 1, 5, 1, ARDOISE_PALE);
         rect(bx + 2, by - 2, 1, 2, ARDOISE_OMBRE);
-        // Le lampadaire, son halo, et le reflet du halo qui ondule sur l'eau.
         let lx = x + 18;
-        let tete = pont - 26;
-        for (r, c) in [(7, ARDOISE), (4, ARDOISE_CLAIRE)] {
-            for dy in -r..=r {
-                let demi = (((r * r - dy * dy) as f32).sqrt() + 0.3) as i32;
-                rect(lx + 1 - demi, tete + 2 + dy, 2 * demi, 1, c);
-            }
-        }
-        rect(lx, tete + 4, 2, pont - tete - 4, ARDOISE_OMBRE);
-        rect(lx - 1, tete - 1, 4, 1, ARDOISE_OMBRE);
-        rect(lx - 1, tete, 4, 4, ARDOISE_OMBRE);
-        rect(lx, tete + 1, 2, 2, BRUME);
         for r in 0..5i32 {
             let ondule = [0, 1, 0, -1][((pas / 12) as i32 + r).rem_euclid(4) as usize];
             let w = 6 - r;
@@ -494,13 +348,144 @@ fn dessiner_pontons(cam_x: i32, cam_y: i32, pas: u32) {
 /// le fond (`decor::camera_fond`). `avec_phare` : faux sur la jetée de la Pieuvre,
 /// qui dessine son propre phare (`dessin_port`).
 pub fn dessiner_fond(cam_x: i32, cam_y: i32, pas: u32, avec_phare: bool) {
-    dessiner_ciel(cam_x, pas);
-    dessiner_mouettes(cam_x, pas);
-    dessiner_mer(cam_x, pas);
-    dessiner_large(cam_x, pas, avec_phare);
-    dessiner_port(cam_x, cam_y, pas);
-    dessiner_voiliers(cam_x, cam_y, pas);
-    dessiner_pontons(cam_x, cam_y, pas);
+    for plan in PILE {
+        dessiner_plan(plan, cam_x, cam_y, pas, avec_phare);
+    }
+}
+
+/// Les plans du fond du port, du plus loin au plus près (carte 10.4d). Quatre sont
+/// des fichiers de `assets/fonds/port` (FIXES : seul leur placement est calculé) ;
+/// les autres sont CALCULÉS (animés, ou qui suivent le temps). `decor::pile` les
+/// reprend tels quels pour le thème `Port`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Plan {
+    /// Le ciel du crépuscule, `port/crepuscule.png` : une colonne étirée.
+    Crepuscule,
+    /// Les étoiles qui s'éteignent chacune à son tour.
+    Etoiles,
+    /// Les mouettes de décor qui volent au loin.
+    Mouettes,
+    /// La mer unie et sa ligne d'horizon, `port/mer.png` : une colonne étirée.
+    Mer,
+    /// Le reflet de la lueur et la houle de la darse, qui dérivent.
+    Reflets,
+    /// Les deux cargos au mouillage (l'un glisse), `port/cargos.png` : une planche
+    /// de deux cargos, chacun posé par le code (carte 10.4f).
+    Cargos,
+    /// Le phare au large et sa jetée, `port/phare.png` (carte 10.4f).
+    Phare,
+    /// Le faisceau du phare, qui tourne, et sa lampe.
+    Faisceau,
+    /// Le port d'en face (entrepôts, conteneurs, grues, quai),
+    /// `port/port_d_en_face.png` : UNE période de `MOTIF` px, répétée par le code.
+    PortDEnFace,
+    /// Les feux de balisage des grues, qui clignotent.
+    Balises,
+    /// Les voiliers amarrés, bercés par la houle.
+    Voiliers,
+    /// Les pontons, leurs filets et leurs lampadaires, `port/pontons.png` : UNE
+    /// période de `MOTIF` px.
+    Pontons,
+    /// Les bouées qui dansent et le reflet des halos qui ondule.
+    Bouees,
+}
+
+/// La pile du fond du port (lue par `dessiner_fond` et par `decor::pile`).
+pub const PILE: [Plan; 13] = [
+    Plan::Crepuscule,
+    Plan::Etoiles,
+    Plan::Mouettes,
+    Plan::Mer,
+    Plan::Reflets,
+    Plan::Cargos,
+    Plan::Phare,
+    Plan::Faisceau,
+    Plan::PortDEnFace,
+    Plan::Balises,
+    Plan::Voiliers,
+    Plan::Pontons,
+    Plan::Bouees,
+];
+
+/// Haut de `port/port_d_en_face.png` au-dessus du dessus du quai d'en face : le
+/// haubanage des grues.
+const HAUT_PORT_D_EN_FACE: i32 = 56;
+/// Haut de `port/pontons.png` au-dessus du platelage : le halo des lampadaires.
+const HAUT_PONTONS: i32 = 30;
+
+impl Plan {
+    /// Le nom du fichier de `assets/fonds/port` (`None` : plan calculé).
+    #[cfg(test)]
+    pub fn fichier(self) -> Option<&'static str> {
+        match self {
+            Plan::Crepuscule => Some("crepuscule"),
+            Plan::Mer => Some("mer"),
+            Plan::Cargos => Some("cargos"),
+            Plan::Phare => Some("phare"),
+            Plan::PortDEnFace => Some("port_d_en_face"),
+            Plan::Pontons => Some("pontons"),
+            _ => None,
+        }
+    }
+
+    /// Le nom du plan dans `assets/fonds/LISEZMOI.md`.
+    #[cfg(test)]
+    pub fn nom(self) -> &'static str {
+        match self {
+            Plan::Crepuscule => "crépuscule",
+            Plan::Etoiles => "étoiles du port",
+            Plan::Mouettes => "mouettes",
+            Plan::Mer => "mer",
+            Plan::Reflets => "reflets",
+            Plan::Cargos => "cargos",
+            Plan::Phare => "phare",
+            Plan::Faisceau => "faisceau du phare",
+            Plan::PortDEnFace => "port d'en face",
+            Plan::Balises => "balises",
+            Plan::Voiliers => "voiliers",
+            Plan::Pontons => "pontons",
+            Plan::Bouees => "bouées",
+        }
+    }
+}
+
+/// Pose une couche FIXE qui se répète tous les `MOTIF` px (`port_d_en_face` ou
+/// `pontons`), décalée de `dec` : la colonne `c` du fichier est le point `c` du
+/// motif, que `dans_motif` place à l'écran en `c - 96 - dec` (à `MOTIF` près).
+fn poser_motif(nom: &'static str, dec: i32, y: i32) {
+    let y = y + DECALAGE.with(Cell::get);
+    let mut x = (-96 - dec).rem_euclid(MOTIF) - MOTIF;
+    while x < L {
+        crate::fonds::dessiner("port", nom, x, y);
+        x += MOTIF;
+    }
+}
+
+/// Dessine un plan du fond du port (voir `dessiner_fond`).
+pub fn dessiner_plan(plan: Plan, cam_x: i32, cam_y: i32, pas: u32, avec_phare: bool) {
+    let decale = DECALAGE.with(Cell::get);
+    match plan {
+        Plan::Crepuscule => crate::fonds::repeter("port", "crepuscule", 0, decale, L),
+        Plan::Etoiles => dessiner_etoiles(cam_x, pas),
+        Plan::Mouettes => dessiner_mouettes(cam_x, pas),
+        Plan::Mer => crate::fonds::repeter("port", "mer", 0, HORIZON + decale, L),
+        Plan::Reflets => dessiner_reflets(cam_x, pas),
+        Plan::Cargos => dessiner_cargos(cam_x, pas),
+        Plan::Phare => dessiner_phare(cam_x, avec_phare),
+        Plan::Faisceau => dessiner_faisceau(cam_x, pas, avec_phare),
+        Plan::PortDEnFace => {
+            let base = QUAI_FACE + enfoncement(cam_y, F_PORT);
+            let dec = decalage(cam_x, F_PORT);
+            poser_motif("port_d_en_face", dec, base - HAUT_PORT_D_EN_FACE);
+        }
+        Plan::Balises => dessiner_balises(cam_x, cam_y, pas),
+        Plan::Voiliers => dessiner_voiliers(cam_x, cam_y, pas),
+        Plan::Pontons => {
+            let pont = PONTON + enfoncement(cam_y, F_PONTONS);
+            poser_motif("pontons", decalage(cam_x, F_PONTONS), pont - HAUT_PONTONS);
+        }
+        Plan::Bouees => dessiner_bouees(cam_x, cam_y, pas),
+    }
 }
 
 /// Le fond du port sous la tour de la Pieuvre (carte 9.13c) : `monte` px de
@@ -694,32 +679,41 @@ mod tests {
         p
     }
 
-    /// Le ciel du crépuscule : sombre en haut, la lueur chaude à l'horizon, et les
-    /// bandes descendent dans l'ordre.
+    /// Le ciel du crépuscule (`port/crepuscule.png`, carte 10.4d) : sombre en haut,
+    /// la lueur chaude à l'horizon ; la mer (`port/mer.png`) commence par la ligne
+    /// d'horizon et descend jusqu'en bas de l'écran.
     #[test]
     fn le_ciel_va_de_la_nuit_a_la_lueur_de_l_horizon() {
-        assert_eq!(ciel_a(0), ARDOISE_OMBRE);
-        assert_eq!(ciel_a(HORIZON - 1), CORAIL);
-        assert!(CIEL.windows(2).all(|w| w[0].0 < w[1].0));
-        assert_eq!(CIEL[CIEL.len() - 1].0, HORIZON);
+        use crate::fonds::{couleur, taille};
+        assert_eq!(taille("port", "crepuscule"), (1, HORIZON));
+        assert_eq!(couleur("port", "crepuscule", 0, 0), Some(ARDOISE_OMBRE));
+        let bas = HORIZON as usize - 1;
+        assert_eq!(couleur("port", "crepuscule", 0, bas), Some(CORAIL));
+        assert_eq!(taille("port", "mer"), (1, H - HORIZON));
+        assert_eq!(couleur("port", "mer", 0, 0), Some(ARDOISE));
         // Le ciel tient dans le haut de l'écran, au-dessus des quais jouables.
         const { assert!(HORIZON < QUAI_FACE && QUAI_FACE < PONTON && PONTON < H) };
     }
 
     /// Le phare est POSÉ : sa tour touche le musoir de sa jetée, d'un seul tenant
-    /// de la lanterne au pied, et la jetée est sur l'horizon.
+    /// de la lanterne au pied, et la jetée est sur l'horizon (`port/phare.png`, la
+    /// tour sur la colonne `AXE_PHARE`, le bas du fichier sous l'horizon).
     #[test]
     fn le_phare_est_pose_au_bout_de_sa_jetee() {
-        let x = 100;
-        let p = pixels(&phare(x));
+        use crate::fonds::{couleur, taille};
+        assert_eq!(taille("port", "phare"), (77, HAUTEUR_PHARE));
+        // Le pixel du fichier qui tombe sur le point (x, y) de l'écran, phare en 0.
+        let plein = |x: i32, y: i32| {
+            let (fx, fy) = (x + AXE_PHARE, y - (HORIZON - HAUTEUR_PHARE));
+            couleur("port", "phare", fx as usize, fy as usize).is_some()
+        };
         let jetee = HORIZON - 3;
-        assert!((x - 5..x + 60).all(|px| p.contains_key(&(px, jetee))));
-        assert!((jetee..HORIZON).all(|y| p.contains_key(&(x, y))));
+        assert!((-5..60).all(|px| plein(px, jetee)));
+        assert!((jetee..HORIZON).all(|y| plein(0, y)));
         // La tour, sans trou, de la lampe à la jetée.
-        assert!(
-            (y_lampe() - 2..jetee).all(|y| p.contains_key(&(x, y))),
-            "tour"
-        );
+        assert!((y_lampe() - 2..jetee).all(|y| plein(0, y)), "tour");
+        // Le toit de la lanterne est la première rangée du fichier.
+        assert_eq!(y_lampe() - 2, HORIZON - HAUTEUR_PHARE);
     }
 
     /// Le faisceau tourne : il porte d'un côté puis de l'autre, jamais plus loin que
@@ -740,11 +734,24 @@ mod tests {
     }
 
     /// Les câbles de la grue sont TENDUS : d'un seul tenant du chariot sous la
-    /// flèche jusqu'au palonnier, et les jambes touchent le quai.
+    /// flèche jusqu'au palonnier, et les jambes touchent le quai. Carte 10.4d : vu
+    /// dans `port/port_d_en_face.png`, où la colonne `x` est le point `x` du motif
+    /// et la rangée `HAUT_PORT_D_EN_FACE` le dessus du quai.
     #[test]
     fn les_cables_de_la_grue_vont_de_la_fleche_au_palonnier() {
-        let (x, base) = (100, 84);
-        let p = pixels(&portique(x, base));
+        let (x, base) = (PORTIQUES[0], HAUT_PORT_D_EN_FACE);
+        let (l, h) = crate::fonds::taille("port", "port_d_en_face");
+        assert_eq!(l, MOTIF);
+        let mut p = std::collections::HashMap::new();
+        for py in 0..h {
+            for px in 0..l {
+                if let Some(c) =
+                    crate::fonds::couleur("port", "port_d_en_face", px as usize, py as usize)
+                {
+                    p.insert((px, py), c);
+                }
+            }
+        }
         let haut = base - 46;
         let chariot = x - 22;
         for cable in [chariot + 1, chariot + 4] {

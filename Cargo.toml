@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "game"]
+members = ["core", "game", "niveaux", "outils", "robot"]
 
 # Profil release orienté taille minimale (cible web / wasm)
 [profile.release]
@@ -28,3 +28,11 @@ lto = false
 codegen-units = 16
 strip = false
 panic = "unwind"
+
+# Carte 10.3c : le robot de faisabilité compilé en wasm pour l'éditeur (crate
+# `robot`, build de QA seulement). Le profil web `release` vise la TAILLE (`z`) ;
+# celui-ci la VITESSE (`3`) : le robot simule des millions de pas dans le
+# navigateur. `panic = "abort"` est hérité (le seul possible en wasm32).
+[profile.robot-web]
+inherits = "release"
+opt-level = 3

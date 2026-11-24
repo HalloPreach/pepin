@@ -310,7 +310,6 @@ mod tests {
     use super::*;
     use crate::sprites::jetee;
     use crate::sprites::tuiles_monde2::port;
-    use pepin_core::levels::{essai_pieuvre, pieuvre};
 
     fn nom(p: Piece) -> &'static str {
         match p {
@@ -324,7 +323,7 @@ mod tests {
     /// pierre mouillée au niveau du bassin.
     #[test]
     fn les_bords_de_l_arene_sont_des_quais_avec_une_grue_et_des_caisses() {
-        let n = pieuvre::INFOS.charger().unwrap();
+        let n = niveaux::par_cle("pieuvre").charger().unwrap();
         let (l, h) = (n.largeur() as i32, n.hauteur() as i32);
         // Carte 9.13a : l'arène est sous la tour, dans les 11 dernières rangées.
         let a = haut_de_l_arene(&n);
@@ -369,7 +368,7 @@ mod tests {
     /// est à elle, et la rangée du fond reste au thème.
     #[test]
     fn la_jetee_dessine_les_murs_solides_et_le_bassin_sans_toucher_la_grille() {
-        let n = pieuvre::INFOS.charger().unwrap();
+        let n = niveaux::par_cle("pieuvre").charger().unwrap();
         let (l, h) = (n.largeur() as i32, n.hauteur() as i32);
         for tx in [0, l - 1] {
             for ty in 0..h - 1 {
@@ -389,16 +388,16 @@ mod tests {
             "le platelage reste au thème"
         );
         // Le niveau d'essai garde l'ancien rendu.
-        assert_ne!(essai_pieuvre::INFOS.cle, CLE_JETEE);
-        assert_eq!(pieuvre::INFOS.cle, CLE_JETEE);
+        assert_ne!(niveaux::par_cle("essai_pieuvre").cle, CLE_JETEE);
+        assert_eq!(niveaux::par_cle("pieuvre").cle, CLE_JETEE);
     }
 
     /// Chaque pièce existe : les sprites dans `sprites::jetee`, les tuiles dans le
     /// jeu du port.
     #[test]
     fn chaque_piece_du_bord_existe() {
-        let sprites: Vec<_> = jetee::SPRITES.iter().map(|(n, _)| *n).collect();
-        let tuiles: Vec<_> = port::SPRITES.iter().map(|(n, _)| *n).collect();
+        let sprites: Vec<_> = jetee::sprites().iter().map(|(n, _)| *n).collect();
+        let tuiles: Vec<_> = port::sprites().iter().map(|(n, _)| *n).collect();
         for gauche in [true, false] {
             for ty in 0..11 {
                 for eau in [false, true] {
@@ -427,7 +426,7 @@ mod tests {
     /// sur la bande cyan, et l'eau profonde n'a que de l'ardoise de nuit (1, 2).
     #[test]
     fn le_bassin_est_profond_et_garde_la_bande_ou_se_lit_l_annonce() {
-        let haut = jetee::EAU_HAUT;
+        let haut = crate::sprites::dessin("jetee_eau_haut");
         assert!(
             haut[0].chars().all(|c| c == 'D'),
             "la ligne claire de la surface"
@@ -435,12 +434,15 @@ mod tests {
         for rangee in &haut[1..=4] {
             assert!(rangee.chars().all(|c| c == 'D' || c == 'E'), "{rangee}");
         }
-        for rangee in haut[6..].iter().chain(jetee::EAU_PLEIN.iter()) {
+        for rangee in haut[6..]
+            .iter()
+            .chain(crate::sprites::dessin("jetee_eau_plein").iter())
+        {
             assert!(rangee.chars().all(|c| c == '1' || c == '2'), "{rangee}");
         }
         // L'eau du thème (Monde 1, éclaircie d'un cran au port) avait un fond d'ardoise
         // claire (3) : le bassin est plus sombre.
-        let theme = crate::sprites::tuiles::EAU_CALME_PLEIN;
+        let theme = crate::sprites::dessin("eau_calme_plein");
         assert!(theme.iter().any(|r| r.contains('2')));
     }
 
@@ -453,14 +455,17 @@ mod tests {
         assert!(HORIZON < platelage);
         for (n, x, flottaison, h) in BATEAUX {
             assert!(flottaison > HORIZON && flottaison < platelage, "{n}");
-            let dessin = jetee::SPRITES.iter().find(|(m, _)| *m == n).unwrap().1;
+            let dessin = jetee::sprites().iter().find(|(m, _)| *m == n).unwrap().1;
             assert_eq!(dessin.len() as i32, h, "{n}");
             assert!(
                 x >= 16 && x + crate::sprites::largeur(dessin) as i32 <= 304,
                 "{n}"
             );
         }
-        assert_eq!(HAUT_PHARE + jetee::PHARE.len() as i32, HORIZON - 2);
+        assert_eq!(
+            HAUT_PHARE + crate::sprites::dessin("jetee_phare").len() as i32,
+            HORIZON - 2
+        );
     }
 
     /// Les bateaux sont des SILHOUETTES sombres (ombre de contour, quelques
@@ -469,7 +474,7 @@ mod tests {
     #[test]
     fn les_bateaux_sont_des_silhouettes_sombres() {
         for (n, ..) in BATEAUX {
-            let dessin = jetee::SPRITES.iter().find(|(m, _)| *m == n).unwrap().1;
+            let dessin = jetee::sprites().iter().find(|(m, _)| *m == n).unwrap().1;
             let pixels: Vec<char> = dessin
                 .iter()
                 .flat_map(|r| r.chars())
@@ -498,14 +503,13 @@ mod tests {
     #[test]
     fn au_port_les_plateformes_mobiles_sont_des_bateaux_et_une_caisse_de_grue() {
         use pepin_core::entities::Entite;
-        use pepin_core::levels::port as niveau_port;
-        let n = niveau_port::INFOS.charger().unwrap();
+        let n = niveaux::par_cle("port").charger().unwrap();
         let mut noms = Vec::new();
         for e in &n.entites {
             let Entite::Mobile(m) = e else { continue };
             let (a, b) = m.extremites().unwrap();
             let (nom, haut) = sprite_du_port(CLE_PORT, a, b).unwrap();
-            let dessin = jetee::SPRITES.iter().find(|(m, _)| *m == nom).unwrap().1;
+            let dessin = jetee::sprites().iter().find(|(m, _)| *m == nom).unwrap().1;
             assert_eq!(dessin[0].len() as f32, m.boite.w, "{nom}");
             let collision = dessin.iter().skip(haut as usize).take(m.boite.h as usize);
             for (y, rangee) in collision.enumerate() {

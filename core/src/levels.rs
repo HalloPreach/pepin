@@ -1,8 +1,11 @@
-//! Module `levels` : la table ORDONNÉE des niveaux et les règles qui les enchaînent.
+//! Module `levels` : les règles qui enchaînent les niveaux.
 //!
-//! Un petit fichier par niveau (chacun exporte `INFOS`) ; la table `NIVEAUX` les range
-//! dans l'ordre du parcours. Rien d'autre dans le jeu ne suppose un nombre de niveaux :
-//! tout se déduit de cette table (`NB_NIVEAUX` est sa longueur).
+//! Les niveaux eux-mêmes ne sont plus ici (carte 10.1c) : chacun est un fichier
+//! RON (`assets/levels/<dossier>/<clé>.ron`), et la table ORDONNÉE du parcours est
+//! rangée et vérifiée par le crate `niveaux` (`niveaux::niveaux()`), qui dépend de
+//! `core` (jamais l'inverse : `core` reste sans dépendance). Les tests qui lisent
+//! les vrais niveaux sont donc dans `niveaux/tests/`. Rien dans le jeu ne suppose
+//! un nombre de niveaux : tout se déduit de la table reçue en paramètre.
 //!
 //! Chaque niveau a un GENRE (`GenreNiveau`) :
 //! - `Normal` : le parcours principal, numéroté « NIVEAU 3/10 » ;
@@ -19,49 +22,14 @@
 //! sont des blocs contigus de la table, dans l'ordre, et les règles valent PAR MONDE
 //! (`niveaux_du_monde` donne la tranche d'un monde).
 //!
-//! Les dessins ASCII sont des `&str` embarqués dans le binaire : aucun fichier
-//! à charger, donc aucune erreur d'entrée/sortie possible au lancement.
+//! Reste ici `variantes` (la nouvelle partie +) : de la LOGIQUE appliquée à un
+//! niveau chargé, pas un niveau.
 //!
-//! Notions Rust illustrées ici : tranche constante `&[T]` (sa longueur `len()` est
-//! connue à la compilation et sert de taille de tableau ailleurs), `enum` sans
-//! données, `Option` / `Result` avec une erreur typée, itérateur `find` sur un
-//! intervalle.
+//! Notions Rust illustrées ici : tranche `&[T]` reçue en paramètre, fonction
+//! `const` (`compter_monde`, `cles_valides`), `enum` sans données, `Option` /
+//! `Result` avec une erreur typée, itérateur `find` sur un intervalle.
 
-// Niveaux d'essai : HORS de la table `NIVEAUX` (tests et build de QA seulement).
-pub mod arc;
-pub mod caniveau;
-pub mod cascade;
-pub mod clocher;
-pub mod cyclone;
-pub mod descente;
-pub mod egouts;
-pub mod essai_auvent;
-pub mod essai_chat;
-pub mod essai_eau;
-pub mod essai_eau2;
-pub mod essai_ennemis_eau;
-pub mod essai_escargot;
-pub mod essai_grele;
-pub mod essai_horloge;
-pub mod essai_montgolfiere;
-pub mod essai_nuage;
-pub mod essai_pieuvre;
-pub mod essai_vent;
-pub mod essai_ventilateur;
-pub mod essai_vertical;
-pub mod gouttieres;
-pub mod grotte;
-pub mod marche;
-pub mod mer;
-pub mod nuages;
-pub mod orage;
-pub mod pieuvre;
-pub mod port;
-pub mod poursuite;
-pub mod riviere;
-pub mod toits;
 pub mod variantes;
-pub mod vents;
 
 use crate::level::GOUTTES_PAR_NIVEAU;
 use crate::zones::InfosNiveau;
@@ -76,45 +44,6 @@ pub enum GenreNiveau {
     /// Dernier niveau, juste avant l'écran de fin.
     Epilogue,
 }
-
-/// Tous les niveaux, dans l'ordre du parcours. Règles d'ordre : `verifier_ordre`.
-pub const NIVEAUX: &[InfosNiveau] = &[
-    toits::INFOS,
-    gouttieres::INFOS,
-    marche::INFOS,
-    orage::INFOS,
-    clocher::INFOS,
-    cyclone::INFOS,
-    vents::INFOS,
-    mer::INFOS,
-    nuages::INFOS,
-    poursuite::INFOS,
-    arc::INFOS,
-    descente::INFOS,
-    // MONDE 2, « Là où va la pluie » (étape 9) : ses niveaux s'ajoutent ICI, à la FIN
-    // de la table, dans l'ordre du parcours (`monde: 2`, `numero` 1, 2, 3...). Les
-    // indices du Monde 1 ne bougent pas. Recette : `pepin-notes/ETAPE-9.md`.
-    caniveau::INFOS,
-    egouts::INFOS,
-    cascade::INFOS,
-    grotte::INFOS,
-    riviere::INFOS,
-    port::INFOS,
-    pieuvre::INFOS,
-];
-
-/// Nombre de niveaux du jeu (bonus et épilogue compris, tous mondes).
-pub const NB_NIVEAUX: usize = NIVEAUX.len();
-
-/// Nombre de niveaux du MONDE 1 (carte 9.6) : le premier bloc de la table, indices
-/// `0..NB_NIVEAUX_MONDE_1`. Ce qui ne décrit QUE le Monde 1 (la mesure de
-/// difficulté et sa courbe, le robot de la partie normale, la course, la nouvelle
-/// partie +) se dimensionne avec lui : ajouter un niveau du Monde 2 n'y change rien.
-pub const NB_NIVEAUX_MONDE_1: usize = compter_monde(NIVEAUX, 1);
-
-/// Les niveaux du Monde 1 : le début de `NIVEAUX` (la même chose que
-/// `niveaux_du_monde(NIVEAUX, 1)`, mais `const`, donc utilisable partout).
-pub const NIVEAUX_MONDE_1: &[InfosNiveau] = NIVEAUX.split_at(NB_NIVEAUX_MONDE_1).0;
 
 /// Nombre de niveaux du monde `monde` dans `niveaux`. Fonction `const` (boucle
 /// `while`, les itérateurs n'étant pas permis en `const`) : elle sert de taille de
@@ -131,19 +60,17 @@ pub const fn compter_monde(niveaux: &[InfosNiveau], monde: u8) -> usize {
     n
 }
 
-// Les CLÉS de la table (carte 7.9) sont vérifiées À LA COMPILATION : chacune est un
-// identifiant (minuscules, chiffres, `_`) et aucune n'est en double. Une clé fautive
-// ou répétée empêche le jeu de compiler, avant même les tests.
-const _: () = assert!(cles_valides(NIVEAUX), "clé de niveau invalide ou en double");
-
 /// Indice dans `niveaux` du niveau de clé `cle` (`None` : inconnue).
 pub fn indice_de_cle(niveaux: &[InfosNiveau], cle: &str) -> Option<usize> {
     niveaux.iter().position(|n| n.cle == cle)
 }
 
-/// Les clés sont-elles des identifiants, toutes différentes ? Fonction `const`
-/// (boucles `while` et octets, `==` sur `&str` n'étant pas permis en `const`).
-const fn cles_valides(niveaux: &[InfosNiveau]) -> bool {
+/// Les clés sont-elles des identifiants (minuscules, chiffres, `_`, 32 octets au
+/// plus), toutes différentes (carte 7.9) ? Fonction `const` (boucles `while` et
+/// octets, `==` sur `&str` n'étant pas permis en `const`). Publique depuis la
+/// carte 10.1c : la table vit dans le crate `niveaux`, dont un test l'applique à
+/// tous les fichiers de niveau.
+pub const fn cles_valides(niveaux: &[InfosNiveau]) -> bool {
     let mut i = 0;
     while i < niveaux.len() {
         let a = niveaux[i].cle.as_bytes();
@@ -354,6 +281,9 @@ pub fn niveaux_du_monde(niveaux: &[InfosNiveau], monde: u8) -> &[InfosNiveau] {
 
 #[cfg(test)]
 mod tests {
+    //! Les règles, essayées sur de FAUSSES tables. Les tests de la vraie table
+    //! (ordre, Monde 2 après le Monde 1, bonus du Monde 1) sont dans
+    //! `niveaux/tests/tous_les_niveaux/table.rs` (carte 10.1c).
     use super::*;
     use crate::zones::Theme;
     use GenreNiveau::{Bonus, Epilogue, Normal};
@@ -382,32 +312,6 @@ mod tests {
         faux_monde(numero, genre, 1)
     }
 
-    /// Relance le robot de faisabilité, parapluie interdit, sur chaque niveau et
-    /// compare au champ `InfosNiveau::sans_planer` (lent : ignoré, voir la doc du
-    /// champ).
-    #[test]
-    #[ignore]
-    fn sans_planer_possible_d_apres_le_robot() {
-        use crate::faisabilite::{analyser, Options};
-        let sans_planer = Options {
-            planer: false,
-            ..Options::default()
-        };
-        let mut ecarts = Vec::new();
-        for n in NIVEAUX {
-            let niveau = n.charger().expect("niveau valide");
-            let r = analyser(&niveau, niveau.depart, sans_planer);
-            println!("{} {} : sans planer {}", n.numero, n.cle, r.arrivee);
-            if r.arrivee != n.sans_planer {
-                ecarts.push(n.cle);
-            }
-        }
-        assert!(
-            ecarts.is_empty(),
-            "à recopier dans `sans_planer` : {ecarts:?}"
-        );
-    }
-
     /// Une fausse table rangée dans l'ordre donné.
     fn table(genres: &[GenreNiveau]) -> Vec<InfosNiveau> {
         genres
@@ -424,73 +328,6 @@ mod tests {
             joues.push(j);
         }
         joues
-    }
-
-    #[test]
-    fn la_vraie_table_est_bien_rangee() {
-        assert_eq!(verifier_ordre(NIVEAUX), Ok(()));
-        assert_eq!(NB_NIVEAUX, NIVEAUX.len());
-    }
-
-    /// Le Monde 2 (carte 9.6, qui remplace le faux Monde 2 de la carte 9.1) : à la
-    /// FIN de la table, après tout le Monde 1, dont les indices ne bougent pas ; son
-    /// premier niveau est le caniveau ; aucune partie ne passe d'un monde à l'autre.
-    #[test]
-    fn le_monde_2_suit_le_monde_1() {
-        let cles = |l: &[InfosNiveau]| l.iter().map(|n| n.cle).collect::<Vec<_>>();
-        assert_eq!(cles(niveaux_du_monde(NIVEAUX, 1)), cles(NIVEAUX_MONDE_1));
-        assert_eq!(NB_NIVEAUX_MONDE_1, 12);
-        assert_eq!(NIVEAUX_MONDE_1.last().unwrap().cle, "descente");
-        assert_eq!(debut_monde(NIVEAUX, 2), Some(NB_NIVEAUX_MONDE_1));
-        assert_eq!(NIVEAUX[NB_NIVEAUX_MONDE_1].cle, caniveau::INFOS.cle);
-        assert_eq!(
-            NB_NIVEAUX_MONDE_1 + compter_monde(NIVEAUX, 2),
-            NB_NIVEAUX,
-            "deux mondes seulement"
-        );
-        // L'épilogue du Monde 1 finit la partie ; le dernier niveau du Monde 2 aussi.
-        assert_eq!(apres(NIVEAUX, NB_NIVEAUX_MONDE_1 - 1, 36), Apres::Fin);
-        assert_eq!(apres(NIVEAUX, NB_NIVEAUX - 1, 99), Apres::Fin);
-    }
-
-    /// La vraie table depuis la carte 8.2 : dix niveaux normaux (le 10e, « Le mur de
-    /// pluie », est le sommet), le bonus (« L'arc-en-ciel », 11e) et l'épilogue
-    /// (« La descente », 12e). Les DEUX chemins : avec les 30 gouttes des dix niveaux
-    /// normaux, le bonus est joué après le 10e, puis l'épilogue ; avec une goutte de
-    /// moins (ou aucune), on passe du 10e directement à l'épilogue. Après l'épilogue :
-    /// la fin. Avant le 10e, les gouttes ne changent rien.
-    #[test]
-    fn la_vraie_table_joue_le_bonus_avec_toutes_les_gouttes_et_finit_par_l_epilogue() {
-        // Le Monde 1 : le début de la table (carte 9.6 : le Monde 2 vient après).
-        const NIVEAUX: &[InfosNiveau] = NIVEAUX_MONDE_1;
-        let normaux = NB_NIVEAUX_MONDE_1 - 2;
-        assert_eq!(normaux, 10);
-        assert_eq!(NB_NIVEAUX_MONDE_1, 12);
-        assert!(NIVEAUX[..normaux].iter().all(|n| n.genre == Normal));
-        assert_eq!(NIVEAUX[normaux].genre, Bonus);
-        assert_eq!(NIVEAUX[normaux].nom, arc::INFOS.nom);
-        assert_eq!(NIVEAUX[normaux + 1].genre, Epilogue);
-        assert_eq!(NIVEAUX[normaux + 1].nom, descente::INFOS.nom);
-        assert_eq!(gouttes_pour_le_bonus(NIVEAUX), 30);
-        // Toutes les gouttes : 1 à 10, le bonus, l'épilogue, puis la fin.
-        assert_eq!(parcours(NIVEAUX, 30), (0..12).collect::<Vec<_>>());
-        // Une goutte manque : de 10 à l'épilogue, sans le bonus.
-        let sans_bonus: Vec<usize> = (0..10).chain([11]).collect();
-        assert_eq!(parcours(NIVEAUX, 29), sans_bonus);
-        assert_eq!(parcours(NIVEAUX, 0), sans_bonus);
-        assert_eq!(apres(NIVEAUX, 9, 30), Apres::Niveau(10));
-        assert_eq!(apres(NIVEAUX, 9, 29), Apres::Niveau(11));
-        // Après le bonus : l'épilogue, quelles que soient les gouttes (33 avec les
-        // siennes) ; après l'épilogue : la fin.
-        assert_eq!(apres(NIVEAUX, 10, 33), Apres::Niveau(11));
-        assert_eq!(apres(NIVEAUX, 11, 36), Apres::Fin);
-        assert_eq!(apres(NIVEAUX, 11, 0), Apres::Fin);
-        // Avant le 10e : toujours le niveau suivant.
-        for gouttes in [0, 29, 30] {
-            for i in 0..normaux - 1 {
-                assert_eq!(apres(NIVEAUX, i, gouttes), Apres::Niveau(i + 1));
-            }
-        }
     }
 
     /// L'ordre décidé pour l'étape 5 : 9 niveaux normaux, le bonus (10), l'épilogue (11).
@@ -535,21 +372,7 @@ mod tests {
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (12, 3));
         let t = table(&[Normal, Normal]);
         assert_eq!((gouttes_du_parcours(&t), gouttes_du_bonus(&t)), (6, 0));
-        // Le Monde 1 : 10 normaux et l'épilogue (33), le bonus (3) ; en tout, ses 36
-        // gouttes. Le jeu entier : la somme de chaque monde.
-        assert_eq!(
-            (
-                gouttes_du_parcours(NIVEAUX_MONDE_1),
-                gouttes_du_bonus(NIVEAUX_MONDE_1)
-            ),
-            (33, 3)
-        );
-        let total: u32 = [1, 2]
-            .map(|m| niveaux_du_monde(NIVEAUX, m))
-            .iter()
-            .map(|t| gouttes_du_parcours(t) + gouttes_du_bonus(t))
-            .sum();
-        assert_eq!(total as usize, crate::zones::GOUTTES_TOTAL);
+        // La vraie table (Monde 1 : 33 et 3) : `niveaux/tests/tous_les_niveaux/table.rs`.
     }
 
     #[test]

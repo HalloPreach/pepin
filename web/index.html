@@ -357,6 +357,44 @@
             window.localStorage.setItem(CLE_SAUVEGARDE, new TextDecoder().decode(octets));
           } catch (e) { /* stockage refusé ou plein : tant pis, rien n'est gardé */ }
         };
+        // Niveau d'essai venu de l'extérieur (carte 10.1b) : seul le build de QA
+        // appelle ces deux fonctions (game/src/essai_externe.rs) ; le jeu publié ne
+        // les importe pas. `?essai=1` dans l'adresse lance le niveau RON posé dans
+        // localStorage sous la clé « pepin.niveau_essai ».
+        importObject.env.pepin_niveau_essai_demande = function () {
+          try {
+            return new URLSearchParams(window.location.search).get("essai") === "1" ? 1 : 0;
+          } catch (e) { return 0; }
+        };
+        importObject.env.pepin_niveau_essai_lire = function (ptr, max) {
+          try {
+            var texte = window.localStorage.getItem("pepin.niveau_essai");
+            if (!texte) { return 0; }
+            var octets = new TextEncoder().encode(texte);
+            if (octets.length <= max) {
+              new Uint8Array(wasm_memory.buffer, ptr, octets.length).set(octets);
+            }
+            return octets.length;
+          } catch (e) { return 0; }
+        };
+        // Carte 10.3b : le jeu de QA parle à l'éditeur qui l'a ouvert (message JSON :
+        // verdict du chargeur Rust, ou fin de l'essai). Dans le cadre de l'éditeur :
+        // un postMessage à la page parente ; dans un onglet ouvert par l'éditeur :
+        // à cet onglet, puis on le ferme ; seul : la fin de l'essai revient en arrière.
+        importObject.env.pepin_niveau_essai_signaler = function (ptr, len) {
+          try {
+            var message = JSON.parse(new TextDecoder().decode(new Uint8Array(wasm_memory.buffer, ptr, len)));
+            message.source = "pepin";
+            if (window.parent !== window) {
+              window.parent.postMessage(message, window.location.origin);
+            } else if (window.opener) {
+              window.opener.postMessage(message, window.location.origin);
+              if (message.etat === "fini") { window.close(); }
+            } else if (message.etat === "fini") {
+              history.back();
+            }
+          } catch (e) { console.warn("pepin_niveau_essai_signaler", e); }
+        };
       }
     });
   }

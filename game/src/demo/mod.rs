@@ -22,7 +22,6 @@
 
 mod parcours;
 
-use pepin_core::levels::NIVEAUX;
 use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, OR};
 use pepin_core::physics::HZ;
 use pepin_core::player::{Direction, Entrees};
@@ -74,7 +73,7 @@ pub fn entrees(code: u8) -> Entrees {
 
 /// Rang dans `NIVEAUX` du niveau qui porte ce nom (`None` : il n'existe plus).
 pub fn indice_du_niveau(nom: &str) -> Option<usize> {
-    NIVEAUX.iter().position(|n| n.nom == nom)
+    niveaux::niveaux().iter().position(|n| n.nom == nom)
 }
 
 /// Relit un parcours embarqué, un pas après l'autre.

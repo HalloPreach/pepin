@@ -10,9 +10,7 @@
 //! vérifiée par le compilateur, `struct` de données, tests qui parcourent les
 //! données.
 
-use pepin_core::levels::{
-    nb_normaux, niveaux_du_monde, GenreNiveau, NB_NIVEAUX, NB_NIVEAUX_MONDE_1, NIVEAUX,
-};
+use pepin_core::levels::{nb_normaux, niveaux_du_monde, GenreNiveau};
 use pepin_core::zones::InfosNiveau;
 
 use crate::menu::Choix;
@@ -164,7 +162,7 @@ pub struct Intro {
 /// Une intro par niveau du MONDE 1, dans l'ordre. Le type `[Intro; NB_NIVEAUX_MONDE_1]`
 /// fait échouer la compilation si on ajoute un niveau au Monde 1 sans écrire son
 /// texte. Le Monde 2 a sa propre liste, rangée par clé : `INTROS_MONDE_2`.
-pub const INTROS: [Intro; NB_NIVEAUX_MONDE_1] = [
+pub const INTROS: [Intro; niveaux::NB_NIVEAUX_MONDE_1] = [
     Intro {
         texte: "La pluie tambourine sur les toits. Pépin ouvre son parapluie : en route vers le soleil !",
         astuce: "Maintiens SAUT en l'air pour planer.",
@@ -291,10 +289,14 @@ const _: () = assert!(
 /// Chaque niveau hors du Monde 1 a-t-il sa ligne dans `INTROS_MONDE_2` ? Fonction
 /// `const` (boucles `while`, `==` sur `&str` n'étant pas permis en `const`).
 const fn intros_du_monde_2_completes() -> bool {
-    let mut i = NB_NIVEAUX_MONDE_1;
-    while i < NB_NIVEAUX {
+    // Les clés viennent des NOMS des fichiers `.ron` (`niveaux::CLES_HORS_MONDE_1`,
+    // écrite par le `build.rs` du crate `niveaux`) : la vérification reste faite
+    // à la compilation, même si les niveaux eux-mêmes sont lus au lancement.
+    let cles = niveaux::CLES_HORS_MONDE_1;
+    let mut i = 0;
+    while i < cles.len() {
         let mut k = 0;
-        while k < INTROS_MONDE_2.len() && !meme_texte(INTROS_MONDE_2[k].0, NIVEAUX[i].cle) {
+        while k < INTROS_MONDE_2.len() && !meme_texte(INTROS_MONDE_2[k].0, cles[i]) {
             k += 1;
         }
         if k == INTROS_MONDE_2.len() {
@@ -365,16 +367,23 @@ pub fn intro(indice: usize) -> &'static Intro {
     if indice == crate::monde::INDICE_ESSAI_NUAGE {
         return &INTRO_ESSAI_NUAGE;
     }
+    // Le niveau posé par l'éditeur (carte 10.3b) : SON intro et SA mécanique.
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_EXTERNE {
+        if let Some(intro) = crate::essai_externe::intro() {
+            return intro;
+        }
+    }
     // Le Monde 1 par sa place ; les autres mondes par la clé du niveau ; hors de la
     // table, le dernier niveau.
-    let i = indice.min(NB_NIVEAUX - 1);
-    if i < NB_NIVEAUX_MONDE_1 {
+    let i = indice.min(niveaux::NB_NIVEAUX - 1);
+    if i < niveaux::NB_NIVEAUX_MONDE_1 {
         return &INTROS[i];
     }
     INTROS_MONDE_2
         .iter()
-        .find(|(cle, _)| *cle == NIVEAUX[i].cle)
-        .map_or(&INTROS[NB_NIVEAUX_MONDE_1 - 1], |(_, intro)| intro)
+        .find(|(cle, _)| *cle == niveaux::niveaux()[i].cle)
+        .map_or(&INTROS[niveaux::NB_NIVEAUX_MONDE_1 - 1], |(_, intro)| intro)
 }
 
 /// Intro du niveau d'essai vertical (build de QA seulement, voir `monde::INDICE_ESSAI`).
@@ -490,13 +499,19 @@ pub fn etiquette_dans_le_chapitre(infos: &InfosNiveau, nb_normaux: usize) -> Str
 /// dans la vraie table (carte 9.1) : ce qu'affiche la carte de titre du niveau
 /// (« CHAPITRE 2 · NIVEAU 1/8 » au Monde 2).
 pub fn etiquette(infos: &InfosNiveau) -> String {
-    etiquette_niveau(infos, nb_normaux(niveaux_du_monde(NIVEAUX, infos.monde)))
+    etiquette_niveau(
+        infos,
+        nb_normaux(niveaux_du_monde(niveaux::niveaux(), infos.monde)),
+    )
 }
 
 /// `etiquette_dans_le_chapitre` comptée dans la vraie table : le panneau de la carte
 /// des niveaux (carte 9.1b).
 pub fn etiquette_courte(infos: &InfosNiveau) -> String {
-    etiquette_dans_le_chapitre(infos, nb_normaux(niveaux_du_monde(NIVEAUX, infos.monde)))
+    etiquette_dans_le_chapitre(
+        infos,
+        nb_normaux(niveaux_du_monde(niveaux::niveaux(), infos.monde)),
+    )
 }
 
 // --- Pause -----------------------------------------------------------------
@@ -860,15 +875,15 @@ pub(crate) mod tests {
 
     #[test]
     fn l_intro_hors_bornes_donne_le_dernier_niveau() {
-        assert_eq!(intro(99).texte, intro(NB_NIVEAUX - 1).texte);
+        assert_eq!(intro(99).texte, intro(niveaux::NB_NIVEAUX - 1).texte);
         assert_eq!(intro(0).texte, INTROS[0].texte);
         // Le Monde 2 (carte 9.6) : par la clé, quelle que soit sa place dans la table.
-        let caniveau = pepin_core::levels::indice_de_cle(NIVEAUX, "caniveau").unwrap();
+        let caniveau = pepin_core::levels::indice_de_cle(niveaux::niveaux(), "caniveau").unwrap();
         assert_eq!(intro(caniveau).astuce, INTROS_MONDE_2[0].1.astuce);
         // Chaque intro du Monde 2 désigne un niveau du Monde 2 de la table.
         for (cle, _) in INTROS_MONDE_2 {
-            let i = pepin_core::levels::indice_de_cle(NIVEAUX, cle).expect(cle);
-            assert!(i >= NB_NIVEAUX_MONDE_1, "{cle}");
+            let i = pepin_core::levels::indice_de_cle(niveaux::niveaux(), cle).expect(cle);
+            assert!(i >= niveaux::NB_NIVEAUX_MONDE_1, "{cle}");
         }
     }
 
@@ -909,21 +924,27 @@ pub(crate) mod tests {
 
     #[test]
     fn etiquette_de_niveau() {
-        use pepin_core::levels::{nb_normaux, niveaux_du_monde, NIVEAUX};
+        use pepin_core::levels::{nb_normaux, niveaux_du_monde};
         // Les dix niveaux normaux (le marché couvert inséré en 3e place, carte 5.12 ;
         // le clocher en 5e, carte 5.13 ; l'œil du cyclone en 6e, carte 5.14 ; la mer
         // de nuages en 8e, carte 5.15 ; le retour du Grand Nuage en 10e, 8.2), puis le
         // bonus (carte 5.16) et l'épilogue (carte 5.17).
         // Compté PAR MONDE (carte 9.1) : les normaux du Monde 1.
         assert_eq!(
-            etiquette_niveau(&NIVEAUX[1], nb_normaux(niveaux_du_monde(NIVEAUX, 1))),
+            etiquette_niveau(
+                &niveaux::niveaux()[1],
+                nb_normaux(niveaux_du_monde(niveaux::niveaux(), 1))
+            ),
             "NIVEAU 2/10"
         );
-        assert_eq!(etiquette_niveau(&NIVEAUX[10], 10), "NIVEAU BONUS");
-        assert_eq!(etiquette_niveau(&NIVEAUX[11], 10), "ÉPILOGUE");
+        assert_eq!(
+            etiquette_niveau(&niveaux::niveaux()[10], 10),
+            "NIVEAU BONUS"
+        );
+        assert_eq!(etiquette_niveau(&niveaux::niveaux()[11], 10), "ÉPILOGUE");
         // Un jeu de 11 niveaux (9 normaux, bonus, épilogue) : le bonus et l'épilogue
         // ne sont pas comptés dans « /9 ».
-        let mut infos = NIVEAUX[0];
+        let mut infos = niveaux::niveaux()[0];
         infos.numero = 9;
         assert_eq!(etiquette_niveau(&infos, 9), "NIVEAU 9/9");
         infos.genre = GenreNiveau::Bonus;
@@ -931,19 +952,19 @@ pub(crate) mod tests {
         infos.genre = GenreNiveau::Epilogue;
         assert_eq!(etiquette_niveau(&infos, 9), "ÉPILOGUE");
         // Le niveau d'essai vertical (numéro 0, hors de la table) et son intro.
-        let essai = pepin_core::levels::essai_vertical::INFOS;
+        let essai = *niveaux::par_cle("essai_vertical");
         assert_eq!(essai.numero, 0);
         assert_eq!(etiquette_niveau(&essai, 5), "NIVEAU D'ESSAI");
         assert_eq!(intro(crate::monde::INDICE_ESSAI).texte, INTRO_ESSAI.texte);
         // Monde 2 (cartes 9.1 et 9.1b) : le CHAPITRE devant, compté PAR MONDE ; le
         // Monde 1 inchangé (`etiquette` compte les normaux du monde dans la vraie table).
-        let m2 = pepin_core::levels::caniveau::INFOS;
+        let m2 = *niveaux::par_cle("caniveau");
         assert_eq!(etiquette_niveau(&m2, 8), "CHAPITRE 2 · NIVEAU 1/8");
         let mut bonus_m2 = m2;
         bonus_m2.genre = GenreNiveau::Bonus;
         assert_eq!(etiquette_niveau(&bonus_m2, 8), "CHAPITRE 2 · NIVEAU BONUS");
-        assert_eq!(etiquette(&NIVEAUX[1]), "NIVEAU 2/10");
-        assert_eq!(etiquette(&NIVEAUX[11]), "ÉPILOGUE");
+        assert_eq!(etiquette(&niveaux::niveaux()[1]), "NIVEAU 2/10");
+        assert_eq!(etiquette(&niveaux::niveaux()[11]), "ÉPILOGUE");
         // Le panneau de la carte des niveaux (128 px de texte) : sans le chapitre ; la
         // carte de titre du niveau (296 px de large) a la place pour le chapitre.
         assert_eq!(etiquette_dans_le_chapitre(&bonus_m2, 8), "NIVEAU BONUS");

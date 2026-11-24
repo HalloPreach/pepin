@@ -2,11 +2,19 @@
 //! trottoir (façades, fenêtres allumées, vitrines sous leur store, descentes de
 //! gouttière) et, devant, les lampadaires et leur halo.
 //!
-//! Deux motifs du Monde 2 (`decor::Detail`) : `Facades` (entre la couche lointaine
-//! et la couche proche) et `Lampadaires` (devant). La rue est une suite FIXE de huit
-//! maisons qui se répète : chaque maison est décrite à la main dans `RUE` (largeur,
-//! étages, couleur, store, gouttière). Tout est en rectangles de la palette, au
-//! pixel entier, sans dégradé ni transparence.
+//! Carte 10.4d (suite) : ce qui est FIXE est dans des fichiers de
+//! `assets/fonds/caniveau`, un PNG par couche :
+//! - `maisons.png` : UNE période de la rue (les huit maisons de `RUE`, 496 px de
+//!   large, du faîte le plus haut jusqu'au bas du trottoir d'en face), toutes ses
+//!   fenêtres ÉTEINTES ; le code la répète ;
+//! - `lampadaire.png` : UN lampadaire (halo, mât, crosse, lanterne), que le code
+//!   pose deux fois sur la largeur de l'écran.
+//!
+//! Ce qui est CALCULÉ reste ici : les fenêtres ALLUMÉES (`Plan::Fenetres`). Elles
+//! ne se répètent pas avec la rue : chaque tour de la rue a son numéro, et la même
+//! fenêtre est allumée à un tour, éteinte au suivant (`allumee`). Elles sont donc
+//! peintes par-dessus les vitres éteintes du PNG, carreau par carreau (la croisée
+//! du PNG reste visible entre eux).
 //!
 //! Carte 9.20g (« c'est dur de savoir qu'est-ce qu'est un obstacle comparé au
 //! fond ») : tout ce fond est SOMBRE et TERNE. Il n'emploie que l'ardoise d'ombre,
@@ -17,7 +25,8 @@
 //!
 //! Carte 9.20h : les descentes de gouttière `J` du niveau sont dessinées ici aussi
 //! (`dessiner_gouttieres`, `dessiner_filets`), chacune accrochée à son pan de
-//! maison : chéneau, coude, colliers, dauphin qui verse dans le caniveau.
+//! maison : chéneau, coude, colliers, dauphin qui verse dans le caniveau. Elles
+//! dépendent de la grille du niveau : elles restent du code.
 
 use macroquad::prelude::draw_rectangle;
 use pepin_core::aabb::TAILLE_TUILE;
@@ -35,46 +44,19 @@ fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, couleur_mq(c));
 }
 
-/// Une maison de la rue, telle qu'on la voit du trottoir.
-struct Maison {
-    /// Largeur (px), multiple de 16 : une fenêtre par tranche de 16 px.
-    largeur: i32,
-    /// Étages au-dessus du rez-de-chaussée (16 px chacun).
-    etages: i32,
-    /// Couleur de la façade.
-    corps: Couleur,
-    /// Le rez-de-chaussée est une boutique : vitrine sous un store rayé (sinon une
-    /// porte et un soupirail).
-    boutique: bool,
-    /// Une descente de gouttière le long du bord droit.
-    gouttiere: bool,
-}
-
-/// Raccourci pour la table `RUE` (une maison par ligne) : largeur, étages, couleur
-/// de la façade, boutique, gouttière.
-const fn m(largeur: i32, etages: i32, corps: Couleur, boutique: bool, gouttiere: bool) -> Maison {
-    Maison {
-        largeur,
-        etages,
-        corps,
-        boutique,
-        gouttiere,
-    }
-}
-
-/// La rue : huit maisons, de gauche à droite, qui se répètent. Carte 9.20g : deux
-/// tons sombres en alternance (ardoise, ardoise de nuit), plus de façade violette ;
-/// deux maisons voisines n'ont jamais la même teinte (pas besoin de mur mitoyen
-/// cerné pour les séparer).
-const RUE: [Maison; 8] = [
-    m(64, 3, ARDOISE, true, true),
-    m(48, 2, ARDOISE_NUIT, false, false),
-    m(80, 4, ARDOISE, true, true),
-    m(48, 3, ARDOISE_NUIT, false, true),
-    m(64, 2, ARDOISE, true, false),
-    m(64, 4, ARDOISE_NUIT, true, true),
-    m(48, 3, ARDOISE, false, true),
-    m(80, 3, ARDOISE_NUIT, true, false),
+/// La rue : huit maisons, de gauche à droite, qui se répètent : (largeur en px,
+/// multiple de 16, une fenêtre par tranche de 16 px ; étages au-dessus du
+/// rez-de-chaussée). Leur dessin est dans `caniveau/maisons.png` ; le code ne garde
+/// que ce qu'il faut pour retrouver les fenêtres à allumer.
+const RUE: [(i32, i32); 8] = [
+    (64, 3),
+    (48, 2),
+    (80, 4),
+    (48, 3),
+    (64, 2),
+    (64, 4),
+    (48, 3),
+    (80, 3),
 ];
 
 /// Hauteur du rez-de-chaussée (px) et d'un étage.
@@ -82,10 +64,25 @@ const REZ: i32 = 20;
 const ETAGE: i32 = 16;
 /// Hauteur du toit en mansarde (px).
 const TOIT: i32 = 8;
+/// Hauteur de `maisons.png` au-dessus du trottoir (le faîte de la plus haute
+/// maison, quatre étages) ; le fichier descend ensuite de `TROTTOIR` px sous le sol.
+const HAUT_MAISONS: i32 = REZ + 4 * ETAGE + TOIT;
+/// Le trottoir d'en face, sous le sol (vérifié par les tests : le dessin n'en a pas
+/// besoin, il est dans le fichier).
+#[cfg(test)]
+const TROTTOIR: i32 = 62;
+/// Le lampadaire du fichier : son mât (abscisse `x` du code) est à la colonne
+/// `LAMPADAIRE_X` du PNG (le halo déborde à gauche), et le fichier commence
+/// `LAMPADAIRE_HAUT` px au-dessus du sol (le haut du halo).
+const LAMPADAIRE_X: i32 = 6;
+const LAMPADAIRE_HAUT: i32 = 51;
+/// Les deux lampadaires de l'écran (abscisse du mât avant la parallaxe).
+const LAMPADAIRES: [i32; 2] = [60, 230];
 
-/// Longueur (px) d'un tour de la rue : la somme des largeurs.
+/// Longueur (px) d'un tour de la rue : la somme des largeurs (la largeur de
+/// `maisons.png`).
 fn periode() -> i32 {
-    RUE.iter().map(|m| m.largeur).sum()
+    RUE.iter().map(|&(largeur, _)| largeur).sum()
 }
 
 /// Fenêtre allumée ? Fixe (même maison, même fenêtre : même réponse), environ une
@@ -95,16 +92,6 @@ fn allumee(maison: i32, etage: i32, colonne: i32) -> bool {
         ^ (etage as u32).wrapping_mul(151)
         ^ (colonne as u32).wrapping_mul(37);
     (h.wrapping_mul(0x2C1B_3C6D) >> 7).is_multiple_of(4)
-}
-
-/// Le ton « en creux » d'une façade (vitres éteintes, croisées, porte, ombres) :
-/// un cran plus sombre que le mur.
-fn creux(corps: Couleur) -> Couleur {
-    if corps == ARDOISE {
-        ARDOISE_NUIT
-    } else {
-        ARDOISE_OMBRE
-    }
 }
 
 /// La vitre d'une fenêtre : faiblement allumée (violet d'orage, jamais l'orange
@@ -117,91 +104,113 @@ fn vitre(maison: i32, etage: i32, colonne: i32, eteinte: Couleur) -> Couleur {
     }
 }
 
-/// Les maisons de la rue, posées sur la ligne `sol` (px, à l'écran), décalées de
-/// `dec` px par la parallaxe.
-pub(crate) fn dessiner_facades(dec: i32, sol: i32) {
-    let p = periode();
-    // Le trottoir d'en face, au pied des maisons : l'ombre jusqu'en bas (on la voit
-    // dans les creux de la rue). Carte 9.20g : plus de bordure claire, seul le
-    // trottoir du niveau a un dessus clair.
-    rect(0, sol, L, 62, ARDOISE_OMBRE);
-    let tour0 = dec.div_euclid(p) - 1;
-    for tour in tour0..=tour0 + 2 {
-        let mut x = tour * p - dec;
-        for (k, m) in RUE.iter().enumerate() {
-            if x < L && x + m.largeur > 0 {
-                maison(m, x, sol, tour * 8 + k as i32);
-            }
-            x += m.largeur;
+/// Les plans de la rue, du plus loin au plus près (carte 10.4d, suite). Les
+/// maisons et le lampadaire sont des fichiers de `assets/fonds/caniveau` (FIXES) ;
+/// les fenêtres allumées sont CALCULÉES. `decor::pile` les place : les maisons et
+/// leurs fenêtres entre les deux couches de silhouettes, les lampadaires devant la
+/// couche proche.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Plan {
+    /// Les maisons, fenêtres éteintes, et le trottoir d'en face :
+    /// `caniveau/maisons.png`, UNE période de la rue, répétée.
+    Maisons,
+    /// Les fenêtres allumées, qui changent d'un tour de la rue à l'autre.
+    Fenetres,
+    /// Les lampadaires : `caniveau/lampadaire.png`, posé deux fois.
+    Lampadaires,
+}
+
+impl Plan {
+    /// Le nom du fichier de `assets/fonds/caniveau` (`None` : plan calculé).
+    #[cfg(test)]
+    pub fn fichier(self) -> Option<&'static str> {
+        match self {
+            Plan::Maisons => Some("maisons"),
+            Plan::Lampadaires => Some("lampadaire"),
+            Plan::Fenetres => None,
+        }
+    }
+
+    /// Le nom du plan dans `assets/fonds/LISEZMOI.md`.
+    #[cfg(test)]
+    pub fn nom(self) -> &'static str {
+        match self {
+            Plan::Maisons => "maisons",
+            Plan::Fenetres => "fenêtres allumées",
+            Plan::Lampadaires => "lampadaires",
         }
     }
 }
 
-/// Dessine une maison dont le coin bas-gauche est `(x, sol)`. Carte 9.20g : sans
-/// contour, sans rebord clair ; le toit en mansarde est en PENTE (un pixel de
-/// retrait par rangée de chaque côté) : aucun dessus plat où l'on croirait se poser.
-fn maison(m: &Maison, x: i32, sol: i32, numero: i32) {
-    let w = m.largeur;
-    let haut = sol - REZ - m.etages * ETAGE;
-    let creux = creux(m.corps);
-    rect(x, haut, w, sol - haut, m.corps);
-    // Le toit en mansarde, et sa lucarne éteinte ou faiblement allumée.
-    for k in 0..TOIT {
-        rect(x + 1 + k, haut - 1 - k, w - 2 - 2 * k, 1, ARDOISE_OMBRE);
-    }
-    let lucarne = x + w / 2 - 2;
-    rect(
-        lucarne,
-        haut - TOIT + 3,
-        4,
-        4,
-        vitre(numero, 9, 0, ARDOISE_NUIT),
-    );
-    // Le bandeau entre le rez-de-chaussée et l'étage : une ombre, pas un rebord.
-    rect(x, sol - REZ - 1, w, 1, creux);
-    // Les étages : une fenêtre par tranche de 16 px (vitre et croisée, sans cadre
-    // ni appui).
-    for e in 0..m.etages {
-        let y = haut + 4 + e * ETAGE;
-        for c in 0..w / 16 {
-            let fx = x + c * 16 + 5;
-            rect(fx, y + 2, 6, 9, vitre(numero, e, c, creux));
-            rect(fx + 2, y + 2, 1, 9, m.corps);
-            rect(fx, y + 5, 6, 1, m.corps);
+/// Dessine un plan de la rue posé sur la ligne `sol` (px, à l'écran : le haut du
+/// trottoir d'en face), décalé de `dec` px par la parallaxe.
+pub(crate) fn dessiner_plan(plan: Plan, dec: i32, sol: i32) {
+    match plan {
+        Plan::Maisons => {
+            let p = periode();
+            let tour0 = dec.div_euclid(p) - 1;
+            for tour in tour0..=tour0 + 2 {
+                let x = tour * p - dec;
+                crate::fonds::dessiner("caniveau", "maisons", x, sol - HAUT_MAISONS);
+            }
+        }
+        Plan::Fenetres => dessiner_fenetres(dec, sol),
+        // Chaque lampadaire en UN exemplaire, modulo la largeur de l'écran : coupé
+        // au bord droit, sans copie à gauche.
+        Plan::Lampadaires => {
+            for lx in LAMPADAIRES {
+                let x = (lx - dec).rem_euclid(L);
+                crate::fonds::dessiner(
+                    "caniveau",
+                    "lampadaire",
+                    x - LAMPADAIRE_X,
+                    sol - LAMPADAIRE_HAUT,
+                );
+            }
         }
     }
-    // Le rez-de-chaussée.
-    let rez = sol - REZ;
-    if m.boutique {
-        // Le store rayé, en deux tons sombres (le store du niveau, lui, est un
-        // solide où l'on se cogne), son lambrequin festonné, puis la vitrine : une
-        // vitre SOMBRE (la boutique est fermée la nuit), ses montants, ses reflets
-        // et une veilleuse violette au fond.
-        for s in 0..(w - 4) / 4 {
-            let c = if s % 2 == 0 { ARDOISE_OMBRE } else { creux };
-            rect(x + 2 + s * 4, rez, 4, 4, c);
-            rect(x + 3 + s * 4, rez + 4, 2, 1, c);
+}
+
+/// Les fenêtres allumées de la rue : `(x, y, largeur, hauteur)` de chaque carreau
+/// violet, pour un décalage `dec` et un sol `sol`. Chaque tour de la rue a son
+/// numéro (`tour * 8 + maison`) : c'est lui qui choisit les fenêtres allumées.
+/// Une vitre allumée est peinte en quatre carreaux, autour de la croisée du PNG ;
+/// la lucarne du toit, d'un seul carreau. Pure.
+fn carreaux_allumes(dec: i32, sol: i32) -> Vec<(i32, i32, i32, i32)> {
+    let p = periode();
+    let tour0 = dec.div_euclid(p) - 1;
+    let mut r = Vec::new();
+    for tour in tour0..=tour0 + 2 {
+        let mut x = tour * p - dec;
+        for (k, &(w, etages)) in RUE.iter().enumerate() {
+            let numero = tour * 8 + k as i32;
+            if x < L && x + w > 0 {
+                let haut = sol - REZ - etages * ETAGE;
+                if allumee(numero, 9, 0) {
+                    r.push((x + w / 2 - 2, haut - TOIT + 3, 4, 4));
+                }
+                for e in 0..etages {
+                    let y = haut + 4 + e * ETAGE;
+                    for c in 0..w / 16 {
+                        if allumee(numero, e, c) {
+                            let fx = x + c * 16 + 5;
+                            r.push((fx, y + 2, 2, 3));
+                            r.push((fx + 3, y + 2, 3, 3));
+                            r.push((fx, y + 6, 2, 5));
+                            r.push((fx + 3, y + 6, 3, 5));
+                        }
+                    }
+                }
+            }
+            x += w;
         }
-        rect(x + 4, rez + 6, w - 8, 14, creux);
-        for mx in (x + 5 + 11..x + w - 6).step_by(12) {
-            rect(mx, rez + 7, 1, 13, m.corps);
-        }
-        for k in 0..2 {
-            rect(x + 7 + k * 3, rez + 15 - k * 3, 1, 3, m.corps);
-        }
-        let lampe = x + w / 2 + 3;
-        rect(lampe - 1, rez + 10, 3, 2, VIOLET_ORAGE);
-    } else {
-        // Une porte cochère sombre et son battant, un soupirail.
-        let px = x + w / 2 - 6;
-        rect(px, rez + 2, 12, 18, creux);
-        rect(px + 6, rez + 6, 1, 14, m.corps);
-        rect(x + 4, sol - 7, 8, 3, creux);
     }
-    // La descente de gouttière : un tuyau de zinc terne (un cran plus sombre que
-    // le mur) le long du bord droit, du toit jusqu'au trottoir, sans colliers.
-    if m.gouttiere {
-        rect(x + w - 4, haut, 2, sol - haut, creux);
+    r
+}
+
+fn dessiner_fenetres(dec: i32, sol: i32) {
+    for (x, y, w, h) in carreaux_allumes(dec, sol) {
+        rect(x, y, w, h, VIOLET_ORAGE);
     }
 }
 
@@ -353,43 +362,98 @@ pub(crate) fn dessiner_filets(monde: &Monde, cx: i32, cy: i32) {
     }
 }
 
-/// Un disque plein de rayon `r` centré en `(cx, cy)`, rangée par rangée : la
-/// demi-largeur de chaque rangée est arrondie au pixel.
-fn disque(cx: i32, cy: i32, r: i32, c: Couleur) {
-    for dy in -r..=r {
-        let demi = (((r * r - dy * dy) as f32).sqrt() + 0.3) as i32;
-        rect(cx - demi, cy + dy, 2 * demi + 1, 1, c);
-    }
-}
-
-/// Les lampadaires de la rue, au pied `sol` (px, à l'écran), décalés de `dec` px :
-/// un mât de fonte sombre, une crosse, la lanterne et son halo. Carte 9.20g : du
-/// FOND, donc ternes : un halo d'ardoise, une lanterne violette (l'orange vif reste
-/// aux lanternes du niveau, devant), un chapeau pointu.
-pub(crate) fn dessiner_lampadaires(dec: i32, sol: i32) {
-    for lx in [60i32, 230] {
-        let x = (lx - dec).rem_euclid(L);
-        let tete = sol - 46;
-        // Le halo : un disque de lumière autour de la lanterne, en marches
-        // d'escalier (un cercle de pixels, sans aucune demi-teinte).
-        disque(x + 1, tete + 2, 7, ARDOISE);
-        // Le mât, son socle évasé, sa crosse.
-        rect(x, tete + 4, 2, sol - tete - 4, ARDOISE_OMBRE);
-        rect(x - 2, sol - 10, 6, 10, ARDOISE_OMBRE);
-        rect(x - 1, sol - 14, 4, 4, ARDOISE_OMBRE);
-        rect(x - 1, tete + 9, 4, 1, ARDOISE_OMBRE);
-        // La lanterne : chapeau pointu, vitres, fond.
-        rect(x, tete - 2, 2, 1, ARDOISE_OMBRE);
-        rect(x - 1, tete - 1, 4, 1, ARDOISE_OMBRE);
-        rect(x - 2, tete, 6, 5, ARDOISE_OMBRE);
-        rect(x - 1, tete + 1, 4, 3, VIOLET_ORAGE);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use pepin_core::palette::{BLANC_CASSE, NUAGE, PLUIE};
+
+    /// Carte 10.4d (suite) : `maisons.png` tient UNE période de la rue (la somme
+    /// des largeurs de `RUE`), et chaque carreau que le code allume tombe sur une
+    /// vitre ÉTEINTE du fichier : les carreaux d'une même fenêtre sont d'une seule
+    /// teinte sombre (le « creux » de la façade), la croisée entre eux est d'un
+    /// cran plus claire (la couleur du mur), et la lucarne est d'ardoise de nuit.
+    #[test]
+    fn les_fenetres_allumees_tombent_sur_les_vitres_du_fichier() {
+        let (l, h) = crate::fonds::taille("caniveau", "maisons");
+        assert_eq!((l, h), (periode(), HAUT_MAISONS + TROTTOIR));
+        let px =
+            |x: i32, y: i32| crate::fonds::couleur("caniveau", "maisons", x as usize, y as usize);
+        let sol = HAUT_MAISONS;
+        let mut x = 0;
+        let mut fenetres = 0;
+        for &(w, etages) in &RUE {
+            let haut = sol - REZ - etages * ETAGE;
+            for dy in 0..4 {
+                for dx in 0..4 {
+                    let lucarne = px(x + w / 2 - 2 + dx, haut - TOIT + 3 + dy);
+                    assert_eq!(lucarne, Some(ARDOISE_NUIT));
+                }
+            }
+            for e in 0..etages {
+                let y = haut + 4 + e * ETAGE;
+                for c in 0..w / 16 {
+                    let fx = x + c * 16 + 5;
+                    let creux = px(fx, y + 2);
+                    assert!(creux == Some(ARDOISE_NUIT) || creux == Some(ARDOISE_OMBRE));
+                    for (cx, cy, cw, ch) in [
+                        (fx, y + 2, 2, 3),
+                        (fx + 3, y + 2, 3, 3),
+                        (fx, y + 6, 2, 5),
+                        (fx + 3, y + 6, 3, 5),
+                    ] {
+                        for yy in cy..cy + ch {
+                            for xx in cx..cx + cw {
+                                assert_eq!(px(xx, yy), creux, "({xx}, {yy})");
+                            }
+                        }
+                    }
+                    assert_ne!(px(fx + 2, y + 2), creux);
+                    assert_ne!(px(fx, y + 5), creux);
+                    fenetres += 1;
+                }
+            }
+            x += w;
+        }
+        assert_eq!(fenetres, 95);
+        // Le trottoir d'en face, sous les maisons, d'un bout à l'autre.
+        assert!((0..l).all(|x| px(x, sol) == Some(ARDOISE_OMBRE)));
+    }
+
+    /// Les fenêtres allumées changent d'un tour de la rue à l'autre (sinon elles
+    /// seraient dans le PNG) : environ une sur quatre, jamais deux tours pareils
+    /// sur un long trajet.
+    #[test]
+    fn les_fenetres_allumees_changent_d_un_tour_a_l_autre() {
+        let p = periode();
+        let tours: Vec<Vec<(i32, i32, i32, i32)>> = (0..6)
+            .map(|t| {
+                carreaux_allumes(t * p, 92)
+                    .into_iter()
+                    .map(|(x, y, w, h)| (x.rem_euclid(p), y, w, h))
+                    .collect()
+            })
+            .collect();
+        assert!(tours.windows(2).all(|d| d[0] != d[1]));
+    }
+
+    /// Le lampadaire du fichier : le mât (ardoise d'ombre, deux pixels) est à la
+    /// colonne `LAMPADAIRE_X`, jusqu'au sol ; le halo d'ardoise est au-dessus ;
+    /// la lanterne violette au milieu du halo.
+    #[test]
+    fn le_lampadaire_du_fichier_est_pose_sur_son_mat() {
+        let (l, h) = crate::fonds::taille("caniveau", "lampadaire");
+        assert_eq!((l, h), (15, LAMPADAIRE_HAUT));
+        let px = |x: i32, y: i32| {
+            crate::fonds::couleur("caniveau", "lampadaire", x as usize, y as usize)
+        };
+        for y in 20..h {
+            assert_eq!(px(LAMPADAIRE_X, y), Some(ARDOISE_OMBRE), "y={y}");
+            assert_eq!(px(LAMPADAIRE_X + 1, y), Some(ARDOISE_OMBRE), "y={y}");
+        }
+        assert_eq!(px(LAMPADAIRE_X + 1, 0), Some(ARDOISE));
+        assert_eq!(px(0, 0), None);
+        assert_eq!(px(LAMPADAIRE_X, 6), Some(VIOLET_ORAGE));
+    }
 
     /// Les pixels couverts par une liste de rectangles (le dernier posé l'emporte).
     fn pixels(r: &[Rect]) -> std::collections::HashMap<(i32, i32), Couleur> {

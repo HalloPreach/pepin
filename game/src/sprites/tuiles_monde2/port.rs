@@ -2,372 +2,51 @@
 //! planches, caisses, bittes d'amarrage. Choix case par case :
 //! `crate::tuiles_theme`.
 
-use crate::sprites::Image;
+// `por_pierre.png` : Pierre du quai (le plein) : grands blocs de granit, joints sombres.
 
-/// Pierre du quai (le plein) : grands blocs de granit, joints sombres.
-pub const POR_PIERRE: Image = &[
-    "4444444444443444",
-    "3333333333332333",
-    "3333333333332333",
-    "3333333333332333",
-    "3333333333332333",
-    "2222222222221222",
-    "1111111111111111",
-    "4443444444444444",
-    "3332333333333333",
-    "3332333333333333",
-    "3332333333333333",
-    "3332333333333333",
-    "2221222222222222",
-    "1111111111111111",
-    "4444444443444444",
-    "3333333332333333",
-];
+// `por_quai.png` : Dessus du quai (où l'on marche) : dalles claires, arête, bordure.
 
-/// Dessus du quai (où l'on marche) : dalles claires, arête, bordure.
-pub const POR_QUAI: Image = &[
-    "0000000000000000",
-    "6666666666666666",
-    "5555555555555555",
-    "5555555455555554",
-    "4444444344444443",
-    "2222222222222222",
-    "0000000000000000",
-    "4443444444444444",
-    "3332333333333333",
-    "3332333333333333",
-    "3332333333333333",
-    "3332333333333333",
-    "2221222222222222",
-    "1111111111111111",
-    "4444444443444444",
-    "3333333332333333",
-];
+// `por_quai_g.png` : Quai au bord GAUCHE.
 
-/// Quai au bord GAUCHE.
-pub const POR_QUAI_G: Image = &[
-    ".000000000000000",
-    "0666666666666666",
-    "0555555555555555",
-    "0555555455555554",
-    "0444444344444443",
-    "0222222222222222",
-    "0000000000000000",
-    "0443444444444444",
-    "0332333333333333",
-    "0332333333333333",
-    "0332333333333333",
-    "0332333333333333",
-    "0221222222222222",
-    "0111111111111111",
-    "0444444443444444",
-    "0333333332333333",
-];
+// `por_quai_d.png` : Quai au bord DROIT.
 
-/// Quai au bord DROIT.
-pub const POR_QUAI_D: Image = &[
-    "000000000000000.",
-    "6666666666666660",
-    "5555555555555550",
-    "5555555455555550",
-    "4444444344444440",
-    "2222222222222220",
-    "0000000000000000",
-    "4443444444444440",
-    "3332333333333330",
-    "3332333333333330",
-    "3332333333333330",
-    "3332333333333330",
-    "2221222222222220",
-    "1111111111111110",
-    "4444444443444440",
-    "3333333332333330",
-];
+// `por_quai_seul.png` : Quai seul (vide des deux côtés).
 
-/// Quai seul (vide des deux côtés).
-pub const POR_QUAI_SEUL: Image = &[
-    ".00000000000000.",
-    "0666666666666660",
-    "0555555555555550",
-    "0555555455555550",
-    "0444444344444440",
-    "0222222222222220",
-    "0000000000000000",
-    "0443444444444440",
-    "0332333333333330",
-    "0332333333333330",
-    "0332333333333330",
-    "0332333333333330",
-    "0221222222222220",
-    "0111111111111110",
-    "0444444443444440",
-    "0333333332333330",
-];
+// `por_anneau.png` : Mur du quai avec un anneau d'amarrage (variante).
 
-/// Mur du quai avec un anneau d'amarrage (variante).
-pub const POR_ANNEAU: Image = &[
-    "4444444444443444",
-    "3333333333332333",
-    "3333333333332333",
-    "3333333333332333",
-    "3333333333332333",
-    "2222222222221222",
-    "1111111111111111",
-    "4443400000044444",
-    "3332304444033333",
-    "3332300..0033333",
-    "333230....033333",
-    "3332300..0033333",
-    "2221220000222222",
-    "1111111111111111",
-    "4444444443444444",
-    "3333333332333333",
-];
+// `por_fond.png` : Fond du port (l'eau au-dessus) : pierre noyée, sombre.
 
-/// Fond du port (l'eau au-dessus) : pierre noyée, sombre.
-pub const POR_FOND: Image = &[
-    "2222222222221222",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111110111",
-    "0000000000000000",
-    "2221222222222222",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1110111111111111",
-    "0000000000000000",
-    "2222222221222222",
-    "1111111111111111",
-];
+// `por_ponton.png` : Ponton (`#` du port sur l'eau) : platelage de planches clouées, chevêtre,
+// pieux sombres.
 
-/// Ponton (`#` du port sur l'eau) : platelage de planches clouées, chevêtre,
-/// pieux sombres.
-pub const POR_PONTON: Image = &[
-    "0000000000000000",
-    "9999999999999999",
-    "AAAAA0AAAAAAA0AA",
-    "A8AAA0AA8AAAA0A8",
-    "8888808888888088",
-    "0000000000000000",
-    "2222222222222222",
-    "1111111111111111",
-    "0000000000000000",
-    "1103201111103201",
-    "1103201111103201",
-    "1103201111103201",
-    "1103201111103201",
-    "1103201111103201",
-    "1103201111103201",
-    "1100001111100001",
-];
+// `por_ponton_g.png` : Ponton au bout GAUCHE.
 
-/// Ponton au bout GAUCHE.
-pub const POR_PONTON_G: Image = &[
-    ".000000000000000",
-    "0999999999999999",
-    "0AAAA0AAAAAAA0AA",
-    "0AAAA0AA8AAAA0A8",
-    "0888808888888088",
-    "0000000000000000",
-    "0222222222222222",
-    "0111111111111111",
-    "0000000000000000",
-    "0103201111103201",
-    "0103201111103201",
-    "0103201111103201",
-    "0103201111103201",
-    "0103201111103201",
-    "0103201111103201",
-    "0100001111100001",
-];
+// `por_ponton_d.png` : Ponton au bout DROIT.
 
-/// Ponton au bout DROIT.
-pub const POR_PONTON_D: Image = &[
-    "000000000000000.",
-    "9999999999999990",
-    "AAAAA0AAAAAAA0A0",
-    "A8AAA0AA8AAAA0A0",
-    "8888808888888080",
-    "0000000000000000",
-    "2222222222222220",
-    "1111111111111110",
-    "0000000000000000",
-    "1103201111103200",
-    "1103201111103200",
-    "1103201111103200",
-    "1103201111103200",
-    "1103201111103200",
-    "1103201111103200",
-    "1100001111100000",
-];
+// `por_ponton_seul.png` : Ponton seul (vide des deux côtés).
 
-/// Ponton seul (vide des deux côtés).
-pub const POR_PONTON_SEUL: Image = &[
-    ".00000000000000.",
-    "0999999999999990",
-    "0AAAA0AAAAAAA0A0",
-    "0AAAA0AA8AAAA0A0",
-    "0888808888888080",
-    "0000000000000000",
-    "0222222222222220",
-    "0111111111111110",
-    "0000000000000000",
-    "0103201111103200",
-    "0103201111103200",
-    "0103201111103200",
-    "0103201111103200",
-    "0103201111103200",
-    "0103201111103200",
-    "0100001111100000",
-];
+// `por_caisse.png` : Caisse (un `#` du port posé sur un solide) : caisse à claire-voie, trois
+// lattes clouées, l'ombre entre elles.
 
-/// Caisse (un `#` du port posé sur un solide) : caisse à claire-voie, trois
-/// lattes clouées, l'ombre entre elles.
-pub const POR_CAISSE: Image = &[
-    "0000000000000000",
-    "0999999999999990",
-    "0AAAAAAAAAAAAA80",
-    "0A0AAAAAAAAAA080",
-    "0888888888888880",
-    "0A100000000001A0",
-    "0A101111111101A0",
-    "0999999999999990",
-    "0AAAAAAAAAAAAA80",
-    "0888888888888880",
-    "0A100000000001A0",
-    "0A101111111101A0",
-    "0999999999999990",
-    "0A0AAAAAAAAAA080",
-    "0888888888888880",
-    "0000000000000000",
-];
+// `por_bitte.png` : Bitte d'amarrage : posée SUR la case au-dessus d'un bout de quai ou de
+// ponton (`crate::tuiles_theme::objet_pose`), sans collision.
 
-/// Bitte d'amarrage : posée SUR la case au-dessus d'un bout de quai ou de
-/// ponton (`crate::tuiles_theme::objet_pose`), sans collision.
-pub const POR_BITTE: Image = &[
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    ".....000000.....",
-    "....03444320....",
-    "....01222110....",
-    ".....032210.....",
-    ".....032210.....",
-    "....03222110....",
-    "....00000000....",
-];
+// `por_taille.png` : Pierre de taille (carte 9.11b, variante du plein) : un long bloc à bossage en
+// haut (arête claire, panneau en relief), la rangée du dessous en joints décalés.
 
-/// Pierre de taille (carte 9.11b, variante du plein) : un long bloc à bossage en
-/// haut (arête claire, panneau en relief), la rangée du dessous en joints décalés.
-pub const POR_TAILLE: Image = &[
-    "4444444444444444",
-    "4555555555555523",
-    "4533333333333323",
-    "4533333333333323",
-    "4522222222222223",
-    "2222222222222222",
-    "1111111111111111",
-    "4444443444444444",
-    "3333332333333333",
-    "3333332333333333",
-    "3333332333333333",
-    "3333332333333333",
-    "2222221222222222",
-    "1111111111111111",
-    "4444444443444444",
-    "3333333332333333",
-];
+// `por_barbacane.png` : Barbacane (carte 9.11b) : la bouche d'écoulement du quai, ronde et noire, et la
+// traînée mouillée qu'elle laisse sur la pierre en dessous.
 
-/// Barbacane (carte 9.11b) : la bouche d'écoulement du quai, ronde et noire, et la
-/// traînée mouillée qu'elle laisse sur la pierre en dessous.
-pub const POR_BARBACANE: Image = &[
-    "4444444444443444",
-    "3333300003332333",
-    "3333000000332333",
-    "3333000000332333",
-    "3333200002332333",
-    "2222212122221222",
-    "1111111111111111",
-    "4443412144444444",
-    "3332312133333333",
-    "3332322233333333",
-    "3332331233333333",
-    "3332332133333333",
-    "2221212122222222",
-    "1111111111111111",
-    "4444441443444444",
-    "3333332332333333",
-];
+// `por_algues.png` : Pierre au ras de l'eau (carte 9.11b) : la pierre noircie par la marée, les
+// algues violettes qui pendent de la laisse de mer, la mousse dans les joints.
 
-/// Pierre au ras de l'eau (carte 9.11b) : la pierre noircie par la marée, les
-/// algues violettes qui pendent de la laisse de mer, la mousse dans les joints.
-pub const POR_ALGUES: Image = &[
-    "4444444444443444",
-    "3333333333332333",
-    "3F33333F33332F33",
-    "2F33F32F33F32F33",
-    "2F2FF22F2FF21F2F",
-    "1F1F21FF2F1F1F1F",
-    "1111111111111111",
-    "2F21222F22222F22",
-    "1F11111F1F111F11",
-    "1F1F111F1F111111",
-    "1111111111F11111",
-    "1110111111110111",
-    "0000000000000000",
-    "2222222221222222",
-    "1111111111111111",
-    "1111111110111111",
-];
+// `por_echelle.png` : Échelle de fer scellée dans le quai (carte 9.11b) : deux montants sombres, un
+// barreau toutes les quatre rangées (et son ombre), d'une case à l'autre.
 
-/// Échelle de fer scellée dans le quai (carte 9.11b) : deux montants sombres, un
-/// barreau toutes les quatre rangées (et son ombre), d'une case à l'autre.
-pub const POR_ECHELLE: Image = &[
-    "4444044444403444",
-    "3333033333302333",
-    "3333000000002333",
-    "3333022222202333",
-    "3333033333302333",
-    "2222022222201222",
-    "1111000000001111",
-    "4443022222204444",
-    "3332033333303333",
-    "3332033333303333",
-    "3332000000003333",
-    "3332022222203333",
-    "2221022222202222",
-    "1111011111101111",
-    "4444000000004444",
-    "3333022222203333",
-];
-
-/// Les sprites de ce thème : (nom, dessin).
-pub const SPRITES: &[(&str, Image)] = &[
-    ("por_taille", POR_TAILLE),
-    ("por_barbacane", POR_BARBACANE),
-    ("por_algues", POR_ALGUES),
-    ("por_echelle", POR_ECHELLE),
-    ("por_pierre", POR_PIERRE),
-    ("por_quai", POR_QUAI),
-    ("por_quai_g", POR_QUAI_G),
-    ("por_quai_d", POR_QUAI_D),
-    ("por_quai_seul", POR_QUAI_SEUL),
-    ("por_anneau", POR_ANNEAU),
-    ("por_fond", POR_FOND),
-    ("por_ponton", POR_PONTON),
-    ("por_ponton_g", POR_PONTON_G),
-    ("por_ponton_d", POR_PONTON_D),
-    ("por_ponton_seul", POR_PONTON_SEUL),
-    ("por_caisse", POR_CAISSE),
-    ("por_bitte", POR_BITTE),
-];
+/// Les sprites de ce fichier : (nom, dessin), lus dans `assets/sprites/tuiles_monde2/port/`
+/// (carte 10.4a : les dessins sont des fichiers PNG, voir `super::fichiers`).
+// Seuls les tests lisent ce thème par son module (le jeu passe par `JEUX`).
+#[cfg(test)]
+pub fn sprites() -> &'static [(&'static str, crate::sprites::Image)] {
+    crate::sprites::fichiers::famille("tuiles_monde2/port")
+}

@@ -13,9 +13,16 @@ commence par un commentaire (`//!`) qui dit ce qu'il fait et quelles notions de
 Rust il illustre. Ce README fait le tour du propriétaire ; la section
 « Les notions de Rust, avec le code réel » renvoie vers les fichiers exacts.
 
-Tout est dans le code : **aucun fichier image, aucun fichier son, aucune police
-externe**. Les sprites sont des grilles de texte, les sons sont calculés au
-démarrage, la police est un tableau de bits.
+Presque tout est dans le code : **aucune police externe**, la police est un
+tableau de bits. Les sprites dessinés à la main sont des fichiers : de petits PNG à 16 couleurs dans
+`assets/sprites/` (carte 10.4a, voir `assets/sprites/LISEZMOI.md`), embarqués dans
+le jeu à la compilation, comme les niveaux de `assets/levels/`. Les couches fixes
+des fonds (ciels, soleil, arc-en-ciel, arches des égouts, port) aussi : `assets/fonds/`
+(cartes 10.4c et 10.4d, voir
+`assets/fonds/LISEZMOI.md`, qui donne la pile de dessin de chaque thème). Les
+musiques et les bruitages sont des WAV (`assets/musiques/`, `assets/sons/`, carte
+10.4e, voir `assets/musiques/LISEZMOI.md`), servis à côté du jeu et téléchargés
+après l'écran titre.
 
 ## Sommaire
 
@@ -65,7 +72,7 @@ image avant le premier niveau, une après le Grand Nuage, une avant la descente 
 une fois une partie finie, la ligne HISTOIRE du titre permet de les revoir.
 
 Les dix niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
-`core/src/levels/*.rs`) :
+`assets/levels/monde_1/*.ron`) :
 
 1. Les toits : course, saut, planer ; les deux premières flaques à écraser.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines, deux
@@ -190,10 +197,38 @@ L'écran de fin ajoute une ligne « VIES » quand elle tient sans serrer le menu
 
 ## 2. Architecture : `core` (pur) et `game` (graphique)
 
-Le dépôt est un *workspace* Cargo (`Cargo.toml` à la racine) avec deux crates :
+Le dépôt est un *workspace* Cargo (`Cargo.toml` à la racine) avec trois crates :
 
-    core/   logique pure : aucune dépendance, aucun appel graphique
-    game/   le jeu : fenêtre, rendu, écrans, audio, entrées (macroquad)
+    core/     types et logique pure : aucune dépendance, aucun appel graphique,
+              aucun niveau (seulement de faux niveaux écrits dans ses tests)
+    niveaux/  les niveaux : fichiers RON (assets/levels/**/*.ron), leur chargeur
+              (serde + ron) et les tests de TOUS les niveaux (niveaux/tests/)
+    game/     le jeu : fenêtre, rendu, écrans, audio, entrées (macroquad)
+
+Les NIVEAUX sont des données (cartes 10.1a, 10.1b et 10.1c) :
+
+    assets/levels/monde_1/toits.ron, assets/levels/monde_2/port.ron, essais/...
+      --(niveaux/build.rs : include_str!, aucune liste à tenir)-->  fichiers embarqués
+      --(crate niveaux : serde + ron, puis la grille par le parseur de core)-->
+      InfosNiveau (type de core)  -->  game (`niveaux::niveaux()`, `niveaux::par_cle`)
+
+`core` garde les TYPES (`InfosNiveau`, `Niveau`, la légende de la grille) et les
+règles (`levels::apres`, `verifier_ordre`...), sans dépendance ; serde et ron ne
+vivent que dans `niveaux`. Depuis la carte 10.1c, `core` ne contient plus aucun
+niveau : les tests qui lisent les vrais niveaux (faisabilité par le robot,
+reprise depuis chaque lanterne, grilles, décor, pigeons, tests propres à un niveau
+dans `par_niveau/<clé>.rs`) sont dans `niveaux/tests/tous_les_niveaux/`, un
+fichier par sujet. `niveaux` en est le seul à dépendre de `core` (jamais
+l'inverse) ; les quelques réglages dont ces tests ont besoin dans `core` n'existent
+qu'avec sa fonctionnalité `pour_les_tests`. Les commentaires de conception d'un
+niveau sont des commentaires `//` de son fichier `.ron` (l'éditeur les garde). Le jeu publié ne peut pas tomber sur un fichier invalide :
+`./build.sh` lance d'abord le test `tous_les_fichiers_embarques_sont_valides`. Le
+build de QA, lui, affiche l'erreur (fichier, ligne, colonne) à l'écran, et
+`?essai=1` y lance le niveau RON posé dans le `localStorage` (clé
+`pepin.niveau_essai`) : c'est le bouton TESTER de l'éditeur de niveaux (cartes
+10.3a et 10.3b, `editeur.html`), qui reçoit en retour le verdict du chargeur (la
+case fautive) et la fin de l'essai ; sa palette et sa grille montrent les vrais
+sprites (carte 10.4b, `assets/sprites/LISEZMOI.md`). Format et légende : `assets/levels/LISEZMOI.md`.
 
 Le découpage est volontaire. Tout ce qui est « règle du jeu » vit dans `core` ;
 `game` ne fait que **lire** l'état et le **dessiner**. Conséquence très
@@ -230,10 +265,13 @@ Contenu de `core/src` :
   Pépin touche quelque chose.
 - `level.rs`, `level/ascii.rs`, `level/erreur.rs` : le format de niveau ASCII
   et son analyseur.
-- `levels.rs` et `levels/` : la table ORDONNÉE des niveaux (`NIVEAUX`, un fichier
-  par niveau) et les règles qui les enchaînent : genre de chaque niveau (normal,
-  bonus, épilogue), niveau suivant (`apres`), bonus débloqué par toutes les gouttes
-  des niveaux normaux. Fonctions pures, testées sur de fausses listes.
+- `levels.rs` : les règles qui enchaînent les niveaux : genre de chaque niveau
+  (normal, bonus, épilogue), niveau suivant (`apres`), bonus débloqué par toutes
+  les gouttes des niveaux normaux, ordre de la table (`verifier_ordre`). Fonctions
+  pures, qui reçoivent la table en paramètre, testées sur de fausses listes. Les
+  niveaux eux-mêmes sont des fichiers `.ron` (crate `niveaux`, carte 10.1c : les
+  anciens `levels/*.rs` sont supprimés) ; `levels/variantes.rs` (la nouvelle
+  partie +) reste ici, c'est de la logique.
 - `zones.rs` : les métadonnées d'un niveau (nom, genre, texte d'introduction, thème
   de décor).
 - `state.rs` : score, checkpoint et phase de la partie.
@@ -241,8 +279,8 @@ Contenu de `core/src` :
 - `faisabilite.rs` : un « robot joueur » qui prouve par simulation qu'un niveau
   peut être terminé.
 - `palette.rs`, `font.rs` (+ `font/`) : palette de 16 couleurs, police 5x7.
-- `synthese.rs`, `sons.rs` : synthèse sonore 8 bits (calcul pur de tableaux de
-  nombres).
+- `sons.rs` : la liste des bruitages (`Effet`), le nom de leur fichier et leur
+  volume (les sons eux-mêmes sont des fichiers WAV, carte 10.4e).
 
 Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
 
@@ -257,7 +295,7 @@ Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
   cible 320x180 et l'agrandissement entier.
 - `entrees.rs`, `tactile.rs`, `navigation.rs`, `menu.rs` : entrées et menus ;
   `focus.rs` : perte de focus de la fenêtre (pause automatique).
-- `audio.rs` : joue les sons fabriqués par `core`.
+- `audio.rs` : télécharge les sons (fichiers WAV) en arrière-plan et les joue.
 
 Dans `game`, la même idée se répète à plus petite échelle : la logique (qui
 mène où, quelle ligne de menu est choisie...) est écrite en fonctions pures
@@ -381,7 +419,8 @@ Compiler ET préparer le dossier à publier (une seule commande) :
 
 `build.sh` compile en release, récupère le chargeur JavaScript de macroquad
 (`mq_js_bundle.js`, sans son plugin réseau inutile), réduit le wasm avec
-`wasm-opt -Oz`, copie la page `web/index.html` et produit le dossier `dist/`,
+`wasm-opt -Oz`, copie la page `web/index.html` et les sons (`dist/musiques`,
+`dist/sons`) et produit le dossier `dist/`,
 complet et statique. `docs/build.md` détaille chaque étape. `dist/` n'est pas
 versionné (`.gitignore`) : c'est un produit régénérable.
 
@@ -528,8 +567,8 @@ Rust n'a pas de `null` ni d'exceptions. Une valeur qui « peut manquer » est un
 `Option<T>` (`Some` ou `None`) ; une opération qui « peut échouer » renvoie un
 `Result<T, E>` (`Ok` ou `Err`).
 
-- `core/src/zones.rs` : `pub fn niveau(indice: usize) -> Option<&'static InfosNiveau>`
-  renvoie `None` hors bornes (`NIVEAUX.get(indice)`).
+- `core/src/levels.rs` : `pub fn debut_monde(niveaux, monde) -> Option<usize>`
+  renvoie `None` si aucun niveau n'est de ce monde.
 - `core/src/entities.rs` : `Entite::solide(&self) -> Option<Aabb>` : « une boîte
   solide, ou rien », sans valeur magique. Puis
   `entites.iter().filter_map(Entite::solide).collect()` ne garde que les `Some`.
@@ -556,9 +595,13 @@ Rust n'a pas de `null` ni d'exceptions. Une valeur qui « peut manquer » est un
 
 ### Programmation asynchrone
 
-`game/src/audio.rs` : `pub async fn charger() -> Self`. Dans un navigateur, le
-chargement des sons doit pouvoir attendre ; `main` (macroquad) est `async` et
-appelle `Audio::charger().await`.
+`game/src/audio.rs` : `Chargement`. Dans un navigateur, télécharger puis décoder
+un son prend du temps ; `load_sound` de macroquad est donc une fonction `async`.
+Pour ne pas retarder l'écran titre, le jeu ne l'attend pas : chaque son part dans
+une coroutine de macroquad (`start_coroutine`), avancée à chaque image, et
+`Audio::avancer` relève, image après image, les sons arrivés (`is_done`,
+`retrieve`). `main` lui-même est `async` (macroquad) et attend `next_frame().await`
+entre deux images.
 
 ### Notions apparues avec les derniers niveaux
 
@@ -566,10 +609,11 @@ Les six niveaux et les mécaniques ajoutés à la fin du projet (vent, grêle, a
 ventilateur, montgolfières, escargots, chats, aiguilles d'horloge, Grand Nuage) ont
 amené quelques notions de plus :
 
-- **Tranche constante dont la longueur sert de taille** : `core/src/levels.rs`
-  déclare `pub const NIVEAUX: &[InfosNiveau] = &[...]` puis
-  `pub const NB_NIVEAUX: usize = NIVEAUX.len();`, calculé à la compilation. Dans
-  `game/src/contenu.rs`, `pub const INTROS: [Intro; NB_NIVEAUX]` : ajouter un niveau
+- **Constante calculée qui sert de taille** : `niveaux/build.rs` compte les
+  fichiers de niveau et écrit `pub const NB_NIVEAUX_MONDE_1: usize = 12;` dans un
+  fichier généré (avant la carte 10.1c, c'était la longueur d'une tranche
+  constante de `core`). Dans `game/src/contenu.rs`,
+  `pub const INTROS: [Intro; NB_NIVEAUX_MONDE_1]` : ajouter un niveau
   sans écrire son texte d'introduction ne compile plus. Même chose pour les bandes de
   difficulté (`BANDES_HABITUE`, `game/src/difficulte.rs`).
 - **Données constantes imbriquées** : `core/src/entities/nuage.rs`, les motifs
@@ -659,8 +703,11 @@ rangées 1 à 4, et les lettres à jambage (g j p q y) descendent de deux rangé
 `glyphe_ou_inconnu` renvoie un cadre vide pour un caractère absent, et
 `game/src/texte.rs` dessine chaque pixel allumé comme un petit carré.
 
-**Pixel art procédural** (`game/src/sprites/`). Un sprite est une grille de
-texte : une ligne par rangée de pixels, un caractère par pixel. `.` est
+**Pixel art** (`game/src/sprites/`). Chaque sprite est un fichier PNG de
+`assets/sprites/<famille>/<clé>.png`, embarqué par `game/build.rs` et décodé
+(`sprites/fichiers.rs`) en grille de texte : une ligne par rangée de pixels, un
+caractère par pixel. L'outil `cargo run -p outils --bin sprite -- lire|ecrire`
+passe d'un PNG à sa grille et retour. `.` est
 transparent ; `0`-`9` et `A`-`F` désignent une des 16 couleurs de `TOUTES`
 (`0` : contour sombre, `8` : corail, `B` : or...). Pépin fait 16x16 pixels,
 parapluie fermé, et 20x20 parapluie ouvert. Au démarrage,
@@ -678,11 +725,13 @@ compte les couleurs distinctes d'une capture.
 
 ## 9. Son et tactile
 
-- **Son** (`core/src/synthese.rs`, `core/src/sons.rs`, `game/src/audio.rs`) :
-  ondes carrée, triangle et bruit calculées échantillon par échantillon à
-  22 050 Hz, comme sur une vieille console. On obtient onze effets, une
-  musique en boucle et le bruit de la pluie, tous fabriqués en mémoire au
-  démarrage. Le son est **coupé par défaut** (un navigateur n'autorise l'audio
+- **Son** (`core/src/sons.rs`, `game/src/audio.rs`, `assets/musiques`,
+  `assets/sons`) : de vrais fichiers WAV mono 16 bits à 22 050 Hz (carte 10.4e),
+  rendus une fois par l'ancien synthé 8 bits (ondes carrée, triangle et bruit) :
+  douze bruitages, six musiques en boucle et le bruit de la pluie, servis à côté du
+  jeu (`dist/musiques`, `dist/sons`, 3,1 Mo) et téléchargés en arrière-plan après
+  l'écran titre ; un son pas encore arrivé est muet (voir
+  `assets/musiques/LISEZMOI.md`). Le son est **coupé par défaut** (un navigateur n'autorise l'audio
   qu'après une première interaction) ; la touche M ou le menu l'active.
 - **Tactile** (`game/src/tactile.rs`) : quatre boutons en pixel art, plusieurs
   doigts en même temps (courir et sauter). L'écran est jugé tactile au premier
@@ -717,15 +766,16 @@ existantes :
 
 - Sauvegarder le meilleur temps et les gouttes ramassées (stockage du
   navigateur).
-- Ajouter un niveau : il suffit d'un nouveau fichier dans `core/src/levels/`,
-  d'une entrée à sa place dans la table `NIVEAUX` de `core/src/levels.rs` (avec son
-  genre), d'une ligne dans la macro des tests de faisabilité de `core/src/zones.rs`,
-  de son texte dans `game/src/contenu.rs` et de sa bande de difficulté dans
-  `game/src/difficulte.rs` (les tests et le compilateur signalent chaque oubli). Une
+- Ajouter un niveau = ajouter un fichier `.ron` dans `assets/levels/monde_<N>/`
+  (ou `essais/`) : sa place vient de ses champs `monde` et `numero`, aucune liste
+  n'est à tenir (`./docker-cargo.sh run -p niveaux --bin valider` le vérifie). Le
+  jeu demande ensuite son texte dans `game/src/contenu.rs` et, au Monde 1, sa bande
+  de difficulté dans `game/src/difficulte.rs` (les tests et le compilateur
+  signalent chaque oubli). Une
   ambiance inédite = un `Theme` de plus et une entrée dans `decor::ambiance`. Un niveau
   peut être plus haut que l'écran (plus de 11 rangées, par exemple 45 pour quatre
   écrans) : la caméra le suit alors en hauteur (`game/src/camera.rs`) ; le niveau
-  d'essai `core/src/levels/essai_vertical.rs` (touche 0 du build de QA) en est l'exemple.
+  d'essai `assets/levels/essais/essai_vertical.ron` (touche 0 du build de QA) en est l'exemple.
 - Ajouter de nouveaux ennemis ou plateformes en suivant le modèle de
   `core/src/entities/` (une variante de plus dans `Entite`, et le compilateur
   indique tous les `match` à compléter).

@@ -602,9 +602,8 @@ mod tests {
     fn les_niveaux_d_un_ecran_gardent_la_meme_camera() {
         use crate::monde::Monde;
         use pepin_core::entities::contacts::Contact;
-        use pepin_core::zones::NIVEAUX;
         let (mut morts, mut plus_loin, mut sauts) = (0, 0.0_f32, 0);
-        for (indice, infos) in NIVEAUX.iter().enumerate() {
+        for (indice, infos) in niveaux::niveaux().iter().enumerate() {
             let mut m = Monde::new(indice);
             let (l, h) = (m.niveau.largeur_px(), m.niveau.hauteur_px());
             // Le clocher (carte 5.13), la descente (carte 5.17), la grande cascade
@@ -614,15 +613,14 @@ mod tests {
             // (la caméra verticale a ses propres tests, plus bas).
             if Camera::suit_en_hauteur(h) {
                 // Et la tour de la Pieuvre (carte 9.13a, sa phase 2).
-                use pepin_core::levels::{cascade, clocher, descente, grotte, pieuvre, riviere};
                 assert!(
                     [
-                        clocher::INFOS.nom,
-                        descente::INFOS.nom,
-                        cascade::INFOS.nom,
-                        grotte::INFOS.nom,
-                        riviere::INFOS.nom,
-                        pieuvre::INFOS.nom
+                        niveaux::par_cle("clocher").nom,
+                        niveaux::par_cle("descente").nom,
+                        niveaux::par_cle("cascade").nom,
+                        niveaux::par_cle("grotte").nom,
+                        niveaux::par_cle("riviere").nom,
+                        niveaux::par_cle("pieuvre").nom
                     ]
                     .contains(&infos.nom),
                     "{}",

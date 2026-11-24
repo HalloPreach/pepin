@@ -633,10 +633,9 @@ fn dessiner_dehors((x0, l): (i32, i32), (haut, bas): (i32, i32), pas: u32, cy: i
 mod tests {
     use super::*;
     use pepin_core::entities::maree::PLEINE_MER_PAS;
-    use pepin_core::levels::egouts;
 
     fn niveau() -> Niveau {
-        Niveau::depuis_ascii(egouts::INFOS.ascii).expect("égouts")
+        Niveau::depuis_ascii(niveaux::par_cle("egouts").ascii).expect("égouts")
     }
 
     /// La première grille est au-dessus du départ (à trois cases au plus de Pépin,

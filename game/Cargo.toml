@@ -7,7 +7,18 @@ description = "Jeu de plateformes PÉPIN (rendu macroquad)"
 
 [dependencies]
 pepin_core = { package = "core", path = "../core" }
+# Les niveaux, lus dans les fichiers `assets/levels/**/*.ron` (carte 10.1b).
+niveaux = { path = "../niveaux" }
 macroquad = { version = "0.4", default-features = false }
+# Le DÉCODEUR PNG des sprites (carte 10.4a, `sprites::fichiers`). Ce n'est pas une
+# dépendance nouvelle : macroquad l'embarque déjà (sa crate `image` lit les PNG avec
+# elle), même version dans le Cargo.lock. L'appeler directement évite les conversions
+# génériques de `image` dans le wasm. L'ENCODEUR, lui, ne sert qu'au crate `outils`.
+png = "0.17"
+
+# Les tests du jeu essaient aussi les niveaux d'essai (`monde::INDICE_ESSAI`...).
+[dev-dependencies]
+niveaux = { path = "../niveaux", features = ["essais"] }
 
 [features]
 # Son réel (quad-snd). Sur Linux natif il demande libasound (absente de l'image
@@ -19,7 +30,7 @@ son = ["macroquad/audio"]
 # d'essai vertical (score et chrono remis à zéro). JAMAIS dans la production : sur AZERTY ce sont les touches
 # & é " ' ( et un appui accidentel perdrait la partie. Activée seulement par
 # `./build.sh --qa` (dist-qa/) pour les captures et la QA.
-debug_niveaux = []
+debug_niveaux = ["niveaux/essais"]
 # Plantage volontaire (panique sur la touche F9), pour vérifier dans un navigateur que
 # la page affiche un message quand le jeu plante en cours de partie. JAMAIS dans la
 # production : activée seulement par `./build.sh --qa` (dist-qa/).

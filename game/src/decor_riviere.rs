@@ -2,8 +2,9 @@
 //! sans âme ») : la VALLÉE au soleil couchant, après l'orage. Rendu seulement :
 //! aucune collision, aucune règle de jeu.
 //!
-//! Le fond (`dessiner_fond`, derrière les tuiles), du plus loin au plus proche, en
-//! parallaxe :
+//! Le fond (dans la pile de `decor::pile`, voir `Plan` et `dessiner_plan`, carte
+//! 10.4f ; le ciel, le soleil et le moulin sont des fichiers de
+//! `assets/fonds/riviere`), du plus loin au plus proche, en parallaxe :
 //! 1. le CIEL de fin d'après-midi, en dégradé chaud (ardoise, violet, rose, orange,
 //!    or pâle à l'horizon) et le soleil bas, son halo ;
 //! 2. les MONTAGNES bleutées, leurs flancs éclairés côté soleil ;
@@ -30,7 +31,7 @@ use pepin_core::palette::{
 use pepin_core::zones::Theme;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 
-use crate::decor::{camera_fond, decalage, enfoncement};
+use crate::decor::{decalage, enfoncement};
 use crate::monde::Monde;
 use crate::rendu::couleur_mq;
 
@@ -81,35 +82,18 @@ fn est_la_riviere(monde: &Monde) -> bool {
     monde.infos.theme == Theme::Riviere
 }
 
-/// Le dégradé du ciel : (couleur, rangée de l'écran où elle commence), du haut vers
-/// le bas. L'horizon (or pâle) est derrière les montagnes. Fonction pure.
-pub(crate) fn bandes_du_ciel(dy: i32) -> [(Couleur, i32); 6] {
-    [
-        (ARDOISE_CLAIRE, i32::MIN),
-        (VIOLET_ORAGE, 14 + dy),
-        (CORAIL_CLAIR, 36 + dy),
-        (ORANGE_SOLEIL, 54 + dy),
-        (OR_PALE, 70 + dy),
-        (BRUME, 86 + dy),
-    ]
-}
-
-/// Ciel : chaque bande commence par deux rangées en damier (un pixel sur deux de
-/// la couleur d'avant) pour un passage doux sans transparence.
+/// Le ciel de fin d'après-midi, `riviere/ciel_vallee.png` : six bandes du sombre au
+/// clair, chacune ouverte par deux rangées en damier (un pixel sur deux de la
+/// couleur d'avant) ; le fichier n'a que DEUX colonnes, la période de la trame,
+/// posée tous les 2 px. Au-dessus et au-dessous du fichier, le code prolonge sa
+/// première et sa dernière rangée (pleines). `dy` : sa parallaxe verticale.
 fn dessiner_ciel(dy: i32) {
-    let bandes = bandes_du_ciel(dy);
-    for (k, &(c, debut)) in bandes.iter().enumerate() {
-        let haut = debut.max(0);
-        let bas = bandes.get(k + 1).map_or(H, |b| b.1).min(H);
-        rect(0, haut, W, bas - haut, c);
-        if k > 0 {
-            let avant = bandes[k - 1].0;
-            for r in 0..2 {
-                for x in (r % 2..W).step_by(2) {
-                    rect(x, debut + r, 1, 1, avant);
-                }
-            }
-        }
+    let (l, h) = crate::fonds::taille("riviere", "ciel_vallee");
+    let bout = |y: usize| crate::fonds::couleur("riviere", "ciel_vallee", 0, y).expect("plein");
+    rect(0, 0, W, dy, bout(0));
+    rect(0, dy + h, W, H - dy - h, bout(h as usize - 1));
+    for x in (0..W).step_by(l as usize) {
+        crate::fonds::dessiner("riviere", "ciel_vallee", x, dy);
     }
 }
 
@@ -121,15 +105,29 @@ fn disque(cx: i32, cy: i32, r: i32, c: Couleur) {
     }
 }
 
-fn dessiner_soleil(cam_x: i32, dy: i32, pas: u32) {
-    let x = 236 - decalage(cam_x, F_SOLEIL);
-    let y = 68 + dy;
-    // Le halo respire très lentement.
+/// Le halo du soleil (calculé : il respire très lentement).
+fn dessiner_halo(cam_x: i32, dy: i32, pas: u32) {
+    let (x, y) = centre_du_soleil(cam_x, dy);
     let souffle = ((pas as f32 / 90.0).sin() * 1.5).round() as i32;
     disque(x, y, 22 + souffle, ORANGE_SOLEIL);
-    disque(x, y, 15, OR_PALE);
-    disque(x, y, 11, BLANC_CASSE);
-    // Deux longs nuages fins qui passent devant le soleil.
+}
+
+/// Le centre du soleil couchant à l'écran (parallaxe lente).
+fn centre_du_soleil(cam_x: i32, dy: i32) -> (i32, i32) {
+    (236 - decalage(cam_x, F_SOLEIL), 68 + dy)
+}
+
+/// Le disque du soleil, `riviere/soleil_couchant.png` (31 x 31 : l'or pâle et son
+/// cœur blanc), centré sur `centre_du_soleil`.
+fn dessiner_soleil(cam_x: i32, dy: i32) {
+    let (x, y) = centre_du_soleil(cam_x, dy);
+    let (l, h) = crate::fonds::taille("riviere", "soleil_couchant");
+    crate::fonds::dessiner("riviere", "soleil_couchant", x - l / 2, y - h / 2);
+}
+
+/// Deux longs nuages fins qui passent devant le soleil (calculé : ils glissent).
+fn dessiner_nuages(cam_x: i32, dy: i32, pas: u32) {
+    let (x, _) = centre_du_soleil(cam_x, dy);
     for (k, (ly, lw)) in [(60, 70), (75, 48)].into_iter().enumerate() {
         let lx = x - 40 + k as i32 * 30 + ((pas / 12) as i32 % 400) / 40;
         rect(lx, ly + dy, lw, 2, CORAIL_CLAIR);
@@ -210,27 +208,22 @@ fn feuillu(x: i32, sommet: i32, r: i32, c: Couleur, clair: Couleur) {
     rect(x - 1, sommet + 2 * r, 3, H, c);
 }
 
-/// Le vieux moulin : murs de pierre, toit, fenêtre allumée, la roue qui tourne et
-/// l'eau qu'elle verse. `x` : le pied du mur gauche (écran), `pied` : le sol.
-fn moulin(x: i32, pied: i32, pas: u32) {
-    let (l, h) = (30, 22);
-    rect(x, pied - h, l, h + 2, ARDOISE);
-    rect(x + 2, pied - h + 2, l - 4, 1, ARDOISE_CLAIRE);
-    // Le toit, en gradins (violet sombre), et sa cheminée.
-    for k in 0..6 {
-        rect(
-            x - 3 + k * 3,
-            pied - h - 2 - k * 2,
-            l + 6 - k * 6,
-            2,
-            VIOLET_ORAGE,
-        );
-    }
-    rect(x + 20, pied - h - 14, 4, 8, ARDOISE_NUIT);
-    // La fenêtre allumée (or pâle : une lueur, pas une goutte d'or).
-    rect(x + 8, pied - h + 7, 5, 5, OR_PALE);
-    rect(x + 10, pied - h + 7, 1, 5, ARDOISE_NUIT);
-    rect(x + 18, pied - 9, 6, 9, ARDOISE_NUIT);
+/// Le coin haut gauche de `riviere/moulin.png` par rapport au pied du mur gauche du
+/// moulin et à son sol : le toit déborde de 3 px, la cheminée monte à 36 px.
+const MOULIN_X: i32 = -3;
+const MOULIN_Y: i32 = -36;
+
+/// Le vieux moulin, `riviere/moulin.png` : murs de pierre, toit en gradins,
+/// cheminée, fenêtre allumée, porte. `x` : le pied du mur gauche (écran), `pied` :
+/// le sol.
+fn dessiner_moulin(x: i32, pied: i32) {
+    crate::fonds::dessiner("riviere", "moulin", x + MOULIN_X, pied + MOULIN_Y);
+}
+
+/// La roue du moulin (calculée : elle tourne) et l'eau qu'elle verse, contre le
+/// mur droit du moulin posé en `(x, pied)`.
+fn roue_du_moulin(x: i32, pied: i32, pas: u32) {
+    let l = 30;
     // La roue, contre le mur droit : jante, moyeu, huit rayons qui tournent.
     let (rx, ry, r) = (x + l + 9, pied - 6, 11);
     let angle = pas as f32 / 120.0;
@@ -282,23 +275,13 @@ fn rang_d_arbres(dec: i32, pied: i32, rang: u32, (c, clair): (Couleur, Couleur),
     }
 }
 
-/// La forêt : le rang clair, la rivière du fond et son moulin, le rang sombre et le
-/// sous-bois (plein jusqu'au bas de l'écran).
-fn dessiner_foret(cam_x: i32, dy: i32, pas: u32) {
-    let dec = decalage(cam_x, F_FORET);
-    let riviere = RIVIERE_DU_FOND + dy;
-    rang_d_arbres(dec, riviere + 2, 0, (ARDOISE_CLAIRE, ARDOISE_PALE), 26);
-    dessiner_riviere_du_fond(cam_x, riviere, pas);
+/// Les abscisses (écran) des moulins visibles du plan de la forêt décalé de `dec` :
+/// un moulin par période de `PERIODE_MOULIN` px.
+fn moulins(dec: i32) -> impl Iterator<Item = i32> {
     let premier = dec.div_euclid(PERIODE_MOULIN) - 1;
-    for k in premier..premier + 3 {
-        let x = k * PERIODE_MOULIN + 30 - dec;
-        if (-80..W + 20).contains(&x) {
-            moulin(x, riviere, pas);
-        }
-    }
-    let sombre = PIED_RANG_SOMBRE + dy;
-    rang_d_arbres(dec, sombre, 1, (ARDOISE, ARDOISE_CLAIRE), 24);
-    dessiner_versant(dec, sombre);
+    (premier..premier + 3)
+        .map(move |k| k * PERIODE_MOULIN + 30 - dec)
+        .filter(|x| (-80..W + 20).contains(x))
 }
 
 /// Le versant boisé sous la forêt, jusqu'au bas de l'écran (vu dans les gorges,
@@ -386,24 +369,132 @@ fn dessiner_lucioles(cam_x: i32, dy: i32, pas: u32) {
     }
 }
 
-/// Derrière les tuiles : tout le fond de la vallée, par-dessus le fond générique.
-pub fn dessiner_fond(monde: &Monde, cx: i32, cy: i32) {
-    if !est_la_riviere(monde) {
-        return;
+/// Les plans du fond de la vallée, du plus loin au plus près (carte 10.4f). Trois
+/// sont des fichiers de `assets/fonds/riviere` (FIXES : seul leur placement est
+/// calculé) ; les autres sont CALCULÉS (animés, ou semés au hasard sans période :
+/// crêtes, rangs d'arbres, strates). `decor::pile` les reprend tels quels pour le
+/// thème `Riviere`, après le fond générique qu'ils recouvrent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Plan {
+    /// Le ciel, `riviere/ciel_vallee.png` : deux colonnes posées tous les 2 px.
+    Ciel,
+    /// Le halo du soleil, qui respire.
+    Halo,
+    /// Le disque du soleil couchant, `riviere/soleil_couchant.png`.
+    Soleil,
+    /// Les deux longs nuages fins qui passent devant le soleil.
+    Nuages,
+    /// Les oiseaux qui passent au loin.
+    Oiseaux,
+    /// Les montagnes et leurs neiges (crête semée au hasard).
+    Montagnes,
+    /// Les collines (crête semée au hasard).
+    Collines,
+    /// Le rang clair de la forêt.
+    RangClair,
+    /// La rivière du fond, où le soleil scintille.
+    RiviereDuFond,
+    /// Le vieux moulin, `riviere/moulin.png` : un par période de la forêt.
+    Moulin,
+    /// La roue du moulin, qui tourne, et son eau.
+    Roue,
+    /// Le rang sombre de la forêt, ouvert devant le moulin.
+    RangSombre,
+    /// Le versant boisé sous la forêt.
+    Versant,
+    /// Les grands arbres tout près, dont les branches ondulent.
+    GrandsArbres,
+    /// Les lucioles qui flottent.
+    Lucioles,
+}
+
+/// La pile du fond de la vallée (lue par `decor::pile`).
+pub const PILE: [Plan; 15] = [
+    Plan::Ciel,
+    Plan::Halo,
+    Plan::Soleil,
+    Plan::Nuages,
+    Plan::Oiseaux,
+    Plan::Montagnes,
+    Plan::Collines,
+    Plan::RangClair,
+    Plan::RiviereDuFond,
+    Plan::Moulin,
+    Plan::Roue,
+    Plan::RangSombre,
+    Plan::Versant,
+    Plan::GrandsArbres,
+    Plan::Lucioles,
+];
+
+impl Plan {
+    /// Le nom du fichier de `assets/fonds/riviere` (`None` : plan calculé).
+    #[cfg(test)]
+    pub fn fichier(self) -> Option<&'static str> {
+        match self {
+            Plan::Ciel => Some("ciel_vallee"),
+            Plan::Soleil => Some("soleil_couchant"),
+            Plan::Moulin => Some("moulin"),
+            _ => None,
+        }
     }
-    let pas = monde.pas;
-    let hauteur = monde.niveau.hauteur_px() as i32;
-    // La caméra du fond comptée depuis le milieu de sa course (0 au milieu).
-    let milieu = camera_fond(cy, hauteur) + (hauteur - H).max(0) / 2;
+
+    /// Le nom du plan dans `assets/fonds/LISEZMOI.md`.
+    #[cfg(test)]
+    pub fn nom(self) -> &'static str {
+        match self {
+            Plan::Ciel => "ciel de la vallée",
+            Plan::Halo => "halo du soleil",
+            Plan::Soleil => "soleil couchant",
+            Plan::Nuages => "nuages fins",
+            Plan::Oiseaux => "oiseaux",
+            Plan::Montagnes => "montagnes",
+            Plan::Collines => "collines",
+            Plan::RangClair => "rang clair",
+            Plan::RiviereDuFond => "rivière du fond",
+            Plan::Moulin => "moulin",
+            Plan::Roue => "roue du moulin",
+            Plan::RangSombre => "rang sombre",
+            Plan::Versant => "versant",
+            Plan::GrandsArbres => "grands arbres",
+            Plan::Lucioles => "lucioles",
+        }
+    }
+}
+
+/// La caméra du fond de la vallée comptée depuis le MILIEU de sa course (0 au
+/// milieu) : `cam_y_fond` est celle de `decor::camera_fond`, `hauteur` celle du
+/// niveau (px). Fonction pure.
+pub fn milieu(cam_y_fond: i32, hauteur: i32) -> i32 {
+    cam_y_fond + (hauteur - H).max(0) / 2
+}
+
+/// Dessine un plan du fond de la vallée (derrière les tuiles). `milieu` : voir
+/// `milieu` ; chaque plan s'y enfonce selon sa parallaxe verticale.
+pub fn dessiner_plan(plan: Plan, cam_x: i32, milieu: i32, pas: u32) {
     let v = |f: f32| enfoncement(milieu, f);
-    dessiner_ciel(v(V_CIEL));
-    dessiner_soleil(cx, v(V_CIEL), pas);
-    dessiner_oiseaux(pas);
-    dessiner_montagnes(cx, PIED_MONTAGNES + v(V_MONTAGNES));
-    dessiner_collines(cx, PIED_COLLINES + v(V_COLLINES));
-    dessiner_foret(cx, v(V_FORET), pas);
-    dessiner_grands_arbres(cx, pas);
-    dessiner_lucioles(cx, v(V_FORET), pas);
+    let dec = decalage(cam_x, F_FORET);
+    let riviere = RIVIERE_DU_FOND + v(V_FORET);
+    let sombre = PIED_RANG_SOMBRE + v(V_FORET);
+    match plan {
+        Plan::Ciel => dessiner_ciel(v(V_CIEL)),
+        Plan::Halo => dessiner_halo(cam_x, v(V_CIEL), pas),
+        Plan::Soleil => dessiner_soleil(cam_x, v(V_CIEL)),
+        Plan::Nuages => dessiner_nuages(cam_x, v(V_CIEL), pas),
+        Plan::Oiseaux => dessiner_oiseaux(pas),
+        Plan::Montagnes => dessiner_montagnes(cam_x, PIED_MONTAGNES + v(V_MONTAGNES)),
+        Plan::Collines => dessiner_collines(cam_x, PIED_COLLINES + v(V_COLLINES)),
+        Plan::RangClair => {
+            rang_d_arbres(dec, riviere + 2, 0, (ARDOISE_CLAIRE, ARDOISE_PALE), 26);
+        }
+        Plan::RiviereDuFond => dessiner_riviere_du_fond(cam_x, riviere, pas),
+        Plan::Moulin => moulins(dec).for_each(|x| dessiner_moulin(x, riviere)),
+        Plan::Roue => moulins(dec).for_each(|x| roue_du_moulin(x, riviere, pas)),
+        Plan::RangSombre => rang_d_arbres(dec, sombre, 1, (ARDOISE, ARDOISE_CLAIRE), 24),
+        Plan::Versant => dessiner_versant(dec, sombre),
+        Plan::GrandsArbres => dessiner_grands_arbres(cam_x, pas),
+        Plan::Lucioles => dessiner_lucioles(cam_x, v(V_FORET), pas),
+    }
 }
 
 /// Devant les tuiles : reflets sur l'eau jouable, écume des rochers et des chutes,
@@ -547,16 +638,46 @@ pub fn dessiner_tronc(monde: &Monde, sx: f32, sy: f32) -> bool {
 mod tests {
     use super::*;
 
-    /// Le ciel descend du sombre (en haut) vers le clair (l'horizon), et l'or vif
-    /// des gouttes n'y paraît jamais.
+    /// Le ciel du fichier descend du sombre (en haut) vers le clair (l'horizon) en
+    /// six bandes, et l'or vif des gouttes n'y paraît jamais.
     #[test]
     fn le_ciel_va_du_sombre_au_clair_sans_or_vif() {
-        let b = bandes_du_ciel(0);
-        for paire in b.windows(2) {
-            assert!(paire[0].1 < paire[1].1);
+        let (_, h) = crate::fonds::taille("riviere", "ciel_vallee");
+        let mut bandes: Vec<Couleur> = Vec::new();
+        for y in 0..h as usize {
+            let c = crate::fonds::couleur("riviere", "ciel_vallee", 1, y).unwrap();
+            assert_ne!(c, pepin_core::palette::OR);
+            if bandes.last() != Some(&c) && !bandes.contains(&c) {
+                bandes.push(c);
+            }
         }
-        assert!(b.iter().all(|(c, _)| *c != pepin_core::palette::OR));
+        assert_eq!(bandes.len(), 6, "six bandes");
         let lum = |c: Couleur| c.r as u32 + c.g as u32 + c.b as u32;
-        assert!(lum(b[0].0) < lum(b[4].0));
+        assert!(lum(bandes[0]) < lum(bandes[4]));
+    }
+
+    /// Les deux bouts du ciel sont pleins (ce que le code prolonge au-dessus et
+    /// au-dessous du fichier), et sa période est de deux colonnes (la trame).
+    #[test]
+    fn le_ciel_du_fichier_se_prolonge_par_ses_bouts() {
+        let (l, h) = crate::fonds::taille("riviere", "ciel_vallee");
+        assert_eq!(l, 2);
+        for y in [0, h as usize - 1] {
+            let a = crate::fonds::couleur("riviere", "ciel_vallee", 0, y);
+            assert!(a.is_some());
+            assert_eq!(a, crate::fonds::couleur("riviere", "ciel_vallee", 1, y));
+        }
+    }
+
+    /// Le moulin du fichier pose son mur gauche en `x`, son sol en `pied` : la roue
+    /// (calculée) tourne contre son mur droit, sur la pierre du fichier.
+    #[test]
+    fn la_roue_tourne_contre_le_mur_du_moulin() {
+        let (l, h) = crate::fonds::taille("riviere", "moulin");
+        assert_eq!((l, h), (36, 38));
+        // Le pied du mur droit (x + 29) est de la pierre ; à droite du toit, rien.
+        let mur = crate::fonds::couleur("riviere", "moulin", (29 - MOULIN_X) as usize, 37);
+        assert_eq!(mur, Some(ARDOISE));
+        assert_eq!(crate::fonds::couleur("riviere", "moulin", 35, 0), None);
     }
 }

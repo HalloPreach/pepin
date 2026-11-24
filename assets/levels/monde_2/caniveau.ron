@@ -1,0 +1,98 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+//
+// Monde 2, niveau 1 : « Le caniveau » (carte 9.6, REFAIT à la carte 9.20f). Le
+// premier vrai niveau du Monde 2, « Là où va la pluie » : une RUE DE NUIT SOUS LA
+// PLUIE qui descend par des marches de trottoir. Le caniveau la longe : un mince
+// filet d'abord, un vrai ruisseau à la fin, qui s'engouffre dans la bouche
+// d'égout. On y APPREND LA BARQUE (BAS) en trois temps. Difficulté (carte 9.22e,
+// demande d'AGA : plus de 0,5 comme au Monde 1) : six flaques, six rats, deux
+// pigeons, tous hors du passage de la barque sous l'autobus, qui reste calme.
+// Ajouts de la 9.22e : un rat au bord du filet (col. 56, sortie de l'abribus),
+// une flaque et un pigeon sur les toits des voitures 63-66 et 71-74 avec un rat
+// dans le saut entre elles (col. 68), un rat avant les bancs (col. 95), une
+// flaque et un pigeon sur les toits des voitures 115-118 et 124-127.
+// Carte 9.25a (courbe du chapitre 2, cible Habitué 0,15 à 0,20) : quatre
+// CORBEAUX `c`, en travers de sauts, jamais sous l'autobus : entre les deux
+// premières voitures (col. 16, au-dessus de la 1re goutte), au-dessus du second
+// filet (col. 78), entre les voitures 115-118 et 124-127 (col. 121), au-dessus
+// de la poubelle de la dernière marche (col. 140). Pas au-dessus des auvents :
+// la relance y jetait Pépin dedans (Habitué 0,38 à 0,46, mesures de la carte).
+//
+// Lecture du niveau (188 x 11 tuiles, un écran de haut), de gauche à droite.
+// Le mobilier de rue (carte 9.20f, lettres `q a t d l`) est SOLIDE : on saute
+// d'un toit de voiture à l'autre, sur une poubelle, un banc, un abribus.
+// 1. la RUE EN HAUT (colonnes 0 à 29, pavés en rangée 6) : une poubelle, deux
+//    voitures garées ; entre elles, une flaque patrouille sous la 1re goutte
+//    (colonne 16, rangée 3), qu'on prend d'un saut ; au bout, entre la 2e
+//    voiture et la marche, un RAT longe le trottoir (colonne 26, carte 9.22a) :
+//    on reste sur le toit de la voiture pour le voir se dresser, puis on le
+//    saute ou on l'écrase ;
+// 2. une marche plus bas (rangée 7), le panneau BAS (`Z`, colonne 31) et une
+//    descente de gouttière (`J`) qui verse le premier FILET : 1er temps de la
+//    barque, cinq cases d'eau calme à l'air libre (colonnes 35 à 39) ;
+// 3. 2e temps : le filet file SOUS UN AUTOBUS garé (colonnes 41 à 47, quatre
+//    cases de haut, rangées 2 à 5) ; entre son bas de caisse et l'eau, une seule
+//    rangée : trop bas à pied (pas de sol, on s'y noie), on ne passe QU'EN
+//    BARQUE, et le toit de l'autobus est hors de portée d'un saut depuis la rue ;
+// 4. la sortie à l'ARRÊT DE BUS : l'abribus (toit en rangée 4, colonnes 52 à
+//    55 ; on passe dessous), un banc. Du toit de l'abribus, un saut en arrière
+//    mène au toit de l'autobus : la 3e goutte y est cachée (colonne 44, rangée
+//    1). Une flaque garde ce toit (colonne 53, carte 9.22a) : on l'écrase en
+//    tombant dessus (le rebond aide à remonter) ou on attend son demi-tour ;
+// 5. la RUE COMMERÇANTE (colonnes 62 à 133, toujours en rangée 7) : des voitures
+//    garées, un second filet de cinq cases qu'on saute (colonnes 76 à 80), les
+//    AUVENTS de trois boutiques (rangée 5, ils relancent Pépin comme au Monde 1)
+//    au-dessus d'une flaque, un banc, puis un second autobus garé le long du
+//    trottoir (colonnes 106 à 111, quatre cases de haut) : on y grimpe par la
+//    poubelle d'à côté (une flaque patrouille sur son toit, sous la pluie), on
+//    redescend de l'autre côté ; entre les deux voitures suivantes, un RAT
+//    garde le trottoir (colonne 120, carte 9.22a) : d'un toit à l'autre au bon
+//    moment, ou un rebond sur lui ;
+// 6. encore une marche (rangée 8) : un RAT patrouille entre la marche et une
+//    poubelle (il annonce les égouts ; on l'écrase ou on le saute), loin de la
+//    barque ; une dernière descente de gouttière ;
+// 7. 3e temps : le RUISSEAU (colonnes 146 à 183, deux cases de fond), un long
+//    courant `}` où la barque file ; au bout, il passe sous la MARQUISE d'une
+//    boutique (colonnes 170 à 176) : la 2e goutte attend dans la seule rangée
+//    libre entre l'eau et le store (colonne 174), seulement en barque ;
+// 8. la BOUCHE D'ÉGOUT (colonne 184) : le ruisseau s'y engouffre, Pépin saute
+//    sur sa grille, où est planté le drapeau.
+//
+// Quatre lanternes : avant le filet (32), après l'abribus (60), après les
+// auvents (101), avant la dernière marche (129). Aucun bassin n'est suspendu
+// au-dessus d'un passage à pied : l'eau est vérifiée à la hauteur de Pépin
+// (`physics::eau_touchee`).
+(
+    monde: 2,
+    numero: 1,
+    cle: "caniveau",
+    nom: "Le caniveau",
+    theme: Caniveau,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 50,
+    intro: "La pluie file dans le caniveau, jusqu'à la bouche d'égout. Pépin la suit.",
+    mecanique: "La barque : BAS retourne le parapluie, qui flotte en touchant l'eau (sans lui, planer compris, on coule) ; se laisser porter par le courant, sauter pour sortir de l'eau.",
+    aiguilles: [],
+    poissons_hauts: [],
+    // Dessin du niveau (188 x 11 tuiles). Légende : voir `assets/levels/LISEZMOI.md`.
+    // `B` : le sol de la rue (pavés, terre) ; `#` : ce qui est bâti au-dessus (la
+    // marquise). Mobilier de rue (carte 9.20f, solide) : `q` voiture, `a` autobus,
+    // `t` toit d'abribus, `d` poubelle, `l` banc. Décor sans collision : des bornes
+    // `I`, des poubelles `U`, trois descentes de gouttière `J` (leur eau tombe dans
+    // le caniveau), les auvents `A` (ils relancent Pépin). La seule bouche d'égout
+    // est la sortie, dessinée dans la bordure.
+    ascii: r#"
+............................................................................................................................................................................................
+............................................o...............................................................................................................................................
+................c........................aaaaaaa.............................................................f...........c..................................................................
+................o........................aaaaaaa.....f....................................................aaaaaa............................................................................
+..........qq........qq...................aaaaaaa....tttt........f.............c...........................aaaaaa....f.......................................................................
+..@...d..qqqq..f...qqqq...r..............aaaaaaa...............qq......qq...........A...A...A.............aaaaaa...qq.......qq..............c.............................#######...........
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.ZLJ......................rll.L.qqqq..r.qqqqJ.......f............r..ll.L..d.aaaaaa..qqqq..r..qqqq..L........................................#######.......X...
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB~~~~~}}}}}}}}}}}BBBBBBBBBBBBBBBBBBBBBBBBB~~~~~BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..r.....d.J.............................o.........BBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}BBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

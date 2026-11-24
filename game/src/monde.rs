@@ -24,7 +24,7 @@ use pepin_core::physics::{CourantAscendant, Eau, Environnement, Vec2};
 use pepin_core::player::{Direction, Entrees, Evenements, Joueur};
 use pepin_core::poursuite::MurDePluie;
 use pepin_core::state::{EtatJeu, Ordre};
-use pepin_core::zones::{self, InfosNiveau};
+use pepin_core::zones::InfosNiveau;
 
 use crate::mort::{AnimationMort, CauseDeMort, RIDEAU_FERME};
 
@@ -95,71 +95,77 @@ pub struct Monde {
 /// touche 0) ; en production, cet indice est hors de la table comme n'importe quel autre
 /// et le niveau d'essai n'est pas dans le binaire.
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI: usize = pepin_core::levels::NB_NIVEAUX;
+pub const INDICE_ESSAI: usize = niveaux::NB_NIVEAUX;
 
 /// Indice du niveau d'essai « vent » (carte 5.3) : juste après le précédent
 /// (touche F1 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_VENT: usize = pepin_core::levels::NB_NIVEAUX + 1;
+pub const INDICE_ESSAI_VENT: usize = niveaux::NB_NIVEAUX + 1;
 
 /// Indice du niveau d'essai « grêle » (carte 5.4) : juste après celui du vent
 /// (touche F2 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_GRELE: usize = pepin_core::levels::NB_NIVEAUX + 2;
+pub const INDICE_ESSAI_GRELE: usize = niveaux::NB_NIVEAUX + 2;
 
 /// Indice du niveau d'essai « auvent » (carte 5.5) : juste après celui de la
 /// grêle (touche F3 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_AUVENT: usize = pepin_core::levels::NB_NIVEAUX + 3;
+pub const INDICE_ESSAI_AUVENT: usize = niveaux::NB_NIVEAUX + 3;
 
 /// Indice du niveau d'essai « ventilateur » (carte 5.6) : juste après celui de
 /// l'auvent (touche F4 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_VENTILATEUR: usize = pepin_core::levels::NB_NIVEAUX + 4;
+pub const INDICE_ESSAI_VENTILATEUR: usize = niveaux::NB_NIVEAUX + 4;
 
 /// Indice du niveau d'essai « montgolfière » (carte 5.7) : juste après celui du
 /// ventilateur (touche F5 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_MONTGOLFIERE: usize = pepin_core::levels::NB_NIVEAUX + 5;
+pub const INDICE_ESSAI_MONTGOLFIERE: usize = niveaux::NB_NIVEAUX + 5;
 
 /// Indice du niveau d'essai « escargot » (carte 5.8) : juste après celui des
 /// montgolfières (touche F6 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_ESCARGOT: usize = pepin_core::levels::NB_NIVEAUX + 6;
+pub const INDICE_ESSAI_ESCARGOT: usize = niveaux::NB_NIVEAUX + 6;
 
 /// Indice du niveau d'essai « chat » (carte 5.9) : juste après celui des
 /// escargots (touche F7 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_CHAT: usize = pepin_core::levels::NB_NIVEAUX + 7;
+pub const INDICE_ESSAI_CHAT: usize = niveaux::NB_NIVEAUX + 7;
 
 /// Indice du niveau d'essai « horloge » (carte 5.10) : juste après celui du chat
 /// (touche F8 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_HORLOGE: usize = pepin_core::levels::NB_NIVEAUX + 8;
+pub const INDICE_ESSAI_HORLOGE: usize = niveaux::NB_NIVEAUX + 8;
 
 /// Indice du niveau d'essai « nuage » (carte 5.11) : l'arène du Grand Nuage, juste
 /// après celui de l'horloge (touche F10 du build de QA).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_NUAGE: usize = pepin_core::levels::NB_NIVEAUX + 9;
+pub const INDICE_ESSAI_NUAGE: usize = niveaux::NB_NIVEAUX + 9;
 /// Niveau d'essai « eau » (carte 9.2 : la mécanique de la barque, le Monde 2),
 /// tests et build de QA seulement.
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_EAU: usize = pepin_core::levels::NB_NIVEAUX + 10;
+pub const INDICE_ESSAI_EAU: usize = niveaux::NB_NIVEAUX + 10;
 /// Niveau d'essai « eau 2 » (carte 9.3 : bulles, nénuphars, marée, stalactites,
 /// chutes d'eau), tests et build de QA seulement (touche F12).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_EAU2: usize = pepin_core::levels::NB_NIVEAUX + 11;
+pub const INDICE_ESSAI_EAU2: usize = niveaux::NB_NIVEAUX + 11;
 
 /// Niveau d'essai « ennemis d'eau » (carte 9.4 : grenouille, poisson, crabe, rat,
 /// mouette ; touche J), tests et build de QA seulement. L'indice `+ 11` est celui
 /// de l'essai de la carte 9.3 (touche F12).
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_ENNEMIS_EAU: usize = pepin_core::levels::NB_NIVEAUX + 12;
+pub const INDICE_ESSAI_ENNEMIS_EAU: usize = niveaux::NB_NIVEAUX + 12;
 
 /// Niveau d'essai « pieuvre » (carte 9.12a : l'arène de la Pieuvre du port, boss du
 /// Monde 2 ; touche L), tests et build de QA seulement.
 #[cfg(any(test, feature = "debug_niveaux"))]
-pub const INDICE_ESSAI_PIEUVRE: usize = pepin_core::levels::NB_NIVEAUX + 13;
+pub const INDICE_ESSAI_PIEUVRE: usize = niveaux::NB_NIVEAUX + 13;
+
+/// Niveau d'essai VENU DE L'EXTÉRIEUR (carte 10.1b) : le fichier RON posé dans le
+/// `localStorage` du navigateur, lancé par `?essai=1` (voir `essai_externe.rs`).
+/// Juste après les niveaux d'essai embarqués ; build de QA et tests seulement.
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_EXTERNE: usize = niveaux::NB_NIVEAUX + niveaux::NB_ESSAIS;
 
 /// Infos du niveau `indice` : la table `NIVEAUX`, puis les quatorze niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
@@ -168,42 +174,47 @@ pub const INDICE_ESSAI_PIEUVRE: usize = pepin_core::levels::NB_NIVEAUX + 13;
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
 /// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage,
 /// `INDICE_ESSAI_EAU` eau, `INDICE_ESSAI_EAU2` eau 2, `INDICE_ESSAI_ENNEMIS_EAU` ennemis d'eau,
-/// `INDICE_ESSAI_PIEUVRE` arène de la Pieuvre), tests
-/// et build de QA seulement. `None` au-delà.
+/// `INDICE_ESSAI_PIEUVRE` arène de la Pieuvre, `INDICE_ESSAI_EXTERNE` le niveau
+/// posé dans le navigateur), tests et build de QA seulement. `None` au-delà. Tous
+/// sont lus dans leurs fichiers `.ron` par le crate `niveaux` (carte 10.1b).
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
-    zones::niveau(indice).or_else(|| niveau_essai(indice))
+    niveaux::niveaux()
+        .get(indice)
+        .or_else(|| niveau_essai(indice))
 }
 
 #[cfg(any(test, feature = "debug_niveaux"))]
 fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
     if indice == INDICE_ESSAI {
-        Some(&pepin_core::levels::essai_vertical::INFOS)
+        Some(niveaux::par_cle("essai_vertical"))
     } else if indice == INDICE_ESSAI_VENT {
-        Some(&pepin_core::levels::essai_vent::INFOS)
+        Some(niveaux::par_cle("essai_vent"))
     } else if indice == INDICE_ESSAI_GRELE {
-        Some(&pepin_core::levels::essai_grele::INFOS)
+        Some(niveaux::par_cle("essai_grele"))
     } else if indice == INDICE_ESSAI_AUVENT {
-        Some(&pepin_core::levels::essai_auvent::INFOS)
+        Some(niveaux::par_cle("essai_auvent"))
     } else if indice == INDICE_ESSAI_VENTILATEUR {
-        Some(&pepin_core::levels::essai_ventilateur::INFOS)
+        Some(niveaux::par_cle("essai_ventilateur"))
     } else if indice == INDICE_ESSAI_MONTGOLFIERE {
-        Some(&pepin_core::levels::essai_montgolfiere::INFOS)
+        Some(niveaux::par_cle("essai_montgolfiere"))
     } else if indice == INDICE_ESSAI_ESCARGOT {
-        Some(&pepin_core::levels::essai_escargot::INFOS)
+        Some(niveaux::par_cle("essai_escargot"))
     } else if indice == INDICE_ESSAI_CHAT {
-        Some(&pepin_core::levels::essai_chat::INFOS)
+        Some(niveaux::par_cle("essai_chat"))
     } else if indice == INDICE_ESSAI_HORLOGE {
-        Some(&pepin_core::levels::essai_horloge::INFOS)
+        Some(niveaux::par_cle("essai_horloge"))
     } else if indice == INDICE_ESSAI_NUAGE {
-        Some(&pepin_core::levels::essai_nuage::INFOS)
+        Some(niveaux::par_cle("essai_nuage"))
     } else if indice == INDICE_ESSAI_EAU {
-        Some(&pepin_core::levels::essai_eau::INFOS)
+        Some(niveaux::par_cle("essai_eau"))
     } else if indice == INDICE_ESSAI_EAU2 {
-        Some(&pepin_core::levels::essai_eau2::INFOS)
+        Some(niveaux::par_cle("essai_eau2"))
     } else if indice == INDICE_ESSAI_ENNEMIS_EAU {
-        Some(&pepin_core::levels::essai_ennemis_eau::INFOS)
+        Some(niveaux::par_cle("essai_ennemis_eau"))
     } else if indice == INDICE_ESSAI_PIEUVRE {
-        Some(&pepin_core::levels::essai_pieuvre::INFOS)
+        Some(niveaux::par_cle("essai_pieuvre"))
+    } else if indice == INDICE_ESSAI_EXTERNE {
+        crate::essai_externe::niveau()
     } else {
         None
     }
@@ -217,8 +228,8 @@ fn niveau_essai(_indice: usize) -> Option<&'static InfosNiveau> {
 
 impl Monde {
     /// Charge le niveau `indice` de la table `NIVEAUX` (ou le niveau d'essai, voir
-    /// `infos_niveau`). Les niveaux sont validés par les tests du cœur : un échec ici est
-    /// une erreur de programmation, d'où le `expect`. Toujours en partie normale
+    /// `infos_niveau`). Les niveaux sont validés par les tests du crate `niveaux`
+    /// (et `./build.sh`) : un échec ici est une erreur de programmation, d'où le `expect`. Toujours en partie normale
     /// (le fantôme de la course, carte 8.7, les tests) ; la partie passe par `charger`.
     pub fn new(indice: usize) -> Self {
         Self::charger(indice, false)
@@ -720,8 +731,8 @@ mod tests {
     #[test]
     fn dans_le_bonus_une_chute_ramene_au_depart_sur_un_pont_reforme() {
         use pepin_core::entities::friable::EtatFriable;
-        use pepin_core::levels::{GenreNiveau, NIVEAUX};
-        let i = NIVEAUX
+        use pepin_core::levels::GenreNiveau;
+        let i = niveaux::niveaux()
             .iter()
             .position(|n| n.genre == GenreNiveau::Bonus)
             .unwrap();

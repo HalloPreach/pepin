@@ -243,3 +243,33 @@ impl fmt::Display for ErreurNiveau {
 }
 
 impl std::error::Error for ErreurNiveau {}
+
+impl ErreurNiveau {
+    /// La case fautive, s'il y en a une : `(ligne, Some(colonne))`, ou
+    /// `(ligne, None)` quand seule la ligne est connue (largeur inégale).
+    /// Comptées depuis 1, comme dans le message. L'éditeur de niveaux (carte
+    /// 10.3b) s'en sert pour SURLIGNER la case, sans recopier aucune règle.
+    ///
+    /// Notion Rust : un motif `|` réunit plusieurs variantes qui ont les mêmes
+    /// champs ; `..` ignore les autres champs (ici `caractere`).
+    pub fn case(&self) -> Option<(usize, Option<usize>)> {
+        use ErreurNiveau::*;
+        match *self {
+            LargeurInegale { ligne, .. } => Some((ligne, None)),
+            CaractereInconnu { ligne, colonne, .. }
+            | DecorSansAppui { ligne, colonne, .. }
+            | EnnemiDEauMalPlace { ligne, colonne, .. }
+            | EauMalPosee { ligne, colonne, .. }
+            | NuageSansPlace { ligne, colonne }
+            | PieuvreSansPlace { ligne, colonne }
+            | PigeonSansPerchoir { ligne, colonne }
+            | VentilateurSansAppui { ligne, colonne }
+            | MontgolfiereSansPlace { ligne, colonne }
+            | ChatSansPlace { ligne, colonne }
+            | AiguilleInvalide { ligne, colonne }
+            | AiguilleBloquee { ligne, colonne }
+            | PoissonIntrouvable { ligne, colonne } => Some((ligne, Some(colonne))),
+            _ => None,
+        }
+    }
+}

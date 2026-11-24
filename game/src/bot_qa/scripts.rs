@@ -1193,20 +1193,32 @@ fn ecrire_scripts_des_parcours(
 #[ignore]
 fn ecrire_scripts_secrets_85() {
     use crate::bot_qa::{trouver_parcours_complet, trouver_parcours_secret};
-    use pepin_core::levels::{clocher, gouttieres, marche, mer, orage, toits, NIVEAUX};
-    let indice = |nom: &str| NIVEAUX.iter().position(|n| n.nom == nom).unwrap();
+    let indice = |nom: &str| {
+        niveaux::niveaux()
+            .iter()
+            .position(|n| n.nom == nom)
+            .unwrap()
+    };
     let complet =
         |i| trouver_parcours_complet(i, false).or_else(|| trouver_parcours_complet(i, true));
     let secret = |i| trouver_parcours_secret(i, false).or_else(|| trouver_parcours_secret(i, true));
-    let salles: Vec<(usize, Ajouts)> = [toits::INFOS.nom, gouttieres::INFOS.nom, marche::INFOS.nom]
-        .iter()
-        .map(|n| (indice(n), &[][..]))
-        .collect();
+    let salles: Vec<(usize, Ajouts)> = [
+        niveaux::par_cle("toits").nom,
+        niveaux::par_cle("gouttieres").nom,
+        niveaux::par_cle("marche").nom,
+    ]
+    .iter()
+    .map(|n| (indice(n), &[][..]))
+    .collect();
     ecrire_scripts_des_parcours("85", &salles, &complet);
-    let secrets: Vec<(usize, Ajouts)> = [orage::INFOS.nom, clocher::INFOS.nom, mer::INFOS.nom]
-        .iter()
-        .map(|n| (indice(n), &[][..]))
-        .collect();
+    let secrets: Vec<(usize, Ajouts)> = [
+        niveaux::par_cle("orage").nom,
+        niveaux::par_cle("clocher").nom,
+        niveaux::par_cle("mer").nom,
+    ]
+    .iter()
+    .map(|n| (indice(n), &[][..]))
+    .collect();
     ecrire_scripts_des_parcours("85s", &secrets, &secret);
 }
 
@@ -1225,20 +1237,20 @@ fn ecrire_scripts_secrets_85() {
 fn ecrire_scripts_lettres_86l() {
     use crate::bot_qa::{trouver_parcours_complet, trouver_parcours_secret};
     use pepin_core::lettres::LETTRES;
-    use pepin_core::levels::{descente, indice_de_cle, NIVEAUX};
+    use pepin_core::levels::indice_de_cle;
     let complet =
         |i| trouver_parcours_complet(i, false).or_else(|| trouver_parcours_complet(i, true));
     let lettres: Vec<(usize, Ajouts)> = LETTRES
         .iter()
-        .map(|&(cle, _)| (indice_de_cle(NIVEAUX, cle).unwrap(), &[][..]))
+        .map(|&(cle, _)| (indice_de_cle(niveaux::niveaux(), cle).unwrap(), &[][..]))
         .collect();
     ecrire_scripts_des_parcours("86l", &lettres, &complet);
     let secret = |i| trouver_parcours_secret(i, false).or_else(|| trouver_parcours_secret(i, true));
-    let clocher = indice_de_cle(NIVEAUX, "clocher").unwrap();
+    let clocher = indice_de_cle(niveaux::niveaux(), "clocher").unwrap();
     ecrire_scripts_des_parcours("86ls", &[(clocher, &[][..])], &secret);
-    let fin = NIVEAUX
+    let fin = niveaux::niveaux()
         .iter()
-        .position(|n| n.nom == descente::INFOS.nom)
+        .position(|n| n.nom == niveaux::par_cle("descente").nom)
         .unwrap();
     ecrire_scripts_des_ajouts("86lf", &[(fin, &[][..])]);
 }

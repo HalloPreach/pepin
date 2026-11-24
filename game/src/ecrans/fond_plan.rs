@@ -946,13 +946,13 @@ fn rue(banque: &Banque, v: &Vue, y0: f32, g: &Geometrie, anim: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::levels::{niveaux_du_monde, GenreNiveau, NIVEAUX};
+    use pepin_core::levels::{niveaux_du_monde, GenreNiveau};
 
     /// Les bandes du chapitre 2 sont rangées du bas vers le haut, se touchent, couvrent
     /// toute la carte, et chaque étape du Monde 2 est dans la bande de son thème.
     #[test]
     fn les_bandes_du_chapitre_2_suivent_les_niveaux() {
-        let tranche = niveaux_du_monde(NIVEAUX, 2);
+        let tranche = niveaux_du_monde(niveaux::niveaux(), 2);
         let g = Geometrie::new(tranche);
         let bandes = bandes_chapitre_2(tranche, &g);
         assert_eq!(bandes.len(), 7);
@@ -988,7 +988,7 @@ mod tests {
     /// Le Monde 1 n'a aucun thème du chapitre 2.
     #[test]
     fn aucun_theme_du_monde_1_n_a_de_bande() {
-        for n in niveaux_du_monde(NIVEAUX, 1) {
+        for n in niveaux_du_monde(niveaux::niveaux(), 1) {
             assert_eq!(bande_du_theme(n.theme), None, "{}", n.cle);
         }
     }
