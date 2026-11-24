@@ -30,7 +30,6 @@ use pepin_core::zones::InfosNiveau;
 use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 use std::sync::OnceLock;
 
-use crate::contenu::Intro;
 use crate::ecrans::Ecran;
 use crate::rendu::{couleur_mq, Cible};
 use crate::texte::{self, Style};
@@ -177,18 +176,6 @@ pub fn niveau() -> Option<&'static InfosNiveau> {
     NIVEAU.get()
 }
 
-/// L'intro de la carte du niveau externe (carte 10.3b) : ses champs `intro_texte` et
-/// `intro_astuce` (carte 11.3), tels qu'écrits dans l'éditeur (sinon : celle du
-/// dernier niveau).
-pub fn intro() -> Option<&'static Intro> {
-    static INTRO: OnceLock<Intro> = OnceLock::new();
-    let infos = niveau()?;
-    Some(INTRO.get_or_init(|| Intro {
-        texte: infos.intro_texte,
-        astuce: infos.intro_astuce,
-    }))
-}
-
 /// Boucle sans fin de l'écran d'erreur : fond uni, titre, message coupé en lignes.
 pub async fn afficher_erreur(cible: &Cible, message: &str) -> ! {
     let lignes = texte::couper_lignes(message, 50);
@@ -295,11 +282,15 @@ mod tests {
         lire(&bon).unwrap();
         let infos = crate::monde::infos_niveau(crate::monde::INDICE_ESSAI_EXTERNE).unwrap();
         assert_eq!(infos.cle, "essai_vent");
-        // Sa carte de niveau montre SON intro (carte 10.3b).
-        let intro = crate::contenu::intro(crate::monde::INDICE_ESSAI_EXTERNE);
+        // Sa carte de niveau montre SON intro (carte 10.3b) : depuis la carte 11.3, la
+        // carte lit `intro_texte` et `intro_astuce` dans les infos du niveau, celles
+        // du fichier écrit par l'éditeur.
         assert_eq!(
-            (intro.texte, intro.astuce),
-            (infos.intro_texte, infos.intro_astuce)
+            (infos.intro_texte, infos.intro_astuce),
+            (
+                niveaux::par_cle("essai_vent").intro_texte,
+                niveaux::par_cle("essai_vent").intro_astuce
+            )
         );
     }
 

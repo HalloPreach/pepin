@@ -138,12 +138,9 @@ impl Application {
                     }
                 }
                 match self.ecran {
-                    Ecran::Carte(_) => carte::dessiner(
-                        self.monde.indice,
-                        self.monde.infos,
-                        self.anim,
-                        &self.sauvegarde.lettres(),
-                    ),
+                    Ecran::Carte(_) => {
+                        carte::dessiner(self.monde.infos, self.anim, &self.sauvegarde.lettres())
+                    }
                     Ecran::Pause => {
                         pause::dessiner(self.anim, &libelles, &self.menu, &dispo);
                         // En jeu, pas d'icône : le coin est aux commandes tactiles et au HUD.

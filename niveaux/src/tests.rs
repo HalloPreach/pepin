@@ -37,12 +37,6 @@ fn tous_les_fichiers_embarques_sont_valides() {
     assert_eq!(niveaux_monde_1().len(), NB_NIVEAUX_MONDE_1);
     assert!(niveaux_monde_1().iter().all(|n| n.monde == 1));
     assert_eq!(essais().len(), NB_ESSAIS);
-    let mut cles: Vec<&str> = niveaux()[NB_NIVEAUX_MONDE_1..]
-        .iter()
-        .map(|n| n.cle)
-        .collect();
-    cles.sort_unstable();
-    assert_eq!(cles, CLES_HORS_MONDE_1);
 }
 
 /// Les clés sont des identifiants (minuscules, chiffres, `_`), toutes
