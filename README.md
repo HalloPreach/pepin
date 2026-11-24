@@ -612,10 +612,11 @@ amené quelques notions de plus :
 - **Constante calculée qui sert de taille** : `niveaux/build.rs` compte les
   fichiers de niveau et écrit `pub const NB_NIVEAUX_MONDE_1: usize = 12;` dans un
   fichier généré (avant la carte 10.1c, c'était la longueur d'une tranche
-  constante de `core`). Dans `game/src/contenu.rs`,
-  `pub const INTROS: [Intro; NB_NIVEAUX_MONDE_1]` : ajouter un niveau
-  sans écrire son texte d'introduction ne compile plus. Même chose pour les bandes de
-  difficulté (`BANDES_HABITUE`, `game/src/difficulte.rs`).
+  constante de `core`). Dans `game/src/difficulte.rs`, les bandes de difficulté
+  (`BANDES_HABITUE`) en ont la taille : ajouter un niveau au Monde 1 sans écrire sa
+  bande ne compile plus. (Les intros suivaient la même règle, `INTROS`, jusqu'à la
+  carte 11.3 : elles sont maintenant dans le fichier du niveau, `intro_texte` et
+  `intro_astuce`, vérifiées par le chargeur.)
 - **Données constantes imbriquées** : `core/src/entities/nuage.rs`, les motifs
   d'éclairs du boss, `pub const MOTIFS: [&[Salve]; PV_NUAGE as usize]` (un tableau de
   tranches de salves, chaque salve portant une tranche de bandes de colonnes). Tout

@@ -19,7 +19,8 @@
     genre: Normal,
     sans_planer: false,
     duree_cible_s: 30,
-    intro: "Les aiguilles de l'horloge tournent : monte dessus, elles t'emmènent en haut.",
+    intro_texte: "Les aiguilles de l'horloge tournent et emportent ce qui est posé dessus.",
+    intro_astuce: "Saute dessus quand elle passe en bas, saute en haut.",
     mecanique: "Sauter sur une aiguille au plus bas, se laisser porter, sauter sur l'étage suivant.",
     // Réglage des deux aiguilles, dans l'ordre de lecture de la grille (de haut en
     // bas) : la 1re rencontrée est la petite, en haut.

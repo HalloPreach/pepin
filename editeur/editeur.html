@@ -81,7 +81,10 @@
       <label>genre <select name="genre"></select></label>
       <label><input name="sans_planer" type="checkbox"> sans_planer (défi possible)</label>
       <label>duree_cible_s <input name="duree_cible_s" type="number" min="0" max="65535"></label>
-      <label>intro <textarea name="intro" rows="3"></textarea></label>
+      <label>intro_texte <small>(la phrase, 3 lignes au plus)</small> <textarea name="intro_texte" rows="3" maxlength="138"></textarea></label>
+      <pre id="apercu-intro_texte" class="apercu-intro"></pre>
+      <label>intro_astuce <small>(le conseil, 2 lignes au plus)</small> <textarea name="intro_astuce" rows="2" maxlength="92"></textarea></label>
+      <pre id="apercu-intro_astuce" class="apercu-intro"></pre>
       <label>mecanique <textarea name="mecanique" rows="3"></textarea></label>
     </form>
     <h3>aiguilles <small>(une par pivot <code>h</code>, ordre de lecture)</small></h3>

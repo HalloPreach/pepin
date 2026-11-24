@@ -17,7 +17,7 @@ export const EN_TETE = '// Niveau de PÉPIN. Format : voir assets/levels/LISEZMO
 /// L'ordre canonique des champs (celui de `FichierNiveau`).
 export const CHAMPS = [
   'monde', 'numero', 'cle', 'nom', 'theme', 'genre', 'sans_planer', 'duree_cible_s',
-  'intro', 'mecanique', 'aiguilles', 'poissons_hauts', 'ascii',
+  'intro_texte', 'intro_astuce', 'mecanique', 'aiguilles', 'poissons_hauts', 'ascii',
 ];
 const FACULTATIFS = ['aiguilles', 'poissons_hauts'];
 
@@ -157,6 +157,10 @@ export function lireNiveau(texte) {
   while (voir().genre !== ')') {
     const nomJeton = attendre('mot');
     const nom = nomJeton.valeur;
+    if (nom === 'intro') {
+      // Fichier d'avant la carte 11.3 : l'intro s'écrit maintenant en deux champs.
+      throw erreur('champ « intro » remplacé par « intro_texte » (la phrase) et « intro_astuce » (le conseil)', nomJeton);
+    }
     if (!CHAMPS.includes(nom)) throw erreur(`champ inconnu « ${nom} »`, nomJeton);
     if (vus.has(nom)) throw erreur(`champ « ${nom} » en double`, nomJeton);
     vus.add(nom);
@@ -186,7 +190,7 @@ function convertir(nom, v, erreur) {
   };
   switch (nom) {
     case 'monde': case 'numero': case 'duree_cible_s': return nombre(v);
-    case 'cle': case 'nom': case 'intro': case 'mecanique': case 'ascii':
+    case 'cle': case 'nom': case 'intro_texte': case 'intro_astuce': case 'mecanique': case 'ascii':
       if (v.genre !== 'chaine') throw erreur(`chaîne attendue pour « ${nom} »`, v);
       return v.valeur;
     case 'theme': case 'genre':
@@ -262,7 +266,8 @@ export function ecrireNiveau(n) {
   champ('genre', n.genre);
   champ('sans_planer', String(Boolean(n.sans_planer)));
   champ('duree_cible_s', String(n.duree_cible_s));
-  champ('intro', chaine(n.intro));
+  champ('intro_texte', chaine(n.intro_texte));
+  champ('intro_astuce', chaine(n.intro_astuce));
   champ('mecanique', chaine(n.mecanique));
   champ('aiguilles', n.aiguilles.length === 0 ? '[]' : '[\n' + n.aiguilles
     .map((a) => `        (rayon: ${flottant(a.rayon)}, vitesse: ${flottant(a.vitesse)}, phase: ${flottant(a.phase)}),\n`)
@@ -277,6 +282,44 @@ export function ecrireNiveau(n) {
   s += ')\n';
   for (const c of n.commentairesFin || []) s += c + '\n';
   return s;
+}
+
+// --- L'intro de la carte du niveau (carte 11.3) -------------------------------
+
+// Les MÊMES limites que le chargeur Rust (niveaux/src/intro.rs) : la carte du niveau
+// coupe le texte entre les mots en lignes de 46 caractères ; la phrase tient sur 3
+// lignes, le conseil sur 2, et les deux (plus la ligne « sans perte de vie » d'un
+// bonus) sur 4.
+export const LIGNE_MAX_INTRO = 46;
+export const LIGNES_MAX = { intro_texte: 3, intro_astuce: 2 };
+export const LIGNES_MAX_INTRO = 4;
+
+/// Les lignes de `texte` sur la carte du niveau (coupure de `game/src/texte.rs`,
+/// `couper_lignes` : un mot plus long qu'une ligne en prend une à lui seul).
+export function lignesIntro(texte) {
+  const lignes = [];
+  for (const mot of String(texte).split(/\s+/).filter(Boolean)) {
+    const n = lignes.length;
+    if (n && [...lignes[n - 1]].length + 1 + [...mot].length <= LIGNE_MAX_INTRO) lignes[n - 1] += ' ' + mot;
+    else lignes.push(mot);
+  }
+  return lignes;
+}
+
+/// Ce que le chargeur refusera dans l'intro du niveau `n` (liste vide : rien).
+export function erreursIntro(n) {
+  const erreurs = [];
+  let total = n.genre === 'Bonus' ? 1 : 0;
+  for (const champ of ['intro_texte', 'intro_astuce']) {
+    const lignes = lignesIntro(n[champ] || '').length;
+    if (lignes === 0) erreurs.push(`« ${champ} » est vide : chaque niveau a son intro`);
+    else if (lignes > LIGNES_MAX[champ]) erreurs.push(`« ${champ} » prend ${lignes} lignes sur la carte du niveau, ${LIGNES_MAX[champ]} au plus`);
+    total += lignes;
+  }
+  if (!erreurs.length && total > LIGNES_MAX_INTRO) {
+    erreurs.push(`intro_texte et intro_astuce prennent ${total} lignes ensemble, ${LIGNES_MAX_INTRO} au plus`);
+  }
+  return erreurs;
 }
 
 // --- La grille --------------------------------------------------------------

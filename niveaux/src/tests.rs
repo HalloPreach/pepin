@@ -37,12 +37,6 @@ fn tous_les_fichiers_embarques_sont_valides() {
     assert_eq!(niveaux_monde_1().len(), NB_NIVEAUX_MONDE_1);
     assert!(niveaux_monde_1().iter().all(|n| n.monde == 1));
     assert_eq!(essais().len(), NB_ESSAIS);
-    let mut cles: Vec<&str> = niveaux()[NB_NIVEAUX_MONDE_1..]
-        .iter()
-        .map(|n| n.cle)
-        .collect();
-    cles.sort_unstable();
-    assert_eq!(cles, CLES_HORS_MONDE_1);
 }
 
 /// Les clés sont des identifiants (minuscules, chiffres, `_`), toutes
@@ -172,11 +166,11 @@ fn lettre_inconnue_avec_sa_ligne_et_sa_colonne() {
                 colonne: 5,
                 caractere: '?'
             },
-            premiere_ligne: 16,
+            premiere_ligne: 17,
         }
     );
-    // La ligne 8 de la grille est la ligne 23 du fichier (16 + 8 - 1).
-    assert_eq!(texte.lines().nth(22).unwrap().chars().nth(4), Some('?'));
+    // La ligne 8 de la grille est la ligne 24 du fichier (17 + 8 - 1).
+    assert_eq!(texte.lines().nth(23).unwrap().chars().nth(4), Some('?'));
     let message = e.to_string();
     assert!(message.contains("monde_1/toits.ron"), "{message}");
     assert!(message.contains("ligne 8, colonne 5"), "{message}");
@@ -297,6 +291,110 @@ fn erreurs_de_table_cle_dossier_et_numerotation() {
         GenreErreur::Ordre(ErreurOrdre::NumeroFaux { numero: 3, .. })
     ));
     assert!(e.to_string().contains("sans trou"), "{e}");
+}
+
+/// Carte 11.3 : un niveau sans intro (ou à l'intro trop longue pour la carte du
+/// niveau) est refusé, avec un message qui nomme le champ ; l'ancien champ `intro`
+/// est refusé avec le nom des deux nouveaux.
+#[test]
+fn un_niveau_sans_intro_est_refuse_clairement() {
+    use crate::intro::ErreurIntro;
+    let toits = fichier("monde_1/toits.ron");
+    let ligne_de = |champ: &str| {
+        toits
+            .lines()
+            .find(|l| l.starts_with(&format!("    {champ}: ")))
+            .unwrap()
+            .to_string()
+    };
+    let avec = |champ: &str, valeur: &str| {
+        toits.replace(&ligne_de(champ), &format!("    {champ}: \"{valeur}\","))
+    };
+    let refus = |texte: &str| charger_fichier("monde_1/toits.ron", texte).unwrap_err();
+
+    let e = refus(&avec("intro_texte", ""));
+    assert_eq!(
+        e.genre,
+        GenreErreur::Intro(ErreurIntro::Vide {
+            champ: "intro_texte"
+        })
+    );
+    assert_eq!(
+        e.to_string(),
+        "monde_1/toits.ron : « intro_texte » est vide : chaque niveau a son intro \
+         (la phrase dans intro_texte, le conseil dans intro_astuce)"
+    );
+    // Des espaces seuls ne font pas une intro.
+    assert_eq!(
+        refus(&avec("intro_astuce", "   ")).genre,
+        GenreErreur::Intro(ErreurIntro::Vide {
+            champ: "intro_astuce"
+        })
+    );
+    // Trois lignes de conseil : trop pour la carte.
+    let long = "mot ".repeat(30);
+    let e = refus(&avec("intro_astuce", long.trim()));
+    assert_eq!(
+        e.genre,
+        GenreErreur::Intro(ErreurIntro::TropLongue {
+            champ: "intro_astuce",
+            lignes: 3,
+            max: 2
+        })
+    );
+    assert!(e.to_string().contains("3 lignes"), "{e}");
+    // Trois lignes de phrase et deux de conseil : chacune tient, pas les deux.
+    let e = refus(
+        &avec("intro_texte", long.trim()).replace(&ligne_de("intro_astuce"), &{
+            let deux = "mot ".repeat(15);
+            format!("    intro_astuce: \"{}\",", deux.trim())
+        }),
+    );
+    assert_eq!(
+        e.genre,
+        GenreErreur::Intro(ErreurIntro::TropLongueEnTout { lignes: 5 })
+    );
+    // Un champ manquant, ou l'ancien champ `intro` (fichier d'avant la carte 11.3).
+    let sans = toits.replace(&format!("{}\n", ligne_de("intro_astuce")), "");
+    let e = refus(&sans).to_string();
+    assert!(
+        e.contains("intro_astuce") && e.contains("le conseil"),
+        "{e}"
+    );
+    let ancien = toits.replace(
+        &format!("{}\n{}", ligne_de("intro_texte"), ligne_de("intro_astuce")),
+        "    intro: \"Vieux.\",",
+    );
+    let e = refus(&ancien).to_string();
+    assert!(
+        e.contains("`intro`") && e.contains("intro_texte, la phrase"),
+        "{e}"
+    );
+    // Le comptage des lignes est celui de la carte (coupure entre les mots, 46).
+    assert_eq!(crate::intro::nb_lignes(""), 0);
+    assert_eq!(crate::intro::nb_lignes(&"a".repeat(46)), 1);
+    assert_eq!(crate::intro::nb_lignes(&format!("{} b", "a".repeat(44))), 1);
+    assert_eq!(
+        crate::intro::nb_lignes(&format!("{} bc", "a".repeat(44))),
+        2
+    );
+}
+
+/// L'éditeur applique les MÊMES limites que le chargeur (`editeur/ron.js`, qui ne
+/// peut pas importer le Rust) : ce test relit ses constantes.
+#[test]
+fn l_editeur_a_les_memes_limites_d_intro() {
+    use crate::intro::*;
+    let ron_js = include_str!("../../editeur/ron.js");
+    for attendu in [
+        format!("export const LIGNE_MAX_INTRO = {LIGNE_MAX_INTRO};"),
+        format!(
+            "export const LIGNES_MAX = {{ intro_texte: {LIGNES_MAX_TEXTE}, intro_astuce: {LIGNES_MAX_ASTUCE} }};"
+        ),
+        format!("export const LIGNES_MAX_INTRO = {LIGNES_MAX_INTRO};"),
+    ] {
+        assert!(ron_js.contains(&attendu), "editeur/ron.js : « {attendu} » manque");
+    }
 }
 
 /// Ajouter un niveau = ajouter un fichier : un nouveau fichier `monde_3/` prend

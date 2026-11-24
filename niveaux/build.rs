@@ -60,22 +60,11 @@ fn main() {
 
     // Les NOMBRES de niveaux, comptés ici, à la compilation, d'après les DOSSIERS
     // (le chargeur vérifie qu'un fichier de `monde_1/` dit bien `monde: 1`). Ce
-    // sont de vraies constantes : le jeu s'en sert comme taille de tableau
-    // (`[Intro; NB_NIVEAUX_MONDE_1]`), donc un niveau ajouté sans sa ligne dans un
-    // tel tableau empêche de compiler, comme avant la carte 10.1b.
+    // sont de vraies constantes. (Jusqu'à la carte 11.3, le jeu s'en servait aussi
+    // comme taille du tableau des intros, et une liste `CLES_HORS_MONDE_1` vérifiait
+    // à la compilation que chaque niveau du Monde 2 avait la sienne ; l'intro est
+    // maintenant dans le fichier du niveau, et le chargeur la vérifie.)
     let compter = |prefixe: &str| chemins.iter().filter(|c| c.starts_with(prefixe)).count();
-    // Les CLÉS des niveaux du parcours hors Monde 1 (le nom du fichier : le
-    // chargeur vérifie qu'il est égal au champ `cle`), pour les vérifications
-    // `const` du jeu (chaque niveau du Monde 2 a son intro).
-    let cles_hors_monde_1: Vec<&str> = chemins
-        .iter()
-        .filter(|c| c.starts_with("monde_") && !c.starts_with("monde_1/"))
-        .filter_map(|c| c.rsplit('/').next()?.strip_suffix(".ron"))
-        .collect();
-    code.push_str(&format!(
-        "/// Clés des niveaux du parcours hors Monde 1 (ordre alphabétique des chemins).\n\
-         pub const CLES_HORS_MONDE_1: &[&str] = &{cles_hors_monde_1:?};\n"
-    ));
     code.push_str(&format!(
         "/// Nombre de niveaux du parcours (fichiers sous `monde_*/`), tous mondes.\n\
          pub const NB_NIVEAUX: usize = {};\n\

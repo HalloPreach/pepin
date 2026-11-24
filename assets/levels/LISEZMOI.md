@@ -60,13 +60,23 @@ la faisabilité et la reprise de CE niveau, et son module `par_niveau::<clé>::`
 | `genre` | `Normal`, `Bonus` (au plus un par monde, après les normaux) ou `Epilogue` (le dernier du monde) |
 | `sans_planer` | le défi « SANS PLANER » est-il possible (mesuré par le robot) |
 | `duree_cible_s` | durée visée en secondes |
-| `intro`, `mecanique` | textes d'introduction et d'aide |
+| `intro_texte` | la phrase de la carte du niveau (en blanc sous le nom) ; obligatoire, 3 lignes au plus |
+| `intro_astuce` | le conseil de la carte du niveau (en corail dessous) ; obligatoire, 2 lignes au plus |
+| `mecanique` | note de conception : ce que le niveau apprend (pas affichée en jeu) |
 | `aiguilles` | facultatif : `(rayon: 3.0, vitesse: 30.0, phase: 0.0)` par pivot `h`, dans l'ordre de lecture |
 | `poissons_hauts` | facultatif : `(colonne, rangée, hauteur_px)` d'un poisson `i`, comptées depuis 0 |
 | `ascii` | la grille, en chaîne brute `r#"..."#` (une lettre = une tuile de 16 px) |
 
 Tout champ inconnu est une erreur. La grille doit contenir un `@`, une sortie
 `X` (sauf l'arène d'un boss) et exactement 3 gouttes `o`.
+
+L'intro (carte 11.3) est écrite dans le fichier, et nulle part ailleurs : un niveau
+s'ajoute avec son seul fichier. La carte du niveau coupe chaque texte entre les mots
+en lignes de 46 caractères ; `intro_texte` tient sur 3 lignes, `intro_astuce` sur 2,
+et les deux ensemble sur 4 (3 pour un bonus, qui ajoute la ligne « sans perte de
+vie »). Un champ vide ou trop long est refusé au chargement, avec le nom du champ et
+son nombre de lignes ; l'éditeur montre les lignes et les mêmes refus pendant la
+saisie (`niveaux/src/intro.rs`, `editeur/ron.js`).
 
 ## Exemple minimal
 
@@ -83,7 +93,8 @@ le charge) :
     genre: Normal,
     sans_planer: false,
     duree_cible_s: 30,
-    intro: "Une phrase.",
+    intro_texte: "Une phrase.",
+    intro_astuce: "Un conseil.",
     mecanique: "Ce que le niveau apprend.",
     ascii: r#"
 ....................

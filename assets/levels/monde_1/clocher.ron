@@ -64,7 +64,8 @@
     genre: Normal,
     sans_planer: false,
     duree_cible_s: 55,
-    intro: "Une seule direction : en haut.",
+    intro_texte: "Une seule direction : en haut.",
+    intro_astuce: "L'escargot est un tremplin. Sur une aiguille, laisse-toi porter.",
     mecanique: "Niveau vertical : escargots-tremplins, ventilateur, pigeons, chat, corbeau, horloge.",
     // Réglage des deux aiguilles, dans l'ordre de lecture de la grille (de haut en
     // bas), les mêmes que le niveau d'essai « horloge » :

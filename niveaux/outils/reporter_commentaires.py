@@ -35,7 +35,7 @@ ASSETS = RACINE / "assets" / "levels"
 EN_TETE = "// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md."
 CHAMPS = [
     "monde", "numero", "cle", "nom", "theme", "genre", "sans_planer",
-    "duree_cible_s", "intro", "mecanique", "aiguilles", "poissons_hauts", "ascii",
+    "duree_cible_s", "intro_texte", "intro_astuce", "mecanique", "aiguilles", "poissons_hauts", "ascii",
 ]
 
 

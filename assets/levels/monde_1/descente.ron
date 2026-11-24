@@ -55,7 +55,8 @@
     // Le plus court des douze : une descente tranquille (la mesure de difficulté la
     // joue en 18 à 19 s ; le robot de faisabilité, en course rapide, en 14 s).
     duree_cible_s: 40,
-    intro: "Le soleil est réveillé : on redescend lui montrer la ville.",
+    intro_texte: "Le soleil est réveillé : on redescend lui montrer la ville.",
+    intro_astuce: "Parapluie ouvert, la grêle ne te touche pas.",
     mecanique: "Épilogue : le niveau vertical à l'envers ; on descend du soleil jusqu'aux toits, en tombant ou en planant, entre les pigeons, un corbeau et la grêle.",
     aiguilles: [],
     poissons_hauts: [],
