@@ -55,6 +55,7 @@ mod essai_externe;
 mod facile;
 mod focus;
 mod fond_egouts;
+mod fonds;
 mod grele;
 mod hud;
 mod menu;

@@ -17,7 +17,9 @@ Presque tout est dans le code : **aucun fichier son, aucune police externe**,
 les sons sont calculés au démarrage, la police est un tableau de bits. Seuls les
 sprites dessinés à la main sont des fichiers : de petits PNG à 16 couleurs dans
 `assets/sprites/` (carte 10.4a, voir `assets/sprites/LISEZMOI.md`), embarqués dans
-le jeu à la compilation, comme les niveaux de `assets/levels/`.
+le jeu à la compilation, comme les niveaux de `assets/levels/`. Les couches fixes
+des fonds (ciels, soleil, arc-en-ciel) aussi : `assets/fonds/` (carte 10.4c, voir
+`assets/fonds/LISEZMOI.md`, qui donne la pile de dessin de chaque thème).
 
 ## Sommaire
 

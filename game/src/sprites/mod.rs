@@ -1300,7 +1300,7 @@ mod tests {
     }
 
     /// Même contrôle dans la descente (carte 5.17), dont le ciel défile avec la
-    /// caméra (`decor::VOYAGE`) : pour chaque pigeon, chaque ligne qu'il occupe
+    /// caméra (`decor::voyage`) : pour chaque pigeon, chaque ligne qu'il occupe
     /// (perché, puis jusqu'au fond de sa plongée) et CHAQUE position de la caméra où
     /// cette ligne est à l'écran, il se détache de la bande de ciel derrière lui (et
     /// de celle de sa trame) : voir `pigeon_se_detache`. Les pigeons sont
@@ -1308,7 +1308,7 @@ mod tests {
     /// jamais le violet ni la nuit.
     #[test]
     fn le_pigeon_se_detache_du_ciel_de_la_descente() {
-        use crate::decor::{bande_voyage, camera_fond, remontee_voyage, VOYAGE};
+        use crate::decor::{bande_voyage, camera_fond, remontee_voyage, voyage};
         use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
         use pepin_core::entities::{Entite, TypeEnnemi};
         use pepin_core::HAUTEUR_LOGIQUE;
@@ -1329,7 +1329,10 @@ mod tests {
                 for cam_y in cameras {
                     let r = remontee_voyage(camera_fond(cam_y, h_niveau));
                     let y = y_niveau - cam_y;
-                    for ciel in [VOYAGE[bande_voyage(y, r)], VOYAGE[bande_voyage(y + 6, r)]] {
+                    for ciel in [
+                        voyage()[bande_voyage(y, r)],
+                        voyage()[bande_voyage(y + 6, r)],
+                    ] {
                         if let Err(e) = pigeon_se_detache(ciel) {
                             panic!(
                                 "pigeon en {:?}, sur {ciel:?} (caméra {cam_y}) : {e}",

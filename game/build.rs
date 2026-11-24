@@ -10,6 +10,8 @@
 //!    trouvés, chacun embarqué par `include_bytes!` (comme les niveaux du crate
 //!    `niveaux`) : ajouter un sprite = ajouter un fichier. Le dossier du fichier est
 //!    sa FAMILLE (`ennemis`, `tuiles_monde2/port`...), son nom sans `.png` sa CLÉ.
+//! 3. Les fonds (carte 10.4c) : de même pour `assets/fonds/<thème>/<nom>.png` (les
+//!    couches FIXES des fonds : ciels, soleil, arc-en-ciel), dans `fonds_embarques.rs`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,23 +23,38 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     let manifeste = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let racine = manifeste.join("../assets/sprites");
+    let sortie = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     // Un dossier en `rerun-if-changed` : cargo relance ce script si un fichier y est
     // ajouté, retiré ou modifié.
     println!("cargo:rerun-if-changed=../assets/sprites");
-    let mut chemins = Vec::new();
-    lister(&racine, &racine, &mut chemins);
-    // Ordre STABLE (alphabétique) : la même arborescence donne le même code.
-    chemins.sort();
-
-    let mut code = String::from(
+    println!("cargo:rerun-if-changed=../assets/fonds");
+    embarquer(
+        &manifeste.join("../assets/sprites"),
         "/// Sprites de `assets/sprites` : (famille, clé, octets du PNG), embarqués à la\n\
          /// compilation (généré par `build.rs`).\n\
          pub const FICHIERS: &[(&str, &str, &[u8])] = &[\n",
+        &sortie.join("sprites_embarques.rs"),
     );
+    embarquer(
+        &manifeste.join("../assets/fonds"),
+        "/// Couches de fond de `assets/fonds` : (thème, nom, octets du PNG), embarquées à\n\
+         /// la compilation (généré par `build.rs`).\n\
+         pub const FICHIERS: &[(&str, &str, &[u8])] = &[\n",
+        &sortie.join("fonds_embarques.rs"),
+    );
+}
+
+/// Écrit dans `fichier` la constante dont `entete` ouvre le tableau : une ligne
+/// (dossier, nom sans `.png`, `include_bytes!`) par PNG trouvé sous `racine`.
+fn embarquer(racine: &Path, entete: &str, fichier: &Path) {
+    let mut chemins = Vec::new();
+    lister(racine, racine, &mut chemins);
+    // Ordre STABLE (alphabétique) : la même arborescence donne le même code.
+    chemins.sort();
+    let mut code = String::from(entete);
     for relatif in &chemins {
-        let (famille, fichier) = relatif.rsplit_once('/').unwrap_or(("", relatif));
-        let cle = fichier.trim_end_matches(".png");
+        let (famille, nom) = relatif.rsplit_once('/').unwrap_or(("", relatif));
+        let cle = nom.trim_end_matches(".png");
         let absolu = racine.join(relatif);
         code.push_str(&format!(
             "    ({famille:?}, {cle:?}, include_bytes!({:?})),\n",
@@ -45,8 +62,7 @@ fn main() {
         ));
     }
     code.push_str("];\n");
-    let sortie = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("sprites_embarques.rs");
-    fs::write(sortie, code).unwrap();
+    fs::write(fichier, code).unwrap();
 }
 
 /// Ajoute à `chemins` les fichiers `.png` de `dossier` (récursivement), en chemins

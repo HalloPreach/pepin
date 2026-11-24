@@ -7154,3 +7154,38 @@ jeu, pour débloquer une fin différente. »
 - Test ajouté : `chaque_vignette_est_un_vrai_sprite` (chaque clé a son fichier, une vignette par lettre au plus, lettre de la légende, chemin dans `legende.json`, tuiles sans vignette).
 - Preuves : `lint` LINT-OK ; `test --workspace --no-default-features` VERT (core 326, game 404, niveaux 16 + 84, outils 4, robot 4) ; `./build.sh` OK (éditeur et `sprites/` absents de dist/, wasm 1 059 150 octets INCHANGÉ : le jeu ne bouge pas, rien à capturer côté joueur) et `--qa` OK (« 78 lettres, 44 vignettes », aller-retour 33/33 mêmes octets). `CHROME=…/chromium-1208 node docs/capture-104b.mjs PORT docs/qa` sur dist-qa : VIGNETTES-OK (51 images chargées, 51 boutons en vignette, 27 cases colorées gardées, bascule cases/vignettes : la case d'une mouette passe de 0 % à 62 % de sa couleur de légende et retour, lissage coupé, export de port et grotte = fichier, 0 erreur de console). Captures regardées, zoom 32 : `docs/qa/104b-vignettes-port.png` (crabes sur les toits, lanterne, poisson, plateformes mobiles 6 et 7 sur l'eau, corbeau) et `104b-vignettes-grotte.png` (stalactites accrochées au plafond, colonnes de bulles, drapeau, goutte) : pixels nets, rien de décalé.
 - Pas testé : joueur humain, téléphone, Safari ; Firefox (le rendu pixelisé du canvas vient de `imageSmoothingEnabled`, standard).
+
+## Carte 10.4c : les fonds du Monde 1 deviennent des fichiers PNG (`assets/fonds/`)
+- Fait : inventaire et pile de dessin dans `assets/fonds/LISEZMOI.md`. Couches FIXES devenues PNG indexés (palette + transparent, 1 pixel = 1 pixel), seule source du dessin : les ciels en bandes (`<thème>/ciel.png`, UNE colonne de 180 px : la période horizontale d'un ciel est d'un pixel, la répétition sur 320 colonnes reste du code), le ciel du voyage de la descente (`descente/voyage.png`, 1 x 450), le soleil (`soleil/soleil.png`, 45 x 45), l'arc-en-ciel du bonus (`arc_en_ciel/arc.png`, 300 x 150). Les ciels du Monde 2 qui passent par le même rendu (caniveau, cascade, grotte, rivière, marée) sont des fichiers aussi (un seul chemin de dessin). Les couleurs des bandes (`Ambiance::ciel`, `voyage()`) sont LUES dans les fichiers ; supprimés : le tracé des bandes et de leur trame, des bandes du voyage, du disque du soleil, de l'arc (`bande_arc`, `ARC`, `VOYAGE`, `RAYON_ARC`...). `game/build.rs` embarque `assets/fonds` comme `assets/sprites` (`include_bytes!`, aucune liste à la main), `game/src/fonds.rs` les décode une fois (décodeur de 10.4a) et les pose en textures « au plus proche ». Fichiers écrits avec l'outil `sprite` (export par un test temporaire retiré, relecture `sprite lire` identique à la grille exportée pour les 18).
+- Pile de dessin UNIQUE : `decor::pile(thème)` (enum `Couche`, PNG ou CALCULÉ, plus le marqueur NIVEAU) est la liste que suivent `dessiner_fond` (jusqu'à NIVEAU) et `dessiner_avant` (après) ; le test `la_pile_documentee_est_celle_du_rendu` la compare, thème par thème (19), au bloc du LISEZMOI.
+- Reste du code (calculé, ou d'après la grille, ou dans le doute) : étoiles (scintillent), pluie, éclairs, mur de pluie et soleil de la poursuite, grêle, silhouettes, plafonds de nuages, îlots et fenêtres (semés au hasard par cellule, sans période : un PNG couvrirait chaque niveau sur toute sa largeur), tuiles éclaircies, déchirure, façades. Liste détaillée dans le LISEZMOI.
+- Tests ajoutés : chaque couche se décode sans pixel hors palette (lignes de même largeur), n'a que IHDR/PLTE/tRNS/IDAT/IEND, 16 Ko au plus ; aucune couche PNG d'une pile ne manque, aucun fichier orphelin, taille attendue de chaque couche ; la pile du LISEZMOI ; l'arc (huit bandes jointives, distinctes, dans la palette, symétriques, sommet en y = 36) vérifié sur le fichier ; les tests existants du ciel, du voyage et des contrastes lisent maintenant les PNG.
+- Poids (plafonds : +120 Ko net, 16 Ko par couche) : 18 couches, 4 635 octets en tout ; wasm de production 1 059 150 → 1 067 866 octets (+8 716, +8,5 Ko NET, la pile et ses textures comprises ; gzip 440 558) ; aucun fichier servi en plus. QA 1 083 060 → 1 091 774.
+
+| Couche | Dimensions | Octets |
+| --- | --- | --- |
+| `toits/ciel.png` | 1 x 180 | 179 |
+| `gouttieres/ciel.png` | 1 x 180 | 179 |
+| `marche/ciel.png` | 1 x 180 | 181 |
+| `orage/ciel.png` | 1 x 180 | 180 |
+| `clocher/ciel.png` | 1 x 180 | 181 |
+| `cyclone/ciel.png` | 1 x 180 | 179 |
+| `altitude/ciel.png` (vents, poursuite) | 1 x 180 | 183 |
+| `mer/ciel.png` | 1 x 180 | 182 |
+| `soleil/ciel.png` | 1 x 180 | 182 |
+| `arc_en_ciel/ciel.png` | 1 x 180 | 181 |
+| `caniveau/ciel.png` | 1 x 180 | 176 |
+| `cascade/ciel.png` | 1 x 180 | 183 |
+| `grotte/ciel.png` | 1 x 180 | 173 |
+| `riviere/ciel.png` | 1 x 180 | 182 |
+| `maree/ciel.png` | 1 x 180 | 182 |
+| `descente/voyage.png` | 1 x 450 | 196 |
+| `soleil/soleil.png` | 45 x 45 | 296 |
+| `arc_en_ciel/arc.png` | 300 x 150 | 1 440 |
+
+- Preuves : `lint` LINT-OK ; `test --workspace --no-default-features` VERT (core 326, game 409, niveaux 16 + 84, outils 4, robot 4) et game avec `debug_niveaux,qa_plantage` 408 ; `carte toits`, `carte orage`, `carte cyclone` VERTES. Captures (`docs/capture-104c.sh`, build de QA du début de la carte puis de la fin, `comparer-captures.py` par paires) : 30/30 IDENTIQUES, 0 pixel différent : titre, carte des niveaux, boutique, départ ET milieu (150 images de course : parallaxe) des 11 premiers niveaux du Monde 1, la descente au départ et à quatre hauteurs (voyage remonté). Sur chacune, des couches calculées passent ENTRE les couches PNG et le niveau (étoiles devant le ciel PNG des toits, plafonds de nuages devant celui de l'orage et du cyclone, silhouettes devant le soleil PNG et l'arc PNG, îlots et étoiles devant le voyage PNG), et la pluie devant tout. `docs/capture-104a.sh` refait aussi sur les deux builds : 24 captures dont le départ des 7 niveaux du Monde 2 (ciels du caniveau, de la cascade, de la grotte, de la rivière, de la marée) et la Pieuvre, identiques. Gardées : `docs/qa/104c-apres-*.png` (titre, toits, orage, cyclone, nuages au soleil, arc-en-ciel, descente).
+- Note : la capture du TITRE seule est parfois décalée d'une image d'animation au premier lancement de Chromium (vu sur les DEUX builds, avant comme après, et sur `capture-104a.sh` aussi) ; relancée, elle est identique au pixel. Ce n'est pas le rendu.
+- `./build.sh` OK, 0 nom interdit (aucun nom ni chemin /home dans dist/ et dist-qa/) ; `--qa` OK (aller-retour éditeur 33/33).
+- Démarrage (`node docs/mesure-demarrage.mjs PORT 3`, dist/ de production, navigateur neuf, deux séries alternées) : écran titre 629 et 630 ms avant, 658 et 656 ms après (+26 à +28 ms) ; plus longue des 10 premières images 102-108 ms avant, 125-131 ms après (le décodage des 18 couches et leurs textures, une fois). Même ordre que 10.4a, pas visible.
+- PAS fait (temps de la carte dépassé, arrêt propre) : la carte des niveaux (`ecrans/fond_plan.rs` : ciel à bandes de hauteur variable fondues, nuages placés en proportion de la carte ; les dessins `NUAGES` sont des candidats PNG), à faire dans une carte suivante (sa capture est identique : son code n'a pas bougé). Capture de l'ÉCRAN DE FIN non prise : aucune touche de QA n'y mène sans finir la descente (un robot de partie complète est interdit, et le parcours scripté s'arrête au 2e étage) ; son fond est `dessiner_fond(Descente, x, 0)`, la remontée 0 du voyage (les quatre bandes du bas, le ciel des toits) : même couche et même placement que les captures de la descente, sans capture propre. Monde 2 (égouts, port, cascade, rivière, rue) : carte 10.4d.
+- Pas testé : joueur humain, téléphone, Safari.
