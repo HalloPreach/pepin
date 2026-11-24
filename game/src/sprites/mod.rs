@@ -18,6 +18,7 @@
 pub mod ennemis;
 #[rustfmt::skip]
 pub mod ennemis_eau;
+pub mod fichiers;
 #[rustfmt::skip]
 pub mod jetee;
 #[rustfmt::skip]
@@ -473,6 +474,44 @@ mod tests {
         for (nom, dessin) in liste {
             verifier(nom, dessin).unwrap();
         }
+    }
+
+    #[test]
+    fn chaque_png_est_identique_a_sa_grille_rust() {
+        // Carte 10.4a, étape d'équivalence : chaque famille lue dans assets/sprites a
+        // exactement les mêmes sprites (noms ET pixels) que la liste écrite en Rust.
+        let rust: [&[(&str, Image)]; 16] = [
+            pepin::SPRITES,
+            pepinette::SPRITES,
+            ennemis::SPRITES,
+            ennemis_eau::SPRITES,
+            pieuvre::SPRITES,
+            objets::SPRITES,
+            objets_decor::SPRITES,
+            objets_eau::SPRITES,
+            tuiles::SPRITES,
+            jetee::SPRITES,
+            tuiles_monde2::JEUX[0],
+            tuiles_monde2::JEUX[1],
+            tuiles_monde2::JEUX[2],
+            tuiles_monde2::JEUX[3],
+            tuiles_monde2::JEUX[4],
+            tuiles_monde2::JEUX[5],
+        ];
+        let mut total = 0;
+        for (f, liste) in fichiers::FAMILLES.iter().zip(rust) {
+            let lus = fichiers::famille(f);
+            assert_eq!(lus.len(), liste.len(), "{f} : nombre de sprites");
+            for &(nom, grille) in liste {
+                let (_, png) = lus
+                    .iter()
+                    .find(|(n, _)| *n == nom)
+                    .unwrap_or_else(|| panic!("{f}/{nom} : pas de PNG"));
+                assert_eq!(*png, grille, "{f}/{nom} : pixels différents");
+                total += 1;
+            }
+        }
+        assert_eq!(total, tous().len());
     }
 
     #[test]

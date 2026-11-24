@@ -1,0 +1,20 @@
+[package]
+license = "MIT"
+name = "outils"
+version = "0.1.0"
+edition = "2021"
+description = "Outils de PÉPIN hors du jeu : l'outil `sprite` (grille de texte vers PNG et retour, carte 10.4a)"
+
+# Pourquoi un crate à part : l'ENCODEUR PNG (crate `png`, avec sa compression
+# deflate) ne sert qu'à fabriquer les fichiers de `assets/sprites`. Le jeu, lui,
+# ne fait que les LIRE, avec le décodeur que macroquad embarque déjà (crate
+# `image`). En le gardant ici, l'encodeur n'entre jamais dans le wasm du jeu :
+# `game` ne dépend pas de ce crate. `png` est déjà dans le Cargo.lock (macroquad
+# s'en sert pour décoder), donc rien de nouveau à télécharger.
+[dependencies]
+pepin_core = { package = "core", path = "../core" }
+png = "0.17"
+
+[[bin]]
+name = "sprite"
+path = "src/bin/sprite.rs"
