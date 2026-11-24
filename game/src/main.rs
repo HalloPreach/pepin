@@ -139,9 +139,14 @@ async fn main() {
     #[cfg(feature = "debug_niveaux")]
     let lancement = essai_externe::au_lancement();
     #[cfg(feature = "debug_niveaux")]
-    if let essai_externe::Lancement::Erreur(message) = &lancement {
+    if let essai_externe::Lancement::Erreur { message, rapport } = &lancement {
+        // Carte 10.3b : l'éditeur qui a ouvert le jeu reçoit la case fautive.
+        essai_externe::signaler(rapport);
         essai_externe::afficher_erreur(&cible, message).await;
     }
+    // Carte 10.3b : Échap ou la fin du niveau d'essai ramène à l'éditeur.
+    #[cfg(feature = "debug_niveaux")]
+    let mut suivi_essai = essai_externe::SuiviEssai::new(&lancement);
     let mut app = Application::new(true);
     #[cfg(feature = "debug_niveaux")]
     if let essai_externe::Lancement::Essai = lancement {
@@ -244,6 +249,8 @@ async fn main() {
                 audio.apres_pas(&app.monde, app.camera.x);
             }
         }
+        #[cfg(feature = "debug_niveaux")]
+        suivi_essai.apres_image(app.ecran);
 
         // --- Rendu interpolé, dans la cible logique -----------------------------
         cible.commencer();

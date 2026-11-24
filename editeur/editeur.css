@@ -34,3 +34,13 @@ table { width: 100%; border-collapse: collapse; }
 td input { width: 100%; }
 th { font-weight: normal; color: #9aa0b8; text-align: left; }
 #commentaires { font-family: monospace; white-space: pre-wrap; color: #9aa0b8; font-size: 11px; }
+/* Carte 10.3b : bouton TESTER, verdict du chargeur Rust, cadre de l'essai. */
+button.tester { background: #2f7a3a; border-color: #4fae5c; font-weight: bold; }
+button.tester:hover { background: #3c9649; }
+#verdict { padding: 4px 10px; background: #3a1820; color: #ff9090; font-family: monospace; white-space: pre-wrap; }
+#verdict.ok { background: #183a24; color: #80f0a0; }
+#essai { position: fixed; inset: 0; z-index: 10; background: #000; display: flex; flex-direction: column; }
+#essai[hidden] { display: none; }
+#essai.cache { visibility: hidden; }
+#essai-barre { padding: 3px 10px; background: #232838; color: #9aa0b8; }
+#essai iframe { flex: 1; border: 0; width: 100%; }

@@ -367,6 +367,13 @@ pub fn intro(indice: usize) -> &'static Intro {
     if indice == crate::monde::INDICE_ESSAI_NUAGE {
         return &INTRO_ESSAI_NUAGE;
     }
+    // Le niveau posé par l'éditeur (carte 10.3b) : SON intro et SA mécanique.
+    #[cfg(any(test, feature = "debug_niveaux"))]
+    if indice == crate::monde::INDICE_ESSAI_EXTERNE {
+        if let Some(intro) = crate::essai_externe::intro() {
+            return intro;
+        }
+    }
     // Le Monde 1 par sa place ; les autres mondes par la clé du niveau ; hors de la
     // table, le dernier niveau.
     let i = indice.min(niveaux::NB_NIVEAUX - 1);

@@ -7,8 +7,9 @@
 // modification redonne les mêmes octets).
 //
 // L'éditeur ne VALIDE pas définitivement un niveau : il avertit des erreurs
-// courantes ; le juge reste le chargeur du jeu (`?essai=1` du build de QA, ou
-// `./docker-cargo.sh run -p niveaux --bin valider -- fichier.ron`).
+// courantes ; le juge reste le chargeur du jeu : boutons Valider et TESTER (carte
+// 10.3b, plus bas : le jeu de QA vérifie et joue le niveau), ou
+// `./docker-cargo.sh run -p niveaux --bin valider -- fichier.ron`.
 import { lireNiveau, ecrireNiveau, rangees, versAscii } from './ron.js';
 
 const $ = (s) => document.querySelector(s);
@@ -23,6 +24,7 @@ const etat = {
   passe: [],           // pile « annuler » (instantanés JSON)
   futur: [],           // pile « refaire »
   modifie: false,
+  faute: null,         // case fautive dite par le jeu : {x, y} (x null : rangée entière)
 };
 
 // --- Chargement --------------------------------------------------------------
@@ -101,6 +103,7 @@ function memoriser() {
   if (etat.passe.length > 200) etat.passe.shift();
   etat.futur = [];
   etat.modifie = true;
+  etat.faute = null; // la grille change : l'ancienne faute n'est plus sûre
 }
 function restaurer(depuis, vers) {
   if (!depuis.length) return;
@@ -159,6 +162,20 @@ function dessiner() {
       ctx.fillRect(0, y * z, toile.width, 1);
     }
   }
+  // Carte 10.3b : la case fautive trouvée par le chargeur Rust, cerclée de rouge.
+  if (etat.faute && etat.faute.y < hauteur()) {
+    const { x, y } = etat.faute;
+    ctx.fillStyle = 'rgba(255,40,40,.35)';
+    ctx.strokeStyle = '#ff3030';
+    ctx.lineWidth = 3;
+    if (x === null) {
+      ctx.fillRect(0, y * z, toile.width, z);
+      ctx.strokeRect(1, y * z, toile.width - 2, z);
+    } else {
+      ctx.fillRect(x * z, y * z, z, z);
+      ctx.strokeRect(x * z - 2, y * z - 2, z + 4, z + 4);
+    }
+  }
   if (rectangle) {
     const [x0, y0, x1, y1] = bornes(rectangle);
     ctx.strokeStyle = '#f0c020';
@@ -211,7 +228,10 @@ toile.addEventListener('mousedown', (e) => {
   const p = caseSous(e);
   if (!p) return;
   e.preventDefault();
-  if (e.button === 2) { choisir(etat.grille[p.y][p.x]); return; } // clic droit = pipette
+  // Clic droit (carte 10.3b) : « partir d'ici », essai avec Pépin posé sur cette
+  // case. Alt + clic : la pipette (aussi l'outil Pipette, touche I).
+  if (e.button === 2) { partirDIci(p); return; }
+  if (e.altKey) { choisir(etat.grille[p.y][p.x]); return; }
   if (etat.outil === 'rectangle') {
     memoriser();
     rectangle = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
@@ -392,7 +412,7 @@ function avertissements() {
   if (!liste.length) {
     const li = document.createElement('li');
     li.className = 'ok';
-    li.textContent = 'Aucun avertissement. Le chargeur du jeu reste le juge : essayez le niveau avec ?essai=1.';
+    li.textContent = 'Aucun avertissement. Le chargeur du jeu reste le juge : Valider ou TESTER.';
     ul.append(li);
   }
   for (const [texte, grave] of liste) {
@@ -477,6 +497,121 @@ function exporter() {
   signaler(`exporté : ${etat.niveau.cle}.ron (à ranger dans assets/levels/essais/ ou monde_N/)`);
 }
 
+// --- Essai et validation par le jeu (carte 10.3b) ------------------------------
+//
+// L'éditeur ne juge pas lui-même : il pose le RON dans le localStorage (clé
+// `pepin.niveau_essai`, la même origine que le jeu de QA) et charge le jeu
+// (`index.html?essai=1`) dans un cadre. Le jeu passe le texte au chargeur Rust
+// (`niveaux::charger_fichier`, celui des fichiers embarqués) puis répond par
+// postMessage (game/src/essai_externe.rs, web/index.html) :
+//   {etat: 'erreur', message, ligne, colonne, ligne_fichier}  niveau refusé ;
+//   {etat: 'pret'}   niveau accepté, la partie commence ;
+//   {etat: 'fini', raison: 'echap' | 'fin'}   retour à l'éditeur.
+
+const CLE_ESSAI = 'pepin.niveau_essai';
+let essai = null; // {cadre, jouer, minuterie} pendant un essai ou une validation
+
+/// Valide (jouer = false) ou joue (jouer = true) le niveau `texte`.
+function lancerEssai(texte, jouer) {
+  fermerEssai();
+  try {
+    localStorage.setItem(CLE_ESSAI, texte);
+  } catch {
+    montrerVerdict('localStorage refusé par le navigateur : essai impossible', false);
+    return;
+  }
+  const zone = $('#essai');
+  const cadre = document.createElement('iframe');
+  cadre.title = 'PÉPIN : essai du niveau';
+  cadre.src = `index.html?essai=1&t=${Date.now()}`;
+  zone.append(cadre);
+  zone.hidden = false;
+  zone.classList.add('cache'); // invisible tant que le jeu n'a pas dit « pret »
+  const minuterie = setTimeout(() => {
+    fermerEssai();
+    montrerVerdict('le jeu n\'a pas répondu en 30 s (est-ce bien le build de QA, ./build.sh --qa ?)', false);
+  }, 30000);
+  essai = { cadre, jouer, minuterie };
+  signaler(jouer ? 'essai : le jeu vérifie le niveau…' : 'validation par le jeu…');
+}
+
+function fermerEssai() {
+  if (!essai) return;
+  clearTimeout(essai.minuterie);
+  essai.cadre.remove();
+  essai = null;
+  $('#essai').hidden = true;
+  $('#essai').classList.remove('cache');
+  toile.focus?.();
+}
+
+window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin || !e.data || e.data.source !== 'pepin' || !essai) return;
+  const m = e.data;
+  if (m.etat === 'erreur') {
+    fermerEssai();
+    // Ligne et colonne de la GRILLE, depuis 1 : la case (colonne - 1, ligne - 1).
+    etat.faute = Number.isInteger(m.ligne)
+      ? { x: Number.isInteger(m.colonne) ? m.colonne - 1 : null, y: m.ligne - 1 }
+      : null;
+    const ou = m.ligne_fichier ? ` (ligne ${m.ligne_fichier} du .ron exporté)` : '';
+    montrerVerdict(`REFUSÉ par le jeu : ${m.message}${ou}`, false);
+    dessiner();
+    faireVoirFaute();
+  } else if (m.etat === 'pret') {
+    clearTimeout(essai.minuterie);
+    etat.faute = null;
+    dessiner();
+    montrerVerdict('accepté par le chargeur du jeu (niveaux::charger_fichier)', true);
+    if (essai.jouer) {
+      $('#essai').classList.remove('cache');
+      // Le clavier va au canevas du jeu (même origine : on peut l'atteindre).
+      essai.cadre.focus();
+      essai.cadre.contentWindow.focus();
+      essai.cadre.contentDocument?.getElementById('glcanvas')?.focus();
+      signaler('essai en cours : Échap ou la fin du niveau ramène ici');
+    } else {
+      fermerEssai();
+      signaler('niveau valide');
+    }
+  } else if (m.etat === 'fini') {
+    fermerEssai();
+    signaler(m.raison === 'fin' ? 'essai fini : niveau terminé' : 'essai fini par le jeu (Échap)');
+  }
+});
+
+function montrerVerdict(texte, ok) {
+  const v = $('#verdict');
+  v.textContent = texte;
+  v.className = ok ? 'ok' : '';
+  v.hidden = false;
+}
+
+/// Fait défiler la grille jusqu'à la case fautive.
+function faireVoirFaute() {
+  if (!etat.faute) return;
+  const d = $('#defilement');
+  const z = etat.zoom;
+  const x = (etat.faute.x ?? 0) * z;
+  d.scrollLeft = Math.max(0, x - d.clientWidth / 2);
+  d.scrollTop = Math.max(0, etat.faute.y * z - d.clientHeight / 2);
+}
+
+/// « Partir d'ici » : le même niveau, le départ @ déplacé sur la case `p`
+/// (vide seulement, pour ne rien effacer : une goutte, un ennemi...). La grille
+/// de l'éditeur ne change pas, seul le texte envoyé au jeu.
+function partirDIci(p) {
+  if (etat.grille[p.y][p.x] !== '.') {
+    signaler(`partir d'ici : choisis une case vide (celle-ci contient « ${etat.grille[p.y][p.x]} »)`, true);
+    return;
+  }
+  const grille = etat.grille.map((r) => r.map((c) => (c === '@' ? '.' : c)));
+  grille[p.y][p.x] = '@';
+  const texte = ecrireNiveau({ ...etat.niveau, ascii: versAscii(grille.map((r) => r.join(''))) });
+  lancerEssai(texte, true);
+  signaler(`essai depuis la colonne ${p.x}, rangée ${p.y}…`);
+}
+
 // --- Branchements --------------------------------------------------------------
 
 function construirePalettes() {
@@ -513,6 +648,8 @@ function brancher() {
   });
   $('#nouveau').addEventListener('click', () => { if (confirmerPerte()) nouveau(); });
   $('#exporter').addEventListener('click', exporter);
+  $('#valider').addEventListener('click', () => lancerEssai(texteExporte(), false));
+  $('#tester').addEventListener('click', () => lancerEssai(texteExporte(), true));
   $('#annuler').addEventListener('click', () => restaurer(etat.passe, etat.futur));
   $('#refaire').addEventListener('click', () => restaurer(etat.futur, etat.passe));
   document.querySelectorAll('#boutons-outils button').forEach((b) => b.addEventListener('click', () => choisirOutil(b.dataset.outil)));
@@ -531,6 +668,7 @@ function brancher() {
   $('#ajouter-aiguille').addEventListener('click', () => { memoriser(); etat.niveau.aiguilles.push({ rayon: 3, vitesse: 30, phase: 0 }); toutRafraichir(); });
   $('#ajouter-poisson').addEventListener('click', () => { memoriser(); etat.niveau.poissons_hauts.push({ colonne: 0, rangee: 0, hauteur: 96 }); toutRafraichir(); });
   window.addEventListener('keydown', (e) => {
+    if (essai && e.key === 'Escape') { fermerEssai(); signaler('essai interrompu (Échap dans l\'éditeur)'); return; }
     if (e.target.closest('input, textarea, select')) return;
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); restaurer(etat.passe, etat.futur); return; }
@@ -593,6 +731,6 @@ function reprendreBrouillon() {
 }
 
 // Pour les captures et les tests pilotés (CDP) : l'état et le texte exporté.
-window.editeurPepin = { etat, texteExporte, poser, memoriser, toutRafraichir, ouvrirTexte, choisir, choisirOutil };
+window.editeurPepin = { etat, texteExporte, poser, memoriser, toutRafraichir, ouvrirTexte, choisir, choisirOutil, lancerEssai, partirDIci };
 
 demarrer();

@@ -209,7 +209,9 @@ vivent que dans `niveaux`. Le jeu publié ne peut pas tomber sur un fichier inva
 `./build.sh` lance d'abord le test `tous_les_fichiers_embarques_sont_valides`. Le
 build de QA, lui, affiche l'erreur (fichier, ligne, colonne) à l'écran, et
 `?essai=1` y lance le niveau RON posé dans le `localStorage` (clé
-`pepin.niveau_essai`). Format et légende : `assets/levels/LISEZMOI.md`.
+`pepin.niveau_essai`) : c'est le bouton TESTER de l'éditeur de niveaux (cartes
+10.3a et 10.3b, `editeur.html`), qui reçoit en retour le verdict du chargeur (la
+case fautive) et la fin de l'essai. Format et légende : `assets/levels/LISEZMOI.md`.
 
 Le découpage est volontaire. Tout ce qui est « règle du jeu » vit dans `core` ;
 `game` ne fait que **lire** l'état et le **dessiner**. Conséquence très

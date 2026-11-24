@@ -377,6 +377,24 @@
             return octets.length;
           } catch (e) { return 0; }
         };
+        // Carte 10.3b : le jeu de QA parle à l'éditeur qui l'a ouvert (message JSON :
+        // verdict du chargeur Rust, ou fin de l'essai). Dans le cadre de l'éditeur :
+        // un postMessage à la page parente ; dans un onglet ouvert par l'éditeur :
+        // à cet onglet, puis on le ferme ; seul : la fin de l'essai revient en arrière.
+        importObject.env.pepin_niveau_essai_signaler = function (ptr, len) {
+          try {
+            var message = JSON.parse(new TextDecoder().decode(new Uint8Array(wasm_memory.buffer, ptr, len)));
+            message.source = "pepin";
+            if (window.parent !== window) {
+              window.parent.postMessage(message, window.location.origin);
+            } else if (window.opener) {
+              window.opener.postMessage(message, window.location.origin);
+              if (message.etat === "fini") { window.close(); }
+            } else if (message.etat === "fini") {
+              history.back();
+            }
+          } catch (e) { console.warn("pepin_niveau_essai_signaler", e); }
+        };
       }
     });
   }

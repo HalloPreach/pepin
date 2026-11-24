@@ -22,6 +22,14 @@ du jeu de QA (source : `editeur/`). Il ouvre un `.ron` du jeu ou un fichier loca
 dessine la grille avec les lettres de `legende.json` (écrit par le crate `niveaux`,
 module `legende`) et exporte au format exact de l'exporteur (`editeur/ron.js`).
 
+Essai depuis l'éditeur (carte 10.3b) : TESTER pose le niveau dans le
+`localStorage` et ouvre le jeu de QA (`?essai=1`) en plein écran dans l'éditeur ;
+Échap ou la fin du niveau ramène à l'éditeur. Clic droit sur une case vide :
+« partir d'ici » (Pépin posé là, la grille de l'éditeur ne change pas ; Alt + clic
+garde la pipette). Valider fait juger le niveau par le chargeur Rust sans jouer.
+Un niveau refusé : le message du chargeur s'affiche et la case fautive est cerclée
+de rouge (le jeu la renvoie par `postMessage`, `game/src/essai_externe.rs`).
+
 ## Les champs
 
 | champ | sens |

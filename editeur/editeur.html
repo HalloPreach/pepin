@@ -15,6 +15,8 @@
   <label class="bouton">Fichier local… <input id="fichier-local" type="file" accept=".ron,text/plain" hidden></label>
   <button id="nouveau">Nouveau</button>
   <button id="exporter">Exporter le .ron</button>
+  <button id="valider" title="Le chargeur Rust du jeu vérifie le niveau (sans jouer)">Valider</button>
+  <button id="tester" class="tester" title="Jouer tout de suite ce niveau (clic droit sur une case : partir d'ici)">TESTER</button>
   <span id="etat"></span>
 </header>
 <main>
@@ -58,6 +60,7 @@
   <div id="centre">
     <div id="defilement"><canvas id="toile"></canvas></div>
     <div id="sous-la-souris">&nbsp;</div>
+    <div id="verdict" hidden></div>
     <ul id="avertissements"></ul>
   </div>
   <aside id="proprietes">
@@ -84,6 +87,10 @@
     <p id="commentaires"></p>
   </aside>
 </main>
+<!-- Carte 10.3b : l'essai. Le jeu de QA (index.html?essai=1) se charge dans ce
+     cadre ; il valide le niveau avec son chargeur Rust, puis se montre en plein
+     écran si le niveau est bon. Échap ou la fin du niveau referment le cadre. -->
+<div id="essai" hidden><div id="essai-barre">Essai : Échap ou la fin du niveau ramène à l'éditeur</div></div>
 <script type="module" src="editeur/editeur.js"></script>
 </body>
 </html>
