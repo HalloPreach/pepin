@@ -293,3 +293,82 @@ fn ajouter_un_niveau_c_est_ajouter_un_fichier() {
     assert_eq!(table.niveaux.len(), NIVEAUX.len() + 1);
     assert_eq!(table.niveaux.last().unwrap().cle, "nouveau");
 }
+
+/// Carte 10.3a : la légende de l'éditeur (`crate::legende`) contient EXACTEMENT
+/// les lettres que le parseur de `core` accepte. Chaque caractère ASCII visible
+/// est posé dans une grille valide : le parseur ne doit répondre « caractère
+/// inconnu » que pour ceux qui n'ont pas de ligne dans la légende.
+#[test]
+fn la_legende_couvre_exactement_les_lettres_du_parseur() {
+    use crate::legende::LETTRES;
+    let base = toits_avec_grille(|g| g.to_string());
+    let rangee_depart = NIVEAUX[0]
+        .ascii
+        .lines()
+        .position(|r| r.contains('@'))
+        .unwrap();
+    for code in 0x21u8..=0x7e {
+        let c = code as char;
+        // Le caractère remplace la case de la colonne 0 de la rangée du départ
+        // (un `.` ; `"` fermerait la grille brute, on le pose quand même : le
+        // RON devient invalide, ce n'est donc pas une lettre acceptée).
+        let texte = base.replacen(
+            NIVEAUX[0].ascii.lines().nth(rangee_depart).unwrap(),
+            &format!(
+                "{c}{}",
+                &NIVEAUX[0].ascii.lines().nth(rangee_depart).unwrap()[1..]
+            ),
+            1,
+        );
+        let inconnu = matches!(
+            charger(&texte),
+            Err(ErreurChargement {
+                genre: GenreErreur::Grille {
+                    erreur: ErreurNiveau::CaractereInconnu { .. },
+                    ..
+                },
+                ..
+            }) | Err(ErreurChargement {
+                genre: GenreErreur::Syntaxe { .. },
+                ..
+            })
+        );
+        let dans_la_legende = LETTRES.iter().any(|l| l.lettre == c);
+        assert_eq!(
+            !inconnu, dans_la_legende,
+            "« {c} » : accepté par le parseur = {}, dans la légende = {dans_la_legende}",
+            !inconnu
+        );
+    }
+    // Pas de lettre en double, et le vide `.` y est.
+    let mut vues: Vec<char> = LETTRES.iter().map(|l| l.lettre).collect();
+    vues.sort();
+    vues.dedup();
+    assert_eq!(
+        vues.len(),
+        LETTRES.len(),
+        "lettre en double dans la légende"
+    );
+    assert!(vues.contains(&'.'));
+}
+
+/// `legende.json` cite chaque lettre, chaque thème et chaque genre.
+#[test]
+fn legende_json_contient_lettres_themes_et_genres() {
+    let texte = crate::legende::legende_json();
+    for l in crate::legende::LETTRES {
+        let lettre = if l.lettre == '\\' || l.lettre == '"' {
+            format!("\\{}", l.lettre)
+        } else {
+            l.lettre.to_string()
+        };
+        assert!(
+            texte.contains(&format!("\"lettre\": \"{lettre}\"")),
+            "{lettre}"
+        );
+    }
+    for theme in ["\"Toits\"", "\"Port\"", "\"Maree\""] {
+        assert!(texte.contains(theme), "{theme}");
+    }
+    assert!(texte.contains("\"genres\": [\"Normal\", \"Bonus\", \"Epilogue\"]"));
+}

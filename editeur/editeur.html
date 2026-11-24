@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>PÉPIN : éditeur de niveaux (QA)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="editeur/editeur.css">
+</head>
+<body>
+<!-- Éditeur de niveaux de PÉPIN (carte 10.3a), site de TEST seulement : jamais
+     copié dans le jeu publié (./build.sh le refuse). Format : assets/levels/LISEZMOI.md. -->
+<header>
+  <strong>PÉPIN : éditeur de niveaux</strong>
+  <label>Ouvrir <select id="liste-niveaux"><option value="">(niveau du jeu)</option></select></label>
+  <label class="bouton">Fichier local… <input id="fichier-local" type="file" accept=".ron,text/plain" hidden></label>
+  <button id="nouveau">Nouveau</button>
+  <button id="exporter">Exporter le .ron</button>
+  <span id="etat"></span>
+</header>
+<main>
+  <aside id="outils">
+    <section>
+      <h2>Outils</h2>
+      <div id="boutons-outils">
+        <button data-outil="pinceau" class="actif" title="Pinceau (P)">Pinceau</button>
+        <button data-outil="rectangle" title="Rectangle plein (R)">Rectangle</button>
+        <button data-outil="gomme" title="Gomme (E)">Gomme</button>
+        <button data-outil="pipette" title="Pipette (I)">Pipette</button>
+      </div>
+      <div>
+        <button id="annuler" title="Ctrl+Z">Annuler</button>
+        <button id="refaire" title="Ctrl+Y">Refaire</button>
+      </div>
+      <div>
+        Zoom <button id="zoom-moins">−</button> <span id="zoom">16</span> px
+        <button id="zoom-plus">+</button>
+      </div>
+      <label><input id="lettres" type="checkbox" checked> lettres sur les cases</label>
+    </section>
+    <section>
+      <h2>Taille</h2>
+      <div id="taille"></div>
+      <div class="grille-boutons">
+        <span>Colonnes</span>
+        <button data-taille="gauche+">+ à gauche</button><button data-taille="gauche-">− à gauche</button>
+        <button data-taille="droite+">+ à droite</button><button data-taille="droite-">− à droite</button>
+        <span>Rangées</span>
+        <button data-taille="haut+">+ en haut</button><button data-taille="haut-">− en haut</button>
+        <button data-taille="bas+">+ en bas</button><button data-taille="bas-">− en bas</button>
+      </div>
+    </section>
+    <section>
+      <h2>Lettre choisie</h2>
+      <div id="choisie"></div>
+    </section>
+    <section id="palettes"></section>
+  </aside>
+  <div id="centre">
+    <div id="defilement"><canvas id="toile"></canvas></div>
+    <div id="sous-la-souris">&nbsp;</div>
+    <ul id="avertissements"></ul>
+  </div>
+  <aside id="proprietes">
+    <h2>Propriétés du niveau</h2>
+    <form id="formulaire" autocomplete="off">
+      <label>monde <input name="monde" type="number" min="1" max="255"></label>
+      <label>numero <input name="numero" type="number" min="0" max="255"></label>
+      <label>cle <input name="cle" pattern="[a-z0-9_]+"></label>
+      <label>nom <input name="nom"></label>
+      <label>theme <select name="theme"></select></label>
+      <label>genre <select name="genre"></select></label>
+      <label><input name="sans_planer" type="checkbox"> sans_planer (défi possible)</label>
+      <label>duree_cible_s <input name="duree_cible_s" type="number" min="0" max="65535"></label>
+      <label>intro <textarea name="intro" rows="3"></textarea></label>
+      <label>mecanique <textarea name="mecanique" rows="3"></textarea></label>
+    </form>
+    <h3>aiguilles <small>(une par pivot <code>h</code>, ordre de lecture)</small></h3>
+    <table id="aiguilles"><thead><tr><th>rayon</th><th>vitesse</th><th>phase</th><th></th></tr></thead><tbody></tbody></table>
+    <button id="ajouter-aiguille">+ aiguille</button>
+    <h3>poissons_hauts <small>(case d'un <code>i</code>, depuis 0)</small></h3>
+    <table id="poissons"><thead><tr><th>colonne</th><th>rangée</th><th>hauteur px</th><th></th></tr></thead><tbody></tbody></table>
+    <button id="ajouter-poisson">+ poisson</button>
+    <h3>Commentaires</h3>
+    <p id="commentaires"></p>
+  </aside>
+</main>
+<script type="module" src="editeur/editeur.js"></script>
+</body>
+</html>

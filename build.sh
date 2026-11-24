@@ -8,7 +8,9 @@
 #                                     # active les fonctionnalités « debug_niveaux » (touches 1 à 9
 #                                     # pour sauter à un niveau, 0 pour le niveau
 #                                     # d'essai vertical) et « qa_plantage » (F9 provoque un
-#                                     # vrai plantage), utilisées par les captures et la QA
+#                                     # vrai plantage), utilisées par les captures et la QA ;
+#                                     # y ajoute l'éditeur de niveaux (carte 10.3a) :
+#                                     # editeur.html, editeur/, legende.json, niveaux/
 #
 # Prérequis : Docker (aucun compilateur ni Rust nécessaire sur la machine hôte).
 # Le script :
@@ -112,6 +114,28 @@ chmod 644 "$DIST/game.wasm"
 
 echo "== 4/4 Page web et vérifications =="
 cp web/index.html "$DIST/index.html"
+
+# Carte 10.3a : l'éditeur de niveaux (editeur/) n'existe QUE dans le build de QA
+# (site de test). Il y trouve `legende.json` (les lettres de la grille, écrites par
+# le crate `niveaux` : la seule source) et une copie des `.ron` dans `niveaux/`.
+if [ "$DIST" = "dist-qa" ]; then
+  cp editeur/editeur.html "$DIST/editeur.html"
+  mkdir -p "$DIST/editeur"
+  cp editeur/editeur.js editeur/editeur.css editeur/ron.js "$DIST/editeur/"
+  ./docker-cargo.sh run -p niveaux --locked -q --bin editeur -- "$DIST"
+  if command -v node >/dev/null 2>&1; then
+    node editeur/test-aller-retour.mjs
+  else
+    echo "AVERTISSEMENT : node absent, test aller-retour de l'éditeur sauté" >&2
+  fi
+fi
+# Le jeu publié ne contient JAMAIS l'éditeur ni ses données.
+if [ "$DIST" = "dist" ]; then
+  for f in editeur.html editeur legende.json niveaux; do
+    [ ! -e "$DIST/$f" ] || { echo "ERREUR : $DIST/$f présent : l'éditeur ne va jamais en prod" >&2; exit 1; }
+  done
+  echo "éditeur absent de dist/ : OK"
+fi
 
 for f in index.html game.wasm mq_js_bundle.js; do
   [ -s "$DIST/$f" ] || { echo "ERREUR : $DIST/$f manquant ou vide" >&2; exit 1; }

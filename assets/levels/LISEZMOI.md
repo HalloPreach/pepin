@@ -17,6 +17,11 @@ affiche l'erreur à l'écran. Pour essayer un niveau sans recompiler (build de Q
 poser son texte dans le `localStorage` du navigateur, clé `pepin.niveau_essai`,
 puis ouvrir la page avec `?essai=1`.
 
+Éditeur de niveaux (carte 10.3a, site de test seulement) : `editeur.html` à côté
+du jeu de QA (source : `editeur/`). Il ouvre un `.ron` du jeu ou un fichier local,
+dessine la grille avec les lettres de `legende.json` (écrit par le crate `niveaux`,
+module `legende`) et exporte au format exact de l'exporteur (`editeur/ron.js`).
+
 ## Les champs
 
 | champ | sens |

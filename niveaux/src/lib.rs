@@ -21,6 +21,7 @@
 
 pub mod erreur;
 pub mod format;
+pub mod legende;
 pub mod source_rust;
 #[cfg(test)]
 mod tests;
