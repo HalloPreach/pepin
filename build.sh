@@ -8,7 +8,9 @@
 #                                     # active les fonctionnalités « debug_niveaux » (touches 1 à 9
 #                                     # pour sauter à un niveau, 0 pour le niveau
 #                                     # d'essai vertical) et « qa_plantage » (F9 provoque un
-#                                     # vrai plantage), utilisées par les captures et la QA
+#                                     # vrai plantage), utilisées par les captures et la QA ;
+#                                     # y ajoute l'éditeur de niveaux (carte 10.3a) :
+#                                     # editeur.html, editeur/, legende.json, niveaux/
 #
 # Prérequis : Docker (aucun compilateur ni Rust nécessaire sur la machine hôte).
 # Le script :
@@ -41,6 +43,12 @@ CARGO_HOME_HOTE="${PEPIN_CARGO_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/pepin-cargo
 WASM_BRUT="target/wasm32-unknown-unknown/release/game.wasm"
 
 echo "== 1/4 Compilation release (wasm32-unknown-unknown) dans Docker =="
+# Carte 10.1b : les niveaux sont des fichiers `.ron` embarqués. Avant de construire,
+# on vérifie qu'ils sont TOUS valides : un fichier invalide arrête le build, le jeu
+# publié ne peut donc jamais tomber sur une erreur de niveau.
+echo "== Vérification des fichiers de niveau (assets/levels) =="
+./docker-cargo.sh test -p niveaux --locked --lib -q tous_les_fichiers_embarques_sont_valides \
+  || { echo "ERREUR : un fichier de niveau est invalide (voir le message ci-dessus)" >&2; exit 1; }
 # shellcheck disable=SC2086  # FONCTIONNALITES est volontairement vide ou « --features x »
 ./docker-cargo.sh build -p game --release --locked --target wasm32-unknown-unknown $FONCTIONNALITES
 [ -s "$WASM_BRUT" ] || { echo "ERREUR : $WASM_BRUT absent après la compilation" >&2; exit 1; }
@@ -106,6 +114,33 @@ chmod 644 "$DIST/game.wasm"
 
 echo "== 4/4 Page web et vérifications =="
 cp web/index.html "$DIST/index.html"
+
+# Carte 10.3a : l'éditeur de niveaux (editeur/) n'existe QUE dans le build de QA
+# (site de test). Il y trouve `legende.json` (les lettres de la grille, écrites par
+# le crate `niveaux` : la seule source) et une copie des `.ron` dans `niveaux/`.
+if [ "$DIST" = "dist-qa" ]; then
+  cp editeur/editeur.html "$DIST/editeur.html"
+  mkdir -p "$DIST/editeur"
+  cp editeur/editeur.js editeur/editeur.css editeur/ron.js editeur/robot-worker.js "$DIST/editeur/"
+  # Carte 10.3c : le robot de faisabilité de `core`, compilé en wasm (crate
+  # `robot`, profil `robot-web` : rapide plutôt que petit), pour le bouton ROBOT.
+  ./docker-cargo.sh build -p robot --locked --profile robot-web --target wasm32-unknown-unknown
+  cp target/wasm32-unknown-unknown/robot-web/robot.wasm "$DIST/robot.wasm"
+  chmod 644 "$DIST/robot.wasm"
+  ./docker-cargo.sh run -p niveaux --locked -q --bin editeur -- "$DIST"
+  if command -v node >/dev/null 2>&1; then
+    node editeur/test-aller-retour.mjs
+  else
+    echo "AVERTISSEMENT : node absent, test aller-retour de l'éditeur sauté" >&2
+  fi
+fi
+# Le jeu publié ne contient JAMAIS l'éditeur ni ses données.
+if [ "$DIST" = "dist" ]; then
+  for f in editeur.html editeur legende.json niveaux robot.wasm; do
+    [ ! -e "$DIST/$f" ] || { echo "ERREUR : $DIST/$f présent : l'éditeur ne va jamais en prod" >&2; exit 1; }
+  done
+  echo "éditeur absent de dist/ : OK"
+fi
 
 for f in index.html game.wasm mq_js_bundle.js; do
   [ -s "$DIST/$f" ] || { echo "ERREUR : $DIST/$f manquant ou vide" >&2; exit 1; }

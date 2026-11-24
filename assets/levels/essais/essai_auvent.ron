@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 0,
+    cle: "essai_auvent",
+    nom: "Essai auvent",
+    theme: Gouttieres,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 30,
+    intro: "Un auvent relance Pépin en diagonale, vers le haut et vers l'avant : quatre tuiles plus loin sans rien toucher.",
+    mecanique: "Enchaîner six auvents au-dessus du vide : garder la droite pour aller plus loin, la gauche pour retomber plus près.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+............................................
+............................................
+............................................
+............................................
+...................o........................
+............................................
+..@o..L...........................L..o.L.X..
+#########A...A...A....A..A...A..############
+#########.......................############
+#########.......................############
+#########.......................############
+"#,
+)

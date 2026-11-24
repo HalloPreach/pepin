@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 2,
+    cle: "gouttieres",
+    nom: "Gouttières et cheminées",
+    theme: Gouttieres,
+    genre: Normal,
+    sans_planer: true,
+    duree_cible_s: 55,
+    intro: "L'averse redouble. Les flaques rôdent entre les cheminées : saute-leur dessus !",
+    mecanique: "Flaques à écraser, champignons-trampolines, gouttières suspendues, corbeaux.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+..............................................................................................................................................................................................
+................................................................................................................o.............................................................................
+..............................................................................................................................................................................................
+............................................................BB....L...f.......................................................................................................................
+............................................................BB#####################.................................................F.........................................................
+..................................................c.........mm.BBBBBBBBBBBBBBBBBBBB.................BB....c...................................................................................
+.........o..............BB..............BB..................mmoBBBBBBBBBBBBBBBBBBBB.........BB......BB.............................###.....................BB.........BB......................
+..@.................f...BB........L..H..BB....f.....f....M..BBBBBBBBBBBBBBBBBBBBBBB.......f.BB...f..BB..L...f...M.............###.......###...........f....BB...f.....BB.T..L....H......X..T..
+############################...###############################BBBBBBBBBBBBBBBBBBBBB...#################################..###.................###..############################################
+BBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...........................BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...........................BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

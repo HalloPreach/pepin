@@ -94,7 +94,6 @@ pub fn ligne_vies(infos: &InfosNiveau) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::levels::NIVEAUX;
     use pepin_core::zones::InfosNiveau;
 
     /// Les niveaux d'essai du build de QA (hors de la table), avec leur indice.
@@ -102,43 +101,43 @@ mod tests {
         [
             (
                 crate::monde::INDICE_ESSAI,
-                &pepin_core::levels::essai_vertical::INFOS,
+                niveaux::par_cle("essai_vertical"),
             ),
             (
                 crate::monde::INDICE_ESSAI_VENT,
-                &pepin_core::levels::essai_vent::INFOS,
+                niveaux::par_cle("essai_vent"),
             ),
             (
                 crate::monde::INDICE_ESSAI_GRELE,
-                &pepin_core::levels::essai_grele::INFOS,
+                niveaux::par_cle("essai_grele"),
             ),
             (
                 crate::monde::INDICE_ESSAI_AUVENT,
-                &pepin_core::levels::essai_auvent::INFOS,
+                niveaux::par_cle("essai_auvent"),
             ),
             (
                 crate::monde::INDICE_ESSAI_VENTILATEUR,
-                &pepin_core::levels::essai_ventilateur::INFOS,
+                niveaux::par_cle("essai_ventilateur"),
             ),
             (
                 crate::monde::INDICE_ESSAI_MONTGOLFIERE,
-                &pepin_core::levels::essai_montgolfiere::INFOS,
+                niveaux::par_cle("essai_montgolfiere"),
             ),
             (
                 crate::monde::INDICE_ESSAI_ESCARGOT,
-                &pepin_core::levels::essai_escargot::INFOS,
+                niveaux::par_cle("essai_escargot"),
             ),
             (
                 crate::monde::INDICE_ESSAI_CHAT,
-                &pepin_core::levels::essai_chat::INFOS,
+                niveaux::par_cle("essai_chat"),
             ),
             (
                 crate::monde::INDICE_ESSAI_HORLOGE,
-                &pepin_core::levels::essai_horloge::INFOS,
+                niveaux::par_cle("essai_horloge"),
             ),
             (
                 crate::monde::INDICE_ESSAI_NUAGE,
-                &pepin_core::levels::essai_nuage::INFOS,
+                niveaux::par_cle("essai_nuage"),
             ),
         ]
     }
@@ -146,7 +145,7 @@ mod tests {
     #[test]
     fn toutes_les_cartes_tiennent_dans_leur_cadre() {
         // Les niveaux de la table, puis les niveaux d'essai (build de QA).
-        for (i, n) in NIVEAUX.iter().enumerate().chain(essais()) {
+        for (i, n) in niveaux::niveaux().iter().enumerate().chain(essais()) {
             let intro = contenu::intro(i);
             let a = couper_lignes(intro.texte, LIGNE_MAX);
             let b = couper_lignes(intro.astuce, LIGNE_MAX);
@@ -175,7 +174,7 @@ mod tests {
 
     #[test]
     fn les_noms_de_niveau_sont_en_capitales_avec_un_glyphe_chacun() {
-        for n in NIVEAUX.iter().chain(essais().map(|(_, n)| n)) {
+        for n in niveaux::niveaux().iter().chain(essais().map(|(_, n)| n)) {
             let nom = titre_niveau(n.nom);
             assert!(!nom.chars().any(|c| c.is_lowercase()), "{nom}");
             for c in nom.chars() {
@@ -194,7 +193,7 @@ mod tests {
 
     #[test]
     fn aucune_ligne_de_carte_ne_commence_par_une_ponctuation_seule() {
-        for (i, n) in NIVEAUX.iter().enumerate().chain(essais()) {
+        for (i, n) in niveaux::niveaux().iter().enumerate().chain(essais()) {
             let intro = contenu::intro(i);
             for texte in [intro.texte, intro.astuce] {
                 for ligne in couper_lignes(texte, LIGNE_MAX) {
@@ -239,7 +238,7 @@ mod tests {
     #[test]
     fn seule_la_carte_du_bonus_parle_des_vies() {
         use pepin_core::levels::GenreNiveau;
-        for n in NIVEAUX {
+        for n in niveaux::niveaux() {
             assert_eq!(
                 ligne_vies(n).is_some(),
                 n.genre == GenreNiveau::Bonus,
@@ -247,6 +246,6 @@ mod tests {
                 n.nom
             );
         }
-        assert!(NIVEAUX.iter().any(|n| ligne_vies(n).is_some()));
+        assert!(niveaux::niveaux().iter().any(|n| ligne_vies(n).is_some()));
     }
 }

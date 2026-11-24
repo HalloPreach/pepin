@@ -40,17 +40,14 @@ use std::fmt::Write as _;
 
 use pepin_core::aabb::TAILLE_TUILE;
 use pepin_core::entities::contacts::CauseMort;
-use pepin_core::levels::{
-    arc, clocher, cyclone, descente, gouttieres, marche, mer, nuages, orage, poursuite, toits,
-    vents, GenreNiveau,
-};
+use pepin_core::levels::GenreNiveau;
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::{Direction, Entrees};
 use pepin_core::vies::{Vies, VIES_DEPART};
 // La mesure décrit la courbe du MONDE 1 seulement (carte 9.6) : `NIVEAUX` et
 // `NB_NIVEAUX` y désignent ses niveaux (le début de la table, mêmes indices). Le
 // Monde 2 se juge à la main, AGA en jouant : pas de mesure ni de juge de courbe.
-use pepin_core::levels::{NB_NIVEAUX_MONDE_1 as NB_NIVEAUX, NIVEAUX_MONDE_1 as NIVEAUX};
+use niveaux::NB_NIVEAUX_MONDE_1 as NB_NIVEAUX;
 
 use crate::bot_qa::{
     chercher, cle, depart_pose, plans, plans_en_vol, simuler, CaseParcours, Fin, Plan, PAS_DEPART,
@@ -836,25 +833,27 @@ fn graine_essai(graine: u64, profil: usize, niveau: usize, essai: u32) -> u64 {
 /// chiffres) des trois niveaux suivants, sans qu'aucun ne change. Les cinq premiers
 /// rangs sont leurs anciennes places : leur mesure reste identique à l'octet. Un
 /// nouveau niveau s'ajoute À LA FIN (le test `chaque_niveau_a_un_rang_de_graine`
-/// échoue sinon).
+/// échoue sinon). Ce sont des CLÉS (carte 10.1b : les niveaux sont lus dans leurs
+/// fichiers au lancement, leurs noms ne sont plus des constantes) ; clé et nom se
+/// correspondent un à un, les rangs n'ont pas bougé.
 const RANGS_DE_GRAINE: &[&str] = &[
-    toits::INFOS.nom,
-    gouttieres::INFOS.nom,
-    orage::INFOS.nom,
-    vents::INFOS.nom,
-    nuages::INFOS.nom,
-    marche::INFOS.nom,
-    clocher::INFOS.nom,
-    cyclone::INFOS.nom,
-    mer::INFOS.nom,
-    arc::INFOS.nom,
-    descente::INFOS.nom,
-    poursuite::INFOS.nom,
+    "toits",
+    "gouttieres",
+    "orage",
+    "vents",
+    "nuages",
+    "marche",
+    "clocher",
+    "cyclone",
+    "mer",
+    "arc",
+    "descente",
+    "poursuite",
 ];
 
 /// Rang de graine du niveau d'indice `n` de la table (voir `RANGS_DE_GRAINE`).
 fn rang_de_graine(n: usize) -> usize {
-    let nom = NIVEAUX[n].nom;
+    let nom = niveaux::niveaux_monde_1()[n].cle;
     RANGS_DE_GRAINE
         .iter()
         .position(|&r| r == nom)
@@ -935,7 +934,7 @@ pub(crate) fn mesurer(graine: u64, essais: u32) -> Vec<Vec<Case>> {
                                     )
                                 })
                                 .collect();
-                            bilan(&liste, NIVEAUX[n].genre)
+                            bilan(&liste, niveaux::niveaux_monde_1()[n].genre)
                         })
                     })
                     .collect()
@@ -1053,7 +1052,7 @@ fn ligne(t: &mut String, cellules: &[String], largeurs: &[usize]) {
 pub(crate) fn tableau(cases: &[Vec<Case>], graine: u64, essais: u32) -> String {
     let mut t = String::new();
     let profils: Vec<String> = PROFILS.iter().map(|p| p.nom.to_string()).collect();
-    let noms: Vec<String> = NIVEAUX
+    let noms: Vec<String> = niveaux::niveaux_monde_1()
         .iter()
         .map(|n| format!("{}. {}", n.numero, n.nom))
         .collect();
@@ -1172,7 +1171,7 @@ pub(crate) fn niveaux_a_signaler(cases: &[Vec<Case>]) -> Vec<(usize, u32, u32)> 
     cases
         .iter()
         .enumerate()
-        .filter(|(n, _)| NIVEAUX[*n].genre == GenreNiveau::Normal)
+        .filter(|(n, _)| niveaux::niveaux_monde_1()[*n].genre == GenreNiveau::Normal)
         .map(|(n, rang)| (n, rang[DEBUTANT].game_over, rang[DEBUTANT].essais))
         .filter(|&(_, k, e)| k * 100 > SEUIL_GAME_OVER_POUR_CENT * e)
         .collect()
@@ -1191,8 +1190,14 @@ pub(crate) fn parties_enchainees(cases: &[Vec<Case>], p: usize) -> Vec<u32> {
             cases
                 .iter()
                 .enumerate()
-                .filter(|(n, _)| NIVEAUX[*n].genre != GenreNiveau::Bonus)
-                .map(|(n, rang)| rejouer_vies(&mut vies, NIVEAUX[n].genre, &rang[p].evenements[e]))
+                .filter(|(n, _)| niveaux::niveaux_monde_1()[*n].genre != GenreNiveau::Bonus)
+                .map(|(n, rang)| {
+                    rejouer_vies(
+                        &mut vies,
+                        niveaux::niveaux_monde_1()[n].genre,
+                        &rang[p].evenements[e],
+                    )
+                })
                 .sum()
         })
         .collect()
@@ -1447,12 +1452,12 @@ pub(crate) fn ecarts_de_la_courbe(cases: &[Vec<Case>]) -> Vec<String> {
 
 /// Le niveau d'indice `n` de la table est-il le bonus ?
 fn est_bonus(n: usize) -> bool {
-    NIVEAUX[n].genre == GenreNiveau::Bonus
+    niveaux::niveaux_monde_1()[n].genre == GenreNiveau::Bonus
 }
 
 /// Le niveau d'indice `n` de la table est-il l'épilogue ?
 fn est_epilogue(n: usize) -> bool {
-    NIVEAUX[n].genre == GenreNiveau::Epilogue
+    niveaux::niveaux_monde_1()[n].genre == GenreNiveau::Epilogue
 }
 
 /// Nombre à deux décimales, virgule à la française : 0.456 -> « 0,46 ».
@@ -1599,14 +1604,16 @@ mod tests {
         }
         cases[1][DEBUTANT].game_over = 5; // 10,4 % : signalé
         cases[2][DEBUTANT].game_over = 4; // 8,3 % : non
-        let bonus = NIVEAUX.iter().position(|n| n.genre == GenreNiveau::Bonus);
+        let bonus = niveaux::niveaux_monde_1()
+            .iter()
+            .position(|n| n.genre == GenreNiveau::Bonus);
         if let Some(b) = bonus {
             cases[b][DEBUTANT].game_over = 40; // le bonus n'est jamais signalé
         }
         assert_eq!(niveaux_a_signaler(&cases), [(1, 5, 48)]);
         // Deux morts par niveau sur l'essai 0 : 2 x 11 niveaux du parcours (sans le
         // bonus, carte 8.2) = 22 morts = 4 game over ; l'essai 1, aucune.
-        let parcours = NIVEAUX
+        let parcours = niveaux::niveaux_monde_1()
             .iter()
             .filter(|n| n.genre != GenreNiveau::Bonus)
             .count();
@@ -1832,8 +1839,12 @@ mod tests {
         let debut = std::time::Instant::now();
         let itineraires = Itineraires::calculer(n);
         let itineraires = &itineraires;
-        let cases = essais_d_un_niveau(itineraires, rang_de_graine(n), NIVEAUX[n].genre);
-        println!("{}. {} :", n + 1, NIVEAUX[n].nom);
+        let cases = essais_d_un_niveau(
+            itineraires,
+            rang_de_graine(n),
+            niveaux::niveaux_monde_1()[n].genre,
+        );
+        println!("{}. {} :", n + 1, niveaux::niveaux_monde_1()[n].nom);
         for (profil, c) in PROFILS.iter().zip(&cases) {
             let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
             println!(
@@ -1864,14 +1875,13 @@ mod tests {
     #[test]
     #[ignore = "mesure de difficulté facultative (décision d'AGA, carte 6.5) : se lance à la main"]
     fn mesure_des_deux_boss() {
-        use pepin_core::levels::{cyclone, NIVEAUX as TOUTE_LA_TABLE};
         let indice = |cle: &str| {
-            TOUTE_LA_TABLE
+            niveaux::niveaux()
                 .iter()
                 .position(|n| n.cle == cle)
                 .unwrap_or_else(|| panic!("« {cle} » n'est pas dans la table"))
         };
-        let cyclone = indice(cyclone::INFOS.cle);
+        let cyclone = indice(niveaux::par_cle("cyclone").cle);
         // (indice dans la table, rang de graine)
         let arenes = [
             (cyclone, rang_de_graine(cyclone)),
@@ -1902,7 +1912,7 @@ mod tests {
                                         jouer_essai(itin, profil, graine_essai(GRAINE, p, rang, e))
                                     })
                                     .collect();
-                                bilan(&liste, TOUTE_LA_TABLE[n].genre)
+                                bilan(&liste, niveaux::niveaux()[n].genre)
                             })
                         })
                         .collect()
@@ -1916,10 +1926,10 @@ mod tests {
         println!("| --- | --- | --- | --- |");
         for (&(n, _), c) in arenes.iter().zip(&cases) {
             let morts: Vec<String> = c.iter().map(|c| centiemes(c.morts_moyennes)).collect();
-            println!("| {} | {} |", TOUTE_LA_TABLE[n].nom, morts.join(" | "));
+            println!("| {} | {} |", niveaux::niveaux()[n].nom, morts.join(" | "));
         }
         for (&(n, _), c) in arenes.iter().zip(&cases) {
-            println!("{} :", TOUTE_LA_TABLE[n].nom);
+            println!("{} :", niveaux::niveaux()[n].nom);
             for (profil, c) in PROFILS.iter().zip(c) {
                 let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
                 println!(
@@ -1950,9 +1960,8 @@ mod tests {
     #[test]
     #[ignore = "mesure de difficulté facultative (décision d'AGA, carte 6.5) : se lance à la main"]
     fn mesure_d_un_niveau_du_monde_2() {
-        use pepin_core::levels::NIVEAUX as TOUTE_LA_TABLE;
         let cle = std::env::var("CLE").unwrap_or_else(|_| "caniveau".to_string());
-        let n = TOUTE_LA_TABLE
+        let n = niveaux::niveaux()
             .iter()
             .position(|niveau| niveau.cle == cle)
             .unwrap_or_else(|| panic!("« {cle} » n'est pas dans la table"));
@@ -1967,8 +1976,12 @@ mod tests {
             debut.elapsed().as_secs_f32()
         );
         let itineraires = &itineraires;
-        let cases = essais_d_un_niveau(itineraires, rang, TOUTE_LA_TABLE[n].genre);
-        println!("{} ({}) :", TOUTE_LA_TABLE[n].nom, TOUTE_LA_TABLE[n].cle);
+        let cases = essais_d_un_niveau(itineraires, rang, niveaux::niveaux()[n].genre);
+        println!(
+            "{} ({}) :",
+            niveaux::niveaux()[n].nom,
+            niveaux::niveaux()[n].cle
+        );
         for (profil, c) in PROFILS.iter().zip(&cases) {
             let lieux: Vec<String> = regrouper(&c.lieux).iter().map(decrire).collect();
             println!(
@@ -2014,14 +2027,17 @@ mod tests {
         rangs.dedup();
         assert_eq!(rangs.len(), NB_NIVEAUX);
         let anciennes = [
-            toits::INFOS,
-            gouttieres::INFOS,
-            orage::INFOS,
-            vents::INFOS,
-            nuages::INFOS,
+            *niveaux::par_cle("toits"),
+            *niveaux::par_cle("gouttieres"),
+            *niveaux::par_cle("orage"),
+            *niveaux::par_cle("vents"),
+            *niveaux::par_cle("nuages"),
         ];
         for (place, infos) in anciennes.iter().enumerate() {
-            let n = NIVEAUX.iter().position(|i| i.nom == infos.nom).unwrap();
+            let n = niveaux::niveaux_monde_1()
+                .iter()
+                .position(|i| i.nom == infos.nom)
+                .unwrap();
             assert_eq!(rang_de_graine(n), place, "{}", infos.nom);
         }
     }
@@ -2031,10 +2047,22 @@ mod tests {
     fn la_forme_de_la_courbe_est_jugee() {
         // Les places jugées désignent bien le sommet (le boss), le niveau suivant,
         // la remontée et le final.
-        assert_eq!(NIVEAUX[SOMMET].nom, cyclone::INFOS.nom);
-        assert_eq!(NIVEAUX[APRES_SOMMET].nom, vents::INFOS.nom);
-        assert_eq!(NIVEAUX[REMONTEE].nom, mer::INFOS.nom);
-        assert_eq!(NIVEAUX[FINAL].nom, nuages::INFOS.nom);
+        assert_eq!(
+            niveaux::niveaux_monde_1()[SOMMET].nom,
+            niveaux::par_cle("cyclone").nom
+        );
+        assert_eq!(
+            niveaux::niveaux_monde_1()[APRES_SOMMET].nom,
+            niveaux::par_cle("vents").nom
+        );
+        assert_eq!(
+            niveaux::niveaux_monde_1()[REMONTEE].nom,
+            niveaux::par_cle("mer").nom
+        );
+        assert_eq!(
+            niveaux::niveaux_monde_1()[FINAL].nom,
+            niveaux::par_cle("nuages").nom
+        );
 
         // Monte jusqu'au boss (6), redescend au 7, remonte un peu au 8, calme au 9.
         let bonne = fausse_mesure(

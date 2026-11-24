@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 0,
+    cle: "essai_chat",
+    nom: "Essai chat",
+    theme: Toits,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 30,
+    intro: "Le chat endormi garde la goutte cachée : écrase-le pendant son sommeil.",
+    mecanique: "Attendre que le chat dorme, puis lui tomber dessus ; réveillé, le toucher tue.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+...........................######.........
+...........................######.........
+...........................######.........
+...........................######.........
+...........................######.........
+...........................######.........
+.....................L....o######.........
+....................######.######.........
+.@L.................######z..o....L...o..X
+##########################################
+##########################################
+"#,
+)

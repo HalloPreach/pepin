@@ -1,0 +1,111 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 2,
+    numero: 3,
+    cle: "cascade",
+    nom: "La grande cascade",
+    theme: Cascade,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 60,
+    intro: "L'eau ressort du grand tuyau au bord de la falaise et tombe de bassin en bassin.",
+    mecanique: "Les chutes d'eau : parapluie ouvert, on y descend lentement jusqu'au bassin du dessous ; parapluie fermé, elles emportent vite (et l'on se noie si un bassin attend en bas).",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+BBBBB...........................
+BBBBBBB.........................
+................................
+................................
+..@..G........................K.
+#######......o...............###
+BBBBBBB......................BBB
+BBBBBBB.........i....i.......BBB
+BBBBBBB~~~}}}}}}}}}}}}}}}}}||BBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBB||BBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBB||BBB
+BB||||.....................||BBB
+BB||||.....................||BBB
+BB||||.....................||BBB
+BB||||.....................||BBB
+..||||.....................||BBB
+..||||....L................||BBB
+.o||||########......i....i.||BBB
+BB||||BBBBBBBB{{{{{{{{{{{{{{{BBB
+BB||||BBBBBBBBBBBBBBBBBBBBBBBBBB
+BB||||BBBBBBBBBBBBBBBBBBBBBBBBBB
+BB||||BBBBBBBBBBBBBBBBBBBBBBBBBB
+BB||||BBBBBBBBBBBBBBBBBBBBBBBBBB
+BB||||BBBBBBBBBBBBBBBBBBBBBBBBBB
+BB||||................VBBBBBBBBB
+BB||||.........L......|BBBBBBBBB
+BB||||.......#########|BBBBBBBBB
+B}}}}}}}}}}}}BBBBBBBBB|BBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBB|BBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBB|BBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBB|BBBBBBBBB
+.......||......||.....|........B
+.......||......||..............B
+.......||......||..............B
+.......||......||..............B
+.......||......||.......L......B
+.......||......||.#########....B
+.......||.u....||..............B
+.......||.####.||..............B
+.......||......||..........##..B
+...L.u.||......||..............B
+..####.||......||..............B
+..BBBB.||......||............##B
+..BBBB.||......||..............B
+..BBBB.||......||..............B
+..BBBB.||......||........######B
+..BBBB}}}}}}}}}}}}}}}}}}}BBBBBBB
+..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+................V.............BB
+..............................BB
+..............................BB
+##...................i...i....BB
+BB~~~~~~~~~~~~~~~~}}}}}}}}}}||BB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBB||BB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBB||BB
+.....V......................||BB
+............................||BB
+............................||BB
+............................||BB
+.......k....................||BB
+..##########................||BB
+..BBBBBBBBBB~~~~~~~~~~~~~~~~~~BB
+..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+...............................B
+.L.............................B
+###}}}}}}}}||..................B
+BBBBBBBBBBB||..................B
+BBBBBBBBBBB||..................B
+BBBBBBBBBBB~~~~~~~~~~||........B
+BBBBBBBBBBBBBBBBBBBBB||........B
+BBBBBBBBBBBBBBBBBBBBB||..i..##.B
+BBBBBBBBBBBBBBBBBBBBB}}}}}}}BB.B
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.B
+...............................B
+...............................B
+...............................B
+...............j...j...........B
+...j...n...n...n...n...n.....L.B
+..##~~~~~~~~~~~~~~~~~~~~~~~####B
+..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+..........V....................B
+...............................B
+...............................B
+.....u.........................B
+######......o................X.B
+BBBBBB.............i.......####B
+BBBBBB}}}}}}}}}}}}}}}}}}}}}}}}}}
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

@@ -9,7 +9,7 @@
 //! Notion Rust : `Option::take` consomme la demande en attente (`self.suite`), ce
 //! qui garantit qu'une `Suite` ne s'applique qu'une fois.
 
-use pepin_core::levels::{self, GenreNiveau, NIVEAUX};
+use pepin_core::levels::{self, GenreNiveau};
 use pepin_core::state::EtatJeu;
 
 use crate::cosmetiques::Trainees;
@@ -70,7 +70,7 @@ impl Application {
         // ouvert : CONTINUER en premier (sélectionné), qui enchaîne sur le chapitre 2.
         if ecran == Ecran::Fin
             && self.bilan.monde == 1
-            && plan::monde_jouable(NIVEAUX, &self.sauvegarde, 2)
+            && plan::monde_jouable(niveaux::niveaux(), &self.sauvegarde, 2)
         {
             self.choix.insert(0, Choix::Continuer);
         }
@@ -117,7 +117,7 @@ impl Application {
         self.niveau_seul = false;
         self.fantome = None;
         self.resultat_niveau = None;
-        self.plan = EtatPlan::new(NIVEAUX, selection);
+        self.plan = EtatPlan::new(niveaux::niveaux(), selection);
         self.ouvrir(Ecran::Plan);
     }
 
@@ -146,7 +146,7 @@ impl Application {
             Suite::Niveau { indice, etat } => {
                 self.niveau_seul = false;
                 self.fantome = None;
-                if let (Some(n), true) = (NIVEAUX.get(indice), etat.is_some()) {
+                if let (Some(n), true) = (niveaux::niveaux().get(indice), etat.is_some()) {
                     // Atteint pendant une partie : ouvert sur la carte des niveaux.
                     self.sauvegarde.noter_niveau_atteint(n.cle);
                     self.sauvegarde.enregistrer();
@@ -174,7 +174,9 @@ impl Application {
                 // JOUER (carte 8.4) ; chaque niveau n'est chargé ainsi qu'une fois par
                 // partie (« recommencer » et « plus de vies » passent par `relancer`),
                 // donc chaque image n'est vue qu'une fois.
-                match histoire::chapitre_avant(NIVEAUX, indice).filter(|_| self.partie_racontee) {
+                match histoire::chapitre_avant(niveaux::niveaux(), indice)
+                    .filter(|_| self.partie_racontee)
+                {
                     Some(chapitre) => {
                         self.histoire_depuis_titre = false;
                         self.ouvrir(Ecran::Histoire(chapitre));
@@ -251,8 +253,10 @@ impl Application {
                 };
                 // Bonus de fin de partie (carte 7.3) : chaque ligne n'est créditée que
                 // la première fois qu'elle est gagnée (carte 7.9).
-                let parcours =
-                    levels::gouttes_du_parcours(levels::niveaux_du_monde(NIVEAUX, monde));
+                let parcours = levels::gouttes_du_parcours(levels::niveaux_du_monde(
+                    niveaux::niveaux(),
+                    monde,
+                ));
                 let toutes = self.bilan.gouttes >= parcours;
                 self.bonus_fin = defis::bonus_fin_du_monde(monde, !self.game_over_partie, toutes);
                 defis::crediter_bonus_fin(&mut self.sauvegarde, &mut self.bonus_fin);
@@ -342,10 +346,10 @@ impl Application {
 /// cours de monde. Le bonus et l'épilogue ne comptent pas (le bonus a son compteur à
 /// part). Vaut 0 au premier niveau d'un monde, comme une partie neuve.
 fn gouttes_deja_trouvees(s: &Sauvegarde, indice: usize) -> u32 {
-    let Some(n) = NIVEAUX.get(indice) else {
+    let Some(n) = niveaux::niveaux().get(indice) else {
         return 0;
     };
-    NIVEAUX[..indice]
+    niveaux::niveaux()[..indice]
         .iter()
         .filter(|m| m.monde == n.monde && m.genre == GenreNiveau::Normal)
         .map(|m| s.progres(m.cle).gouttes.iter().filter(|&&g| g).count() as u32)

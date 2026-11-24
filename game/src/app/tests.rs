@@ -2,8 +2,7 @@
 
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::Entite;
-use pepin_core::levels::NB_NIVEAUX_MONDE_1;
-use pepin_core::levels::{self, Apres, GenreNiveau, NB_NIVEAUX, NIVEAUX};
+use pepin_core::levels::{self, Apres, GenreNiveau};
 use pepin_core::player::Entrees;
 use pepin_core::state::EtatJeu;
 use pepin_core::state::POINTS_GOUTTE;
@@ -112,7 +111,10 @@ fn jouer_reprend_la_ou_on_en_est() {
     app.reagir(&valider(), &Commandes::default(), None);
     jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
     assert_eq!(app.monde.infos.monde, 2);
-    assert_eq!(Some(app.monde.indice), levels::debut_monde(NIVEAUX, 2));
+    assert_eq!(
+        Some(app.monde.indice),
+        levels::debut_monde(niveaux::niveaux(), 2)
+    );
     // AGA : trois niveaux du Monde 2 finis, JOUER reprend au 4e (pas au 1er).
     let mut app = Application::new(true);
     app.sauvegarde = Sauvegarde::depuis_texte(
@@ -124,18 +126,18 @@ fn jouer_reprend_la_ou_on_en_est() {
     assert_eq!(app.monde.infos.monde, 2);
     assert_eq!(
         app.monde.indice,
-        levels::debut_monde(NIVEAUX, 2).unwrap() + 3
+        levels::debut_monde(niveaux::niveaux(), 2).unwrap() + 3
     );
     // AGA : les gouttes déjà trouvées dans les niveaux d'avant restent comptées.
     let mut app = Application::new(true);
     app.sauvegarde = Sauvegarde::depuis_texte(
         "version=3\nparties_finies=1\nniveau.poursuite=medaille:1\nniveau.caniveau=medaille:1\nniveau.egouts=medaille:1\nniveau.cascade=medaille:1",
     );
-    let d = levels::debut_monde(NIVEAUX, 2).unwrap();
-    if let Some(p) = app.sauvegarde.progres_mut(NIVEAUX[d].cle) {
+    let d = levels::debut_monde(niveaux::niveaux(), 2).unwrap();
+    if let Some(p) = app.sauvegarde.progres_mut(niveaux::niveaux()[d].cle) {
         p.gouttes = [true, true, false];
     }
-    if let Some(p) = app.sauvegarde.progres_mut(NIVEAUX[d + 2].cle) {
+    if let Some(p) = app.sauvegarde.progres_mut(niveaux::niveaux()[d + 2].cle) {
         p.gouttes = [true, false, false];
     }
     app.ouvrir(Ecran::Titre);
@@ -151,7 +153,8 @@ fn jouer_reprend_la_ou_on_en_est() {
     let mut app = Application::new(true);
     app.sauvegarde = Sauvegarde::depuis_texte(&format!(
         "version=3\nniveau.{}=medaille:1\nniveau.{}=medaille:1",
-        NIVEAUX[0].cle, NIVEAUX[1].cle
+        niveaux::niveaux()[0].cle,
+        niveaux::niveaux()[1].cle
     ));
     app.ouvrir(Ecran::Titre);
     app.reagir(&valider(), &Commandes::default(), None);
@@ -459,7 +462,7 @@ fn finir_un_niveau_garde_le_score_et_ouvre_le_suivant() {
 #[test]
 fn finir_le_dernier_niveau_ouvre_l_ecran_de_fin_avec_le_bilan() {
     let mut app = en_jeu();
-    let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
+    let (monde, camera) = charger(niveaux::NB_NIVEAUX_MONDE_1 - 1, None);
     app.monde = monde;
     app.camera = camera;
     app.monde.etat.gouttes = 9;
@@ -493,7 +496,7 @@ fn finir_le_dernier_niveau_ouvre_l_ecran_de_fin_avec_le_bilan() {
 fn finir_le_monde_1_enchaine_sur_le_monde_2() {
     let mut app = en_jeu();
     app.sauvegarde = Sauvegarde::depuis_texte("version=3\nniveau.poursuite=medaille:1");
-    let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
+    let (monde, camera) = charger(niveaux::NB_NIVEAUX_MONDE_1 - 1, None);
     app.monde = monde;
     app.camera = camera;
     app.monde.termine = true;
@@ -507,7 +510,10 @@ fn finir_le_monde_1_enchaine_sur_le_monde_2() {
     app.reagir(&valider(), &Commandes::default(), None);
     jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
     assert_eq!(app.monde.infos.monde, 2);
-    assert_eq!(Some(app.monde.indice), levels::debut_monde(NIVEAUX, 2));
+    assert_eq!(
+        Some(app.monde.indice),
+        levels::debut_monde(niveaux::niveaux(), 2)
+    );
 }
 
 #[test]
@@ -719,7 +725,7 @@ fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
     );
     assert!(!app.transition.est_active());
     // « Suivant » jusqu'au dernier niveau, en passant par tous.
-    for attendu in 1..NB_NIVEAUX {
+    for attendu in 1..niveaux::NB_NIVEAUX {
         app.reagir(
             &rien(),
             &Commandes::default(),
@@ -741,15 +747,15 @@ fn les_raccourcis_suivant_et_precedent_parcourent_la_table() {
         Some(RaccourciNiveau::Precedent),
     );
     jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
-    assert_eq!(app.monde.indice, NB_NIVEAUX - 2);
+    assert_eq!(app.monde.indice, niveaux::NB_NIVEAUX - 2);
 }
 
 /// Chaque niveau terminé mène là où le dit `levels::apres` (avec les gouttes de la
 /// partie) : le niveau suivant, ou l'écran de fin.
 #[test]
 fn la_suite_de_chaque_niveau_suit_la_table() {
-    for indice in 0..NB_NIVEAUX {
-        for gouttes in [0, levels::gouttes_pour_le_bonus(NIVEAUX)] {
+    for indice in 0..niveaux::NB_NIVEAUX {
+        for gouttes in [0, levels::gouttes_pour_le_bonus(niveaux::niveaux())] {
             let mut app = en_jeu();
             let (monde, camera) = charger(indice, None);
             app.monde = monde;
@@ -757,7 +763,7 @@ fn la_suite_de_chaque_niveau_suit_la_table() {
             app.monde.etat.gouttes = gouttes;
             app.monde.termine = true;
             avancer(&mut app, 1);
-            match levels::apres(NIVEAUX, indice, gouttes) {
+            match levels::apres(niveaux::niveaux(), indice, gouttes) {
                 Apres::Niveau(j) => {
                     jusqu_a(&mut app, |e| matches!(e, Ecran::Carte(_)));
                     assert_eq!(app.monde.indice, j);
@@ -777,7 +783,7 @@ fn la_suite_de_chaque_niveau_suit_la_table() {
 /// bonus à part s'il a été joué.
 #[test]
 fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes_puis_l_epilogue() {
-    use pepin_core::levels::{arc, descente, nb_normaux};
+    use pepin_core::levels::nb_normaux;
     for (gouttes, bonus) in [(30, true), (29, false), (0, false)] {
         let mut app = en_jeu();
         let (monde, camera) = charger(9, None);
@@ -791,10 +797,10 @@ fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes_puis_l_epilogue(
         let mut gouttes_finales = gouttes;
         if bonus {
             assert_eq!(app.monde.indice, 10);
-            assert_eq!(app.monde.infos.nom, arc::INFOS.nom);
+            assert_eq!(app.monde.infos.nom, niveaux::par_cle("arc").nom);
             assert_eq!(app.monde.infos.genre, GenreNiveau::Bonus);
             assert_eq!(
-                contenu::etiquette_niveau(app.monde.infos, nb_normaux(NIVEAUX)),
+                contenu::etiquette_niveau(app.monde.infos, nb_normaux(niveaux::niveaux())),
                 "NIVEAU BONUS"
             );
             // Le bonus fini avec 2 de ses gouttes (32 dans la partie) : l'épilogue.
@@ -808,10 +814,10 @@ fn apres_le_neuvieme_le_bonus_seulement_avec_toutes_les_gouttes_puis_l_epilogue(
             gouttes_finales = 32;
         }
         assert_eq!(app.monde.indice, 11);
-        assert_eq!(app.monde.infos.nom, descente::INFOS.nom);
+        assert_eq!(app.monde.infos.nom, niveaux::par_cle("descente").nom);
         assert_eq!(app.monde.infos.genre, GenreNiveau::Epilogue);
         assert_eq!(
-            contenu::etiquette_niveau(app.monde.infos, nb_normaux(NIVEAUX)),
+            contenu::etiquette_niveau(app.monde.infos, nb_normaux(niveaux::niveaux())),
             "ÉPILOGUE"
         );
         assert_eq!(app.monde.etat.gouttes, gouttes_finales, "gouttes gardées");
@@ -1022,7 +1028,7 @@ fn focus_perdu_pendant_les_volets_de_recommencer() {
 #[test]
 fn focus_perdu_en_allant_vers_la_fin_aucune_pause_plus_tard() {
     let mut app = en_jeu();
-    let (monde, camera) = charger(NB_NIVEAUX_MONDE_1 - 1, None);
+    let (monde, camera) = charger(niveaux::NB_NIVEAUX_MONDE_1 - 1, None);
     app.monde = monde;
     app.camera = camera;
     app.monde.termine = true;
@@ -1100,7 +1106,10 @@ fn aller_au_niveau(app: &mut Application, indice: usize, etat: EtatJeu) {
 }
 
 fn indice_de(nom: &str) -> usize {
-    NIVEAUX.iter().position(|n| n.nom == nom).unwrap()
+    niveaux::niveaux()
+        .iter()
+        .position(|n| n.nom == nom)
+        .unwrap()
 }
 
 /// Carte 7.9 : REJOUER un niveau ne recrédite rien. La descente finie avec ses
@@ -1280,7 +1289,7 @@ fn focus_perdu_ou_pause_pendant_plus_de_vies_la_pause_attend_le_niveau() {
 fn plus_de_vies_rend_au_grand_nuage_ses_trois_points_de_vie() {
     let mut app = en_jeu();
     let etat = app.monde.etat.clone();
-    aller_au_niveau(&mut app, indice_de(levels::cyclone::INFOS.nom), etat);
+    aller_au_niveau(&mut app, indice_de(niveaux::par_cle("cyclone").nom), etat);
     assert_eq!(app.monde.pv_nuage(), Some(3));
     for e in &mut app.monde.entites {
         if let Entite::Nuage(g) = e {
@@ -1309,7 +1318,7 @@ fn plus_de_vies_rend_au_grand_nuage_ses_trois_points_de_vie() {
 fn le_niveau_bonus_ne_coute_aucune_vie() {
     let mut app = en_jeu();
     let etat = app.monde.etat.clone();
-    let bonus = NIVEAUX
+    let bonus = niveaux::niveaux()
         .iter()
         .position(|n| n.genre == GenreNiveau::Bonus)
         .unwrap();
@@ -1386,7 +1395,7 @@ fn recommencer_ne_rend_pas_les_vies_perdues() {
 fn le_bilan_garde_les_vies_restantes() {
     let mut app = en_jeu();
     let etat = app.monde.etat.clone();
-    aller_au_niveau(&mut app, NB_NIVEAUX_MONDE_1 - 1, etat);
+    aller_au_niveau(&mut app, niveaux::NB_NIVEAUX_MONDE_1 - 1, etat);
     tomber(&mut app);
     app.monde.termine = true;
     avancer(&mut app, 1);
@@ -1451,7 +1460,7 @@ fn jouer_montre_la_premiere_image_avant_le_niveau_1() {
 #[test]
 fn une_partie_montre_les_trois_images_une_fois_chacune() {
     // Toutes les gouttes du MONDE 1 (carte 9.6 : pas celles de toute la table).
-    let toutes = levels::gouttes_pour_le_bonus(levels::NIVEAUX_MONDE_1);
+    let toutes = levels::gouttes_pour_le_bonus(niveaux::niveaux_monde_1());
     for gouttes in [0, toutes] {
         let mut app = Application::new(true);
         app.reagir(&valider(), &Commandes::default(), None);
@@ -1483,13 +1492,13 @@ fn une_partie_montre_les_trois_images_une_fois_chacune() {
                 break;
             }
         }
-        let indice_de_la_suite_du_boss = indice_de(levels::cyclone::INFOS.nom) + 1;
+        let indice_de_la_suite_du_boss = indice_de(niveaux::par_cle("cyclone").nom) + 1;
         assert_eq!(
             vues,
             vec![
                 (Chapitre::Depart, 0),
                 (Chapitre::Lueur, indice_de_la_suite_du_boss),
-                (Chapitre::Soleil, NB_NIVEAUX_MONDE_1 - 1),
+                (Chapitre::Soleil, niveaux::NB_NIVEAUX_MONDE_1 - 1),
             ],
             "gouttes : {gouttes}"
         );
@@ -1507,7 +1516,7 @@ fn rejouer_et_les_raccourcis_ne_racontent_pas_l_histoire() {
     app.reagir(&valider(), &Commandes::default(), None);
     assert_eq!(image_suivante(&mut app), None, "REJOUER");
     let mut app = en_jeu();
-    let descente = NB_NIVEAUX_MONDE_1 - 1;
+    let descente = niveaux::NB_NIVEAUX_MONDE_1 - 1;
     app.reagir(
         &rien(),
         &Commandes::default(),

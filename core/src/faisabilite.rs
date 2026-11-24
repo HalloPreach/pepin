@@ -182,6 +182,35 @@ pub struct Rapport {
     pub x_max: f32,
     /// Position `(x, y)` de l'état stable le plus à droite.
     pub dernier_etat: (f32, f32),
+    /// Carte 10.3c (robot de l'éditeur) : les états stables (coin haut gauche
+    /// de Pépin, en px) du départ jusqu'au plan qui touche l'arrivée, sur le
+    /// trajet le plus rapide trouvé ; sans arrivée, jusqu'à `dernier_etat`.
+    /// Seuls les points de décision y sont : entre deux points, un saut.
+    pub chemin: Vec<(f32, f32)>,
+}
+
+/// D'où vient chaque état : sa position et la clé de l'état d'avant (`None` : le
+/// départ). Une table de « parents », comme dans tout parcours de graphe.
+type Origines = HashMap<CleNoeud, ((f32, f32), Option<CleNoeud>)>;
+
+/// Remonte les parents depuis `cle` jusqu'au départ, puis remet le chemin dans
+/// l'ordre. La boucle est bornée par la taille de la table : même une table
+/// fautive (un cycle) ne la ferait pas tourner sans fin.
+fn remonter(origines: &Origines, cle: CleNoeud) -> Vec<(f32, f32)> {
+    let mut chemin = Vec::new();
+    let mut courante = Some(cle);
+    while let Some(k) = courante {
+        let Some(&(position, avant)) = origines.get(&k) else {
+            break;
+        };
+        chemin.push(position);
+        if chemin.len() > origines.len() {
+            break;
+        }
+        courante = avant;
+    }
+    chemin.reverse();
+    chemin
 }
 
 /// Paramètres d'un plan d'entrées.
@@ -673,6 +702,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         etats: 0,
         x_max: depart.0,
         dernier_etat: depart,
+        chemin: Vec::new(),
     };
     // Dijkstra sur la durée : `meilleur` retient le coût (en pas) le plus bas
     // connu pour chaque case de 8 px (et chaque genre de noeud : posé ou lancé) ;
@@ -693,6 +723,13 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         ..Noeud::pose(depart.0, depart.1, 0)
     };
     meilleur.insert(cle_de(n0), 0);
+    // Carte 10.3c : les parents, pour redessiner le chemin dans l'éditeur. Le
+    // plan qui touche l'arrivée part de l'état `cle_arrivee` ; `cle_dernier` est
+    // l'état le plus à droite (le chemin d'un échec).
+    let mut origines: Origines = HashMap::new();
+    origines.insert(cle_de(n0), (depart, None));
+    let mut cle_arrivee: Option<CleNoeud> = None;
+    let mut cle_dernier = cle_de(n0);
     tas.push(Reverse((
         0,
         depart.0.to_bits(),
@@ -722,9 +759,11 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             continue; // version périmée : un chemin plus court existe
         }
         rapport.etats += 1;
+        let cle_ici = cle_de(noeud);
         if etat.0 > rapport.x_max {
             rapport.x_max = etat.0;
             rapport.dernier_etat = etat;
+            cle_dernier = cle_ici;
         }
         let a_essayer = if lance { &plans_lance } else { &tous_les_plans };
         // Chaque plan est simulé à part, sur les cœurs libres (`parallele`), puis
@@ -807,6 +846,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 let k = cle_de(arrive);
                 if meilleur.get(&k).is_none_or(|&c| cout < c) {
                     meilleur.insert(k, cout);
+                    origines.insert(k, ((arrive.x, arrive.y), Some(cle_ici)));
                     tas.push(Reverse((
                         cout,
                         arrive.x.to_bits(),
@@ -824,8 +864,10 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                     let mieux = rapport.pas_arrivee.is_none_or(|p| cout_plan < p);
                     if mieux {
                         rapport.pas_arrivee = Some(cout_plan);
+                        cle_arrivee = Some(cle_ici);
                     }
                     if options.jusqu_a_l_arrivee {
+                        rapport.chemin = remonter(&origines, cle_ici);
                         return rapport;
                     }
                 }
@@ -939,6 +981,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             }
         }
     }
+    rapport.chemin = remonter(&origines, cle_arrivee.unwrap_or(cle_dernier));
     rapport
 }
 
@@ -1205,6 +1248,22 @@ mod tests {
     fn passe(trou: usize, marche: usize, options: Options) -> bool {
         let n = niveau_a_trou(trou, marche);
         analyser(&n, n.depart, options).arrivee
+    }
+
+    /// Carte 10.3c : le chemin part du départ et avance jusqu'à l'élan du saut
+    /// final ; en cas d'échec, il finit sur l'état le plus à droite.
+    #[test]
+    fn le_chemin_va_du_depart_vers_l_arrivee_ou_l_endroit_bloquant() {
+        let n = niveau_a_trou(2, 0);
+        let r = analyser(&n, n.depart, Options::default());
+        assert!(r.arrivee);
+        assert_eq!(r.chemin.first(), Some(&n.depart));
+        assert!(r.chemin.len() >= 2, "{:?}", r.chemin);
+        let n = niveau_a_trou(14, 0);
+        let r = analyser(&n, n.depart, Options::default());
+        assert!(!r.arrivee);
+        assert_eq!(r.chemin.first(), Some(&n.depart));
+        assert_eq!(r.chemin.last(), Some(&r.dernier_etat));
     }
 
     #[test]

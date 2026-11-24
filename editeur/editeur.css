@@ -1,0 +1,51 @@
+/* Éditeur de niveaux de PÉPIN (carte 10.3a) : mise en page en trois colonnes. */
+* { box-sizing: border-box; }
+body { margin: 0; font: 13px/1.35 system-ui, sans-serif; background: #151824; color: #e4e6ee; height: 100vh; display: flex; flex-direction: column; }
+header { display: flex; gap: 12px; align-items: center; padding: 6px 10px; background: #232838; border-bottom: 1px solid #343a50; }
+header strong { color: #f0c020; }
+#etat { margin-left: auto; color: #9aa0b8; }
+main { flex: 1; display: flex; min-height: 0; }
+aside { width: 250px; overflow-y: auto; padding: 6px 10px; background: #1b1f2c; }
+#proprietes { width: 300px; border-left: 1px solid #343a50; }
+#outils { border-right: 1px solid #343a50; }
+h2 { font-size: 13px; margin: 10px 0 4px; color: #f0c020; text-transform: uppercase; letter-spacing: .05em; }
+h3 { font-size: 12px; margin: 10px 0 2px; }
+button, .bouton, select, input, textarea { font: inherit; color: inherit; background: #2c3248; border: 1px solid #454c68; border-radius: 3px; padding: 2px 6px; }
+button, .bouton { cursor: pointer; }
+button:hover, .bouton:hover { background: #3a4260; }
+button.actif { background: #f0c020; color: #151824; }
+#centre { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#defilement { flex: 1; overflow: auto; background: #0e1018; }
+canvas { display: block; image-rendering: pixelated; cursor: crosshair; }
+#sous-la-souris { padding: 3px 10px; background: #232838; font-family: monospace; }
+#avertissements { margin: 0; padding: 4px 10px 6px 28px; max-height: 110px; overflow-y: auto; background: #1b1f2c; color: #f0b060; }
+#avertissements li.erreur { color: #ff7070; }
+#avertissements li.ok { color: #70e090; list-style: none; margin-left: -18px; }
+.palette { display: flex; flex-wrap: wrap; gap: 3px; }
+.palette button { width: 30px; height: 30px; padding: 0; font: bold 14px monospace; border: 2px solid transparent; }
+.palette button.actif { border-color: #fff; outline: 2px solid #f0c020; }
+#choisie { font-family: monospace; }
+.grille-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 4px; }
+.grille-boutons span { grid-column: span 2; color: #9aa0b8; }
+#taille { font-family: monospace; }
+form label { display: block; margin: 4px 0; }
+form input:not([type=checkbox]), form select, form textarea { display: block; width: 100%; }
+table { width: 100%; border-collapse: collapse; }
+td input { width: 100%; }
+th { font-weight: normal; color: #9aa0b8; text-align: left; }
+#commentaires { font-family: monospace; white-space: pre-wrap; color: #9aa0b8; font-size: 11px; }
+/* Carte 10.3b : bouton TESTER, verdict du chargeur Rust, cadre de l'essai. */
+button.tester { background: #2f7a3a; border-color: #4fae5c; font-weight: bold; }
+button.tester:hover { background: #3c9649; }
+#verdict { padding: 4px 10px; background: #3a1820; color: #ff9090; font-family: monospace; white-space: pre-wrap; }
+#verdict.ok { background: #183a24; color: #80f0a0; }
+#essai { position: fixed; inset: 0; z-index: 10; background: #000; display: flex; flex-direction: column; }
+#essai[hidden] { display: none; }
+#essai.cache { visibility: hidden; }
+#essai-barre { padding: 3px 10px; background: #232838; color: #9aa0b8; }
+#essai iframe { flex: 1; border: 0; width: 100%; }
+/* Carte 10.3c : le robot de faisabilité. */
+button.robot { background: #2a4f86; border-color: #4a7cc0; font-weight: bold; }
+button.robot:hover { background: #3562a4; }
+#robot-resultat { padding: 4px 10px; background: #1a2840; color: #a0c8ff; font-family: monospace; white-space: pre-wrap; }
+#robot-resultat.echec { background: #3a2a10; color: #ffc070; }

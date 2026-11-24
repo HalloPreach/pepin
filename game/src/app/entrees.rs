@@ -9,7 +9,7 @@
 //! par `use crate::entrees`), jamais ce sous-module.
 
 use pepin_core::lettres;
-use pepin_core::levels::{self, NB_NIVEAUX, NIVEAUX};
+use pepin_core::levels;
 
 use crate::boutique::{self, EtatBoutique};
 use crate::course::Force;
@@ -106,13 +106,16 @@ impl Application {
             }
             Ecran::Plan => {
                 let zones = ecran_plan::MiseEnPage;
-                match self.plan.reagir(nav, NIVEAUX, &self.sauvegarde, &zones) {
+                match self
+                    .plan
+                    .reagir(nav, niveaux::niveaux(), &self.sauvegarde, &zones)
+                {
                     ActionPlan::Rien => {}
                     ActionPlan::Quitter => self.retour_titre_sur(Choix::Carte),
                     // Boss à proposer en facile (carte 8.14) : la bannière d'abord.
                     ActionPlan::Jouer(indice)
                         if mode_facile::proposer(&plan::progres(
-                            NIVEAUX,
+                            niveaux::niveaux(),
                             &self.sauvegarde,
                             indice,
                         )) =>
@@ -171,9 +174,9 @@ impl Application {
             Ecran::Jeu => {
                 if commandes.pause {
                     self.ouvrir(Ecran::Pause);
-                } else if let Some(indice) = raccourci
-                    .and_then(|r| entrees::cible_raccourci(r, self.monde.indice, NB_NIVEAUX))
-                {
+                } else if let Some(indice) = raccourci.and_then(|r| {
+                    entrees::cible_raccourci(r, self.monde.indice, niveaux::NB_NIVEAUX)
+                }) {
                     // Raccourci du build de QA : une partie sans histoire.
                     self.partie_racontee = false;
                     self.lancer(Suite::Niveau { indice, etat: None });
@@ -280,10 +283,14 @@ impl Application {
                 // JOUER reprend donc TOUJOURS au niveau le plus avancé déjà ouvert (celui
                 // que la carte montre comme « où l'on en est »), dans les deux mondes.
                 // REJOUER et NOUVELLE PARTIE + repartent du début du monde.
-                let debut = levels::debut_monde(NIVEAUX, monde).unwrap_or(0);
+                let debut = levels::debut_monde(niveaux::niveaux(), monde).unwrap_or(0);
                 let indice = if choix == Choix::Jouer {
                     plan::selon_la_vraie_progression(|| {
-                        plan::EtatPlan::ou_on_en_est_du_monde(NIVEAUX, &self.sauvegarde, monde)
+                        plan::EtatPlan::ou_on_en_est_du_monde(
+                            niveaux::niveaux(),
+                            &self.sauvegarde,
+                            monde,
+                        )
                     })
                 } else {
                     debut
@@ -305,7 +312,7 @@ impl Application {
             // Depuis le titre : la carte, sur le niveau où l'on en est. Depuis la pause
             // ou le bilan d'un niveau joué seul : retour à la carte, derrière les volets.
             Choix::Carte if self.ecran == Ecran::Titre => {
-                self.ouvrir_plan(EtatPlan::ou_on_en_est(NIVEAUX, &self.sauvegarde))
+                self.ouvrir_plan(EtatPlan::ou_on_en_est(niveaux::niveaux(), &self.sauvegarde))
             }
             // Choix de la force (carte 8.7) : la carte telle qu'on l'a laissée.
             Choix::Carte if self.ecran == Ecran::ChoixForce => self.ouvrir(Ecran::Plan),

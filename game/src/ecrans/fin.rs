@@ -14,7 +14,7 @@
 //! fenêtre ; `dessiner` ne fait que la suivre.
 
 use pepin_core::lettres::{self, NB_LETTRES};
-use pepin_core::levels::{self, GenreNiveau, NIVEAUX};
+use pepin_core::levels::{self, GenreNiveau};
 use pepin_core::palette::{
     ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE, BRUME, CORAIL_CLAIR,
     OR, OR_PALE, PLUIE,
@@ -62,7 +62,7 @@ pub struct Bilan {
 
 /// Les niveaux du monde de la partie (carte 9.1) : avec le seul Monde 1, toute la table.
 fn niveaux_de_la_partie(bilan: &Bilan) -> &'static [InfosNiveau] {
-    levels::niveaux_du_monde(NIVEAUX, bilan.monde.max(1))
+    levels::niveaux_du_monde(niveaux::niveaux(), bilan.monde.max(1))
 }
 
 impl Bilan {

@@ -380,7 +380,6 @@ pub(crate) fn objet_pose(nom_tuile: &str) -> Option<&'static str> {
 mod tests_bouche_d_egout {
     use super::*;
     use pepin_core::aabb::TAILLE_TUILE;
-    use pepin_core::levels::caniveau;
 
     /// Carte 9.20a : dans le caniveau, la bordure au bout du dernier courant (deux
     /// tuiles de fond) est la bouche d'égout, et le drapeau est planté sur sa grille ;
@@ -389,7 +388,7 @@ mod tests_bouche_d_egout {
     /// est à la hauteur de son eau, plus à celle du départ.)
     #[test]
     fn la_sortie_du_caniveau_est_la_bouche_d_egout() {
-        let niveau = caniveau::INFOS.charger().expect("caniveau");
+        let niveau = niveaux::par_cle("caniveau").charger().expect("caniveau");
         let bas = niveau.hauteur() as i32;
         let vue = |x: i32, y: i32| {
             if y >= bas {
@@ -444,7 +443,6 @@ mod tests_bouche_d_egout {
 #[cfg(test)]
 mod tests_quai_du_port {
     use super::*;
-    use pepin_core::levels::port;
 
     /// Carte 9.11b : le mur du quai du port n'est plus uniforme. Dans « Le port »,
     /// chaque nom choisi a son dessin ; la rangée de l'eau est en pierre aux algues
@@ -453,7 +451,7 @@ mod tests_quai_du_port {
     /// barbacanes et pierres ordinaires.
     #[test]
     fn le_mur_du_quai_varie_et_ses_echelles_descendent_a_l_eau() {
-        let niveau = port::INFOS.charger().expect("port");
+        let niveau = niveaux::par_cle("port").charger().expect("port");
         let (larg, bas) = (niveau.largeur() as i32, niveau.hauteur() as i32);
         let vue = |x: i32, y: i32| {
             if y >= bas {

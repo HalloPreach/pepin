@@ -362,9 +362,9 @@ mod tests {
     /// briques qui reçoivent la bande d'ombre d'un toit.
     #[test]
     fn variantes_et_ombres_dans_les_vrais_niveaux() {
-        use pepin_core::zones::{Theme, NIVEAUX};
+        use pepin_core::zones::Theme;
         let (mut pleines, mut variantes) = (0, 0);
-        for infos in NIVEAUX {
+        for infos in niveaux::niveaux() {
             let n = infos.charger().unwrap();
             let mut ombres = 0;
             for ty in 0..n.hauteur() as i32 {

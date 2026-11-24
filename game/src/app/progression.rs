@@ -6,7 +6,7 @@
 //! La caméra et les effets du pas sont branchés dans `camera_effets.rs`, les
 //! changements d'écran qui suivent dans `transitions.rs`.
 
-use pepin_core::levels::{self, Apres, GenreNiveau, NIVEAUX};
+use pepin_core::levels::{self, Apres, GenreNiveau};
 use pepin_core::player::Entrees;
 
 use crate::course;
@@ -123,7 +123,11 @@ impl Application {
             // Niveau suivant (le score est gardé), en sautant le bonus s'il manque des
             // gouttes ; après l'épilogue ou le dernier niveau : l'écran de fin.
             self.lancer(
-                match levels::apres(NIVEAUX, self.monde.indice, self.monde.etat.gouttes) {
+                match levels::apres(
+                    niveaux::niveaux(),
+                    self.monde.indice,
+                    self.monde.etat.gouttes,
+                ) {
                     Apres::Niveau(indice) => Suite::Niveau {
                         indice,
                         etat: Some(self.monde.etat.clone()),

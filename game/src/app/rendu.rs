@@ -4,7 +4,7 @@
 //!
 //! Seul endroit d'`app` qui appelle macroquad : tout le reste se teste sans fenêtre.
 
-use pepin_core::levels::{GenreNiveau, NIVEAUX};
+use pepin_core::levels::GenreNiveau;
 use pepin_core::physics::HZ;
 
 use crate::course;
@@ -61,7 +61,7 @@ impl Application {
             Ecran::ChoixForce => {
                 ecran_plan::dessiner(banque, self.skin, self.anim, &self.sauvegarde, &self.plan);
                 course_force::dessiner(
-                    &NIVEAUX[self.plan.selection],
+                    &niveaux::niveaux()[self.plan.selection],
                     &self.sauvegarde,
                     &self.choix,
                     &libelles,

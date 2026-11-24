@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 0,
+    cle: "essai_vent",
+    nom: "Essai vent",
+    theme: Soleil,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 30,
+    intro: "Le vent latéral vous pousse de 60 px par seconde. Parapluie ouvert, il devient deux fois plus fort : 120 px par seconde.",
+    mecanique: "Planer avec le vent pour prolonger la traversée du vide. Parapluie fermé pour le résister.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+....................................
+....................................
+....................................
+............>>>>>>>>>>>>............
+............>>>>>>>>>>>>............
+............>>>>>>>>>>>>............
+....................................
+..@o.....L................L...L.ooX.
+############............############
+############............############
+############............############
+"#,
+)

@@ -326,7 +326,6 @@ mod tests {
     use pepin_core::physics::HZ;
     use pepin_core::player::Entrees;
     // La course contre le robot est celle du MONDE 1 seulement (carte 9.6).
-    use pepin_core::levels::NIVEAUX_MONDE_1 as NIVEAUX;
 
     /// Chaque partie embarquée, rejouée dans la vraie simulation comme le fait le jeu,
     /// touche le drapeau au pas prévu, avec les morts prévues et sans jamais être
@@ -398,7 +397,7 @@ mod tests {
         );
         // Un fil par niveau (`thread::scope`) ; les résultats gardent l'ordre de la table.
         let parties: Vec<Vec<PartieTrouvee>> = std::thread::scope(|portee| {
-            let fils: Vec<_> = (0..NIVEAUX.len())
+            let fils: Vec<_> = (0..niveaux::niveaux_monde_1().len())
                 .map(|indice| {
                     portee.spawn(move || {
                         let Some(itin) = Itineraires::tenter(indice) else {
@@ -418,7 +417,7 @@ mod tests {
             fils.into_iter().map(|f| f.join().unwrap()).collect()
         });
         let mut total = 0;
-        for (n, liste) in NIVEAUX.iter().zip(&parties) {
+        for (n, liste) in niveaux::niveaux_monde_1().iter().zip(&parties) {
             if liste.is_empty() {
                 println!(
                     "{} : AUCUNE partie (drapeau hors d'atteinte du joueur simulé)",

@@ -304,13 +304,12 @@ pub fn total_bonus(bonus: &[LigneBonus]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pepin_core::levels::NIVEAUX;
 
     /// Défis de chaque niveau, réussites, médaille, gains de la PREMIÈRE réussite
     /// seulement (pas de farm), meilleur temps et gouttes trouvées gardés.
     #[test]
     fn les_defis_rapportent_une_seule_fois_et_gardent_le_meilleur() {
-        for n in NIVEAUX {
+        for n in niveaux::niveaux() {
             let d = defis_du_niveau(n);
             assert_eq!(d[0], Defi::SansMourir);
             assert_eq!(d[2], Defi::Chrono(u32::from(n.duree_cible_s)));
@@ -322,7 +321,7 @@ mod tests {
             assert_eq!(d[1], attendu, "{}", n.nom);
         }
         // Niveau 2 (sans planer possible) : 55 s.
-        let n = &NIVEAUX[1];
+        let n = &niveaux::niveaux()[1];
         let mut s = Sauvegarde::default();
         let lente = Tentative {
             morts: 1,
@@ -377,7 +376,7 @@ mod tests {
             0
         );
         // Les bandes d'affichage tiennent dans l'écran, pour chaque niveau.
-        for n in NIVEAUX {
+        for n in niveaux::niveaux() {
             let r = noter_niveau(&mut Sauvegarde::default(), n, &lente);
             let (defis, bonus) =
                 crate::ecrans::resultats::largeurs_pire_cas(&r, &bonus_fin(true, true));

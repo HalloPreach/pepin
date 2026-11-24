@@ -1,0 +1,15 @@
+[package]
+license = "MIT"
+name = "robot"
+version = "0.1.0"
+edition = "2021"
+description = "Robot de faisabilité de PÉPIN pour l'éditeur de niveaux, compilé en wasm (carte 10.3c)"
+
+# `cdylib` : un module WebAssembly autonome que le Web Worker de l'éditeur charge ;
+# `rlib` : la même bibliothèque pour les tests natifs (`cargo test -p robot`).
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pepin_core = { package = "core", path = "../core" }
+niveaux = { path = "../niveaux" }

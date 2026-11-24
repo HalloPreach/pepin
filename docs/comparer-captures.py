@@ -1,8 +1,10 @@
-"""Compare des captures PNG pixel à pixel (carte 10.2 : avant / après une carte de rendu).
+"""Compare des captures PNG pixel à pixel (carte 10.2 : avant / après une carte de rendu ;
+carte 10.1b : départ des niveaux avant / après la bascule vers les fichiers RON).
 
 Usage, deux formes :
   python3 docs/comparer-captures.py A.png B.png [A2.png B2.png ...]
-      compare les fichiers deux à deux (A avec B, A2 avec B2...) ;
+      compare les fichiers deux à deux (A avec B, A2 avec B2...), par exemple les
+      captures docs/qa/101b-avant-*.png et 101b-apres-*.png de docs/capture-101b.mjs ;
   python3 docs/comparer-captures.py DOSSIER_A/PREFIXE_A DOSSIER_B/PREFIXE_B
       (sans « .png ») compare les trois captures de docs/capture-102.sh :
       PREFIXE_A-toits.png avec PREFIXE_B-toits.png, puis -port, puis -pieuvre.

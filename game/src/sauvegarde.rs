@@ -41,7 +41,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use pepin_core::levels::{indice_de_cle, NIVEAUX};
+use pepin_core::levels::indice_de_cle;
 
 /// Version du format texte écrit (les versions 1, 2 et 3 sont lues).
 const VERSION: u32 = 3;
@@ -394,7 +394,7 @@ impl Sauvegarde {
     /// si la clé n'est pas dans la table `NIVEAUX` (niveaux d'essai du build de QA) :
     /// rien n'est noté pour eux.
     pub fn progres_mut(&mut self, cle: &str) -> Option<&mut ProgresNiveau> {
-        indice_de_cle(NIVEAUX, cle)?;
+        indice_de_cle(niveaux::niveaux(), cle)?;
         Some(self.niveaux.entry(cle.to_string()).or_default())
     }
 
@@ -435,7 +435,7 @@ impl Sauvegarde {
     /// Une course finie (carte 8.7) : garde le meilleur écart (le plus petit). Renvoie
     /// `true` si c'est un nouveau meilleur résultat. Hors de la table : ignoré.
     pub fn noter_course(&mut self, cle: &str, force: usize, ecart: i32) -> bool {
-        if indice_de_cle(NIVEAUX, cle).is_none() || force >= 3 {
+        if indice_de_cle(niveaux::niveaux(), cle).is_none() || force >= 3 {
             return false;
         }
         let r = self.courses.entry(cle.to_string()).or_default();
@@ -970,13 +970,16 @@ mod tests {
         // Le niveau inséré AVANT le bonus par la carte 8.2 (`poursuite`, dans la vraie
         // table depuis la fusion) : il est vide et ouvert, l'arc-en-ciel et la descente
         // gardent leur progression.
-        let i = indice_de_cle(NIVEAUX, "poursuite").unwrap();
-        assert_eq!(indice_de_cle(NIVEAUX, "arc"), Some(i + 1));
-        assert_eq!(progres(NIVEAUX, &lu, i), ProgresNiveau::default());
-        assert_eq!(etat_etape(NIVEAUX, &lu, i), EtatEtape::Ouverte);
-        assert_eq!(progres(NIVEAUX, &lu, i + 1), arc);
-        assert_eq!(progres(NIVEAUX, &lu, i + 2), descente);
-        assert_eq!(etat_etape(NIVEAUX, &lu, i + 2), EtatEtape::Finie);
+        let i = indice_de_cle(niveaux::niveaux(), "poursuite").unwrap();
+        assert_eq!(indice_de_cle(niveaux::niveaux(), "arc"), Some(i + 1));
+        assert_eq!(
+            progres(niveaux::niveaux(), &lu, i),
+            ProgresNiveau::default()
+        );
+        assert_eq!(etat_etape(niveaux::niveaux(), &lu, i), EtatEtape::Ouverte);
+        assert_eq!(progres(niveaux::niveaux(), &lu, i + 1), arc);
+        assert_eq!(progres(niveaux::niveaux(), &lu, i + 2), descente);
+        assert_eq!(etat_etape(niveaux::niveaux(), &lu, i + 2), EtatEtape::Finie);
     }
 
     /// Carte 9.1 : les records de partie du Monde 2 vivent sous `partie.monde2`, à part
@@ -1015,19 +1018,28 @@ mod tests {
         let v2 = "version=2\nparties_finies=1\nniveau_max_atteint=10\n\
                   niveau.11=gouttes:111 defis:111 medaille:3\nniveau.8=defis:010\n";
         let lu = Sauvegarde::depuis_texte(v2);
-        let descente = indice_de_cle(NIVEAUX, "descente").unwrap();
-        let poursuite = indice_de_cle(NIVEAUX, "poursuite").unwrap();
+        let descente = indice_de_cle(niveaux::niveaux(), "descente").unwrap();
+        let poursuite = indice_de_cle(niveaux::niveaux(), "poursuite").unwrap();
         assert!(lu.progres("descente").fini() && lu.progres("mer").fini());
-        assert_eq!(etat_etape(NIVEAUX, &lu, descente), EtatEtape::Finie);
-        assert_eq!(etat_etape(NIVEAUX, &lu, poursuite), EtatEtape::Ouverte);
+        assert_eq!(
+            etat_etape(niveaux::niveaux(), &lu, descente),
+            EtatEtape::Finie
+        );
+        assert_eq!(
+            etat_etape(niveaux::niveaux(), &lu, poursuite),
+            EtatEtape::Ouverte
+        );
         // Sans partie finie ni `niveau_max_atteint` : le défi de la mer suffit à la
         // dire atteinte, et la poursuite s'ouvre parce que la descente l'est.
         let sans = Sauvegarde::depuis_texte("version=2\nniveau.8=defis:010\nniveau.11=medaille:1");
         assert!(sans.progres("mer").atteint && sans.progres("descente").atteint);
-        assert_eq!(etat_etape(NIVEAUX, &sans, poursuite), EtatEtape::Ouverte);
-        assert_eq!(etat_etape(NIVEAUX, &sans, 1), EtatEtape::Ouverte);
         assert_eq!(
-            etat_etape(NIVEAUX, &Sauvegarde::default(), 1),
+            etat_etape(niveaux::niveaux(), &sans, poursuite),
+            EtatEtape::Ouverte
+        );
+        assert_eq!(etat_etape(niveaux::niveaux(), &sans, 1), EtatEtape::Ouverte);
+        assert_eq!(
+            etat_etape(niveaux::niveaux(), &Sauvegarde::default(), 1),
             EtatEtape::Verrouillee
         );
     }

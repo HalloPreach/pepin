@@ -37,7 +37,6 @@
 //! à chaque écran, méthodes qui ne se contredisent pas (un seul endroit change
 //! d'écran).
 
-use pepin_core::levels::NIVEAUX;
 use pepin_core::player::Entrees;
 use pepin_core::state::EtatJeu;
 
@@ -266,7 +265,7 @@ impl Application {
             resultat_niveau: None,
             game_over_partie: false,
             bonus_fin: defis::bonus_fin(false, false),
-            plan: EtatPlan::new(NIVEAUX, 0),
+            plan: EtatPlan::new(niveaux::niveaux(), 0),
             niveau_seul: false,
             temps_niveau: Temps::default(),
             partie_racontee: false,
@@ -289,8 +288,20 @@ impl Application {
     /// Touche U du build de QA (carte 7.4) : progression avancée, enregistrée ; la
     /// carte des niveaux ouverte se met à jour.
     pub fn progression_qa(&mut self) {
-        plan::progression_qa(NIVEAUX, &mut self.sauvegarde);
+        plan::progression_qa(niveaux::niveaux(), &mut self.sauvegarde);
         self.sauvegarde.enregistrer();
+    }
+
+    /// Build de QA (carte 10.1b, `?essai=1`) : lance tout de suite le niveau posé
+    /// dans le navigateur (`monde::INDICE_ESSAI_EXTERNE`), comme un raccourci de
+    /// niveau : une partie sans histoire.
+    #[cfg(feature = "debug_niveaux")]
+    pub fn lancer_essai_externe(&mut self) {
+        self.partie_racontee = false;
+        self.lancer(Suite::Niveau {
+            indice: crate::monde::INDICE_ESSAI_EXTERNE,
+            etat: None,
+        });
     }
 
     /// Le skin et les cosmétiques choisis dans la sauvegarde deviennent ceux du rendu
@@ -305,7 +316,7 @@ impl Application {
     /// `plan::monde_jouable`), le Monde 1 sinon, exactement comme avant. Tout fini,
     /// JOUER relance donc le Monde 2. Aucune ligne de menu de plus.
     fn monde_de_jouer(&self) -> u8 {
-        if plan::monde_jouable(NIVEAUX, &self.sauvegarde, 2) {
+        if plan::monde_jouable(niveaux::niveaux(), &self.sauvegarde, 2) {
             2
         } else {
             1
