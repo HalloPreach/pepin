@@ -100,10 +100,16 @@ await cdp('Runtime.enable');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
 // Avant tout script de la page : horloge figée (la valeur de départ du pilote) et
 // sauvegarde vide. Le build de QA ouvre de lui-même tous les niveaux.
+// Carte 10.4d : avec la variable ESSAI_RON (chemin d'un niveau RON), ce niveau est posé
+// dans le `localStorage` (clé `pepin.niveau_essai`) et la page s'ouvre avec `?essai=1` :
+// le build de QA le lance directement (voir `game/src/essai_externe.rs`).
+const essai = process.env.ESSAI_RON ? fs.readFileSync(process.env.ESSAI_RON, 'utf8') : null;
+const poser = essai ? `localStorage.setItem('pepin.niveau_essai', ${JSON.stringify(essai)});` : '';
 await cdp('Page.addScriptToEvaluateOnNewDocument', {
-  source: 'Date.now = () => 1e6; try { localStorage.clear(); } catch (e) {}',
+  source: `Date.now = () => 1e6; try { localStorage.clear(); ${poser} } catch (e) {}`,
 });
-await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/index.html` });
+const page = essai ? 'index.html?essai=1' : 'index.html';
+await cdp('Page.navigate', { url: `http://127.0.0.1:${httpPort}/${page}` });
 // Attente RÉELLE du chargement (sans effet sur la partie : l'horloge est figée).
 let pret = false;
 for (let i = 0; i < 300 && !pret; i++) {

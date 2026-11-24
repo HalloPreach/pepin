@@ -11,7 +11,9 @@
 //!   depuis le texte embarqué, qui n'a plus ses commentaires `//` depuis la carte
 //!   10.1c) : l'éditeur les montre et les garde à l'export ;
 //! - `niveaux/index.json` : la liste de ces fichiers (un serveur de fichiers
-//!   statiques ne sait pas lister un dossier).
+//!   statiques ne sait pas lister un dossier) ;
+//! - `sprites/<famille>/<clé>.png` (carte 10.4b) : le PNG de chaque vignette de la
+//!   légende (`niveaux::legende::VIGNETTES`), copié depuis `assets/sprites`.
 
 use std::fs;
 use std::path::PathBuf;
@@ -43,9 +45,28 @@ fn main() -> ExitCode {
         niveaux::legende::legende_json(),
     )
     .unwrap();
+    // Carte 10.4b : les PNG des vignettes, copiés tels quels depuis
+    // `assets/sprites` (seulement ceux d'une lettre de la légende).
+    let mut vignettes = Vec::new();
+    for l in niveaux::legende::LETTRES {
+        let Some((chemin, _)) = niveaux::legende::vignette(l.lettre) else {
+            continue;
+        };
+        if vignettes.contains(&chemin) {
+            continue;
+        }
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../assets/sprites")
+            .join(format!("{chemin}.png"));
+        let destination = dossier.join("sprites").join(format!("{chemin}.png"));
+        fs::create_dir_all(destination.parent().unwrap()).unwrap();
+        fs::copy(&source, &destination).unwrap();
+        vignettes.push(chemin);
+    }
     println!(
-        "éditeur : legende.json ({} lettres) et {} niveaux écrits dans {}",
+        "éditeur : legende.json ({} lettres, {} vignettes) et {} niveaux écrits dans {}",
         niveaux::legende::LETTRES.len(),
+        vignettes.len(),
         chemins.len(),
         dossier.display()
     );

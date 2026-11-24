@@ -45,6 +45,8 @@ if [ "$1" = lint ]; then
   echo "== clippy robot (natif, tests inclus, puis wasm32) =="
   cargo clippy -p robot --all-targets -- -D warnings
   cargo clippy -p robot --target wasm32-unknown-unknown -- -D warnings
+  echo "== clippy outils (natif, tests inclus : l outil sprite, carte 10.4a) =="
+  cargo clippy -p outils --all-targets -- -D warnings
   echo "== clippy game (wasm32) =="
   cargo clippy -p game --target wasm32-unknown-unknown -- -D warnings
   echo "== clippy game (natif, tests inclus, sans son) =="

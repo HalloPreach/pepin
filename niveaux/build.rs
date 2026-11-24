@@ -87,6 +87,26 @@ fn main() {
         compter("monde_1/"),
         compter("essais/"),
     ));
+    // Carte 10.4b : la TABLE DES SPRITES (`assets/sprites/<famille>/<clé>.png`),
+    // les noms seulement (aucun octet d'image ici : c'est le crate `game` qui les
+    // embarque). La légende de l'éditeur y retrouve la famille d'une clé, donc le
+    // chemin du PNG à montrer en vignette, sans rien recopier à la main.
+    let racine_sprites = manifeste.join("../assets/sprites");
+    println!("cargo:rerun-if-changed=../assets/sprites");
+    let mut sprites = Vec::new();
+    lister_ext(&racine_sprites, &racine_sprites, "png", &mut sprites);
+    sprites.sort();
+    code.push_str(
+        "/// Sprites de `assets/sprites` : (famille, clé), d'après les fichiers (généré par `build.rs`).\n\
+         pub const SPRITES: &[(&str, &str)] = &[\n",
+    );
+    for relatif in &sprites {
+        let (famille, fichier) = relatif.rsplit_once('/').unwrap_or(("", relatif));
+        let cle = fichier.trim_end_matches(".png");
+        code.push_str(&format!("    ({famille:?}, {cle:?}),\n"));
+    }
+    code.push_str("];\n");
+
     let sortie = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("fichiers.rs");
     fs::write(sortie, code).unwrap();
 }
@@ -94,14 +114,20 @@ fn main() {
 /// Ajoute à `chemins` chaque fichier `.ron` sous `dossier`, en chemin relatif à
 /// `racine` avec des `/` (le même sur tous les systèmes).
 fn lister(racine: &Path, dossier: &Path, chemins: &mut Vec<String>) {
+    lister_ext(racine, dossier, "ron", chemins);
+}
+
+/// La même chose pour une extension quelconque (`ron` pour les niveaux, `png`
+/// pour les sprites).
+fn lister_ext(racine: &Path, dossier: &Path, ext: &str, chemins: &mut Vec<String>) {
     let Ok(entrees) = fs::read_dir(dossier) else {
         return;
     };
     for entree in entrees.flatten() {
         let chemin = entree.path();
         if chemin.is_dir() {
-            lister(racine, &chemin, chemins);
-        } else if chemin.extension().is_some_and(|e| e == "ron") {
+            lister_ext(racine, &chemin, ext, chemins);
+        } else if chemin.extension().is_some_and(|e| e == ext) {
             let relatif = chemin.strip_prefix(racine).unwrap();
             let morceaux: Vec<String> = relatif
                 .components()

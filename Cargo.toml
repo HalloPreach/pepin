@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "game", "niveaux", "robot"]
+members = ["core", "game", "niveaux", "outils", "robot"]
 
 # Profil release orienté taille minimale (cible web / wasm)
 [profile.release]

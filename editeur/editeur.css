@@ -24,6 +24,13 @@ canvas { display: block; image-rendering: pixelated; cursor: crosshair; }
 .palette { display: flex; flex-wrap: wrap; gap: 3px; }
 .palette button { width: 30px; height: 30px; padding: 0; font: bold 14px monospace; border: 2px solid transparent; }
 .palette button.actif { border-color: #fff; outline: 2px solid #f0c020; }
+/* Carte 10.4b : vignette du vrai sprite dans le bouton, pixels nets, la lettre en petit. */
+.palette button { position: relative; overflow: hidden; }
+.palette button.vignette { width: 36px; height: 36px; }
+.palette button img { max-width: 32px; max-height: 32px; image-rendering: pixelated; display: block; margin: auto; }
+.palette button img[hidden] { display: none; }
+.palette button.vignette { background: #20263a; }
+.palette button.vignette span { position: absolute; right: 0; bottom: 0; font-size: 9px; line-height: 1; padding: 1px 2px; background: rgba(0,0,0,.6); color: #fff; }
 #choisie { font-family: monospace; }
 .grille-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 4px; }
 .grille-boutons span { grid-column: span 2; color: #9aa0b8; }

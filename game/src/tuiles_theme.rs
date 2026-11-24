@@ -408,7 +408,7 @@ mod tests_bouche_d_egout {
             for tx in 0..niveau.largeur() as i32 {
                 if let Some(n) = nom(tx, ty) {
                     assert!(
-                        crate::sprites::tuiles_monde2::SPRITES
+                        crate::sprites::tuiles_monde2::sprites()
                             .iter()
                             .any(|(dessin, _)| *dessin == n),
                         "{n} ({tx}, {ty}) n'a pas de dessin"
@@ -469,7 +469,7 @@ mod tests_quai_du_port {
             for tx in 0..larg {
                 if let Some(n) = nom(tx, ty) {
                     assert!(
-                        crate::sprites::tuiles_monde2::port::SPRITES
+                        crate::sprites::tuiles_monde2::port::sprites()
                             .iter()
                             .any(|(dessin, _)| *dessin == n),
                         "{n} ({tx}, {ty}) n'a pas de dessin"

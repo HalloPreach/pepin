@@ -3,397 +3,53 @@
 //! bassin, et au fond du port le phare rayé et les bateaux amarrés. Ces dessins
 //! ne servent qu'à ce niveau (`crate::dessin_port`) ; aucun n'a de collision.
 
-use super::Image;
+// `jetee_grue.png` : Grue du quai GAUCHE, un tronçon de sa tour en treillis (corail) : deux montants,
+// une traverse, une croix. Entre les barres, le ciel et la mer se voient.
 
-/// Grue du quai GAUCHE, un tronçon de sa tour en treillis (corail) : deux montants,
-/// une traverse, une croix. Entre les barres, le ciel et la mer se voient.
-pub const GRUE: Image = &[
-    "0980000000000980",
-    "0980888888880980",
-    "0980000000000980",
-    "098080....080980",
-    "0980080..0800980",
-    "0980080..0800980",
-    "0980.080080.0980",
-    "0980.080080.0980",
-    "0980..0880..0980",
-    "0980..0880..0980",
-    "0980..0880..0980",
-    "0980.080080.0980",
-    "0980.080080.0980",
-    "0980080..0800980",
-    "0980080..0800980",
-    "098080....080980",
-];
+// `jetee_grue_pied.png` : Pied de la grue : le bas du treillis sur sa plaque rayée ocre et sombre, posée
+// sur la pierre du quai.
 
-/// Pied de la grue : le bas du treillis sur sa plaque rayée ocre et sombre, posée
-/// sur la pierre du quai.
-pub const GRUE_PIED: Image = &[
-    "0980000000000980",
-    "0980888888880980",
-    "0980000000000980",
-    "098080....080980",
-    "0980080..0800980",
-    "0980.080080.0980",
-    "0980..0880..0980",
-    "0980.080080.0980",
-    "0980080..0800980",
-    "098080....080980",
-    "0000000000000000",
-    "0AA00AA00AA00AA0",
-    "0A00AA00AA00AA00",
-    "000AA00AA00AA000",
-    "00AA00AA00AA00A0",
-    "0000000000000000",
-];
+// `jetee_grue_cabine.png` : Cabine du grutier, sur la tour : vitre sombre et ses reflets.
 
-/// Cabine du grutier, sur la tour : vitre sombre et ses reflets.
-pub const GRUE_CABINE: Image = &[
-    "0000000000000000",
-    "0999999999999990",
-    "0AAAAAAAAAAAAA80",
-    "0A00000000000A80",
-    "0A01161116110A80",
-    "0A01611161110A80",
-    "0A01111611110A80",
-    "0A01111111110A80",
-    "0A01111111110A80",
-    "0A00000000000A80",
-    "0AAAAAAAAAAAAA80",
-    "0AAAAAAAAAAAAA80",
-    "0888888888888880",
-    "0000000000000000",
-    "0980........0980",
-    "0980........0980",
-];
+// `jetee_caisse_ocre.png` : Caisse ocre à croix, de la pile du quai DROIT ; un cordage la sangle.
 
-/// Caisse ocre à croix, de la pile du quai DROIT ; un cordage la sangle.
-pub const CAISSE_OCRE: Image = &[
-    "0000000650000000",
-    "0999990650999980",
-    "09AAAA0650AAAA80",
-    "09AA88065088AA80",
-    "09A8A806508A8A80",
-    "09A88A0650A88A80",
-    "09A8880650888A80",
-    "09A8880650888A80",
-    "09A8880650888A80",
-    "09A8880650888A80",
-    "09A88A0650A88A80",
-    "09A8A806508A8A80",
-    "09AA88065088AA80",
-    "09AAAA0650AAAA80",
-    "0888880650888880",
-    "0000000650000000",
-];
+// `jetee_caisse_violette.png` : Caisse violette à lattes (avec sa marque claire), de la même pile, sanglée.
 
-/// Caisse violette à lattes (avec sa marque claire), de la même pile, sanglée.
-pub const CAISSE_VIOLETTE: Image = &[
-    "0000000650000000",
-    "0404440650444040",
-    "0F0FFF0650FFF0F0",
-    "0F0FFF0650FFF0F0",
-    "0F0FFF0650FFF0F0",
-    "0202220650222020",
-    "0404440650444040",
-    "0F0FFF065077F0F0",
-    "0F0FFF065077F0F0",
-    "0F0FFF0650FFF0F0",
-    "0202220650222020",
-    "0404440650444040",
-    "0F0FFF0650FFF0F0",
-    "0F0FFF0650FFF0F0",
-    "0F0FFF0650FFF0F0",
-    "0000000650000000",
-];
+// `jetee_quai_mouille.png` : Pierre du quai au niveau du bassin : l'écume bat le haut, la pierre noyée
+// est plus sombre que celle du quai.
 
-/// Pierre du quai au niveau du bassin : l'écume bat le haut, la pierre noyée
-/// est plus sombre que celle du quai.
-pub const QUAI_MOUILLE: Image = &[
-    "D7DDDD7DDDDD7DDD",
-    "EDEEEEDEEEEEEDEE",
-    "111111111111E111",
-    "111111111111E111",
-    "111111111111E111",
-    "EEEEEEEEEEEE0EEE",
-    "0000000000000000",
-    "2221222222222222",
-    "111E111111111111",
-    "111E111111111111",
-    "111E111111111111",
-    "111E111111111111",
-    "EEE0EEEEEEEEEEEE",
-    "0000000000000000",
-    "2222222221222222",
-    "111111111E111111",
-];
+// `jetee_cordage.png` : Cordage d'amarrage (16 x 28) : il pend de l'anneau du quai jusque dans l'eau.
 
-/// Cordage d'amarrage (16 x 28) : il pend de l'anneau du quai jusque dans l'eau.
-pub const CORDAGE: Image = &[
-    "......0650......",
-    "......0650......",
-    "......0650......",
-    "......0650......",
-    ".......0650.....",
-    ".......0650.....",
-    ".......0650.....",
-    ".......0650.....",
-    ".......0650.....",
-    "......0650......",
-    "......0650......",
-    "......0650......",
-    "......0650......",
-    ".....0650.......",
-    ".....0650.......",
-    ".....0650.......",
-    ".....0650.......",
-    ".....0650.......",
-    "......0650......",
-    "......0650......",
-    "......0650......",
-    "......0650......",
-    ".......0650.....",
-    ".......0650.....",
-    ".......0650.....",
-    ".......0650.....",
-    ".......0650.....",
-    ".......0650.....",
-];
+// `jetee_eau_haut.png` : Bassin de la Pieuvre, surface : la ligne claire et la bande cyan sombre des
+// tuiles d'eau (l'ombre de la pieuvre s'y lit toujours), puis l'eau PROFONDE,
+// d'ardoise de nuit.
 
-/// Bassin de la Pieuvre, surface : la ligne claire et la bande cyan sombre des
-/// tuiles d'eau (l'ombre de la pieuvre s'y lit toujours), puis l'eau PROFONDE,
-/// d'ardoise de nuit.
-pub const EAU_HAUT: Image = &[
-    "DDDDDDDDDDDDDDDD",
-    "EEEEEEEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "2222222222222222",
-    "1111111111111111",
-    "1111111211111111",
-    "1111111111111111",
-    "1211111111111111",
-    "1111111111111111",
-    "1111111111112111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-];
+// `jetee_eau_vague.png` : La même surface, 1 px plus bas (l'autre temps de la vague).
 
-/// La même surface, 1 px plus bas (l'autre temps de la vague).
-pub const EAU_VAGUE: Image = &[
-    "................",
-    "DDDDDDDDDDDDDDDD",
-    "EEEEEEEEEEEEEEEE",
-    "EEEDDEEEEEEEEEEE",
-    "EEEEEEEEEEDDEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "EEEEEEEEEEEEEEEE",
-    "2222222222222222",
-    "1111111111111111",
-    "1111111211111111",
-    "1111111111111111",
-    "1211111111111111",
-    "1111111111111111",
-    "1111111111112111",
-    "1111111111111111",
-    "1111111111111111",
-];
+// `jetee_eau_plein.png` : Bassin, sous la surface : l'eau profonde.
 
-/// Bassin, sous la surface : l'eau profonde.
-pub const EAU_PLEIN: Image = &[
-    "1111111111111111",
-    "1111112211111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111211",
-    "1111111111111111",
-    "1111111111111111",
-    "1221111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111112211111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111121111111111",
-    "1111111111111111",
-    "1111111111111111",
-];
+// `jetee_phare.png` : Le phare rayé blanc et corail (12 x 48), au fond du port ; la lampe est
+// dessinée à part (elle clignote).
 
-/// Le phare rayé blanc et corail (12 x 48), au fond du port ; la lampe est
-/// dessinée à part (elle clignote).
-pub const PHARE: Image = &[
-    ".....00.....",
-    "....0000....",
-    "...000000...",
-    "...011110...",
-    "...011110...",
-    "...011110...",
-    "...011110...",
-    "...000000...",
-    ".0000000000.",
-    ".0000000000.",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..08888800..",
-    "..08888800..",
-    "..08888800..",
-    "..08888800..",
-    "..08888800..",
-    "..08888800..",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..07777750..",
-    "..08888800..",
-    ".0888888800.",
-    ".0888888800.",
-    ".0888888800.",
-    ".0888888800.",
-    ".0888888800.",
-    ".0777777750.",
-    ".0777777750.",
-    ".0777777750.",
-    ".0777777750.",
-    ".0777777750.",
-    ".0777777750.",
-    ".0888888800.",
-    ".0888888800.",
-    ".0888008800.",
-    ".0888008800.",
-    ".0888008800.",
-    ".0888008800.",
-    ".0777007750.",
-    ".0777007750.",
-];
+// `jetee_chalutier.png` : Chalutier amarré (40 x 26), silhouette sombre : coque, timonerie et ses
+// hublots, mât, portique et filins du chalut. Le bas est la ligne de flottaison.
 
-/// Chalutier amarré (40 x 26), silhouette sombre : coque, timonerie et ses
-/// hublots, mât, portique et filins du chalut. Le bas est la ligne de flottaison.
-pub const CHALUTIER: Image = &[
-    "..............8.........................",
-    "..............00........................",
-    "..............0.0.......................",
-    "......00000000000000000.................",
-    "......0.......0....0....................",
-    "......0.......0.....0...................",
-    "..............0.......0.................",
-    ".......0......0........0................",
-    ".......0......0......000000000000.......",
-    "..............0.......0000000000........",
-    "........0.....0.......0000000000........",
-    "........0.....0.......0CC0CC00C0........",
-    "..............0.......0CC0CC0CC0........",
-    ".........0....0.......00000000000.......",
-    ".........0....0.......0000000000..0.....",
-    "..............0.......00000000000000000.",
-    "..........0...0.......00000000000000000.",
-    ".0000.........0.......00000000000000000.",
-    ".00000000000000000000000000000000000000.",
-    ".00000000000000000000000000000000000000.",
-    "..000000C0000C0000C0000000000000000000..",
-    "..00000000000000000000000000000000000...",
-    "...000000000000000000000000000000000....",
-    "...000000000000000000000000000000000....",
-    "....0000000000000000000000000000000.....",
-    "....000000000000000000000000000000......",
-];
+// `jetee_barque.png` : Barque à voile ferlée (20 x 14), silhouette sombre.
 
-/// Barque à voile ferlée (20 x 14), silhouette sombre.
-pub const BARQUE: Image = &[
-    ".........0..........",
-    ".........00000000...",
-    ".........0222220....",
-    ".........022220.....",
-    ".........02220......",
-    ".........0220.......",
-    ".........020........",
-    ".........00.........",
-    ".........00000000...",
-    "00000000000000000000",
-    ".000000000000000000.",
-    "..0000000000000000..",
-    "...00000000000000...",
-    "....000000000000....",
-];
+// `jetee_canot.png` : Canot (16 x 5), silhouette sombre.
 
-/// Canot (16 x 5), silhouette sombre.
-pub const CANOT: Image = &[
-    "0..............0",
-    "0000000000000000",
-    ".00000000000000.",
-    "..000000000000..",
-    "...0000000000...",
-];
+// `port_bateau.png` : « Le port » (carte 9.11) : un bateau en va-et-vient (32 x 15), dessiné sur une
+// plateforme mobile horizontale. Les 8 premières rangées couvrent sa collision
+// (32 x 8) : le pont de bois, clair sur le dessus (on s'y pose), puis la coque
+// corail et sa bande blanche ; le bas, sombre, est la ligne de flottaison.
 
-/// « Le port » (carte 9.11) : un bateau en va-et-vient (32 x 15), dessiné sur une
-/// plateforme mobile horizontale. Les 8 premières rangées couvrent sa collision
-/// (32 x 8) : le pont de bois, clair sur le dessus (on s'y pose), puis la coque
-/// corail et sa bande blanche ; le bas, sombre, est la ligne de flottaison.
-pub const PORT_BATEAU: Image = &[
-    "0CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0",
-    "0BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB0",
-    "0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0",
-    "00000000000000000000000000000000",
-    "08999999999999999999999999999980",
-    "08888888888888888888888888888880",
-    "08777777777777777777777777777780",
-    "08888888888888888888888888888880",
-    "08888308888888888888888888038880",
-    ".088888888888888888888888888880.",
-    ".088888888888888888888888888880.",
-    "..0888888888888888888888888880..",
-    "..0111111111111111111111111110..",
-    "...01111111111111111111111110...",
-    "....000000000000000000000000....",
-];
+// `port_caisse_grue.png` : « Le port » (carte 9.11) : la caisse de la grue (32 x 16), dessinée sur une
+// plateforme mobile verticale. Les 8 rangées du haut sont les élingues qui
+// montent au crochet (le câble part de là vers le haut, `dessin_port`) ; les 8
+// du bas couvrent la collision : la caisse de bois cerclée, claire sur le dessus.
 
-/// « Le port » (carte 9.11) : la caisse de la grue (32 x 16), dessinée sur une
-/// plateforme mobile verticale. Les 8 rangées du haut sont les élingues qui
-/// montent au crochet (le câble part de là vers le haut, `dessin_port`) ; les 8
-/// du bas couvrent la collision : la caisse de bois cerclée, claire sur le dessus.
-pub const PORT_CAISSE_GRUE: Image = &[
-    "...............00...............",
-    ".............00..00.............",
-    "...........00......00...........",
-    ".........00..........00.........",
-    ".......00..............00.......",
-    ".....00..................00.....",
-    "...00......................00...",
-    ".00..........................00.",
-    "0CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0",
-    "0BAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0",
-    "0BA00AAAAAAAAAAAAAAAAAAAAAA00AB0",
-    "0BAAA00AAAAAAAAAAAAAAAAAA00AAAB0",
-    "0BAAAAA00AAAAAAAAAAAAAA00AAAAAB0",
-    "0BAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0",
-    "0BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB0",
-    "00000000000000000000000000000000",
-];
-
-/// Les sprites de la jetée : (nom, dessin).
-pub const SPRITES: &[(&str, Image)] = &[
-    ("jetee_grue", GRUE),
-    ("jetee_grue_pied", GRUE_PIED),
-    ("jetee_grue_cabine", GRUE_CABINE),
-    ("jetee_caisse_ocre", CAISSE_OCRE),
-    ("jetee_caisse_violette", CAISSE_VIOLETTE),
-    ("jetee_quai_mouille", QUAI_MOUILLE),
-    ("jetee_cordage", CORDAGE),
-    ("jetee_eau_haut", EAU_HAUT),
-    ("jetee_eau_vague", EAU_VAGUE),
-    ("jetee_eau_plein", EAU_PLEIN),
-    ("jetee_phare", PHARE),
-    ("jetee_chalutier", CHALUTIER),
-    ("jetee_barque", BARQUE),
-    ("jetee_canot", CANOT),
-    ("port_bateau", PORT_BATEAU),
-    ("port_caisse_grue", PORT_CAISSE_GRUE),
-];
+/// Les sprites de ce fichier : (nom, dessin), lus dans `assets/sprites/jetee/`
+/// (carte 10.4a : les dessins sont des fichiers PNG, voir `super::fichiers`).
+pub fn sprites() -> &'static [(&'static str, crate::sprites::Image)] {
+    crate::sprites::fichiers::famille("jetee")
+}

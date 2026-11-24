@@ -124,8 +124,6 @@ pub(crate) fn dessiner(
         // Carte 9.13c : sous la tour de la Pieuvre, le fond de l'arène descend
         // quand Pépin grimpe, et la nuit continue au-dessus (un fond continu).
         crate::decor_port::dessiner_fond_sous_la_tour(cx, monde.pas, -cy_fond);
-    } else if monde.infos.theme == pepin_core::zones::Theme::Port {
-        crate::decor_port::dessiner_fond(cx, cy_fond, monde.pas, true);
     } else {
         decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
     }

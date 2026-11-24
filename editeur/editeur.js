@@ -26,6 +26,9 @@ const etat = {
   modifie: false,
   faute: null,         // case fautive dite par le jeu : {x, y} (x null : rangée entière)
   robot: null,         // dernier résultat du robot (carte 10.3c), voir robot-worker.js
+  // Carte 10.4b : vignettes des vrais sprites (true) ou cases colorées (false).
+  vignettes: localStorage.getItem('editeur-pepin-affichage') !== 'cases',
+  images: new Map(),   // lettre -> Image chargée depuis sprites/<famille>/<clé>.png
 };
 
 // --- Chargement --------------------------------------------------------------
@@ -33,6 +36,7 @@ const etat = {
 async function demarrer() {
   etat.legende = await (await fetch('legende.json')).json();
   for (const l of etat.legende.lettres) etat.parLettre.set(l.lettre, l);
+  chargerVignettes();
   construirePalettes();
   remplirListes();
   try {
@@ -128,6 +132,9 @@ function dessiner() {
   const z = etat.zoom;
   toile.width = largeur() * z;
   toile.height = hauteur() * z;
+  // Changer la taille du canvas remet son contexte à zéro : on redit « pas de
+  // lissage », pour des pixels de sprite nets à tous les zooms.
+  ctx.imageSmoothingEnabled = false;
   const vide = etat.parLettre.get('.');
   ctx.fillStyle = vide ? vide.couleur : '#20263a';
   ctx.fillRect(0, 0, toile.width, toile.height);
@@ -135,11 +142,14 @@ function dessiner() {
   ctx.font = `bold ${Math.floor(z * 0.75)}px monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  // 1. Les cases colorées (toutes, en mode « cases » ; celles sans vignette sinon).
+  const aVignette = [];
   for (let y = 0; y < hauteur(); y++) {
     for (let x = 0; x < largeur(); x++) {
       const c = etat.grille[y][x];
       if (c === '.') continue;
       const l = etat.parLettre.get(c);
+      if (vignettePrete(c)) { aVignette.push([x, y, c]); continue; }
       ctx.fillStyle = l ? l.couleur : '#ff00ff';
       if (l && !l.solide) {
         // Les cases libres (objets, ennemis) : un carré inscrit, le fond reste visible.
@@ -147,9 +157,31 @@ function dessiner() {
       } else {
         ctx.fillRect(x * z, y * z, z, z);
       }
+    }
+  }
+  // 2. Les vignettes, PAR-DESSUS les cases : un sprite plus grand que sa place
+  // déborde sur les voisines, comme dans le jeu.
+  for (const [x, y, c] of aVignette) dessinerVignette(x, y, c, z);
+  // 3. Les lettres, au-dessus de tout.
+  for (let y = 0; y < hauteur(); y++) {
+    for (let x = 0; x < largeur(); x++) {
+      const c = etat.grille[y][x];
+      if (c === '.') continue;
+      const l = etat.parLettre.get(c);
       if (lettres || !l) {
         ctx.fillStyle = l && clair(l.couleur) ? '#000' : '#fff';
-        ctx.fillText(c, x * z + z / 2, y * z + z / 2 + 1);
+        if (vignettePrete(c)) {
+          // Sur une vignette, la lettre est petite, en bas à droite, sur un fond sombre.
+          const t = Math.max(7, Math.floor(z * 0.34));
+          ctx.font = `bold ${t}px monospace`;
+          ctx.fillStyle = 'rgba(0,0,0,.6)';
+          ctx.fillRect(x * z + z - t, y * z + z - t, t, t);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(c, x * z + z - t / 2, y * z + z - t / 2 + 1);
+          ctx.font = `bold ${Math.floor(z * 0.75)}px monospace`;
+        } else {
+          ctx.fillText(c, x * z + z / 2, y * z + z / 2 + 1);
+        }
       }
     }
   }
@@ -185,6 +217,93 @@ function dessiner() {
     ctx.lineWidth = 2;
     ctx.strokeRect(x0 * z, y0 * z, (x1 - x0 + 1) * z, (y1 - y0 + 1) * z);
   }
+}
+
+// --- Vignettes des sprites (carte 10.4b) ------------------------------------------
+//
+// `legende.json` donne, pour chaque lettre qui a un vrai sprite, son chemin
+// (`sprite` : `famille/clé`, le PNG copié de `assets/sprites` par `./build.sh --qa`)
+// et son ancrage (`ancre`). Une lettre sans sprite (tuile du thème, zone...) garde sa
+// case colorée. 1 pixel du PNG = 1 pixel du jeu, et une tuile fait 16 pixels.
+const TUILE = 16;
+
+function chargerVignettes() {
+  for (const l of etat.legende.lettres) {
+    if (!l.sprite) continue;
+    const img = new Image();
+    img.onload = () => { majPalettes(); if (etat.grille.length) dessiner(); };
+    img.src = `sprites/${l.sprite}.png`;
+    etat.images.set(l.lettre, img);
+  }
+}
+
+// La lettre `c` se dessine-t-elle en vignette (mode vignettes, image chargée) ?
+function vignettePrete(c) {
+  const img = etat.images.get(c);
+  return etat.vignettes && !!img && img.complete && img.naturalWidth > 0;
+}
+
+// Coin haut-gauche (en pixels du JEU, la case de la lettre en 0, 0) du sprite de la
+// lettre `l`, de taille `w` x `h`, posé comme dans le jeu. La place de la lettre
+// fait `largeur` x `hauteur` tuiles, la lettre en bas à gauche (voiture, boss...).
+function coinVignette(l, w, h) {
+  const pw = l.largeur * TUILE;
+  switch (l.ancre) {
+    case 'haut': return [Math.trunc((TUILE - w) / 2), 0];
+    case 'plateforme': return [0, 0];
+    case 'centre': return [Math.trunc((TUILE - w) / 2), Math.trunc((TUILE - h) / 2)];
+    default: return [Math.trunc((pw - w) / 2), TUILE - h]; // 'bas' : la règle coin_decor du jeu
+  }
+}
+
+function dessinerVignette(x, y, c, z) {
+  const l = etat.parLettre.get(c);
+  const img = etat.images.get(c);
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const k = z / TUILE;
+  const [ox, oy] = coinVignette(l, w, h);
+  ctx.drawImage(img, Math.round(x * z + ox * k), Math.round(y * z + oy * k), Math.round(w * k), Math.round(h * k));
+  // Un sprite plus grand qu'une case : léger contour de la case d'origine (celle de
+  // la lettre dans le fichier).
+  if (w > TUILE || h > TUILE) {
+    ctx.strokeStyle = 'rgba(255,255,255,.45)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x * z + 0.5, y * z + 0.5, z - 1, z - 1);
+  }
+}
+
+// Les boutons de la palette suivent le mode : vignette du sprite ou case colorée.
+function majPalettes() {
+  document.querySelectorAll('.palette button').forEach((b) => {
+    const l = etat.parLettre.get(b.dataset.lettre);
+    const img = b.querySelector('img');
+    const vignette = vignettePrete(l.lettre);
+    if (img) {
+      img.hidden = !vignette;
+      // Agrandie d'un nombre ENTIER de fois (pixels nets), au plus 32 px.
+      const source = etat.images.get(l.lettre);
+      const cote = Math.max(source.naturalWidth, source.naturalHeight);
+      const n = cote > 0 && cote < 32 ? Math.floor(32 / cote) : 0;
+      img.style.width = n ? `${source.naturalWidth * n}px` : '';
+      img.style.height = n ? `${source.naturalHeight * n}px` : '';
+    }
+    b.classList.toggle('vignette', vignette);
+    b.style.background = vignette ? '' : l.couleur;
+  });
+  const bouton = $('#affichage');
+  if (bouton) {
+    bouton.textContent = etat.vignettes ? 'vignettes' : 'cases';
+    bouton.classList.toggle('actif', etat.vignettes);
+  }
+}
+
+// Bouton « vignettes / cases » (touche V).
+function basculerAffichage() {
+  etat.vignettes = !etat.vignettes;
+  localStorage.setItem('editeur-pepin-affichage', etat.vignettes ? 'vignettes' : 'cases');
+  majPalettes();
+  dessiner();
 }
 
 function clair(couleur) {
@@ -755,8 +874,18 @@ function construirePalettes() {
     for (const l of lettres) {
       const b = document.createElement('button');
       b.dataset.lettre = l.lettre;
-      b.textContent = l.lettre;
       b.title = `${l.lettre} : ${l.nom}`;
+      // Carte 10.4b : la vignette du sprite (cachée en mode « cases ») et la lettre.
+      if (l.sprite) {
+        const img = document.createElement('img');
+        img.src = `sprites/${l.sprite}.png`;
+        img.alt = '';
+        img.hidden = true;
+        b.append(img);
+      }
+      const lettre = document.createElement('span');
+      lettre.textContent = l.lettre;
+      b.append(lettre);
       b.style.background = l.couleur;
       b.style.color = clair(l.couleur) ? '#000' : '#fff';
       b.addEventListener('click', () => choisir(l.lettre));
@@ -764,6 +893,7 @@ function construirePalettes() {
     }
     zone.append(h, div);
   }
+  majPalettes();
 }
 
 function brancher() {
@@ -787,6 +917,7 @@ function brancher() {
   $('#zoom-plus').addEventListener('click', () => zoomer(2));
   $('#zoom-moins').addEventListener('click', () => zoomer(-2));
   $('#lettres').addEventListener('change', dessiner);
+  $('#affichage').addEventListener('click', basculerAffichage);
   $('#formulaire').addEventListener('change', (e) => {
     const champ = e.target;
     if (!CHAMPS_FORM.includes(champ.name)) return;
@@ -806,6 +937,7 @@ function brancher() {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const outils = { p: 'pinceau', r: 'rectangle', e: 'gomme', i: 'pipette' };
     if (outils[k] && e.shiftKey === false && k === e.key) choisirOutil(outils[k]);
+    if (k === 'v' && !e.shiftKey) basculerAffichage();
   });
   window.addEventListener('beforeunload', (e) => { if (etat.modifie) e.preventDefault(); });
 }

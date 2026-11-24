@@ -17,7 +17,10 @@
 //! Trois tons d'ardoise (`ARDOISE_OMBRE`, `ARDOISE_NUIT`, `ARDOISE`) et quelques
 //! reflets cyan sombre (`PLUIE_SOMBRE`) sur l'eau. Ni ciel, ni pluie. Rendu seul :
 //! aucune collision ; la grille et la lumière du départ (`decor_egouts`) restent.
-//! La géométrie (`ouverture`, `anneau`, `tuyau`) est pure et testée.
+//! Carte 10.4d : le mur uni et l'arche sont des fichiers de `assets/fonds/egouts`
+//! (FIXES, `Plan::Mur` et `Plan::Arches`) ; les piliers, l'eau et les tuyaux restent
+//! CALCULÉS (semés au hasard ou animés). La géométrie des tuyaux (`tuyau`) est pure
+//! et testée.
 
 use macroquad::prelude::draw_rectangle;
 use pepin_core::palette::{Couleur, ARDOISE, ARDOISE_NUIT, ARDOISE_OMBRE, PLUIE_SOMBRE};
@@ -46,11 +49,9 @@ pub(crate) const CLAVEAU: i32 = 6;
 pub(crate) const NAISSANCE: i32 = 64;
 /// Ordonnée écran de la surface de l'eau, au pied des arches.
 pub(crate) const EAU: i32 = 118;
-/// Nombre de claveaux de l'anneau (impair : la clé est au milieu).
-const NB_CLAVEAUX: i32 = 9;
-/// La seconde arche, au fond de la bouche : rayon et épaisseur.
-const RAYON_FOND: i32 = 17;
-const ANNEAU_FOND: i32 = 3;
+/// Ordonnée écran du haut de `egouts/arches.png` (la clé de l'arche, deux pixels
+/// au-dessus de l'anneau de claveaux) ; le fichier descend jusqu'à l'eau.
+pub(crate) const HAUT_ARCHES: i32 = NAISSANCE - RAYON - CLAVEAU - 2;
 
 /// Largeur d'une cellule de tuyaux (px) et épaisseur d'un tuyau.
 const CELLULE_TUYAU: i32 = 176;
@@ -71,36 +72,6 @@ fn hache(n: i32, graine: u32) -> u32 {
     h = h.wrapping_mul(0x2C1B_3C6D);
     h ^= h >> 12;
     h
-}
-
-/// Demi-largeur d'un disque de rayon `r` à `d` px de son centre (verticalement),
-/// ou `None` hors du disque.
-fn demi_corde(r: i32, d: i32) -> Option<i32> {
-    (d.abs() <= r).then(|| ((r * r - d * d) as f32).sqrt() as i32)
-}
-
-/// Demi-largeur de la bouche d'une arche à l'ordonnée écran `y` : un plein cintre
-/// au-dessus de la naissance, puis les piédroits verticaux jusqu'à l'eau. `None`
-/// au-dessus de la bouche ou sous l'eau. Pure.
-pub(crate) fn ouverture(y: i32) -> Option<i32> {
-    if y >= EAU {
-        None
-    } else if y >= NAISSANCE {
-        Some(RAYON)
-    } else {
-        demi_corde(RAYON, NAISSANCE - y)
-    }
-}
-
-/// Demi-largeur EXTÉRIEURE de l'anneau de claveaux à l'ordonnée `y` (au-dessus de
-/// la naissance seulement), ou `None`. L'anneau va de `ouverture(y)` (ou 0 au-dessus
-/// de la bouche) à cette valeur : une bande pleine, pas un simple contour. Pure.
-pub(crate) fn anneau(y: i32) -> Option<i32> {
-    if y >= NAISSANCE {
-        None
-    } else {
-        demi_corde(RAYON + CLAVEAU, NAISSANCE - y)
-    }
 }
 
 /// Un tuyau de la cellule `cellule` : abscisses (repère du plan des tuyaux) de la
@@ -127,31 +98,96 @@ pub(crate) fn tuyau(cellule: i32) -> Option<Tuyau> {
     })
 }
 
-/// Dessine le fond des égouts. `cam_y` : la caméra vue par le fond
-/// (`decor::camera_fond`), pour la parallaxe verticale (nulle dans un niveau d'un
-/// écran de haut, comme les égouts).
-pub fn dessiner(cam_x: i32, cam_y: i32, pas: u32) {
-    dessiner_mur(cam_x, enfoncement(cam_y, VERT_MUR), pas);
-    dessiner_tuyaux(cam_x, enfoncement(cam_y, VERT_TUYAUX));
+/// Les plans du fond des égouts, du plus loin au plus près (carte 10.4d) : les
+/// deux premiers sont des fichiers de `assets/fonds/egouts` (FIXES), les autres
+/// sont CALCULÉS (semés au hasard, ou animés). `decor::pile` les reprend tels quels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Plan {
+    /// Le mur du tunnel, uni : `egouts/mur.png`, une colonne étirée sur l'écran.
+    Mur,
+    /// Les arches, `egouts/arches.png` : UNE arche, répétée tous les
+    /// `PERIODE_ARCHE` px (la répétition reste du code).
+    Arches,
+    /// Les piliers : coulures et grilles semées au hasard, gouttes qui tombent.
+    Piliers,
+    /// L'eau sombre au pied des arches, ses reflets qui tremblent.
+    Eau,
+    /// Les gros tuyaux, semés au hasard d'une cellule à l'autre.
+    Tuyaux,
 }
 
-/// Le mur du tunnel, ses arches, ses coulures, ses grilles et l'eau à son pied.
-fn dessiner_mur(cam_x: i32, vert: i32, pas: u32) {
-    rect(0, 0, L, H, ARDOISE_NUIT);
-    let dec = decalage(cam_x, FACTEUR_MUR);
-    let premiere = dec.div_euclid(PERIODE_ARCHE) - 1;
-    let derniere = (dec + L).div_euclid(PERIODE_ARCHE) + 1;
-    let eau = EAU + vert;
-    for k in premiere..=derniere {
-        let cx = k * PERIODE_ARCHE + PERIODE_ARCHE / 2 - dec;
-        dessiner_arche(cx, vert);
-        dessiner_pilier(k, cx + PERIODE_ARCHE / 2, vert, pas);
+/// La pile du fond des égouts (lue par `decor::pile`).
+pub const PILE: [Plan; 5] = [
+    Plan::Mur,
+    Plan::Arches,
+    Plan::Piliers,
+    Plan::Eau,
+    Plan::Tuyaux,
+];
+
+impl Plan {
+    /// Le nom du fichier de `assets/fonds/egouts` (`None` : plan calculé).
+    #[cfg(test)]
+    pub fn fichier(self) -> Option<&'static str> {
+        match self {
+            Plan::Mur => Some("mur"),
+            Plan::Arches => Some("arches"),
+            _ => None,
+        }
     }
-    // L'eau sombre au pied des arches : le reflet tremblé de chaque pilier (des
-    // traits courts d'ardoise nuit, décalés d'une rangée à l'autre : jamais des
-    // marches), quelques reflets cyan sombre.
+
+    /// Le nom du plan dans `assets/fonds/LISEZMOI.md`.
+    #[cfg(test)]
+    pub fn nom(self) -> &'static str {
+        match self {
+            Plan::Mur => "mur",
+            Plan::Arches => "arches",
+            Plan::Piliers => "piliers",
+            Plan::Eau => "eau",
+            Plan::Tuyaux => "tuyaux",
+        }
+    }
+}
+
+/// Les arches (et les piliers qui les suivent) visibles quand le mur est décalé de
+/// `dec` px : de la première, à gauche de l'écran, à la dernière, à droite.
+fn arches_visibles(dec: i32) -> std::ops::RangeInclusive<i32> {
+    dec.div_euclid(PERIODE_ARCHE) - 1..=(dec + L).div_euclid(PERIODE_ARCHE) + 1
+}
+
+/// Dessine un plan du fond des égouts. `cam_y` : la caméra vue par le fond
+/// (`decor::camera_fond`), pour la parallaxe verticale (nulle dans un niveau d'un
+/// écran de haut, comme les égouts).
+pub fn dessiner_plan(plan: Plan, cam_x: i32, cam_y: i32, pas: u32) {
+    let vert = enfoncement(cam_y, VERT_MUR);
+    let dec = decalage(cam_x, FACTEUR_MUR);
+    match plan {
+        Plan::Mur => crate::fonds::repeter("egouts", "mur", 0, 0, L),
+        Plan::Arches => {
+            // Le fichier commence au bord gauche de la période de l'arche.
+            for k in arches_visibles(dec) {
+                let x = k * PERIODE_ARCHE - dec;
+                crate::fonds::dessiner("egouts", "arches", x, HAUT_ARCHES + vert);
+            }
+        }
+        Plan::Piliers => {
+            for k in arches_visibles(dec) {
+                let px = (k + 1) * PERIODE_ARCHE - dec;
+                dessiner_pilier(k, px, vert, pas);
+            }
+        }
+        Plan::Eau => dessiner_eau(dec, vert, pas),
+        Plan::Tuyaux => dessiner_tuyaux(cam_x, enfoncement(cam_y, VERT_TUYAUX)),
+    }
+}
+
+/// L'eau sombre au pied des arches : le reflet tremblé de chaque pilier (des
+/// traits courts d'ardoise nuit, décalés d'une rangée à l'autre : jamais des
+/// marches), quelques reflets cyan sombre.
+fn dessiner_eau(dec: i32, vert: i32, pas: u32) {
+    let eau = EAU + vert;
     rect(0, eau, L, H - eau, ARDOISE_OMBRE);
-    for k in premiere..=derniere {
+    for k in arches_visibles(dec) {
         let cx = k * PERIODE_ARCHE + PERIODE_ARCHE / 2 - dec;
         let px = cx + PERIODE_ARCHE / 2;
         for (i, y) in (eau + 2..eau + 26).step_by(4).enumerate() {
@@ -168,64 +204,6 @@ fn dessiner_mur(cam_x: i32, vert: i32, pas: u32) {
             if (pas / 12 + h % 5).is_multiple_of(3) {
                 rect(x, y, 3, 1, PLUIE_SOMBRE);
             }
-        }
-    }
-}
-
-/// Une arche centrée en `cx` : l'anneau de claveaux (plein) et sa clé, les pierres
-/// d'angle des piédroits, la bouche sombre et, au fond, la seconde arche.
-fn dessiner_arche(cx: i32, vert: i32) {
-    let haut = NAISSANCE - RAYON - CLAVEAU;
-    for y in haut..NAISSANCE {
-        let Some(ext) = anneau(y) else { continue };
-        match ouverture(y) {
-            Some(o) => {
-                rect(cx - ext, y + vert, ext - o, 1, ARDOISE);
-                rect(cx + o, y + vert, ext - o, 1, ARDOISE);
-            }
-            None => rect(cx - ext, y + vert, 2 * ext, 1, ARDOISE),
-        }
-    }
-    // Les joints rayonnants entre les claveaux, et la clé qui dépasse en haut.
-    for j in 1..NB_CLAVEAUX {
-        let a = std::f32::consts::PI * j as f32 / NB_CLAVEAUX as f32;
-        for r in RAYON..RAYON + CLAVEAU {
-            let x = cx + (r as f32 * a.cos()).round() as i32;
-            let y = NAISSANCE - (r as f32 * a.sin()).round() as i32;
-            rect(x, y + vert, 1, 1, ARDOISE_NUIT);
-        }
-    }
-    rect(cx - 3, haut - 2 + vert, 6, 2, ARDOISE);
-    // Les pierres d'angle des piédroits, alternées (5 px, puis 3 px).
-    for (i, y) in (NAISSANCE..EAU).step_by(6).enumerate() {
-        let w = if i % 2 == 0 { 5 } else { 3 };
-        let h = 5.min(EAU - y);
-        rect(cx - RAYON - w, y + vert, w, h, ARDOISE);
-        rect(cx + RAYON, y + vert, w, h, ARDOISE);
-    }
-    // La bouche, et la galerie qui s'enfonce : une seconde arche plus petite.
-    for y in NAISSANCE - RAYON..EAU {
-        if let Some(o) = ouverture(y) {
-            rect(cx - o, y + vert, 2 * o, 1, ARDOISE_OMBRE);
-        }
-        let d = NAISSANCE + 6 - y;
-        let ext = if d > 0 {
-            demi_corde(RAYON_FOND + ANNEAU_FOND, d)
-        } else {
-            Some(RAYON_FOND + ANNEAU_FOND)
-        };
-        let int = if d > 0 {
-            demi_corde(RAYON_FOND, d)
-        } else {
-            Some(RAYON_FOND)
-        };
-        match (ext, int) {
-            (Some(e), Some(i)) => {
-                rect(cx - e, y + vert, e - i, 1, ARDOISE_NUIT);
-                rect(cx + i, y + vert, e - i, 1, ARDOISE_NUIT);
-            }
-            (Some(e), None) => rect(cx - e, y + vert, 2 * e, 1, ARDOISE_NUIT),
-            _ => {}
         }
     }
 }
@@ -313,20 +291,29 @@ fn dessiner_tuyaux(cam_x: i32, vert: i32) {
 mod tests {
     use super::*;
 
-    /// Les arches sont PLEINES : la bouche est ouverte sur toute sa hauteur (du
-    /// sommet du cintre jusqu'à l'eau, sans jamais se refermer en descendant), et
-    /// l'anneau de claveaux l'entoure d'une bande d'au moins 3 px de large au-dessus
-    /// de la naissance (pas un contour d'un pixel).
+    /// Carte 10.4d : `egouts/arches.png` tient UNE période (`PERIODE_ARCHE` px de
+    /// large), de la clé (`HAUT_ARCHES`) jusqu'à l'eau. L'arche y est PLEINE : au
+    /// milieu, la bouche est sombre et ouverte du sommet du cintre jusqu'à l'eau, et
+    /// l'anneau de claveaux au-dessus d'elle est une bande pleine de `CLAVEAU` px
+    /// (pas un contour d'un pixel).
     #[test]
-    fn les_arches_sont_pleines() {
-        let haut = NAISSANCE - RAYON;
-        let o: Vec<i32> = (haut..EAU).map(|y| ouverture(y).unwrap()).collect();
-        assert!(o.windows(2).all(|p| p[0] <= p[1]), "{o:?}");
-        assert_eq!(*o.last().unwrap(), RAYON);
-        assert!(ouverture(haut - 1).is_none() && ouverture(EAU).is_none());
-        for y in haut + 4..NAISSANCE {
-            let (e, i) = (anneau(y).unwrap(), ouverture(y).unwrap());
-            assert!(e - i >= 3, "y={y} : anneau de {} px", e - i);
+    fn les_arches_du_fichier_sont_pleines() {
+        let (l, h) = crate::fonds::taille("egouts", "arches");
+        assert_eq!((l, HAUT_ARCHES + h), (PERIODE_ARCHE, EAU));
+        let milieu = (PERIODE_ARCHE / 2) as usize;
+        let px =
+            |y: i32| crate::fonds::couleur("egouts", "arches", milieu, (y - HAUT_ARCHES) as usize);
+        // Au sommet du cintre, la bouche et l'anneau ont une largeur nulle : ils
+        // commencent une rangée plus bas.
+        for y in NAISSANCE - RAYON + 1..EAU {
+            let c = px(y);
+            assert!(
+                c == Some(ARDOISE_OMBRE) || c == Some(ARDOISE_NUIT),
+                "y={y} : {c:?}"
+            );
+        }
+        for y in NAISSANCE - RAYON - CLAVEAU + 1..=NAISSANCE - RAYON {
+            assert_eq!(px(y), Some(ARDOISE), "y={y}");
         }
     }
 

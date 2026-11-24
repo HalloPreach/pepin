@@ -1,7 +1,11 @@
-//! Sprites en pixel art, 100 % dans le code (aucun fichier image).
+//! Sprites en pixel art. Depuis la carte 10.4a, chaque dessin fait à la main est un
+//! fichier PNG du dépôt (`assets/sprites/<famille>/<clé>.png`, voir
+//! `assets/sprites/LISEZMOI.md`), embarqué dans le jeu à la compilation et décodé par
+//! `fichiers`. Les modules `pepin`, `ennemis`... gardent les NOMS (animations, jeux
+//! d'images) et les commentaires de conception de chaque dessin.
 //!
-//! Un dessin est une grille de texte : une ligne = une rangée de pixels,
-//! 1 caractère = 1 pixel. `.` = transparent ; `0`-`9` puis `A`-`F` = indice
+//! Une fois décodé, un dessin est une grille de texte : une ligne = une rangée de
+//! pixels, 1 caractère = 1 pixel. `.` = transparent ; `0`-`9` puis `A`-`F` = indice
 //! dans `pepin_core::palette::TOUTES` (0 = ombre de contour, 8 = corail du
 //! parapluie, B = or, D = cyan de la pluie, etc.).
 //!
@@ -12,31 +16,19 @@
 //! Notions Rust illustrées ici : alias de type (`Image`), `Result` avec un
 //! `char` fautif comme erreur, itérateurs, `HashMap`, tests unitaires.
 
-// Les dessins sont des grilles de texte : rustfmt les tasserait sur une seule
-// ligne et les rendrait illisibles, donc on l'exclut de ces fichiers.
-#[rustfmt::skip]
 pub mod ennemis;
-#[rustfmt::skip]
 pub mod ennemis_eau;
-#[rustfmt::skip]
+pub mod fichiers;
 pub mod jetee;
-#[rustfmt::skip]
 pub mod objets;
-#[rustfmt::skip]
 pub mod objets_decor;
-#[rustfmt::skip]
 pub mod objets_eau;
-#[rustfmt::skip]
 pub mod pepin;
-#[rustfmt::skip]
 pub mod pepinette;
-#[rustfmt::skip]
 pub mod pieuvre;
 #[cfg(test)]
 mod planche;
-#[rustfmt::skip]
 pub mod tuiles;
-#[rustfmt::skip]
 pub mod tuiles_monde2;
 
 use std::cell::Cell;
@@ -52,6 +44,7 @@ use crate::cosmetiques::{appliquer_motif, Motif};
 use crate::decor::ambiance;
 use crate::rendu::couleur_mq;
 use crate::skins::Skin;
+pub use fichiers::dessin;
 
 /// Un dessin : une liste de lignes de texte, toutes de même longueur.
 pub type Image = &'static [&'static str];
@@ -145,22 +138,10 @@ pub fn verifier(nom: &str, image: Image) -> Result<(), String> {
 #[cfg(test)]
 /// Tous les sprites du jeu (nom, dessin), tous fichiers confondus.
 pub fn tous() -> Vec<(&'static str, Image)> {
-    let mut liste = personnages();
-    liste.extend(
-        [
-            ennemis::SPRITES,
-            ennemis_eau::SPRITES,
-            pieuvre::SPRITES,
-            objets::SPRITES,
-            objets_decor::SPRITES,
-            objets_eau::SPRITES,
-            tuiles::SPRITES,
-            jetee::SPRITES,
-        ]
-        .concat(),
-    );
-    liste.extend(tuiles_monde2::JEUX.concat());
-    liste
+    fichiers::FAMILLES
+        .iter()
+        .flat_map(|f| fichiers::famille(f).iter().copied())
+        .collect()
 }
 
 /// Les sprites de tous les skins du catalogue (Pépin, Pépinette…), dans son ordre.
@@ -246,13 +227,13 @@ impl Banque {
             .into_iter()
             .chain(
                 [
-                    ennemis::SPRITES,
-                    ennemis_eau::SPRITES,
-                    pieuvre::SPRITES,
-                    objets::SPRITES,
-                    objets_decor::SPRITES,
-                    objets_eau::SPRITES,
-                    jetee::SPRITES,
+                    ennemis::sprites(),
+                    ennemis_eau::sprites(),
+                    pieuvre::sprites(),
+                    objets::sprites(),
+                    objets_decor::sprites(),
+                    objets_eau::sprites(),
+                    jetee::sprites(),
                 ]
                 .concat(),
             )
@@ -264,12 +245,12 @@ impl Banque {
                 .map(|&t| {
                     // Les tuiles du Monde 1 prennent la teinte du thème ; celles d'un
                     // jeu du Monde 2 (carte 9.6b) se dessinent telles quelles.
-                    let monde_1 = tuiles::SPRITES
+                    let monde_1 = tuiles::sprites()
                         .iter()
                         .map(|&(nom, dessin)| (nom, texture_tramee(dessin, Some(t), trame)));
                     let monde_2 = tuiles_monde2::JEUX
                         .iter()
-                        .flat_map(|jeu| jeu.iter())
+                        .flat_map(|jeu| fichiers::famille(jeu).iter())
                         .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, trame)));
                     monde_1.chain(monde_2).collect()
                 })
@@ -286,7 +267,7 @@ impl Banque {
             }
         }
         // Le boss du mode facile, plus pâle : le Grand Nuage et la tête de la Pieuvre.
-        let nuages_trames = [ennemis::SPRITES, pieuvre::SPRITES]
+        let nuages_trames = [ennemis::sprites(), pieuvre::sprites()]
             .concat()
             .iter()
             .filter(|(nom, _)| nom.starts_with("nuage_") || nom.starts_with("pieuvre_"))
@@ -1319,7 +1300,7 @@ mod tests {
     }
 
     /// Même contrôle dans la descente (carte 5.17), dont le ciel défile avec la
-    /// caméra (`decor::VOYAGE`) : pour chaque pigeon, chaque ligne qu'il occupe
+    /// caméra (`decor::voyage`) : pour chaque pigeon, chaque ligne qu'il occupe
     /// (perché, puis jusqu'au fond de sa plongée) et CHAQUE position de la caméra où
     /// cette ligne est à l'écran, il se détache de la bande de ciel derrière lui (et
     /// de celle de sa trame) : voir `pigeon_se_detache`. Les pigeons sont
@@ -1327,7 +1308,7 @@ mod tests {
     /// jamais le violet ni la nuit.
     #[test]
     fn le_pigeon_se_detache_du_ciel_de_la_descente() {
-        use crate::decor::{bande_voyage, camera_fond, remontee_voyage, VOYAGE};
+        use crate::decor::{bande_voyage, camera_fond, remontee_voyage, voyage};
         use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
         use pepin_core::entities::{Entite, TypeEnnemi};
         use pepin_core::HAUTEUR_LOGIQUE;
@@ -1348,7 +1329,10 @@ mod tests {
                 for cam_y in cameras {
                     let r = remontee_voyage(camera_fond(cam_y, h_niveau));
                     let y = y_niveau - cam_y;
-                    for ciel in [VOYAGE[bande_voyage(y, r)], VOYAGE[bande_voyage(y + 6, r)]] {
+                    for ciel in [
+                        voyage()[bande_voyage(y, r)],
+                        voyage()[bande_voyage(y + 6, r)],
+                    ] {
                         if let Err(e) = pigeon_se_detache(ciel) {
                             panic!(
                                 "pigeon en {:?}, sur {ciel:?} (caméra {cam_y}) : {e}",
@@ -1829,7 +1813,7 @@ mod tests {
     /// la carte 9.20h : `decor_rue` la dessine avec sa maison.)
     #[test]
     fn les_objets_de_decor_tiennent_dans_leur_case_et_celle_du_dessus() {
-        for &(nom, d) in objets_decor::SPRITES {
+        for &(nom, d) in objets_decor::sprites() {
             let (l, h) = (largeur(d), hauteur(d));
             assert!((6..=16).contains(&l), "{nom} : {l} px de large");
             assert!((8..=28).contains(&h), "{nom} : {h} px de haut");
@@ -1842,7 +1826,7 @@ mod tests {
     /// voisins pleins ; seul le dessous de la dernière rangée compte comme plein (le toit).
     #[test]
     fn les_objets_de_decor_ont_un_contour_sombre() {
-        for &(nom, d) in objets_decor::SPRITES {
+        for &(nom, d) in objets_decor::sprites() {
             let (l, h) = (largeur(d) as i32, hauteur(d) as i32);
             for y in 0..h {
                 for x in 0..l {
@@ -1871,7 +1855,7 @@ mod tests {
     /// ni le cyan des flaques et de la pluie (D, E), ni le corail du parapluie (8, 9).
     #[test]
     fn le_decor_n_utilise_pas_les_couleurs_du_jeu() {
-        for &(nom, d) in objets_decor::SPRITES {
+        for &(nom, d) in objets_decor::sprites() {
             for ligne in d {
                 for c in ligne.chars() {
                     assert!(!"BCDE89".contains(c), "{nom} : couleur réservée « {c} »");

@@ -396,8 +396,8 @@ mod tests {
     /// jeu du port.
     #[test]
     fn chaque_piece_du_bord_existe() {
-        let sprites: Vec<_> = jetee::SPRITES.iter().map(|(n, _)| *n).collect();
-        let tuiles: Vec<_> = port::SPRITES.iter().map(|(n, _)| *n).collect();
+        let sprites: Vec<_> = jetee::sprites().iter().map(|(n, _)| *n).collect();
+        let tuiles: Vec<_> = port::sprites().iter().map(|(n, _)| *n).collect();
         for gauche in [true, false] {
             for ty in 0..11 {
                 for eau in [false, true] {
@@ -426,7 +426,7 @@ mod tests {
     /// sur la bande cyan, et l'eau profonde n'a que de l'ardoise de nuit (1, 2).
     #[test]
     fn le_bassin_est_profond_et_garde_la_bande_ou_se_lit_l_annonce() {
-        let haut = jetee::EAU_HAUT;
+        let haut = crate::sprites::dessin("jetee_eau_haut");
         assert!(
             haut[0].chars().all(|c| c == 'D'),
             "la ligne claire de la surface"
@@ -434,12 +434,15 @@ mod tests {
         for rangee in &haut[1..=4] {
             assert!(rangee.chars().all(|c| c == 'D' || c == 'E'), "{rangee}");
         }
-        for rangee in haut[6..].iter().chain(jetee::EAU_PLEIN.iter()) {
+        for rangee in haut[6..]
+            .iter()
+            .chain(crate::sprites::dessin("jetee_eau_plein").iter())
+        {
             assert!(rangee.chars().all(|c| c == '1' || c == '2'), "{rangee}");
         }
         // L'eau du thème (Monde 1, éclaircie d'un cran au port) avait un fond d'ardoise
         // claire (3) : le bassin est plus sombre.
-        let theme = crate::sprites::tuiles::EAU_CALME_PLEIN;
+        let theme = crate::sprites::dessin("eau_calme_plein");
         assert!(theme.iter().any(|r| r.contains('2')));
     }
 
@@ -452,14 +455,17 @@ mod tests {
         assert!(HORIZON < platelage);
         for (n, x, flottaison, h) in BATEAUX {
             assert!(flottaison > HORIZON && flottaison < platelage, "{n}");
-            let dessin = jetee::SPRITES.iter().find(|(m, _)| *m == n).unwrap().1;
+            let dessin = jetee::sprites().iter().find(|(m, _)| *m == n).unwrap().1;
             assert_eq!(dessin.len() as i32, h, "{n}");
             assert!(
                 x >= 16 && x + crate::sprites::largeur(dessin) as i32 <= 304,
                 "{n}"
             );
         }
-        assert_eq!(HAUT_PHARE + jetee::PHARE.len() as i32, HORIZON - 2);
+        assert_eq!(
+            HAUT_PHARE + crate::sprites::dessin("jetee_phare").len() as i32,
+            HORIZON - 2
+        );
     }
 
     /// Les bateaux sont des SILHOUETTES sombres (ombre de contour, quelques
@@ -468,7 +474,7 @@ mod tests {
     #[test]
     fn les_bateaux_sont_des_silhouettes_sombres() {
         for (n, ..) in BATEAUX {
-            let dessin = jetee::SPRITES.iter().find(|(m, _)| *m == n).unwrap().1;
+            let dessin = jetee::sprites().iter().find(|(m, _)| *m == n).unwrap().1;
             let pixels: Vec<char> = dessin
                 .iter()
                 .flat_map(|r| r.chars())
@@ -503,7 +509,7 @@ mod tests {
             let Entite::Mobile(m) = e else { continue };
             let (a, b) = m.extremites().unwrap();
             let (nom, haut) = sprite_du_port(CLE_PORT, a, b).unwrap();
-            let dessin = jetee::SPRITES.iter().find(|(m, _)| *m == nom).unwrap().1;
+            let dessin = jetee::sprites().iter().find(|(m, _)| *m == nom).unwrap().1;
             assert_eq!(dessin[0].len() as f32, m.boite.w, "{nom}");
             let collision = dessin.iter().skip(haut as usize).take(m.boite.h as usize);
             for (y, rangee) in collision.enumerate() {

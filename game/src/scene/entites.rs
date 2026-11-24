@@ -380,9 +380,9 @@ pub(crate) fn bulles_chat(phase: PhaseChat, pas: u32) -> Vec<(&'static str, f32,
 /// Dessin d'un indice du chat (pour connaître sa largeur).
 fn sprite_chat(nom: &str) -> crate::sprites::Image {
     if nom == "chat_alerte" {
-        ennemis::CHAT_ALERTE
+        crate::sprites::dessin("chat_alerte")
     } else {
-        ennemis::CHAT_Z
+        crate::sprites::dessin("chat_z")
     }
 }
 

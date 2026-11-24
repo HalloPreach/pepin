@@ -64,7 +64,12 @@ pub struct Plafond {
 /// Ce qui distingue l'ambiance d'un niveau.
 #[derive(Debug, Clone, Copy)]
 pub struct Ambiance {
-    /// Quatre bandes de ciel, de haut en bas.
+    /// Quatre bandes de ciel, de haut en bas. Carte 10.4c : lues dans le fichier
+    /// `assets/fonds/<dossier>/ciel.png` (`bandes_du_ciel`), sauf aux égouts et au
+    /// port, qui ont leur propre fond : là, ce ne sont que les couleurs de
+    /// référence des garde-fous de contraste. Le rendu, lui, pose le fichier : ce
+    /// champ ne sert plus qu'aux tests (contraste des sprites, de la grêle...).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub ciel: [Couleur; 4],
     /// Silhouettes lointaines et proches.
     pub lointain: Couleur,
@@ -111,7 +116,7 @@ pub struct Ambiance {
     /// `dessiner_arc`.
     pub arc: bool,
     /// Le ciel du voyage de retour (carte 5.17, l'épilogue) : au lieu des quatre
-    /// bandes fixes, les bandes de `VOYAGE` défilent selon la hauteur de la caméra
+    /// bandes fixes, les bandes du voyage (`voyage`) défilent selon la hauteur de la caméra
     /// (`dessiner_voyage`) ; `ciel` et les silhouettes décrivent alors le BAS de la
     /// descente (la ville du premier niveau, la nuit).
     pub voyage: bool,
@@ -161,12 +166,6 @@ pub struct TeinteTuiles {
 /// selon le groupe).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Detail {
-    /// Les lampadaires de la rue (le caniveau, carte 9.6b) : mât de fonte, lanterne
-    /// orange et son halo (`decor_rue`).
-    Lampadaires,
-    /// Les maisons de la rue du caniveau (carte 9.6b) : façades, fenêtres
-    /// allumées, vitrines sous leur store, descentes de gouttière (`decor_rue`).
-    Facades,
     /// Les égouts : deux tuyaux qui traversent le tunnel et leurs colliers.
     Tuyaux,
     /// La lueur cyan des égouts : une bande d'eau sombre au sol, ses reflets.
@@ -207,7 +206,7 @@ pub enum Detail {
 pub fn ambiance(theme: Theme) -> Ambiance {
     match theme {
         Theme::Toits => Ambiance {
-            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE, ARDOISE],
+            ciel: bandes_du_ciel(Theme::Toits),
             lointain: ARDOISE_NUIT,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -236,7 +235,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // L'averse redouble : deux fois plus de gouttes, et un plafond de nuages
         // discrets en haut du ciel.
         Theme::Gouttieres => Ambiance {
-            ciel: [ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE, ARDOISE_CLAIRE],
+            ciel: bandes_du_ciel(Theme::Gouttieres),
             lointain: ARDOISE,
             proche: ARDOISE_NUIT,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -271,7 +270,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // marché), étoiles en haut, immeubles aux fenêtres orange (les lanternes et
         // les vitrines des marchands), une pluie entre l'averse et l'orage.
         Theme::Marche => Ambiance {
-            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE],
+            ciel: bandes_du_ciel(Theme::Marche),
             lointain: ARDOISE_NUIT,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -304,7 +303,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // qu'aux niveaux 1 et 2, s'y découpent en noir et bleu nuit. Un plafond
         // de gros nuages d'orage pèse sur le haut de l'écran.
         Theme::Orage => Ambiance {
-            ciel: [ARDOISE_OMBRE, ARDOISE, VIOLET_ORAGE, VIOLET_ORAGE],
+            ciel: bandes_du_ciel(Theme::Orage),
             lointain: ARDOISE_NUIT,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -343,7 +342,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // et demie plus vite qu'au niveau d'essai vertical (`vertige`) et découvre
         // la lueur : au sommet, on SENT la hauteur.
         Theme::Clocher => Ambiance {
-            ciel: [ARDOISE_NUIT, VIOLET_ORAGE, VIOLET_ORAGE, ARDOISE_PALE],
+            ciel: bandes_du_ciel(Theme::Clocher),
             lointain: ARDOISE,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -379,7 +378,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // et des tours de nuages violettes montent du fond, les proches presque
         // noires. Un peu de pluie que le cyclone fait tourner.
         Theme::Cyclone => Ambiance {
-            ciel: [ORANGE_SOLEIL, ARDOISE, ARDOISE_NUIT, ARDOISE_NUIT],
+            ciel: bandes_du_ciel(Theme::Cyclone),
             lointain: VIOLET_ORAGE,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -415,7 +414,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // Altitude : tours de nuages violettes sur le ciel corail, tours proches
         // plus sombres, petites îles flottantes dans le tiers médian.
         Theme::Altitude => Ambiance {
-            ciel: [VIOLET_ORAGE, CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL],
+            ciel: bandes_du_ciel(Theme::Altitude),
             lointain: VIOLET_ORAGE,
             proche: ARDOISE_NUIT,
             // Cyan et blanc : visibles devant les quatre bandes du ciel.
@@ -468,7 +467,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // 515-plane-porte et 518-mer-plane-avant) ; avec -8, ils arrivaient encore à
         // la hauteur du quai bas de l'arrivée du moment fort (518-mer-rive).
         Theme::Mer => Ambiance {
-            ciel: [CORAIL, CORAIL_CLAIR, ORANGE_SOLEIL, OR],
+            ciel: bandes_du_ciel(Theme::Mer),
             lointain: CORAIL_CLAIR,
             proche: VIOLET_ORAGE,
             // Sans pluie (`Theme::pluie`) : couleurs jamais dessinées, mais
@@ -500,7 +499,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // sommets restent sous la ligne du sol), d'une couleur absente des
         // plateformes et des bandes de ciel de derrière.
         Theme::Soleil => Ambiance {
-            ciel: [CORAIL_CLAIR, ORANGE_SOLEIL, OR, OR_PALE],
+            ciel: bandes_du_ciel(Theme::Soleil),
             lointain: CORAIL_CLAIR,
             proche: BRUME,
             pluie: (OR_PALE, BLANC_CASSE),
@@ -528,14 +527,14 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         },
         // L'arc-en-ciel (carte 5.16, le bonus) : TOUTE LA PALETTE. L'averse vient
         // de s'arrêter : un ciel d'ardoise, sombre en haut, qui s'éclaircit vers
-        // l'horizon ; devant lui, un grand arc-en-ciel de huit bandes (`ARC`), du
+        // l'horizon ; devant lui, un grand arc-en-ciel de huit bandes (`arc_en_ciel/arc.png`), du
         // corail au violet, qui glisse lentement de droite à gauche (on le
         // traverse) ; en bas, des bancs de nuages pâles au loin et sombres devant.
         // Les nuages du pont, clairs et cernés de sombre, tranchent sur tout cela.
         // Pas de pluie, ni étoiles, ni soleil, ni îlots (un îlot clair se lirait
         // comme une dalle du pont).
         Theme::ArcEnCiel => Ambiance {
-            ciel: [ARDOISE_NUIT, ARDOISE, ARDOISE_CLAIRE, ARDOISE_PALE],
+            ciel: bandes_du_ciel(Theme::ArcEnCiel),
             lointain: BRUME,
             proche: ARDOISE_CLAIRE,
             // Sans pluie (`Theme::pluie`) : couleurs jamais dessinées, mais
@@ -565,12 +564,12 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         },
         // La descente (carte 5.17, l'épilogue) : le ciel refait le voyage en sens
         // inverse, de l'or du soleil (en haut du niveau) à la nuit des toits (en bas),
-        // voir `VOYAGE` et `dessiner_voyage`. Les champs ci-dessous décrivent le BAS
+        // voir `voyage` et `dessiner_voyage`. Les champs ci-dessous décrivent le BAS
         // de la descente, là où l'on arrive : le ciel et la ville du premier niveau
         // (mêmes bandes, mêmes immeubles), avec quelques fenêtres allumées : on rentre
         // à la maison. Plus de pluie : l'orage est fini.
         Theme::Descente => Ambiance {
-            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE, ARDOISE],
+            ciel: bandes_du_ciel(Theme::Descente),
             lointain: ARDOISE_NUIT,
             proche: ARDOISE_OMBRE,
             // Sans pluie (`Theme::pluie`) : couleurs jamais dessinées, celles des toits.
@@ -610,12 +609,12 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // Le caniveau (refait à la carte 9.6b) : la rue sous une forte averse, vue
         // du trottoir. Au loin, les immeubles de la ville (ardoise d'ombre, quelques
         // fenêtres orange) sur un ciel de nuit ; devant eux, une rangée de maisons
-        // (`Detail::Facades` : façades d'ardoise sombres et ternes depuis la carte
+        // (`decor_rue` : façades d'ardoise sombres et ternes depuis la carte
         // 9.20g, fenêtres, vitrines
         // sous leur store, descentes de gouttière) ; devant, les lampadaires et leur
         // halo. La couche proche reste sous la rue (cachée par les pavés).
         Theme::Caniveau => Ambiance {
-            ciel: [ARDOISE_NUIT, ARDOISE_NUIT, ARDOISE, ARDOISE],
+            ciel: bandes_du_ciel(Theme::Caniveau),
             lointain: ARDOISE_OMBRE,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -641,7 +640,9 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 1.0,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Facades), Some(Detail::Lampadaires), None, None],
+            // La rue (maisons, fenêtres allumées, lampadaires) n'est plus un motif :
+            // ses plans ont leur place dans la pile (`decor_rue::Plan`, carte 10.4d).
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // Les égouts : tunnel de briques sombres, des voûtes au fond (les bouches
@@ -693,7 +694,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // falaises de fond et ruisselles devant, deux nappes de brume, ciel qui
         // s'éclaircit vers l'horizon (la lumière qui remonte de la brèche).
         Theme::Cascade => Ambiance {
-            ciel: [ARDOISE_NUIT, VIOLET_ORAGE, BRUME, NUAGE],
+            ciel: bandes_du_ciel(Theme::Cascade),
             lointain: ARDOISE,
             proche: ARDOISE_NUIT,
             pluie: (PLUIE, BLANC_CASSE),
@@ -729,7 +730,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // Carte 9.27b : un ciel d'une seule teinte ; la trame entre deux bandes
         // traçait une ligne d'horizon à mi-hauteur, comme dehors.
         Theme::Grotte => Ambiance {
-            ciel: [ARDOISE_NUIT; 4],
+            ciel: bandes_du_ciel(Theme::Grotte),
             lointain: ARDOISE,
             proche: ARDOISE_OMBRE,
             // La grotte est sèche (la pluie est restée dehors) : `Theme::pluie` est
@@ -769,7 +770,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // s'éclaircit vers l'horizon ; l'eau du courant au pied, ses reflets.
         // Carte 9.10 : une forêt de sapins à mi-hauteur, au-dessus des berges.
         Theme::Riviere => Ambiance {
-            ciel: [ARDOISE, ARDOISE_CLAIRE, BRUME, NUAGE],
+            ciel: bandes_du_ciel(Theme::Riviere),
             lointain: ARDOISE_CLAIRE,
             proche: ARDOISE_OMBRE,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -839,7 +840,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // vertical (`vertige`) : la course vers le haut, la poursuite de la carte
         // 8.2 à la verticale.
         Theme::Maree => Ambiance {
-            ciel: [ARDOISE_OMBRE, ARDOISE_NUIT, VIOLET_ORAGE, CORAIL_CLAIR],
+            ciel: bandes_du_ciel(Theme::Maree),
             lointain: ARDOISE,
             proche: ARDOISE_NUIT,
             pluie: (PLUIE_SOMBRE, PLUIE),
@@ -875,22 +876,20 @@ pub fn ambiance(theme: Theme) -> Ambiance {
 /// dernières bandes sont EXACTEMENT le ciel du premier niveau. Chaque couleur est
 /// déjà une bande du ciel d'un autre niveau (test
 /// `chaque_couleur_du_voyage_est_deja_le_ciel_d_un_autre_niveau`) : tout ce qui se
-/// lit sur les autres ciels (sprites, grêle) se lit aussi ici.
-pub const VOYAGE: [Couleur; 10] = [
-    OR_PALE,
-    OR,
-    ORANGE_SOLEIL,
-    CORAIL_CLAIR,
-    CORAIL,
-    VIOLET_ORAGE,
-    ARDOISE_OMBRE,
-    ARDOISE_NUIT,
-    ARDOISE,
-    ARDOISE,
-];
+/// lit sur les autres ciels (sprites, grêle) se lit aussi ici. Carte 10.4c : le ciel
+/// du voyage est le fichier `assets/fonds/descente/voyage.png` (une colonne de
+/// 450 px, trame comprise) ; cette fonction en lit les dix couleurs.
+#[cfg(test)]
+pub fn voyage() -> [Couleur; NB_BANDES_VOYAGE] {
+    std::array::from_fn(|i| {
+        crate::fonds::couleur("descente", "voyage", 0, i * (H / 4) as usize).expect("ciel opaque")
+    })
+}
+/// Nombre de bandes du voyage (la hauteur de `voyage.png`, 450 px, divisée par 45).
+const NB_BANDES_VOYAGE: usize = 10;
 /// Hauteur (px) du ciel du voyage, et remontée maximale de son « fenêtrage » : en
 /// bas du niveau, l'écran montre les 4 dernières bandes ; en haut, les 4 premières.
-const HAUTEUR_VOYAGE: i32 = VOYAGE.len() as i32 * (H / 4);
+const HAUTEUR_VOYAGE: i32 = NB_BANDES_VOYAGE as i32 * (H / 4);
 pub const REMONTEE_VOYAGE_MAX: i32 = HAUTEUR_VOYAGE - H;
 /// Parallaxe verticale du voyage : une descente de quatre écrans (540 px de caméra)
 /// fait défiler les 270 px du voyage. Le ciel, le soleil, les îlots, les étoiles et
@@ -913,13 +912,13 @@ pub fn remontee_voyage(cam_y_fond: i32) -> i32 {
     decalage(-cam_y_fond, FACTEUR_VOYAGE).clamp(0, REMONTEE_VOYAGE_MAX)
 }
 
-/// Bande de `VOYAGE` derrière la ligne d'écran `y` quand le fond est remonté de
+/// Bande du voyage (`voyage`) derrière la ligne d'écran `y` quand le fond est remonté de
 /// `remontee` px (sans la trame des 6 dernières lignes de chaque bande) : la règle
 /// que suit `dessiner_voyage`, pour les tests. Pure.
 #[cfg(test)]
 pub fn bande_voyage(y: i32, remontee: i32) -> usize {
     let s = y + REMONTEE_VOYAGE_MAX - remontee;
-    (s.max(0) / (H / 4)).min(VOYAGE.len() as i32 - 1) as usize
+    (s.max(0) / (H / 4)).min(NB_BANDES_VOYAGE as i32 - 1) as usize
 }
 
 /// Ordonnée écran d'un point du repère du voyage (0 = haut de la 1re bande).
@@ -927,86 +926,13 @@ fn y_voyage(y: i32, remontee: i32) -> i32 {
     y - REMONTEE_VOYAGE_MAX + remontee
 }
 
-/// Le fond de la descente : le ciel du voyage (dix bandes séparées par la même
-/// trame que `dessiner_ciel`), le soleil en haut, des îlots devant le corail, les
-/// étoiles dans la nuit, et en bas la ville du premier niveau. Tout défile de la
-/// même remontée : en bas du niveau (et sur l'écran de fin), l'écran est celui du
-/// premier niveau, fenêtres allumées en plus.
-fn dessiner_voyage(a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
-    let r = remontee_voyage(cam_y);
-    let bande = H / 4;
-    for (i, &c) in VOYAGE.iter().enumerate() {
-        let y = y_voyage(i as i32 * bande, r);
-        if y >= H || y + bande < 0 {
-            continue;
-        }
-        rect(0, y, L, bande + 1, c);
-        if let Some(&suivante) = VOYAGE.get(i + 1) {
-            for k in 0..3 {
-                rect(0, y + bande - 6 + k * 2 + 1, L, 1, suivante);
-            }
-        }
-    }
-    let soleil = y_voyage(SOLEIL_VOYAGE_Y, r);
-    if soleil > -30 {
-        dessiner_soleil_en(cam_x, soleil);
-    }
-    let ilots = y_voyage(ILOTS_VOYAGE_Y, r);
-    if ilots > -30 && ilots < H {
-        dessiner_ilots(ILOTS_VOYAGE.0, ILOTS_VOYAGE.1, cam_x, ilots - ILOT_Y_MIN);
-    }
-    // Étoiles et ville : celles du premier niveau, descendues de la remontée.
-    if let Some(ymax) = a.etoiles {
-        dessiner_etoiles_en(pas, cam_x, ymax, r);
-    }
-    let (fen_loin, fen_proche) = match a.fenetres {
-        Some((l, p)) => (Some(l), Some(p)),
-        None => (None, None),
-    };
-    if BASE_LOINTAINE + r - 80 < H {
-        dessiner_couche(
-            a,
-            cam_x,
-            BASE_LOINTAINE + r,
-            FACTEUR_LOINTAINE,
-            a.lointain,
-            GRAINE_LOINTAINE,
-            a.relief,
-            fen_loin,
-        );
-        dessiner_couche(
-            a,
-            cam_x,
-            BASE_PROCHE + a.descente + r,
-            FACTEUR_PROCHE,
-            a.proche,
-            GRAINE_PROCHE,
-            0,
-            fen_proche,
-        );
-    }
-}
-
-/// Les huit bandes de l'arc-en-ciel, de l'extérieur (rouge : le corail) vers
-/// l'intérieur (violet). La palette n'a pas de vert : le cyan de la pluie et son
-/// cyan sombre en tiennent lieu, entre le jaune (or) et le violet.
-pub const ARC: [Couleur; 8] = [
-    CORAIL,
-    CORAIL_CLAIR,
-    ORANGE_SOLEIL,
-    OR,
-    OR_PALE,
-    PLUIE,
-    PLUIE_SOMBRE,
-    VIOLET_ORAGE,
-];
-/// Épaisseur (px) d'une bande de l'arc.
-const BANDE_ARC: i32 = 3;
-/// Rayon EXTÉRIEUR de l'arc (px) et ordonnée de son centre, sous le bas de
-/// l'écran : le sommet est en y = 36, dans la bande de ciel la plus sombre, et
-/// les deux pieds plongent derrière les bancs de nuages du bas.
-const RAYON_ARC: i32 = 150;
-const CENTRE_ARC_Y: i32 = 186;
+/// L'arc-en-ciel (`assets/fonds/arc_en_ciel/arc.png`, 300 x 150) : huit bandes de
+/// 3 px, de l'extérieur (rouge : le corail) vers l'intérieur (violet), sur toute la
+/// palette sauf le vert, qu'elle n'a pas (le cyan de la pluie en tient lieu). Le
+/// haut du fichier est le sommet de l'arc, posé en y = 36, dans la bande de ciel la
+/// plus sombre ; le bas est le centre du cercle, 6 px sous le bas de l'écran : les
+/// deux pieds plongent derrière les bancs de nuages du bas.
+const HAUT_ARC: i32 = 36;
 /// Parallaxe de l'arc, et abscisse de son centre quand la caméra est à 0 : il
 /// glisse d'un écran vers la gauche sur toute la longueur du bonus (240 tuiles,
 /// 3 520 px de caméra : 352 px). Au départ, son pied gauche se lève devant Pépin ;
@@ -1019,56 +945,47 @@ pub fn centre_arc(cam_x: i32) -> i32 {
     CENTRE_ARC_X0 - decalage(cam_x, FACTEUR_ARC)
 }
 
-/// Ordonnées `[haut, bas)` de la bande `k` de l'arc (0 : l'extérieure) dans la
-/// colonne de pixels `x`, pour un arc centré en `cx` ; `None` si la bande ne
-/// passe pas par cette colonne. Fonction PURE (testée sans fenêtre).
-///
-/// Chaque bande est la couronne entre deux cercles ; pour une colonne, on calcule
-/// où le cercle extérieur et le cercle intérieur la coupent (au centre du pixel)
-/// et on ARRONDIT à l'entier : chaque pixel a une seule couleur, sans dégradé ni
-/// lissage, et la bande `k + 1` commence exactement là où finit la bande `k`.
-/// Sous le centre (bas de l'écran), une colonne qui ne coupe pas le cercle
-/// intérieur descend jusqu'au centre de l'arc.
-pub fn bande_arc(x: i32, cx: i32, k: usize) -> Option<(i32, i32)> {
-    let dx = (x as f32 + 0.5 - cx as f32).abs();
-    // Ordonnée où le cercle de rayon `r` coupe la colonne (moitié haute), ou le
-    // centre si la colonne est en dehors du cercle.
-    let coupe = |r: i32| -> i32 {
-        let r = r as f32;
-        if dx < r {
-            (CENTRE_ARC_Y as f32 - (r * r - dx * dx).sqrt()).round() as i32
-        } else {
-            CENTRE_ARC_Y
-        }
-    };
-    let exterieur = RAYON_ARC - BANDE_ARC * k as i32;
-    let (haut, bas) = (coupe(exterieur), coupe(exterieur - BANDE_ARC));
-    (haut < bas).then_some((haut, bas))
+/// L'arc-en-ciel, centré en `centre_arc` (le fichier est symétrique : sa moitié
+/// gauche est à gauche du centre).
+fn dessiner_arc(cam_x: i32) {
+    let (l, _) = crate::fonds::taille("arc_en_ciel", "arc");
+    crate::fonds::dessiner("arc_en_ciel", "arc", centre_arc(cam_x) - l / 2, HAUT_ARC);
 }
 
-/// L'arc-en-ciel : pour chaque bande, des colonnes de 1 px de large, regroupées
-/// quand plusieurs colonnes voisines ont exactement la même hauteur (le sommet
-/// de l'arc) : moins de rectangles, même image.
-fn dessiner_arc(cam_x: i32) {
-    let cx = centre_arc(cam_x);
-    for (k, &couleur) in ARC.iter().enumerate() {
-        let mut x = 0;
-        while x < L {
-            let Some((haut, bas)) = bande_arc(x, cx, k) else {
-                x += 1;
-                continue;
-            };
-            let mut l = 1;
-            while x + l < L && bande_arc(x + l, cx, k) == Some((haut, bas)) {
-                l += 1;
-            }
-            let (haut, bas) = (haut.max(0), bas.min(H));
-            if haut < bas {
-                rect(x, haut, l, bas - haut, couleur);
-            }
-            x += l;
-        }
-    }
+/// Le dossier de `assets/fonds` qui contient le ciel en bandes d'un thème
+/// (`ciel.png`, une colonne de 180 px : un ciel ne change pas d'une colonne à
+/// l'autre, sa période horizontale est d'un pixel). La poursuite reprend le ciel des
+/// vents d'altitude ; la descente, celui des toits (le bas du voyage). `None` : le
+/// thème a son propre fond (égouts : `fond_egouts` ; port : `decor_port`).
+pub(crate) fn dossier_du_ciel(theme: Theme) -> Option<&'static str> {
+    Some(match theme {
+        Theme::Toits | Theme::Descente => "toits",
+        Theme::Gouttieres => "gouttieres",
+        Theme::Marche => "marche",
+        Theme::Orage => "orage",
+        Theme::Clocher => "clocher",
+        Theme::Cyclone => "cyclone",
+        Theme::Altitude | Theme::Poursuite => "altitude",
+        Theme::Mer => "mer",
+        Theme::Soleil => "soleil",
+        Theme::ArcEnCiel => "arc_en_ciel",
+        Theme::Caniveau => "caniveau",
+        Theme::Cascade => "cascade",
+        Theme::Grotte => "grotte",
+        Theme::Riviere => "riviere",
+        Theme::Maree => "maree",
+        Theme::Egouts | Theme::Port => return None,
+    })
+}
+
+/// Les quatre bandes du ciel d'un thème, lues dans son `ciel.png` : la couleur de la
+/// PREMIÈRE ligne de chaque bande (les 6 dernières lignes d'une bande sont tramées
+/// avec la suivante). Le fichier est la seule source des couleurs du ciel.
+fn bandes_du_ciel(theme: Theme) -> [Couleur; 4] {
+    let dossier = dossier_du_ciel(theme).expect("thème sans ciel en bandes");
+    std::array::from_fn(|i| {
+        crate::fonds::couleur(dossier, "ciel", 0, i * (H / 4) as usize).expect("ciel opaque")
+    })
 }
 
 /// Ordonnée du sol de la couche lointaine et de la couche proche (avant parallaxe verticale).
@@ -1366,25 +1283,6 @@ fn rect(x: i32, y: i32, w: i32, h: i32, c: Couleur) {
 }
 
 /// Le ciel : quatre bandes séparées par une petite zone « tramée » (lignes alternées).
-fn dessiner_ciel(a: &Ambiance) {
-    let bande = H / 4;
-    for (i, &c) in a.ciel.iter().enumerate() {
-        let y = i as i32 * bande;
-        rect(0, y, L, bande + 1, c);
-        // Trame : sur les 6 dernières lignes de la bande, une ligne sur deux
-        // reprend la couleur de la bande suivante.
-        if let Some(&suivante) = a.ciel.get(i + 1) {
-            for k in 0..3 {
-                rect(0, y + bande - 6 + k * 2 + 1, L, 1, suivante);
-            }
-        }
-    }
-}
-
-fn dessiner_etoiles(pas: u32, cam_x: i32, ymax: i32) {
-    dessiner_etoiles_en(pas, cam_x, ymax, 0);
-}
-
 /// Les étoiles, descendues de `dy` px (le voyage de la descente) : semées sur
 /// `[dy, dy + ymax)`.
 fn dessiner_etoiles_en(pas: u32, cam_x: i32, ymax: i32, dy: i32) {
@@ -1410,18 +1308,12 @@ fn dessiner_soleil(cam_x: i32) {
     dessiner_soleil_en(cam_x, 44);
 }
 
-/// Le soleil, centré à l'ordonnée écran `cy`.
+/// Le soleil (`assets/fonds/soleil/soleil.png`, 45 x 45 : le disque pâle et son
+/// cœur blanc), centré à l'ordonnée écran `cy` ; son abscisse suit la caméra de loin.
 fn dessiner_soleil_en(cam_x: i32, cy: i32) {
-    let (cx, r) = (236 - decalage(cam_x, 0.02) % 40, 22);
-    for dy in -r..=r {
-        let w = ((r * r - dy * dy) as f32).sqrt() as i32;
-        rect(cx - w, cy + dy, 2 * w + 1, 1, OR_PALE);
-    }
-    let r2 = 14;
-    for dy in -r2..=r2 {
-        let w = ((r2 * r2 - dy * dy) as f32).sqrt() as i32;
-        rect(cx - w, cy + dy, 2 * w + 1, 1, BLANC_CASSE);
-    }
+    let cx = 236 - decalage(cam_x, 0.02) % 40;
+    let (l, h) = crate::fonds::taille("soleil", "soleil");
+    crate::fonds::dessiner("soleil", "soleil", cx - l / 2, cy - h / 2);
 }
 
 /// Une couche de silhouettes. `base` : ordonnée du sol de la couche. `relief` :
@@ -1636,12 +1528,9 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
 fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let (facteur, vert) = match d {
         Detail::Mouettes => (0.0, 0),
-        Detail::Chutes
-        | Detail::Brume
-        | Detail::Tuyaux
-        | Detail::Lueur
-        | Detail::Facades
-        | Detail::Foret => (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige)),
+        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Foret => {
+            (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige))
+        }
         _ => (FACTEUR_PROCHE, enfoncement(cam_y, VERT_PROCHE * a.vertige)),
     };
     let dec = decalage(cam_x, facteur);
@@ -1649,10 +1538,6 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     // verticale du groupe (nulle en bas d'un niveau d'un écran).
     let pied = H + vert;
     match d {
-        // La rue du caniveau (carte 9.6b) : posée sur la ligne du sol (48 px
-        // au-dessus du bas de l'écran, juste sous le dessus des pavés).
-        Detail::Lampadaires => crate::decor_rue::dessiner_lampadaires(dec, pied - 48),
-        Detail::Facades => crate::decor_rue::dessiner_facades(dec, pied - 48),
         Detail::Tuyaux => {
             // Deux tuyaux qui traversent le tunnel (segments en parallaxe),
             // leurs colliers, et une grille d'évacuation au fond. Carte 9.20b :
@@ -1826,100 +1711,318 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
 /// `groupe` 0 = derrière les couches de silhouettes (le plus lointain : mouettes,
 /// phare), `groupe` 1 = entre les deux couches (chutes, brume, tuyaux, lueur),
 /// `groupe` 2 = devant la couche proche (eau, lampadaires, grues, cristaux).
+/// Le groupe d'un motif du Monde 2 (carte 9.5) dans la pile : 0 le plus lointain
+/// (derrière le plafond et les silhouettes), 1 entre les deux couches de
+/// silhouettes, 2 devant la couche proche.
+fn groupe_du_motif(d: Detail) -> u8 {
+    match d {
+        Detail::Mouettes | Detail::Phare => 0,
+        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Foret => 1,
+        _ => 2,
+    }
+}
+
 fn dessiner_details(a: &Ambiance, groupe: u8, cam_x: i32, cam_y: i32, pas: u32) {
     for d in a.details.iter().copied().flatten() {
-        let g = match d {
-            Detail::Mouettes | Detail::Phare => 0,
-            Detail::Chutes
-            | Detail::Brume
-            | Detail::Tuyaux
-            | Detail::Lueur
-            | Detail::Facades
-            | Detail::Foret => 1,
-            _ => 2,
-        };
-        if g == groupe {
+        if groupe_du_motif(d) == groupe {
             dessiner_detail(d, a, cam_x, cam_y, pas);
         }
+    }
+}
+
+/// Une couche de la PILE DE DESSIN d'un fond (carte 10.4c), du plus loin au plus
+/// près. Les couches `Png` sont des fichiers de `assets/fonds` (FIXES : seul leur
+/// placement est calculé) ; toutes les autres sont CALCULÉES (animées, semées au
+/// hasard, ou qui suivent la caméra pixel par pixel). `Niveau` marque l'endroit où
+/// la scène dessine le niveau : ce qui précède est le fond (`dessiner_fond`), ce qui
+/// suit passe devant (`dessiner_avant`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Couche {
+    /// Le ciel en bandes, `<dossier>/ciel.png`, répété sur la largeur.
+    Ciel(&'static str),
+    /// Le ciel de la descente, `descente/voyage.png`, remonté selon la caméra.
+    CielDuVoyage,
+    /// Les étoiles qui scintillent (au voyage : descendues de la remontée).
+    Etoiles,
+    /// Le soleil, `soleil/soleil.png` (au voyage : remonté avec le ciel).
+    Soleil,
+    /// L'arc-en-ciel, `arc_en_ciel/arc.png`, qui glisse avec la caméra.
+    Arc,
+    /// Les motifs du Monde 2 d'un groupe (`groupe_du_motif`).
+    Motifs(u8),
+    /// Les deux plafonds de nuages, semés au hasard (le lointain puis le proche).
+    PlafondLointain,
+    PlafondProche,
+    /// Les îlots de nuages semés au hasard (au voyage : devant le corail).
+    Ilots,
+    /// Les silhouettes semées au hasard (immeubles, pics, bancs de nuages).
+    Lointaine,
+    Proche,
+    /// Un plan du fond des égouts (carte 10.4d), dessiné par `fond_egouts`.
+    Egouts(crate::fond_egouts::Plan),
+    /// Un plan du fond du port (carte 10.4d), dessiné par `decor_port`.
+    Port(crate::decor_port::Plan),
+    /// Un plan de la rue du caniveau (carte 10.4d, suite), dessiné par `decor_rue`.
+    Rue(crate::decor_rue::Plan),
+    /// Le niveau lui-même (tuiles, entités, décors posés d'après la grille).
+    Niveau,
+    /// La pluie, devant tout (ou la bruine du port).
+    Pluie,
+    Bruine,
+}
+
+/// Les noms de la pile, pour les tests (le LISEZMOI, les fichiers demandés).
+#[cfg(test)]
+impl Couche {
+    /// Le fichier de `assets/fonds` d'une couche PNG (`None` : couche calculée).
+    pub fn fichier(self) -> Option<String> {
+        Some(match self {
+            Couche::Ciel(d) => format!("{d}/ciel.png"),
+            Couche::CielDuVoyage => "descente/voyage.png".into(),
+            Couche::Soleil => "soleil/soleil.png".into(),
+            Couche::Arc => "arc_en_ciel/arc.png".into(),
+            Couche::Egouts(p) => format!("egouts/{}.png", p.fichier()?),
+            Couche::Port(p) => format!("port/{}.png", p.fichier()?),
+            Couche::Rue(p) => format!("caniveau/{}.png", p.fichier()?),
+            _ => return None,
+        })
+    }
+
+    /// Le nom de la couche dans `assets/fonds/LISEZMOI.md` (« PNG » ou « CALCULÉ »).
+    pub fn nom(self) -> String {
+        let png = |nom: &str| format!("{nom} PNG {}", self.fichier().unwrap());
+        match self {
+            Couche::Ciel(_) => png("ciel"),
+            Couche::CielDuVoyage => png("ciel du voyage"),
+            Couche::Etoiles => "étoiles CALCULÉ".into(),
+            Couche::Soleil => png("soleil"),
+            Couche::Arc => png("arc-en-ciel"),
+            Couche::Motifs(g) => format!("motifs {g} CALCULÉ"),
+            Couche::PlafondLointain => "plafond lointain CALCULÉ".into(),
+            Couche::PlafondProche => "plafond proche CALCULÉ".into(),
+            Couche::Ilots => "îlots CALCULÉ".into(),
+            Couche::Lointaine => "silhouettes lointaines CALCULÉ".into(),
+            Couche::Proche => "silhouettes proches CALCULÉ".into(),
+            Couche::Egouts(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Egouts(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Port(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Port(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Rue(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Rue(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Niveau => "NIVEAU".into(),
+            Couche::Pluie => "pluie CALCULÉ".into(),
+            Couche::Bruine => "bruine CALCULÉ".into(),
+        }
+    }
+}
+
+/// La pile de dessin d'un thème, du plus loin au plus près : la SEULE liste que
+/// suivent `dessiner_fond` et `dessiner_avant`, et celle que documente
+/// `assets/fonds/LISEZMOI.md` (test `la_pile_documentee_est_celle_du_rendu`).
+pub fn pile(theme: Theme) -> Vec<Couche> {
+    let a = ambiance(theme);
+    let mut p = Vec::new();
+    let motifs = |p: &mut Vec<Couche>, g: u8| {
+        if a.details.iter().flatten().any(|&d| groupe_du_motif(d) == g) {
+            p.push(Couche::Motifs(g));
+        }
+    };
+    if theme == Theme::Egouts {
+        // Carte 9.27b : les égouts ont leur propre fond, un collecteur.
+        p.extend(crate::fond_egouts::PILE.map(Couche::Egouts));
+    } else if theme == Theme::Port {
+        // Le port a son propre fond (carte 9.11b) : `decor_port`.
+        p.extend(crate::decor_port::PILE.map(Couche::Port));
+    } else if a.voyage {
+        // La descente : tout défile de la même remontée.
+        p.extend([Couche::CielDuVoyage, Couche::Soleil, Couche::Ilots]);
+        if a.etoiles.is_some() {
+            p.push(Couche::Etoiles);
+        }
+        p.extend([Couche::Lointaine, Couche::Proche]);
+    } else {
+        p.push(Couche::Ciel(
+            dossier_du_ciel(theme).expect("ciel en bandes"),
+        ));
+        if a.etoiles.is_some() {
+            p.push(Couche::Etoiles);
+        }
+        if a.soleil {
+            p.push(Couche::Soleil);
+        }
+        if a.arc {
+            p.push(Couche::Arc);
+        }
+        // Motifs du Monde 2 (carte 9.5) : le groupe 0 (mouettes, phare) est le plus
+        // lointain, derrière le plafond et les deux couches de silhouettes.
+        motifs(&mut p, 0);
+        if a.plafond.is_some() {
+            p.extend([Couche::PlafondLointain, Couche::PlafondProche]);
+        }
+        if a.ilots.is_some() {
+            p.push(Couche::Ilots);
+        }
+        p.push(Couche::Lointaine);
+        // Le groupe 1 (chutes, brume, tuyaux, lueur) se glisse entre les deux
+        // couches de silhouettes ; le groupe 2 (eau, grues, cristaux) est devant
+        // la couche proche. La rue du caniveau aussi : les maisons et leurs
+        // fenêtres entre les silhouettes, les lampadaires devant.
+        motifs(&mut p, 1);
+        if theme == Theme::Caniveau {
+            use crate::decor_rue::Plan;
+            p.extend([Couche::Rue(Plan::Maisons), Couche::Rue(Plan::Fenetres)]);
+        }
+        p.push(Couche::Proche);
+        motifs(&mut p, 2);
+        if theme == Theme::Caniveau {
+            p.push(Couche::Rue(crate::decor_rue::Plan::Lampadaires));
+        }
+    }
+    p.push(Couche::Niveau);
+    if theme == Theme::Port {
+        p.push(Couche::Bruine);
+    } else if theme.pluie() {
+        p.push(Couche::Pluie);
+    }
+    p
+}
+
+/// Dessine une couche du fond (avant `Niveau` dans la pile).
+fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
+    // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale),
+    // davantage au clocher (`vertige`).
+    let vert = |f: f32| enfoncement(cam_y, f * a.vertige);
+    let (fen_loin, fen_proche) = match a.fenetres {
+        Some((l, p)) => (Some(l), Some(p)),
+        None => (None, None),
+    };
+    // La descente : la remontée du voyage (0 en bas du niveau).
+    let r = remontee_voyage(cam_y);
+    match c {
+        Couche::Egouts(p) => crate::fond_egouts::dessiner_plan(p, cam_x, cam_y, pas),
+        Couche::Port(p) => crate::decor_port::dessiner_plan(p, cam_x, cam_y, pas, true),
+        // La rue du caniveau (carte 9.6b) : posée sur la ligne du sol (48 px
+        // au-dessus du bas de l'écran, juste sous le dessus des pavés), qui
+        // s'enfonce avec la parallaxe verticale ; les maisons suivent les îlots,
+        // les lampadaires la couche proche.
+        Couche::Rue(p) => {
+            let (facteur, v) = if p == crate::decor_rue::Plan::Lampadaires {
+                (FACTEUR_PROCHE, VERT_PROCHE)
+            } else {
+                (FACTEUR_ILOTS, VERT_ILOTS)
+            };
+            crate::decor_rue::dessiner_plan(p, decalage(cam_x, facteur), H + vert(v) - 48);
+        }
+        Couche::Ciel(dossier) => crate::fonds::repeter(dossier, "ciel", 0, 0, L),
+        // Le ciel du voyage : la colonne de `voyage.png`, répétée sur la largeur, son
+        // haut (la 1re bande) remonté de `r`.
+        Couche::CielDuVoyage => crate::fonds::repeter("descente", "voyage", 0, y_voyage(0, r), L),
+        Couche::Soleil if a.voyage => {
+            let soleil = y_voyage(SOLEIL_VOYAGE_Y, r);
+            if soleil > -30 {
+                dessiner_soleil_en(cam_x, soleil);
+            }
+        }
+        Couche::Soleil => dessiner_soleil(cam_x),
+        Couche::Ilots if a.voyage => {
+            let ilots = y_voyage(ILOTS_VOYAGE_Y, r);
+            if ilots > -30 && ilots < H {
+                dessiner_ilots(ILOTS_VOYAGE.0, ILOTS_VOYAGE.1, cam_x, ilots - ILOT_Y_MIN);
+            }
+        }
+        Couche::Ilots => {
+            if let Some((corps, dessous)) = a.ilots {
+                dessiner_ilots(corps, dessous, cam_x, vert(VERT_ILOTS));
+            }
+        }
+        // Étoiles et ville du voyage : celles du premier niveau, descendues de la
+        // remontée.
+        Couche::Etoiles => {
+            if let Some(ymax) = a.etoiles {
+                dessiner_etoiles_en(pas, cam_x, ymax, if a.voyage { r } else { 0 });
+            }
+        }
+        Couche::Arc => dessiner_arc(cam_x),
+        Couche::Motifs(g) => dessiner_details(a, g, cam_x, cam_y, pas),
+        Couche::PlafondLointain | Couche::PlafondProche => {
+            if let Some(p) = &a.plafond {
+                if c == Couche::PlafondLointain {
+                    dessiner_plafond(cam_x, FACTEUR_PLAFOND_LOIN, GRAINE_PLAFOND_LOIN, p, p.loin);
+                } else {
+                    dessiner_plafond(
+                        cam_x,
+                        FACTEUR_PLAFOND_PROCHE,
+                        GRAINE_PLAFOND_PROCHE,
+                        p,
+                        p.proche,
+                    );
+                }
+            }
+        }
+        Couche::Lointaine if a.voyage => {
+            if BASE_LOINTAINE + r - 80 < H {
+                dessiner_couche(
+                    a,
+                    cam_x,
+                    BASE_LOINTAINE + r,
+                    FACTEUR_LOINTAINE,
+                    a.lointain,
+                    GRAINE_LOINTAINE,
+                    a.relief,
+                    fen_loin,
+                );
+            }
+        }
+        Couche::Lointaine => dessiner_couche(
+            a,
+            cam_x,
+            BASE_LOINTAINE + vert(VERT_LOINTAINE),
+            FACTEUR_LOINTAINE,
+            a.lointain,
+            GRAINE_LOINTAINE,
+            a.relief,
+            fen_loin,
+        ),
+        Couche::Proche if a.voyage => {
+            // Même condition que la couche lointaine : la ville entière, ou rien.
+            if BASE_LOINTAINE + r - 80 < H {
+                dessiner_couche(
+                    a,
+                    cam_x,
+                    BASE_PROCHE + a.descente + r,
+                    FACTEUR_PROCHE,
+                    a.proche,
+                    GRAINE_PROCHE,
+                    0,
+                    fen_proche,
+                );
+            }
+        }
+        Couche::Proche => dessiner_couche(
+            a,
+            cam_x,
+            BASE_PROCHE + a.descente + vert(VERT_PROCHE),
+            FACTEUR_PROCHE,
+            a.proche,
+            GRAINE_PROCHE,
+            0,
+            fen_proche,
+        ),
+        // Devant le niveau : voir `dessiner_avant`.
+        Couche::Niveau | Couche::Pluie | Couche::Bruine => {}
     }
 }
 
 /// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes).
 /// `cam_y` : ordonnée de la caméra vue par le fond (`camera_fond`).
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
-    // Carte 9.27b : les égouts ont leur propre fond, un collecteur (arches pleines,
-    // tuyaux, coulures, eau sombre), sans ciel ni couches de silhouettes.
-    if theme == Theme::Egouts {
-        crate::fond_egouts::dessiner(cam_x, cam_y, pas);
-        return;
-    }
-    // Le port a son propre fond (carte 9.11b) : `decor_port`.
-    if theme == Theme::Port {
-        return crate::decor_port::dessiner_fond(cam_x, cam_y, pas, true);
-    }
     let a = ambiance(theme);
-    if a.voyage {
-        dessiner_voyage(&a, cam_x, cam_y, pas);
-        return;
+    for c in pile(theme) {
+        if c == Couche::Niveau {
+            break;
+        }
+        dessiner_couche_de_pile(c, &a, cam_x, cam_y, pas);
     }
-    dessiner_ciel(&a);
-    if let Some(ymax) = a.etoiles {
-        dessiner_etoiles(pas, cam_x, ymax);
-    }
-    if a.soleil {
-        dessiner_soleil(cam_x);
-    }
-    if a.arc {
-        dessiner_arc(cam_x);
-    }
-    // Motifs du Monde 2 (carte 9.5) : le groupe 0 (mouettes, phare) est le plus
-    // lointain, derrière le plafond et les deux couches de silhouettes.
-    dessiner_details(&a, 0, cam_x, cam_y, pas);
-    if let Some(p) = &a.plafond {
-        dessiner_plafond(cam_x, FACTEUR_PLAFOND_LOIN, GRAINE_PLAFOND_LOIN, p, p.loin);
-        dessiner_plafond(
-            cam_x,
-            FACTEUR_PLAFOND_PROCHE,
-            GRAINE_PLAFOND_PROCHE,
-            p,
-            p.proche,
-        );
-    }
-    // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale),
-    // davantage au clocher (`vertige`).
-    let vert = |f: f32| enfoncement(cam_y, f * a.vertige);
-    if let Some((corps, dessous)) = a.ilots {
-        dessiner_ilots(corps, dessous, cam_x, vert(VERT_ILOTS));
-    }
-    let (fen_loin, fen_proche) = match a.fenetres {
-        Some((l, p)) => (Some(l), Some(p)),
-        None => (None, None),
-    };
-    // Motifs du Monde 2 (carte 9.5) : le groupe 1 (chutes, brume, tuyaux, lueur)
-    // se glisse entre les deux couches de silhouettes.
-    dessiner_couche(
-        &a,
-        cam_x,
-        BASE_LOINTAINE + vert(VERT_LOINTAINE),
-        FACTEUR_LOINTAINE,
-        a.lointain,
-        GRAINE_LOINTAINE,
-        a.relief,
-        fen_loin,
-    );
-    dessiner_details(&a, 1, cam_x, cam_y, pas);
-    // Le groupe 2 (eau, lampadaires, grues, cristaux) est devant la couche proche.
-    dessiner_couche(
-        &a,
-        cam_x,
-        BASE_PROCHE + a.descente + vert(VERT_PROCHE),
-        FACTEUR_PROCHE,
-        a.proche,
-        GRAINE_PROCHE,
-        0,
-        fen_proche,
-    );
-    dessiner_details(&a, 2, cam_x, cam_y, pas);
 }
 
 /// La planche du Monde 2 (build de QA seulement, carte 9.5) : le plein écran
@@ -1967,11 +2070,13 @@ pub fn planche_fonds_qa(k: usize, pas: u32) {
 /// Dessine la pluie PAR-DESSUS le niveau (devant tout). `forte` : la pluie de la
 /// nouvelle partie + (carte 8.8), plus dense et plus penchée.
 pub fn dessiner_avant(theme: Theme, pas: u32, forte: bool) {
-    if theme == Theme::Port {
-        return crate::decor_port::dessiner_bruine(pas, forte);
-    }
-    if theme.pluie() {
-        dessiner_pluie(&ambiance(theme), pas, forte);
+    let pile = pile(theme);
+    for c in pile.into_iter().skip_while(|&c| c != Couche::Niveau) {
+        match c {
+            Couche::Pluie => dessiner_pluie(&ambiance(theme), pas, forte),
+            Couche::Bruine => crate::decor_port::dessiner_bruine(pas, forte),
+            _ => {}
+        }
     }
 }
 
@@ -2118,32 +2223,138 @@ mod tests {
         assert!(vus > 100, "trop peu d'îlots : {vus}");
     }
 
-    /// Carte 5.16 : l'arc-en-ciel a huit bandes de 3 px JOINTIVES (la bande `k + 1`
-    /// commence au pixel où finit la bande `k`, sans trou ni recouvrement), des
-    /// couleurs toutes différentes, prises dans la palette, et son sommet est en
-    /// y = 36, dans le ciel, au-dessus du pont (rangée 3 au plus haut : y = 48).
-    #[test]
-    fn l_arc_en_ciel_a_huit_bandes_jointives() {
-        let distinctes: std::collections::HashSet<Couleur> = ARC.into_iter().collect();
-        assert_eq!(distinctes.len(), 8);
-        assert!(ARC.iter().all(|c| TOUTES.contains(c)));
-        let cx = 160;
-        assert_eq!(bande_arc(cx, cx, 0), Some((36, 39)));
-        for x in -200..520 {
-            for k in 0..ARC.len() - 1 {
-                if let (Some((_, bas)), Some((haut, _))) =
-                    (bande_arc(x, cx, k), bande_arc(x, cx, k + 1))
-                {
-                    assert_eq!(bas, haut, "x = {x}, bandes {k} et {}", k + 1);
-                }
-            }
-            // Symétrique autour du centre (la colonne x et sa jumelle de l'autre côté).
-            for k in 0..ARC.len() {
-                assert_eq!(bande_arc(x, cx, k), bande_arc(2 * cx - 1 - x, cx, k));
+    /// Les colonnes de l'arc (`arc_en_ciel/arc.png`) : pour chaque colonne, les
+    /// couleurs de haut en bas, transparent compris (`None`).
+    fn colonnes_de_l_arc() -> Vec<Vec<Option<Couleur>>> {
+        let (l, h) = crate::fonds::taille("arc_en_ciel", "arc");
+        (0..l as usize)
+            .map(|x| {
+                (0..h as usize)
+                    .map(|y| crate::fonds::couleur("arc_en_ciel", "arc", x, y))
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Les huit couleurs de l'arc, de l'extérieur vers l'intérieur : celles de la
+    /// colonne du milieu, de haut en bas.
+    fn bandes_de_l_arc() -> Vec<Couleur> {
+        let colonnes = colonnes_de_l_arc();
+        let mut bandes: Vec<Couleur> = Vec::new();
+        for c in colonnes[colonnes.len() / 2].iter().flatten() {
+            if bandes.last() != Some(c) {
+                bandes.push(*c);
             }
         }
-        // Hors du grand cercle, aucune bande.
-        assert!((0..ARC.len()).all(|k| bande_arc(cx + RAYON_ARC + 1, cx, k).is_none()));
+        bandes
+    }
+
+    /// Carte 5.16 : l'arc-en-ciel a huit bandes de 3 px JOINTIVES (sans trou ni
+    /// recouvrement), des couleurs toutes différentes, prises dans la palette, et son
+    /// sommet est en y = 36, dans le ciel, au-dessus du pont (rangée 3 au plus haut :
+    /// y = 48). Carte 10.4c : vérifié sur le fichier `arc_en_ciel/arc.png`.
+    #[test]
+    fn l_arc_en_ciel_a_huit_bandes_jointives() {
+        let bandes = bandes_de_l_arc();
+        let distinctes: std::collections::HashSet<Couleur> = bandes.iter().copied().collect();
+        assert_eq!((bandes.len(), distinctes.len()), (8, 8));
+        assert!(bandes.iter().all(|c| TOUTES.contains(c)));
+        let colonnes = colonnes_de_l_arc();
+        let (l, _) = crate::fonds::taille("arc_en_ciel", "arc");
+        // Le sommet : la première ligne du fichier, posée en y = 36 ; la bande
+        // extérieure y a 3 px d'épaisseur au milieu.
+        assert_eq!(HAUT_ARC, 36);
+        let milieu = &colonnes[l as usize / 2];
+        assert_eq!(milieu[..3], [Some(bandes[0]); 3]);
+        assert_eq!(milieu[3], Some(bandes[1]));
+        for (x, col) in colonnes.iter().enumerate() {
+            // Symétrique autour du centre (la colonne x et sa jumelle de l'autre côté).
+            assert_eq!(col, &colonnes[l as usize - 1 - x], "x = {x}");
+            // De haut en bas : le ciel (transparent), puis les bandes dans l'ordre et
+            // sans trou, puis le dedans de l'arc (transparent) jusqu'en bas. Dans les
+            // pieds, les bandes intérieures descendent jusqu'au bas du fichier.
+            let debut = col.iter().position(|c| c.is_some()).expect("colonne vide");
+            let fin = col[debut..]
+                .iter()
+                .position(|c| c.is_none())
+                .map_or(col.len(), |n| debut + n);
+            assert!(
+                col[fin..].iter().all(|c| c.is_none()),
+                "x = {x} : trou dans l'arc"
+            );
+            let mut rang = 0;
+            for c in col[debut..fin].iter().flatten() {
+                let k = bandes.iter().position(|b| b == c).unwrap();
+                assert!(k >= rang, "x = {x} : bandes dans le désordre");
+                rang = k;
+            }
+        }
+    }
+
+    /// Carte 10.4c : la pile de dessin écrite dans `assets/fonds/LISEZMOI.md` (entre
+    /// les deux marques `<!-- pile -->`) est EXACTEMENT celle que suit le rendu
+    /// (`pile`, lue par `dessiner_fond` et `dessiner_avant`), thème par thème.
+    #[test]
+    fn la_pile_documentee_est_celle_du_rendu() {
+        let lisezmoi = include_str!("../../assets/fonds/LISEZMOI.md");
+        let attendu: String = Theme::TOUS
+            .iter()
+            .map(|&t| {
+                let couches: Vec<String> = pile(t).into_iter().map(Couche::nom).collect();
+                format!("- `{t:?}` : {}\n", couches.join(", "))
+            })
+            .collect();
+        let morceaux: Vec<&str> = lisezmoi.split("<!-- pile -->\n").collect();
+        assert_eq!(morceaux.len(), 3, "deux marques <!-- pile --> attendues");
+        assert_eq!(
+            morceaux[1], attendu,
+            "pile du LISEZMOI à remplacer par :\n{attendu}"
+        );
+    }
+
+    /// Chaque couche PNG d'une pile existe, et chaque fichier de `assets/fonds` sert à
+    /// une pile : aucun fichier manquant ni orphelin.
+    #[test]
+    fn aucune_couche_png_manquante_ni_orpheline() {
+        let mut demandes: Vec<String> = Theme::TOUS
+            .iter()
+            .flat_map(|&t| pile(t))
+            .filter_map(Couche::fichier)
+            .collect();
+        demandes.sort();
+        demandes.dedup();
+        let mut fichiers: Vec<String> = crate::fonds::FICHIERS
+            .iter()
+            .map(|(d, n, _)| format!("{d}/{n}.png"))
+            .collect();
+        fichiers.sort();
+        assert_eq!(demandes, fichiers);
+        // Les tailles attendues : un ciel est une colonne de 180 px, le voyage une
+        // colonne de dix bandes ; le soleil et l'arc ont la taille de leur dessin.
+        for f in &fichiers {
+            let (d, n) = f.trim_end_matches(".png").split_once('/').unwrap();
+            let attendue = match n {
+                "ciel" => (1, H),
+                "voyage" => (1, NB_BANDES_VOYAGE as i32 * H / 4),
+                "soleil" => (45, 45),
+                "arc" => (300, 150),
+                // Carte 10.4d : les colonnes du mur des égouts, du crépuscule et
+                // de la mer du port ; une arche (une période) ; le port d'en face
+                // et les pontons, une période de 640 px chacun.
+                "mur" => (1, H),
+                "arches" => (112, 88),
+                "crepuscule" => (1, 56),
+                "mer" => (1, H - 56),
+                "port_d_en_face" => (640, 60),
+                "pontons" => (640, 92),
+                // Carte 10.4d (suite) : une période de la rue (496 px, du faîte au
+                // bas du trottoir d'en face) et un lampadaire.
+                "maisons" => (496, 154),
+                "lampadaire" => (15, 51),
+                _ => panic!("{f} : couche inconnue"),
+            };
+            assert_eq!(crate::fonds::taille(d, n), attendue, "{f}");
+        }
     }
 
     /// L'arc glisse d'un écran de droite à gauche sur toute la longueur du bonus
@@ -2168,8 +2379,8 @@ mod tests {
         let a = ambiance(Theme::ArcEnCiel);
         let mut vues: Vec<Couleur> = a.ciel.to_vec();
         vues.extend([a.lointain, a.proche]);
-        vues.extend(ARC);
-        for ligne in crate::sprites::objets::FRIABLE0 {
+        vues.extend(bandes_de_l_arc());
+        for ligne in crate::sprites::dessin("friable0") {
             for c in ligne.chars() {
                 if let Ok(Some(couleur)) = crate::sprites::pixel(c) {
                     vues.push(couleur);
@@ -2605,18 +2816,18 @@ mod tests {
     /// bande la plus noire (l'ombre), puis les bandes du ciel du premier niveau.
     #[test]
     fn le_voyage_va_de_l_or_a_la_nuit() {
-        assert_eq!(VOYAGE[0], OR_PALE);
+        assert_eq!(voyage()[0], OR_PALE);
         for k in 0..6 {
             assert!(
-                luminance(VOYAGE[k]) > luminance(VOYAGE[k + 1]),
+                luminance(voyage()[k]) > luminance(voyage()[k + 1]),
                 "bande {k} : {:?} puis {:?}",
-                VOYAGE[k],
-                VOYAGE[k + 1]
+                voyage()[k],
+                voyage()[k + 1]
             );
         }
         // Le ciel de la descente (`ciel`, le bas du voyage) EST celui du premier niveau.
-        assert_eq!(VOYAGE[6..], ambiance(Theme::Toits).ciel);
-        assert_eq!(VOYAGE[6..], ambiance(Theme::Descente).ciel);
+        assert_eq!(voyage()[6..], ambiance(Theme::Toits).ciel);
+        assert_eq!(voyage()[6..], ambiance(Theme::Descente).ciel);
         assert_eq!(REMONTEE_VOYAGE_MAX, 6 * H / 4);
     }
 
@@ -2632,7 +2843,7 @@ mod tests {
         // En bas : la caméra du fond vaut 0, la remontée aussi.
         assert_eq!(remontee_voyage(fond(haut_niveau - H)), 0);
         for y in 0..H {
-            assert_eq!(VOYAGE[bande_voyage(y, 0)], ciel_a(&toits, y), "y = {y}");
+            assert_eq!(voyage()[bande_voyage(y, 0)], ciel_a(&toits, y), "y = {y}");
         }
         // En haut : la remontée est maximale, l'écran montre les bandes 0 à 3.
         assert_eq!(remontee_voyage(fond(0)), REMONTEE_VOYAGE_MAX);
@@ -2659,7 +2870,7 @@ mod tests {
     /// de tous les thèmes) couvrent donc aussi la descente.
     #[test]
     fn chaque_couleur_du_voyage_est_deja_le_ciel_d_un_autre_niveau() {
-        for c in VOYAGE {
+        for c in voyage() {
             assert!(
                 Theme::TOUS
                     .iter()
@@ -2676,7 +2887,7 @@ mod tests {
     /// ville dans la nuit (comme au premier niveau).
     #[test]
     fn soleil_ilots_etoiles_et_ville_restent_devant_leur_bande() {
-        let bande = |y: i32| VOYAGE[(y / (H / 4)) as usize];
+        let bande = |y: i32| voyage()[(y / (H / 4)) as usize];
         for y in SOLEIL_VOYAGE_Y - 22..=SOLEIL_VOYAGE_Y + 22 {
             assert!([OR, ORANGE_SOLEIL].contains(&bande(y)), "soleil, y = {y}");
         }

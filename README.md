@@ -13,9 +13,16 @@ commence par un commentaire (`//!`) qui dit ce qu'il fait et quelles notions de
 Rust il illustre. Ce README fait le tour du propriétaire ; la section
 « Les notions de Rust, avec le code réel » renvoie vers les fichiers exacts.
 
-Tout est dans le code : **aucun fichier image, aucun fichier son, aucune police
-externe**. Les sprites sont des grilles de texte, les sons sont calculés au
-démarrage, la police est un tableau de bits.
+Presque tout est dans le code : **aucune police externe**, la police est un
+tableau de bits. Les sprites dessinés à la main sont des fichiers : de petits PNG à 16 couleurs dans
+`assets/sprites/` (carte 10.4a, voir `assets/sprites/LISEZMOI.md`), embarqués dans
+le jeu à la compilation, comme les niveaux de `assets/levels/`. Les couches fixes
+des fonds (ciels, soleil, arc-en-ciel, arches des égouts, port) aussi : `assets/fonds/`
+(cartes 10.4c et 10.4d, voir
+`assets/fonds/LISEZMOI.md`, qui donne la pile de dessin de chaque thème). Les
+musiques et les bruitages sont des WAV (`assets/musiques/`, `assets/sons/`, carte
+10.4e, voir `assets/musiques/LISEZMOI.md`), servis à côté du jeu et téléchargés
+après l'écran titre.
 
 ## Sommaire
 
@@ -220,7 +227,8 @@ build de QA, lui, affiche l'erreur (fichier, ligne, colonne) à l'écran, et
 `?essai=1` y lance le niveau RON posé dans le `localStorage` (clé
 `pepin.niveau_essai`) : c'est le bouton TESTER de l'éditeur de niveaux (cartes
 10.3a et 10.3b, `editeur.html`), qui reçoit en retour le verdict du chargeur (la
-case fautive) et la fin de l'essai. Format et légende : `assets/levels/LISEZMOI.md`.
+case fautive) et la fin de l'essai ; sa palette et sa grille montrent les vrais
+sprites (carte 10.4b, `assets/sprites/LISEZMOI.md`). Format et légende : `assets/levels/LISEZMOI.md`.
 
 Le découpage est volontaire. Tout ce qui est « règle du jeu » vit dans `core` ;
 `game` ne fait que **lire** l'état et le **dessiner**. Conséquence très
@@ -271,8 +279,8 @@ Contenu de `core/src` :
 - `faisabilite.rs` : un « robot joueur » qui prouve par simulation qu'un niveau
   peut être terminé.
 - `palette.rs`, `font.rs` (+ `font/`) : palette de 16 couleurs, police 5x7.
-- `synthese.rs`, `sons.rs` : synthèse sonore 8 bits (calcul pur de tableaux de
-  nombres).
+- `sons.rs` : la liste des bruitages (`Effet`), le nom de leur fichier et leur
+  volume (les sons eux-mêmes sont des fichiers WAV, carte 10.4e).
 
 Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
 
@@ -287,7 +295,7 @@ Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
   cible 320x180 et l'agrandissement entier.
 - `entrees.rs`, `tactile.rs`, `navigation.rs`, `menu.rs` : entrées et menus ;
   `focus.rs` : perte de focus de la fenêtre (pause automatique).
-- `audio.rs` : joue les sons fabriqués par `core`.
+- `audio.rs` : télécharge les sons (fichiers WAV) en arrière-plan et les joue.
 
 Dans `game`, la même idée se répète à plus petite échelle : la logique (qui
 mène où, quelle ligne de menu est choisie...) est écrite en fonctions pures
@@ -411,7 +419,8 @@ Compiler ET préparer le dossier à publier (une seule commande) :
 
 `build.sh` compile en release, récupère le chargeur JavaScript de macroquad
 (`mq_js_bundle.js`, sans son plugin réseau inutile), réduit le wasm avec
-`wasm-opt -Oz`, copie la page `web/index.html` et produit le dossier `dist/`,
+`wasm-opt -Oz`, copie la page `web/index.html` et les sons (`dist/musiques`,
+`dist/sons`) et produit le dossier `dist/`,
 complet et statique. `docs/build.md` détaille chaque étape. `dist/` n'est pas
 versionné (`.gitignore`) : c'est un produit régénérable.
 
@@ -586,9 +595,13 @@ Rust n'a pas de `null` ni d'exceptions. Une valeur qui « peut manquer » est un
 
 ### Programmation asynchrone
 
-`game/src/audio.rs` : `pub async fn charger() -> Self`. Dans un navigateur, le
-chargement des sons doit pouvoir attendre ; `main` (macroquad) est `async` et
-appelle `Audio::charger().await`.
+`game/src/audio.rs` : `Chargement`. Dans un navigateur, télécharger puis décoder
+un son prend du temps ; `load_sound` de macroquad est donc une fonction `async`.
+Pour ne pas retarder l'écran titre, le jeu ne l'attend pas : chaque son part dans
+une coroutine de macroquad (`start_coroutine`), avancée à chaque image, et
+`Audio::avancer` relève, image après image, les sons arrivés (`is_done`,
+`retrieve`). `main` lui-même est `async` (macroquad) et attend `next_frame().await`
+entre deux images.
 
 ### Notions apparues avec les derniers niveaux
 
@@ -690,8 +703,11 @@ rangées 1 à 4, et les lettres à jambage (g j p q y) descendent de deux rangé
 `glyphe_ou_inconnu` renvoie un cadre vide pour un caractère absent, et
 `game/src/texte.rs` dessine chaque pixel allumé comme un petit carré.
 
-**Pixel art procédural** (`game/src/sprites/`). Un sprite est une grille de
-texte : une ligne par rangée de pixels, un caractère par pixel. `.` est
+**Pixel art** (`game/src/sprites/`). Chaque sprite est un fichier PNG de
+`assets/sprites/<famille>/<clé>.png`, embarqué par `game/build.rs` et décodé
+(`sprites/fichiers.rs`) en grille de texte : une ligne par rangée de pixels, un
+caractère par pixel. L'outil `cargo run -p outils --bin sprite -- lire|ecrire`
+passe d'un PNG à sa grille et retour. `.` est
 transparent ; `0`-`9` et `A`-`F` désignent une des 16 couleurs de `TOUTES`
 (`0` : contour sombre, `8` : corail, `B` : or...). Pépin fait 16x16 pixels,
 parapluie fermé, et 20x20 parapluie ouvert. Au démarrage,
@@ -709,11 +725,13 @@ compte les couleurs distinctes d'une capture.
 
 ## 9. Son et tactile
 
-- **Son** (`core/src/synthese.rs`, `core/src/sons.rs`, `game/src/audio.rs`) :
-  ondes carrée, triangle et bruit calculées échantillon par échantillon à
-  22 050 Hz, comme sur une vieille console. On obtient onze effets, une
-  musique en boucle et le bruit de la pluie, tous fabriqués en mémoire au
-  démarrage. Le son est **coupé par défaut** (un navigateur n'autorise l'audio
+- **Son** (`core/src/sons.rs`, `game/src/audio.rs`, `assets/musiques`,
+  `assets/sons`) : de vrais fichiers WAV mono 16 bits à 22 050 Hz (carte 10.4e),
+  rendus une fois par l'ancien synthé 8 bits (ondes carrée, triangle et bruit) :
+  douze bruitages, six musiques en boucle et le bruit de la pluie, servis à côté du
+  jeu (`dist/musiques`, `dist/sons`, 3,1 Mo) et téléchargés en arrière-plan après
+  l'écran titre ; un son pas encore arrivé est muet (voir
+  `assets/musiques/LISEZMOI.md`). Le son est **coupé par défaut** (un navigateur n'autorise l'audio
   qu'après une première interaction) ; la touche M ou le menu l'active.
 - **Tactile** (`game/src/tactile.rs`) : quatre boutons en pixel art, plusieurs
   doigts en même temps (courir et sauter). L'écran est jugé tactile au premier

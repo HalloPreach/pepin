@@ -165,7 +165,7 @@ pub(super) fn dessiner_decors(monde: &Monde, banque: &Banque, cx: i32, cy: i32) 
             // (`decor_rue::dessiner_gouttieres`, avant les tuiles).
             GenreDecor::Gouttiere => continue,
         };
-        let Some(dessin) = objets_decor::SPRITES
+        let Some(dessin) = objets_decor::sprites()
             .iter()
             .find(|(n, _)| *n == nom)
             .map(|&(_, dessin)| dessin)
@@ -426,7 +426,7 @@ mod tests {
         ];
         for nom in noms.iter().chain(objets_decor::OISEAU.iter()) {
             assert!(
-                objets_decor::SPRITES.iter().any(|(n, _)| n == nom),
+                objets_decor::sprites().iter().any(|(n, _)| n == nom),
                 "{nom} : pas de dessin"
             );
         }
@@ -529,7 +529,10 @@ mod tests {
     /// teintes sombres du fond, plus l'orange de sa vitrine.
     #[test]
     fn la_facade_n_a_pas_de_dessus_ou_se_poser() {
-        use crate::sprites::tuiles::{BRIQUE_HAUT, TOIT_HAUT};
+        let (toit_haut, brique_haut) = (
+            crate::sprites::dessin("toit_haut"),
+            crate::sprites::dessin("brique_haut"),
+        );
         let (_, _, vitrine) = dessin_facade("facade_vitrine");
         let (_, _, mur) = dessin_facade("facade_mur");
 
@@ -537,7 +540,7 @@ mod tests {
         //    clair, de l'ardoise claire (3) à la brume (5) ; les thèmes ne font que
         //    l'éclaircir (jusqu'au blanc cassé, 7). La façade n'en a aucun : ombre,
         //    nuit, ardoise (0, 1, 2) et l'orange de la vitrine (A), rien d'autre.
-        for tuile in [TOIT_HAUT, BRIQUE_HAUT] {
+        for tuile in [toit_haut, brique_haut] {
             for ligne in &tuile[1..=2] {
                 assert!(ligne.chars().all(|c| ('3'..='7').contains(&c)), "{ligne}");
             }
