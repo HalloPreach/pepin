@@ -115,7 +115,7 @@ impl Pieuvre {
     }
 
     /// Vitesse de la mer dans la tour (px par pas), mode facile compris.
-    fn vitesse_mer(&self) -> f32 {
+    pub(super) fn vitesse_mer(&self) -> f32 {
         if self.est_facile() {
             VITESSE_MER * FACTEUR_FACILE
         } else {
@@ -178,7 +178,7 @@ impl Pieuvre {
     }
 
     /// La mer est-elle à un palier au pas `t` de la montée ?
-    fn au_palier(&self, t: u16) -> bool {
+    pub(super) fn au_palier(&self, t: u16) -> bool {
         let s = self.surface_mer_a(t);
         t >= self.fin_de_crue()
             && self.paliers.iter().any(|&p| (s - p).abs() < 0.01)
