@@ -104,7 +104,7 @@ pub struct JeuImages {
 
 impl JeuImages {
     #[cfg(test)]
-    /// Tous les noms du jeu (18 images du personnage, puis l'icône des vies).
+    /// Tous les noms du jeu (19 images du personnage, puis l'icône des vies).
     pub fn noms(&self) -> Vec<&'static str> {
         let mut noms = Vec::new();
         noms.extend(self.repos);
