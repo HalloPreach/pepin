@@ -233,5 +233,10 @@ L'erreur donne le fichier, la ligne et la colonne (de la grille et du fichier).
      sol, ne bloquent rien : on passe dessous)
   d  poubelle de rue (1 case)
   l  banc (une rangée)
+  Monde 3, prototype (carte 11.1) :
+  y  crochet : en l'air, SAUT tenu à 2,5 cases au plus de la crosse, et
+     plus haut qu'elle, le parapluie s'y accroche au lieu de planer ; Pépin
+     se balance (GAUCHE et DROITE donnent de l'élan), SAUT lâché le lance
+     (voir `crate::player::Crochet`). Case libre, sans collision
 ```
 <!-- fin de la legende -->

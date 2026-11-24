@@ -43,6 +43,7 @@ pub const IMAGES: JeuImages = JeuImages {
     planer: ["pepinette_plane0", "pepinette_plane1"],
     retourne: "pepinette_retourne",
     barque: "pepinette_barque",
+    suspendu: "pepinette_suspendu",
     reapparition: ["pepinette_mort0", "pepinette_mort1", "pepinette_mort2"],
     vie: "vie_pepinette",
 };

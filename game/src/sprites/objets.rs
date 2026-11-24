@@ -27,6 +27,10 @@
 // douze graduations (12, 3, 6 et 9 plus grosses) et le moyeu doré du pivot.
 // Dessin seulement : aucune collision.
 
+// `crochet.png` : Crochet du balancement (carte 11.1, prototype) : un anneau de fer 10x8, gris
+// ardoise (reflet pâle en haut à gauche), le trou transparent ; centré sur le point d'accroche
+// (le milieu de la case `y`), la corde passe dedans.
+// `crochet_allume.png` : Le même anneau, doré : la crosse de Pépin est à sa portée.
 // `maillon.png` : Maillon 4x4 de la tige qui relie le moyeu du cadran à l'aiguille : posés en
 // ligne du pivot jusqu'au milieu de la plaque, ils tournent avec elle comme une
 // aiguille de montre (chaque maillon est posé à une position entière, jamais

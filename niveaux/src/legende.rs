@@ -263,6 +263,8 @@ pub const LETTRES: &[Lettre] = &[
     l('n', "nénuphar", Objet, false, Libre, "#60b060"),
     l('=', "marée", Objet, false, Libre, "#3060a0"),
     l('|', "chute d'eau", Objet, false, Libre, "#6090d0"),
+    // Prototype du Monde 3 (carte 11.1) : le crochet du balancement.
+    l('y', "crochet (balancement)", Objet, false, Libre, "#e0c040"),
     // --- Eau ---
     l('~', "eau calme", Eau, false, Libre, "#2050a0"),
     l(
@@ -426,6 +428,7 @@ pub const VIGNETTES: &[(char, &str, Ancre)] = &[
     ('Y', "bulle0", Ancre::Centre),
     ('n', "nenuphar", Ancre::Plateforme),
     ('|', "chute0", Ancre::Bas),
+    ('y', "crochet", Ancre::Centre),
     // Boss.
     ('O', "nuage_colere0", Ancre::Bas),
     ('8', "pieuvre_colere0", Ancre::Bas),
