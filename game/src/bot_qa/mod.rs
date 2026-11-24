@@ -60,7 +60,6 @@ pub use parcours::*;
 
 use pepin_core::entities::ennemi::PhasePigeon;
 use pepin_core::entities::{Entite, TypeEnnemi};
-use pepin_core::levels::{NB_NIVEAUX_MONDE_1, NIVEAUX};
 use pepin_core::player::{Direction, Entrees};
 
 use crate::app::Application;
@@ -336,8 +335,8 @@ pub fn tous_les_parcours() -> Vec<Vec<Entrees>> {
 /// Monde 2 est la suite de la table ; `parcours[k]` est son niveau numéro `k + 1`).
 pub fn tous_les_parcours_du_monde(monde: u8) -> Vec<Vec<Entrees>> {
     use pepin_core::levels::{debut_monde, niveaux_du_monde};
-    let debut = debut_monde(NIVEAUX, monde).expect("monde de la table");
-    let nb = niveaux_du_monde(NIVEAUX, monde).len();
+    let debut = debut_monde(niveaux::niveaux(), monde).expect("monde de la table");
+    let nb = niveaux_du_monde(niveaux::niveaux(), monde).len();
     std::thread::scope(|portee| {
         let fils: Vec<_> = (debut..debut + nb)
             .map(|i| {
@@ -360,7 +359,7 @@ pub fn tous_les_parcours_du_monde(monde: u8) -> Vec<Vec<Entrees>> {
 /// comme `tous_les_parcours` (un fil par niveau).
 pub fn tous_les_parcours_ng_plus() -> Vec<Vec<Entrees>> {
     std::thread::scope(|portee| {
-        let fils: Vec<_> = (0..NB_NIVEAUX_MONDE_1)
+        let fils: Vec<_> = (0..niveaux::NB_NIVEAUX_MONDE_1)
             .map(|i| {
                 portee.spawn(move || {
                     trouver_parcours_mode(i, false, true)
@@ -386,8 +385,8 @@ pub fn tous_les_parcours_complets() -> Vec<Vec<Entrees>> {
 /// Parcours « complets » des niveaux du monde `monde`, rangés par numéro (carte 9.6).
 pub fn tous_les_parcours_complets_du_monde(monde: u8) -> Vec<Vec<Entrees>> {
     use pepin_core::levels::{debut_monde, niveaux_du_monde};
-    let debut = debut_monde(NIVEAUX, monde).expect("monde de la table");
-    let nb = niveaux_du_monde(NIVEAUX, monde).len();
+    let debut = debut_monde(niveaux::niveaux(), monde).expect("monde de la table");
+    let nb = niveaux_du_monde(niveaux::niveaux(), monde).len();
     std::thread::scope(|portee| {
         let fils: Vec<_> = (debut..debut + nb)
             .map(|i| {
@@ -413,7 +412,7 @@ mod tests {
     #[test]
     #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_finit_tous_les_niveaux_sans_mourir() {
-        use pepin_core::levels::{apres, Apres, NIVEAUX};
+        use pepin_core::levels::{apres, Apres};
         let parcours = tous_les_parcours();
         let partie = jouer_tout(&parcours);
         assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -428,7 +427,7 @@ mod tests {
         }
         let mut attendu = vec![1u8];
         for &(n, g) in &joues {
-            if let Apres::Niveau(j) = apres(NIVEAUX, n as usize - 1, g) {
+            if let Apres::Niveau(j) = apres(niveaux::niveaux(), n as usize - 1, g) {
                 attendu.push(j as u8 + 1);
             }
         }
@@ -438,7 +437,7 @@ mod tests {
         // passe du 10e (le retour du Grand Nuage, 8.2) à l'épilogue (12e, carte 5.17),
         // puis la fin (carte 5.16 : l'un des deux chemins).
         let gouttes_au_10e = joues.iter().find(|j| j.0 == 10).map(|j| j.1).unwrap();
-        assert!(gouttes_au_10e < pepin_core::levels::gouttes_pour_le_bonus(NIVEAUX));
+        assert!(gouttes_au_10e < pepin_core::levels::gouttes_pour_le_bonus(niveaux::niveaux()));
         let sans_bonus: Vec<u8> = (1..=10).chain([12]).collect();
         assert_eq!(numeros, sans_bonus, "bonus sauté, épilogue joué");
         // Partie normale (carte 8.6) : aucune lettre cachée, la fin habituelle.
@@ -463,7 +462,7 @@ mod tests {
     #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_finit_le_monde_2_sans_mourir() {
         use pepin_core::levels::{apres, debut_monde, niveaux_du_monde, Apres};
-        let monde_2 = niveaux_du_monde(NIVEAUX, 2);
+        let monde_2 = niveaux_du_monde(niveaux::niveaux(), 2);
         assert!(!monde_2.is_empty(), "le Monde 2 a au moins un niveau");
         let partie = jouer_monde_2(&tous_les_parcours_du_monde(2));
         assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
@@ -477,10 +476,10 @@ mod tests {
         }
         // Les niveaux du Monde 2 dans l'ordre de `apres` (règles PAR MONDE) : le
         // premier est le caniveau (numéro 1 du Monde 2), aucun du Monde 1.
-        let debut = debut_monde(NIVEAUX, 2).unwrap();
+        let debut = debut_monde(niveaux::niveaux(), 2).unwrap();
         let mut attendu = vec![1u8];
         for &(n, g) in &joues {
-            if let Apres::Niveau(j) = apres(NIVEAUX, debut + n as usize - 1, g) {
+            if let Apres::Niveau(j) = apres(niveaux::niveaux(), debut + n as usize - 1, g) {
                 attendu.push((j - debut) as u8 + 1);
             }
         }
@@ -533,7 +532,7 @@ mod tests {
     #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn la_partie_complete_joue_le_bonus() {
         // Les gouttes du MONDE 1 (carte 9.6 : `GOUTTES_TOTAL` compte tous les mondes).
-        let gouttes_monde_1 = NB_NIVEAUX_MONDE_1 * pepin_core::level::GOUTTES_PAR_NIVEAU;
+        let gouttes_monde_1 = niveaux::NB_NIVEAUX_MONDE_1 * pepin_core::level::GOUTTES_PAR_NIVEAU;
         let partie = jouer_tout(&tous_les_parcours_complets());
         assert!(partie.fin_atteinte, "l'écran de fin n'a pas été atteint");
         assert_eq!(partie.morts, 0);
@@ -570,7 +569,7 @@ mod tests {
     fn le_robot_finit_le_niveau_de_la_carte() {
         use crate::monde::Monde;
         let cle = std::env::var("CLE").expect("CLE=<clé du niveau>");
-        let i = NIVEAUX
+        let i = niveaux::niveaux()
             .iter()
             .position(|n| n.cle == cle)
             .unwrap_or_else(|| panic!("aucun niveau de clé {cle:?}"));
@@ -600,12 +599,12 @@ mod tests {
     #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn le_robot_traverse_l_arc_en_ciel_sans_mourir() {
         use crate::monde::Monde;
-        use pepin_core::levels::{arc, GenreNiveau, NIVEAUX};
-        let i = NIVEAUX
+        use pepin_core::levels::GenreNiveau;
+        let i = niveaux::niveaux()
             .iter()
             .position(|n| n.genre == GenreNiveau::Bonus)
             .unwrap();
-        assert_eq!(NIVEAUX[i].nom, arc::INFOS.nom);
+        assert_eq!(niveaux::niveaux()[i].nom, niveaux::par_cle("arc").nom);
         let parcours = trouver_parcours(i, false)
             .or_else(|| trouver_parcours(i, true))
             .expect("parcours du bonus");
@@ -635,10 +634,9 @@ mod tests {
     #[ignore = "lot : robot de QA : recherche de parcours puis partie rejouée"]
     fn au_clocher_le_parcours_allume_les_trois_lanternes() {
         use crate::monde::Monde;
-        use pepin_core::levels::{clocher, NIVEAUX};
-        let i = NIVEAUX
+        let i = niveaux::niveaux()
             .iter()
-            .position(|n| n.nom == clocher::INFOS.nom)
+            .position(|n| n.nom == niveaux::par_cle("clocher").nom)
             .unwrap();
         let parcours = trouver_parcours(i, false)
             .or_else(|| trouver_parcours(i, true))
@@ -698,7 +696,7 @@ mod tests {
     fn ecrire_script_monde_2_96() {
         let partie = jouer_monde_2(&tous_les_parcours_complets_du_monde(2));
         assert_eq!(partie.morts, 0);
-        let nb = pepin_core::levels::niveaux_du_monde(NIVEAUX, 2).len();
+        let nb = pepin_core::levels::niveaux_du_monde(niveaux::niveaux(), 2).len();
         assert_eq!(
             partie.gouttes as usize,
             3 * nb,
@@ -722,8 +720,11 @@ mod tests {
         let partie = jouer_monde_2(&parcours);
         assert_eq!(partie.morts, 0);
         ecrire_partie(&partie, "script-912b.txt", "trace-912b.csv");
-        let indice = NIVEAUX.iter().position(|n| n.cle == "pieuvre").unwrap();
-        let numero = NIVEAUX[indice].numero;
+        let indice = niveaux::niveaux()
+            .iter()
+            .position(|n| n.cle == "pieuvre")
+            .unwrap();
+        let numero = niveaux::niveaux()[indice].numero;
         let debut = partie
             .trames
             .iter()

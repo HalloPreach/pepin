@@ -11,3 +11,9 @@ description = "Niveaux de PÉPIN en fichiers RON : chargement et validation (car
 pepin_core = { package = "core", path = "../core" }
 serde = { version = "1", features = ["derive"] }
 ron = "0.8"
+
+
+[features]
+# Les niveaux d'essai (`assets/levels/essais/`) dans la table : build de QA
+# (`debug_niveaux` du jeu) et tests seulement, jamais dans le jeu publié.
+essais = []

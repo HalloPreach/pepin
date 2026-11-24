@@ -1266,7 +1266,6 @@ mod tests {
         use crate::decor::{ambiance, ciel_a};
         use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
         use pepin_core::entities::{Entite, TypeEnnemi};
-        use pepin_core::levels::{mer, nuages, vents};
         use pepin_core::palette::{
             ARDOISE_NUIT, CORAIL, CORAIL_CLAIR, OR, ORANGE_SOLEIL, OR_PALE, VIOLET_ORAGE,
         };
@@ -1279,7 +1278,11 @@ mod tests {
         for ciel in [VIOLET_ORAGE, ARDOISE_NUIT] {
             assert!(pigeon_se_detache(ciel).is_err(), "{ciel:?}");
         }
-        for infos in [vents::INFOS, mer::INFOS, nuages::INFOS] {
+        for infos in [
+            *niveaux::par_cle("vents"),
+            *niveaux::par_cle("mer"),
+            *niveaux::par_cle("nuages"),
+        ] {
             let niveau = infos.charger().unwrap();
             // Niveau pas plus haut que l'écran : la caméra aligne son bas sur celui de
             // l'écran (`Camera::borner`) et ne bouge pas en hauteur.
@@ -1327,9 +1330,8 @@ mod tests {
         use crate::decor::{bande_voyage, camera_fond, remontee_voyage, VOYAGE};
         use pepin_core::entities::ennemi::PROFONDEUR_PLONGEE;
         use pepin_core::entities::{Entite, TypeEnnemi};
-        use pepin_core::levels::descente;
         use pepin_core::HAUTEUR_LOGIQUE;
-        let niveau = descente::INFOS.charger().unwrap();
+        let niveau = niveaux::par_cle("descente").charger().unwrap();
         let (h_ecran, h_niveau) = (HAUTEUR_LOGIQUE as i32, niveau.hauteur_px() as i32);
         let mut vus = 0;
         for e in &niveau.entites {

@@ -41,6 +41,12 @@ CARGO_HOME_HOTE="${PEPIN_CARGO_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/pepin-cargo
 WASM_BRUT="target/wasm32-unknown-unknown/release/game.wasm"
 
 echo "== 1/4 Compilation release (wasm32-unknown-unknown) dans Docker =="
+# Carte 10.1b : les niveaux sont des fichiers `.ron` embarqués. Avant de construire,
+# on vérifie qu'ils sont TOUS valides : un fichier invalide arrête le build, le jeu
+# publié ne peut donc jamais tomber sur une erreur de niveau.
+echo "== Vérification des fichiers de niveau (assets/levels) =="
+./docker-cargo.sh test -p niveaux --locked --lib -q tous_les_fichiers_embarques_sont_valides \
+  || { echo "ERREUR : un fichier de niveau est invalide (voir le message ci-dessus)" >&2; exit 1; }
 # shellcheck disable=SC2086  # FONCTIONNALITES est volontairement vide ou « --features x »
 ./docker-cargo.sh build -p game --release --locked --target wasm32-unknown-unknown $FONCTIONNALITES
 [ -s "$WASM_BRUT" ] || { echo "ERREUR : $WASM_BRUT absent après la compilation" >&2; exit 1; }

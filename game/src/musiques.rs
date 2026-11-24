@@ -1037,7 +1037,6 @@ mod tests {
     /// niveau suivent la règle (titre : Orage ; fin : Soleil ; pause : celle du niveau).
     #[test]
     fn chaque_niveau_a_la_musique_de_sa_zone() {
-        use pepin_core::levels::NIVEAUX;
         use Musique::*;
         // Dans l'ordre de la table : la ville, l'orage, le boss, l'altitude, le retour
         // du Grand Nuage (carte 8.2 ; son thème `Poursuite` : carte 8.11),
@@ -1056,20 +1055,17 @@ mod tests {
             Soleil,         // l'arc-en-ciel (bonus)
             Soleil,         // la descente (épilogue)
         ];
-        let obtenu: Vec<Musique> = pepin_core::levels::NIVEAUX_MONDE_1
+        let obtenu: Vec<Musique> = niveaux::niveaux_monde_1()
             .iter()
             .map(musique_du_niveau)
             .collect();
         assert_eq!(obtenu, attendu);
         // Monde 2 (carte 9.6) : le caniveau garde la musique de repli de son thème
         // (`ToitsDeNuit`) ; ses vraies musiques viendront avec la carte 9.14.
-        assert_eq!(
-            musique_du_niveau(&pepin_core::levels::caniveau::INFOS),
-            ToitsDeNuit
-        );
+        assert_eq!(musique_du_niveau(niveaux::par_cle("caniveau")), ToitsDeNuit);
         // Le boss a une musique à lui seul.
         assert_eq!(obtenu.iter().filter(|&&m| m == Cyclone).count(), 1);
-        let cyclone = &NIVEAUX[5];
+        let cyclone = &niveaux::niveaux()[5];
         assert_eq!(musique_de_l_ecran(Ecran::Titre, cyclone), Orage);
         assert_eq!(musique_de_l_ecran(Ecran::Boutique, cyclone), Orage);
         assert_eq!(musique_de_l_ecran(Ecran::Carte(10), cyclone), Cyclone);

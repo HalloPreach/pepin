@@ -526,7 +526,6 @@ mod tests {
 
     /// Marge de texte de chaque côté de l'écran.
     const MARGE: u32 = 8;
-    use pepin_core::levels::{cyclone, descente, NIVEAUX};
 
     /// Les lignes du récit et l'invitation tiennent dans le bandeau (8 px de marge
     /// de chaque côté) ; la hauteur est vérifiée à la compilation (`const _`).
@@ -560,25 +559,34 @@ mod tests {
     /// suit le Grand Nuage, la 3 avant la descente ; aucune ailleurs.
     #[test]
     fn les_trois_images_tombent_aux_bons_niveaux() {
-        let apres_le_boss = NIVEAUX
+        let apres_le_boss = niveaux::niveaux()
             .iter()
-            .position(|n| n.nom == cyclone::INFOS.nom)
+            .position(|n| n.nom == niveaux::par_cle("cyclone").nom)
             .unwrap()
             + 1;
-        let descente = NIVEAUX
+        let descente = niveaux::niveaux()
             .iter()
-            .position(|n| n.nom == descente::INFOS.nom)
+            .position(|n| n.nom == niveaux::par_cle("descente").nom)
             .unwrap();
-        for i in 0..NIVEAUX.len() {
+        for i in 0..niveaux::niveaux().len() {
             let attendu = match i {
                 0 => Some(Chapitre::Depart),
                 _ if i == apres_le_boss => Some(Chapitre::Lueur),
                 _ if i == descente => Some(Chapitre::Soleil),
                 _ => None,
             };
-            assert_eq!(chapitre_avant(NIVEAUX, i), attendu, "niveau {}", i + 1);
+            assert_eq!(
+                chapitre_avant(niveaux::niveaux(), i),
+                attendu,
+                "niveau {}",
+                i + 1
+            );
         }
-        assert_eq!(chapitre_avant(NIVEAUX, NIVEAUX.len()), None, "hors table");
+        assert_eq!(
+            chapitre_avant(niveaux::niveaux(), niveaux::niveaux().len()),
+            None,
+            "hors table"
+        );
     }
 
     /// Sur de fausses tables : sans boss, pas d'image 2 ; sans épilogue, pas d'image 3 ;
@@ -588,11 +596,11 @@ mod tests {
         let normal = |theme| InfosNiveau {
             genre: GenreNiveau::Normal,
             theme,
-            ..NIVEAUX[0]
+            ..niveaux::niveaux()[0]
         };
         let genre = |genre| InfosNiveau {
             genre,
-            ..NIVEAUX[0]
+            ..niveaux::niveaux()[0]
         };
         let sans_boss = [normal(Theme::Toits), normal(Theme::Mer)];
         assert_eq!(chapitre_avant(&sans_boss, 0), Some(Chapitre::Depart));

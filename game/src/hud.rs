@@ -6,7 +6,7 @@
 use pepin_core::entities::nuage::PV_NUAGE;
 use pepin_core::font::largeur_texte;
 use pepin_core::level::GOUTTES_PAR_NIVEAU;
-use pepin_core::levels::{gouttes_du_parcours, niveaux_du_monde, NIVEAUX};
+use pepin_core::levels::{gouttes_du_parcours, niveaux_du_monde};
 use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, BRUME, OR};
 use pepin_core::LARGEUR_LOGIQUE;
 
@@ -104,7 +104,7 @@ pub fn compteur(
     } else {
         (
             gouttes_partie.saturating_sub(gouttes_bonus.unwrap_or(0)),
-            gouttes_du_parcours(niveaux_du_monde(NIVEAUX, monde)),
+            gouttes_du_parcours(niveaux_du_monde(niveaux::niveaux(), monde)),
         )
     }
 }
@@ -250,7 +250,7 @@ mod tests {
     /// bouge pas d'un pixel quand les gouttes changent.
     #[test]
     fn les_vies_ne_chevauchent_ni_les_gouttes_ni_le_nuage() {
-        let total = gouttes_du_parcours(NIVEAUX);
+        let total = gouttes_du_parcours(niveaux::niveaux());
         let fin_gouttes = X_GOUTTES + largeur_texte(&format!("{total}/{total}"), 1) as f32 + 1.0;
         assert!(X_ICONE_VIE >= fin_gouttes + 4.0, "{fin_gouttes}");
         let debut_nuage = points_de_vie(3, PV_NUAGE)[0].1 as f32;

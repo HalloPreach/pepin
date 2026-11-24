@@ -49,6 +49,9 @@ mod eau;
 mod ecrans;
 mod effets;
 mod entrees;
+// Build de QA (carte 10.1b) : niveau RON venu du navigateur, erreurs de niveau à l'écran.
+#[cfg(any(test, feature = "debug_niveaux"))]
+mod essai_externe;
 mod facile;
 mod focus;
 mod fond_egouts;
@@ -129,7 +132,21 @@ async fn main() {
     // (`plan::ouvrir_tout_qa`), AVANT de construire l'application et son titre.
     #[cfg(feature = "debug_niveaux")]
     plan::ouvrir_tout_qa();
+    // Build de QA (carte 10.1b) : un fichier de niveau invalide s'affiche à l'écran
+    // au lieu de faire planter le jeu, et `?essai=1` lance le niveau posé dans le
+    // navigateur. Le jeu publié n'en a pas besoin : ses fichiers sont vérifiés
+    // avant le build (`./build.sh`).
+    #[cfg(feature = "debug_niveaux")]
+    let lancement = essai_externe::au_lancement();
+    #[cfg(feature = "debug_niveaux")]
+    if let essai_externe::Lancement::Erreur(message) = &lancement {
+        essai_externe::afficher_erreur(&cible, message).await;
+    }
     let mut app = Application::new(true);
+    #[cfg(feature = "debug_niveaux")]
+    if let essai_externe::Lancement::Essai = lancement {
+        app.lancer_essai_externe();
+    }
     // Musique imposée par-dessus celle de la zone (`None` : la musique de la zone).
     // Aujourd'hui seule la touche F11 du build de QA la règle.
     let mut forcage: Option<musiques::Musique> = None;

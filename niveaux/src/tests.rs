@@ -9,26 +9,47 @@ use pepin_core::levels::NIVEAUX;
 
 /// Le texte embarqué du fichier `chemin` (panique s'il manque).
 fn fichier(chemin: &str) -> &'static str {
-    FICHIERS
-        .iter()
-        .find(|f| f.chemin == chemin)
+    tous()
+        .into_iter()
+        .find(|&(c, _)| c == chemin)
         .unwrap_or_else(|| panic!("fichier manquant : {chemin}"))
-        .texte
+        .1
 }
 
-/// Tous les fichiers embarqués, en paires (chemin, texte).
+/// Tous les fichiers embarqués (parcours et essais), en paires (chemin, texte).
 fn tous() -> Vec<(&'static str, &'static str)> {
-    FICHIERS.iter().map(|f| (f.chemin, f.texte)).collect()
+    fichiers_embarques()
+}
+
+/// LA GARDE DU JEU PUBLIÉ (carte 10.1b) : chaque fichier embarqué se charge et la
+/// table est complète et rangée. `./build.sh` lance ce test avant de construire le
+/// jeu : un fichier invalide empêche donc de publier (le jeu publié n'a jamais à
+/// afficher d'erreur de niveau ; le build de QA, lui, l'affiche à l'écran).
+#[test]
+fn tous_les_fichiers_embarques_sont_valides() {
+    if let Err(e) = table_verifiee() {
+        panic!("fichier de niveau invalide : {e}");
+    }
+    assert_eq!(niveaux().len(), NB_NIVEAUX);
+    assert_eq!(niveaux_monde_1().len(), NB_NIVEAUX_MONDE_1);
+    assert!(niveaux_monde_1().iter().all(|n| n.monde == 1));
+    assert_eq!(essais().len(), NB_ESSAIS);
+    let mut cles: Vec<&str> = niveaux()[NB_NIVEAUX_MONDE_1..]
+        .iter()
+        .map(|n| n.cle)
+        .collect();
+    cles.sort_unstable();
+    assert_eq!(cles, CLES_HORS_MONDE_1);
 }
 
 #[test]
 fn un_fichier_par_niveau_rust_et_rien_de_plus() {
     let mut attendus: Vec<String> = sources().into_iter().map(|(c, _)| c).collect();
-    let mut trouves: Vec<String> = FICHIERS.iter().map(|f| f.chemin.to_string()).collect();
+    let mut trouves: Vec<String> = tous().iter().map(|f| f.0.to_string()).collect();
     attendus.sort();
     trouves.sort();
     assert_eq!(trouves, attendus);
-    assert_eq!(FICHIERS.len(), NIVEAUX.len() + ESSAIS.len());
+    assert_eq!(trouves.len(), NIVEAUX.len() + ESSAIS.len());
 }
 
 /// LA PREUVE D'ÉQUIVALENCE : pour chaque niveau, le niveau lu dans son fichier RON

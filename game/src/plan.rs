@@ -629,15 +629,14 @@ mod tests {
     use super::*;
     use crate::navigation::Navigation;
     use crate::sauvegarde::Sauvegarde;
-    use pepin_core::levels::{caniveau, NIVEAUX_MONDE_1};
     use pepin_core::zones::InfosNiveau;
 
     /// Table de test : le Monde 1 de la vraie table, puis UN niveau du Monde 2 (le
     /// caniveau, son 1er niveau). Une table à part : le vrai Monde 2 grandit avec
     /// chaque carte (9.6 à 9.13), ces tests ne doivent pas en dépendre.
     fn table_deux_mondes() -> Vec<InfosNiveau> {
-        let mut t: Vec<InfosNiveau> = NIVEAUX_MONDE_1.to_vec();
-        t.push(caniveau::INFOS);
+        let mut t: Vec<InfosNiveau> = niveaux::niveaux_monde_1().to_vec();
+        t.push(*niveaux::par_cle("caniveau"));
         t
     }
 
@@ -734,14 +733,13 @@ mod tests {
     /// avec la vraie table, jamais les deux à la fois (pas de chapitre 3).
     #[test]
     fn une_seule_fleche_de_chapitre_a_la_fois() {
-        use pepin_core::levels::NIVEAUX;
         let s = poursuite_finie();
         for monde in [1, 2] {
-            let mut e = EtatPlan::new(NIVEAUX, 0);
-            assert!(e.aller_monde(monde, false, NIVEAUX, &s));
+            let mut e = EtatPlan::new(niveaux::niveaux(), 0);
+            assert!(e.aller_monde(monde, false, niveaux::niveaux(), &s));
             let fleches = [false, true]
                 .iter()
-                .filter(|&&suivant| e.chapitre_voisin(suivant, NIVEAUX, &s).is_some())
+                .filter(|&&suivant| e.chapitre_voisin(suivant, niveaux::niveaux(), &s).is_some())
                 .count();
             assert_eq!(fleches, 1, "chapitre {monde}");
         }
@@ -751,10 +749,10 @@ mod tests {
     /// vue ; la carte du Monde 1, plus haute, garde sa géométrie d'avant.
     #[test]
     fn une_carte_courte_remplit_la_vue() {
-        let g = Geometrie::new(&[caniveau::INFOS]);
+        let g = Geometrie::new(&[*niveaux::par_cle("caniveau")]);
         assert_eq!(g.hauteur, H_VUE);
         assert_eq!(g.etapes[0].1, g.hauteur - SOUS_PREMIERE - H_TOITS);
-        let m1 = Geometrie::new(NIVEAUX_MONDE_1);
+        let m1 = Geometrie::new(niveaux::niveaux_monde_1());
         assert_eq!(m1.hauteur, Y_SOMMET + 9.0 * ECART + SOUS_PREMIERE + H_TOITS);
         assert_eq!(m1.etapes[0].1, Y_SOMMET + 9.0 * ECART);
     }
@@ -781,8 +779,7 @@ mod tests {
         assert_eq!(e.selection, idx - 1, "Haut s'arrête au bout du Monde 1");
         // La vraie table a un Monde 2 depuis la carte 9.6 (le caniveau) : porte
         // ouverte, il est jouable, avec ou sans le build de QA.
-        use pepin_core::levels::NIVEAUX;
-        assert!(monde_jouable(NIVEAUX, &poursuite_finie(), 2));
+        assert!(monde_jouable(niveaux::niveaux(), &poursuite_finie(), 2));
     }
 
     /// « poursuite » fini : le Monde 2 s'ouvre ; la carte est une seule suite (carte

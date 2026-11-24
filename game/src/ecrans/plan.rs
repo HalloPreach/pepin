@@ -10,7 +10,7 @@
 //! bandeaux et le panneau : rien ne déborde (pas de découpage à faire).
 
 use pepin_core::font::{largeur_texte, ESPACEMENT, LARGEUR_GLYPHE};
-use pepin_core::levels::{niveaux_du_monde, GenreNiveau, NIVEAUX};
+use pepin_core::levels::{niveaux_du_monde, GenreNiveau};
 use pepin_core::palette::{
     Couleur, ARDOISE, ARDOISE_CLAIRE, ARDOISE_NUIT, ARDOISE_OMBRE, ARDOISE_PALE, BLANC_CASSE,
     BRUME, OR, OR_PALE,
@@ -222,7 +222,13 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
         defil: e.defil,
     };
     if e.monde >= 2 {
-        fond_plan::chapitre_2(banque, &vue, g, niveaux_du_monde(NIVEAUX, e.monde), anim);
+        fond_plan::chapitre_2(
+            banque,
+            &vue,
+            g,
+            niveaux_du_monde(niveaux::niveaux(), e.monde),
+            anim,
+        );
     } else {
         fond_plan::chapitre_1(banque, &vue, g, anim);
     }
@@ -257,7 +263,7 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
     dessiner_panneau(banque, s, e, anim);
     // Les flèches de chapitre (carte 9.30), seulement vers un chapitre jouable.
     for (suivant, zone) in [(false, FLECHE_PRECEDENT), (true, FLECHE_SUIVANT)] {
-        if let Some(m) = e.chapitre_voisin(suivant, NIVEAUX, s) {
+        if let Some(m) = e.chapitre_voisin(suivant, niveaux::niveaux(), s) {
             dessiner_fleche(zone, m, suivant, anim);
         }
     }
@@ -294,9 +300,9 @@ fn pointilles((x0, y0): (f32, f32), (x1, y1): (f32, f32), c: Couleur) {
 fn dessiner_chemins(e: &EtatPlan, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) {
     let g = &e.geometrie;
     let debut = e.debut_monde;
-    let tranche = niveaux_du_monde(NIVEAUX, e.monde);
+    let tranche = niveaux_du_monde(niveaux::niveaux(), e.monde);
     let pos = |k: usize| (g.etapes[k].0, ecran(g.etapes[k].1));
-    let couleur = |i: usize| match etat_etape(NIVEAUX, s, i) {
+    let couleur = |i: usize| match etat_etape(niveaux::niveaux(), s, i) {
         EtatEtape::Ouverte | EtatEtape::Finie => OR_PALE,
         _ => ARDOISE_PALE,
     };
@@ -321,7 +327,7 @@ fn dessiner_chemins(e: &EtatPlan, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) {
     for (k, n) in tranche.iter().enumerate() {
         let i = debut + k;
         match n.genre {
-            GenreNiveau::Bonus if etat_etape(NIVEAUX, s, i) != EtatEtape::Cachee => {
+            GenreNiveau::Bonus if etat_etape(niveaux::niveaux(), s, i) != EtatEtape::Cachee => {
                 pointilles(pos(sommet), pos(k), couleur(i));
             }
             // La descente part du sommet vers la droite, puis redescend.
@@ -340,7 +346,7 @@ fn dessiner_chemins(e: &EtatPlan, s: &Sauvegarde, ecran: &impl Fn(f32) -> f32) {
 /// Ce qu'on écrit dans la case d'une étape : son numéro (niveaux normaux), « B » pour
 /// le bonus, « É » pour l'épilogue, « ? » pour le bonus caché.
 fn marque(i: usize, etat: EtatEtape) -> String {
-    let n = &NIVEAUX[i];
+    let n = &niveaux::niveaux()[i];
     match (etat, n.genre) {
         (EtatEtape::Cachee, _) => "?".into(),
         (_, GenreNiveau::Normal) => n.numero.to_string(),
@@ -352,8 +358,8 @@ fn marque(i: usize, etat: EtatEtape) -> String {
 /// Une étape : une case (bordure de la couleur de la médaille quand elle est finie),
 /// cadenas ou marque, et ses 3 gouttes en petit dessous.
 fn dessiner_etape(i: usize, x: f32, y: f32, s: &Sauvegarde, choisie: bool, anim: u32) {
-    let etat = etat_etape(NIVEAUX, s, i);
-    let progres = plan::progres(NIVEAUX, s, i);
+    let etat = etat_etape(niveaux::niveaux(), s, i);
+    let progres = plan::progres(niveaux::niveaux(), s, i);
     if choisie && (anim / 20).is_multiple_of(2) {
         panneau(x - DEMI - 2.0, y - DEMI - 2.0, 19.0, 19.0, OR, OR);
     }
@@ -413,11 +419,11 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
     panneau(px, py, pw, ph, ARDOISE_NUIT, ARDOISE_CLAIRE);
     let centre = px + pw / 2.0;
     let ombre = |c| Style::simple(c, 1).avec_ombre(ARDOISE_OMBRE);
-    let Some(infos) = NIVEAUX.get(i) else {
+    let Some(infos) = niveaux::niveaux().get(i) else {
         return;
     };
-    let etat = etat_etape(NIVEAUX, s, i);
-    let progres = plan::progres(NIVEAUX, s, i);
+    let etat = etat_etape(niveaux::niveaux(), s, i);
+    let progres = plan::progres(niveaux::niveaux(), s, i);
     let x = px + 6.0;
     let mut y = py + 4.0;
     if etat == EtatEtape::Cachee {
@@ -429,7 +435,7 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
             y += 10.0;
         }
         // Où on en est : gouttes des niveaux normaux DU MONDE trouvées, sur le total du monde.
-        let tranche = niveaux_du_monde(NIVEAUX, e.monde);
+        let tranche = niveaux_du_monde(niveaux::niveaux(), e.monde);
         let compte = format!(
             "{}/{}",
             gouttes_trouvees_normales(tranche, s),
@@ -508,7 +514,12 @@ fn dessiner_panneau(banque: &Banque, s: &Sauvegarde, e: &EtatPlan, anim: u32) {
         texte::dessiner(&defi.libelle(), x + L_ICONE + ECART_ICONE, y, ombre(c));
         y += 10.0;
     }
-    dessiner_boutons(true, plan::course_possible(NIVEAUX, s, i), e.course, anim);
+    dessiner_boutons(
+        true,
+        plan::course_possible(niveaux::niveaux(), s, i),
+        e.course,
+        anim,
+    );
 }
 
 /// Les boutons JOUER et COURSE du panneau (carte 8.7) : grisés si l'étape n'est pas

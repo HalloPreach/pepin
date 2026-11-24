@@ -357,6 +357,26 @@
             window.localStorage.setItem(CLE_SAUVEGARDE, new TextDecoder().decode(octets));
           } catch (e) { /* stockage refusé ou plein : tant pis, rien n'est gardé */ }
         };
+        // Niveau d'essai venu de l'extérieur (carte 10.1b) : seul le build de QA
+        // appelle ces deux fonctions (game/src/essai_externe.rs) ; le jeu publié ne
+        // les importe pas. `?essai=1` dans l'adresse lance le niveau RON posé dans
+        // localStorage sous la clé « pepin.niveau_essai ».
+        importObject.env.pepin_niveau_essai_demande = function () {
+          try {
+            return new URLSearchParams(window.location.search).get("essai") === "1" ? 1 : 0;
+          } catch (e) { return 0; }
+        };
+        importObject.env.pepin_niveau_essai_lire = function (ptr, max) {
+          try {
+            var texte = window.localStorage.getItem("pepin.niveau_essai");
+            if (!texte) { return 0; }
+            var octets = new TextEncoder().encode(texte);
+            if (octets.length <= max) {
+              new Uint8Array(wasm_memory.buffer, ptr, octets.length).set(octets);
+            }
+            return octets.length;
+          } catch (e) { return 0; }
+        };
       }
     });
   }

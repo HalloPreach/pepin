@@ -10,6 +10,13 @@ AJOUTER UN NIVEAU = AJOUTER UN FICHIER : sa place vient de `monde` et `numero`
 (numéros 1, 2, 3... sans trou dans chaque monde), aucune liste à modifier. Le
 fichier est embarqué dans le jeu à la compilation (rien à télécharger).
 
+Depuis la carte 10.1b, le JEU lit ses niveaux dans ces fichiers (et non plus dans
+`core/src/levels/*.rs`). Un fichier invalide arrête `./build.sh` (le jeu publié
+n'affiche donc jamais d'erreur de niveau) ; le build de QA (`./build.sh --qa`)
+affiche l'erreur à l'écran. Pour essayer un niveau sans recompiler (build de QA) :
+poser son texte dans le `localStorage` du navigateur, clé `pepin.niveau_essai`,
+puis ouvrir la page avec `?essai=1`.
+
 ## Les champs
 
 | champ | sens |

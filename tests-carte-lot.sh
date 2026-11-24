@@ -45,15 +45,19 @@ export PEPIN_MEMOIRE_PARCOURS="$CARGO_HOME/parcours-du-robot"
 
 debut=$(date +%s)
 echo "== compilation (profil tests-rapides)"
-if ! cargo test -p core -p game "${PROFIL[@]}" --no-default-features --no-run \
+if ! cargo test -p core -p game -p niveaux "${PROFIL[@]}" --no-default-features --no-run \
   >"$SORTIE/compilation.txt" 2>&1; then
   cat "$SORTIE/compilation.txt"
   exit 1
 fi
 # « Executable unittests src/lib.rs (target/.../pepin_core-xxxx) » : le chemin.
-CORE=$(sed -n 's/.*Executable unittests src\/lib\.rs (\(.*\))$/\1/p' "$SORTIE/compilation.txt")
+# Deux crates ont un src/lib.rs : `core` et `niveaux` (carte 10.1b, les niveaux en
+# fichiers RON) ; on les distingue par le nom du binaire.
+LIBS=$(sed -n 's/.*Executable unittests src\/lib\.rs (\(.*\))$/\1/p' "$SORTIE/compilation.txt")
+CORE=$(echo "$LIBS" | grep -v '/niveaux-')
+NIVEAUX=$(echo "$LIBS" | grep '/niveaux-')
 GAME=$(sed -n 's/.*Executable unittests src\/main\.rs (\(.*\))$/\1/p' "$SORTIE/compilation.txt")
-if [ -z "$CORE" ] || [ -z "$GAME" ]; then
+if [ -z "$CORE" ] || [ -z "$GAME" ] || [ -z "$NIVEAUX" ]; then
   echo "binaires de test introuvables" >&2
   cat "$SORTIE/compilation.txt"
   exit 1
@@ -81,8 +85,8 @@ lancer() {
 case "$COMMANDE" in
   carte)
     CLE="${1:-}"
-    if [ -z "$CLE" ] || [ ! -f "core/src/levels/$CLE.rs" ]; then
-      echo "usage : ./docker-cargo.sh carte <clé> [robot] [sans-memoire] (clé d'un fichier core/src/levels/<clé>.rs)" >&2
+    if [ -z "$CLE" ] || ! ls assets/levels/*/"$CLE.ron" >/dev/null 2>&1; then
+      echo "usage : ./docker-cargo.sh carte <clé> [robot] [sans-memoire] (clé d'un fichier assets/levels/<dossier>/<clé>.ron)" >&2
       exit 2
     fi
     shift
@@ -103,6 +107,7 @@ case "$COMMANDE" in
     export CLE
     lancer core-rapides "$CORE"
     lancer game-rapides "$GAME"
+    lancer niveaux-rapides "$NIVEAUX"
     lancer core-niveau "$CORE" --ignored --exact zones::tests::le_niveau_de_la_carte
     lancer core-module "$CORE" --ignored "levels::$CLE::"
     if [ $ROBOT = 1 ]; then
@@ -124,6 +129,7 @@ case "$COMMANDE" in
     lancer core-lot "$CORE" --ignored --exact "${LOT_CORE[@]}"
     lancer core-rapides "$CORE"
     lancer game-rapides "$GAME"
+    lancer niveaux-rapides "$NIVEAUX"
     ;;
   *)
     echo "commande inconnue : $COMMANDE (carte <clé> ou lot)" >&2

@@ -172,17 +172,40 @@ pub fn charger_table(fichiers: &[(&str, &str)]) -> Result<Table, ErreurChargemen
     })
 }
 
+/// Les fichiers embarqués que le jeu charge : le parcours, plus les niveaux
+/// d'essai dans les tests et le build de QA (fonctionnalité `essais`).
+pub fn fichiers_embarques() -> Vec<(&'static str, &'static str)> {
+    let essais: &[Fichier] = if cfg!(any(test, feature = "essais")) {
+        FICHIERS_ESSAIS
+    } else {
+        &[]
+    };
+    FICHIERS
+        .iter()
+        .chain(essais)
+        .map(|f| (f.chemin, f.texte))
+        .collect()
+}
+
 /// La table du jeu, lue dans les fichiers embarqués : chargée et vérifiée UNE
-/// fois (au premier appel), puis gardée pour toute la partie.
+/// fois (au premier appel), puis gardée pour toute la partie. `Err` : le premier
+/// fichier invalide, avec son erreur lisible (fichier, ligne, colonne).
 ///
-/// Panique avec un message lisible si un fichier est invalide : cela ne peut pas
-/// arriver dans un jeu publié, car les tests de ce crate chargent chaque fichier.
+/// Le build de QA s'en sert pour AFFICHER l'erreur au lieu de planter. Dans le
+/// jeu publié, l'erreur ne peut pas arriver : le test
+/// `tous_les_fichiers_embarques_sont_valides` charge chaque fichier, et
+/// `./build.sh` refuse de construire le jeu si ce test échoue.
+pub fn table_verifiee() -> Result<&'static Table, &'static ErreurChargement> {
+    static TABLE: OnceLock<Result<Table, ErreurChargement>> = OnceLock::new();
+    TABLE
+        .get_or_init(|| charger_table(&fichiers_embarques()))
+        .as_ref()
+}
+
+/// La table du jeu (voir `table_verifiee`). Panique avec le message lisible si un
+/// fichier est invalide.
 pub fn table() -> &'static Table {
-    static TABLE: OnceLock<Table> = OnceLock::new();
-    TABLE.get_or_init(|| {
-        let fichiers: Vec<(&str, &str)> = FICHIERS.iter().map(|f| (f.chemin, f.texte)).collect();
-        charger_table(&fichiers).unwrap_or_else(|e| panic!("niveau invalide : {e}"))
-    })
+    table_verifiee().unwrap_or_else(|e| panic!("niveau invalide : {e}"))
 }
 
 /// Les niveaux du parcours, dans l'ordre (l'équivalent de `core::levels::NIVEAUX`).
@@ -193,4 +216,21 @@ pub fn niveaux() -> &'static [InfosNiveau] {
 /// Les niveaux d'essai (hors parcours), rangés par clé.
 pub fn essais() -> &'static [InfosNiveau] {
     &table().essais
+}
+
+/// Les niveaux du Monde 1 : le début du parcours (`NB_NIVEAUX_MONDE_1` niveaux).
+pub fn niveaux_monde_1() -> &'static [InfosNiveau] {
+    &niveaux()[..NB_NIVEAUX_MONDE_1]
+}
+
+/// Le niveau de clé `cle`, cherché dans le parcours puis dans les essais.
+/// Panique si la clé est inconnue : à n'appeler qu'avec une clé écrite dans le
+/// code (un test, un niveau d'essai nommé), jamais avec une clé lue ailleurs
+/// (pour celles-là : `pepin_core::levels::indice_de_cle`).
+pub fn par_cle(cle: &str) -> &'static InfosNiveau {
+    niveaux()
+        .iter()
+        .chain(essais())
+        .find(|n| n.cle == cle)
+        .unwrap_or_else(|| panic!("aucun fichier de niveau n'a la clé « {cle} »"))
 }
