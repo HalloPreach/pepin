@@ -115,27 +115,23 @@ pub(crate) fn dessiner(
     cx: i32,
     cy: i32,
 ) {
-    // Le fond compte la caméra depuis le bas du niveau (parallaxe verticale d'un niveau
-    // haut) ; un niveau d'un écran lui passe la caméra telle quelle.
-    let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
     // Le fond du port (carte 9.11b) : sans son phare lointain sur la jetée de la
     // Pieuvre, qui a le sien, rayé, plus près.
     if crate::dessin_port::est_la_jetee(monde) {
         // Carte 9.13c : sous la tour de la Pieuvre, le fond de l'arène descend
         // quand Pépin grimpe, et la nuit continue au-dessus (un fond continu).
+        let cy_fond = decor::camera_fond(cy, monde.niveau.hauteur_px() as i32);
         crate::decor_port::dessiner_fond_sous_la_tour(cx, monde.pas, -cy_fond);
     } else {
-        decor::dessiner_fond(monde.infos.theme, cx, cy_fond, monde.pas);
+        // La pile du thème (carte 10.4f : avec la grande chute de la cascade et
+        // la vallée de la rivière, qui y sont entrées).
+        decor::dessiner_fond_du_niveau(monde, cx, cy);
     }
     // La Pieuvre du port (carte 9.20e) : la mer, le phare et les bateaux du port.
     crate::dessin_port::dessiner_fond(monde, banque, cx, cy);
     mur_pluie::dessiner_soleil(monde);
     dessiner_dechirure(monde, cx);
     dessiner_facades(monde, banque, cx, cy);
-    // La grande chute en fond de la cascade (carte 9.20c), derrière les tuiles.
-    crate::decor_cascade::dessiner_fond(monde, cx, cy);
-    // La vallée au soleil couchant de la rivière (carte 9.10b), derrière les tuiles.
-    crate::decor_riviere::dessiner_fond(monde, cx, cy);
     // L'eau des marées (carte 9.3), derrière les tuiles qui la bordent.
     crate::eau::dessiner_marees(monde, banque, cx, cy);
     // Les roues de l'autobus du caniveau (carte 9.20f), dans l'eau qui les couvre.

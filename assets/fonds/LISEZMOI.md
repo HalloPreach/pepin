@@ -1,4 +1,4 @@
-# Les fonds de PÉPIN (cartes 10.4c et 10.4d)
+# Les fonds de PÉPIN (cartes 10.4c, 10.4d et 10.4f)
 
 Chaque couche FIXE d'un fond (dessinée une fois pour toutes, toujours pareille) est un
 fichier PNG de ce dossier : `assets/fonds/<thème>/<nom>.png`. C'est la SEULE source du
@@ -37,6 +37,9 @@ Même chaîne que les sprites (`assets/sprites/LISEZMOI.md`, carte 10.4a) :
 | `port/pontons.png` | 640 x 92 | Les pontons sur pieux sur UNE période (640 px), les filets qui sèchent, les lampadaires et leur halo. Les pieux continuent 8 rangées sous l'écran (une secousse ne laisse jamais de trou). | La répétition, la parallaxe (`F_PONTONS`), les bouées qui dansent et le reflet des halos qui ondule. |
 | `caniveau/maisons.png` | 496 x 154 | La rue du caniveau sur UNE période (496 px, les huit maisons de `decor_rue::RUE`) : façades d'ardoise, toits en mansarde et lucarnes, vitres ÉTEINTES et leurs croisées, stores et vitrines, portes, descentes de gouttière, puis le trottoir d'en face (62 rangées sous le sol). Le haut du fichier est le faîte de la plus haute maison, 92 px au-dessus du sol. | La répétition (`tour * 496 - dec`), la parallaxe (`FACTEUR_ILOTS`, `VERT_ILOTS`), et les fenêtres ALLUMÉES (plan « fenêtres allumées ») : elles changent d'un tour de la rue à l'autre (`allumee(tour * 8 + maison, ..)`), peintes en violet carreau par carreau sur les vitres éteintes. |
 | `caniveau/lampadaire.png` | 15 x 51 | UN lampadaire de la rue : le halo en marches d'escalier, le mât, son socle et sa crosse, la lanterne et ses vitres violettes. Le mât est à la colonne 6, le bas du fichier sur le sol. | Les deux lampadaires (abscisses 60 et 230) posés chacun en UN exemplaire modulo la largeur de l'écran (coupés au bord droit, sans copie à gauche), la parallaxe (`FACTEUR_PROCHE`, `VERT_PROCHE`). |
+| `riviere/ciel_vallee.png` | 2 x 89 | Le ciel de la vallée au soleil couchant (carte 10.4f) : six bandes (ardoise, violet, corail, orange, or pâle, brume), chacune ouverte par deux rangées en damier. Sa période est de DEUX colonnes (la trame) ; il va de la première rangée pleine du haut à la première rangée pleine de la brume. | La pose tous les 2 px, la parallaxe verticale (`V_CIEL`), et le prolongement de sa première et de sa dernière rangée au-dessus et au-dessous du fichier (couleurs LUES dans le fichier). |
+| `riviere/soleil_couchant.png` | 31 x 31 | Le disque du soleil couchant : l'or pâle (rayon 15) et son cœur blanc (rayon 11). | Sa position (parallaxe lente), son halo orange qui respire et les deux nuages fins qui passent devant (plans calculés autour de lui). |
+| `riviere/moulin.png` | 36 x 38 | UN vieux moulin : murs de pierre, toit en gradins, cheminée, fenêtre allumée, porte. Le pied de son mur gauche est à la colonne 3, son sol à la rangée 36. | Sa pose (un moulin tous les 760 px du plan de la forêt), et sa roue qui tourne et l'eau qu'elle verse (plan « roue du moulin »). |
 
 La poursuite reprend le ciel des vents d'altitude (`altitude/ciel.png`) ; la descente,
 en bas, a le ciel des toits (`toits/ciel.png`, les quatre dernières bandes du voyage).
@@ -94,8 +97,23 @@ Monde 2 (carte 10.4d) :
   descentes de gouttière `J` et leur pan de façade (`decor_rue::dessiner_gouttieres`,
   `dessiner_filets`) et le mobilier du trottoir (`mobilier_rue`) suivent la grille du
   niveau.
-- PAS ENCORE traités (voir QA.md, carte 10.4d) : la grande chute de la cascade (`decor_cascade`), la grotte
-  (`decor_grotte`), la vallée de la rivière (`decor_riviere`), la Pieuvre
+- Cascade (carte 10.4f) : la grande chute est entrée dans la pile (plans de
+  `decor_cascade::PILE`), mais reste TOUT ENTIÈRE du code : elle suit la grille (son
+  bas est le bassin d'arrivée du niveau, la falaise du pied court sur toute sa
+  largeur, les filets continuent les chutes `|`) et elle s'anime (l'eau qui dévale,
+  l'écume, la brume). Les couches de la pile qui en ont besoin reçoivent le niveau
+  (`decor::dessiner_fond_du_niveau`) ; sans niveau, elles ne dessinent rien.
+- Rivière (carte 10.4f) : la vallée est entrée dans la pile (plans de
+  `decor_riviere::PILE`), DEVANT le fond générique du thème, qu'elle recouvre en
+  entier (son ciel remplit l'écran). Ce fond générique reste dans la pile tel quel :
+  le ciel `riviere/ciel.png` nourrit aussi les garde-fous de contraste
+  (`Ambiance::ciel`). Restent du code : le halo et les nuages fins (animés), les
+  oiseaux, la rivière du fond et les lucioles (animés), la roue du moulin (elle
+  tourne), et les montagnes, les collines, les deux rangs d'arbres, le versant et
+  les grands arbres : SEMÉS AU HASARD (`hache`, crêtes en sinus) sans période, comme
+  les silhouettes du Monde 1 ; les grands arbres ondulent en plus au vent.
+- PAS ENCORE traités (voir QA.md, carte 10.4f) : la grotte
+  (`decor_grotte`), la Pieuvre
   (`dessin_port`) et la montée (`dessin_montee`), les motifs du Monde 2 (`decor`).
   Tout ce qui y est posé d'après la grille (phare de la jetée de la Pieuvre, habillage
   des quais, gouttières, bords de toits, chutes jouables, mobilier du trottoir) restera
@@ -128,9 +146,9 @@ Cette liste est la sortie EXACTE de `decor::pile`, la liste que suivent
 - `Poursuite` : ciel PNG altitude/ciel.png, étoiles CALCULÉ, îlots CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, NIVEAU
 - `Caniveau` : ciel PNG caniveau/ciel.png, silhouettes lointaines CALCULÉ, maisons PNG caniveau/maisons.png, fenêtres allumées CALCULÉ, silhouettes proches CALCULÉ, lampadaires PNG caniveau/lampadaire.png, NIVEAU, pluie CALCULÉ
 - `Egouts` : mur PNG egouts/mur.png, arches PNG egouts/arches.png, piliers CALCULÉ, eau CALCULÉ, tuyaux CALCULÉ, NIVEAU
-- `Cascade` : ciel PNG cascade/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, NIVEAU, pluie CALCULÉ
+- `Cascade` : ciel PNG cascade/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, falaise du pied CALCULÉ, rideau de la chute CALCULÉ, brume de la chute CALCULÉ, filets des chutes CALCULÉ, NIVEAU, pluie CALCULÉ
 - `Grotte` : ciel PNG grotte/ciel.png, plafond lointain CALCULÉ, plafond proche CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU
-- `Riviere` : ciel PNG riviere/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU
+- `Riviere` : ciel PNG riviere/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, ciel de la vallée PNG riviere/ciel_vallee.png, halo du soleil CALCULÉ, soleil couchant PNG riviere/soleil_couchant.png, nuages fins CALCULÉ, oiseaux CALCULÉ, montagnes CALCULÉ, collines CALCULÉ, rang clair CALCULÉ, rivière du fond CALCULÉ, moulin PNG riviere/moulin.png, roue du moulin CALCULÉ, rang sombre CALCULÉ, versant CALCULÉ, grands arbres CALCULÉ, lucioles CALCULÉ, NIVEAU
 - `Port` : crépuscule PNG port/crepuscule.png, étoiles du port CALCULÉ, mouettes CALCULÉ, mer PNG port/mer.png, reflets CALCULÉ, large CALCULÉ, port d'en face PNG port/port_d_en_face.png, balises CALCULÉ, voiliers CALCULÉ, pontons PNG port/pontons.png, bouées CALCULÉ, NIVEAU, bruine CALCULÉ
 - `Maree` : ciel PNG maree/ciel.png, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU, pluie CALCULÉ
 <!-- pile -->

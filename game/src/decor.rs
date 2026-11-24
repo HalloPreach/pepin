@@ -1764,6 +1764,11 @@ pub enum Couche {
     Port(crate::decor_port::Plan),
     /// Un plan de la rue du caniveau (carte 10.4d, suite), dessiné par `decor_rue`.
     Rue(crate::decor_rue::Plan),
+    /// Un plan de la grande chute de la cascade (carte 10.4f), dessiné par
+    /// `decor_cascade` d'après le niveau (rien sans niveau).
+    Chute(crate::decor_cascade::Plan),
+    /// Un plan de la vallée de la rivière (carte 10.4f), dessiné par `decor_riviere`.
+    Vallee(crate::decor_riviere::Plan),
     /// Le niveau lui-même (tuiles, entités, décors posés d'après la grille).
     Niveau,
     /// La pluie, devant tout (ou la bruine du port).
@@ -1784,6 +1789,7 @@ impl Couche {
             Couche::Egouts(p) => format!("egouts/{}.png", p.fichier()?),
             Couche::Port(p) => format!("port/{}.png", p.fichier()?),
             Couche::Rue(p) => format!("caniveau/{}.png", p.fichier()?),
+            Couche::Vallee(p) => format!("riviere/{}.png", p.fichier()?),
             _ => return None,
         })
     }
@@ -1809,6 +1815,9 @@ impl Couche {
             Couche::Port(p) => format!("{} CALCULÉ", p.nom()),
             Couche::Rue(p) if p.fichier().is_some() => png(p.nom()),
             Couche::Rue(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Chute(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Vallee(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Vallee(p) => format!("{} CALCULÉ", p.nom()),
             Couche::Niveau => "NIVEAU".into(),
             Couche::Pluie => "pluie CALCULÉ".into(),
             Couche::Bruine => "bruine CALCULÉ".into(),
@@ -1878,6 +1887,13 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
             p.push(Couche::Rue(crate::decor_rue::Plan::Lampadaires));
         }
     }
+    // Carte 10.4f : la grande chute de la cascade et la vallée de la rivière,
+    // devant le fond générique (la vallée le recouvre en entier).
+    if theme == Theme::Cascade {
+        p.extend(crate::decor_cascade::PILE.map(Couche::Chute));
+    } else if theme == Theme::Riviere {
+        p.extend(crate::decor_riviere::PILE.map(Couche::Vallee));
+    }
     p.push(Couche::Niveau);
     if theme == Theme::Port {
         p.push(Couche::Bruine);
@@ -1887,8 +1903,19 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
     p
 }
 
+/// Le niveau dont on dessine le fond, pour les couches qui le suivent : le monde, et
+/// l'ordonnée de la caméra de la SCÈNE (pas celle du fond). `None` : un écran sans
+/// niveau (titre, histoire, boutique, fin, planche de QA).
+type DuNiveau<'a> = Option<(&'a crate::monde::Monde, i32)>;
+
 /// Dessine une couche du fond (avant `Niveau` dans la pile).
-fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
+fn dessiner_couche_de_pile(
+    c: Couche,
+    a: &Ambiance,
+    (cam_x, cam_y): (i32, i32),
+    pas: u32,
+    niveau: DuNiveau,
+) {
     // Les silhouettes se décalent aussi un peu à la verticale (parallaxe verticale),
     // davantage au clocher (`vertige`).
     let vert = |f: f32| enfoncement(cam_y, f * a.vertige);
@@ -1912,6 +1939,19 @@ fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas:
                 (FACTEUR_ILOTS, VERT_ILOTS)
             };
             crate::decor_rue::dessiner_plan(p, decalage(cam_x, facteur), H + vert(v) - 48);
+        }
+        // La grande chute se pose d'après le niveau : rien sans niveau.
+        Couche::Chute(p) => {
+            if let Some((monde, cy)) = niveau {
+                crate::decor_cascade::dessiner_plan(p, monde, cam_x, cy);
+            }
+        }
+        // La vallée s'enfonce depuis le milieu de la course de la caméra (un écran
+        // sans niveau : comme un niveau d'un écran de haut).
+        Couche::Vallee(p) => {
+            let hauteur = niveau.map_or(H, |(m, _)| m.niveau.hauteur_px() as i32);
+            let milieu = crate::decor_riviere::milieu(cam_y, hauteur);
+            crate::decor_riviere::dessiner_plan(p, cam_x, milieu, pas);
         }
         Couche::Ciel(dossier) => crate::fonds::repeter(dossier, "ciel", 0, 0, L),
         // Le ciel du voyage : la colonne de `voyage.png`, répétée sur la largeur, son
@@ -2013,15 +2053,30 @@ fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas:
     }
 }
 
-/// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes).
-/// `cam_y` : ordonnée de la caméra vue par le fond (`camera_fond`).
+/// Dessine tout ce qui est DERRIÈRE le niveau (ciel, étoiles, soleil, silhouettes)
+/// sur un écran sans niveau. `cam_y` : ordonnée de la caméra vue par le fond
+/// (`camera_fond`).
 pub fn dessiner_fond(theme: Theme, cam_x: i32, cam_y: i32, pas: u32) {
+    dessiner_pile_de_fond(theme, (cam_x, cam_y), pas, None);
+}
+
+/// Dessine tout ce qui est DERRIÈRE le niveau du monde (la même pile, avec les
+/// couches qui suivent la grille : la grande chute de la cascade). `(cx, cy)` : la
+/// caméra de la scène.
+pub fn dessiner_fond_du_niveau(monde: &crate::monde::Monde, cx: i32, cy: i32) {
+    let cy_fond = camera_fond(cy, monde.niveau.hauteur_px() as i32);
+    let theme = monde.infos.theme;
+    dessiner_pile_de_fond(theme, (cx, cy_fond), monde.pas, Some((monde, cy)));
+}
+
+/// La pile du thème jusqu'au niveau (exclu), couche par couche.
+fn dessiner_pile_de_fond(theme: Theme, camera: (i32, i32), pas: u32, niveau: DuNiveau) {
     let a = ambiance(theme);
     for c in pile(theme) {
         if c == Couche::Niveau {
             break;
         }
-        dessiner_couche_de_pile(c, &a, cam_x, cam_y, pas);
+        dessiner_couche_de_pile(c, &a, camera, pas, niveau);
     }
 }
 
@@ -2312,6 +2367,38 @@ mod tests {
         );
     }
 
+    /// Carte 10.4f : la grande chute et la vallée sont entrées dans la pile, donc
+    /// AVANT ce que la scène dessine juste après le fond (la mer de la Pieuvre, le
+    /// soleil du mur de pluie, la déchirure du Grand Nuage, les façades des
+    /// auvents). Aucun niveau de ces deux thèmes n'a rien de tout cela : l'ordre
+    /// ne change donc aucun pixel. Les niveaux (et leurs variantes NG+) sont tous
+    /// vérifiés, ceux d'essai compris.
+    #[test]
+    fn la_chute_et_la_vallee_peuvent_passer_avant_le_reste_du_fond() {
+        use crate::monde::{infos_niveau, Monde};
+        use pepin_core::entities::Entite;
+        let mut vus = 0;
+        for indice in (0..).take_while(|&i| infos_niveau(i).is_some()) {
+            let theme = infos_niveau(indice).unwrap().theme;
+            if theme != Theme::Cascade && theme != Theme::Riviere {
+                continue;
+            }
+            for ng_plus in [false, true] {
+                let m = Monde::charger(indice, ng_plus);
+                assert!(!crate::dessin_port::est_la_jetee(&m), "{indice}");
+                assert!(m.mur.is_none(), "{indice}");
+                assert!(
+                    !m.entites
+                        .iter()
+                        .any(|e| matches!(e, Entite::Nuage(_) | Entite::Auvent(_))),
+                    "{indice}"
+                );
+                vus += 1;
+            }
+        }
+        assert!(vus >= 6, "cascade, rivière, essai : {vus}");
+    }
+
     /// Chaque couche PNG d'une pile existe, et chaque fichier de `assets/fonds` sert à
     /// une pile : aucun fichier manquant ni orphelin.
     #[test]
@@ -2351,6 +2438,12 @@ mod tests {
                 // bas du trottoir d'en face) et un lampadaire.
                 "maisons" => (496, 154),
                 "lampadaire" => (15, 51),
+                // Carte 10.4f : le ciel de la vallée (deux colonnes, la période de
+                // sa trame, jusqu'à la 1re rangée pleine de la dernière bande), le
+                // soleil couchant (son disque) et le moulin (un exemplaire).
+                "ciel_vallee" => (2, 89),
+                "soleil_couchant" => (31, 31),
+                "moulin" => (36, 38),
                 _ => panic!("{f} : couche inconnue"),
             };
             assert_eq!(crate::fonds::taille(d, n), attendue, "{f}");
