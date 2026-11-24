@@ -16,7 +16,9 @@ fn main() -> ExitCode {
     let resultat = match args.as_slice() {
         [commande, fichier] if commande == "lire" => lire(fichier),
         [commande, fichier] if commande == "ecrire" => ecrire(fichier),
-        _ => Err("usage : sprite lire <fichier.png>  |  sprite ecrire <fichier.png> < grille.txt".into()),
+        _ => Err(
+            "usage : sprite lire <fichier.png>  |  sprite ecrire <fichier.png> < grille.txt".into(),
+        ),
     };
     match resultat {
         Ok(()) => ExitCode::SUCCESS,

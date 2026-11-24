@@ -404,7 +404,7 @@ fn goutte(banque: &Banque, x: f32, y: f32, trouvee: bool) {
     if trouvee {
         banque.dessiner("goutte0", x, y, false);
     } else {
-        grille(crate::sprites::objets::GOUTTE0, x, y, |c| match c {
+        grille(crate::sprites::dessin("goutte0"), x, y, |c| match c {
             '.' => None,
             '0' => Some(ARDOISE_NUIT),
             _ => Some(ARDOISE),

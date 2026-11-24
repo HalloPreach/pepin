@@ -391,7 +391,7 @@ mod tests {
             "can_egout_grille",
         ];
         for nom in dessus {
-            let (_, d) = tuiles_monde2::SPRITES
+            let (_, d) = tuiles_monde2::sprites()
                 .iter()
                 .find(|(n, _)| *n == nom)
                 .unwrap_or_else(|| panic!("{nom} introuvable"));
@@ -410,7 +410,7 @@ mod tests {
     #[test]
     fn le_decor_sans_collision_de_la_rue_est_terne() {
         let ternes = [ARDOISE_OMBRE, ARDOISE_NUIT, ARDOISE];
-        for (nom, d) in objets_decor::SPRITES {
+        for (nom, d) in objets_decor::sprites() {
             let rangees = match *nom {
                 "borne" | "poubelle" => d.len(),
                 // La descente de gouttière `J` : `decor_rue` (carte 9.20h), testée là.

@@ -111,9 +111,7 @@ pub fn lire_png(octets: &[u8]) -> Result<Vec<String>, String> {
     decodeur.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
     let mut lecteur = decodeur.read_info().map_err(|e| e.to_string())?;
     let mut tampon = vec![0; lecteur.output_buffer_size()];
-    let image = lecteur
-        .next_frame(&mut tampon)
-        .map_err(|e| e.to_string())?;
+    let image = lecteur.next_frame(&mut tampon).map_err(|e| e.to_string())?;
     let canaux = match image.color_type {
         png::ColorType::Grayscale => 1,
         png::ColorType::GrayscaleAlpha => 2,
@@ -175,7 +173,11 @@ mod tests {
         let racine = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/sprites");
         let mut fichiers = Vec::new();
         pngs(&racine, &mut fichiers);
-        assert!(fichiers.len() > 300, "{} fichiers seulement", fichiers.len());
+        assert!(
+            fichiers.len() > 300,
+            "{} fichiers seulement",
+            fichiers.len()
+        );
         for f in fichiers {
             let octets = std::fs::read(&f).unwrap();
             let grille = lire_png(&octets).unwrap_or_else(|e| panic!("{f:?} : {e}"));

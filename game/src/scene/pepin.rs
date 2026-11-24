@@ -246,7 +246,7 @@ fn dessiner_eau_devant_barque(monde: &Monde, (milieu, bas): (i32, i32), (cx, cy)
         let t = monde.niveau.tuile_decor(tx, ty);
         if t == Tuile::Eau {
             let nom = nom_tuile(monde, tx, ty, t);
-            let (_, dessin) = tuiles::SPRITES.iter().find(|(n, _)| *n == nom)?;
+            let (_, dessin) = tuiles::sprites().iter().find(|(n, _)| *n == nom)?;
             let ligne = dessin.get(wy.rem_euclid(taille) as usize)?;
             let c = ligne.chars().nth(wx.rem_euclid(taille) as usize)?;
             pixel(c).ok().flatten()

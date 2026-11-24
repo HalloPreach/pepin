@@ -70,8 +70,8 @@ impl Skin {
     /// Les dessins du skin (nom, grille), chargés dans la `Banque` au démarrage.
     pub fn sprites(self) -> &'static [(&'static str, Image)] {
         match self {
-            Skin::Pepin => pepin::SPRITES,
-            Skin::Pepinette => pepinette::SPRITES,
+            Skin::Pepin => pepin::sprites(),
+            Skin::Pepinette => pepinette::sprites(),
         }
     }
 

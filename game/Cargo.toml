@@ -10,6 +10,11 @@ pepin_core = { package = "core", path = "../core" }
 # Les niveaux, lus dans les fichiers `assets/levels/**/*.ron` (carte 10.1b).
 niveaux = { path = "../niveaux" }
 macroquad = { version = "0.4", default-features = false }
+# Le DÉCODEUR PNG des sprites (carte 10.4a, `sprites::fichiers`). Ce n'est pas une
+# dépendance nouvelle : macroquad l'embarque déjà (sa crate `image` lit les PNG avec
+# elle), même version dans le Cargo.lock. L'appeler directement évite les conversions
+# génériques de `image` dans le wasm. L'ENCODEUR, lui, ne sert qu'au crate `outils`.
+png = "0.17"
 
 # Les tests du jeu essaient aussi les niveaux d'essai (`monde::INDICE_ESSAI`...).
 [dev-dependencies]

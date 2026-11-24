@@ -2,262 +2,28 @@
 //! brunes, mousse rousse sur les dessus (la palette n'a pas de vert), bords de
 //! bassins en pierre taillée. Choix case par case : `crate::tuiles_theme`.
 
-use crate::sprites::Image;
+// `cas_roche.png` : Roche grise de la cascade : fissures sombres, éclats clairs.
 
-/// Roche grise de la cascade : fissures sombres, éclats clairs.
-pub const CAS_ROCHE: Image = &[
-    "3333334333333333",
-    "3343333333333433",
-    "3333333332233333",
-    "3333322221133333",
-    "4333211133333343",
-    "3333111333333333",
-    "3333333333333333",
-    "3333333334333333",
-    "3343333333333333",
-    "3333333333322333",
-    "2233333332211333",
-    "1122222221133334",
-    "3311111113333333",
-    "3333333333333333",
-    "3333433333334333",
-    "3333333333333333",
-];
+// `cas_brune.png` : Strate brune (une rangée sur trois) : la pierre la plus chaude de la palette
+// (violet d'orage), ses lits sombres ; aucun point vif (ils feraient des braises).
 
-/// Strate brune (une rangée sur trois) : la pierre la plus chaude de la palette
-/// (violet d'orage), ses lits sombres ; aucun point vif (ils feraient des braises).
-pub const CAS_BRUNE: Image = &[
-    "FFFFFFFFFFFFFFFF",
-    "FF2FFFFFFFFF3FFF",
-    "FFFFFFFFFFFFFFFF",
-    "1111111111111111",
-    "FFFFFF2FFFFFFFFF",
-    "F3FFFFFFFFFF2FFF",
-    "FFFFFFFFFFFFFFFF",
-    "2222222222222222",
-    "1111111111111111",
-    "FFFFFFFFFFFFFFFF",
-    "FFF2FFFFFF3FFFFF",
-    "FFFFFFFFFFFFFF2F",
-    "F2FFFFFFFFFFFFFF",
-    "1111111111111111",
-    "FFFFFFF3FFFFFFFF",
-    "FFFFFFFFFFFFFFFF",
-];
+// `cas_mousse.png` : Dessus de roche (où l'on marche) : un coussin de mousse rousse bosselé (la
+// palette n'a pas de vert), éclairé par le haut, qui retombe en coulures.
 
-/// Dessus de roche (où l'on marche) : un coussin de mousse rousse bosselé (la
-/// palette n'a pas de vert), éclairé par le haut, qui retombe en coulures.
-pub const CAS_MOUSSE: Image = &[
-    "..000...0000..00",
-    "00AAA000AAAA00AA",
-    "AA2AA2AAA2AAA2AA",
-    "2A22A2A22A2A22A2",
-    "F22F22F2F22F2F2F",
-    "0FF0FF00FFF00FF0",
-    "3003003300003003",
-    "3333333334333333",
-    "3343333333333333",
-    "3333333333322333",
-    "2233333332211333",
-    "1122222221133334",
-    "3311111113333333",
-    "3333333333333333",
-    "3333433333334333",
-    "3333333333333333",
-];
+// `cas_mousse_g.png` : Dessus moussu au bord GAUCHE.
 
-/// Dessus moussu au bord GAUCHE.
-pub const CAS_MOUSSE_G: Image = &[
-    "..000...0000..00",
-    ".0AAA000AAAA00AA",
-    "0A2AA2AAA2AAA2AA",
-    "0A22A2A22A2A22A2",
-    "022F22F2F22F2F2F",
-    "0FF0FF00FFF00FF0",
-    "0003003300003003",
-    "0333333334333333",
-    "0343333333333333",
-    "0333333333322333",
-    "0233333332211333",
-    "0122222221133334",
-    "0311111113333333",
-    "0333333333333333",
-    "0333433333334333",
-    "0333333333333333",
-];
+// `cas_mousse_d.png` : Dessus moussu au bord DROIT.
 
-/// Dessus moussu au bord DROIT.
-pub const CAS_MOUSSE_D: Image = &[
-    "..000...0000..0.",
-    "00AAA000AAAA00A0",
-    "AA2AA2AAA2AAA2A0",
-    "2A22A2A22A2A22A0",
-    "F22F22F2F22F2F20",
-    "0FF0FF00FFF00FF0",
-    "3003003300003000",
-    "3333333334333330",
-    "3343333333333330",
-    "3333333333322330",
-    "2233333332211330",
-    "1122222221133330",
-    "3311111113333330",
-    "3333333333333330",
-    "3333433333334330",
-    "3333333333333330",
-];
+// `cas_mousse_seul.png` : Dessus moussu seul (vide des deux côtés).
 
-/// Dessus moussu seul (vide des deux côtés).
-pub const CAS_MOUSSE_SEUL: Image = &[
-    "..000...0000..0.",
-    ".0AAA000AAAA00A0",
-    "0A2AA2AAA2AAA2A0",
-    "0A22A2A22A2A22A0",
-    "022F22F2F22F2F20",
-    "0FF0FF00FFF00FF0",
-    "0003003300003000",
-    "0333333334333330",
-    "0343333333333330",
-    "0333333333322330",
-    "0233333332211330",
-    "0122222221133330",
-    "0311111113333330",
-    "0333333333333330",
-    "0333433333334330",
-    "0333333333333330",
-];
+// `cas_plafond.png` : Dessous d'un surplomb : la roche et son contour.
 
-/// Dessous d'un surplomb : la roche et son contour.
-pub const CAS_PLAFOND: Image = &[
-    "3333334333333333",
-    "3343333333333433",
-    "3333333332233333",
-    "3333322221133333",
-    "4333211133333343",
-    "3333111333333333",
-    "3333333333333333",
-    "3333333334333333",
-    "3343333333333333",
-    "3333333333322333",
-    "2233333332211333",
-    "1122222221133334",
-    "3311111113333333",
-    "3333333333333333",
-    "2223322222223322",
-    "0000000000000000",
-];
+// `cas_margelle.png` : Margelle d'un bassin (l'eau à côté) : pierre taillée claire, sans mousse.
 
-/// Margelle d'un bassin (l'eau à côté) : pierre taillée claire, sans mousse.
-pub const CAS_MARGELLE: Image = &[
-    "0000000000000000",
-    "6666666666666666",
-    "5555555555555555",
-    "4444444344444443",
-    "4444444344444443",
-    "3333333233333332",
-    "0000000000000000",
-    "3333233333332333",
-    "3333233333332333",
-    "2222122222221222",
-    "0000000000000000",
-    "3333333233333332",
-    "3333333233333332",
-    "3333333233333332",
-    "2222222122222221",
-    "0000000000000000",
-];
+// `cas_margelle_g.png` : Margelle au bord GAUCHE.
 
-/// Margelle au bord GAUCHE.
-pub const CAS_MARGELLE_G: Image = &[
-    ".000000000000000",
-    "0666666666666666",
-    "0555555555555555",
-    "0444444344444443",
-    "0444444344444443",
-    "0333333233333332",
-    "0000000000000000",
-    "0333233333332333",
-    "0333233333332333",
-    "0222122222221222",
-    "0000000000000000",
-    "0333333233333332",
-    "0333333233333332",
-    "0333333233333332",
-    "0222222122222221",
-    "0000000000000000",
-];
+// `cas_margelle_d.png` : Margelle au bord DROIT.
 
-/// Margelle au bord DROIT.
-pub const CAS_MARGELLE_D: Image = &[
-    "000000000000000.",
-    "6666666666666660",
-    "5555555555555550",
-    "4444444344444440",
-    "4444444344444440",
-    "3333333233333330",
-    "0000000000000000",
-    "3333233333332330",
-    "3333233333332330",
-    "2222122222221220",
-    "0000000000000000",
-    "3333333233333330",
-    "3333333233333330",
-    "3333333233333330",
-    "2222222122222220",
-    "0000000000000000",
-];
+// `cas_pierre.png` : Paroi d'un bassin (l'eau à côté, de la pierre dessus) : pierres taillées.
 
-/// Paroi d'un bassin (l'eau à côté, de la pierre dessus) : pierres taillées.
-pub const CAS_PIERRE: Image = &[
-    "0000000000000000",
-    "3333233333332333",
-    "3333233333332333",
-    "2222122222221222",
-    "0000000000000000",
-    "3333333233333332",
-    "3333333233333332",
-    "3333333233333332",
-    "2222222122222221",
-    "0000000000000000",
-    "0000000000000000",
-    "3333333233333332",
-    "3333333233333332",
-    "3333333233333332",
-    "2222222122222221",
-    "0000000000000000",
-];
-
-/// Fond d'un bassin (l'eau au-dessus) : des galets sombres.
-pub const CAS_GALETS: Image = &[
-    "1111111111111111",
-    "1122111111221111",
-    "1233211112332111",
-    "1222111123222111",
-    "0111111112111011",
-    "1111221111111111",
-    "1112332111112211",
-    "1112221111123321",
-    "0111111101112221",
-    "1122111111111111",
-    "1233211122111111",
-    "1122111233211011",
-    "1111101122111111",
-    "1111111111112211",
-    "1101111111123321",
-    "1111111111111111",
-];
-
-/// Les sprites de ce thème : (nom, dessin).
-pub const SPRITES: &[(&str, Image)] = &[
-    ("cas_roche", CAS_ROCHE),
-    ("cas_brune", CAS_BRUNE),
-    ("cas_mousse", CAS_MOUSSE),
-    ("cas_mousse_g", CAS_MOUSSE_G),
-    ("cas_mousse_d", CAS_MOUSSE_D),
-    ("cas_mousse_seul", CAS_MOUSSE_SEUL),
-    ("cas_plafond", CAS_PLAFOND),
-    ("cas_margelle", CAS_MARGELLE),
-    ("cas_margelle_g", CAS_MARGELLE_G),
-    ("cas_margelle_d", CAS_MARGELLE_D),
-    ("cas_pierre", CAS_PIERRE),
-    ("cas_galets", CAS_GALETS),
-];
+// `cas_galets.png` : Fond d'un bassin (l'eau au-dessus) : des galets sombres.

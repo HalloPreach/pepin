@@ -3,241 +3,26 @@
 //! au bord et au fond de l'eau, rochers gris coiffés de mousse. Choix case par
 //! case : `crate::tuiles_theme`.
 
-use crate::sprites::Image;
+// `riv_herbe.png` : Berge herbeuse (où l'on marche) : herbe violine aux pointes rousses (la palette
+// n'a pas de vert), la terre sombre dessous.
 
-/// Berge herbeuse (où l'on marche) : herbe violine aux pointes rousses (la palette
-/// n'a pas de vert), la terre sombre dessous.
-pub const RIV_HERBE: Image = &[
-    "..0..9...0...7..",
-    ".0A09C90.0F0.7D7",
-    "0FAF0900FFF00F7F",
-    "FFFFAFFFFFFFAFFF",
-    "FFFFFFFFFFFFFFFF",
-    "2F22F222F2F22F22",
-    "1211211212112121",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1321111111111111",
-    "120111111111111F",
-    "111111111111F111",
-    "2111111111111111",
-    "111F111111111111",
-];
+// `riv_herbe_g.png` : Berge herbeuse au bord GAUCHE.
 
-/// Berge herbeuse au bord GAUCHE.
-pub const RIV_HERBE_G: Image = &[
-    "..0......0...7..",
-    ".0A0....0F0..7D7",
-    "00AF0000FFF00F7F",
-    "0FFFAFFFFFFFAFFF",
-    "0FFFFFFFFFFFFFFF",
-    "0F22F222F2F22F22",
-    "0211211212112121",
-    "0201111120111111",
-    "011111111F1111F1",
-    "0111111111111111",
-    "0111111111111111",
-    "011111111111F111",
-    "0111111111111111",
-    "01111F1111111111",
-    "0111111111111111",
-    "0111111111111111",
-];
+// `riv_herbe_d.png` : Berge herbeuse au bord DROIT.
 
-/// Berge herbeuse au bord DROIT.
-pub const RIV_HERBE_D: Image = &[
-    "..0..9...0....0.",
-    ".0A09C90.0F0.0A.",
-    "0FAF0900FFF00F00",
-    "FFFFAFFFFFFFAFF0",
-    "FFFFFFFFFFFFFFF0",
-    "2F22F222F2F22F20",
-    "1211211212112120",
-    "1111F11111111110",
-    "1111111111111110",
-    "1111111111111110",
-    "1111111111111110",
-    "1321111111111110",
-    "1201F11111111110",
-    "1111111111111110",
-    "1111111111111110",
-    "2111111111111110",
-];
+// `riv_herbe_seul.png` : Berge herbeuse seule (ouverte des deux côtés).
 
-/// Berge herbeuse seule (ouverte des deux côtés).
-pub const RIV_HERBE_SEUL: Image = &[
-    "..0..9...0....0.",
-    ".0A09C90.0F0.0A.",
-    "00AF0900FFF00F00",
-    "0FFFAFFFFFFFAFF0",
-    "0FFFFFFFFFFFFFF0",
-    "0F22F222F2F22F20",
-    "0211211212112120",
-    "0111111111111110",
-    "0111111111111110",
-    "0111111F1111F110",
-    "0111111111111110",
-    "0111111211111110",
-    "0111111111111110",
-    "0111111111111110",
-    "0111111111111110",
-    "011111111111F110",
-];
+// `riv_terre.png` : Terre de la berge : sombre, quelques cailloux.
 
-/// Terre de la berge : sombre, quelques cailloux.
-pub const RIV_TERRE: Image = &[
-    "1111111F11111111",
-    "1111111111111111",
-    "1111111111111111",
-    "111111132111F111",
-    "1111111201111111",
-    "1F11111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "11111111F1111111",
-    "1111111111111111",
-    "1113212111111111",
-    "F112011111111111",
-    "11111111111F1111",
-];
+// `riv_terre_b.png` : Variante de la terre (autres cailloux).
 
-/// Variante de la terre (autres cailloux).
-pub const RIV_TERRE_B: Image = &[
-    "1F11111111111111",
-    "1111111111111111",
-    "1111113221111111",
-    "1111112011111111",
-    "1111111111111111",
-    "1111111111111111",
-    "111F111111111111",
-    "1111111111111111",
-    "2111111111111111",
-    "1111111111111111",
-    "1111111111111111",
-    "1111111111111112",
-    "1111111111111111",
-    "1111113211111111",
-    "1111112011111111",
-    "1121111111111111",
-];
+// `riv_berge.png` : Paroi au bord de l'eau : la terre, puis les galets que l'eau a lavés.
 
-/// Paroi au bord de l'eau : la terre, puis les galets que l'eau a lavés.
-pub const RIV_BERGE: Image = &[
-    "1111111111111111",
-    "1111111111111F11",
-    "1F11111111111111",
-    "1111111111111111",
-    "1111111122221111",
-    "1111111111111111",
-    "1112222111111111",
-    "1112432111122211",
-    "1112222111124211",
-    "1111111111122211",
-    "1111111111111111",
-    "1111112221111111",
-    "1111112421111222",
-    "2221112221111252",
-    "2521111111111222",
-    "2221111111111111",
-];
+// `riv_galets.png` : Lit de la rivière (l'eau au-dessus) : des galets ronds.
 
-/// Lit de la rivière (l'eau au-dessus) : des galets ronds.
-pub const RIV_GALETS: Image = &[
-    "1111111111111111",
-    "1222111111111111",
-    "1242111122221111",
-    "1222111124321111",
-    "1111111122221111",
-    "1111111111111111",
-    "1112222111111111",
-    "1112432111122211",
-    "1112222111124211",
-    "1111111111122211",
-    "1111111111111111",
-    "1111112221111111",
-    "1111112421111222",
-    "2221112221111242",
-    "2421111111111222",
-    "2221111111111111",
-];
+// `riv_rocher.png` : Rocher (tuile `#`) : pierre grise, fissures sombres.
 
-/// Rocher (tuile `#`) : pierre grise, fissures sombres.
-pub const RIV_ROCHER: Image = &[
-    "3333343333333333",
-    "3333333333333333",
-    "3333333333333333",
-    "3433333333333333",
-    "3333332343333333",
-    "3332222333333433",
-    "3333333333333333",
-    "3333343333333333",
-    "3333333333333333",
-    "3333333333333233",
-    "3343333332222233",
-    "3333333333333343",
-    "3432333333333333",
-    "3222333333333333",
-    "3333343333433333",
-    "1222212222122221",
-];
+// `riv_rocher_haut.png` : Dessus d'un rocher (où l'on se pose) : un coussin de mousse rousse.
 
-/// Dessus d'un rocher (où l'on se pose) : un coussin de mousse rousse.
-pub const RIV_ROCHER_HAUT: Image = &[
-    "..00...000...00.",
-    "00FA000FFF000AF0",
-    "FFFFFAFFFFFFFFFF",
-    "220FF2FF0F2FF022",
-    "3003F0330F03003F",
-    "3332222333333333",
-    "3333333333333333",
-    "3343333333333333",
-    "3333333333333334",
-    "3333333333333233",
-    "3333333332222234",
-    "3333333333333333",
-    "3332333333343333",
-    "3222333333333333",
-    "3333334333333333",
-    "1222212222122221",
-];
-
-/// Pont de bois (carte 9.10b : un `#` d'une rangée au-dessus du vide) : des
-/// planches corail et orange, disjointes, sur une poutre ; le dessous est vide.
-pub const RIV_PONT: Image = &[
-    "0000000000000000",
-    "9999999999999999",
-    "AAA0AAAAA0AAAAA0",
-    "A8A0AA8AA0A8AAA0",
-    "8880888880888880",
-    "0000000000000000",
-    "1111111111111111",
-    "0000000000000000",
-    ".02..........20.",
-    ".02..........20.",
-    "..02........20..",
-    "...0........0...",
-    "................",
-    "................",
-    "................",
-    "................",
-];
-
-/// Les sprites de ce thème : (nom, dessin).
-pub const SPRITES: &[(&str, Image)] = &[
-    ("riv_herbe", RIV_HERBE),
-    ("riv_herbe_g", RIV_HERBE_G),
-    ("riv_herbe_d", RIV_HERBE_D),
-    ("riv_herbe_seul", RIV_HERBE_SEUL),
-    ("riv_terre", RIV_TERRE),
-    ("riv_terre_b", RIV_TERRE_B),
-    ("riv_berge", RIV_BERGE),
-    ("riv_galets", RIV_GALETS),
-    ("riv_rocher", RIV_ROCHER),
-    ("riv_rocher_haut", RIV_ROCHER_HAUT),
-    ("riv_pont", RIV_PONT),
-];
+// `riv_pont.png` : Pont de bois (carte 9.10b : un `#` d'une rangée au-dessus du vide) : des
+// planches corail et orange, disjointes, sur une poutre ; le dessous est vide.

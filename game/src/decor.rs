@@ -2169,7 +2169,7 @@ mod tests {
         let mut vues: Vec<Couleur> = a.ciel.to_vec();
         vues.extend([a.lointain, a.proche]);
         vues.extend(ARC);
-        for ligne in crate::sprites::objets::FRIABLE0 {
+        for ligne in crate::sprites::dessin("friable0") {
             for c in ligne.chars() {
                 if let Ok(Some(couleur)) = crate::sprites::pixel(c) {
                     vues.push(couleur);

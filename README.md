@@ -13,9 +13,11 @@ commence par un commentaire (`//!`) qui dit ce qu'il fait et quelles notions de
 Rust il illustre. Ce README fait le tour du propriétaire ; la section
 « Les notions de Rust, avec le code réel » renvoie vers les fichiers exacts.
 
-Tout est dans le code : **aucun fichier image, aucun fichier son, aucune police
-externe**. Les sprites sont des grilles de texte, les sons sont calculés au
-démarrage, la police est un tableau de bits.
+Presque tout est dans le code : **aucun fichier son, aucune police externe**,
+les sons sont calculés au démarrage, la police est un tableau de bits. Seuls les
+sprites dessinés à la main sont des fichiers : de petits PNG à 16 couleurs dans
+`assets/sprites/` (carte 10.4a, voir `assets/sprites/LISEZMOI.md`), embarqués dans
+le jeu à la compilation, comme les niveaux de `assets/levels/`.
 
 ## Sommaire
 
@@ -690,8 +692,11 @@ rangées 1 à 4, et les lettres à jambage (g j p q y) descendent de deux rangé
 `glyphe_ou_inconnu` renvoie un cadre vide pour un caractère absent, et
 `game/src/texte.rs` dessine chaque pixel allumé comme un petit carré.
 
-**Pixel art procédural** (`game/src/sprites/`). Un sprite est une grille de
-texte : une ligne par rangée de pixels, un caractère par pixel. `.` est
+**Pixel art** (`game/src/sprites/`). Chaque sprite est un fichier PNG de
+`assets/sprites/<famille>/<clé>.png`, embarqué par `game/build.rs` et décodé
+(`sprites/fichiers.rs`) en grille de texte : une ligne par rangée de pixels, un
+caractère par pixel. L'outil `cargo run -p outils --bin sprite -- lire|ecrire`
+passe d'un PNG à sa grille et retour. `.` est
 transparent ; `0`-`9` et `A`-`F` désignent une des 16 couleurs de `TOUTES`
 (`0` : contour sombre, `8` : corail, `B` : or...). Pépin fait 16x16 pixels,
 parapluie fermé, et 20x20 parapluie ouvert. Au démarrage,
