@@ -35,6 +35,8 @@ Même chaîne que les sprites (`assets/sprites/LISEZMOI.md`, carte 10.4a) :
 | `port/mer.png` | 1 x 124 | La mer unie et sa ligne d'horizon (posée en y = 56). | Idem. |
 | `port/port_d_en_face.png` | 640 x 60 | Le port d'en face sur UNE période (640 px) : entrepôts et leurs fenêtres, piles de conteneurs, les trois grues à portique, le quai. La colonne x est le point x du motif ; le haut est 56 px au-dessus du quai. | La répétition (`poser_motif`), la parallaxe (`F_PORT`), les feux de balisage qui clignotent. |
 | `port/pontons.png` | 640 x 92 | Les pontons sur pieux sur UNE période (640 px), les filets qui sèchent, les lampadaires et leur halo. Les pieux continuent 8 rangées sous l'écran (une secousse ne laisse jamais de trou). | La répétition, la parallaxe (`F_PONTONS`), les bouées qui dansent et le reflet des halos qui ondule. |
+| `caniveau/maisons.png` | 496 x 154 | La rue du caniveau sur UNE période (496 px, les huit maisons de `decor_rue::RUE`) : façades d'ardoise, toits en mansarde et lucarnes, vitres ÉTEINTES et leurs croisées, stores et vitrines, portes, descentes de gouttière, puis le trottoir d'en face (62 rangées sous le sol). Le haut du fichier est le faîte de la plus haute maison, 92 px au-dessus du sol. | La répétition (`tour * 496 - dec`), la parallaxe (`FACTEUR_ILOTS`, `VERT_ILOTS`), et les fenêtres ALLUMÉES (plan « fenêtres allumées ») : elles changent d'un tour de la rue à l'autre (`allumee(tour * 8 + maison, ..)`), peintes en violet carreau par carreau sur les vitres éteintes. |
+| `caniveau/lampadaire.png` | 15 x 51 | UN lampadaire de la rue : le halo en marches d'escalier, le mât, son socle et sa crosse, la lanterne et ses vitres violettes. Le mât est à la colonne 6, le bas du fichier sur le sol. | Les deux lampadaires (abscisses 60 et 230) posés chacun en UN exemplaire modulo la largeur de l'écran (coupés au bord droit, sans copie à gauche), la parallaxe (`FACTEUR_PROCHE`, `VERT_PROCHE`). |
 
 La poursuite reprend le ciel des vents d'altitude (`altitude/ciel.png`) ; la descente,
 en bas, a le ciel des toits (`toits/ciel.png`, les quatre dernières bandes du voyage).
@@ -87,8 +89,12 @@ Monde 2 (carte 10.4d) :
   s'éteint selon la montée, les étoiles, la lune, le port lointain qui s'enfonce :
   tout dépend de la hauteur de la caméra. Le fond de l'arène, en dessous, est la même
   pile que le port (sans le phare), décalée vers le bas.
-- PAS ENCORE traités (voir QA.md, carte 10.4d) : la rue du caniveau (`decor_rue`,
-  `mobilier_rue`), la grande chute de la cascade (`decor_cascade`), la grotte
+- Rue du caniveau (carte 10.4d, suite) : les fenêtres allumées (elles changent d'un
+  tour de la rue à l'autre, donc ne sont pas dans la période de `maisons.png`). Les
+  descentes de gouttière `J` et leur pan de façade (`decor_rue::dessiner_gouttieres`,
+  `dessiner_filets`) et le mobilier du trottoir (`mobilier_rue`) suivent la grille du
+  niveau.
+- PAS ENCORE traités (voir QA.md, carte 10.4d) : la grande chute de la cascade (`decor_cascade`), la grotte
   (`decor_grotte`), la vallée de la rivière (`decor_riviere`), la Pieuvre
   (`dessin_port`) et la montée (`dessin_montee`), les motifs du Monde 2 (`decor`).
   Tout ce qui y est posé d'après la grille (phare de la jetée de la Pieuvre, habillage
@@ -120,7 +126,7 @@ Cette liste est la sortie EXACTE de `decor::pile`, la liste que suivent
 - `ArcEnCiel` : ciel PNG arc_en_ciel/ciel.png, arc-en-ciel PNG arc_en_ciel/arc.png, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, NIVEAU
 - `Descente` : ciel du voyage PNG descente/voyage.png, soleil PNG soleil/soleil.png, îlots CALCULÉ, étoiles CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, NIVEAU
 - `Poursuite` : ciel PNG altitude/ciel.png, étoiles CALCULÉ, îlots CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, NIVEAU
-- `Caniveau` : ciel PNG caniveau/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU, pluie CALCULÉ
+- `Caniveau` : ciel PNG caniveau/ciel.png, silhouettes lointaines CALCULÉ, maisons PNG caniveau/maisons.png, fenêtres allumées CALCULÉ, silhouettes proches CALCULÉ, lampadaires PNG caniveau/lampadaire.png, NIVEAU, pluie CALCULÉ
 - `Egouts` : mur PNG egouts/mur.png, arches PNG egouts/arches.png, piliers CALCULÉ, eau CALCULÉ, tuyaux CALCULÉ, NIVEAU
 - `Cascade` : ciel PNG cascade/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, NIVEAU, pluie CALCULÉ
 - `Grotte` : ciel PNG grotte/ciel.png, plafond lointain CALCULÉ, plafond proche CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU

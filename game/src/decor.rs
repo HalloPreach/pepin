@@ -166,12 +166,6 @@ pub struct TeinteTuiles {
 /// selon le groupe).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Detail {
-    /// Les lampadaires de la rue (le caniveau, carte 9.6b) : mât de fonte, lanterne
-    /// orange et son halo (`decor_rue`).
-    Lampadaires,
-    /// Les maisons de la rue du caniveau (carte 9.6b) : façades, fenêtres
-    /// allumées, vitrines sous leur store, descentes de gouttière (`decor_rue`).
-    Facades,
     /// Les égouts : deux tuyaux qui traversent le tunnel et leurs colliers.
     Tuyaux,
     /// La lueur cyan des égouts : une bande d'eau sombre au sol, ses reflets.
@@ -615,7 +609,7 @@ pub fn ambiance(theme: Theme) -> Ambiance {
         // Le caniveau (refait à la carte 9.6b) : la rue sous une forte averse, vue
         // du trottoir. Au loin, les immeubles de la ville (ardoise d'ombre, quelques
         // fenêtres orange) sur un ciel de nuit ; devant eux, une rangée de maisons
-        // (`Detail::Facades` : façades d'ardoise sombres et ternes depuis la carte
+        // (`decor_rue` : façades d'ardoise sombres et ternes depuis la carte
         // 9.20g, fenêtres, vitrines
         // sous leur store, descentes de gouttière) ; devant, les lampadaires et leur
         // halo. La couche proche reste sous la rue (cachée par les pavés).
@@ -646,7 +640,9 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 1.0,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Facades), Some(Detail::Lampadaires), None, None],
+            // La rue (maisons, fenêtres allumées, lampadaires) n'est plus un motif :
+            // ses plans ont leur place dans la pile (`decor_rue::Plan`, carte 10.4d).
+            details: [None; 4],
             vent: VENT_NUIT,
         },
         // Les égouts : tunnel de briques sombres, des voûtes au fond (les bouches
@@ -1532,12 +1528,9 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
 fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let (facteur, vert) = match d {
         Detail::Mouettes => (0.0, 0),
-        Detail::Chutes
-        | Detail::Brume
-        | Detail::Tuyaux
-        | Detail::Lueur
-        | Detail::Facades
-        | Detail::Foret => (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige)),
+        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Foret => {
+            (FACTEUR_ILOTS, enfoncement(cam_y, VERT_ILOTS * a.vertige))
+        }
         _ => (FACTEUR_PROCHE, enfoncement(cam_y, VERT_PROCHE * a.vertige)),
     };
     let dec = decalage(cam_x, facteur);
@@ -1545,10 +1538,6 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     // verticale du groupe (nulle en bas d'un niveau d'un écran).
     let pied = H + vert;
     match d {
-        // La rue du caniveau (carte 9.6b) : posée sur la ligne du sol (48 px
-        // au-dessus du bas de l'écran, juste sous le dessus des pavés).
-        Detail::Lampadaires => crate::decor_rue::dessiner_lampadaires(dec, pied - 48),
-        Detail::Facades => crate::decor_rue::dessiner_facades(dec, pied - 48),
         Detail::Tuyaux => {
             // Deux tuyaux qui traversent le tunnel (segments en parallaxe),
             // leurs colliers, et une grille d'évacuation au fond. Carte 9.20b :
@@ -1728,12 +1717,7 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
 fn groupe_du_motif(d: Detail) -> u8 {
     match d {
         Detail::Mouettes | Detail::Phare => 0,
-        Detail::Chutes
-        | Detail::Brume
-        | Detail::Tuyaux
-        | Detail::Lueur
-        | Detail::Facades
-        | Detail::Foret => 1,
+        Detail::Chutes | Detail::Brume | Detail::Tuyaux | Detail::Lueur | Detail::Foret => 1,
         _ => 2,
     }
 }
@@ -1778,6 +1762,8 @@ pub enum Couche {
     Egouts(crate::fond_egouts::Plan),
     /// Un plan du fond du port (carte 10.4d), dessiné par `decor_port`.
     Port(crate::decor_port::Plan),
+    /// Un plan de la rue du caniveau (carte 10.4d, suite), dessiné par `decor_rue`.
+    Rue(crate::decor_rue::Plan),
     /// Le niveau lui-même (tuiles, entités, décors posés d'après la grille).
     Niveau,
     /// La pluie, devant tout (ou la bruine du port).
@@ -1797,6 +1783,7 @@ impl Couche {
             Couche::Arc => "arc_en_ciel/arc.png".into(),
             Couche::Egouts(p) => format!("egouts/{}.png", p.fichier()?),
             Couche::Port(p) => format!("port/{}.png", p.fichier()?),
+            Couche::Rue(p) => format!("caniveau/{}.png", p.fichier()?),
             _ => return None,
         })
     }
@@ -1820,6 +1807,8 @@ impl Couche {
             Couche::Egouts(p) => format!("{} CALCULÉ", p.nom()),
             Couche::Port(p) if p.fichier().is_some() => png(p.nom()),
             Couche::Port(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Rue(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Rue(p) => format!("{} CALCULÉ", p.nom()),
             Couche::Niveau => "NIVEAU".into(),
             Couche::Pluie => "pluie CALCULÉ".into(),
             Couche::Bruine => "bruine CALCULÉ".into(),
@@ -1875,11 +1864,19 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
         }
         p.push(Couche::Lointaine);
         // Le groupe 1 (chutes, brume, tuyaux, lueur) se glisse entre les deux
-        // couches de silhouettes ; le groupe 2 (eau, lampadaires, grues, cristaux)
-        // est devant la couche proche.
+        // couches de silhouettes ; le groupe 2 (eau, grues, cristaux) est devant
+        // la couche proche. La rue du caniveau aussi : les maisons et leurs
+        // fenêtres entre les silhouettes, les lampadaires devant.
         motifs(&mut p, 1);
+        if theme == Theme::Caniveau {
+            use crate::decor_rue::Plan;
+            p.extend([Couche::Rue(Plan::Maisons), Couche::Rue(Plan::Fenetres)]);
+        }
         p.push(Couche::Proche);
         motifs(&mut p, 2);
+        if theme == Theme::Caniveau {
+            p.push(Couche::Rue(crate::decor_rue::Plan::Lampadaires));
+        }
     }
     p.push(Couche::Niveau);
     if theme == Theme::Port {
@@ -1904,6 +1901,18 @@ fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas:
     match c {
         Couche::Egouts(p) => crate::fond_egouts::dessiner_plan(p, cam_x, cam_y, pas),
         Couche::Port(p) => crate::decor_port::dessiner_plan(p, cam_x, cam_y, pas, true),
+        // La rue du caniveau (carte 9.6b) : posée sur la ligne du sol (48 px
+        // au-dessus du bas de l'écran, juste sous le dessus des pavés), qui
+        // s'enfonce avec la parallaxe verticale ; les maisons suivent les îlots,
+        // les lampadaires la couche proche.
+        Couche::Rue(p) => {
+            let (facteur, v) = if p == crate::decor_rue::Plan::Lampadaires {
+                (FACTEUR_PROCHE, VERT_PROCHE)
+            } else {
+                (FACTEUR_ILOTS, VERT_ILOTS)
+            };
+            crate::decor_rue::dessiner_plan(p, decalage(cam_x, facteur), H + vert(v) - 48);
+        }
         Couche::Ciel(dossier) => crate::fonds::repeter(dossier, "ciel", 0, 0, L),
         // Le ciel du voyage : la colonne de `voyage.png`, répétée sur la largeur, son
         // haut (la 1re bande) remonté de `r`.
@@ -2338,6 +2347,10 @@ mod tests {
                 "mer" => (1, H - 56),
                 "port_d_en_face" => (640, 60),
                 "pontons" => (640, 92),
+                // Carte 10.4d (suite) : une période de la rue (496 px, du faîte au
+                // bas du trottoir d'en face) et un lampadaire.
+                "maisons" => (496, 154),
+                "lampadaire" => (15, 51),
                 _ => panic!("{f} : couche inconnue"),
             };
             assert_eq!(crate::fonds::taille(d, n), attendue, "{f}");

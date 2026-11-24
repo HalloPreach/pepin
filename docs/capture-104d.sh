@@ -16,7 +16,8 @@
 #     bas, rangée 66 : le fond de l'arène, décalé vers le bas, entre par le bas de
 #     l'écran ; en haut, rangée 22 : la nuit et le port lointain), est lancé comme un
 #     niveau d'essai (`ESSAI_RON`, `?essai=1`, voir `capture-102.mjs`) ; capture après la
-#     carte de titre, puis après 40 images de course et 200 d'attente.
+#     carte de titre, puis après 40 images de course et 200 d'attente ;
+#   PREFIXE-rueK.png (K = 1 à 8) : la rue du caniveau de plus en plus loin (voir plus bas).
 # La planche des fonds (touche V) n'est PAS dans ces captures : son pas compte les images
 # réelles du navigateur, deux passages du MÊME build y diffèrent.
 # À chaque capture, des couches CALCULÉES passent ENTRE des couches PNG : au port, les
@@ -50,6 +51,19 @@ done
 etapes+=(w:300 c:n18-b w:900 c:n18-c)
 timeout 900 "$NODE" "$ici/capture-102.mjs" "$1" "$2" "$3" "${etapes[@]}"
 
+# La rue du caniveau PLUS LOIN (carte 10.4d, suite) : Pépin court et saute (8 x 4 sauts),
+# une capture tous les 4 sauts : la caméra traverse plusieurs tours de la rue (les
+# fenêtres allumées changent d'un tour à l'autre) et descend (parallaxe verticale).
+etapes=(t:Enter:120 t:Enter:60 t:Enter:120 t:Enter:60 w:60 t:Digit9:60 t:Enter:60)
+for i in 1 2 3 4; do
+  etapes+=(t:KeyN:60 t:Enter:60)
+done
+etapes+=(w:60)
+for k in 1 2 3 4 5 6 7 8; do
+  for j in 1 2 3 4; do etapes+=(m:12:24 m:4:36); done
+  etapes+=("c:rue$k")
+done
+timeout 900 "$NODE" "$ici/capture-102.mjs" "$1" "$2" "$3" "${etapes[@]}"
 
 # La montée : le niveau de la Pieuvre, le départ `@` déplacé dans la tour.
 for h in bas:66:4 haut:22:6; do
