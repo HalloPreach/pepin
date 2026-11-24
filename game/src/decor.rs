@@ -2428,7 +2428,7 @@ mod tests {
         // en hauteur) : les bancs restent au moins 4 px sous le PLUS BAS des dessus
         // où l'on se pose (tuiles et plateformes : friables, nacelles...). La mer a
         // des quais à y = 144, plus bas que la ligne du sol (relief négatif).
-        for infos in pepin_core::levels::NIVEAUX {
+        for infos in niveaux::niveaux() {
             let a = ambiance(infos.theme);
             let n = infos.charger().unwrap();
             if a.forme != Forme::Nuages || n.hauteur() > 11 {

@@ -1,4 +1,49 @@
 // Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+//
+// Niveau 12 (épilogue) : « La descente ».
+//
+// « Le soleil est réveillé : on redescend lui montrer la ville. » Le dernier
+// niveau, joué après le sommet (ou après le bonus) ; l'écran de fin le suit. C'est
+// le niveau VERTICAL À L'ENVERS : le clocher se gravissait, celui-ci se descend.
+// Départ tout en haut, au soleil, sur un petit nuage ; arrivée tout en bas, la
+// nuit, sur le toit du premier niveau
+// (mêmes tuiles, une cheminée, une antenne et un bloc de briques avant le
+// drapeau). 32 tuiles de large, 45 de haut (quatre écrans) : la caméra suit
+// Pépin en hauteur (carte 5.2).
+//
+// Nouveauté du niveau : la descente elle-même, sous un ciel qui refait tout le
+// voyage en sens inverse (thème `Descente` : des bandes de couleur selon la
+// hauteur, de l'or du soleil à la nuit des toits, voir `decor::VOYAGE`). Rien de
+// nouveau à apprendre : on tombe ou on plane, entre deux pigeons (`p`) puis deux
+// colonnes de grêle (`g`) ; depuis la carte 6.4b, un corbeau (`c`) patrouille
+// au-dessus de la première couche. Le plus calme des douze niveaux : aucune chute
+// ne tue (chaque trou mène à l'étage du dessous), aucune pointe, aucun éclair.
+//
+// La forme : trois couches de nuages, neuf rangées l'une sous l'autre, chacune
+// percée d'un trou de six tuiles, une fois à droite (colonnes 24 à 29), une fois à
+// gauche (2 à 7) ; on court jusqu'au trou, on s'y laisse tomber (ou on y plane),
+// on se pose sur la couche du dessous et on repart dans l'autre sens. Une colonne
+// de grêle tombe du dessous d'une couche, par le bord LOINTAIN du trou suivant
+// (colonnes 2 et 29), jusqu'au coin de la couche (ou du toit) d'en dessous : on
+// descend juste à côté d'elle. Celui qui se laisse tomber du bord ne la touche
+// pas (cinq tuiles plus loin) ; celui qui saute loin dans le trou, parapluie
+// fermé, si.
+//
+// Le parcours, de haut en bas :
+// 1. le départ au soleil ; on tombe sur la première couche (une goutte en l'air,
+//    à attraper d'un saut ou en planant) ; un corbeau (carte 6.4b, colonne 10,
+//    rangée 12 : il patrouille des colonnes 5 à 15) vole sous la goutte, 21 px
+//    au-dessus de la tête de Pépin posé sur la couche : on passe
+//    dessous en marchant, on lui tombe dessus en descendant du départ (il
+//    s'écrase), mais un saut vers la goutte au mauvais moment s'y cogne ;
+// 2. la première couche, vers la droite, sous deux pigeons perchés, tournés vers
+//    Pépin qui arrive : on passe dessous sans s'arrêter, ils plongent derrière
+//    lui ;
+// 3. la deuxième couche, vers la gauche, jusqu'au trou que longe la première
+//    colonne de grêle ; la 2e goutte flotte au-dessus du trou, près d'elle ;
+// 4. la troisième couche, vers la droite : même chose, la 3e goutte près de la
+//    seconde colonne de grêle ;
+// 5. le toit du premier niveau, vers la gauche, jusqu'au drapeau.
 (
     monde: 1,
     numero: 12,
@@ -7,11 +52,25 @@
     theme: Descente,
     genre: Epilogue,
     sans_planer: true,
+    // Le plus court des douze : une descente tranquille (la mesure de difficulté la
+    // joue en 18 à 19 s ; le robot de faisabilité, en course rapide, en 14 s).
     duree_cible_s: 40,
     intro: "Le soleil est réveillé : on redescend lui montrer la ville.",
     mecanique: "Épilogue : le niveau vertical à l'envers ; on descend du soleil jusqu'aux toits, en tombant ou en planant, entre les pigeons, un corbeau et la grêle.",
     aiguilles: [],
     poissons_hauts: [],
+    // Dessin du niveau (32 x 45 tuiles). Légende : voir `assets/levels/LISEZMOI.md`.
+    // - Départ : nuage des colonnes 0 à 5 (ligne 6), Pépin colonne 2, deux oiseaux.
+    // - Couches de nuages : lignes 15 et 33 (trou colonnes 24 à 29), ligne 24 (trou
+    //   colonnes 2 à 7).
+    // - Pigeons : (15, 10) et (21, 10), chacun sur deux nuages (ligne 11), tournés
+    //   vers la gauche (vers Pépin qui arrive de la gauche).
+    // - Corbeau (carte 6.4b) : (10, 12), sous la goutte (9, 10).
+    // - Grêle : colonne 2 de la ligne 16 au nuage de la ligne 33 ; colonne 29 de la
+    //   ligne 25 au toit (ligne 42).
+    // - Gouttes : (9, 10), (4, 21), (27, 30) ; lanternes là où Pépin se pose : (8,
+    //   14), (26, 23), (6, 32), (26, 41).
+    // - Arrivée : le toit (ligne 42, briques dessous), drapeau (4, 41).
     ascii: r#"
 ................................
 ................................

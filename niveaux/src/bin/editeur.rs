@@ -7,7 +7,9 @@
 //! - `legende.json` : les lettres de la grille, les thèmes et les genres
 //!   (`niveaux::legende`, la seule source : l'éditeur n'en recopie aucune) ;
 //! - `niveaux/<monde_N ou essais>/<cle>.ron` : une copie de chaque fichier de
-//!   niveau embarqué, que l'éditeur peut ouvrir ;
+//!   niveau, que l'éditeur peut ouvrir. Copiée depuis `assets/levels` (et non
+//!   depuis le texte embarqué, qui n'a plus ses commentaires `//` depuis la carte
+//!   10.1c) : l'éditeur les montre et les garde à l'export ;
 //! - `niveaux/index.json` : la liste de ces fichiers (un serveur de fichiers
 //!   statiques ne sait pas lister un dossier).
 
@@ -25,7 +27,10 @@ fn main() -> ExitCode {
     for fichier in niveaux::FICHIERS.iter().chain(niveaux::FICHIERS_ESSAIS) {
         let destination = niveaux_dir.join(fichier.chemin);
         fs::create_dir_all(destination.parent().unwrap()).unwrap();
-        fs::write(&destination, fichier.texte).unwrap();
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../assets/levels")
+            .join(fichier.chemin);
+        fs::copy(&source, &destination).unwrap();
         chemins.push(format!("{:?}", fichier.chemin));
     }
     fs::write(

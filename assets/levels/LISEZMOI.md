@@ -10,8 +10,9 @@ AJOUTER UN NIVEAU = AJOUTER UN FICHIER : sa place vient de `monde` et `numero`
 (numéros 1, 2, 3... sans trou dans chaque monde), aucune liste à modifier. Le
 fichier est embarqué dans le jeu à la compilation (rien à télécharger).
 
-Depuis la carte 10.1b, le JEU lit ses niveaux dans ces fichiers (et non plus dans
-`core/src/levels/*.rs`). Un fichier invalide arrête `./build.sh` (le jeu publié
+Depuis la carte 10.1b, le JEU lit ses niveaux dans ces fichiers ; depuis la carte
+10.1c, ce sont les SEULS niveaux (les anciens `core/src/levels/*.rs` sont
+supprimés, l'historique git les garde). Un fichier invalide arrête `./build.sh` (le jeu publié
 n'affiche donc jamais d'erreur de niveau) ; le build de QA (`./build.sh --qa`)
 affiche l'erreur à l'écran. Pour essayer un niveau sans recompiler (build de QA) :
 poser son texte dans le `localStorage` du navigateur, clé `pepin.niveau_essai`,
@@ -20,7 +21,8 @@ puis ouvrir la page avec `?essai=1`.
 Éditeur de niveaux (carte 10.3a, site de test seulement) : `editeur.html` à côté
 du jeu de QA (source : `editeur/`). Il ouvre un `.ron` du jeu ou un fichier local,
 dessine la grille avec les lettres de `legende.json` (écrit par le crate `niveaux`,
-module `legende`) et exporte au format exact de l'exporteur (`editeur/ron.js`).
+module `legende`) et exporte au format canonique (`editeur/ron.js`, le même que
+`niveaux::ecrire`).
 
 Essai depuis l'éditeur (carte 10.3b) : TESTER pose le niveau dans le
 `localStorage` et ouvre le jeu de QA (`?essai=1`) en plein écran dans l'éditeur ;
@@ -29,6 +31,22 @@ Essai depuis l'éditeur (carte 10.3b) : TESTER pose le niveau dans le
 garde la pipette). Valider fait juger le niveau par le chargeur Rust sans jouer.
 Un niveau refusé : le message du chargeur s'affiche et la case fautive est cerclée
 de rouge (le jeu la renvoie par `postMessage`, `game/src/essai_externe.rs`).
+
+## Commentaires de conception
+
+Le POURQUOI d'un niveau (recette, colonnes d'un passage, piège voulu, réglage
+mesuré par le robot) s'écrit en commentaires `//` : en tête du fichier (avant la
+parenthèse ouvrante) pour le niveau entier, ou juste au-dessus d'un champ (la
+grille : au-dessus de `ascii:`). Ce sont ceux des anciens fichiers Rust, reportés
+une fois par `niveaux/outils/reporter_commentaires.py` (carte 10.1c). Le
+chargeur les ignore ; l'éditeur les garde à leur place à l'export.
+
+## Les tests des niveaux
+
+`niveaux/tests/tous_les_niveaux/` : un fichier par sujet (table, faisabilité,
+grilles, décor, pigeons, essais...) et un module par niveau qui a des tests à lui
+(`par_niveau/<clé>.rs`). `./docker-cargo.sh carte <clé>` lance les tests rapides,
+la faisabilité et la reprise de CE niveau, et son module `par_niveau::<clé>::`.
 
 ## Les champs
 
@@ -88,7 +106,7 @@ L'erreur donne le fichier, la ligne et la colonne (de la grille et du fichier).
 
 ## Légende de la grille
 
-<!-- legende : recopiee de core/src/level.rs par l'exporteur -->
+<!-- legende : recopiee de core/src/level.rs (cargo run -p niveaux --bin lisezmoi) -->
 ```text
   .  vide                    #  toit (solide)      B  brique (solide)
   N  nuage (solide)          @  départ de Pépin     X  arrivée (drapeau)

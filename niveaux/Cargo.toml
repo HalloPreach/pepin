@@ -13,6 +13,12 @@ serde = { version = "1", features = ["derive"] }
 ron = "0.8"
 
 
+# Les tests de tous les niveaux (`tests/tous_les_niveaux/`) : le même `core`,
+# avec ses réglages réservés aux tests (aucune dépendance cyclique : `core` ne
+# dépend toujours de rien).
+[dev-dependencies]
+pepin_core = { package = "core", path = "../core", features = ["pour_les_tests"] }
+
 [features]
 # Les niveaux d'essai (`assets/levels/essais/`) dans la table : build de QA
 # (`debug_niveaux` du jeu) et tests seulement, jamais dans le jeu publié.

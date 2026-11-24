@@ -497,8 +497,7 @@ mod tests {
     #[test]
     fn au_port_les_plateformes_mobiles_sont_des_bateaux_et_une_caisse_de_grue() {
         use pepin_core::entities::Entite;
-        use pepin_core::levels::port as niveau_port;
-        let n = niveau_port::INFOS.charger().unwrap();
+        let n = niveaux::par_cle("port").charger().unwrap();
         let mut noms = Vec::new();
         for e in &n.entites {
             let Entite::Mobile(m) = e else { continue };

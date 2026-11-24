@@ -16,11 +16,12 @@
 //! ASCII des niveaux ne sont PAS modifiées : la variante est appliquée au TEXTE de la
 //! grille au moment du chargement (`texte_ng_plus`), puis lue par le même parseur
 //! (ses vérifications valent donc aussi pour la variante). Une case attendue qui ne
-//! correspond plus (grille retouchée depuis) est une erreur typée, que le test du
-//! module attrape avant le jeu.
+//! correspond plus (grille retouchée depuis) est une erreur typée, que le test
+//! `chaque_variante_ng_plus_est_finissable` (`niveaux/tests/tous_les_niveaux/`)
+//! attrape avant le jeu.
 //!
 //! Les ennemis restent à au moins 6 cases de chaque lanterne et du départ (pas de
-//! mort en boucle à la reprise) et loin des secrets ; le test du module vérifie la
+//! mort en boucle à la reprise) et loin des secrets ; ce même test vérifie la
 //! distance et la faisabilité de chaque variante (robot de faisabilité, depuis le
 //! départ et depuis chaque lanterne). Le robot de QA, lui, finit la nouvelle partie
 //! + complète sans mourir (`game/src/bot_qa`).
@@ -272,125 +273,4 @@ pub fn charger_ng_plus(infos: &InfosNiveau) -> Result<Niveau, ErreurVariante> {
         niveau.vents.push(VentLateral::de_face(zone));
     }
     Ok(niveau)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::faisabilite::{analyser, Options};
-    use crate::levels::NIVEAUX;
-
-    /// Toutes les variantes s'appliquent (cases attendues trouvées) sans toucher à la
-    /// géométrie, aux gouttes ni aux lanternes ; un ennemi de plus par niveau qui a
-    /// une variante ; aucun ennemi placé par une variante à moins de 6 cases d'une
-    /// reprise (lanterne ou départ) à hauteur de Pépin ; et chaque niveau de la
-    /// nouvelle partie + reste FINISSABLE, vent de face compris : arrivée, trois
-    /// gouttes et lanternes (robot précis), arrivée (robot maladroit), et arrivée
-    /// depuis chaque lanterne. Un fil d'exécution par niveau (`thread::scope`).
-    #[test]
-    #[ignore = "lot : faisabilité de chaque niveau de la nouvelle partie +"]
-    fn chaque_variante_ng_plus_est_finissable() {
-        for v in VARIANTES {
-            assert!(NIVEAUX.iter().any(|n| n.cle == v.cle), "clé : {}", v.cle);
-        }
-        std::thread::scope(|portee| {
-            for infos in NIVEAUX {
-                portee.spawn(move || verifier_variante(infos));
-            }
-        });
-    }
-
-    fn verifier_variante(infos: &InfosNiveau) {
-        let cle = infos.cle;
-        let normal = infos.charger().unwrap();
-        let ng = charger_ng_plus(infos).unwrap_or_else(|e| panic!("{e}"));
-        let compter =
-            |n: &Niveau, f: fn(&Entite) -> bool| n.entites.iter().filter(|e| f(e)).count();
-        let gouttes = |n: &Niveau| -> Vec<Aabb> {
-            n.entites
-                .iter()
-                .filter_map(|e| match e {
-                    Entite::Goutte(g) => Some(g.boite),
-                    _ => None,
-                })
-                .collect()
-        };
-        assert_eq!(ng.tuiles, normal.tuiles, "{cle} : géométrie");
-        assert_eq!(ng.depart, normal.depart, "{cle} : départ");
-        assert_eq!(gouttes(&ng), gouttes(&normal), "{cle} : gouttes");
-        let est_lanterne: fn(&Entite) -> bool = |e| matches!(e, Entite::Lanterne(_));
-        let est_ennemi: fn(&Entite) -> bool = |e| matches!(e, Entite::Ennemi(_));
-        assert_eq!(
-            compter(&ng, est_lanterne),
-            compter(&normal, est_lanterne),
-            "{cle}"
-        );
-        let ajouts = variante(cle).map_or(0, |v| v.ajouts.len());
-        assert_eq!(
-            compter(&ng, est_ennemi),
-            compter(&normal, est_ennemi) + ajouts,
-            "{cle}"
-        );
-        if let Some(v) = variante(cle) {
-            assert!(!v.ajouts.is_empty(), "{cle} : un ennemi de plus");
-        }
-
-        // Pas de mort en boucle à une reprise : aucun ennemi placé par la variante
-        // près d'une lanterne ou du départ.
-        let reprises: Vec<(f32, f32)> = ng
-            .entites
-            .iter()
-            .filter_map(|e| match e {
-                Entite::Lanterne(l) => Some(l.point_de_reapparition()),
-                _ => None,
-            })
-            .collect();
-        let t = crate::aabb::TAILLE_TUILE;
-        let places = variante(cle).into_iter().flat_map(|v| {
-            v.deplaces
-                .iter()
-                .map(|&(_, vers)| vers)
-                .chain(v.ajouts.iter().map(|&(_, c)| c))
-        });
-        for (cx, cy) in places {
-            let (ex, ey) = (cx as f32 * t, cy as f32 * t);
-            for &(rx, ry) in reprises.iter().chain([ng.depart].iter()) {
-                let loin = (ex - rx).abs() >= 6.0 * t || (ey - ry).abs() > 2.0 * t;
-                assert!(loin, "{cle} : ennemi en ({cx}, {cy}) près de ({rx}, {ry})");
-            }
-        }
-
-        // Finissable (robot de faisabilité : vent de face compris). Un niveau que la
-        // nouvelle partie + ne change pas du tout (aucune variante, ni éclair, ni
-        // nuage, ni vent de face : le Monde 2) est déjà vérifié tel quel par
-        // `zones` (faisabilité et reprise depuis chaque lanterne) : les mêmes
-        // recherches ne sont pas refaites (carte 9.23, tri des tests).
-        if format!("{ng:?}") == format!("{normal:?}") {
-            return;
-        }
-        let r = analyser(&ng, ng.depart, Options::default());
-        assert!(
-            r.arrivee,
-            "{cle} : arrivée inatteignable (x max {})",
-            r.x_max
-        );
-        assert_eq!(r.gouttes, [true; 3], "{cle} : gouttes");
-        assert!(r.lanternes.iter().all(|&l| l), "{cle} : lanternes");
-        // Les autres recherches ne lisent que l'arrivée : arrêt dès qu'elle est
-        // touchée (`Options::arrivee_seule`, même réponse).
-        let maladroit = Options {
-            precis: false,
-            ..Options::arrivee_seule()
-        };
-        assert!(
-            analyser(&ng, ng.depart, maladroit).arrivee,
-            "{cle} : robot maladroit"
-        );
-        for &p in &reprises {
-            assert!(
-                analyser(&ng, p, Options::arrivee_seule()).arrivee,
-                "{cle} : depuis {p:?}"
-            );
-        }
-    }
 }

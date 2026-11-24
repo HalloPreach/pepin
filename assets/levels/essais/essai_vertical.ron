@@ -1,9 +1,26 @@
 // Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+//
+// Niveau d'ESSAI vertical (carte 5.2) : quatre écrans de haut (45 rangées).
+//
+// Il n'est PAS dans la table `NIVEAUX` : aucune partie normale ne le joue. Il sert
+// - aux tests : grille haute pour le parseur, le robot de faisabilité, le robot de
+//   QA et la caméra verticale (`game/src/camera.rs`) ;
+// - au build de QA seulement (`./build.sh --qa`, touche 0) : captures de la caméra
+//   qui suit Pépin en hauteur. Le build de production ne le contient pas.
+//
+// Le parcours : on grimpe à gauche une échelle de corniches (une tous les trois
+// rangs, en zigzag), puis le champignon du haut lance Pépin AU-DESSUS du niveau
+// (la flèche de repère s'affiche) par-dessus le mur central ; on retombe dans le
+// puits de droite jusqu'au drapeau, en bas. Trois lanternes : à mi-montée, en haut,
+// dans le puits.
 (
+    // Hors de la table : 0 (la carte de présentation affiche « NIVEAU D'ESSAI »).
     monde: 1,
     numero: 0,
     cle: "essai_vertical",
     nom: "Essai vertical",
+    // Ciel corail, tours violettes et îlots : trois couches de parallaxe bien
+    // contrastées, pour voir dans les captures qu'elles descendent quand on monte.
     theme: Altitude,
     genre: Normal,
     sans_planer: false,
@@ -12,6 +29,7 @@
     mecanique: "Caméra verticale : quatre écrans de haut.",
     aiguilles: [],
     poissons_hauts: [],
+    // Dessin du niveau (24 x 45 tuiles). Légende : voir `assets/levels/LISEZMOI.md`.
     ascii: r#"
 ..........o.B...........
 ............B...........
