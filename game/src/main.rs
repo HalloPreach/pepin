@@ -63,6 +63,9 @@ mod fond_egouts;
 mod fonds;
 mod grele;
 mod hud;
+// La marée (carte 9.32) : la sauvegarde d'un joueur qui avait battu la Pieuvre.
+#[cfg(test)]
+mod maree_sauvegarde;
 mod menu;
 mod mer_montee;
 mod mobilier_rue;
