@@ -30,7 +30,9 @@ pub struct FichierNiveau {
     pub genre: GenreFichier,
     pub sans_planer: bool,
     pub duree_cible_s: u16,
-    pub intro: String,
+    /// La carte de présentation du niveau (carte 11.3) : phrase, puis conseil.
+    pub intro_texte: String,
+    pub intro_astuce: String,
     pub mecanique: String,
     /// Facultatif (vide par défaut) : une ligne par pivot `h` de la grille.
     #[serde(default)]
@@ -193,7 +195,8 @@ impl FichierNiveau {
             nom: laisser_fuir(self.nom),
             theme: self.theme.into(),
             genre: self.genre.into(),
-            intro: laisser_fuir(self.intro),
+            intro_texte: laisser_fuir(self.intro_texte),
+            intro_astuce: laisser_fuir(self.intro_astuce),
             mecanique: laisser_fuir(self.mecanique),
             duree_cible_s: self.duree_cible_s,
             ascii: laisser_fuir(self.ascii),
@@ -228,7 +231,14 @@ pub fn ecrire(infos: &InfosNiveau) -> String {
     ));
     s.push_str(&format!("    sans_planer: {},\n", infos.sans_planer));
     s.push_str(&format!("    duree_cible_s: {},\n", infos.duree_cible_s));
-    s.push_str(&format!("    intro: {},\n", chaine(infos.intro)));
+    s.push_str(&format!(
+        "    intro_texte: {},\n",
+        chaine(infos.intro_texte)
+    ));
+    s.push_str(&format!(
+        "    intro_astuce: {},\n",
+        chaine(infos.intro_astuce)
+    ));
     s.push_str(&format!("    mecanique: {},\n", chaine(infos.mecanique)));
     if infos.aiguilles.is_empty() {
         s.push_str("    aiguilles: [],\n");

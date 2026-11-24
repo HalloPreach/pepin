@@ -177,14 +177,15 @@ pub fn niveau() -> Option<&'static InfosNiveau> {
     NIVEAU.get()
 }
 
-/// L'intro de la carte du niveau externe (carte 10.3b) : ses champs `intro` et
-/// `mecanique`, tels qu'écrits dans l'éditeur (sinon : celle du dernier niveau).
+/// L'intro de la carte du niveau externe (carte 10.3b) : ses champs `intro_texte` et
+/// `intro_astuce` (carte 11.3), tels qu'écrits dans l'éditeur (sinon : celle du
+/// dernier niveau).
 pub fn intro() -> Option<&'static Intro> {
     static INTRO: OnceLock<Intro> = OnceLock::new();
     let infos = niveau()?;
     Some(INTRO.get_or_init(|| Intro {
-        texte: infos.intro,
-        astuce: infos.mecanique,
+        texte: infos.intro_texte,
+        astuce: infos.intro_astuce,
     }))
 }
 
@@ -296,7 +297,10 @@ mod tests {
         assert_eq!(infos.cle, "essai_vent");
         // Sa carte de niveau montre SON intro (carte 10.3b).
         let intro = crate::contenu::intro(crate::monde::INDICE_ESSAI_EXTERNE);
-        assert_eq!((intro.texte, intro.astuce), (infos.intro, infos.mecanique));
+        assert_eq!(
+            (intro.texte, intro.astuce),
+            (infos.intro_texte, infos.intro_astuce)
+        );
     }
 
     /// Le rapport JSON de l'éditeur (carte 10.3b) donne la case fautive de la

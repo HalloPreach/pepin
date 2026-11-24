@@ -876,6 +876,48 @@ pub(crate) mod tests {
         }
     }
 
+    /// Carte 11.3, AVANT la suppression des listes : l'intro de chaque niveau lue
+    /// dans son FICHIER est identique à celle des listes du code (`INTROS`,
+    /// `INTROS_MONDE_2`, `INTRO_ESSAI_*`), pour les 19 niveaux du parcours et les 10
+    /// niveaux d'essai qui avaient la leur.
+    #[test]
+    fn l_intro_du_fichier_est_celle_des_listes() {
+        let mut vus = 0;
+        for (i, n) in niveaux::niveaux().iter().enumerate() {
+            let liste = intro(i);
+            assert_eq!(
+                (n.intro_texte, n.intro_astuce),
+                (liste.texte, liste.astuce),
+                "{}",
+                n.cle
+            );
+            vus += 1;
+        }
+        use crate::monde::*;
+        for (indice, cle) in [
+            (INDICE_ESSAI, "essai_vertical"),
+            (INDICE_ESSAI_VENT, "essai_vent"),
+            (INDICE_ESSAI_GRELE, "essai_grele"),
+            (INDICE_ESSAI_AUVENT, "essai_auvent"),
+            (INDICE_ESSAI_VENTILATEUR, "essai_ventilateur"),
+            (INDICE_ESSAI_MONTGOLFIERE, "essai_montgolfiere"),
+            (INDICE_ESSAI_ESCARGOT, "essai_escargot"),
+            (INDICE_ESSAI_CHAT, "essai_chat"),
+            (INDICE_ESSAI_HORLOGE, "essai_horloge"),
+            (INDICE_ESSAI_NUAGE, "essai_nuage"),
+        ] {
+            let n = niveaux::par_cle(cle);
+            let liste = intro(indice);
+            assert_eq!(
+                (n.intro_texte, n.intro_astuce),
+                (liste.texte, liste.astuce),
+                "{cle}"
+            );
+            vus += 1;
+        }
+        assert_eq!(vus, 29);
+    }
+
     #[test]
     fn l_intro_hors_bornes_donne_le_dernier_niveau() {
         assert_eq!(intro(99).texte, intro(niveaux::NB_NIVEAUX - 1).texte);

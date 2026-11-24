@@ -200,7 +200,7 @@ mod tests {
         format!(
             "(\n    monde: 1,\n    numero: 0,\n    cle: \"essai_robot\",\n    nom: \"Essai robot\",\n    \
              theme: Altitude,\n    genre: Normal,\n    sans_planer: false,\n    duree_cible_s: 30,\n    \
-             intro: \"\",\n    mecanique: \"\",\n    aiguilles: [],\n    poissons_hauts: [],\n    \
+             intro_texte: \"Essai.\",\n    intro_astuce: \"Essai.\",\n    mecanique: \"\",\n    aiguilles: [],\n    poissons_hauts: [],\n    \
              ascii: r#\"\n{}\n\"#,\n)\n",
             lignes.join("\n")
         )

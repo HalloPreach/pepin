@@ -64,7 +64,8 @@
     genre: Normal,
     sans_planer: false,
     duree_cible_s: 60,
-    intro: "La pluie arrive au port. Au bout de la jetée, quelque chose remue dans l'eau.",
+    intro_texte: "La pluie arrive au port. Au bout de la jetée, quelque chose remue dans l'eau.",
+    intro_astuce: "Un bateau va et vient : attends-le au bord du quai.",
     mecanique: "Bateaux en va-et-vient et à la suite, conteneurs et grue au-dessus du vide, caisse de grue qui monte au toit de l'entrepôt, vols planés, pontons étroits à crabes, pieux, mouettes perchées sur les passerelles.",
     aiguilles: [],
     // Les 2 poissons de la fin (bassin 7, entre les pieux) sautent 6 tuiles au
