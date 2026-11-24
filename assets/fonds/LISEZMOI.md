@@ -40,6 +40,7 @@ Même chaîne que les sprites (`assets/sprites/LISEZMOI.md`, carte 10.4a) :
 | `riviere/ciel_vallee.png` | 2 x 89 | Le ciel de la vallée au soleil couchant (carte 10.4f) : six bandes (ardoise, violet, corail, orange, or pâle, brume), chacune ouverte par deux rangées en damier. Sa période est de DEUX colonnes (la trame) ; il va de la première rangée pleine du haut à la première rangée pleine de la brume. | La pose tous les 2 px, la parallaxe verticale (`V_CIEL`), et le prolongement de sa première et de sa dernière rangée au-dessus et au-dessous du fichier (couleurs LUES dans le fichier). |
 | `riviere/soleil_couchant.png` | 31 x 31 | Le disque du soleil couchant : l'or pâle (rayon 15) et son cœur blanc (rayon 11). | Sa position (parallaxe lente), son halo orange qui respire et les deux nuages fins qui passent devant (plans calculés autour de lui). |
 | `riviere/moulin.png` | 36 x 38 | UN vieux moulin : murs de pierre, toit en gradins, cheminée, fenêtre allumée, porte. Le pied de son mur gauche est à la colonne 3, son sol à la rangée 36. | Sa pose (un moulin tous les 760 px du plan de la forêt), et sa roue qui tourne et l'eau qu'elle verse (plan « roue du moulin »). |
+| `grotte/cristaux.png` | 40 x 24 | Les cinq cristaux cyan de la grotte, rangés côte à côte (une bande de 8 px chacun, de gauche à droite dans l'ordre de `CRISTAUX`) : pointes en trois gradins, liseré clair sur l'arête, le bas du fichier sur le pied de l'écran. | Leur pose : chacun en UN exemplaire à son abscisse (`CRISTAUX`) modulo la largeur de l'écran (coupé au bord droit, sans copie à gauche, `fonds::dessiner_bande`), la parallaxe de la couche proche (`FACTEUR_PROCHE`, `VERT_PROCHE` fois le vertige). |
 
 La poursuite reprend le ciel des vents d'altitude (`altitude/ciel.png`) ; la descente,
 en bas, a le ciel des toits (`toits/ciel.png`, les quatre dernières bandes du voyage).
@@ -112,8 +113,12 @@ Monde 2 (carte 10.4d) :
   tourne), et les montagnes, les collines, les deux rangs d'arbres, le versant et
   les grands arbres : SEMÉS AU HASARD (`hache`, crêtes en sinus) sans période, comme
   les silhouettes du Monde 1 ; les grands arbres ondulent en plus au vent.
-- PAS ENCORE traités (voir QA.md, carte 10.4f) : la grotte
-  (`decor_grotte`), la Pieuvre
+- Grotte (carte 10.4f) : les cristaux sont devenus une couche PNG de la pile (ils
+  étaient un motif du groupe 2). Restent du code : les deux plafonds et les
+  silhouettes (semés au hasard, comme au Monde 1). L'habillage de la grotte
+  (`decor_grotte` : rideau de la cascade, sources, jour) suit la grille du niveau :
+  il reste du code, dessiné par la scène.
+- PAS ENCORE traités (voir QA.md, carte 10.4f) : la Pieuvre
   (`dessin_port`) et la montée (`dessin_montee`), les motifs du Monde 2 (`decor`).
   Tout ce qui y est posé d'après la grille (phare de la jetée de la Pieuvre, habillage
   des quais, gouttières, bords de toits, chutes jouables, mobilier du trottoir) restera
@@ -147,7 +152,7 @@ Cette liste est la sortie EXACTE de `decor::pile`, la liste que suivent
 - `Caniveau` : ciel PNG caniveau/ciel.png, silhouettes lointaines CALCULÉ, maisons PNG caniveau/maisons.png, fenêtres allumées CALCULÉ, silhouettes proches CALCULÉ, lampadaires PNG caniveau/lampadaire.png, NIVEAU, pluie CALCULÉ
 - `Egouts` : mur PNG egouts/mur.png, arches PNG egouts/arches.png, piliers CALCULÉ, eau CALCULÉ, tuyaux CALCULÉ, NIVEAU
 - `Cascade` : ciel PNG cascade/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, falaise du pied CALCULÉ, rideau de la chute CALCULÉ, brume de la chute CALCULÉ, filets des chutes CALCULÉ, NIVEAU, pluie CALCULÉ
-- `Grotte` : ciel PNG grotte/ciel.png, plafond lointain CALCULÉ, plafond proche CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU
+- `Grotte` : ciel PNG grotte/ciel.png, plafond lointain CALCULÉ, plafond proche CALCULÉ, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, cristaux PNG grotte/cristaux.png, NIVEAU
 - `Riviere` : ciel PNG riviere/ciel.png, silhouettes lointaines CALCULÉ, motifs 1 CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, ciel de la vallée PNG riviere/ciel_vallee.png, halo du soleil CALCULÉ, soleil couchant PNG riviere/soleil_couchant.png, nuages fins CALCULÉ, oiseaux CALCULÉ, montagnes CALCULÉ, collines CALCULÉ, rang clair CALCULÉ, rivière du fond CALCULÉ, moulin PNG riviere/moulin.png, roue du moulin CALCULÉ, rang sombre CALCULÉ, versant CALCULÉ, grands arbres CALCULÉ, lucioles CALCULÉ, NIVEAU
 - `Port` : crépuscule PNG port/crepuscule.png, étoiles du port CALCULÉ, mouettes CALCULÉ, mer PNG port/mer.png, reflets CALCULÉ, large CALCULÉ, port d'en face PNG port/port_d_en_face.png, balises CALCULÉ, voiliers CALCULÉ, pontons PNG port/pontons.png, bouées CALCULÉ, NIVEAU, bruine CALCULÉ
 - `Maree` : ciel PNG maree/ciel.png, silhouettes lointaines CALCULÉ, silhouettes proches CALCULÉ, motifs 2 CALCULÉ, NIVEAU, pluie CALCULÉ

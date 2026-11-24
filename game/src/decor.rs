@@ -175,8 +175,6 @@ pub enum Detail {
     Chutes,
     /// La brume de la cascade : deux nappes basses qui dérivent.
     Brume,
-    /// Les cristaux cyan de la grotte : des pointes au pied de l'écran.
-    Cristaux,
     /// L'eau de la rivière : une bande de courant sombre, ses reflets.
     EauRiviere,
     /// La forêt de la rivière (carte 9.10) : deux rangs de sapins sombres à
@@ -763,7 +761,9 @@ pub fn ambiance(theme: Theme) -> Ambiance {
             vertige: 2.5,
             arc: false,
             voyage: false,
-            details: [Some(Detail::Cristaux), None, None, None],
+            // Carte 10.4f : les cristaux ne sont plus un motif mais une couche
+            // PNG de la pile (`Couche::Cristaux`).
+            details: [None, None, None, None],
             vent: VENT_NUIT,
         },
         // La rivière : berges de fond et roseaux devant, ciel grisé qui
@@ -1523,7 +1523,7 @@ fn dessiner_pluie(a: &Ambiance, pas: u32, forte: bool) {
 /// une ambiance, en trois groupes de parallaxe : les motifs du fond (mouettes,
 /// phare) restent fixés à l'écran (« à l'infini »), les motifs du milieu
 /// (chutes, brume, tuyaux, lueur) suivent la couche des îlots, les motifs du
-/// premier plan (eau, lampadaires, grues, cristaux) suivent la couche proche.
+/// premier plan (eau, grues) suivent la couche proche.
 /// Pur : ne dépend que de `cam_x`, `cam_y` et `pas`.
 fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
     let (facteur, vert) = match d {
@@ -1596,18 +1596,6 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
                     rect(x0 + 8, y0 + 3, 18, 1, NUAGE);
                     rect(x0 + 30, y0 + 4, 22, 1, NUAGE);
                 }
-            }
-        }
-        Detail::Cristaux => {
-            // Des cristaux cyan au pied de la grotte : des pointes en trois
-            // gradins, un liseré clair sur l'arête.
-            for k in 0..5 {
-                let x = (k * 68 + 16 - dec).rem_euclid(L);
-                let h = 12 + (k * 7) % 10;
-                rect(x, pied - 4, 8, 4, PLUIE_SOMBRE);
-                rect(x + 1, pied - 4 - h / 2, 6, h / 2, PLUIE_SOMBRE);
-                rect(x + 3, pied - 4 - h, 2, h / 2, PLUIE_SOMBRE);
-                rect(x + 3, pied - 4 - h, 1, h, PLUIE);
             }
         }
         Detail::Foret => {
@@ -1710,7 +1698,7 @@ fn dessiner_detail(d: Detail, a: &Ambiance, cam_x: i32, cam_y: i32, pas: u32) {
 /// Dessine les motifs du Monde 2 rangés dans `a.details`, groupe par groupe :
 /// `groupe` 0 = derrière les couches de silhouettes (le plus lointain : mouettes,
 /// phare), `groupe` 1 = entre les deux couches (chutes, brume, tuyaux, lueur),
-/// `groupe` 2 = devant la couche proche (eau, lampadaires, grues, cristaux).
+/// `groupe` 2 = devant la couche proche (eau, grues).
 /// Le groupe d'un motif du Monde 2 (carte 9.5) dans la pile : 0 le plus lointain
 /// (derrière le plafond et les silhouettes), 1 entre les deux couches de
 /// silhouettes, 2 devant la couche proche.
@@ -1769,6 +1757,9 @@ pub enum Couche {
     Chute(crate::decor_cascade::Plan),
     /// Un plan de la vallée de la rivière (carte 10.4f), dessiné par `decor_riviere`.
     Vallee(crate::decor_riviere::Plan),
+    /// Les cristaux de la grotte (carte 10.4f), `grotte/cristaux.png` : une planche
+    /// de cinq cristaux, chacun posé à son abscisse modulo la largeur de l'écran.
+    Cristaux,
     /// Le niveau lui-même (tuiles, entités, décors posés d'après la grille).
     Niveau,
     /// La pluie, devant tout (ou la bruine du port).
@@ -1790,6 +1781,7 @@ impl Couche {
             Couche::Port(p) => format!("port/{}.png", p.fichier()?),
             Couche::Rue(p) => format!("caniveau/{}.png", p.fichier()?),
             Couche::Vallee(p) => format!("riviere/{}.png", p.fichier()?),
+            Couche::Cristaux => "grotte/cristaux.png".into(),
             _ => return None,
         })
     }
@@ -1818,6 +1810,7 @@ impl Couche {
             Couche::Chute(p) => format!("{} CALCULÉ", p.nom()),
             Couche::Vallee(p) if p.fichier().is_some() => png(p.nom()),
             Couche::Vallee(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Cristaux => png("cristaux"),
             Couche::Niveau => "NIVEAU".into(),
             Couche::Pluie => "pluie CALCULÉ".into(),
             Couche::Bruine => "bruine CALCULÉ".into(),
@@ -1873,7 +1866,7 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
         }
         p.push(Couche::Lointaine);
         // Le groupe 1 (chutes, brume, tuyaux, lueur) se glisse entre les deux
-        // couches de silhouettes ; le groupe 2 (eau, grues, cristaux) est devant
+        // couches de silhouettes ; le groupe 2 (eau, grues) est devant
         // la couche proche. La rue du caniveau aussi : les maisons et leurs
         // fenêtres entre les silhouettes, les lampadaires devant.
         motifs(&mut p, 1);
@@ -1883,6 +1876,11 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
         }
         p.push(Couche::Proche);
         motifs(&mut p, 2);
+        // Les cristaux de la grotte, devant la couche proche (carte 10.4f : ils
+        // étaient un motif du groupe 2).
+        if theme == Theme::Grotte {
+            p.push(Couche::Cristaux);
+        }
         if theme == Theme::Caniveau {
             p.push(Couche::Rue(crate::decor_rue::Plan::Lampadaires));
         }
@@ -1901,6 +1899,25 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
         p.push(Couche::Pluie);
     }
     p
+}
+
+/// Les abscisses (dans le motif) des cinq cristaux de la grotte ; le cristal `k` est
+/// la bande `k` de `grotte/cristaux.png` (8 px de large chacune).
+const CRISTAUX: [i32; 5] = [16, 84, 152, 220, 288];
+/// Largeur d'un cristal de `grotte/cristaux.png`.
+const LARGEUR_CRISTAL: i32 = 8;
+
+/// Les cristaux cyan au pied de la grotte (pointes en trois gradins, liseré clair
+/// sur l'arête) : chacun posé en UN exemplaire à son abscisse modulo la largeur de
+/// l'écran (coupé au bord droit, sans copie à gauche), le bas du fichier sur
+/// `pied`. `dec` : le décalage de la couche proche.
+fn dessiner_cristaux(dec: i32, pied: i32) {
+    let (_, h) = crate::fonds::taille("grotte", "cristaux");
+    for (k, cx) in CRISTAUX.into_iter().enumerate() {
+        let x = (cx - dec).rem_euclid(L);
+        let bande = (k as i32 * LARGEUR_CRISTAL, LARGEUR_CRISTAL);
+        crate::fonds::dessiner_bande("grotte", "cristaux", bande, x, pied - h);
+    }
 }
 
 /// Le niveau dont on dessine le fond, pour les couches qui le suivent : le monde, et
@@ -1954,6 +1971,9 @@ fn dessiner_couche_de_pile(
             crate::decor_riviere::dessiner_plan(p, cam_x, milieu, pas);
         }
         Couche::Ciel(dossier) => crate::fonds::repeter(dossier, "ciel", 0, 0, L),
+        Couche::Cristaux => {
+            dessiner_cristaux(decalage(cam_x, FACTEUR_PROCHE), H + vert(VERT_PROCHE));
+        }
         // Le ciel du voyage : la colonne de `voyage.png`, répétée sur la largeur, son
         // haut (la 1re bande) remonté de `r`.
         Couche::CielDuVoyage => crate::fonds::repeter("descente", "voyage", 0, y_voyage(0, r), L),
@@ -2399,6 +2419,30 @@ mod tests {
         assert!(vus >= 6, "cascade, rivière, essai : {vus}");
     }
 
+    /// Carte 10.4f : les cristaux de la grotte, une planche : chaque bande est UN
+    /// cristal posé sur le bas du fichier (une base pleine de 8 px), sa pointe et
+    /// son liseré clair, sans rien qui déborde dans la bande voisine ; et les
+    /// cristaux ne se chevauchent pas dans le motif.
+    #[test]
+    fn chaque_bande_des_cristaux_est_un_cristal_pose() {
+        use pepin_core::palette::{PLUIE, PLUIE_SOMBRE};
+        let (_, h) = crate::fonds::taille("grotte", "cristaux");
+        let px =
+            |x: i32, y: i32| crate::fonds::couleur("grotte", "cristaux", x as usize, y as usize);
+        for k in 0..CRISTAUX.len() as i32 {
+            let x0 = k * LARGEUR_CRISTAL;
+            for x in x0..x0 + LARGEUR_CRISTAL {
+                assert_eq!(px(x, h - 1), Some(PLUIE_SOMBRE), "base du cristal {k}");
+            }
+            let liseres = (0..h).filter(|&y| px(x0 + 3, y) == Some(PLUIE)).count();
+            assert!(liseres >= 12, "liseré du cristal {k}");
+        }
+        for paire in CRISTAUX.windows(2) {
+            assert!(paire[1] - paire[0] >= LARGEUR_CRISTAL);
+        }
+        assert!(CRISTAUX[4] + LARGEUR_CRISTAL <= L);
+    }
+
     /// Chaque couche PNG d'une pile existe, et chaque fichier de `assets/fonds` sert à
     /// une pile : aucun fichier manquant ni orphelin.
     #[test]
@@ -2444,6 +2488,9 @@ mod tests {
                 "ciel_vallee" => (2, 89),
                 "soleil_couchant" => (31, 31),
                 "moulin" => (36, 38),
+                // La planche des cinq cristaux de la grotte, 8 px chacun, posés sur
+                // le bas du fichier.
+                "cristaux" => (LARGEUR_CRISTAL * CRISTAUX.len() as i32, 24),
                 _ => panic!("{f} : couche inconnue"),
             };
             assert_eq!(crate::fonds::taille(d, n), attendue, "{f}");
