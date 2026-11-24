@@ -1,0 +1,31 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 2,
+    numero: 6,
+    cle: "port",
+    nom: "Le port",
+    theme: Port,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 60,
+    intro: "La pluie arrive au port. Au bout de la jetée, quelque chose remue dans l'eau.",
+    mecanique: "Bateaux en va-et-vient et à la suite, conteneurs et grue au-dessus du vide, caisse de grue qui monte au toit de l'entrepôt, vols planés, pontons étroits à crabes, pieux, mouettes perchées sur les passerelles.",
+    aiguilles: [],
+    poissons_hauts: [
+        (196, 8, 96.0),
+        (200, 8, 96.0),
+    ],
+    ascii: r#"
+......................................u.......................................o.......................u....................................................................K..........................................u............
+......................................###.............................................................###..........................................................2.BBBBBBBB.........................................###..........
+.............................................................................5...##..................................................................................BBBBBBBB......................................................
+.....o..............................................................##...........##....c.............................................c...............................BBBBBBBB......................................................
+.@...#.....................L...#.............................L......##..##.......##...........L..............................L.........................L.............BBBBBBBB.........L.......................L............#.k.#.X.
+BBBBBBBBBBB..............BBBBBBBBBBBBBBBBBBBB...............BBBBBBB.##..##.......##..........BBBBBBBBBBBBBBBBBB..............BB.......................BBBBBBBBBB.....BBBBBBBB........BBBBBBBBBB..............BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB..............BBBBBBBBBBBBBBBBBBBB...............BBBBBBB.##..##.......##..........BBBBBBBBBBBBBBBBBB....k.....k...BB.......................BBBBBBBBBB.....BBBBBBBB........BBBBBBBBBB...#...#...#..BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB#.............BBBBBBBBBBBBBBBBBBBB#..............BBBBBBB.##..##.......##......o..#BBBBBBBBBBBBBBBBBB#..###...###..BB#......................BBBBBBBBBB.....BBBBBBBB.......#BBBBBBBBBB#..#...#...#..BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB.1........1.i.BBBBBBBBBBBBBBBBBBBB.3..3.i4....4..BBBBBBB.##..##...5...##..........BBBBBBBBBBBBBBBBBB.......i......BB.6..6..7....7.i9...9...BBBBBBBBBB...2.BBBBBBBB....i...BBBBBBBBBB...#.i.#.i.#..BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBB~~~~~~~~~~~~~~BBBBBBBBBBBBBBBBBBBB~~~~~~~~~~~~~~~BBBBBBB.##..##.......##~~~~~~~~~~BBBBBBBBBBBBBBBBBB~~~~~~~~~~~~~~BB~~~~~~~~~~~~~~~~~~~~~~~BBBBBBBBBB~~~~~BBBBBBBB~~~~~~~~BBBBBBBBBB~~~~~~~~~~~~~~BBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.##..##.......##BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

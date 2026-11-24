@@ -1,0 +1,13 @@
+[package]
+license = "MIT"
+name = "niveaux"
+version = "0.1.0"
+edition = "2021"
+description = "Niveaux de PÉPIN en fichiers RON : chargement et validation (carte 10.1a)"
+
+# `core` reste sans aucune dépendance (logique pure) : serde et ron vivent ICI,
+# dans un crate à part qui lit les fichiers et rend les structures de `core`.
+[dependencies]
+pepin_core = { package = "core", path = "../core" }
+serde = { version = "1", features = ["derive"] }
+ron = "0.8"

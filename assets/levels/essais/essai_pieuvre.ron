@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 0,
+    cle: "essai_pieuvre",
+    nom: "Essai pieuvre",
+    theme: Port,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 45,
+    intro: "La Pieuvre du port : ses tentacules frappent par colonnes annoncées, on lui saute dessus quand elle sort la tête.",
+    mecanique: "Quitter la colonne annoncée par les remous ; sauter sur la tête sortie (jamais la toucher de côté), trois fois.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+B@.................B
+Bo.................B
+Bo.................B
+Bo.................B
+B..................B
+B.L................B
+B####.##....##.####B
+B#....##....##....#B
+B#....##....##....#B
+B~~~~~~~~8~~~~~~~~~B
+BBBBBBBBBBBBBBBBBBBB
+"#,
+)

@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 1,
+    cle: "toits",
+    nom: "Les toits",
+    theme: Toits,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 50,
+    intro: "La pluie tambourine sur les toits. Pépin ouvre son parapluie : en route vers le soleil !",
+    mecanique: "Course, saut, planer (maintenir SAUT en l'air), premières flaques à écraser.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+................................................................................................................................................................................
+................................................................................................................................................................................
+................................................................................................................................................................................
+................................................................................................................................................................................
+................................................................................................L...H.........T.................................................................
+...............................................................o............................########################............................................................
+.............o..........................................................BB......B.......####BBBBBBBBBBBBBBBBBBBBBBBB........................BB..................................
+..@..D....S.....######.....S........T...L......H.......G............T...mB..f...B...####BBBBBBBBBBBBBBBBBBBBBBBBBBBB..f......H....L.........BB........T.........H.......X.......
+################BBBBBB########...##########################.......######m###########BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB#####..#####################################################
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBB.......BBBBB*.oBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB...BBBBBBBBBBBBBBBBBBBBBBBBBB.......BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB..BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

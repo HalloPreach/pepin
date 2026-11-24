@@ -1,0 +1,97 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 2,
+    numero: 4,
+    cle: "grotte",
+    nom: "La grotte aux bulles",
+    theme: Grotte,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 60,
+    intro: "Derrière la cascade, une grotte. Des sources bouillonnent : les bulles te portent.",
+    mecanique: "Ascensions en bulles (passer d'une colonne à l'autre en planant) ; stalactites qui tremblent puis tombent : ne pas s'arrêter dessous.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+B........................V....V.....
+B...................................
+B...........................YY...X..
+B...........................YY#####B
+B...........................YYBBBBBB
+B...............o...........YYBBBBBB
+B...............####........YY.....B
+B...........................YY.....B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
+B.....................YY....YY.....B
+B......BBBBBB.........YY....YY.....B
+B......BBBBBB.........YY....YY.....B
+B.......V..V..........YY....YY.....B
+B.....................YY....YY.....B
+B.....................YY....BB.....B
+B...YY....o..L..i.i.j.YY....BB.....B
+B...YY########~~~~~###YY....BB.....B
+B...YYBBBBBBBBBBBBBBBBYY....BB.....B
+B...YYBBBBBBBBBBBBBBBBYY...LBB.....B
+B...YYBBBBBBBBBBBBBBBB~~####BB.....B
+B...YYBBBBBBBBBBBBBBBBBB...........B
+B...YYBBBBBBBBBBBBBBBBBB...........B
+B...YYBBBBBBBBBBBBBBBBBB...........B
+B...YYBBBBBBBBBBBBBBBBBB...........B
+B...YY.....V....V..................B
+B...YY.............................B
+B...YY.............................B
+B...YY............c........L..YY...B
+B#############################YY...B
+B..............V..............YY...B
+B.............................YY...B
+B.............................YY...B
+B.............................YY...B
+B.............................YY...B
+B.............................YY...B
+B.............................YY...B
+B.........c...................YY...B
+B.............................YY...B
+BYY.K...i.n.i.........k.......YY...B
+BYY#####~~~~~~################~~###B
+BYYBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BYY.....................BBBBBBBBBBBB
+BYY.....................BBBBBBBBBBBB
+BYY...............YY....BBBBBBBBBBBB
+BYY........c......YY....BBBBBBBBBBBB
+BYY...............YY....BBBBBBBBBBBB
+BYY...............YY....BBBBBBBBBBBB
+BYY...............YY.....V..V..V...B
+BYY...............YY...............B
+BYY.....L.........YY......k......YYB
+B~~#######........YY....#########YYB
+BBBBBBBBBBo...k...YY....BBBBBBBBBYYB
+BBBBBBBBBB########~~####BBBBBBBBBYYB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBYYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+B.........BBBBBBB................YYB
+..........BBBBBBB................YYB
+..........BBBBBBB................YYB
+..........BBBBBBB................YYB
+..........BBBBBBB................YYB
+..........BBBBBBB................YYB
+..........BBBBBBB................YYB
+.................................YYB
+..@....n.i........i.......L......YYB
+B####~~~~~~~~~~~~~~~~############~~B
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

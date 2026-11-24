@@ -40,6 +40,8 @@ if [ "$1" = lint ]; then
   echo "FMT-OK"
   echo "== clippy core (natif, tests inclus) =="
   cargo clippy -p core --all-targets -- -D warnings
+  echo "== clippy niveaux (natif, tests inclus) =="
+  cargo clippy -p niveaux --all-targets -- -D warnings
   echo "== clippy game (wasm32) =="
   cargo clippy -p game --target wasm32-unknown-unknown -- -D warnings
   echo "== clippy game (natif, tests inclus, sans son) =="

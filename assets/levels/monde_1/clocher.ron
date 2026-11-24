@@ -1,0 +1,65 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 5,
+    cle: "clocher",
+    nom: "Le clocher",
+    theme: Clocher,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 55,
+    intro: "Une seule direction : en haut.",
+    mecanique: "Niveau vertical : escargots-tremplins, ventilateur, pigeons, chat, corbeau, horloge.",
+    aiguilles: [
+        (rayon: 3.0, vitesse: 36.0, phase: 9.0),
+        (rayon: 4.0, vitesse: 40.0, phase: 4.0),
+    ],
+    poissons_hauts: [],
+    ascii: r#"
+..................................
+..................................
+..............................X.R.
+.............................#####
+.............................BBBBB
+.............................BBBBB
+.................oL.....h....BBBBB
+..............#####..........BBBBB
+..............BBBBB..........BBBBB
+..............BBBBB..........BBBBB
+..............BBBBB^^^^^^^^^^BBBBB
+........h.....BBBBBBBBBBBBBBBBBBBB
+..............BBBBB..........BBBBB
+..............BBBBB..........BBBBB
+..............BBBBB..........BBBBB
+.............................BBBBB
+.R...........^L..............BBBBB
+########################........BB
+BBBBBBBBBBBBBBBBBBB.......c.....BB
+BBBBBBBBBBBBBBBBBBB.............BB
+BBBBBBBBBBBBBBBBBBB...##########BB
+BBBBBBBBBBBBBBB..BB.............BB
+BBBBBBBBBBBBBBBx*mm.............BB
+BBBBBBBBBBBBBBBBBBB########.....BB
+BBBBBBBBBBBBBBBBBBBp............BB
+BBBBBBBBBBBBBBBBBBBB............BB
+BBBBBBBBBBBBBBBBBBB......#######BB
+BBBBBBBBBBBBBBBBBBB.............BB
+BBBBBBBBBBBBBBBBBBB.o...........BB
+..............BBBBB##########...BB
+..............BBBBB.............BB
+..........o...BBBBB.............BB
+..............BBBBB.......p.....BB
+..............BBBBB.......B.....BB
+..............BBBBB.............BB
+................................BB
+....................L...R...z.w.BB
+..........s...##################BB
+........######BBBBBBBBBBBBBBBBBBBB
+........BBBBBBBBBBBBBBBBBBBBBBBBBB
+........BBBBBBBBBBBBBBBBBBBBBBBBBB
+........BBBBBBBBBBBBBBBBBBBBBBBBBB
+.@...s..BBBBBBBBBBBBBBBBBBBBBBBBBB
+##############BBBBBBBBBBBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

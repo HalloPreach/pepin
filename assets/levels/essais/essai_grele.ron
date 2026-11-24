@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 0,
+    cle: "essai_grele",
+    nom: "Essai grêle",
+    theme: Altitude,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 30,
+    intro: "La grêle tombe sans arrêt. Parapluie fermé, elle est mortelle ; parapluie ouvert, on passe dessous.",
+    mecanique: "Sauter tôt et planer sous la grêle ; un toit l'arrête, on passe dessous à pied.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+....................................
+.........g..................g.......
+.....................gg.............
+....................................
+...................o................
+...........................#####....
+....................................
+..@...........o.L.........L.o.L..X..
+##################......############
+##################......############
+##################......############
+"#,
+)

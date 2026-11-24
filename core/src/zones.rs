@@ -162,8 +162,9 @@ impl Theme {
     }
 }
 
-/// Description d'un niveau : tout sauf le niveau chargé.
-#[derive(Debug, Clone, Copy)]
+/// Description d'un niveau : tout sauf le niveau chargé. `PartialEq` compare tous
+/// les champs (carte 10.1a : le test d'équivalence des fichiers RON du crate `niveaux`).
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InfosNiveau {
     /// Monde du niveau (carte 9.1) : `1` pour le Monde 1 ; les mondes suivants
     /// (le Monde 2, « Là où va la pluie ») s'ajoutent à la FIN de la table, chacun
