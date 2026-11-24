@@ -42,6 +42,9 @@ if [ "$1" = lint ]; then
   cargo clippy -p core --all-targets -- -D warnings
   echo "== clippy niveaux (natif, tests inclus) =="
   cargo clippy -p niveaux --all-targets -- -D warnings
+  echo "== clippy robot (natif, tests inclus, puis wasm32) =="
+  cargo clippy -p robot --all-targets -- -D warnings
+  cargo clippy -p robot --target wasm32-unknown-unknown -- -D warnings
   echo "== clippy game (wasm32) =="
   cargo clippy -p game --target wasm32-unknown-unknown -- -D warnings
   echo "== clippy game (natif, tests inclus, sans son) =="

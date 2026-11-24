@@ -17,6 +17,11 @@
   <button id="exporter">Exporter le .ron</button>
   <button id="valider" title="Le chargeur Rust du jeu vérifie le niveau (sans jouer)">Valider</button>
   <button id="tester" class="tester" title="Jouer tout de suite ce niveau (clic droit sur une case : partir d'ici)">TESTER</button>
+  <!-- Carte 10.3c : le robot de faisabilité (core::faisabilite, compilé en wasm). -->
+  <button id="robot" class="robot" title="Le robot de faisabilité cherche un chemin jusqu'à l'arrivée (dans le navigateur)">ROBOT</button>
+  <label title="Le robot est arrêté au bout de ce temps">limite <input id="robot-limite" type="number" value="30" min="1" max="600" style="width:4em"> s</label>
+  <label title="Parapluie interdit, comme le test sans_planer_possible"><input id="robot-sans-planer" type="checkbox"> défi sans planer</label>
+  <button id="robot-arreter" hidden>Arrêter</button>
   <span id="etat"></span>
 </header>
 <main>
@@ -61,6 +66,7 @@
     <div id="defilement"><canvas id="toile"></canvas></div>
     <div id="sous-la-souris">&nbsp;</div>
     <div id="verdict" hidden></div>
+    <div id="robot-resultat" hidden><span id="robot-texte"></span> <button id="robot-remplir" hidden>Recopier dans sans_planer</button></div>
     <ul id="avertissements"></ul>
   </div>
   <aside id="proprietes">

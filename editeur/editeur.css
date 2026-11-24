@@ -44,3 +44,8 @@ button.tester:hover { background: #3c9649; }
 #essai.cache { visibility: hidden; }
 #essai-barre { padding: 3px 10px; background: #232838; color: #9aa0b8; }
 #essai iframe { flex: 1; border: 0; width: 100%; }
+/* Carte 10.3c : le robot de faisabilité. */
+button.robot { background: #2a4f86; border-color: #4a7cc0; font-weight: bold; }
+button.robot:hover { background: #3562a4; }
+#robot-resultat { padding: 4px 10px; background: #1a2840; color: #a0c8ff; font-family: monospace; white-space: pre-wrap; }
+#robot-resultat.echec { background: #3a2a10; color: #ffc070; }

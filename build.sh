@@ -121,7 +121,12 @@ cp web/index.html "$DIST/index.html"
 if [ "$DIST" = "dist-qa" ]; then
   cp editeur/editeur.html "$DIST/editeur.html"
   mkdir -p "$DIST/editeur"
-  cp editeur/editeur.js editeur/editeur.css editeur/ron.js "$DIST/editeur/"
+  cp editeur/editeur.js editeur/editeur.css editeur/ron.js editeur/robot-worker.js "$DIST/editeur/"
+  # Carte 10.3c : le robot de faisabilité de `core`, compilé en wasm (crate
+  # `robot`, profil `robot-web` : rapide plutôt que petit), pour le bouton ROBOT.
+  ./docker-cargo.sh build -p robot --locked --profile robot-web --target wasm32-unknown-unknown
+  cp target/wasm32-unknown-unknown/robot-web/robot.wasm "$DIST/robot.wasm"
+  chmod 644 "$DIST/robot.wasm"
   ./docker-cargo.sh run -p niveaux --locked -q --bin editeur -- "$DIST"
   if command -v node >/dev/null 2>&1; then
     node editeur/test-aller-retour.mjs
@@ -131,7 +136,7 @@ if [ "$DIST" = "dist-qa" ]; then
 fi
 # Le jeu publié ne contient JAMAIS l'éditeur ni ses données.
 if [ "$DIST" = "dist" ]; then
-  for f in editeur.html editeur legende.json niveaux; do
+  for f in editeur.html editeur legende.json niveaux robot.wasm; do
     [ ! -e "$DIST/$f" ] || { echo "ERREUR : $DIST/$f présent : l'éditeur ne va jamais en prod" >&2; exit 1; }
   done
   echo "éditeur absent de dist/ : OK"

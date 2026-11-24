@@ -25,6 +25,7 @@ const etat = {
   futur: [],           // pile « refaire »
   modifie: false,
   faute: null,         // case fautive dite par le jeu : {x, y} (x null : rangée entière)
+  robot: null,         // dernier résultat du robot (carte 10.3c), voir robot-worker.js
 };
 
 // --- Chargement --------------------------------------------------------------
@@ -104,6 +105,7 @@ function memoriser() {
   etat.futur = [];
   etat.modifie = true;
   etat.faute = null; // la grille change : l'ancienne faute n'est plus sûre
+  etat.robot = null;  // ... et l'ancien chemin du robot non plus
 }
 function restaurer(depuis, vers) {
   if (!depuis.length) return;
@@ -176,6 +178,7 @@ function dessiner() {
       ctx.strokeRect(x * z - 2, y * z - 2, z + 4, z + 4);
     }
   }
+  dessinerRobot(z);
   if (rectangle) {
     const [x0, y0, x1, y1] = bornes(rectangle);
     ctx.strokeStyle = '#f0c020';
@@ -612,6 +615,130 @@ function partirDIci(p) {
   signaler(`essai depuis la colonne ${p.x}, rangée ${p.y}…`);
 }
 
+// --- Robot de faisabilité (carte 10.3c) ---------------------------------------
+//
+// Le robot de `core` (`faisabilite::analyser`) compilé en wasm (`robot.wasm`,
+// crate `robot`), lancé dans un Web Worker (`robot-worker.js`) : la page reste
+// libre, et Arrêter ou la limite de temps terminent simplement le Worker.
+
+let robot = null; // {worker, minuterie, sansPlaner, debut} pendant une recherche
+
+function lancerRobot() {
+  arreterRobot();
+  const sansPlaner = $('#robot-sans-planer').checked;
+  const limite = Math.max(1, Number($('#robot-limite').value) || 30);
+  const worker = new Worker('editeur/robot-worker.js');
+  const minuterie = setTimeout(() => {
+    arreterRobot();
+    montrerRobot(`ROBOT arrêté : limite de ${limite} s atteinte sans réponse (relance avec une limite plus longue)`, false);
+  }, limite * 1000);
+  robot = { worker, minuterie, sansPlaner, debut: performance.now() };
+  worker.onmessage = (e) => finRobot(e.data);
+  worker.onerror = (e) => { arreterRobot(); montrerRobot(`ROBOT : erreur ${e.message}`, false); };
+  worker.postMessage({ texte: texteExporte(), planer: !sansPlaner });
+  $('#robot-arreter').hidden = false;
+  $('#robot').disabled = true;
+  etat.robot = null;
+  dessiner();
+  montrerRobot(`ROBOT : recherche${sansPlaner ? ' sans planer' : ''}… (au plus ${limite} s)`, true);
+}
+
+function arreterRobot() {
+  if (!robot) return;
+  clearTimeout(robot.minuterie);
+  robot.worker.terminate();
+  robot = null;
+  $('#robot-arreter').hidden = true;
+  $('#robot').disabled = false;
+}
+
+function finRobot(r) {
+  const sansPlaner = robot.sansPlaner;
+  arreterRobot();
+  if (r.etat !== 'ok') {
+    montrerRobot(`ROBOT : le niveau ne se charge pas : ${r.message} (Valider montre la case fautive)`, false);
+    return;
+  }
+  etat.robot = { ...r, sansPlaner };
+  const mode = sansPlaner ? 'sans planer' : 'parapluie permis';
+  const lanternes = r.lanternes_total ? `, lanternes allumables ${r.lanternes}/${r.lanternes_total}` : '';
+  const duree = `robot : ${(r.duree_ms / 1000).toFixed(1)} s, ${r.etats} états`;
+  if (r.arrivee) {
+    montrerRobot(`ROBOT (${mode}) : arrivée atteinte en ${r.secondes} s de jeu (trajet le plus rapide trouvé), `
+      + `${r.chemin.length - 1} sauts${lanternes}, gouttes ${r.gouttes}/3 [${duree}]`, true);
+  } else {
+    montrerRobot(`ROBOT (${mode}) : ÉCHEC, ${r.raison}${lanternes} [${duree}]`, false);
+  }
+  // Le défi sans planer : son verdict peut remplir le champ `sans_planer`.
+  const b = $('#robot-remplir');
+  b.hidden = !sansPlaner || etat.niveau.sans_planer === r.arrivee;
+  b.textContent = `Recopier dans sans_planer (${r.arrivee})`;
+  dessiner();
+  faireVoirRobot();
+}
+
+function montrerRobot(texte, ok) {
+  const v = $('#robot-resultat');
+  $('#robot-texte').textContent = texte;
+  v.className = ok ? '' : 'echec';
+  v.hidden = false;
+  $('#robot-remplir').hidden = true; // `finRobot` le remontre après un défi
+}
+
+function remplirSansPlaner() {
+  if (!etat.robot || !etat.robot.sansPlaner) return;
+  const garde = etat.robot;
+  memoriser();
+  etat.robot = garde; // la grille ne change pas : le chemin reste juste
+  etat.niveau.sans_planer = garde.arrivee;
+  toutRafraichir();
+  $('#robot-remplir').hidden = true;
+  signaler(`sans_planer = ${garde.arrivee} (verdict du robot)`);
+}
+
+/// Le chemin du robot (trait passant par le centre de Pépin à chaque point de
+/// décision) et, en cas d'échec, l'endroit le plus loin atteint (cercle).
+function dessinerRobot(z) {
+  const r = etat.robot;
+  if (!r) return;
+  const k = z / r.tuile;
+  const centre = ([x, y]) => [(x + r.joueur[0] / 2) * k, (y + r.joueur[1] / 2) * k];
+  ctx.lineWidth = Math.max(2, z / 6);
+  ctx.strokeStyle = r.arrivee ? '#40e0ff' : '#ffb040';
+  ctx.beginPath();
+  r.chemin.forEach((p, i) => { const [x, y] = centre(p); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+  // Le dernier point est l'élan du saut qui touche l'arrivée : on finit le trait
+  // sur le drapeau X de la grille.
+  const ligneX = etat.grille.findIndex((l) => l.includes('X'));
+  if (r.arrivee && ligneX >= 0) ctx.lineTo((etat.grille[ligneX].indexOf('X') + 0.5) * z, (ligneX + 0.5) * z);
+  ctx.stroke();
+  ctx.fillStyle = ctx.strokeStyle;
+  for (const p of r.chemin) { const [x, y] = centre(p); ctx.fillRect(x - 2, y - 2, 5, 5); }
+  if (!r.arrivee) {
+    const [x, y] = centre(r.dernier);
+    ctx.strokeStyle = '#ff3030';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(12, z * 1.2), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.font = `bold ${Math.max(11, Math.floor(z * 0.8))}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ff5050';
+    ctx.fillText('bloqué ici', x + Math.max(14, z * 1.4), y);
+  }
+}
+
+/// Fait défiler la grille jusqu'au bout du chemin (l'arrivée ou l'endroit bloquant).
+function faireVoirRobot() {
+  const r = etat.robot;
+  if (!r || !r.chemin.length) return;
+  const d = $('#defilement');
+  const k = etat.zoom / r.tuile;
+  const [x, y] = r.arrivee ? r.chemin[r.chemin.length - 1] : r.dernier;
+  d.scrollLeft = Math.max(0, x * k - d.clientWidth / 2);
+  d.scrollTop = Math.max(0, y * k - d.clientHeight / 2);
+}
+
 // --- Branchements --------------------------------------------------------------
 
 function construirePalettes() {
@@ -650,6 +777,9 @@ function brancher() {
   $('#exporter').addEventListener('click', exporter);
   $('#valider').addEventListener('click', () => lancerEssai(texteExporte(), false));
   $('#tester').addEventListener('click', () => lancerEssai(texteExporte(), true));
+  $('#robot').addEventListener('click', lancerRobot);
+  $('#robot-arreter').addEventListener('click', () => { arreterRobot(); montrerRobot('ROBOT arrêté', false); });
+  $('#robot-remplir').addEventListener('click', remplirSansPlaner);
   $('#annuler').addEventListener('click', () => restaurer(etat.passe, etat.futur));
   $('#refaire').addEventListener('click', () => restaurer(etat.futur, etat.passe));
   document.querySelectorAll('#boutons-outils button').forEach((b) => b.addEventListener('click', () => choisirOutil(b.dataset.outil)));
@@ -731,6 +861,6 @@ function reprendreBrouillon() {
 }
 
 // Pour les captures et les tests pilotés (CDP) : l'état et le texte exporté.
-window.editeurPepin = { etat, texteExporte, poser, memoriser, toutRafraichir, ouvrirTexte, choisir, choisirOutil, lancerEssai, partirDIci };
+window.editeurPepin = { etat, texteExporte, poser, memoriser, toutRafraichir, ouvrirTexte, choisir, choisirOutil, lancerEssai, partirDIci, lancerRobot, arreterRobot };
 
 demarrer();
