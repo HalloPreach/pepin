@@ -192,11 +192,13 @@ L'écran de fin ajoute une ligne « VIES » quand elle tient sans serrer le menu
 
 Le dépôt est un *workspace* Cargo (`Cargo.toml` à la racine) avec trois crates :
 
-    core/     logique pure : aucune dépendance, aucun appel graphique
-    niveaux/  les niveaux, lus dans les fichiers assets/levels/**/*.ron (serde + ron)
+    core/     types et logique pure : aucune dépendance, aucun appel graphique,
+              aucun niveau (seulement de faux niveaux écrits dans ses tests)
+    niveaux/  les niveaux : fichiers RON (assets/levels/**/*.ron), leur chargeur
+              (serde + ron) et les tests de TOUS les niveaux (niveaux/tests/)
     game/     le jeu : fenêtre, rendu, écrans, audio, entrées (macroquad)
 
-Les NIVEAUX sont des données (cartes 10.1a et 10.1b) :
+Les NIVEAUX sont des données (cartes 10.1a, 10.1b et 10.1c) :
 
     assets/levels/monde_1/toits.ron, assets/levels/monde_2/port.ron, essais/...
       --(niveaux/build.rs : include_str!, aucune liste à tenir)-->  fichiers embarqués
@@ -205,7 +207,14 @@ Les NIVEAUX sont des données (cartes 10.1a et 10.1b) :
 
 `core` garde les TYPES (`InfosNiveau`, `Niveau`, la légende de la grille) et les
 règles (`levels::apres`, `verifier_ordre`...), sans dépendance ; serde et ron ne
-vivent que dans `niveaux`. Le jeu publié ne peut pas tomber sur un fichier invalide :
+vivent que dans `niveaux`. Depuis la carte 10.1c, `core` ne contient plus aucun
+niveau : les tests qui lisent les vrais niveaux (faisabilité par le robot,
+reprise depuis chaque lanterne, grilles, décor, pigeons, tests propres à un niveau
+dans `par_niveau/<clé>.rs`) sont dans `niveaux/tests/tous_les_niveaux/`, un
+fichier par sujet. `niveaux` en est le seul à dépendre de `core` (jamais
+l'inverse) ; les quelques réglages dont ces tests ont besoin dans `core` n'existent
+qu'avec sa fonctionnalité `pour_les_tests`. Les commentaires de conception d'un
+niveau sont des commentaires `//` de son fichier `.ron` (l'éditeur les garde). Le jeu publié ne peut pas tomber sur un fichier invalide :
 `./build.sh` lance d'abord le test `tous_les_fichiers_embarques_sont_valides`. Le
 build de QA, lui, affiche l'erreur (fichier, ligne, colonne) à l'écran, et
 `?essai=1` y lance le niveau RON posé dans le `localStorage` (clé
@@ -251,10 +260,10 @@ Contenu de `core/src` :
 - `levels.rs` : les règles qui enchaînent les niveaux : genre de chaque niveau
   (normal, bonus, épilogue), niveau suivant (`apres`), bonus débloqué par toutes
   les gouttes des niveaux normaux, ordre de la table (`verifier_ordre`). Fonctions
-  pures, qui reçoivent la table en paramètre, testées sur de fausses listes. Le jeu
-  lit ses niveaux dans les fichiers `.ron` (crate `niveaux`) ; les anciens
-  `levels/*.rs` ne servent plus qu'aux tests du cœur, en attendant leur suppression
-  (le test d'équivalence du crate `niveaux` prouve qu'ils sont identiques aux `.ron`).
+  pures, qui reçoivent la table en paramètre, testées sur de fausses listes. Les
+  niveaux eux-mêmes sont des fichiers `.ron` (crate `niveaux`, carte 10.1c : les
+  anciens `levels/*.rs` sont supprimés) ; `levels/variantes.rs` (la nouvelle
+  partie +) reste ici, c'est de la logique.
 - `zones.rs` : les métadonnées d'un niveau (nom, genre, texte d'introduction, thème
   de décor).
 - `state.rs` : score, checkpoint et phase de la partie.
@@ -549,8 +558,8 @@ Rust n'a pas de `null` ni d'exceptions. Une valeur qui « peut manquer » est un
 `Option<T>` (`Some` ou `None`) ; une opération qui « peut échouer » renvoie un
 `Result<T, E>` (`Ok` ou `Err`).
 
-- `core/src/zones.rs` : `pub fn niveau(indice: usize) -> Option<&'static InfosNiveau>`
-  renvoie `None` hors bornes (`NIVEAUX.get(indice)`).
+- `core/src/levels.rs` : `pub fn debut_monde(niveaux, monde) -> Option<usize>`
+  renvoie `None` si aucun niveau n'est de ce monde.
 - `core/src/entities.rs` : `Entite::solide(&self) -> Option<Aabb>` : « une boîte
   solide, ou rien », sans valeur magique. Puis
   `entites.iter().filter_map(Entite::solide).collect()` ne garde que les `Some`.
@@ -587,10 +596,11 @@ Les six niveaux et les mécaniques ajoutés à la fin du projet (vent, grêle, a
 ventilateur, montgolfières, escargots, chats, aiguilles d'horloge, Grand Nuage) ont
 amené quelques notions de plus :
 
-- **Tranche constante dont la longueur sert de taille** : `core/src/levels.rs`
-  déclare `pub const NIVEAUX: &[InfosNiveau] = &[...]` puis
-  `pub const NB_NIVEAUX: usize = NIVEAUX.len();`, calculé à la compilation. Dans
-  `game/src/contenu.rs`, `pub const INTROS: [Intro; NB_NIVEAUX]` : ajouter un niveau
+- **Constante calculée qui sert de taille** : `niveaux/build.rs` compte les
+  fichiers de niveau et écrit `pub const NB_NIVEAUX_MONDE_1: usize = 12;` dans un
+  fichier généré (avant la carte 10.1c, c'était la longueur d'une tranche
+  constante de `core`). Dans `game/src/contenu.rs`,
+  `pub const INTROS: [Intro; NB_NIVEAUX_MONDE_1]` : ajouter un niveau
   sans écrire son texte d'introduction ne compile plus. Même chose pour les bandes de
   difficulté (`BANDES_HABITUE`, `game/src/difficulte.rs`).
 - **Données constantes imbriquées** : `core/src/entities/nuage.rs`, les motifs

@@ -1,11 +1,14 @@
-//! Tests du crate `niveaux` : chaque fichier se charge, l'ÉQUIVALENCE avec les
-//! niveaux Rust actuels (tous les champs, et le `Niveau` chargé), la stabilité du
-//! format, la légende du LISEZMOI, et une erreur lisible pour chaque faute.
+//! Tests du CHARGEUR : chaque fichier se charge, la stabilité du format, la
+//! légende du LISEZMOI, et une erreur lisible pour chaque faute. (Les tests du
+//! CONTENU des niveaux, eux, sont dans `tests/tous_les_niveaux/`.)
+//!
+//! Carte 10.1c : les tests d'équivalence avec les anciens niveaux Rust de `core`
+//! sont partis avec eux (l'historique git les garde).
 
 use super::*;
-use crate::source_rust::{avec_legende, legende, sources, ESSAIS};
+use crate::lisezmoi::{avec_legende, legende};
 use pepin_core::level::ErreurNiveau;
-use pepin_core::levels::NIVEAUX;
+use pepin_core::levels::cles_valides;
 
 /// Le texte embarqué du fichier `chemin` (panique s'il manque).
 fn fichier(chemin: &str) -> &'static str {
@@ -42,67 +45,84 @@ fn tous_les_fichiers_embarques_sont_valides() {
     assert_eq!(cles, CLES_HORS_MONDE_1);
 }
 
+/// Les clés sont des identifiants (minuscules, chiffres, `_`), toutes
+/// différentes, parcours et essais ensemble (autrefois vérifié à la compilation
+/// sur la table Rust de `core`).
 #[test]
-fn un_fichier_par_niveau_rust_et_rien_de_plus() {
-    let mut attendus: Vec<String> = sources().into_iter().map(|(c, _)| c).collect();
-    let mut trouves: Vec<String> = tous().iter().map(|f| f.0.to_string()).collect();
-    attendus.sort();
-    trouves.sort();
-    assert_eq!(trouves, attendus);
-    assert_eq!(trouves.len(), NIVEAUX.len() + ESSAIS.len());
+fn les_cles_sont_des_identifiants_uniques() {
+    let tous: Vec<InfosNiveau> = niveaux().iter().chain(essais()).copied().collect();
+    assert!(cles_valides(&tous));
+    let mut doublon = tous.clone();
+    doublon.push(tous[0]);
+    assert!(!cles_valides(&doublon));
 }
 
-/// LA PREUVE D'ÉQUIVALENCE : pour chaque niveau, le niveau lu dans son fichier RON
-/// a les mêmes champs que le niveau Rust (`InfosNiveau` compare tout : textes,
-/// thème, genre, grille, aiguilles, poissons), et le `Niveau` chargé est le même.
-/// `Niveau` n'a pas de `PartialEq` (ses entités non plus) : on compare leur
-/// affichage de débogage `{:?}`, qui écrit TOUS les champs, tuiles et entités
-/// comprises (et les `f32` au bit près : le plus court texte qui les redonne).
+/// Les lignes d'un fichier sans ses commentaires `//` (que `ecrire` n'écrit pas,
+/// sauf l'en-tête) ni ses lignes vides (celles où `build.rs` a vidé un
+/// commentaire du texte embarqué).
+fn sans_commentaires(texte: &str) -> Vec<&str> {
+    texte
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//") && !l.is_empty())
+        .collect()
+}
+
+/// Le texte EMBARQUÉ de chaque fichier est celui du dépôt, chaque ligne de
+/// commentaire `//` vidée par `build.rs` (le jeu publié n'emporte pas les
+/// commentaires de conception) : mêmes lignes, au même numéro, donc une erreur
+/// donne la ligne du fichier.
 #[test]
-fn chaque_niveau_ron_est_identique_au_niveau_rust() {
-    for (chemin, source) in sources() {
-        let charge = charger_fichier(&chemin, fichier(&chemin)).unwrap();
-        assert_eq!(&charge, source, "{chemin} : champs différents");
-        let niveau_ron = format!("{:?}", charge.charger().unwrap());
-        let niveau_rust = format!("{:?}", source.charger().unwrap());
-        assert!(
-            niveau_ron == niveau_rust,
-            "{chemin} : Niveau chargé différent"
-        );
+fn le_texte_embarque_est_le_fichier_sans_ses_commentaires() {
+    let racine = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/levels");
+    let mut vides = 0;
+    for (chemin, embarque) in tous() {
+        let disque = std::fs::read_to_string(format!("{racine}/{chemin}")).unwrap();
+        let (d, e): (Vec<&str>, Vec<&str>) = (disque.lines().collect(), embarque.lines().collect());
+        assert_eq!(d.len(), e.len(), "{chemin} : nombre de lignes");
+        for (k, (ld, le)) in d.iter().zip(&e).enumerate() {
+            if ld.trim_start().starts_with("//") {
+                assert_eq!(*le, "", "{chemin} : ligne {}", k + 1);
+                vides += 1;
+            } else {
+                assert_eq!(ld, le, "{chemin} : ligne {}", k + 1);
+            }
+        }
     }
+    assert!(
+        vides > 1000,
+        "les commentaires de conception sont dans les fichiers"
+    );
 }
 
-/// La table rangée par (`monde`, `numero`) est EXACTEMENT `core::levels::NIVEAUX`,
-/// dans le même ordre ; les essais sont les mêmes.
+/// Format STABLE : chaque fichier du dépôt est au format canonique. Relu puis
+/// réécrit par `ecrire` (l'écriture que reproduit l'éditeur, `editeur/ron.js`), il
+/// redonne les mêmes lignes, commentaires de conception mis à part.
 #[test]
-fn la_table_ron_est_la_table_rust() {
-    assert_eq!(niveaux(), NIVEAUX);
-    assert_eq!(essais(), ESSAIS);
-}
-
-/// Format STABLE : réécrire chaque niveau redonne les octets du fichier du dépôt
-/// (relancer l'exporteur ne change rien).
-#[test]
-fn ecrire_redonne_chaque_fichier() {
-    for (chemin, source) in sources() {
-        assert!(
-            ecrire(source) == fichier(&chemin),
-            "{chemin} : relancer l'exporteur"
+fn l_export_du_ron_est_stable() {
+    for (chemin, texte) in tous() {
+        let relu = charger_fichier(chemin, texte).unwrap();
+        let ecrit = ecrire(&relu);
+        assert_eq!(
+            sans_commentaires(&ecrit),
+            sans_commentaires(texte),
+            "{chemin}"
         );
-        let relu = charger(fichier(&chemin)).unwrap();
-        assert_eq!(ecrire(&relu), fichier(&chemin), "{chemin}");
+        assert_eq!(charger(&ecrit).unwrap(), relu, "{chemin}");
     }
 }
 
 /// La légende du LISEZMOI est celle de `core/src/level.rs` (recopiée par
-/// l'exporteur, jamais à la main).
+/// `--bin lisezmoi`, jamais à la main).
 #[test]
 fn la_legende_du_lisezmoi_est_a_jour() {
     let racine = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
     let source = std::fs::read_to_string(format!("{racine}/core/src/level.rs")).unwrap();
     let lisezmoi = std::fs::read_to_string(format!("{racine}/assets/levels/LISEZMOI.md")).unwrap();
     let a_jour = avec_legende(&lisezmoi, &legende(&source)).expect("marques de légende");
-    assert!(a_jour == lisezmoi, "relancer l'exporteur");
+    assert!(
+        a_jour == lisezmoi,
+        "relancer ./docker-cargo.sh run -p niveaux --bin lisezmoi"
+    );
     assert!(lisezmoi.contains("@  départ de Pépin"));
 }
 
@@ -124,7 +144,7 @@ fn l_exemple_du_lisezmoi_est_valide() {
 
 /// Le texte RON du premier niveau, dont la grille passe par `modifier`.
 fn toits_avec_grille(modifier: impl Fn(&str) -> String) -> String {
-    let mut infos = NIVEAUX[0];
+    let mut infos = niveaux()[0];
     infos.ascii = Box::leak(modifier(infos.ascii).into_boxed_str());
     ecrire(&infos)
 }
@@ -191,7 +211,7 @@ fn dimension_inegale() {
 #[test]
 fn aiguille_ou_poisson_sans_case() {
     // Une aiguille réglée, mais aucun pivot `h` dans la grille des toits.
-    let texte = ecrire(&NIVEAUX[0]).replace(
+    let texte = ecrire(&niveaux()[0]).replace(
         "aiguilles: [],",
         "aiguilles: [(rayon: 2.0, vitesse: 20.0, phase: 0.0)],",
     );
@@ -203,7 +223,7 @@ fn aiguille_ou_poisson_sans_case() {
         }
     );
     let texte =
-        ecrire(&NIVEAUX[0]).replace("poissons_hauts: [],", "poissons_hauts: [(3, 4, 50.0)],");
+        ecrire(&niveaux()[0]).replace("poissons_hauts: [],", "poissons_hauts: [(3, 4, 50.0)],");
     assert_eq!(
         erreur_de_grille(&texte),
         ErreurNiveau::PoissonIntrouvable {
@@ -216,7 +236,7 @@ fn aiguille_ou_poisson_sans_case() {
 #[test]
 fn champ_inconnu_ou_theme_inconnu_avec_la_ligne_du_fichier() {
     let texte =
-        ecrire(&NIVEAUX[0]).replace("    sans_planer:", "    vitesse: 3,\n    sans_planer:");
+        ecrire(&niveaux()[0]).replace("    sans_planer:", "    vitesse: 3,\n    sans_planer:");
     let e = charger(&texte).unwrap_err();
     match &e.genre {
         GenreErreur::Syntaxe { ligne, message, .. } => {
@@ -226,7 +246,7 @@ fn champ_inconnu_ou_theme_inconnu_avec_la_ligne_du_fichier() {
         autre => panic!("{autre:?}"),
     }
     assert!(e.to_string().starts_with("(texte) : ligne 9"), "{e}");
-    let texte = ecrire(&NIVEAUX[0]).replace("theme: Toits", "theme: Plage");
+    let texte = ecrire(&niveaux()[0]).replace("theme: Toits", "theme: Plage");
     assert!(matches!(
         charger(&texte).unwrap_err().genre,
         GenreErreur::Syntaxe { ligne: 7, .. }
@@ -283,14 +303,14 @@ fn erreurs_de_table_cle_dossier_et_numerotation() {
 /// sa place d'après ses champs, sans aucune liste à modifier.
 #[test]
 fn ajouter_un_niveau_c_est_ajouter_un_fichier() {
-    let mut nouveau = NIVEAUX[0];
+    let mut nouveau = niveaux()[0];
     nouveau.monde = 3;
     nouveau.cle = "nouveau";
     let texte = ecrire(&nouveau);
     let mut fichiers = vec![("monde_3/nouveau.ron", texte.as_str())];
     fichiers.extend(tous());
     let table = charger_table(&fichiers).unwrap();
-    assert_eq!(table.niveaux.len(), NIVEAUX.len() + 1);
+    assert_eq!(table.niveaux.len(), niveaux().len() + 1);
     assert_eq!(table.niveaux.last().unwrap().cle, "nouveau");
 }
 
@@ -302,7 +322,7 @@ fn ajouter_un_niveau_c_est_ajouter_un_fichier() {
 fn la_legende_couvre_exactement_les_lettres_du_parseur() {
     use crate::legende::LETTRES;
     let base = toits_avec_grille(|g| g.to_string());
-    let rangee_depart = NIVEAUX[0]
+    let rangee_depart = niveaux()[0]
         .ascii
         .lines()
         .position(|r| r.contains('@'))
@@ -313,10 +333,10 @@ fn la_legende_couvre_exactement_les_lettres_du_parseur() {
         // (un `.` ; `"` fermerait la grille brute, on le pose quand même : le
         // RON devient invalide, ce n'est donc pas une lettre acceptée).
         let texte = base.replacen(
-            NIVEAUX[0].ascii.lines().nth(rangee_depart).unwrap(),
+            niveaux()[0].ascii.lines().nth(rangee_depart).unwrap(),
             &format!(
                 "{c}{}",
-                &NIVEAUX[0].ascii.lines().nth(rangee_depart).unwrap()[1..]
+                &niveaux()[0].ascii.lines().nth(rangee_depart).unwrap()[1..]
             ),
             1,
         );

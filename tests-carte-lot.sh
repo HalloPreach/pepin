@@ -7,8 +7,9 @@
 #                 Tous les tests rapides (core et game : grilles, décor, physique...),
 #                 plus, pour SON niveau seulement : faisabilité (3 gouttes, lanternes,
 #                 robot maladroit, durée), reprise depuis chaque lanterne et tests de
-#                 lot de son module (`levels::<clé>::`). PAS de robot de QA (décision
-#                 d'AGA du 18/11 : aucune carte ne lance de robot).
+#                 lot de son module (`par_niveau::<clé>::`, dans le binaire de tests
+#                 `tous_les_niveaux` du crate `niveaux` depuis la carte 10.1c). PAS de
+#                 robot de QA (décision d'AGA du 18/11 : aucune carte ne lance de robot).
 #   carte <clé> robot [sans-memoire] : la même chose, plus le robot de QA qui finit
 #                 SON niveau sans mourir (sur demande seulement : sa recherche dure
 #                 9 s au caniveau, 25 min aux égouts). Le parcours trouvé entre dans
@@ -52,12 +53,16 @@ if ! cargo test -p core -p game -p niveaux "${PROFIL[@]}" --no-default-features 
 fi
 # « Executable unittests src/lib.rs (target/.../pepin_core-xxxx) » : le chemin.
 # Deux crates ont un src/lib.rs : `core` et `niveaux` (carte 10.1b, les niveaux en
-# fichiers RON) ; on les distingue par le nom du binaire.
+# fichiers RON) ; on les distingue par le nom du binaire. Depuis la carte 10.1c, les
+# tests qui lisent les VRAIS niveaux (faisabilité, reprise, grilles, décor, tests
+# propres à un niveau) sont dans le binaire `tous_les_niveaux` du crate `niveaux`
+# (`niveaux/tests/tous_les_niveaux/`) : `core` ne garde que sa logique pure.
 LIBS=$(sed -n 's/.*Executable unittests src\/lib\.rs (\(.*\))$/\1/p' "$SORTIE/compilation.txt")
 CORE=$(echo "$LIBS" | grep -v '/niveaux-')
 NIVEAUX=$(echo "$LIBS" | grep '/niveaux-')
+TOUS=$(sed -n 's/.*Executable tests\/tous_les_niveaux\/main\.rs (\(.*\))$/\1/p' "$SORTIE/compilation.txt")
 GAME=$(sed -n 's/.*Executable unittests src\/main\.rs (\(.*\))$/\1/p' "$SORTIE/compilation.txt")
-if [ -z "$CORE" ] || [ -z "$GAME" ] || [ -z "$NIVEAUX" ]; then
+if [ -z "$CORE" ] || [ -z "$GAME" ] || [ -z "$NIVEAUX" ] || [ -z "$TOUS" ]; then
   echo "binaires de test introuvables" >&2
   cat "$SORTIE/compilation.txt"
   exit 1
@@ -108,8 +113,9 @@ case "$COMMANDE" in
     lancer core-rapides "$CORE"
     lancer game-rapides "$GAME"
     lancer niveaux-rapides "$NIVEAUX"
-    lancer core-niveau "$CORE" --ignored --exact zones::tests::le_niveau_de_la_carte
-    lancer core-module "$CORE" --ignored "levels::$CLE::"
+    lancer tous-rapides "$TOUS"
+    lancer tous-niveau "$TOUS" --ignored --exact faisabilite::le_niveau_de_la_carte
+    lancer tous-module "$TOUS" --ignored "par_niveau::$CLE::"
     if [ $ROBOT = 1 ]; then
       lancer game-robot "$GAME" --ignored --exact bot_qa::tests::le_robot_finit_le_niveau_de_la_carte
     fi
@@ -121,15 +127,22 @@ case "$COMMANDE" in
       echo "mémoire des parcours : NON (toutes les recherches du robot refaites)"
     fi
     # Les tests de lot les plus longs d'abord n'est pas possible (libtest les prend
-    # dans l'ordre alphabétique) : on lance donc les quatre groupes ensemble.
+    # dans l'ordre alphabétique) : on lance donc tous les groupes ensemble.
     mapfile -t LOT_CORE < <(tests_de_lot "$CORE")
+    mapfile -t LOT_TOUS < <(tests_de_lot "$TOUS")
     mapfile -t LOT_GAME < <(tests_de_lot "$GAME")
-    echo "tests de lot : ${#LOT_CORE[@]} (core) + ${#LOT_GAME[@]} (game)"
+    echo "tests de lot : ${#LOT_CORE[@]} (core) + ${#LOT_TOUS[@]} (niveaux) + ${#LOT_GAME[@]} (game)"
     lancer game-lot "$GAME" --ignored --exact "${LOT_GAME[@]}"
-    lancer core-lot "$CORE" --ignored --exact "${LOT_CORE[@]}"
+    lancer tous-lot "$TOUS" --ignored --exact "${LOT_TOUS[@]}"
+    # `core` n'a plus de test de lot depuis la carte 10.1c (ils lisaient les vrais
+    # niveaux) : le groupe n'est lancé que s'il en retrouve un.
+    if [ ${#LOT_CORE[@]} -gt 0 ]; then
+      lancer core-lot "$CORE" --ignored --exact "${LOT_CORE[@]}"
+    fi
     lancer core-rapides "$CORE"
     lancer game-rapides "$GAME"
     lancer niveaux-rapides "$NIVEAUX"
+    lancer tous-rapides "$TOUS"
     ;;
   *)
     echo "commande inconnue : $COMMANDE (carte <clé> ou lot)" >&2

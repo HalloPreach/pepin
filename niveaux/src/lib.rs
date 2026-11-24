@@ -22,7 +22,7 @@
 pub mod erreur;
 pub mod format;
 pub mod legende;
-pub mod source_rust;
+pub mod lisezmoi;
 #[cfg(test)]
 mod tests;
 
@@ -209,7 +209,7 @@ pub fn table() -> &'static Table {
     table_verifiee().unwrap_or_else(|e| panic!("niveau invalide : {e}"))
 }
 
-/// Les niveaux du parcours, dans l'ordre (l'équivalent de `core::levels::NIVEAUX`).
+/// Les niveaux du parcours, dans l'ordre (rangés par `monde` puis `numero`).
 pub fn niveaux() -> &'static [InfosNiveau] {
     &table().niveaux
 }

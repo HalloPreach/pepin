@@ -1,5 +1,5 @@
 //! Le FORMAT d'un fichier de niveau : les structures lues par serde dans un
-//! fichier RON, et l'écriture inverse (`ecrire`), utilisée par l'exporteur.
+//! fichier RON, et l'écriture inverse (`ecrire`), au format canonique.
 //!
 //! Ces structures sont celles du FICHIER, pas celles du jeu : elles possèdent
 //! leurs textes (`String`, `Vec`) et refusent tout champ inconnu
@@ -18,7 +18,7 @@ use pepin_core::zones::{InfosNiveau, Theme};
 use serde::Deserialize;
 
 /// Un niveau tel qu'il est écrit dans son fichier `.ron`. Mêmes champs que
-/// `InfosNiveau` (leur sens y est documenté), dans l'ordre où l'exporteur les écrit.
+/// `InfosNiveau` (leur sens y est documenté), dans l'ordre où `ecrire` les écrit.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FichierNiveau {
@@ -204,8 +204,10 @@ impl FichierNiveau {
 }
 
 /// Écrit `infos` au format RON, toujours de la MÊME façon (mêmes octets à
-/// chaque fois) : l'exporteur peut être relancé sans rien changer, et le test
-/// `ecrire_redonne_chaque_fichier` le vérifie sur chaque fichier du dépôt.
+/// chaque fois). C'est le format CANONIQUE des fichiers du dépôt, que l'éditeur
+/// reproduit (`editeur/ron.js`) : le test `l_export_du_ron_est_stable` vérifie
+/// que chaque fichier relu puis réécrit redonne ses lignes (les commentaires `//`
+/// de conception mis à part : `ecrire` ne les connaît pas, l'éditeur les garde).
 ///
 /// La grille est écrite en chaîne BRUTE (`r#"..."#`) : elle reste lisible et se
 /// modifie à la main, case par case.

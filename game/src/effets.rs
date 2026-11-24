@@ -268,7 +268,7 @@ mod tests {
     /// qu'aucune ne déborde de sa zone.
     #[test]
     fn le_vent_lateral_de_la_mer_de_nuages_se_voit_dans_chaque_couche() {
-        let indice = pepin_core::levels::NIVEAUX
+        let indice = niveaux::niveaux()
             .iter()
             .position(|n| n.nom == niveaux::par_cle("mer").nom)
             .expect("la mer de nuages est dans la table");

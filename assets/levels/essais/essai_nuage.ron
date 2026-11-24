@@ -1,4 +1,16 @@
 // Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+//
+// Niveau d'essai « nuage » : l'arène du Grand Nuage, le boss (carte 5.11 du plan
+// de capture), avant-goût de « L'œil du cyclone ». Hors de la table `NIVEAUX`, il
+// n'existe QUE dans les tests et dans le build de QA (fonctionnalité
+// `debug_niveaux`, touche F10) ; en production il n'est pas compilé dans le
+// binaire, comme les autres niveaux d'essai.
+//
+// Le Grand Nuage gronde, puis lance un motif d'éclairs sur l'arène (chaque
+// colonne annoncée comme un éclair `e`). Le motif fini, il s'essouffle et laisse
+// échapper un courant ascendant à côté de lui : on y monte, et on lui retombe sur
+// la tête. Trois coups (trois motifs de plus en plus serrés, le courant change de
+// côté), et le ciel se déchire : le niveau est fini. Il n'y a pas de drapeau.
 (
     monde: 1,
     numero: 0,
@@ -12,6 +24,20 @@
     mecanique: "Éviter ses éclairs, monter dans son courant quand il s'essouffle, lui sauter sur la tête trois fois.",
     aiguilles: [],
     poissons_hauts: [],
+    // 20 x 11 tuiles (un seul écran), thème Orage (le violet du futur œil du cyclone).
+    // - Sol : lignes 9-10 (dessus à y = 144). Murs : colonnes 0-1 et 19, toute la
+    //   hauteur : l'arène fait les 17 colonnes (2 à 18) que les éclairs du nuage
+    //   couvrent, sans coin à l'abri.
+    // - Le Grand Nuage : `O` en (10, 2) ; son corps (48 x 32) couvre les colonnes 9 à
+    //   11, lignes 2-3 (tête à y = 32, dessous à y = 64, 80 px au-dessus du sol :
+    //   hors de portée d'un saut). Ses colonnes d'éclairs vont de y = 64 au sol.
+    // - Ses courants : colonnes 6-7 (à gauche, après les motifs 1 et 3) et 13-14 (à
+    //   droite, après le motif 2), de y = 24 (une demi-case au-dessus de sa tête) au
+    //   sol.
+    // - Gouttes : au sol à gauche (colonne 5) et, à la hauteur de sa tête, entre
+    //   chaque courant et le nuage (colonnes 8 et 12, ligne 1) : on y passe forcément
+    //   pour aller du courant à sa tête. Lanterne : au départ (le début de l'arène, où
+    //   l'on reprend après une mort).
     ascii: r#"
 ##.................#
 ##......o...o......#

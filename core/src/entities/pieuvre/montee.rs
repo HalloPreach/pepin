@@ -71,8 +71,6 @@ use crate::physics::{JOUEUR_H, JOUEUR_L};
 
 mod cerveau;
 pub use cerveau::*;
-#[cfg(test)]
-mod tests;
 
 /// La tête de la géante (px) : sa boîte dans le couloir, et quand elle se jette.
 pub const TAILLE_GEANTE: (f32, f32) = (64.0, 40.0);
@@ -337,6 +335,35 @@ fn entre(a: Aabb, b: Aabb, k: f32) -> Aabb {
         a.w,
         a.h,
     )
+}
+
+/// Quatre réglages pour les tests du VRAI niveau du boss, qui vivent dans le
+/// crate `niveaux` (`tests/tous_les_niveaux/pieuvre_montee.rs`, carte 10.1c) :
+/// ils y préparent un état précis (la géante à 1 point de vie, les recharges
+/// vides...) sans voir les champs privés. Compilés seulement avec la
+/// fonctionnalité `pour_les_tests` de `core` (que `niveaux` n'active que pour ses
+/// tests) : le jeu ne les voit jamais.
+#[cfg(feature = "pour_les_tests")]
+impl Pieuvre {
+    /// Fixe ses points de vie.
+    pub fn fixer_pv_pour_les_tests(&mut self, pv: u8) {
+        self.pv = pv;
+    }
+
+    /// Les recharges de son cerveau (pas où chaque genre d'attaque est prêt).
+    pub fn recharges_pour_les_tests(&mut self) -> &mut [u16; 5] {
+        &mut self.tour.cerveau.recharges
+    }
+
+    /// La frappe visée d'un combo en cours (son début, la place visée).
+    pub fn combo_pour_les_tests(&self) -> Option<(u16, Aabb)> {
+        self.tour.cerveau.combo
+    }
+
+    /// La recharge d'un genre d'attaque selon son humeur (pas).
+    pub fn recharge_pour_les_tests(&self, g: Genre) -> u16 {
+        self.recharge(g)
+    }
 }
 
 impl Pieuvre {
