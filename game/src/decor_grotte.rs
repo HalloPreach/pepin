@@ -428,10 +428,9 @@ fn dessiner_fissure(s: &Source, pas: u32, (cx, cy): (i32, i32)) {
 mod tests {
     use super::*;
     use pepin_core::aabb::Grille;
-    use pepin_core::levels::grotte;
 
     fn niveau() -> Niveau {
-        Niveau::depuis_ascii(grotte::INFOS.ascii).expect("grotte")
+        Niveau::depuis_ascii(niveaux::par_cle("grotte").ascii).expect("grotte")
     }
 
     /// Chaque colonne de bulles a sa source : six vasques d'eau (au pied de CA, de

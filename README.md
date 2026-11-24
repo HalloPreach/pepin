@@ -65,7 +65,7 @@ image avant le premier niveau, une après le Grand Nuage, une avant la descente 
 une fois une partie finie, la ligne HISTOIRE du titre permet de les revoir.
 
 Les dix niveaux, puis le bonus et l'épilogue (noms et mécaniques tirés de
-`core/src/levels/*.rs`) :
+`assets/levels/monde_1/*.ron`) :
 
 1. Les toits : course, saut, planer ; les deux premières flaques à écraser.
 2. Gouttières et cheminées : flaques à écraser, champignons-trampolines, deux
@@ -190,10 +190,28 @@ L'écran de fin ajoute une ligne « VIES » quand elle tient sans serrer le menu
 
 ## 2. Architecture : `core` (pur) et `game` (graphique)
 
-Le dépôt est un *workspace* Cargo (`Cargo.toml` à la racine) avec deux crates :
+Le dépôt est un *workspace* Cargo (`Cargo.toml` à la racine) avec trois crates :
 
-    core/   logique pure : aucune dépendance, aucun appel graphique
-    game/   le jeu : fenêtre, rendu, écrans, audio, entrées (macroquad)
+    core/     logique pure : aucune dépendance, aucun appel graphique
+    niveaux/  les niveaux, lus dans les fichiers assets/levels/**/*.ron (serde + ron)
+    game/     le jeu : fenêtre, rendu, écrans, audio, entrées (macroquad)
+
+Les NIVEAUX sont des données (cartes 10.1a et 10.1b) :
+
+    assets/levels/monde_1/toits.ron, assets/levels/monde_2/port.ron, essais/...
+      --(niveaux/build.rs : include_str!, aucune liste à tenir)-->  fichiers embarqués
+      --(crate niveaux : serde + ron, puis la grille par le parseur de core)-->
+      InfosNiveau (type de core)  -->  game (`niveaux::niveaux()`, `niveaux::par_cle`)
+
+`core` garde les TYPES (`InfosNiveau`, `Niveau`, la légende de la grille) et les
+règles (`levels::apres`, `verifier_ordre`...), sans dépendance ; serde et ron ne
+vivent que dans `niveaux`. Le jeu publié ne peut pas tomber sur un fichier invalide :
+`./build.sh` lance d'abord le test `tous_les_fichiers_embarques_sont_valides`. Le
+build de QA, lui, affiche l'erreur (fichier, ligne, colonne) à l'écran, et
+`?essai=1` y lance le niveau RON posé dans le `localStorage` (clé
+`pepin.niveau_essai`) : c'est le bouton TESTER de l'éditeur de niveaux (cartes
+10.3a et 10.3b, `editeur.html`), qui reçoit en retour le verdict du chargeur (la
+case fautive) et la fin de l'essai. Format et légende : `assets/levels/LISEZMOI.md`.
 
 Le découpage est volontaire. Tout ce qui est « règle du jeu » vit dans `core` ;
 `game` ne fait que **lire** l'état et le **dessiner**. Conséquence très
@@ -230,10 +248,13 @@ Contenu de `core/src` :
   Pépin touche quelque chose.
 - `level.rs`, `level/ascii.rs`, `level/erreur.rs` : le format de niveau ASCII
   et son analyseur.
-- `levels.rs` et `levels/` : la table ORDONNÉE des niveaux (`NIVEAUX`, un fichier
-  par niveau) et les règles qui les enchaînent : genre de chaque niveau (normal,
-  bonus, épilogue), niveau suivant (`apres`), bonus débloqué par toutes les gouttes
-  des niveaux normaux. Fonctions pures, testées sur de fausses listes.
+- `levels.rs` : les règles qui enchaînent les niveaux : genre de chaque niveau
+  (normal, bonus, épilogue), niveau suivant (`apres`), bonus débloqué par toutes
+  les gouttes des niveaux normaux, ordre de la table (`verifier_ordre`). Fonctions
+  pures, qui reçoivent la table en paramètre, testées sur de fausses listes. Le jeu
+  lit ses niveaux dans les fichiers `.ron` (crate `niveaux`) ; les anciens
+  `levels/*.rs` ne servent plus qu'aux tests du cœur, en attendant leur suppression
+  (le test d'équivalence du crate `niveaux` prouve qu'ils sont identiques aux `.ron`).
 - `zones.rs` : les métadonnées d'un niveau (nom, genre, texte d'introduction, thème
   de décor).
 - `state.rs` : score, checkpoint et phase de la partie.
@@ -717,15 +738,16 @@ existantes :
 
 - Sauvegarder le meilleur temps et les gouttes ramassées (stockage du
   navigateur).
-- Ajouter un niveau : il suffit d'un nouveau fichier dans `core/src/levels/`,
-  d'une entrée à sa place dans la table `NIVEAUX` de `core/src/levels.rs` (avec son
-  genre), d'une ligne dans la macro des tests de faisabilité de `core/src/zones.rs`,
-  de son texte dans `game/src/contenu.rs` et de sa bande de difficulté dans
-  `game/src/difficulte.rs` (les tests et le compilateur signalent chaque oubli). Une
+- Ajouter un niveau = ajouter un fichier `.ron` dans `assets/levels/monde_<N>/`
+  (ou `essais/`) : sa place vient de ses champs `monde` et `numero`, aucune liste
+  n'est à tenir (`./docker-cargo.sh run -p niveaux --bin valider` le vérifie). Le
+  jeu demande ensuite son texte dans `game/src/contenu.rs` et, au Monde 1, sa bande
+  de difficulté dans `game/src/difficulte.rs` (les tests et le compilateur
+  signalent chaque oubli). Une
   ambiance inédite = un `Theme` de plus et une entrée dans `decor::ambiance`. Un niveau
   peut être plus haut que l'écran (plus de 11 rangées, par exemple 45 pour quatre
   écrans) : la caméra le suit alors en hauteur (`game/src/camera.rs`) ; le niveau
-  d'essai `core/src/levels/essai_vertical.rs` (touche 0 du build de QA) en est l'exemple.
+  d'essai `assets/levels/essais/essai_vertical.ron` (touche 0 du build de QA) en est l'exemple.
 - Ajouter de nouveaux ennemis ou plateformes en suivant le modèle de
   `core/src/entities/` (une variante de plus dans `Entite`, et le compilateur
   indique tous les `match` à compléter).

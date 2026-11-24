@@ -14,7 +14,7 @@
 
 use pepin_core::entities::stalactite::EtatStalactite;
 use pepin_core::entities::Entite;
-use pepin_core::levels::{debut_monde, grotte, NIVEAUX};
+use pepin_core::levels::debut_monde;
 
 use super::{jouer_monde_2, tous_les_parcours_complets_du_monde, Partie};
 use crate::monde::Monde;
@@ -55,9 +55,9 @@ fn ecrire_script_monde_2_99() {
     );
 
     // La grotte rejouée seule : les pas de ses trois moments.
-    let numero = grotte::INFOS.numero;
-    let indice = debut_monde(NIVEAUX, 2).unwrap() + usize::from(numero) - 1;
-    assert_eq!(NIVEAUX[indice].cle, "grotte");
+    let numero = niveaux::par_cle("grotte").numero;
+    let indice = debut_monde(niveaux::niveaux(), 2).unwrap() + usize::from(numero) - 1;
+    assert_eq!(niveaux::niveaux()[indice].cle, "grotte");
     let mut m = Monde::new(indice);
     let mut positions = Vec::new();
     let mut moments: Vec<(&str, usize)> = Vec::new();

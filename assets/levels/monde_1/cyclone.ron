@@ -1,0 +1,28 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+(
+    monde: 1,
+    numero: 6,
+    cle: "cyclone",
+    nom: "L'œil du cyclone",
+    theme: Cyclone,
+    genre: Normal,
+    sans_planer: true,
+    duree_cible_s: 40,
+    intro: "C'est lui qui cache le soleil : le Grand Nuage ne veut pas te laisser passer.",
+    mecanique: "Le Grand Nuage (boss) : éviter ses éclairs, monter dans son courant quand il s'essouffle, lui sauter sur la tête trois fois.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+NN.................N
+NN......o...o......N
+NN........O........N
+NN.................N
+NN.................N
+NN.................N
+NN.................N
+NN.................N
+NN@L.o.............N
+NNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNN
+"#,
+)

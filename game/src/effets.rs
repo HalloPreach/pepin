@@ -270,7 +270,7 @@ mod tests {
     fn le_vent_lateral_de_la_mer_de_nuages_se_voit_dans_chaque_couche() {
         let indice = pepin_core::levels::NIVEAUX
             .iter()
-            .position(|n| n.nom == pepin_core::levels::mer::INFOS.nom)
+            .position(|n| n.nom == niveaux::par_cle("mer").nom)
             .expect("la mer de nuages est dans la table");
         let mut monde = Monde::new(indice);
         let couleurs = ambiance(monde.infos.theme).vent;

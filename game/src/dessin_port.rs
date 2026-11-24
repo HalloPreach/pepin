@@ -310,7 +310,6 @@ mod tests {
     use super::*;
     use crate::sprites::jetee;
     use crate::sprites::tuiles_monde2::port;
-    use pepin_core::levels::{essai_pieuvre, pieuvre};
 
     fn nom(p: Piece) -> &'static str {
         match p {
@@ -324,7 +323,7 @@ mod tests {
     /// pierre mouillée au niveau du bassin.
     #[test]
     fn les_bords_de_l_arene_sont_des_quais_avec_une_grue_et_des_caisses() {
-        let n = pieuvre::INFOS.charger().unwrap();
+        let n = niveaux::par_cle("pieuvre").charger().unwrap();
         let (l, h) = (n.largeur() as i32, n.hauteur() as i32);
         // Carte 9.13a : l'arène est sous la tour, dans les 11 dernières rangées.
         let a = haut_de_l_arene(&n);
@@ -369,7 +368,7 @@ mod tests {
     /// est à elle, et la rangée du fond reste au thème.
     #[test]
     fn la_jetee_dessine_les_murs_solides_et_le_bassin_sans_toucher_la_grille() {
-        let n = pieuvre::INFOS.charger().unwrap();
+        let n = niveaux::par_cle("pieuvre").charger().unwrap();
         let (l, h) = (n.largeur() as i32, n.hauteur() as i32);
         for tx in [0, l - 1] {
             for ty in 0..h - 1 {
@@ -389,8 +388,8 @@ mod tests {
             "le platelage reste au thème"
         );
         // Le niveau d'essai garde l'ancien rendu.
-        assert_ne!(essai_pieuvre::INFOS.cle, CLE_JETEE);
-        assert_eq!(pieuvre::INFOS.cle, CLE_JETEE);
+        assert_ne!(niveaux::par_cle("essai_pieuvre").cle, CLE_JETEE);
+        assert_eq!(niveaux::par_cle("pieuvre").cle, CLE_JETEE);
     }
 
     /// Chaque pièce existe : les sprites dans `sprites::jetee`, les tuiles dans le

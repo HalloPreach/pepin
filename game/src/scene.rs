@@ -1720,9 +1720,9 @@ mod tests {
     /// briques qui reçoivent la bande d'ombre d'un toit.
     #[test]
     fn variantes_et_ombres_dans_les_vrais_niveaux() {
-        use pepin_core::zones::{Theme, NIVEAUX};
+        use pepin_core::zones::Theme;
         let (mut pleines, mut variantes) = (0, 0);
-        for infos in NIVEAUX {
+        for infos in niveaux::niveaux() {
             let n = infos.charger().unwrap();
             let mut ombres = 0;
             for ty in 0..n.hauteur() as i32 {
@@ -1917,7 +1917,7 @@ mod tests {
     /// droite. Retournée si le courant le plus proche est à gauche.
     #[test]
     fn la_manche_a_air_s_etire_vers_son_courant() {
-        let niv = pepin_core::levels::vents::INFOS.charger().unwrap();
+        let niv = niveaux::par_cle("vents").charger().unwrap();
         let manches: Vec<f32> = niv
             .decors
             .iter()
@@ -1957,7 +1957,7 @@ mod tests {
     /// celle de la couche du milieu du moment fort (`<`).
     #[test]
     fn la_manche_a_air_montre_le_sens_du_vent_lateral() {
-        let niv = pepin_core::levels::mer::INFOS.charger().unwrap();
+        let niv = niveaux::par_cle("mer").charger().unwrap();
         let t = TAILLE_TUILE;
         let manches: Vec<((i32, i32), bool)> = niv
             .decors
@@ -2341,9 +2341,11 @@ mod tests {
     /// dessine sur un solide.
     #[test]
     fn chaque_auvent_est_accroche_a_une_boutique() {
-        use pepin_core::levels::{essai_auvent, marche};
         let mut dessinees = 0;
-        for infos in [marche::INFOS, essai_auvent::INFOS] {
+        for infos in [
+            *niveaux::par_cle("marche"),
+            *niveaux::par_cle("essai_auvent"),
+        ] {
             let niv = infos.charger().unwrap();
             for e in &niv.entites {
                 let Entite::Auvent(a) = e else {
