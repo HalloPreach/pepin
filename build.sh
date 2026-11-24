@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # build.sh : construit dist/ : le jeu PÉPIN prêt à être servi par n'importe quel
-# serveur de fichiers statiques (index.html + game.wasm + mq_js_bundle.js).
+# serveur de fichiers statiques (index.html + game.wasm + mq_js_bundle.js, et les
+# sons dans musiques/ et sons/ depuis la carte 10.4e).
 #
 # Usage :   ./build.sh
 #           WASM_OPT=0 ./build.sh     # saute l'optimisation wasm-opt
@@ -23,12 +24,13 @@
 #      erreur console « register_plugin is not defined ») ;
 #   3. réduit encore le wasm avec wasm-opt -Oz (paquet binaryen, installé dans un
 #      conteneur jetable). Si cette étape échoue, on garde le wasm non optimisé ;
-#   4. copie web/index.html et vérifie que dist/ est complet.
+#   4. copie web/index.html et les sons (assets/musiques, assets/sons : WAV
+#      canoniques, sans nom interdit), et vérifie que dist/ est complet.
 #
 # Décision sur dist/ : il est IGNORÉ par git (.gitignore). C'est un produit
 # régénérable par ce script ; on évite de versionner un binaire de ~400 Ko qui
-# changerait à chaque commit. Pour publier, lancer ./build.sh puis copier le
-# contenu de dist/ sur le serveur.
+# changerait à chaque commit. Pour publier, lancer ./build.sh puis copier TOUT le
+# contenu de dist/ sur le serveur (sous-dossiers musiques/ et sons/ compris).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -112,8 +114,37 @@ else
 fi
 chmod 644 "$DIST/game.wasm"
 
-echo "== 4/4 Page web et vérifications =="
+echo "== 4/4 Page web, sons et vérifications =="
 cp web/index.html "$DIST/index.html"
+
+# Carte 10.4e : les musiques et les bruitages sont des fichiers WAV servis À CÔTÉ du
+# jeu (`musiques/<id>.wav`, `sons/<clé>.wav`), téléchargés par le jeu après l'écran
+# titre. Copiés TELS QUELS de `assets` ; chacun doit être un WAV canonique (en-tête
+# de 44 octets : RIFF, fmt, data, rien d'autre, donc aucune métadonnée) et ne
+# contenir aucun nom interdit.
+for genre in musiques sons; do
+  mkdir -p "$DIST/$genre"
+  cp assets/"$genre"/*.wav "$DIST/$genre/"
+done
+SONS_N=0
+SONS_OCTETS=0
+SONS_GZIP=0
+for f in "$DIST"/musiques/*.wav "$DIST"/sons/*.wav; do
+  [ "$(head -c 4 "$f")" = "RIFF" ] && [ "$(dd if="$f" bs=1 skip=8 count=8 2>/dev/null)" = "WAVEfmt " ] \
+    && [ "$(dd if="$f" bs=1 skip=36 count=4 2>/dev/null)" = "data" ] \
+    || { echo "ERREUR : $f n'est pas un WAV canonique (RIFF, fmt, data)" >&2; exit 1; }
+  if grep -qaiE 'lucas|tixier|elsay|georges|jarvis|/home/' "$f"; then
+    echo "ERREUR : nom interdit dans $f" >&2; exit 1
+  fi
+  chmod 644 "$f"
+  SONS_N=$((SONS_N + 1))
+  SONS_OCTETS=$((SONS_OCTETS + $(wc -c < "$f")))
+  SONS_GZIP=$((SONS_GZIP + $(gzip -9 -c "$f" | wc -c)))
+done
+[ "$SONS_N" -ge 19 ] || { echo "ERREUR : $SONS_N fichiers son dans $DIST (19 attendus au moins)" >&2; exit 1; }
+# Plafond de la carte 10.4e : 3,5 Mo de sons au plus.
+[ "$SONS_OCTETS" -le 3500000 ] || { echo "ERREUR : $SONS_OCTETS octets de sons (plafond 3,5 Mo)" >&2; exit 1; }
+echo "sons : $SONS_N WAV canoniques, aucun nom interdit : OK"
 
 # Carte 10.3a : l'éditeur de niveaux (editeur/) n'existe QUE dans le build de QA
 # (site de test). Il y trouve `legende.json` (les lettres de la grille, écrites par
@@ -161,6 +192,8 @@ for f in index.html mq_js_bundle.js game.wasm; do
   printf '  %-18s %8s octets   (gzip : %s)\n' "$f" "$n" "$g"
   TOTAL=$((TOTAL + n))
 done
+printf '  %-18s %8s octets   (gzip : %s, %s fichiers)\n' "musiques/ sons/" "$SONS_OCTETS" "$SONS_GZIP" "$SONS_N"
+TOTAL=$((TOTAL + SONS_OCTETS))
 WASM_N="$(octets "$DIST/game.wasm")"
 printf '  %-18s %8s octets\n' "TOTAL" "$TOTAL"
 # Budget : < 2,5 Mo exigé, < 1,2 Mo visé.

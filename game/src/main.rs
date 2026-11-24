@@ -126,9 +126,11 @@ async fn main() {
     let mut navigation = LecteurNavigation::new();
     // Perte de focus (onglet masqué, autre application...) : voir `focus.rs`.
     let mut focus = Focus::new();
-    // Sons fabriqués en mémoire. Désactivés tant que le joueur ne les demande pas
-    // (et un navigateur n'autorise l'audio qu'après une première interaction).
-    let mut audio = Audio::charger().await;
+    // Les sons sont des fichiers (carte 10.4e), téléchargés en arrière-plan APRÈS la
+    // première image (`audio.avancer`, en fin de boucle) : l'écran titre n'attend
+    // rien. Désactivés tant que le joueur ne les demande pas (et un navigateur
+    // n'autorise l'audio qu'après une première interaction).
+    let mut audio = Audio::new();
     // Site de test (build de QA) : toute la carte des niveaux ouverte, Monde 2 compris
     // (`plan::ouvrir_tout_qa`), AVANT de construire l'application et son titre.
     #[cfg(feature = "debug_niveaux")]
@@ -290,5 +292,6 @@ async fn main() {
             tactile.dessiner();
         }
         next_frame().await;
+        audio.avancer();
     }
 }

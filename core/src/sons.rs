@@ -1,8 +1,8 @@
 //! Catalogue des bruitages de PÉPIN : la liste des effets ponctuels (`Effet`), le
 //! nom du fichier de chacun et son volume de lecture.
 //!
-//! Le SON lui-même est un vrai fichier audio (carte 10.4e) : `assets/sons/<clé>.ogg`,
-//! embarqué et chargé par le module `audio` du crate `game` (voir
+//! Le SON lui-même est un vrai fichier audio (carte 10.4e) : `assets/sons/<clé>.wav`,
+//! servi à côté du jeu et téléchargé par le module `audio` du crate `game` (voir
 //! `assets/musiques/LISEZMOI.md`). Les réglages de synthèse qui les fabriquaient
 //! jusque-là ont servi une dernière fois à rendre ces fichiers, puis ont été retirés,
 //! avec le synthétiseur `synthese` qui ne servait plus qu'à eux.
@@ -53,7 +53,7 @@ impl Effet {
         Effet::Secret,
     ];
 
-    /// Nom du fichier du son, sans `.ogg` (`assets/sons/<clé>.ogg`, carte 10.4e).
+    /// Nom du fichier du son, sans `.wav` (`assets/sons/<clé>.wav`, carte 10.4e).
     /// STABLE : renommer une clé, c'est renommer le fichier.
     pub fn cle(self) -> &'static str {
         match self {

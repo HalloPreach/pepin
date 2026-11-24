@@ -9,8 +9,8 @@
 //! jouent la même musique : `Audio::choisir_musique` ne coupe donc rien entre eux.
 //!
 //! Chaque musique est un VRAI fichier audio (carte 10.4e) : la boucle
-//! `assets/musiques/<id>.ogg` (OGG Vorbis mono, voir `assets/musiques/LISEZMOI.md`),
-//! embarquée par `build.rs` et chargée par `audio::Audio::charger`. Les partitions
+//! `assets/musiques/<id>.wav` (WAV mono, voir `assets/musiques/LISEZMOI.md`), servie à
+//! côté du jeu et téléchargée en arrière-plan par `audio::Audio::avancer`. Les partitions
 //! en notes MIDI qui les fabriquaient jusque-là ont servi une dernière fois à rendre
 //! ces fichiers, puis ont été retirées : le fichier est la seule source.
 //!
@@ -203,10 +203,10 @@ mod tests {
             assert!(!m.nom().is_empty() && m.nom() == m.nom().to_uppercase());
             assert_eq!(m.prix() == 0, m == Musique::Orage, "{m:?}");
             // L'identifiant est aussi le nom du fichier (carte 10.4e) : la boucle
-            // `assets/musiques/<id>.ogg` existe (son contenu est contrôlé par le crate
-            // `outils` : mono, 22 050 Hz, sans métadonnées, raccord sans couture).
+            // `assets/musiques/<id>.wav` existe (son format est contrôlé par
+            // `audio::tests`, son raccord par le crate `outils`).
             assert!(
-                !crate::audio::fichier("musiques", m.id()).is_empty(),
+                crate::audio::FICHIERS.contains(&("musiques", m.id())),
                 "{m:?}"
             );
         }

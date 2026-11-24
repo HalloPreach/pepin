@@ -1,112 +1,65 @@
-//! Le format des sons de PÉPIN (carte 10.4e) : un fichier OGG Vorbis MONO par son,
-//! dans `assets/musiques/<clé>.ogg` (les boucles musicales) et `assets/sons/<clé>.ogg`
-//! (les bruitages et la pluie). Voir `assets/musiques/LISEZMOI.md`.
+//! Le format des sons de PÉPIN (carte 10.4e) : un fichier WAV PCM 16 bits MONO à
+//! 22 050 Hz par son, dans `assets/musiques/<clé>.wav` (les boucles musicales) et
+//! `assets/sons/<clé>.wav` (les bruitages et la pluie). Voir
+//! `assets/musiques/LISEZMOI.md`.
 //!
-//! Ce module CONTRÔLE un fichier, il ne l'écrit pas (l'encodage est fait par ffmpeg,
-//! script `outils/sons.sh`) :
-//! - `lire_ogg` décode le fichier (crate `lewton`, le décodeur que macroquad utilise
-//!   déjà hors du web) et rend ses en-têtes : canaux, fréquence, commentaires ;
-//! - `lire_wav` lit un WAV 16 bits mono (le WAV de RÉFÉRENCE d'un son) ;
-//! - `signal_bruit_db` mesure l'écart entre le son décodé et sa référence ;
+//! Pourquoi du WAV et pas de l'OGG Vorbis (essayé d'abord, 6 fois plus léger) :
+//! Chromium ne coupe pas le remplissage de fin du Vorbis (un blanc de 7 à 22 ms à
+//! chaque tour de boucle), et Safari sur iPhone lit mal l'OGG. Le WAV est lu
+//! partout, à l'échantillon près. Le poids (3 Mo) reste HORS du wasm : les fichiers
+//! sont servis à côté du jeu et téléchargés après l'écran titre.
+//!
+//! Ce module CONTRÔLE un fichier, il ne l'écrit pas :
+//! - `lire_wav` lit un WAV et refuse tout autre format que celui du jeu ;
 //! - `raccord` mesure la jonction d'une boucle (fin collée au début).
 //!
-//! Notions Rust : `std::io::Cursor` (lire des octets en mémoire comme un fichier),
-//! `while let Some(..)` pour vider un décodeur paquet par paquet, `as_chunks` (des
-//! paires d'octets), `i64` pour sommer
-//! des carrés sans débordement.
-
-use std::io::Cursor;
-
-use lewton::inside_ogg::OggStreamReader;
+//! Notions Rust : `as_chunks` (des paires d'octets), `Result` et `?` pour refuser un
+//! fichier dès la première anomalie.
 
 /// Fréquence d'échantillonnage de tous les sons du jeu (celle de l'ancien synthé).
 pub const TAUX: u32 = 22_050;
 
-/// Un OGG Vorbis décodé.
-pub struct Ogg {
-    pub canaux: u8,
-    pub taux: u32,
-    /// Chaîne d'identification de la bibliothèque d'encodage, OBLIGATOIRE dans le
-    /// format Vorbis (« Xiph.Org libVorbis... ») : ce n'est pas une métadonnée ajoutée.
-    pub fabricant: String,
-    /// Commentaires Vorbis (titre, ENCODER...) : doivent être VIDES.
-    pub commentaires: Vec<(String, String)>,
-    /// Échantillons décodés (entrelacés si plusieurs canaux).
-    pub echantillons: Vec<i16>,
-}
-
-/// Décode un fichier OGG Vorbis entier.
-pub fn lire_ogg(octets: &[u8]) -> Result<Ogg, String> {
-    let mut lecteur =
-        OggStreamReader::new(Cursor::new(octets)).map_err(|e| format!("OGG illisible : {e:?}"))?;
-    let mut echantillons = Vec::new();
-    while let Some(paquet) = lecteur
-        .read_dec_packet_itl()
-        .map_err(|e| format!("paquet illisible : {e:?}"))?
-    {
-        echantillons.extend_from_slice(&paquet);
+/// Lit un WAV du jeu : PCM 16 bits, mono, `TAUX` Hz, et RIEN d'autre que les blocs
+/// `fmt ` (de 16 octets) puis `data` (un en-tête de 44 octets en tout : aucune
+/// métadonnée, ni bloc `LIST`, ni octet après les données). Rend les échantillons.
+pub fn lire_wav(octets: &[u8]) -> Result<Vec<i16>, String> {
+    if octets.len() < 44 || &octets[0..4] != b"RIFF" || &octets[8..16] != b"WAVEfmt " {
+        return Err("pas un WAV simple (RIFF, WAVE, fmt en tête)".into());
     }
-    Ok(Ogg {
-        canaux: lecteur.ident_hdr.audio_channels,
-        taux: lecteur.ident_hdr.audio_sample_rate,
-        fabricant: lecteur.comment_hdr.vendor.clone(),
-        commentaires: lecteur.comment_hdr.comment_list.clone(),
-        echantillons,
-    })
-}
-
-/// Lit un WAV PCM 16 bits mono : (fréquence, échantillons).
-pub fn lire_wav(octets: &[u8]) -> Result<(u32, Vec<i16>), String> {
-    if octets.len() < 12 || &octets[0..4] != b"RIFF" || &octets[8..12] != b"WAVE" {
-        return Err("pas un fichier WAV".into());
+    let u16_a = |i: usize| u16::from_le_bytes([octets[i], octets[i + 1]]);
+    let u32_a = |i: usize| u32::from_le_bytes(octets[i..i + 4].try_into().unwrap());
+    let (taille_fmt, format, canaux, taux, bits) =
+        (u32_a(16), u16_a(20), u16_a(22), u32_a(24), u16_a(34));
+    if taille_fmt != 16 || format != 1 {
+        return Err(format!(
+            "bloc fmt de {taille_fmt} octets, format {format} (attendu : PCM simple)"
+        ));
     }
-    let mut taux = 0;
-    let mut i = 12;
-    // Un WAV est une suite de blocs (identifiant de 4 lettres, taille, contenu).
-    while i + 8 <= octets.len() {
-        let id = &octets[i..i + 4];
-        let taille = u32::from_le_bytes(octets[i + 4..i + 8].try_into().unwrap()) as usize;
-        let contenu = octets
-            .get(i + 8..i + 8 + taille)
-            .ok_or("bloc WAV tronqué")?;
-        if id == b"fmt " {
-            let canaux = u16::from_le_bytes(contenu[2..4].try_into().unwrap());
-            let bits = u16::from_le_bytes(contenu[14..16].try_into().unwrap());
-            if canaux != 1 || bits != 16 {
-                return Err(format!(
-                    "WAV {canaux} canaux, {bits} bits (attendu : mono 16 bits)"
-                ));
-            }
-            taux = u32::from_le_bytes(contenu[4..8].try_into().unwrap());
-        } else if id == b"data" {
-            // `as_chunks::<2>` : le contenu vu comme des paires d'octets.
-            let ech = contenu
-                .as_chunks::<2>()
-                .0
-                .iter()
-                .map(|&paire| i16::from_le_bytes(paire))
-                .collect();
-            return Ok((taux, ech));
-        }
-        i += 8 + taille + (taille & 1);
+    if canaux != 1 || bits != 16 || taux != TAUX {
+        return Err(format!(
+            "{canaux} canal(aux), {bits} bits, {taux} Hz (attendu : mono, 16 bits, {TAUX} Hz)"
+        ));
     }
-    Err("WAV sans bloc de données".into())
-}
-
-/// Rapport signal sur bruit (en dB) du son `decode` par rapport à sa `reference` :
-/// énergie de la référence divisée par l'énergie de la DIFFÉRENCE, échantillon par
-/// échantillon. 30 dB : l'écart est 1 000 fois moins fort que le son.
-pub fn signal_bruit_db(reference: &[i16], decode: &[i16]) -> f64 {
-    let n = reference.len().min(decode.len());
-    let carre = |v: i64| v * v;
-    let signal: i64 = reference[..n].iter().map(|&v| carre(v as i64)).sum();
-    let bruit: i64 = (0..n)
-        .map(|k| carre(reference[k] as i64 - decode[k] as i64))
-        .sum();
-    if bruit == 0 {
-        return f64::INFINITY;
+    if &octets[36..40] != b"data" {
+        return Err(format!(
+            "bloc {:?} avant les données (aucune métadonnée admise)",
+            String::from_utf8_lossy(&octets[36..40])
+        ));
     }
-    10.0 * (signal as f64 / bruit as f64).log10()
+    let donnees = u32_a(40) as usize;
+    if octets.len() != 44 + donnees || u32_a(4) as usize != octets.len() - 8 {
+        return Err(format!(
+            "{} octets pour {donnees} octets de données (attendu : 44 de plus, rien après)",
+            octets.len()
+        ));
+    }
+    // `as_chunks::<2>` : le contenu vu comme des paires d'octets.
+    Ok(octets[44..]
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&paire| i16::from_le_bytes(paire))
+        .collect())
 }
 
 /// La jonction d'une boucle : en jouant le son en boucle, le dernier échantillon est
@@ -150,19 +103,12 @@ pub fn raccord(s: &[i16]) -> Raccord {
     }
 }
 
-/// Mots qui ne doivent JAMAIS paraître dans un fichier son publié : les marques que
-/// ffmpeg ajoute sans `-fflags +bitexact` (« Lavf », « Lavc »), les commentaires
-/// usuels (« encoder=Lavc libvorbis » que ffmpeg ajoute), un chemin de la machine.
-pub const MOTS_INTERDITS: [&[u8]; 7] = [
-    b"Lavf", b"Lavc", b"encoder", b"ENCODER", b"TITLE", b"ARTIST", b"/home",
-];
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::{Path, PathBuf};
 
-    /// Les fichiers `.ogg` de `assets/<dossier>`, triés.
+    /// Les fichiers `.wav` de `assets/<dossier>`, triés.
     fn fichiers(dossier: &str) -> Vec<PathBuf> {
         let racine = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../assets")
@@ -171,43 +117,27 @@ mod tests {
             .unwrap_or_else(|e| panic!("{}: {e}", racine.display()))
             .flatten()
             .map(|e| e.path())
-            .filter(|p| p.extension().is_some_and(|x| x == "ogg"))
+            .filter(|p| p.extension().is_some_and(|x| x == "wav"))
             .collect();
         v.sort();
         v
     }
 
-    /// Tous les sons du jeu : OGG Vorbis mono à 22 050 Hz, aucun commentaire, aucun
-    /// mot interdit dans les octets, décodables, 64 Ko au plus chacun (une boucle
-    /// de 12 s en pèse environ 80 : les musiques ont leur plafond plus bas).
+    /// Tous les sons du jeu : WAV mono 16 bits à 22 050 Hz sans métadonnées (`lire_wav`
+    /// refuse le reste), non vides, 600 Ko au plus par musique (une boucle de 13,6 s)
+    /// et 100 Ko par bruitage. Aucun autre fichier son (`.ogg`, `.mp3`) ne traîne.
     #[test]
-    fn chaque_son_est_un_ogg_mono_sans_metadonnees() {
+    fn chaque_son_est_un_wav_mono_sans_metadonnees() {
         let tous: Vec<PathBuf> = [fichiers("musiques"), fichiers("sons")].concat();
         assert!(tous.len() >= 19, "{} fichiers", tous.len());
         for f in &tous {
             let octets = std::fs::read(f).unwrap();
-            let ogg = lire_ogg(&octets).unwrap_or_else(|e| panic!("{}: {e}", f.display()));
-            assert_eq!(ogg.canaux, 1, "{} : mono", f.display());
-            assert_eq!(ogg.taux, TAUX, "{}", f.display());
-            assert!(
-                ogg.commentaires.is_empty(),
-                "{} : {:?}",
-                f.display(),
-                ogg.commentaires
-            );
-            assert!(!ogg.echantillons.is_empty());
-            for mot in MOTS_INTERDITS {
-                assert!(
-                    !octets.windows(mot.len()).any(|w| w == mot),
-                    "{} contient {:?}",
-                    f.display(),
-                    String::from_utf8_lossy(mot)
-                );
-            }
+            let ech = lire_wav(&octets).unwrap_or_else(|e| panic!("{}: {e}", f.display()));
+            assert!(!ech.is_empty(), "{}", f.display());
             let plafond = if f.parent().unwrap().ends_with("musiques") {
-                100_000
+                600_000
             } else {
-                32_000
+                100_000
             };
             assert!(
                 octets.len() <= plafond,
@@ -215,6 +145,20 @@ mod tests {
                 f.display(),
                 octets.len()
             );
+        }
+        for dossier in ["musiques", "sons"] {
+            let racine = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../assets")
+                .join(dossier);
+            for e in std::fs::read_dir(&racine).unwrap().flatten() {
+                let p = e.path();
+                let ext = p.extension().and_then(|x| x.to_str()).unwrap_or("");
+                assert!(
+                    ext == "wav" || ext == "md",
+                    "fichier inattendu : {}",
+                    p.display()
+                );
+            }
         }
     }
 
@@ -224,10 +168,10 @@ mod tests {
     /// demandait déjà le test de l'ancienne partition).
     #[test]
     fn chaque_boucle_se_raccorde_sans_couture() {
-        let pluie = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/sons/pluie.ogg");
+        let pluie = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/sons/pluie.wav");
         for f in fichiers("musiques").iter().chain([&pluie]) {
-            let ogg = lire_ogg(&std::fs::read(f).unwrap()).unwrap();
-            let r = raccord(&ogg.echantillons);
+            let ech = lire_wav(&std::fs::read(f).unwrap()).unwrap();
+            let r = raccord(&ech);
             assert!(r.sans_couture(), "{} : {r:?}", f.display());
             if f != &pluie {
                 let deux_pour_cent = i16::MAX as i32 / 50;
@@ -240,13 +184,60 @@ mod tests {
         }
     }
 
+    /// Empreinte FNV-1a 64 bits des octets (assez pour reconnaître un fichier, sans
+    /// dépendance : ce n'est pas une protection, seulement une comparaison).
+    fn fnv1a(octets: &[u8]) -> u64 {
+        octets.iter().fold(0xcbf2_9ce4_8422_2325, |h, &o| {
+            (h ^ o as u64).wrapping_mul(0x0100_0000_01b3)
+        })
+    }
+
+    /// ÉQUIVALENCE (carte 10.4e) : chaque fichier est, à l'échantillon près, le rendu
+    /// du synthé 8 bits d'origine (commit ef0283c, test ignoré
+    /// `audio::tests::rendre_les_wav_de_reference`, avant le retrait du synthé) :
+    /// même nombre d'échantillons et même empreinte des données. Le synthé n'existe
+    /// plus : ces empreintes sont la trace de ce rendu. Un son REMPLACÉ exprès change
+    /// sa ligne ici (voir `assets/musiques/LISEZMOI.md`).
     #[test]
-    fn le_signal_bruit_et_le_raccord_se_calculent() {
-        let a = [1000_i16, -1000, 1000, -1000];
-        assert!(signal_bruit_db(&a, &a).is_infinite());
-        // Écart de 10 % en amplitude : 20 dB.
-        let b = [900_i16, -900, 900, -900];
-        assert!((signal_bruit_db(&a, &b) - 20.0).abs() < 1e-9);
+    fn chaque_son_est_le_rendu_du_synthe_d_origine() {
+        const RENDU: [(&str, usize, u64); 19] = [
+            ("musiques/cyclone", 211680, 0x0a51_4282_3b00_fe27),
+            ("musiques/orage", 211680, 0x5f34_97cd_ea52_23d0),
+            ("musiques/poursuite", 254015, 0x9667_acdd_5da6_971d),
+            ("musiques/soleil", 254016, 0x54b5_3465_3b71_c6d9),
+            ("musiques/toits_de_nuit", 254016, 0x261f_815b_d13b_f9b5),
+            ("musiques/valse_des_nuages", 232847, 0xefc8_728e_98cc_98c3),
+            ("sons/atterrissage", 1543, 0x09e7_7b97_563e_6cea),
+            ("sons/eclair", 16537, 0x2386_0d2c_fdbf_c8ef),
+            ("sons/ecrase", 2646, 0x15e5_daf8_7aa9_af76),
+            ("sons/goutte", 5071, 0xf19a_51be_b79c_7032),
+            ("sons/lanterne", 8820, 0xf93e_dd8f_3cc8_c650),
+            ("sons/menu", 1102, 0x6988_9010_45d4_5e99),
+            ("sons/mort", 12127, 0x20a6_2a84_4b88_a3a2),
+            ("sons/plane", 3528, 0x131b_3bf6_afaa_dbb6),
+            ("sons/pluie", 44100, 0x7db8_bee1_9d93_2fc8),
+            ("sons/rebond", 4851, 0x25ed_7574_afde_3cff),
+            ("sons/saut", 3087, 0xb011_814f_b8e2_f8aa),
+            ("sons/secret", 7937, 0xc6a0_cf1c_5516_b8ef),
+            ("sons/victoire", 18301, 0x5088_c099_44af_27b2),
+        ];
+        let racine = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets");
+        let presents: Vec<PathBuf> = [fichiers("musiques"), fichiers("sons")].concat();
+        assert_eq!(presents.len(), RENDU.len());
+        for (nom, longueur, empreinte) in RENDU {
+            let octets = std::fs::read(racine.join(format!("{nom}.wav"))).unwrap();
+            let ech = lire_wav(&octets).unwrap();
+            assert_eq!(ech.len(), longueur, "{nom} : longueur");
+            let fnv = fnv1a(&octets[44..]);
+            assert!(
+                fnv == empreinte,
+                "{nom} : échantillons différents (empreinte {fnv:#018x})"
+            );
+        }
+    }
+
+    #[test]
+    fn le_raccord_se_calcule() {
         let r = raccord(&[0, 500, -500, 10]);
         assert_eq!(
             (r.saut, r.saut_max_interieur, r.debut, r.fin),
@@ -255,18 +246,35 @@ mod tests {
         assert!(r.sans_couture());
     }
 
-    #[test]
-    fn le_wav_se_relit() {
-        // En-tête minimal : RIFF, WAVE, fmt (mono 16 bits, 22 050 Hz), data (2 éch.).
-        let mut w = b"RIFF\0\0\0\0WAVEfmt ".to_vec();
+    /// En-tête minimal : RIFF, WAVE, fmt (mono 16 bits, 22 050 Hz), data (2 éch.).
+    fn wav(canaux: u16, taux: u32, donnees: &[u8]) -> Vec<u8> {
+        let mut w = b"RIFF".to_vec();
+        w.extend_from_slice(&(36 + donnees.len() as u32).to_le_bytes());
+        w.extend_from_slice(b"WAVEfmt ");
         w.extend_from_slice(&16u32.to_le_bytes());
-        w.extend_from_slice(&[1, 0, 1, 0]);
-        w.extend_from_slice(&TAUX.to_le_bytes());
-        w.extend_from_slice(&(TAUX * 2).to_le_bytes());
-        w.extend_from_slice(&[2, 0, 16, 0]);
+        w.extend_from_slice(&1u16.to_le_bytes());
+        w.extend_from_slice(&canaux.to_le_bytes());
+        w.extend_from_slice(&taux.to_le_bytes());
+        w.extend_from_slice(&(taux * 2 * canaux as u32).to_le_bytes());
+        w.extend_from_slice(&[2 * canaux as u8, 0, 16, 0]);
         w.extend_from_slice(b"data");
-        w.extend_from_slice(&4u32.to_le_bytes());
-        w.extend_from_slice(&[0x10, 0x00, 0xF0, 0xFF]);
-        assert_eq!(lire_wav(&w).unwrap(), (TAUX, vec![16, -16]));
+        w.extend_from_slice(&(donnees.len() as u32).to_le_bytes());
+        w.extend_from_slice(donnees);
+        w
+    }
+
+    #[test]
+    fn le_wav_se_relit_et_le_reste_est_refuse() {
+        let bon = wav(1, TAUX, &[0x10, 0x00, 0xF0, 0xFF]);
+        assert_eq!(lire_wav(&bon).unwrap(), vec![16, -16]);
+        assert!(lire_wav(&wav(2, TAUX, &[0; 4])).is_err(), "stéréo");
+        assert!(
+            lire_wav(&wav(1, 44_100, &[0; 4])).is_err(),
+            "autre fréquence"
+        );
+        let mut traine = bon.clone();
+        traine.extend_from_slice(b"LIST\x04\0\0\0INFO");
+        assert!(lire_wav(&traine).is_err(), "bloc après les données");
+        assert!(lire_wav(b"OggS").is_err());
     }
 }

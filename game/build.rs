@@ -12,9 +12,11 @@
 //!    sa FAMILLE (`ennemis`, `tuiles_monde2/port`...), son nom sans `.png` sa CLÉ.
 //! 3. Les fonds (carte 10.4c) : de même pour `assets/fonds/<thème>/<nom>.png` (les
 //!    couches FIXES des fonds : ciels, soleil, arc-en-ciel), dans `fonds_embarques.rs`.
-//! 4. Les sons (carte 10.4e) : de même pour les `.ogg` de `assets/musiques` et
-//!    `assets/sons`, dans `sons_embarques.rs` (le dossier est le GENRE, `musiques` ou
-//!    `sons`).
+//! 4. Les sons (carte 10.4e) : les `.wav` de `assets/musiques` et `assets/sons` ne
+//!    sont PAS embarqués (3 Mo : le wasm en serait trois fois plus lourd) ; on écrit
+//!    seulement leur LISTE, (genre, clé), dans `sons_disponibles.rs` (le dossier est
+//!    le GENRE, `musiques` ou `sons`). `./build.sh` copie les fichiers à côté du jeu
+//!    (`dist/musiques`, `dist/sons`) et le jeu les télécharge après l'écran titre.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -49,32 +51,36 @@ fn main() {
          pub const FICHIERS: &[(&str, &str, &[u8])] = &[\n",
         &sortie.join("fonds_embarques.rs"),
     );
-    // Les deux dossiers de sons, vus depuis `assets` : la famille est le genre.
-    embarquer_dossiers(
-        &manifeste.join("../assets"),
-        &["musiques", "sons"],
-        "ogg",
-        "/// Sons de `assets/musiques` et `assets/sons` : (genre, clé, octets de l'OGG),\n\
-         /// embarqués à la compilation (généré par `build.rs`).\n\
-         pub const FICHIERS: &[(&str, &str, &[u8])] = &[\n",
-        &sortie.join("sons_embarques.rs"),
+    // Les deux dossiers de sons, vus depuis `assets` : la famille est le genre. La
+    // LISTE seulement : les octets restent dans les fichiers, servis à côté du jeu.
+    let racine_sons = manifeste.join("../assets");
+    let mut sons = Vec::new();
+    for genre in ["musiques", "sons"] {
+        lister(&racine_sons, &racine_sons.join(genre), "wav", &mut sons);
+    }
+    sons.sort();
+    let mut code = String::from(
+        "/// Sons de `assets/musiques` et `assets/sons` : (genre, clé) de chaque `.wav`\n\
+         /// trouvé (généré par `build.rs`). Le fichier est servi en `<genre>/<clé>.wav`.\n\
+         pub const FICHIERS: &[(&str, &str)] = &[\n",
     );
+    for relatif in &sons {
+        let (genre, nom) = relatif.rsplit_once('/').unwrap_or(("", relatif));
+        code.push_str(&format!(
+            "    ({genre:?}, {:?}),\n",
+            nom.trim_end_matches(".wav")
+        ));
+    }
+    code.push_str("];\n");
+    fs::write(sortie.join("sons_disponibles.rs"), code).unwrap();
 }
 
 /// Écrit dans `fichier` la constante dont `entete` ouvre le tableau : une ligne
 /// (dossier, nom sans extension, `include_bytes!`) par fichier `.<ext>` trouvé sous
 /// `racine`.
 fn embarquer(racine: &Path, ext: &str, entete: &str, fichier: &Path) {
-    embarquer_dossiers(racine, &[""], ext, entete, fichier);
-}
-
-/// Comme `embarquer`, mais en ne parcourant que les `dossiers` de `racine` (le
-/// dossier vide `""` : toute la racine).
-fn embarquer_dossiers(racine: &Path, dossiers: &[&str], ext: &str, entete: &str, fichier: &Path) {
     let mut chemins = Vec::new();
-    for d in dossiers {
-        lister(racine, &racine.join(d), ext, &mut chemins);
-    }
+    lister(racine, racine, ext, &mut chemins);
     // Ordre STABLE (alphabétique) : la même arborescence donne le même code.
     chemins.sort();
     let mut code = String::from(entete);

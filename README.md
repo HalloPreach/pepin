@@ -13,14 +13,16 @@ commence par un commentaire (`//!`) qui dit ce qu'il fait et quelles notions de
 Rust il illustre. Ce README fait le tour du propriétaire ; la section
 « Les notions de Rust, avec le code réel » renvoie vers les fichiers exacts.
 
-Presque tout est dans le code : **aucun fichier son, aucune police externe**,
-les sons sont calculés au démarrage, la police est un tableau de bits. Seuls les
-sprites dessinés à la main sont des fichiers : de petits PNG à 16 couleurs dans
+Presque tout est dans le code : **aucune police externe**, la police est un
+tableau de bits. Les sprites dessinés à la main sont des fichiers : de petits PNG à 16 couleurs dans
 `assets/sprites/` (carte 10.4a, voir `assets/sprites/LISEZMOI.md`), embarqués dans
 le jeu à la compilation, comme les niveaux de `assets/levels/`. Les couches fixes
 des fonds (ciels, soleil, arc-en-ciel, arches des égouts, port) aussi : `assets/fonds/`
 (cartes 10.4c et 10.4d, voir
-`assets/fonds/LISEZMOI.md`, qui donne la pile de dessin de chaque thème).
+`assets/fonds/LISEZMOI.md`, qui donne la pile de dessin de chaque thème). Les
+musiques et les bruitages sont des WAV (`assets/musiques/`, `assets/sons/`, carte
+10.4e, voir `assets/musiques/LISEZMOI.md`), servis à côté du jeu et téléchargés
+après l'écran titre.
 
 ## Sommaire
 
@@ -278,7 +280,7 @@ Contenu de `core/src` :
   peut être terminé.
 - `palette.rs`, `font.rs` (+ `font/`) : palette de 16 couleurs, police 5x7.
 - `sons.rs` : la liste des bruitages (`Effet`), le nom de leur fichier et leur
-  volume (les sons eux-mêmes sont des fichiers OGG, carte 10.4e).
+  volume (les sons eux-mêmes sont des fichiers WAV, carte 10.4e).
 
 Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
 
@@ -293,7 +295,7 @@ Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
   cible 320x180 et l'agrandissement entier.
 - `entrees.rs`, `tactile.rs`, `navigation.rs`, `menu.rs` : entrées et menus ;
   `focus.rs` : perte de focus de la fenêtre (pause automatique).
-- `audio.rs` : joue les sons fabriqués par `core`.
+- `audio.rs` : télécharge les sons (fichiers WAV) en arrière-plan et les joue.
 
 Dans `game`, la même idée se répète à plus petite échelle : la logique (qui
 mène où, quelle ligne de menu est choisie...) est écrite en fonctions pures
@@ -417,7 +419,8 @@ Compiler ET préparer le dossier à publier (une seule commande) :
 
 `build.sh` compile en release, récupère le chargeur JavaScript de macroquad
 (`mq_js_bundle.js`, sans son plugin réseau inutile), réduit le wasm avec
-`wasm-opt -Oz`, copie la page `web/index.html` et produit le dossier `dist/`,
+`wasm-opt -Oz`, copie la page `web/index.html` et les sons (`dist/musiques`,
+`dist/sons`) et produit le dossier `dist/`,
 complet et statique. `docs/build.md` détaille chaque étape. `dist/` n'est pas
 versionné (`.gitignore`) : c'est un produit régénérable.
 
@@ -592,9 +595,13 @@ Rust n'a pas de `null` ni d'exceptions. Une valeur qui « peut manquer » est un
 
 ### Programmation asynchrone
 
-`game/src/audio.rs` : `pub async fn charger() -> Self`. Dans un navigateur, le
-chargement des sons doit pouvoir attendre ; `main` (macroquad) est `async` et
-appelle `Audio::charger().await`.
+`game/src/audio.rs` : `Chargement`. Dans un navigateur, télécharger puis décoder
+un son prend du temps ; `load_sound` de macroquad est donc une fonction `async`.
+Pour ne pas retarder l'écran titre, le jeu ne l'attend pas : chaque son part dans
+une coroutine de macroquad (`start_coroutine`), avancée à chaque image, et
+`Audio::avancer` relève, image après image, les sons arrivés (`is_done`,
+`retrieve`). `main` lui-même est `async` (macroquad) et attend `next_frame().await`
+entre deux images.
 
 ### Notions apparues avec les derniers niveaux
 
@@ -719,10 +726,12 @@ compte les couleurs distinctes d'une capture.
 ## 9. Son et tactile
 
 - **Son** (`core/src/sons.rs`, `game/src/audio.rs`, `assets/musiques`,
-  `assets/sons`) : de vrais fichiers OGG Vorbis mono à 22 050 Hz (carte 10.4e),
+  `assets/sons`) : de vrais fichiers WAV mono 16 bits à 22 050 Hz (carte 10.4e),
   rendus une fois par l'ancien synthé 8 bits (ondes carrée, triangle et bruit) :
-  douze bruitages, six musiques en boucle et le bruit de la pluie, embarqués dans
-  le jeu et décodés par le navigateur (voir `assets/musiques/LISEZMOI.md`). Le son est **coupé par défaut** (un navigateur n'autorise l'audio
+  douze bruitages, six musiques en boucle et le bruit de la pluie, servis à côté du
+  jeu (`dist/musiques`, `dist/sons`, 3,1 Mo) et téléchargés en arrière-plan après
+  l'écran titre ; un son pas encore arrivé est muet (voir
+  `assets/musiques/LISEZMOI.md`). Le son est **coupé par défaut** (un navigateur n'autorise l'audio
   qu'après une première interaction) ; la touche M ou le menu l'active.
 - **Tactile** (`game/src/tactile.rs`) : quatre boutons en pixel art, plusieurs
   doigts en même temps (courir et sauter). L'écran est jugé tactile au premier
