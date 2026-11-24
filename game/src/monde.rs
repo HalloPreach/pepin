@@ -375,7 +375,11 @@ impl Monde {
         };
         porter_par_plateformes(&mut self.joueur, &self.entites, &env);
         // 3. Le joueur bouge.
-        self.evenements = self.joueur.actualiser(entrees, &env);
+        // Avec les crochets du niveau (carte 11.1) : sans crochet, c'est
+        // exactement `actualiser`.
+        self.evenements =
+            self.joueur
+                .actualiser_avec_crochets(entrees, &env, &self.niveau.crochets);
         // 4. Contacts (+ chute dans le vide).
         let mut contacts = resoudre_contacts(&mut self.joueur, &mut self.entites);
         if !contacts.iter().any(|c| matches!(c, Contact::Mort(_))) {

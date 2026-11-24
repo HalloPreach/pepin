@@ -132,6 +132,11 @@
 //!      sol, ne bloquent rien : on passe dessous)
 //!   d  poubelle de rue (1 case)
 //!   l  banc (une rangée)
+//!   Monde 3, prototype (carte 11.1) :
+//!   y  crochet : en l'air, SAUT tenu à 2,5 cases au plus de la crosse, et
+//!      plus haut qu'elle, le parapluie s'y accroche au lieu de planer ; Pépin
+//!      se balance (GAUCHE et DROITE donnent de l'élan), SAUT lâché le lance
+//!      (voir `crate::player::Crochet`). Case libre, sans collision
 //! ```
 //!
 //! Le décor (`ObjetDecor`) ne sert qu'au dessin : ni tuile, ni entité, aucune
@@ -160,6 +165,7 @@ pub const TAILLE_AIGUILLE: (f32, f32) = ascii::TAILLE_AIGUILLE;
 use crate::aabb::{self, Aabb, Grille, TAILLE_TUILE};
 use crate::entities::{Entite, TypeEnnemi};
 use crate::physics::{CourantAscendant, Eau, VentLateral};
+use crate::player::Crochet;
 
 /// Réglage d'une aiguille d'horloge (pivot `h`). Le fichier de niveau en donne
 /// une petite table (`InfosNiveau::aiguilles`) : la 1re ligne règle le 1er `h`
@@ -396,6 +402,9 @@ pub struct Niveau {
     pub sortie_secrete: Option<Aabb>,
     /// Front de départ du mur de pluie (case `P`, carte 8.2), en px : `None` sans mur.
     pub mur_de_pluie: Option<f32>,
+    /// Crochets `y` (carte 11.1) : le point d'accroche, au milieu de la case.
+    /// Vide hors du niveau d'essai du balancement.
+    pub crochets: Vec<Crochet>,
 }
 
 /// Zone cachée (carte 8.5) : des faux murs `m` d'un seul tenant, et les cases

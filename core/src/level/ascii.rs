@@ -23,6 +23,7 @@ use crate::entities::{
     PlateformeMobile, Pointe, Stalactite, TypeEnnemi, Ventilateur,
 };
 use crate::physics::{CourantAscendant, Eau, Environnement, VentLateral, JOUEUR_H};
+use crate::player::Crochet;
 
 /// Vitesse (px/s) des plateformes mobiles.
 pub(super) const VITESSE_MOBILE: f32 = 36.0;
@@ -132,6 +133,8 @@ pub(super) fn analyser(
     let mut marees = vec![false; largeur * hauteur];
     let mut nenuphars: Vec<Case> = Vec::new();
     let mut stalactites: Vec<Case> = Vec::new();
+    // Crochets du balancement (carte 11.1) : un point au milieu de la case.
+    let mut crochets: Vec<Crochet> = Vec::new();
 
     for (ty, ligne) in lignes.iter().enumerate() {
         for (tx, c) in ligne.chars().enumerate() {
@@ -205,6 +208,10 @@ pub(super) fn analyser(
                 '=' => marees[ty * largeur + tx] = true,
                 'n' => nenuphars.push(case),
                 'V' => stalactites.push(case),
+                'y' => crochets.push(Crochet {
+                    x: x + TAILLE_TUILE / 2.0,
+                    y: y + TAILLE_TUILE / 2.0,
+                }),
                 // Eau (carte 9.2) : `~` calme, `{` courant vers la gauche, `}`
                 // vers la droite. La tuile n'est PAS solide : le moteur de
                 // collision ne la voit pas, seule la surface compte (le haut de
@@ -638,6 +645,7 @@ pub(super) fn analyser(
                 })
             }
         },
+        crochets,
     };
     // Aiguilles d'horloge : en DERNIER, une fois le niveau assemblé, pour vérifier
     // leur cercle contre ses tuiles (`touche_un_obstacle` sur le niveau lui-même).
