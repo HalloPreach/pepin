@@ -1774,9 +1774,10 @@ pub enum Couche {
     /// Les silhouettes semées au hasard (immeubles, pics, bancs de nuages).
     Lointaine,
     Proche,
-    /// Un fond entièrement à part, encore dessiné par son propre module (Monde 2).
-    FondDesEgouts,
-    FondDuPort,
+    /// Un plan du fond des égouts (carte 10.4d), dessiné par `fond_egouts`.
+    Egouts(crate::fond_egouts::Plan),
+    /// Un plan du fond du port (carte 10.4d), dessiné par `decor_port`.
+    Port(crate::decor_port::Plan),
     /// Le niveau lui-même (tuiles, entités, décors posés d'après la grille).
     Niveau,
     /// La pluie, devant tout (ou la bruine du port).
@@ -1794,6 +1795,8 @@ impl Couche {
             Couche::CielDuVoyage => "descente/voyage.png".into(),
             Couche::Soleil => "soleil/soleil.png".into(),
             Couche::Arc => "arc_en_ciel/arc.png".into(),
+            Couche::Egouts(p) => format!("egouts/{}.png", p.fichier()?),
+            Couche::Port(p) => format!("port/{}.png", p.fichier()?),
             _ => return None,
         })
     }
@@ -1813,8 +1816,10 @@ impl Couche {
             Couche::Ilots => "îlots CALCULÉ".into(),
             Couche::Lointaine => "silhouettes lointaines CALCULÉ".into(),
             Couche::Proche => "silhouettes proches CALCULÉ".into(),
-            Couche::FondDesEgouts => "fond des égouts CALCULÉ".into(),
-            Couche::FondDuPort => "fond du port CALCULÉ".into(),
+            Couche::Egouts(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Egouts(p) => format!("{} CALCULÉ", p.nom()),
+            Couche::Port(p) if p.fichier().is_some() => png(p.nom()),
+            Couche::Port(p) => format!("{} CALCULÉ", p.nom()),
             Couche::Niveau => "NIVEAU".into(),
             Couche::Pluie => "pluie CALCULÉ".into(),
             Couche::Bruine => "bruine CALCULÉ".into(),
@@ -1835,10 +1840,10 @@ pub fn pile(theme: Theme) -> Vec<Couche> {
     };
     if theme == Theme::Egouts {
         // Carte 9.27b : les égouts ont leur propre fond, un collecteur.
-        p.push(Couche::FondDesEgouts);
+        p.extend(crate::fond_egouts::PILE.map(Couche::Egouts));
     } else if theme == Theme::Port {
         // Le port a son propre fond (carte 9.11b) : `decor_port`.
-        p.push(Couche::FondDuPort);
+        p.extend(crate::decor_port::PILE.map(Couche::Port));
     } else if a.voyage {
         // La descente : tout défile de la même remontée.
         p.extend([Couche::CielDuVoyage, Couche::Soleil, Couche::Ilots]);
@@ -1897,8 +1902,8 @@ fn dessiner_couche_de_pile(c: Couche, a: &Ambiance, cam_x: i32, cam_y: i32, pas:
     // La descente : la remontée du voyage (0 en bas du niveau).
     let r = remontee_voyage(cam_y);
     match c {
-        Couche::FondDesEgouts => crate::fond_egouts::dessiner(cam_x, cam_y, pas),
-        Couche::FondDuPort => crate::decor_port::dessiner_fond(cam_x, cam_y, pas, true),
+        Couche::Egouts(p) => crate::fond_egouts::dessiner_plan(p, cam_x, cam_y, pas),
+        Couche::Port(p) => crate::decor_port::dessiner_plan(p, cam_x, cam_y, pas, true),
         Couche::Ciel(dossier) => crate::fonds::repeter(dossier, "ciel", 0, 0, L),
         // Le ciel du voyage : la colonne de `voyage.png`, répétée sur la largeur, son
         // haut (la 1re bande) remonté de `r`.
@@ -2324,6 +2329,15 @@ mod tests {
                 "voyage" => (1, NB_BANDES_VOYAGE as i32 * H / 4),
                 "soleil" => (45, 45),
                 "arc" => (300, 150),
+                // Carte 10.4d : les colonnes du mur des égouts, du crépuscule et
+                // de la mer du port ; une arche (une période) ; le port d'en face
+                // et les pontons, une période de 640 px chacun.
+                "mur" => (1, H),
+                "arches" => (112, 88),
+                "crepuscule" => (1, 56),
+                "mer" => (1, H - 56),
+                "port_d_en_face" => (640, 60),
+                "pontons" => (640, 92),
                 _ => panic!("{f} : couche inconnue"),
             };
             assert_eq!(crate::fonds::taille(d, n), attendue, "{f}");
