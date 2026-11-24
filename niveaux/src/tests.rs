@@ -392,3 +392,40 @@ fn legende_json_contient_lettres_themes_et_genres() {
     }
     assert!(texte.contains("\"genres\": [\"Normal\", \"Bonus\", \"Epilogue\"]"));
 }
+
+/// Carte 10.4b : chaque vignette de la légende est un VRAI sprite (un fichier
+/// `assets/sprites/<famille>/<clé>.png`, trouvé dans la table écrite par
+/// `build.rs`), chaque lettre a au plus une vignette et elle appartient à la
+/// légende ; `legende.json` donne le chemin et l'ancrage de chacune.
+#[test]
+fn chaque_vignette_est_un_vrai_sprite() {
+    use crate::legende::{vignette, LETTRES, VIGNETTES};
+    let racine = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/sprites");
+    let json = crate::legende::legende_json();
+    let mut vues = Vec::new();
+    for &(c, cle, ancre) in VIGNETTES {
+        assert!(!vues.contains(&c), "« {c} » a deux vignettes");
+        vues.push(c);
+        assert!(
+            LETTRES.iter().any(|l| l.lettre == c),
+            "« {c} » n'est pas une lettre"
+        );
+        let (chemin, a) =
+            vignette(c).unwrap_or_else(|| panic!("« {c} » : pas de fichier {cle}.png"));
+        assert_eq!(a, ancre);
+        assert!(chemin.ends_with(&format!("/{cle}")), "{chemin}");
+        assert!(
+            racine.join(format!("{chemin}.png")).is_file(),
+            "{chemin}.png absent"
+        );
+        assert!(
+            json.contains(&format!("\"sprite\": \"{chemin}\"")),
+            "{chemin} dans le JSON"
+        );
+    }
+    // Les tuiles du thème gardent leur case colorée.
+    assert!(vignette('#').is_none() && vignette('~').is_none());
+    assert!(json.contains("\"sprite\": null, \"ancre\": null"));
+    // La table des sprites est bien celle des fichiers (335 au moment de la 10.4a).
+    assert!(crate::SPRITES.len() >= 300, "{}", crate::SPRITES.len());
+}

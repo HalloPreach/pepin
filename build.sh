@@ -118,6 +118,8 @@ cp web/index.html "$DIST/index.html"
 # Carte 10.3a : l'éditeur de niveaux (editeur/) n'existe QUE dans le build de QA
 # (site de test). Il y trouve `legende.json` (les lettres de la grille, écrites par
 # le crate `niveaux` : la seule source) et une copie des `.ron` dans `niveaux/`.
+# Carte 10.4b : et les PNG des vignettes de la palette, copiés de `assets/sprites`
+# dans `sprites/<famille>/<clé>.png` (`--bin editeur`, d'après `legende.json`).
 if [ "$DIST" = "dist-qa" ]; then
   cp editeur/editeur.html "$DIST/editeur.html"
   mkdir -p "$DIST/editeur"
@@ -136,7 +138,7 @@ if [ "$DIST" = "dist-qa" ]; then
 fi
 # Le jeu publié ne contient JAMAIS l'éditeur ni ses données.
 if [ "$DIST" = "dist" ]; then
-  for f in editeur.html editeur legende.json niveaux robot.wasm; do
+  for f in editeur.html editeur legende.json niveaux robot.wasm sprites; do
     [ ! -e "$DIST/$f" ] || { echo "ERREUR : $DIST/$f présent : l'éditeur ne va jamais en prod" >&2; exit 1; }
   done
   echo "éditeur absent de dist/ : OK"

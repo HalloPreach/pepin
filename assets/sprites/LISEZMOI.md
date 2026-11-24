@@ -61,6 +61,20 @@ montre donc que de vrais changements de dessin.
 L'outil (et son encodeur PNG, crate `png`) vit dans le crate `outils`, jamais dans le
 jeu : le jeu ne fait que DÉCODER, avec le décodeur que macroquad embarque déjà.
 
+## Dans l'éditeur de niveaux
+
+L'éditeur (`editeur.html`, build de QA seulement) montre, dans sa palette et dans la
+grille, la VIGNETTE du vrai sprite de chaque lettre qui en a un (première image de
+l'animation, ancrée comme dans le jeu), à la place de la case colorée. Le lien
+lettre → sprite est la table `VIGNETTES` de `niveaux/src/legende.rs` (une CLÉ par
+lettre) ; la famille, donc le chemin du fichier, vient de la liste des PNG faite par
+`niveaux/build.rs`, et `legende.json` le donne à l'éditeur (champs `sprite` et
+`ancre`). `./build.sh --qa` copie ces PNG dans `dist-qa/sprites/`. Renommer un sprite
+d'une lettre sans mettre la table à jour fait échouer le test
+`chaque_vignette_est_un_vrai_sprite`. Les tuiles (dessinées par thème, bords
+calculés) et les zones gardent leur case colorée ; le bouton « vignettes / cases »
+(touche V) revient aux cases pour toute la grille.
+
 ## Vérifier
 
 - `cargo test -p game --no-default-features sprites::` : chaque PNG se décode, aucun

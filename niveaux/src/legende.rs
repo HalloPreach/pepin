@@ -345,6 +345,116 @@ pub const LETTRES: &[Lettre] = &[
     ),
 ];
 
+/// Où l'éditeur pose la vignette d'un sprite par rapport à la place de sa lettre
+/// (carte 10.4b), comme le jeu le dessine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ancre {
+    /// Centrée en largeur, posée sur le BAS de la place : ennemis, décors (la règle
+    /// `coin_decor` du jeu), drapeau, montgolfière...
+    Bas,
+    /// Centrée en largeur, accrochée au HAUT de la case : la stalactite.
+    Haut,
+    /// Coin haut-gauche sur celui de la case : les plateformes (friable, mobile,
+    /// nénuphar), qui partent de leur case vers la droite.
+    Plateforme,
+    /// Centrée sur la case : petits objets qui flottent (goutte, lettre, bulles),
+    /// cadran d'horloge autour de son pivot.
+    Centre,
+}
+
+impl Ancre {
+    /// Nom écrit dans `legende.json`.
+    pub fn nom(self) -> &'static str {
+        match self {
+            Ancre::Bas => "bas",
+            Ancre::Haut => "haut",
+            Ancre::Plateforme => "plateforme",
+            Ancre::Centre => "centre",
+        }
+    }
+}
+
+/// La VIGNETTE de chaque lettre qui a un vrai sprite (carte 10.4b) : la lettre, la
+/// CLÉ du sprite (le nom que le jeu demande, `assets/sprites/<famille>/<clé>.png` :
+/// la famille est retrouvée dans la table des sprites, `crate::SPRITES`, écrite
+/// d'après les fichiers) et son ancrage. On prend la première image de
+/// l'animation, celle du repos.
+///
+/// Une lettre ABSENTE d'ici garde sa case colorée dans l'éditeur : les tuiles
+/// (dessinées par thème, avec leurs bords calculés d'après les voisines), les zones
+/// (vent, courant, pluie, marée...), le mobilier de rue dessiné par code, et les
+/// repères du boss sans dessin propre. Le test
+/// `chaque_vignette_est_un_vrai_sprite` vérifie que chaque clé a son fichier.
+pub const VIGNETTES: &[(char, &str, Ancre)] = &[
+    // Tuile dessinée par un sprite à elle (et non par le jeu de tuiles du thème).
+    ('F', "friable0", Ancre::Plateforme),
+    // Repères.
+    ('@', "pepin_idle0", Ancre::Bas),
+    ('X', "drapeau0", Ancre::Bas),
+    // Collectibles.
+    ('o', "goutte0", Ancre::Centre),
+    ('*', "lettre_p", Ancre::Centre),
+    ('L', "lanterne0", Ancre::Bas),
+    // Ennemis.
+    ('f', "flaque0", Ancre::Bas),
+    ('c', "corbeau0", Ancre::Bas),
+    ('s', "escargot0", Ancre::Bas),
+    ('p', "pigeon0", Ancre::Bas),
+    ('z', "chat_dort0", Ancre::Bas),
+    ('j', "grenouille0", Ancre::Bas),
+    ('i', "poisson0", Ancre::Bas),
+    ('k', "crabe0", Ancre::Bas),
+    ('r', "rat0", Ancre::Bas),
+    ('u', "mouette0", Ancre::Bas),
+    ('V', "stalactite", Ancre::Haut),
+    // Objets et mécanismes.
+    ('^', "pointe", Ancre::Bas),
+    ('M', "champignon0", Ancre::Bas),
+    ('A', "auvent0", Ancre::Bas),
+    ('g', "grele_nuage0", Ancre::Centre),
+    ('w', "ventilateur_souffle", Ancre::Bas),
+    ('b', "montgolfiere_repos", Ancre::Bas),
+    ('h', "cadran", Ancre::Centre),
+    ('1', "mobile", Ancre::Plateforme),
+    ('2', "mobile", Ancre::Plateforme),
+    ('3', "mobile", Ancre::Plateforme),
+    ('4', "mobile", Ancre::Plateforme),
+    ('5', "mobile", Ancre::Plateforme),
+    ('6', "mobile", Ancre::Plateforme),
+    ('7', "mobile", Ancre::Plateforme),
+    ('9', "mobile", Ancre::Plateforme),
+    ('Y', "bulle0", Ancre::Centre),
+    ('n', "nenuphar", Ancre::Plateforme),
+    ('|', "chute0", Ancre::Bas),
+    // Boss.
+    ('O', "nuage_colere0", Ancre::Bas),
+    ('8', "pieuvre_colere0", Ancre::Bas),
+    // Panneaux et décor.
+    ('D', "panneau_deplacer", Ancre::Bas),
+    ('S', "panneau_sauter", Ancre::Bas),
+    ('G', "panneau_planer", Ancre::Bas),
+    ('C', "panneau_champignon", Ancre::Bas),
+    ('W', "panneau_vent", Ancre::Bas),
+    ('Z', "panneau_barque", Ancre::Bas),
+    ('H', "cheminee", Ancre::Bas),
+    ('T', "antenne", Ancre::Bas),
+    ('R', "paratonnerre", Ancre::Bas),
+    ('Q', "manche_a_air", Ancre::Bas),
+    ('K', "oiseau0", Ancre::Bas),
+    ('E', "bouche_egout", Ancre::Bas),
+    ('I', "borne", Ancre::Bas),
+    ('U', "poubelle", Ancre::Bas),
+];
+
+/// Le sprite de la lettre `c` : son chemin `famille/clé` sous `assets/sprites`
+/// (sans `.png`) et son ancrage, ou `None` (case colorée). La famille vient de la
+/// table des sprites : une clé sans fichier donne `None` (et fait échouer le test).
+pub fn vignette(c: char) -> Option<(String, Ancre)> {
+    let &(_, cle, ancre) = VIGNETTES.iter().find(|(l, _, _)| *l == c)?;
+    let &(famille, _) = crate::SPRITES.iter().find(|(_, k)| *k == cle)?;
+    Some((format!("{famille}/{cle}"), ancre))
+}
+
 /// Les noms des genres de niveau, tels qu'on les écrit dans un `.ron`.
 const GENRES: [GenreFichier; 3] = [
     GenreFichier::Normal,
@@ -367,10 +477,16 @@ pub fn legende_json() -> String {
             Nombre::AuPlus(n) => (n.to_string(), "null".to_string()),
             Nombre::Exactement(n) => ("null".to_string(), n.to_string()),
         };
+        // Carte 10.4b : la vignette (`null` : la case colorée reste).
+        let (sprite, ancre) = match vignette(x.lettre) {
+            Some((chemin, ancre)) => (json(&chemin), json(ancre.nom())),
+            None => ("null".to_string(), "null".to_string()),
+        };
         s.push_str(&format!(
             "    {{\"lettre\": {}, \"nom\": {}, \"categorie\": {}, \"solide\": {}, \
              \"appui\": {}, \"largeur\": {}, \"hauteur\": {}, \
-             \"au_plus\": {au_plus}, \"exactement\": {exactement}, \"couleur\": {}}}{}\n",
+             \"au_plus\": {au_plus}, \"exactement\": {exactement}, \"couleur\": {}, \
+             \"sprite\": {sprite}, \"ancre\": {ancre}}}{}\n",
             json(&x.lettre.to_string()),
             json(x.nom),
             json(x.categorie.nom()),
