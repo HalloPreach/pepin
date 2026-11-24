@@ -7454,3 +7454,34 @@ Liste reprise de la 2e étape (`t_be104fce`) et rendue finale :
 - Démarrage (`node docs/mesure-demarrage.mjs PORT 5`, navigateur neuf, deux séries alternées avant / après, machine à une charge de 50 à 68 : mesures très bruitées) : premier dessin, médianes : série 1, avant 1 333 ms, après 1 330 ms ; série 2, avant 876 ms, après 655 ms. Avant, les 19 sons étaient décodés à 1,6 s à 2,6 s ; après, aucun son n'est téléchargé tant que le son est coupé. Le titre n'apparaît pas plus tard ; il n'a plus 3 Mo de sons en concurrence sur le réseau.
 - Captures (build de QA copié AVANT toute modification de cette carte, `fbd5f8c`, puis celui de la fin, servis côte à côte, `docs/capture-104d.sh` et `docs/capture-104f.sh`, `comparer-captures.py` par paires), deux passages de chaque build, machine à une charge de 40 à 68 : 48 images (départ et milieu des 7 niveaux du Monde 2, Pieuvre 300 et 900 images plus tard, montée à deux hauteurs, rue x 8, cascade x 6, grotte x 6, rivière x 8 ; le port montre le phare et les cargos, désormais en PNG). 1er passage d'avant contre 2e passage d'après : 48/48 IDENTIQUES au pixel. Les autres croisements ont 2 ou 3 images différentes (rivière 1 et 2 ; montée haute b), mais des écarts du même genre apparaissent entre deux passages du MÊME build (avant contre avant : rivière 1 et 2 ; après contre après : rivière 1, 2 et montée haute b) : c'est Pépin (une autre image de son animation) et les lucioles, le pilote n'étant pas parfaitement déterministe sous forte charge (déjà noté à la 2e étape), pas le fond. Aucune image d'après qui ne soit identique à une image d'avant.
 - Rien de personnel dans le dépôt : ni nom, ni chemin `/home`, ni IP dans le diff, `assets/`, `dist/` et `dist-qa/` (vérifié par `grep`).
+
+## Carte 10.7 : le robot de QA de PARTIE joue la phase 2 de la Pieuvre (le test de lot rouge de la 10.5 redevient VERT)
+
+Worktree `carte-10.7`, depuis monde-2 `dd45fb2`. Rien du jeu, du niveau ni de la Pieuvre ne change : seulement le robot de QA (`game/src/bot_qa/`, compilé pour les tests seulement).
+
+### Pourquoi le robot échouait au niveau 19 (la vraie Pieuvre, n°7 du Monde 2)
+
+`trouver_parcours` cherche d'un seul tenant un plus court chemin de CASES jusqu'à l'arrivée (`chercher_avec`), puis, en repli au dernier essai, point par point (`parcours_du_boss_par_points`). Deux raisons, l'une derrière l'autre :
+1. Recherche d'un seul tenant : après le dernier coup de la phase 1, la montée (plus de 60 s ; la mer, l'humeur, l'attaque en cours et la graine du cerveau ne sont pas dans la case) multiplie les états sans fin (diagnostic déjà fait à la 9.13g, tête de `pilote_pieuvre.rs`).
+2. Repli point par point : son but était « les points de vie baissent ». Or le dernier coup de la phase 1 d'une Pieuvre à tour ne les fait PAS baisser : `toucher` les met à 0, puis `commencer_la_fuite` -> `remettre_la_tour` les remet aussitôt à `pv_de_la_fuite` (3), dans le même appel. Ce coup n'était donc jamais reconnu comme un point, et la recherche continuait dans la phase 2, où elle ne finit pas non plus.
+
+### Ce qui change (le robot seulement)
+
+- `parcours.rs`, `trouver_parcours_mode` : une Pieuvre À TOUR (`pilote_pieuvre::a_une_phase_2` : sa trombe existe, donc bâche et vigie) va tout de suite au point par point, robot maladroit compris (`parcours_du_boss_par_points` reçoit maintenant `precis`). Le Grand Nuage et la Pieuvre d'essai gardent exactement leur chemin d'avant (repli au dernier essai, plans précis).
+- `parcours_du_boss_par_points` : un point compte aussi quand la phase 2 commence (`pilote_pieuvre::en_phase_2` : en fuite, furie ou montée), et la boucle des points s'arrête là. Puis le PILOTE de la 9.13g joue la phase 2 : `pilote_pieuvre::jouer` appelé tel quel (ni recopié ni modifié ; `executer` rend le plan tel quel, comme `le_pilote_finit_la_phase_2`), depuis la vraie partie, dans l'arène juste après le dernier coup (la trombe l'emmène dans la tour), jusqu'à la plongée. Chaque pas qu'il joue est noté (`avant_chaque_pas`) puis rejoué sur le monde du robot ; le parcours est refusé si le pilote n'a pas gagné, s'il est mort une seule fois, ou si le rejeu meurt. Ensuite, comme avant : la plongée, puis l'arrivée admise (`gouttes_avant_la_victoire`).
+- `pilote_pieuvre.rs` : deux petites fonctions ouvertes au module, `a_une_phase_2` et `en_phase_2` (lecture seule de l'état de la Pieuvre).
+- `empreinte_du_code` (mémoire des parcours) lit aussi `pilote_pieuvre.rs` : un pilote modifié refait la recherche. Ce changement-ci (parcours.rs modifié) invalide de toute façon toute la mémoire : le prochain `lot` refait toutes les recherches une fois.
+
+### Preuves
+
+- `./docker-cargo.sh lint` : FMT-OK puis LINT-OK.
+- `./docker-cargo.sh carte pieuvre robot` : VERT, 118 s en tout. core-rapides 314 ok, game-rapides 424 ok, niveaux-rapides 16 ok, tous-rapides 89 ok, `faisabilite::le_niveau_de_la_carte` ok (23,5 s), `bot_qa::tests::le_robot_finit_le_niveau_de_la_carte` (CLE=pieuvre : phase 1 puis phase 2, rejouées dans la vraie simulation, aucune mort, arrivée atteinte) ok en 87,2 s.
+- `le_robot_finit_le_monde_2_sans_mourir` (profil `tests-rapides` comme le lot, SANS mémoire des parcours, sous `lourd.sh`) : VERT en 1 221 s (20 min 21 s). Niveaux [1, 2, 3, 4, 5, 6, 7], 0 mort (assertion du test), 23 665 images, chrono 23 016 pas, 9 gouttes, empreinte `5b8fb62a1da726a0`. Lancé juste avant un seul changement de mise en forme demandé par `cargo fmt` (une ligne `while let` jointe, parcours.rs) : mêmes instructions, mêmes décisions.
+- `game.wasm` (build de prod, `./build.sh`) AVANT (extraction propre `git archive dd45fb2`) et APRÈS : 1 069 153 octets, sha256 `ad2c65e5ef1bdd37ba251306e223743187f718576c2adcf406ec8885081eabe3`, IDENTIQUES. Attendu : `bot_qa` est `#[cfg(test)]` (`game/src/main.rs`), rien n'entre dans le jeu publié.
+- Aucune capture : le jeu ne change pas.
+
+### PAS fait, PAS testé
+
+- La partie COMPLÈTE du Monde 2 (`tous_les_parcours_complets_du_monde(2)`, tests ignorés d'écriture de scripts `ecrire_script_monde_2_96` et `captures_99`, PAS au lot) : `parcours_complet_par_etapes` cherche encore l'arrivée d'un seul tenant après les gouttes, donc dans la phase 2 de la vraie Pieuvre ; son repli (`trouver_parcours`) est maintenant bon, mais la recherche par étapes qui passe d'abord peut ne pas finir. Non lancé ; à traiter si ces scripts resservent (le même aiguillage `a_une_phase_2` vers `trouver_parcours` suffirait, la Pieuvre n'ayant pas de lettre).
+- Le `lot` complet n'est pas relancé ici (le coordinateur le lance) : seulement le test rouge de la 10.5 et `carte pieuvre robot`.
+- Mode facile et nouvelle partie + de la vraie Pieuvre par le robot de partie : non demandés, non testés (le pilote, lui, gagne en facile depuis la 9.13g).
