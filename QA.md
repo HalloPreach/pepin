@@ -7634,6 +7634,7 @@ ARRÊT (règle de la carte : « si le code doit changer, s'arrêter et dire pour
 - Cause : le fond du chapitre 2 de la carte des niveaux (`bandes_chapitre_2`, `game/src/ecrans/fond_plan.rs:465`) centre chaque bande de décor sur la MOYENNE des étapes de son thème, et la bande du port s'arrête 22 px (`AU_DESSUS_DU_PORT`) au-dessus de ce centre. Avec trois niveaux dans la bande du port (port, marée, Pieuvre : thèmes `Port` ou `Maree`, tous deux dans `Bande::Port`), le centre descend d'une étape (44 px) et l'étape de la Pieuvre tombe dans la bande de la mer. Aucun thème ne passe : calcul fait pour les 7 thèmes du Monde 2 (copie en Python de `Geometrie::new` et de `bandes_chapitre_2`) : chacun rend le test rouge (un thème d'une autre bande casse l'ordre des bandes). Ce n'est donc pas une donnée du niveau : « ajouter un niveau = ajouter un fichier » ne tient pas quand un chapitre a plus de deux niveaux d'un même thème.
 - Correctif proposé (carte de code, petite) : borner chaque bande par les étapes EXTRÊMES de son thème (haut = étape la plus haute - `AU_DESSUS_DU_PORT`, et les limites entre bandes au milieu de deux étapes voisines de thèmes différents) au lieu de la moyenne. Puis relancer `carte maree` (rien d'autre à refaire : le niveau, la mesure, le robot et les captures ne dépendent pas de ce dessin).
 - Commité : tout le reste (niveau, Pieuvre 8e, test de sauvegarde, script et gestes, captures, ce rapport).
+- RÉSOLU par la carte 9.32b (plus bas) : `bandes_chapitre_2` accepte N niveaux par thème ; le test est vert.
 
 Journal de l'éditeur (tout ce qui a été fait hors de l'éditeur, ou qui a gêné ; la liste des corrections avant le Monde 3) :
 1. (1er arrêt, résolu par la carte 11.3) L'astuce d'intro d'un niveau hors Monde 1 était écrite en Rust (`INTROS_MONDE_2`) et l'éditeur ne la voyait pas. Depuis la 11.3, `intro_texte` et `intro_astuce` se saisissent dans l'éditeur, avec l'aperçu des lignes : ça a marché du premier coup.
@@ -7649,3 +7650,23 @@ Journal de l'éditeur (tout ce qui a été fait hors de l'éditeur, ou qui a gê
 11. Hors éditeur, normal : `./build.sh --qa` (le build de QA à servir), un serveur local, `carte`, le robot de QA et la mesure en ligne de commande.
 
 Pas testé : joueur humain, téléphone ; le lot complet (`./docker-cargo.sh lot`) ; la carte des niveaux à l'écran (test rouge seulement).
+
+## Carte 9.32b : la carte des niveaux accepte plusieurs niveaux du même thème (levée du 2e arrêt de la 9.32)
+
+Fait :
+- `game/src/ecrans/fond_plan.rs`, `bandes_chapitre_2` : la règle pour N niveaux par thème (écrite dans le commentaire de la fonction).
+  1. Le centre d'une bande reste la moyenne de ses étapes. Une bande sans niveau se place entre les étapes les plus PROCHES de ses voisines (avant : entre leurs centres), ou, au bout, à des demi-écarts de l'étape la plus proche.
+  2. La limite entre deux bandes voisines reste le milieu de leurs centres, puis elle est poussée pour laisser `MARGE_ETAPE` (11 px, un quart d'écart) entre elle et les étapes des DEUX bandes ; la bande du dessous l'emporte si les deux ne tiennent pas.
+  3. Le haut de la dernière bande (le port) reste `AU_DESSUS_DU_PORT` (22 px) au-dessus de son centre, mais jamais sous sa plus haute étape : la Pieuvre se tient sur la ligne de la mer, comme avant la marée (avec 2 niveaux au port, les deux valeurs sont égales : rien ne bouge).
+- Le Monde 2 d'aujourd'hui (8 niveaux, port + marée + Pieuvre au port) : étapes du port à 158, 114 et 70 ; rivière/port à 169 (milieu des centres 158, poussé à 158 + 11) ; haut du port à 70 (au lieu de 92 : la Pieuvre, à 70, était dans la mer) ; la mer de 0 à 70.
+- Test nouveau `trois_niveaux_d_un_meme_theme_puis_un_autre` (même fichier) : quatre mondes d'essai (3 caniveaux puis égouts ; 3 grottes puis port, la rivière vide entre les deux ; 3 rivières puis port ; rivière, port, marée, port). Chaque étape est dans la bande de son thème, à 11 px au moins de chaque limite (sauf la plus haute du port, sur la ligne de la mer), les bandes se touchent, couvrent la carte, aucune n'est à l'envers. Les tests d'avant (`les_bandes_du_chapitre_2_suivent_les_niveaux`, `le_faux_monde_3_a_un_fond_de_carte`, `aucun_theme_du_monde_1_n_a_de_bande`) n'ont pas changé.
+- `docs/capture-932b.sh` (nouveau) : la carte des niveaux du build de QA (tout ouverte), une capture à l'ouverture (la Pieuvre) puis après chaque Bas, 23 en tout, du haut du chapitre 2 aux toits du chapitre 1 (pilote de `capture-102.mjs`).
+
+Vérifié :
+- `lourd.sh ./docker-cargo.sh carte maree` : VERT (core 324, game 436 rapides dont `les_bandes_du_chapitre_2_suivent_les_niveaux` et le test nouveau, niveaux 18, `tous` 90 + `faisabilite::le_niveau_de_la_carte`). `carte pieuvre` : VERT, mêmes comptes.
+- `lourd.sh ./docker-cargo.sh lint` : FMT-OK, LINT-OK (clippy natif, wasm32 et fonctionnalités de QA).
+- Captures (`docs/capture-932b.sh`, Chromium 1208 sans écran, 0 erreur de console sur les quatre passages), quatre builds de QA construits à part (`git archive`) :
+  - Avant la marée (`c4cc6a2`, 7 niveaux au chapitre 2) contre le même avec le nouveau `fond_plan.rs` : 23/23 IDENTIQUES au pixel (`comparer-captures.py`). La règle ne change rien aux cartes d'avant (Monde 1 et Monde 2 à 7 niveaux).
+  - Avec la marée (`8da5621`) contre le même avec le correctif : 17/23 identiques (les égouts, le caniveau et tout le chapitre 1) ; les 6 différentes sont les vues du haut du chapitre 2 (Pieuvre, marée, port, rivière, grotte, cascade), là où la bande du port grandit et celle de la mer recule. Regardées : avant (`docs/qa/932b-carte-pieuvre-avant.png`), la Pieuvre est sous le soleil levant, en pleine mer, le port écrasé sous elle ; après (`932b-carte-pieuvre-apres.png`), elle est à la même place que la Pieuvre d'avant la marée (sur la ligne de la mer, sous l'horizon), la marée dans l'eau du port au-dessus de la grue. `932b-carte-port-avant/apres.png` : le port sur son quai, la marée au-dessus, plus de soleil coupé en haut de la vue.
+
+Pas testé : le lot complet (`./docker-cargo.sh lot`) ; téléphone ; joueur humain. Rien d'autre à refaire pour la marée (le niveau, la mesure, le robot et les captures de la 9.32 ne dépendent pas de ce dessin).
