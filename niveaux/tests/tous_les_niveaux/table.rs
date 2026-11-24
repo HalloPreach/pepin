@@ -61,6 +61,7 @@ fn tous_les_niveaux_se_chargent() {
         par_cle("essai_eau2"),
         par_cle("essai_ennemis_eau"),
         par_cle("essai_pieuvre"),
+        par_cle("essai_balancement"),
     ]) {
         let niv = n
             .charger()

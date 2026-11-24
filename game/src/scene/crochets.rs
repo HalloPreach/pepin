@@ -9,7 +9,7 @@
 //! accumulée le demande, d'un pixel sur l'autre), d'une couleur de la palette :
 //! aucun trait lissé, aucune transparence.
 
-use pepin_core::palette::{Couleur, ARDOISE_OMBRE};
+use pepin_core::palette::{Couleur, BRUME};
 use pepin_core::physics::JOUEUR_L;
 use pepin_core::player::HAUTEUR_CROSSE;
 
@@ -19,8 +19,9 @@ use crate::sprites::Banque;
 
 /// Taille du dessin d'un crochet (px) : le point d'accroche est en son milieu.
 const TAILLE_CROCHET: (i32, i32) = (10, 8);
-/// Couleur de la corde : l'ombre de contour, lisible sur tous les ciels clairs.
-const COULEUR_CORDE: Couleur = ARDOISE_OMBRE;
+/// Couleur de la corde : la brume, claire, lisible sur les ciels de nuit (le
+/// contour sombre s'y perdait, première capture de la carte).
+const COULEUR_CORDE: Couleur = BRUME;
 
 /// Les pixels d'une ligne de `a` à `b` (extrémités comprises), sans trou ni
 /// doublon. Fonction pure (testée sans fenêtre).

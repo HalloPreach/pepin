@@ -1,0 +1,52 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+//
+// Niveau d'essai « balancement » (carte 11.1) : le PROTOTYPE du geste du Monde 3,
+// se balancer au parapluie. Fait à l'éditeur (docs/capture-111.mjs le construit
+// à la souris) ; seuls ces commentaires ont été ajoutés à la main. Hors de la table
+// `NIVEAUX`, il n'existe QUE dans les tests et dans le build de QA (touche C).
+//
+// Un crochet `y` : en l'air, SAUT tenu près de lui (2,5 cases de la crosse, plus
+// haut qu'elle), le parapluie s'y accroche au lieu de planer. GAUCHE et DROITE
+// donnent de l'élan, SAUT lâché lance Pépin (+10 %), il peut planer aussitôt.
+//
+// 104 x 14 tuiles, sol dessus à la rangée 12 (y = 192). Les cinq situations :
+// 1. un crochet au-dessus du sol (10, 7) ; goutte en l'air (12, 8) ;
+// 2. un crochet au-dessus d'un trou (23, 7), trou des colonnes 18 à 28 ;
+// 3. deux crochets enchaînés (41, 7) et (47, 7), trou des colonnes 37 à 52 ;
+//    goutte au plus bas du 2e balancement (47, 10) ;
+// 4. trois crochets en montée (63, 7), (67, 5), (71, 3), jusqu'à la corniche
+//    (colonnes 74 à 79, dessus à la rangée 5, y = 80 : 112 px au-dessus du sol,
+//    hors de portée d'un saut) ; goutte sur la corniche (77, 4) ;
+// 5. un lâcher suivi d'un plané : le crochet (81, 3) au bord de la corniche,
+//    puis le long trou (colonnes 80 à 95) jusqu'au drapeau (100, 11).
+// Lanternes : (3, 11), (30, 11), (54, 11), (75, 4).
+(
+    monde: 1,
+    numero: 0,
+    cle: "essai_balancement",
+    nom: "Essai balancement",
+    theme: Toits,
+    genre: Normal,
+    sans_planer: false,
+    duree_cible_s: 60,
+    intro: "Saute, tiens SAUT près d'un crochet : ton parapluie s'y accroche.",
+    mecanique: "Se balancer au crochet, prendre de l'élan, lâcher et planer.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+........................................................................................................
+........................................................................................................
+........................................................................................................
+.......................................................................y.........y......................
+...........................................................................L.o..........................
+...................................................................y......######........................
+..........................................................................######........................
+..........y............y.................y.....y...............y..........######........................
+............o.............................................................######........................
+..........................................................................######........................
+...............................................o..........................######........................
+..@L..........................L.......................L...................######....................X...
+##################...........########................########.............######................########
+BBBBBBBBBBBBBBBBBB...........BBBBBBBB................BBBBBBBB.............######................BBBBBBBB
+"#,
+)
