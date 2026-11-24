@@ -257,8 +257,9 @@ pub(crate) fn verifier_infos(infos: &InfosNiveau) -> pepin_core::faisabilite::Ra
             |e| matches!(e, pepin_core::entities::Entite::Pieuvre(p) if p.tete_finale.is_some()),
         );
         // Carte 9.13b : et une troisième à mi-hauteur de la tour ; carte
-        // 9.13e : une quatrième juste après le 2e jeté (69 % de la montée).
-        let attendues = if tour { 4 } else { 1 };
+        // 9.13e : une quatrième juste après le 2e jeté (69 % de la montée) ;
+        // carte 9.13f : une cinquième juste sous la vigie.
+        let attendues = if tour { 5 } else { 1 };
         assert_eq!(niv.nb_lanternes(), attendues, "niveau {n} : arène du boss");
     }
 

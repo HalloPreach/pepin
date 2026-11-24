@@ -101,12 +101,17 @@
     //   « j'en ajouterais une juste après le deuxième jeté ») sur la corniche
     //   large et CALME 25 (aucune attaque n'y est liée), la corniche large 22
     //   BALAYÉE ;
-    // - SECOUSSE 2 en arrivant sur la caisse 19, deux caisses (16) dont une
-    //   ARRACHABLE à droite, un NUAGE FRIABLE (13), une caisse (10), puis la
+    // - SECOUSSE 2 en arrivant sur la caisse 19 ; carte 9.13f (AGA : « au-dessus
+    //   de 80 %, presque seule la frappe visée est possible ») : à la rangée 16,
+    //   une caisse ARRACHABLE à gauche (cases 2 à 4) et une CORNICHE LARGE qui
+    //   touche son couloir (6 à 13 : balayage, secousse et jeté y sont possibles
+    //   quand elle est furieuse ; l'autre chemin si la caisse est arrachée) ; un
+    //   NUAGE FRIABLE (13), une caisse (10) et, dessus, la LANTERNE de la vigie
+    //   (carte 9.13f : une mort à la vigie ne renvoie plus à 69 %), puis la
     //   VIGIE (7), où elle se jette pour le coup final (`&`).
     //
-    // Six corniches larges (52, 40, 28, 25, 22 et la vigie) : un palier de la mer
-    // sous chacune, et la place d'un jeté.
+    // Sept corniches larges (52, 40, 28, 25, 22, 16 et la vigie) : un palier de
+    // la mer sous chacune, et la place d'un jeté.
     //
     // Chaque saut monte de 2 ou 3 rangées et passe par une colonne libre à côté de
     // l'appui suivant (le robot de faisabilité le vérifie, avec et sans les
@@ -121,14 +126,14 @@ B..................B
 B.........&........B
 B....#########.....B
 B..................B
-B..................B
+B.L................B
 B###...............B
 B..................B
 B..................B
 B...FFF............B
 B..................B
 B..................B
-B##....%%%.........B
+B.%%%.########.....B
 B..................B
 B.+................B
 B####..............B

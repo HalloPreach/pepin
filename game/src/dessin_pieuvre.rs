@@ -18,7 +18,7 @@ use pepin_core::entities::pieuvre::{
     EtatSaisie, EtatTentacule, PhasePieuvre, Pieuvre, LARGEUR_COLONNE, MARGE_TENTACULE, NB_COLONNES,
 };
 use pepin_core::entities::Entite;
-use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, PLUIE, PLUIE_SOMBRE};
+use pepin_core::palette::{ARDOISE_OMBRE, BLANC_CASSE, NUAGE, PLUIE, PLUIE_SOMBRE};
 
 use crate::monde::{Monde, ENCRE_PAS};
 use crate::rendu::couleur_mq;
@@ -106,18 +106,37 @@ pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
         return;
     };
     let t = TAILLE_TUILE as i32;
+    let mer = p.surface_mer().map(|m| m.round() as i32);
     if let Some(z) = p.trombe().map(|c| c.zone) {
+        // Carte 9.13f (AGA : « des crêtes d'écume en escalier dans le vide ») :
+        // dans l'air, la trombe est faite de BULLES (petits carrés) ; l'écume
+        // (les remous) ne se dessine qu'à la surface de la mer, où elle bout.
         let h = z.h as i32;
+        let surface = mer.unwrap_or(i32::MAX);
         for k in 0..(h / 10).max(1) {
             let monte = (monde.pas as i32 * 3 + k * 10).rem_euclid(h);
             let x = z.x as i32 + (k * 13).rem_euclid(z.w as i32 - 6);
             let y = z.bas() as i32 - monte;
-            let nom = image(
-                ["remous_pieuvre0", "remous_pieuvre1"],
-                monde.pas + k as u32,
-                6,
-            );
-            banque.dessiner(nom, (x - cx) as f32, (y - cy) as f32, false);
+            if y + 2 < surface {
+                let c = if k % 2 == 0 { BLANC_CASSE } else { NUAGE };
+                let (bx, by) = ((x + 2 - cx) as f32, (y - cy) as f32);
+                macroquad::prelude::draw_rectangle(bx, by, 2.0, 2.0, couleur_mq(c));
+                macroquad::prelude::draw_rectangle(bx, by + 2.0, 2.0, 1.0, couleur_mq(PLUIE));
+            }
+        }
+        if surface < z.bas() as i32 && surface > z.y as i32 {
+            for (k, dx) in [0, (z.w as i32 - 16) / 2, z.w as i32 - 16]
+                .into_iter()
+                .enumerate()
+            {
+                let nom = image(
+                    ["remous_pieuvre0", "remous_pieuvre1"],
+                    monde.pas + k as u32 * 3,
+                    6,
+                );
+                let x = z.x as i32 + dx;
+                banque.dessiner(nom, (x - cx) as f32, (surface - 5 - cy) as f32, false);
+            }
         }
     }
     let Some(mer) = p.surface_mer() else {

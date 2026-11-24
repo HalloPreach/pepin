@@ -262,14 +262,13 @@ fn un_combo_laisse_une_issue() {
     assert!(vus.0 > 0 && vus.1 > 0, "combos vus : {vus:?}");
 }
 
-/// Sur la vigie, elle se jette DEUX fois : la 1re (cabre de 1,2 s) ne la
-/// laisse pas sonnée, la 2e enchaîne, plus vive (0,8 s), et seulement là elle
-/// reste sonnée. À la dernière tête, le coup donne la plongée.
+/// Sur la vigie, avec ses 3 têtes, elle se jette DEUX fois : la 1re (cabre de
+/// 1,2 s) ne la laisse pas sonnée, la 2e enchaîne, plus vive (0,8 s), et
+/// seulement là elle reste sonnée (le 1er des trois cycles, carte 9.13f).
 #[test]
 fn la_vigie_demande_deux_jetes_avant_sonnee() {
     let n = par_cle("pieuvre").charger().unwrap();
     let mut p = en_montee(&n, 5);
-    p.fixer_pv_pour_les_tests(1);
     let tete = p.tete_finale.unwrap();
     p.voir_pepin(debout(tete.x - 3.0 * TAILLE_TUILE, tete.bas()));
     jusqu_a(&mut p, &n, 600, |p| p.etat_jete().is_some());
@@ -297,13 +296,14 @@ fn la_vigie_demande_deux_jetes_avant_sonnee() {
     });
     assert!(p.recoit(&saut_sur(tete)));
     p.toucher();
-    assert_eq!(p.phase(), PhasePieuvre::Plongee);
+    assert_eq!((p.pv(), p.phase()), (2, PhasePieuvre::Montee));
 }
 
 /// Les têtes : 3 au début de la phase 2 ; à la vigie, il faut prendre TOUTES
-/// celles qui restent, chacune après deux jetés. Un seul coup n'en vide jamais
-/// trois ; un coup pendant la montée en retire une, et la vigie en demande
-/// une de moins.
+/// celles qui restent, chacune au bout de son cycle (carte 9.13f : deux jetés,
+/// puis jeté et jeté vif autour d'une frappe, puis balayage et jeté vif, soit
+/// 5 jetés). Un seul coup n'en vide jamais trois ; un coup pendant la montée en
+/// retire une, et la vigie en demande une de moins.
 #[test]
 fn les_tetes_restantes_sont_exigees_a_la_vigie() {
     let n = par_cle("pieuvre").charger().unwrap();
@@ -328,7 +328,7 @@ fn les_tetes_restantes_sont_exigees_a_la_vigie() {
     assert_eq!(p.pv(), TETES_FUITE);
     let (coups, jetes) = vigie(&mut p);
     assert_eq!(coups, 3, "les 3 têtes à la vigie");
-    assert_eq!(jetes, 6, "deux jetés par tête");
+    assert_eq!(jetes, 5, "2 + 2 + 1 jetés");
     // Une tête prise pendant la montée : deux à la vigie.
     let mut q = en_montee(&n, 11);
     let place = q.tour.jetes[0];
@@ -396,4 +396,297 @@ fn reprise_a_une_lanterne_quelconque() {
     let mut q = p.clone();
     q.reprendre_a(&debout(40.0, bache - 2.0 * t));
     assert_eq!((q.pv(), q.horloge_mer(), q.humeur()), (3, 0, Humeur::Calme));
+}
+
+/// La pieuvre de la tour au début de la montée, en mode facile ou non.
+fn en_montee_mode(n: &Niveau, graine: u32, facile: bool) -> Pieuvre {
+    let mut p = pieuvre(n);
+    if facile {
+        p.passer_en_facile();
+    }
+    for _ in 0..PV_PIEUVRE {
+        if !p.en_fuite() {
+            p.sortir_la_tete(0);
+            p.toucher();
+        }
+    }
+    assert!(p.en_fuite());
+    p.fixer_graine(graine);
+    pas(&mut p, n, u32::from(FURIE_PAS));
+    p
+}
+
+/// Carte 9.13f : LA MER SUIT PÉPIN. Il attend en bas de la tour que la mer
+/// arrive à 8 tuiles de lui (10 en facile), puis grimpe d'un trait jusqu'à la
+/// vigie, sans pause : vite (juste moins vite que la mer qui rattrape, 3 fois
+/// sa vitesse) ou tranquillement (moitié moins). Elle n'est jamais plus de 8
+/// tuiles sous le plus haut qu'il a atteint (10 en facile), ne descend jamais
+/// (aucun coup ici), ne monte jamais de plus de 3 fois sa vitesse en un pas
+/// (plus au plus un pas d'horloge : pas de saut) ; quand il grimpe tranquillement, ses paliers sont annoncés.
+#[test]
+fn la_mer_suit_pepin_sans_jamais_descendre() {
+    let n = par_cle("pieuvre").charger().unwrap();
+    let t = TAILLE_TUILE;
+    for (facile, ecart) in [(false, ECART_MER_MAX), (true, ECART_MER_MAX_FACILE)] {
+        for allure in [0.95, 0.5] {
+            let mut p = en_montee_mode(&n, 1, facile);
+            let v = VITESSE_MER * if facile { FACTEUR_FACILE } else { 1.0 };
+            let grimpe = allure * RATTRAPAGE_MER * v;
+            let vigie = p.tete_finale.unwrap().bas();
+            let mut pieds = p.bache.unwrap().y - 2.0 * t;
+            // Pas de jeté ici (il arrête la mer, inchangé : voir
+            // `jete_sonnee_coup_sur_la_tete_la_mer_recule`).
+            p.recharges_pour_les_tests()[4] = u16::MAX;
+            // En l'air à gauche de la tour : aucun jeté ne le vise.
+            p.voir_pepin(debout(2.5 * t, pieds));
+            jusqu_a(&mut p, &n, 3000, |p| {
+                p.plus_haut_atteint()
+                    .is_some_and(|h| p.surface_mer().unwrap() - h <= ecart)
+            });
+            let mut avant = p.surface_mer().unwrap();
+            let (mut rattrape, mut palier) = (0, false);
+            while pieds > vigie {
+                pieds = (pieds - grimpe).max(vigie);
+                p.voir_pepin(debout(2.5 * t, pieds));
+                pas(&mut p, &n, 1);
+                let mer = p.surface_mer().unwrap();
+                let quoi = format!("facile {facile}, allure {allure}");
+                assert!(
+                    mer <= avant + 0.01,
+                    "{quoi} : elle descend ({avant} -> {mer})"
+                );
+                assert!(
+                    avant - mer <= RATTRAPAGE_MER * v + VITESSE_CRUE + 0.01,
+                    "{quoi} : un saut de {} px",
+                    avant - mer
+                );
+                avant = mer;
+                let haut = p.plus_haut_atteint().unwrap();
+                assert!(
+                    mer - haut <= ecart + 0.01,
+                    "{quoi} : {} tuiles sous le plus haut",
+                    (mer - haut) / t
+                );
+                if p.mer_rattrape() {
+                    rattrape += 1;
+                    assert!(mer - pieds > RATTRAPAGE_PAS_SOUS, "{quoi} : il ne tue pas");
+                }
+                palier |= p.annonce_palier().is_some();
+            }
+            assert!(
+                rattrape > 100,
+                "facile {facile} : rattrapage {rattrape} pas"
+            );
+            assert!(
+                palier || allure > 0.9,
+                "facile {facile} : des paliers annoncés"
+            );
+            eprintln!(
+                "mer qui suit (facile {facile}, allure {allure}) : {rattrape} pas de rattrapage, paliers {palier}"
+            );
+        }
+    }
+}
+
+/// Carte 9.13f : le rattrapage ne tue pas. Pépin saute très haut, puis
+/// redescend se poser 6 tuiles au-dessus de la mer : elle rattrape à vitesse
+/// triple, mais jamais à moins de 4 tuiles de ses pieds ; là, elle reprend sa
+/// vitesse normale.
+#[test]
+fn le_rattrapage_ne_tue_pas() {
+    let n = par_cle("pieuvre").charger().unwrap();
+    let t = TAILLE_TUILE;
+    let mut p = en_montee(&n, 2);
+    let crue = u32::from(p.fin_de_crue());
+    pas(&mut p, &n, crue);
+    let bas = p.surface_mer().unwrap();
+    // Son plus haut : 20 tuiles au-dessus de la mer (à gauche, en l'air)…
+    p.voir_pepin(debout(2.5 * t, bas - 20.0 * t));
+    pas(&mut p, &n, 1);
+    // … puis il se pose 6 tuiles au-dessus d'elle.
+    let pieds = bas - 6.0 * t;
+    p.voir_pepin(debout(2.5 * t, pieds));
+    let mut avant = p.surface_mer().unwrap();
+    let (mut vite, mut normal) = (0, 0);
+    for _ in 0..600 {
+        pas(&mut p, &n, 1);
+        let mer = p.surface_mer().unwrap();
+        assert!(
+            mer <= avant + 0.01
+                && avant - mer <= RATTRAPAGE_MER * VITESSE_MER + VITESSE_CRUE + 0.01
+        );
+        if p.mer_rattrape() {
+            vite += 1;
+            assert!(mer - pieds > RATTRAPAGE_PAS_SOUS, "jamais sur lui");
+        } else if vite > 0 {
+            normal += 1;
+        }
+        avant = mer;
+        if mer < pieds - 0.01 {
+            break;
+        }
+    }
+    assert!(vite > 20 && normal > 100, "vite {vite}, normal {normal}");
+}
+
+/// Carte 9.13f : la lanterne juste sous la vigie (posée sur la caisse de la
+/// rangée 10). Une mort à la vigie y ramène : les têtes et l'humeur de son
+/// passage, la mer dessous, le cycle de la vigie oublié.
+#[test]
+fn reprise_a_la_lanterne_sous_la_vigie() {
+    let n = par_cle("pieuvre").charger().unwrap();
+    let t = TAILLE_TUILE;
+    let bache = pieuvre(&n).bache.unwrap();
+    let lanterne = n
+        .entites
+        .iter()
+        .filter_map(|e| match e {
+            Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.boite),
+            _ => None,
+        })
+        .min_by(|a, b| a.y.total_cmp(&b.y))
+        .unwrap();
+    assert!(
+        (lanterne.bas() - 10.0 * t).abs() < 0.5,
+        "sur la caisse de la rangée 10 : {lanterne:?}"
+    );
+    let mut p = en_montee(&n, 4);
+    // Une tête prise au 1er jeté, puis Pépin passe la lanterne et monte sur
+    // la vigie, où le cycle commence.
+    let place = p.tour.jetes[0];
+    p.voir_pepin(debout(place.x - 2.0 * t, place.bas()));
+    jusqu_a(&mut p, &n, 1500, |p| {
+        matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_))))
+    });
+    assert!(p.recoit(&saut_sur(place)));
+    p.toucher();
+    let pieds = debout(3.0 * t, 10.0 * t);
+    p.voir_pepin(pieds);
+    pas(&mut p, &n, 1);
+    let humeur = p.humeur();
+    let tete = p.tete_finale.unwrap();
+    p.voir_pepin(debout(tete.x - 3.0 * t, tete.bas()));
+    jusqu_a(&mut p, &n, 600, |p| p.etat_jete().is_some());
+    p.reprendre_a(&pieds);
+    assert_eq!(
+        (p.pv(), p.humeur()),
+        (2, humeur),
+        "têtes et humeur de son passage"
+    );
+    assert_eq!(humeur, Humeur::Furieuse, "au-dessus de 80 %");
+    let mer = p.surface_mer().unwrap();
+    assert!(
+        mer > pieds.bas() && mer <= pieds.bas() + 3.0 * t + 1.0,
+        "{mer}"
+    );
+    assert!(p.attaque().is_none() && p.journal().is_empty());
+    // Elle le revoit sur la vigie : le cycle repart du début (2 têtes).
+    p.voir_pepin(debout(tete.x - 3.0 * t, tete.bas()));
+    jusqu_a(&mut p, &n, 600, |p| p.attaque().is_some());
+    assert_eq!(
+        p.journal().iter().map(|j| j.1).collect::<Vec<_>>(),
+        [Genre::Jete]
+    );
+}
+
+/// Carte 9.13f : les trois cycles de la vigie (3 têtes) ne se ressemblent pas
+/// (deux jetés ; jeté, frappe visée, jeté ; balayage, jeté vif), chaque
+/// annonce dure au moins 0,8 s, Pépin a toujours une place sûre sur la vigie
+/// (à pied ou en sautant), et le coup final, frappé au plus vite, ne demande
+/// pas plus que les 19 s d'avant.
+#[test]
+fn trois_cycles_de_vigie_differents() {
+    let n = par_cle("pieuvre").charger().unwrap();
+    let t = TAILLE_TUILE;
+    let mut p = en_montee(&n, 6);
+    let tete = p.tete_finale.unwrap();
+    let sol = tete.bas();
+    p.voir_pepin(debout(tete.x - 3.0 * t, sol));
+    jusqu_a(&mut p, &n, 600, |p| p.attaque().is_some());
+    let mut cycles: Vec<Vec<Genre>> = Vec::new();
+    let mut vu = p.journal().len() - 1;
+    let mut cycle = vec![p.journal()[vu].1];
+    let mut annonce = 0;
+    let mut pas_total = 0u32;
+    while p.phase() == PhasePieuvre::Montee {
+        assert!(pas_total < 3000, "trop long : {cycles:?}");
+        // Une place sûre sur la vigie (colonnes 5 à 13), à pied ou en sautant.
+        let sure = (5..13).any(|c| {
+            let cx = c as f32 * t + 8.0;
+            !p.blesse(&debout(cx, sol)) || !p.blesse(&debout(cx, sol - 16.0))
+        });
+        assert!(
+            sure,
+            "aucune issue au pas {} : {:?}",
+            p.ecoule(),
+            p.attaque()
+        );
+        // Les annonces : cabre, tentacule levé, tentacule tendu.
+        let en_annonce = matches!(p.etat_jete(), Some((_, EtatJete::Cabre(_))))
+            || matches!(p.etat_frappe(), Some((_, EtatFrappe::Annonce(_))))
+            || (0..p.tour.balayeurs.len())
+                .any(|k| matches!(p.etat_balayeur(k), Some(EtatBalai::Annonce(_))));
+        if en_annonce {
+            annonce += 1;
+        } else if annonce > 0 {
+            assert!(annonce >= 48, "une annonce de {annonce} pas");
+            annonce = 0;
+        }
+        if matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_)))) {
+            assert!(p.recoit(&saut_sur(tete)));
+            p.toucher();
+            cycles.push(std::mem::take(&mut cycle));
+            annonce = 0;
+        }
+        pas(&mut p, &n, 1);
+        pas_total += 1;
+        while vu + 1 < p.journal().len() {
+            vu += 1;
+            cycle.push(p.journal()[vu].1);
+        }
+    }
+    use Genre::*;
+    assert_eq!(
+        cycles,
+        [
+            vec![Jete, Jete],
+            vec![Jete, Frappe, Jete],
+            vec![Balayage, Jete]
+        ]
+    );
+    let duree = pas_total as u16;
+    eprintln!(
+        "vigie, 3 têtes au plus vite : {duree} pas ({:.1} s)",
+        f32::from(duree) / 60.0
+    );
+    // Avant la carte 9.13f : 3 x (2 jetés, 170 pas) + 2 répits de 180 = 870 pas.
+    assert!(duree <= 870, "{duree} pas");
+}
+
+/// Carte 9.13f : dans le dernier tiers (au-dessus de 80 %), toutes les attaques
+/// ont leur place. Sur la corniche large de la rangée 16, qui touche son
+/// couloir, balayage et secousse apparaissent dans le journal (au moins une
+/// graine sur cinq chacun).
+#[test]
+fn le_dernier_tiers_accueille_toutes_les_attaques() {
+    let n = par_cle("pieuvre").charger().unwrap();
+    let t = TAILLE_TUILE;
+    let (mut balayages, mut secousses) = (0, 0);
+    for graine in 1..=5 {
+        let mut p = en_montee(&n, graine);
+        let bache = p.bache.unwrap().y;
+        let vigie = p.tete_finale.unwrap().bas();
+        let sol = 16.0 * t;
+        assert!((bache - sol) / (bache - vigie) > 0.8, "au-dessus de 80 %");
+        p.voir_pepin(debout(9.0 * t, sol));
+        pas(&mut p, &n, 1500);
+        let j = p.journal();
+        balayages += usize::from(j.iter().any(|g| g.1 == Genre::Balayage));
+        secousses += usize::from(j.iter().any(|g| g.1 == Genre::Secousse));
+        eprintln!(
+            "graine {graine} : {:?}",
+            j.iter().map(|g| g.1).collect::<Vec<_>>()
+        );
+    }
+    assert!(balayages >= 1 && secousses >= 1, "{balayages} {secousses}");
 }

@@ -48,12 +48,20 @@
 //!   Son HUMEUR monte (calme, énervée, furieuse) avec les coups reçus et la
 //!   hauteur de Pépin : recharges plus courtes, et des COMBOS (un balayage ou
 //!   une secousse, puis une frappe visée enchaînée).
-//! - COUP FINAL : sur la vigie (`&`), elle se jette DEUX fois de suite, la
-//!   seconde plus vite (0,8 s), et n'est sonnée qu'après la seconde. Il faut lui
-//!   prendre TOUTES les têtes qui restent (3 au début de la phase 2, une de moins
-//!   par coup pendant la montée) : autant de doubles jetés que de têtes.
+//! - COUP FINAL : sur la vigie (`&`), un CYCLE par tête, chacun différent
+//!   (carte 9.13f, `cycle_de_la_vigie`) : avec 3 têtes, deux jetés (le second
+//!   plus vif, 0,8 s) ; avec 2, jeté, frappe visée, jeté vif ; avec la
+//!   dernière, balayage de la vigie puis jeté vif. Elle n'est sonnée qu'après le
+//!   jeté vif. Il faut lui prendre TOUTES les têtes qui restent (3 au début de
+//!   la phase 2, une de moins par coup pendant la montée). Entre deux cycles,
+//!   1,5 s de répit (`REPIT_VIGIE_PAS`) : au plus vite, 14 s pour 3 têtes.
 //!
-//! La mer s'arrête pendant un jeté (elle a mieux à faire). Une mort ramène à la
+//! La mer s'arrête pendant un jeté (elle a mieux à faire). Carte 9.13f, LA MER
+//! SUIT PÉPIN : jamais plus de 8 tuiles (10 en facile) sous le plus haut qu'il a
+//! atteint ; au-delà, elle rattrape à vitesse TRIPLE (sans s'arrêter aux
+//! paliers qu'il a déjà dépassés), mais jamais à moins de 4 tuiles de ses
+//! pieds (`avancer_la_mer`). Elle ne descend que du recul après un coup. Une
+//! mort ramène à la
 //! dernière lanterne (n'importe laquelle) : la mer est remise sous la lanterne,
 //! l'humeur et les têtes reviennent à leur état au passage de la lanterne, les
 //! plateformes arrachées dessous restent parties, et la graine change. MODE
@@ -80,6 +88,16 @@ pub const COULOIR_TUILES: usize = 5;
 pub const SOUS_PEPIN: f32 = 4.0 * TAILLE_TUILE;
 /// … et grimpe (ou redescend vers la mer) de 2 px par pas au plus.
 pub const GRIMPE_GEANTE: f32 = 2.0;
+
+/// Carte 9.13f, LA MER SUIT PÉPIN : jamais plus de 8 tuiles sous le point le
+/// plus haut qu'il a atteint (10 en mode facile)…
+pub const ECART_MER_MAX: f32 = 8.0 * TAILLE_TUILE;
+pub const ECART_MER_MAX_FACILE: f32 = 10.0 * TAILLE_TUILE;
+/// … au-delà, elle rattrape à vitesse triple…
+pub const RATTRAPAGE_MER: f32 = 3.0;
+/// … mais jamais à moins de 4 tuiles des pieds de Pépin (le rattrapage ne tue
+/// pas : s'il est retombé, elle reprend sa vitesse normale).
+pub const RATTRAPAGE_PAS_SOUS: f32 = 4.0 * TAILLE_TUILE;
 
 /// La frappe visée s'annonce 1,4 s (le tentacule levé, le repère rouge)…
 pub const ANNONCE_FRAPPE_PAS: u16 = ANNONCE_PAS;
@@ -148,6 +166,8 @@ pub const RECUL_MER: f32 = 3.0 * TAILLE_TUILE;
 pub const RECUL_PAR_PAS: u16 = 4;
 /// … et ses attaques s'arrêtent 3 s.
 pub const REPIT_PAS: u16 = 180;
+/// Sur la vigie (carte 9.13f), entre deux cycles : 1,5 s.
+pub const REPIT_VIGIE_PAS: u16 = 90;
 /// Ses têtes au début de la phase 2 (au plus les cases du HUD) : une par coup
 /// pendant la montée, les autres à la vigie.
 pub const TETES_FUITE: u8 = 3;
@@ -320,6 +340,11 @@ pub struct Tour {
     horloge_mer: u16,
     /// Pas d'horloge de la mer qu'il reste à reculer.
     recul: u16,
+    /// Les pieds de Pépin au plus haut pendant cette tentative (carte 9.13f :
+    /// la mer ne reste jamais plus de `ECART_MER_MAX` dessous).
+    plus_haut: Option<f32>,
+    /// La mer rattrape-t-elle en ce moment (vitesse triple) ?
+    rattrape: bool,
     /// Début de chaque arrachage (ou rien).
     arrachages: Vec<Option<u16>>,
     /// Ce qu'elle voit, ce qu'elle ressent et ce qu'elle décide (carte 9.13d).
@@ -806,7 +831,14 @@ impl Pieuvre {
         self.tour.attaque = None;
         self.annuler_le_combo();
         self.tour.lachee = self.place_du_jete(k).map(|tete| (tete, t));
-        self.tour.repit = t.saturating_add(REPIT_PAS);
+        // Carte 9.13f : sur la vigie, un répit plus court (le cycle suivant est
+        // plus long que les deux jetés d'avant : la durée totale ne grandit pas).
+        let repit = if k >= vigie {
+            REPIT_VIGIE_PAS
+        } else {
+            REPIT_PAS
+        };
+        self.tour.repit = t.saturating_add(repit);
         // Le recul se compte en HAUTEUR : on cherche, en remontant l'horloge, le
         // dernier pas où la mer était 3 tuiles plus bas (la crue et les paliers
         // n'ont pas la vitesse de la montée).
@@ -816,6 +848,10 @@ impl Pieuvre {
             .rev()
             .find(|&t| self.surface_mer_a(t) >= cible - 0.01);
         self.tour.recul = h - avant.unwrap_or(0);
+        // Carte 9.13f : le recul est un cadeau, la mer ne le rattrape pas tout
+        // de suite (le plus haut de Pépin compte 3 tuiles plus bas, jusqu'à ce
+        // qu'il remonte au-dessus).
+        self.tour.plus_haut = self.tour.plus_haut.map(|y| y + RECUL_MER);
     }
 
     /// Ses têtes au début de la phase 2 : `TETES_FUITE`, au plus les cases du
@@ -837,42 +873,40 @@ impl Pieuvre {
         }
         self.preparer_la_tour(grille);
         let t = self.ecoule();
-        // La mer : elle recule après un coup, s'arrête pendant un jeté.
+        // La mer : elle recule après un coup, s'arrête pendant un jeté, et
+        // rattrape Pépin s'il l'a trop distancée (carte 9.13f).
+        if let Some(pepin) = self.pepin {
+            let haut = self
+                .tour
+                .plus_haut
+                .map_or(pepin.bas(), |y| y.min(pepin.bas()));
+            self.tour.plus_haut = Some(haut);
+        }
+        self.tour.rattrape = false;
         if self.tour.recul > 0 {
             let k = self.tour.recul.min(RECUL_PAR_PAS);
             self.tour.recul -= k;
             self.tour.horloge_mer = self.tour.horloge_mer.saturating_sub(k);
         } else if !self.mer_arretee() {
-            self.tour.horloge_mer = self.tour.horloge_mer.saturating_add(1);
+            self.avancer_la_mer();
         }
         let combo = self.avancer_le_combo(grille, t);
-        // L'attaque finie s'en va. Le 1er jeté de la vigie enchaîne aussitôt sur
-        // le second, plus vif, qui la laisse sonnée.
+        // L'attaque finie s'en va. Sur la vigie, l'étape suivante de son cycle
+        // part aussitôt (carte 9.13f) ; le dernier jeté la laisse sonnée.
         let fin = self
             .tour
             .attaque
             .as_ref()
             .map(|a| a.debut().saturating_add(self.duree_attaque(a)));
         if fin.is_some_and(|f| t >= f) {
-            match self.tour.attaque.take() {
-                Some(Attaque::Jete {
-                    k, sonne: false, ..
-                }) => {
-                    self.tour.faits += 1;
-                    self.tour.attaque = Some(Attaque::Jete {
-                        k,
-                        debut: t,
-                        vif: true,
-                        sonne: true,
-                    });
-                }
-                Some(Attaque::Jete { .. }) => {
-                    self.tour.repit = t.saturating_add(APRES_JETE_PAS);
-                }
-                _ => {
-                    let s = self.souffle();
-                    self.tour.repit = self.tour.repit.max(t.saturating_add(s));
-                }
+            let finie = self.tour.attaque.take();
+            if !self.tour.cerveau.suite_vigie.is_empty() {
+                self.tour.attaque = self.etape_suivante_de_la_vigie(grille, t);
+            } else if let Some(Attaque::Jete { .. }) = finie {
+                self.tour.repit = t.saturating_add(APRES_JETE_PAS);
+            } else {
+                let s = self.souffle();
+                self.tour.repit = self.tour.repit.max(t.saturating_add(s));
             }
         }
         let Some(pepin) = self.pepin else {
@@ -910,6 +944,8 @@ impl Pieuvre {
         self.tour.bas_geante = None;
         self.tour.horloge_mer = 0;
         self.tour.recul = 0;
+        self.tour.plus_haut = None;
+        self.tour.rattrape = false;
         self.tour.arrachages.clear();
         self.tour.cerveau.oublier();
         self.pv = self.pv_de_la_fuite();
@@ -974,5 +1010,66 @@ impl Pieuvre {
         self.tour.horloge_mer = (0..u16::MAX)
             .find(|&h| self.surface_mer_a(h) <= cible)
             .unwrap_or(0);
+        self.tour.plus_haut = Some(pieds);
+    }
+
+    /// L'écart le plus grand permis entre la mer et le plus haut de Pépin.
+    fn ecart_mer_max(&self) -> f32 {
+        if self.est_facile() {
+            ECART_MER_MAX_FACILE
+        } else {
+            ECART_MER_MAX
+        }
+    }
+
+    /// Les pieds de Pépin au plus haut pendant cette tentative (carte 9.13f).
+    pub fn plus_haut_atteint(&self) -> Option<f32> {
+        self.tour.plus_haut
+    }
+
+    /// La mer rattrape-t-elle Pépin (vitesse triple) en ce moment ?
+    pub fn mer_rattrape(&self) -> bool {
+        self.tour.rattrape && self.en_montee()
+    }
+
+    /// La mer est-elle trop loin sous le plus haut de Pépin (carte 9.13f) ?
+    /// Vrai dès qu'elle est à 2 px de l'écart permis (`ecart_mer_max`), pour
+    /// qu'elle ne le dépasse jamais, et seulement si elle reste à plus de
+    /// `RATTRAPAGE_PAS_SOUS` de ses pieds après un pas rapide (s'il est retombé
+    /// près d'elle, elle reprend sa vitesse normale).
+    fn mer_trop_loin(&self) -> bool {
+        let (Some(mer), Some(haut), Some(pepin)) =
+            (self.surface_mer(), self.tour.plus_haut, self.pepin)
+        else {
+            return false;
+        };
+        let pas_vite = RATTRAPAGE_MER * self.vitesse_mer();
+        mer - haut > self.ecart_mer_max() - 2.0
+            && mer - pepin.bas() > RATTRAPAGE_PAS_SOUS + pas_vite
+    }
+
+    /// Un pas de la mer (carte 9.13f) : l'horloge avance d'un pas ; si la mer
+    /// est trop loin sous Pépin (`mer_trop_loin`), elle monte TROIS fois plus
+    /// vite : on avance l'horloge jusqu'au pas où elle a monté de trois fois sa
+    /// vitesse. Un palier ne la retient pas pendant un rattrapage (Pépin est
+    /// déjà loin au-dessus de sa corniche). Jamais de saut : au plus 3 vitesses
+    /// par pas ; jamais de descente (l'horloge ne fait qu'avancer).
+    fn avancer_la_mer(&mut self) {
+        let suivant = self.tour.horloge_mer.saturating_add(1);
+        let Some(mer) = self.surface_mer().filter(|_| self.mer_trop_loin()) else {
+            self.tour.horloge_mer = suivant;
+            return;
+        };
+        self.tour.rattrape = true;
+        let cible = mer - RATTRAPAGE_MER * self.vitesse_mer();
+        // Le premier pas d'horloge qui la monte jusqu'à `cible` (au moins un
+        // pas : au plus un pas de plus que 3 fois sa vitesse, pendant la crue) ;
+        // un palier dure `PALIER_PAS` : pas plus loin.
+        let limite = suivant.saturating_add(super::fuite::PALIER_PAS + 1);
+        let mut n = suivant;
+        while n + 1 < limite && self.surface_mer_a(n) > cible + 0.01 {
+            n += 1;
+        }
+        self.tour.horloge_mer = n;
     }
 }

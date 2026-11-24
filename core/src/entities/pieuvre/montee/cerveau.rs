@@ -128,6 +128,37 @@ pub(super) struct Cerveau {
     pub(super) jetes_tentes: Vec<usize>,
     /// Les attaques choisies, dans l'ordre (pas, genre) : pour les tests.
     journal: Vec<(u16, Genre)>,
+    /// Carte 9.13f : les étapes qui restent du cycle de la vigie en cours.
+    pub(super) suite_vigie: Vec<EtapeVigie>,
+    /// Le balayeur de la vigie (dans `Tour::balayeurs`), réservé à ses cycles.
+    balai_vigie: Option<usize>,
+}
+
+/// Une étape d'un cycle de la vigie (carte 9.13f).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EtapeVigie {
+    /// Un jeté lent (cabre 1,2 s) qui ne la laisse pas sonnée.
+    Jete,
+    /// Le jeté vif (cabre 0,8 s) qui la laisse sonnée : la fin de chaque cycle.
+    JeteVif,
+    /// Une frappe visée sur l'appui de Pépin.
+    Frappe,
+    /// Le balayage de la vigie.
+    Balayage,
+}
+
+/// Les trois cycles de la vigie (carte 9.13f, AGA : « la vigie demande six
+/// jetés identiques »). Le cycle dépend des têtes qui lui restent : avec 3
+/// têtes, deux jetés ; avec 2, jeté, frappe visée, jeté ; avec la dernière,
+/// balayage puis jeté vif. Chaque tête demande donc un enchaînement différent
+/// du précédent. Toutes les annonces durent au moins 0,8 s (le jeté vif).
+pub fn cycle_de_la_vigie(tetes: u8) -> &'static [EtapeVigie] {
+    use EtapeVigie::*;
+    match tetes {
+        3.. => &[Jete, JeteVif],
+        2 => &[Jete, Frappe, JeteVif],
+        _ => &[Balayage, JeteVif],
+    }
 }
 
 impl Cerveau {
@@ -143,6 +174,7 @@ impl Cerveau {
         self.marques.clear();
         self.jetes_tentes.clear();
         self.journal.clear();
+        self.suite_vigie.clear();
         let g = self.graine.unwrap_or(GRAINE) ^ self.tentative.wrapping_mul(0x9E37_79B9);
         // Le xorshift reste bloqué à 0 : jamais de graine nulle.
         self.tirage = g.max(1);
@@ -280,6 +312,23 @@ impl Pieuvre {
                 }
             }
         }
+        // Carte 9.13f : le balayeur de la vigie (le bas de sa tête posée est le
+        // dessus de la corniche), du couloir jusqu'au bout gauche de la vigie.
+        if let Some(v) = vigie {
+            let y = (v / t).round() as i32;
+            let mut a = fin;
+            while a > 1 && solide(a - 1, y) && !solide(a - 1, y - 1) {
+                a -= 1;
+            }
+            if fin - a >= 3 {
+                self.tour.cerveau.balai_vigie = Some(self.tour.balayeurs.len());
+                self.tour.balayeurs.push(Balayeur {
+                    y: v,
+                    depart: fin as f32 * t,
+                    arrivee: a as f32 * t,
+                });
+            }
+        }
         // Du bas vers le haut, comme le parseur.
         self.tour.jetes.sort_by(|a, b| b.y.total_cmp(&a.y));
     }
@@ -370,14 +419,11 @@ impl Pieuvre {
         let vigie = self.tour.jetes.len();
         if let Some(place) = self.place_du_jete(vigie) {
             if debout_sur(place.bas()) && pepin.x < place.droite() && place.bas() < mer {
-                self.tour.faits += 1;
-                self.tour.cerveau.journal.push((t, Genre::Jete));
-                return Some(Attaque::Jete {
-                    k: vigie,
-                    debut: t,
-                    vif: false,
-                    sonne: false,
-                });
+                // Carte 9.13f : un cycle par tête, chacun différent.
+                let mut suite = cycle_de_la_vigie(self.pv).to_vec();
+                suite.reverse();
+                self.tour.cerveau.suite_vigie = suite;
+                return self.etape_suivante_de_la_vigie(grille, t);
             }
         }
         let pret = |g: Genre| t >= self.tour.cerveau.recharges[g.rang()];
@@ -401,6 +447,9 @@ impl Pieuvre {
         }
         if pret(Genre::Balayage) {
             for (k, b) in self.tour.balayeurs.iter().enumerate() {
+                if Some(k) == self.tour.cerveau.balai_vigie {
+                    continue;
+                }
                 let sur = pepin.bas() <= b.y + 1.0 && pepin.bas() >= b.y - 2.0 * TAILLE_TUILE;
                 if sur && pepin.x < b.depart && pepin.droite() > b.arrivee && b.y < mer {
                     options.push((Genre::Balayage, Attaque::Balayage { k, debut: t }));
@@ -526,9 +575,57 @@ impl Pieuvre {
         self.tour.cerveau.combo.is_some() || self.tour.cerveau.combo_prevu.is_some()
     }
 
-    /// Plus de combo (un coup sur sa tête, une reprise).
+    /// Plus de combo (un coup sur sa tête, une reprise) ; le cycle de la vigie
+    /// en cours s'arrête aussi.
     pub(super) fn annuler_le_combo(&mut self) {
         self.tour.cerveau.combo = None;
         self.tour.cerveau.combo_prevu = None;
+        self.tour.cerveau.suite_vigie.clear();
+    }
+
+    /// La prochaine étape du cycle de la vigie, lancée au pas `t` (`None` : le
+    /// cycle est fini). Pépin est sur la vigie ; la frappe vise son appui.
+    pub(super) fn etape_suivante_de_la_vigie(
+        &mut self,
+        grille: &dyn Grille,
+        t: u16,
+    ) -> Option<Attaque> {
+        let etape = self.tour.cerveau.suite_vigie.pop()?;
+        let k = self.tour.jetes.len();
+        let (genre, attaque) = match (etape, self.tour.cerveau.balai_vigie) {
+            (EtapeVigie::Frappe, _) => {
+                let pepin = self.pepin?;
+                let arrivee = self.arrivee_prevue(grille, &pepin);
+                let cible = self.viser(grille, &arrivee);
+                (Genre::Frappe, Attaque::Frappe { debut: t, cible })
+            }
+            (EtapeVigie::Balayage, Some(b)) => {
+                (Genre::Balayage, Attaque::Balayage { k: b, debut: t })
+            }
+            (EtapeVigie::JeteVif, _) => (
+                Genre::Jete,
+                Attaque::Jete {
+                    k,
+                    debut: t,
+                    vif: true,
+                    sonne: true,
+                },
+            ),
+            // Le jeté lent (ou, sans balayeur de vigie, à la place du balayage).
+            _ => (
+                Genre::Jete,
+                Attaque::Jete {
+                    k,
+                    debut: t,
+                    vif: false,
+                    sonne: false,
+                },
+            ),
+        };
+        if genre == Genre::Jete {
+            self.tour.faits += 1;
+        }
+        self.tour.cerveau.journal.push((t, genre));
+        Some(attaque)
     }
 }

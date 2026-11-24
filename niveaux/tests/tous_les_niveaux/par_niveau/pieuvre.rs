@@ -24,9 +24,9 @@ fn infos() -> &'static InfosNiveau {
 /// Première rangée de l'arène : la tour et la bâche sont au-dessus.
 const HAUT_ARENE: i32 = 69;
 
-/// L'arène du boss : pas de drapeau, une seule pieuvre, quatre lanternes (au
+/// L'arène du boss : pas de drapeau, une seule pieuvre, cinq lanternes (au
 /// départ, au début de la tour : carte 9.13a, à 29 % : carte 9.13b, à 69 % :
-/// carte 9.13e),
+/// carte 9.13e, sous la vigie : carte 9.13f),
 /// trois gouttes ; et, dans ses
 /// 11 dernières rangées, EXACTEMENT la géométrie du niveau d'essai « pieuvre »
 /// (mêmes cases vides ou pleines, même pieuvre, même bassin, mêmes pontons,
@@ -39,7 +39,7 @@ fn l_arene_de_la_pieuvre_reprend_celle_du_niveau_d_essai() {
     let dy = HAUT_ARENE as f32 * TAILLE_TUILE;
     assert_eq!((n.largeur(), n.hauteur()), (20, 80));
     assert!(n.arrivee.is_none(), "l'arène n'a pas de drapeau");
-    assert_eq!(n.nb_lanternes(), 4);
+    assert_eq!(n.nb_lanternes(), 5);
     assert_eq!(n.depart, (e.depart.0, e.depart.1 + dy));
     for ty in 0..11 {
         for tx in 0..20 {
@@ -93,9 +93,9 @@ fn l_arene_de_la_pieuvre_reprend_celle_du_niveau_d_essai() {
     // jetés, deux balayages, deux secousses, deux plateformes arrachables, et
     // le couloir de la géante (5 colonnes contre le mur droit), toujours
     // vide ; carte 9.13e : cinq paliers (sous ses cinq corniches larges sous
-    // la vigie).
+    // la vigie) ; carte 9.13f : six (la corniche large de la rangée 16).
     assert!(p.tete_finale.is_some() && p.bache.is_some());
-    assert_eq!(p.paliers.len(), 5, "{:?}", p.paliers);
+    assert_eq!(p.paliers.len(), 6, "{:?}", p.paliers);
     assert_eq!(p.tour.jetes.len(), 2);
     assert_eq!(p.tour.balayeurs.len(), 2);
     assert_eq!(p.tour.secousses.len(), 2);
@@ -394,6 +394,11 @@ fn balayages_et_caisses_sont_annonces() {
     let p0 = en_montee(&n, 0);
     let t = TAILLE_TUILE;
     for (k, b) in p0.tour.balayeurs.iter().enumerate() {
+        // Carte 9.13f : celui de la vigie ne part que dans ses cycles
+        // (`pieuvre_montee::trois_cycles_de_vigie_differents`).
+        if (b.y - p0.tete_finale.unwrap().bas()).abs() < 1.0 {
+            continue;
+        }
         assert!(
             (b.depart - p0.tour.couloir.unwrap().0).abs() < 0.01,
             "du couloir"
@@ -645,7 +650,8 @@ fn reprise_a_la_lanterne_de_mi_hauteur() {
     let mut p = en_montee(&n, 0);
     jeter_et_frapper(&mut p, &n, 0);
     let bache = p.bache.unwrap();
-    // Les lanternes de la tour, du haut vers le bas : 69 %, 29 %, le bas.
+    // Les lanternes de la tour, du haut vers le bas : sous la vigie (carte
+    // 9.13f), 69 %, 29 %, le bas.
     let mut de_la_tour: Vec<(f32, f32)> = n
         .entites
         .iter()
@@ -655,7 +661,7 @@ fn reprise_a_la_lanterne_de_mi_hauteur() {
         })
         .collect();
     de_la_tour.sort_by(|a, b| a.1.total_cmp(&b.1));
-    let (haut, mi) = (de_la_tour[0], de_la_tour[1]);
+    let (haut, mi) = (de_la_tour[1], de_la_tour[2]);
     let jetes = p.tour.jetes.clone();
     assert!(
         mi.1 < jetes[0].y && mi.1 > jetes[1].y,
@@ -664,7 +670,7 @@ fn reprise_a_la_lanterne_de_mi_hauteur() {
     // Carte 9.13e : la 2e lanterne, juste après le 2e jeté, vers 65 % de la
     // montée (de la lanterne du bas à la vigie).
     assert!(haut.1 < jetes[1].y, "après le 2e jeté");
-    let (bas, sommet) = (de_la_tour[2].1, p.tete_finale.unwrap().bas());
+    let (bas, sommet) = (de_la_tour[3].1, p.tete_finale.unwrap().bas());
     let part = (bas - haut.1) / (bas - sommet);
     assert!((0.6..0.75).contains(&part), "{part}");
     let mut entites = n.entites.clone();
@@ -712,15 +718,17 @@ fn reprise_a_la_lanterne_de_69_pour_cent() {
     jeter_et_frapper(&mut p, &n, 0);
     jeter_et_frapper(&mut p, &n, 1);
     let bache = p.bache.unwrap();
-    let haut = n
+    // La 2e lanterne en partant du haut (la 1re est sous la vigie, carte 9.13f).
+    let mut de_la_tour: Vec<(f32, f32)> = n
         .entites
         .iter()
         .filter_map(|e| match e {
             Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.point_de_reapparition()),
             _ => None,
         })
-        .min_by(|a, b| a.1.total_cmp(&b.1))
-        .unwrap();
+        .collect();
+    de_la_tour.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let haut = de_la_tour[1];
     // Carte 9.13d : la reprise rend l'état de la Pieuvre « au passage de la
     // lanterne », noté quand elle VOIT Pépin à cette hauteur (`observer`).
     // Il faut donc qu'elle l'y ait vu au moins une fois avant la mort.
