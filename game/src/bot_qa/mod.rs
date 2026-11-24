@@ -50,6 +50,7 @@ mod captures_99;
 mod essais;
 mod essais_tests;
 mod parcours;
+pub(crate) mod pilote_pieuvre;
 mod scripts;
 
 /// La recherche de `parcours` est l'interface du module : `difficulte.rs`
