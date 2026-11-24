@@ -7644,3 +7644,165 @@ Worktree `carte-10.7`, depuis monde-2 `dd45fb2`. Rien du jeu, du niveau ni de la
 - La partie COMPLÈTE du Monde 2 (`tous_les_parcours_complets_du_monde(2)`, tests ignorés d'écriture de scripts `ecrire_script_monde_2_96` et `captures_99`, PAS au lot) : `parcours_complet_par_etapes` cherche encore l'arrivée d'un seul tenant après les gouttes, donc dans la phase 2 de la vraie Pieuvre ; son repli (`trouver_parcours`) est maintenant bon, mais la recherche par étapes qui passe d'abord peut ne pas finir. Non lancé ; à traiter si ces scripts resservent (le même aiguillage `a_une_phase_2` vers `trouver_parcours` suffirait, la Pieuvre n'ayant pas de lettre).
 - Le `lot` complet n'est pas relancé ici (le coordinateur le lance) : seulement le test rouge de la 10.5 et `carte pieuvre robot`.
 - Mode facile et nouvelle partie + de la vraie Pieuvre par le robot de partie : non demandés, non testés (le pilote, lui, gagne en facile depuis la 9.13g).
+
+## Carte 10.8 : lot complet sur monde-2 après les fusions du 24/11 (vérification seule)
+
+Commit vérifié : monde-2 `c4cc6a2` (« Fusion carte 10.7 (Monde 2) »), qui contient ensemble la 11.1 (robot de faisabilité, balancement) et la 10.7 (robot de partie, Pieuvre). monde-2 n'a pas bougé pendant la carte (toujours `c4cc6a2` à la fin). Aucune modification du code : seul ce rapport est commité.
+
+Comment : extraction propre `git archive c4cc6a2 | tar -x -C <dossier temporaire>`, puis `PEPIN_FILS=6 lourd.sh ./docker-cargo.sh lot` en arrière-plan, sans aucune limite de temps (place 1 de `lourd.sh`, prise tout de suite). Lancé le 24/11 à 19:39:17, fini à 20:06:32, code de sortie 0. Machine très chargée pendant tout le lot (charge moyenne entre 38 et 63 pour 20 cœurs).
+
+Résultat : **lot VERT, 1 633 s en tout** (27 min 13 s ; compilation 27 s). Aucun test rouge : la vérification sur `dd45fb2` n'a donc pas été nécessaire.
+
+### Résultat de chaque suite
+
+| Suite | Résultat |
+|---|---|
+| core, tests rapides | VERT : 324 ok, 0 échec, 6 ignorés (17,0 s) |
+| game, tests rapides | VERT : 433 ok, 0 échec, 62 ignorés (1,9 s) |
+| niveaux, tests rapides | VERT : 18 ok, 0 échec |
+| niveaux `tous_les_niveaux`, tests rapides | VERT : 90 ok, 0 échec, 61 ignorés (75,8 s) |
+| core, tests de lot | VERT : 5 ok sur 5 (36,0 s) |
+| niveaux `tous_les_niveaux`, tests de lot (faisabilité et reprise de chaque niveau, mécaniques exigées, essais, nouvelle partie +) | VERT : 59 ok sur 59 (313,0 s) |
+| game, tests de lot (robots de partie du Monde 1, du Monde 2, bonus, nouvelle partie +, essais, joueur simulé) | VERT : 19 ok sur 19 (1 605,7 s) |
+
+Les tests de lot tournent en parallèle dans chaque suite : la durée d'un test est mesurée par libtest (`--report-time`) depuis le début de sa suite, sur une machine chargée.
+
+### Chaque test lourd : résultat et durée
+
+game (19) :
+
+| Test | Résultat | Durée |
+|---|---|---|
+| `bot_qa::tests::le_robot_finit_le_monde_2_sans_mourir` | VERT | 1605,7 s |
+| `bot_qa::essais_tests::le_robot_bat_la_pieuvre_sans_mourir` | VERT | 1050,9 s |
+| `bot_qa::tests::le_robot_finit_la_nouvelle_partie_plus_sans_mourir` | VERT | 970,4 s |
+| `bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir` | VERT | 937,9 s |
+| `bot_qa::tests::au_clocher_le_parcours_allume_les_trois_lanternes` | VERT | 937,8 s |
+| `bot_qa::tests::la_partie_complete_joue_le_bonus` | VERT | 747,1 s |
+| `bot_qa::essais_tests::le_robot_bat_le_grand_nuage` | VERT | 665,1 s |
+| `bot_qa::essais_tests::le_parcours_du_grand_nuage_tient_a_une_image_pres` | VERT | 665,1 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_ennemis_eau` | VERT | 444,4 s |
+| `bot_qa::essais_tests::le_parcours_de_l_horloge_tient_a_une_image_pres` | VERT | 295,6 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_horloge` | VERT | 295,6 s |
+| `bot_qa::tests::le_robot_traverse_l_arc_en_ciel_sans_mourir` | VERT | 244,7 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_eau2` | VERT | 219,4 s |
+| `difficulte::tests::niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles` | VERT | 78,7 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_escargot` | VERT | 65,5 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_montgolfiere` | VERT | 57,0 s |
+| `bot_qa::essais_tests::le_robot_monte_jusqu_en_haut_des_deux_montgolfieres` | VERT | 48,4 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_vertical` | VERT | 32,3 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_chat` | VERT | 16,7 s |
+
+core (5) :
+
+| Test | Résultat | Durée |
+|---|---|---|
+| `faisabilite::tests::le_robot_monte_au_balcon_par_l_aiguille` | VERT | 36,0 s |
+| `faisabilite::tests::le_parapluie_allonge_nettement_la_portee` | VERT | 30,3 s |
+| `faisabilite::tests::le_robot_traverse_le_vide_par_les_auvents` | VERT | 19,3 s |
+| `faisabilite::tests::le_robot_resiste_au_vent_de_face_au_sol` | VERT | 17,1 s |
+| `faisabilite::tests::un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer` | VERT | 15,1 s |
+
+niveaux `tous_les_niveaux` (59) :
+
+| Test | Résultat | Durée |
+|---|---|---|
+| `faisabilite::monde_2_niveau_3_reprise` | VERT | 313,0 s |
+| `faisabilite::monde_2_niveau_5_reprise` | VERT | 208,0 s |
+| `faisabilite::monde_2_niveau_3_faisable` | VERT | 198,7 s |
+| `faisabilite::monde_2_niveau_2_reprise` | VERT | 187,7 s |
+| `faisabilite::monde_2_niveau_7_reprise` | VERT | 186,5 s |
+| `faisabilite::monde_2_niveau_4_reprise` | VERT | 166,4 s |
+| `faisabilite::niveau_3_reprise` | VERT | 158,1 s |
+| `faisabilite::reprise_depuis_chaque_lanterne_des_niveaux_d_essai` | VERT | 155,0 s |
+| `variantes::chaque_variante_ng_plus_est_finissable` | VERT | 146,7 s |
+| `faisabilite::monde_2_niveau_6_reprise` | VERT | 146,0 s |
+| `faisabilite::monde_2_niveau_1_reprise` | VERT | 139,1 s |
+| `faisabilite::monde_2_niveau_5_faisable` | VERT | 133,5 s |
+| `faisabilite::monde_2_niveau_4_faisable` | VERT | 124,0 s |
+| `faisabilite::niveau_5_faisable` | VERT | 106,7 s |
+| `faisabilite::niveau_11_faisable` | VERT | 106,6 s |
+| `faisabilite::monde_2_niveau_2_faisable` | VERT | 99,6 s |
+| `faisabilite::niveau_3_faisable` | VERT | 88,8 s |
+| `faisabilite::monde_2_niveau_7_faisable` | VERT | 87,6 s |
+| `par_niveau::clocher::le_clocher_exige_ses_deux_aiguilles` | VERT | 86,1 s |
+| `par_niveau::essai_balancement::le_robot_de_faisabilite_finit_le_niveau` | VERT | 82,3 s |
+| `faisabilite::niveau_4_reprise` | VERT | 79,1 s |
+| `faisabilite::niveau_7_reprise` | VERT | 79,1 s |
+| `faisabilite::monde_2_niveau_6_faisable` | VERT | 73,5 s |
+| `faisabilite::niveau_5_reprise` | VERT | 70,0 s |
+| `par_niveau::clocher::le_clocher_exige_ses_escargots` | VERT | 65,9 s |
+| `faisabilite::niveau_10_reprise` | VERT | 61,8 s |
+| `essais::niveau_d_essai_horloge_faisable` | VERT | 60,6 s |
+| `faisabilite::monde_2_niveau_1_faisable` | VERT | 60,3 s |
+| `faisabilite::niveau_2_reprise` | VERT | 55,6 s |
+| `faisabilite::niveau_3_le_marche_exige_ses_six_auvents` | VERT | 52,1 s |
+| `faisabilite::niveau_4_faisable` | VERT | 47,6 s |
+| `faisabilite::niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee` | VERT | 46,3 s |
+| `faisabilite::niveau_10_faisable` | VERT | 46,3 s |
+| `faisabilite::niveau_3_on_ressort_de_la_cachette_du_chat` | VERT | 45,4 s |
+| `faisabilite::niveau_9_reprise` | VERT | 43,0 s |
+| `faisabilite::niveau_8_reprise` | VERT | 39,4 s |
+| `essais::niveau_d_essai_vertical_faisable` | VERT | 39,2 s |
+| `faisabilite::niveau_1_reprise` | VERT | 37,5 s |
+| `faisabilite::niveau_2_faisable` | VERT | 35,7 s |
+| `faisabilite::niveau_7_faisable` | VERT | 35,0 s |
+| `faisabilite::niveau_8_faisable` | VERT | 33,2 s |
+| `essais::niveau_d_essai_horloge_exige_les_deux_aiguilles` | VERT | 31,7 s |
+| `faisabilite::niveau_1_faisable` | VERT | 30,1 s |
+| `faisabilite::niveau_12_reprise` | VERT | 29,7 s |
+| `faisabilite::niveau_12_faisable` | VERT | 28,0 s |
+| `faisabilite::niveau_9_faisable` | VERT | 23,4 s |
+| `par_niveau::clocher::le_clocher_exige_le_ventilateur` | VERT | 21,7 s |
+| `par_niveau::mer::on_repart_de_chaque_marche` | VERT | 18,3 s |
+| `essais::niveau_d_essai_escargot_exige_les_deux_escargots` | VERT | 17,3 s |
+| `essais::niveau_d_essai_nuage_chaque_courant_mene_a_la_tete` | VERT | 14,9 s |
+| `essais::niveau_d_essai_chat_faisable` | VERT | 14,4 s |
+| `essais::niveau_d_essai_nuage_faisable` | VERT | 8,8 s |
+| `essais::niveau_d_essai_ventilateur_faisable` | VERT | 7,3 s |
+| `faisabilite::niveau_6_faisable` | VERT | 2,5 s |
+| `par_niveau::essai_balancement::sans_crochet_l_arrivee_est_hors_d_atteinte` | VERT | 2,4 s |
+| `faisabilite::niveau_6_reprise` | VERT | 0,2 s |
+| `faisabilite::monde_2_niveau_8_faisable` | VERT | 0,0 s |
+| `faisabilite::monde_2_niveau_8_reprise` | VERT | 0,0 s |
+| `faisabilite::niveau_11_reprise` | VERT | 0,0 s |
+
+`monde_2_niveau_8_faisable` et `monde_2_niveau_8_reprise` passent en 0,0 s parce que la 8e place du Monde 2 est encore vide (le Monde 2 a 7 niveaux ; la macro `tests_de_faisabilite!` laisse passer une place réservée sans rien vérifier). Ce n'est pas un niveau sauté.
+
+### Robots de partie : niveaux joués, morts, gouttes, empreinte
+
+Les lignes imprimées par les robots ne sont pas gardées par le lot (sortie capturée). Je les ai relues en relançant les 19 tests de lot de game avec `--nocapture`, même profil `tests-rapides`, même extraction, même mémoire des parcours (relue : 6 s pour les 19, aucune recherche refaite). Les morts sont vérifiées par l'assertion `partie.morts == 0` de chaque test de partie (VERT).
+
+| Partie | Niveaux joués | Morts | Gouttes | Images, chrono | Empreinte |
+|---|---|---|---|---|---|
+| Monde 1 (`le_robot_finit_tous_les_niveaux_sans_mourir`) | 1 à 10 puis 12 (bonus sauté, épilogue joué : assertion du test) | 0 | 13 (le bonus n'est pas atteint) | 21 801 images, 20 770 pas | `efffa02569f3d66a` |
+| Monde 2 (`le_robot_finit_le_monde_2_sans_mourir`) | [1, 2, 3, 4, 5, 6, 7] | 0 | 9 | 23 665 images, 23 016 pas | `5b8fb62a1da726a0` |
+| Partie complète (`la_partie_complete_joue_le_bonus`) | 1 à 12, bonus joué (assertion : 3 gouttes de plus à chaque niveau) | 0 | 36 (toutes celles du Monde 1, assertion) | 26 919 images, 25 779 pas | `f704082a2e1ae5f1` |
+| Nouvelle partie + (`le_robot_finit_la_nouvelle_partie_plus_sans_mourir`) | 1 à 10 puis 12 (assertion) | 0 | non imprimées par le test | 22 570 images, 21 700 pas | `dbff618420d2552a` |
+| Arc-en-ciel (`le_robot_traverse_l_arc_en_ciel_sans_mourir`) | le bonus seul | 0 | [oui, oui, oui] | 2 988 pas (49,8 s) | non imprimée |
+
+Les 13 gouttes du Monde 1 sont celles de la carte 10.5 (« Robot du Monde 1 : 21 801 images, 0 mort, 13 gouttes ») ; la ligne du test ne les imprime pas.
+
+Comparaison avec les empreintes déjà notées : Monde 1 `efffa02569f3d66a`, la même qu'à la 10.5 (21 801 images) ; Monde 2 `5b8fb62a1da726a0`, 23 665 images, 23 016 pas, 9 gouttes, exactement ce que la 10.7 avait trouvé sur sa branche. La fusion avec la 11.1 n'a donc rien changé aux deux parties. Les empreintes de la partie complète et de la nouvelle partie + n'étaient notées nulle part dans QA.md : elles servent de référence à partir d'ici.
+
+Essais (lignes des robots, mêmes tests) : Pieuvre d'essai 2 251 images ; eau 2 1 129 images ; horloge 737 images (aiguilles portées 56 et 178 images) ; chat 543 images, chat écrasé à l'image 336 ; vertical 948 images, 1 goutte ; escargot 1 209 images, rebonds aux images 876 et 1 127 ; ennemis d'eau 738 images, 3 gouttes ; montgolfière 399 images (jusqu'en haut : 563) ; Grand Nuage d'essai 1 442 images, coups aux images 396, 805 et 1 322.
+
+### Mémoire des parcours
+
+Le lot a tourné AVEC la mémoire des parcours (`PEPIN_MEMOIRE_PARCOURS`, `~/.cache/pepin-cargo-home/parcours-du-robot/`, comme tout `lot`). Elle a dû être refaite : 514 fichiers avant le lot, 568 après, soit 54 parcours écrits pendant le lot (de 19:40 à 20:06), aucun ancien fichier réécrit. C'est attendu : l'empreinte du code lue par le robot (`empreinte_du_code` : `core/src`, `game/src/monde.rs`, `parcours.rs`, `pilote_pieuvre.rs`) change avec ces fusions. Les durées des robots ci-dessus sont donc celles de vraies recherches (Monde 2 : 1 605,7 s ici contre 1 221 s à la 10.7, machine plus chargée). Je ne peux pas exclure qu'une petite partie des parcours ait été relue d'un fichier écrit avant le lot (le dernier ancien date de 19:27, après la fusion de 19:22) : le lot n'indique pas les parcours relus. Le robot de faisabilité de `niveaux` n'utilise pas cette mémoire.
+
+### Aucune suite sautée
+
+Relu après le lot : la liste des tests ignorés de chaque binaire (`--list --ignored --format json`, celle que lit `tests-carte-lot.sh`), comparée à ce que le lot a lancé.
+- core : 5 tests « lot : ... », 5 lancés. Le seul autre ignoré écrit `docs/police-test.png` (hors lot par conception).
+- niveaux `tous_les_niveaux` : 59 tests « lot : ... » (20 faisabilité, 20 reprise, 9 faisabilité des essais et d'autres, 8 mécaniques exigées, 1 reprise des essais, 1 nouvelle partie +), 59 lancés. Autres ignorés : `le_niveau_de_la_carte` (commande `carte`) et un `#[ignore]` sans raison de `table.rs`.
+- game : 19 tests « lot : ... » (18 robots de QA, 1 joueur simulé), 19 lancés. Autres ignorés, hors lot par conception : 3 pilotes de la Pieuvre « se lance à la main », 3 mesures de difficulté facultatives, 1 robot d'un seul niveau (commande `carte`), et 36 `#[ignore]` sans raison (écriture de scripts et de captures du navigateur, mesures).
+- Les binaires `editeur`, `lisezmoi`, `valider` n'ont aucun test ; `robot` et `outils` ne sont pas dans le lot (aucun test de lot, ils ont leurs tests rapides habituels).
+- Aucune commande n'a été coupée, aucune n'a passé la nuit.
+
+### PAS fait, PAS testé
+
+- Aucun build, aucun navigateur, aucune capture : la carte ne vérifie que le lot.
+- `lint`, tests de `robot` et `outils` : pas dans le lot, non relancés.
+- Le lot sans mémoire (`lot sans-memoire`) : non lancé (la mémoire a de toute façon été refaite, voir plus haut).
+- Mode facile et partie complète du Monde 2 : hors lot, non testés (voir la 10.7).
