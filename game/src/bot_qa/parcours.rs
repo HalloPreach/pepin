@@ -1297,6 +1297,8 @@ fn empreinte_du_code() -> u64 {
         liste.retain(|f| !f.starts_with(&niveaux) || f.ends_with("variantes.rs"));
         liste.push(racine.join("game/src/monde.rs"));
         liste.push(racine.join("game/src/bot_qa/parcours.rs"));
+        // Carte 10.7 : le pilote de la phase 2 de la Pieuvre fait partie du robot.
+        liste.push(racine.join("game/src/bot_qa/pilote_pieuvre.rs"));
         liste.sort();
         let mut h = std::collections::hash_map::DefaultHasher::new();
         for f in &liste {
@@ -1327,6 +1329,15 @@ fn chercher_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Option<
     let (depart, mut entrees) = depart_pose_mode(indice, ng_plus);
     let sans_secret =
         |m: &Monde| gouttes_avant_la_victoire(m) && !m.caches_reveles.iter().any(|&r| r);
+    // Carte 10.7 : la Pieuvre du port À TOUR (sa phase 2, « fuite et montée »).
+    // La recherche d'un seul tenant n'y finit jamais : après le dernier coup de la
+    // phase 1, la montée (plus de 60 s, la mer, l'humeur et le cerveau de la
+    // géante hors de la case) multiplie les états sans fin (voir la tête de
+    // `pilote_pieuvre`). On va donc tout de suite au point par point, qui passe la
+    // main au pilote pour la phase 2.
+    if super::pilote_pieuvre::a_une_phase_2(&depart) {
+        return parcours_du_boss_par_points(depart, entrees, &sans_secret, precis);
+    }
     let Some(etapes) = chercher_avec(
         &depart,
         &plans(precis),
@@ -1336,7 +1347,7 @@ fn chercher_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Option<
     ) else {
         // Repli au DERNIER essai (`precis`), dans l'arène d'un boss seulement.
         return if precis && depart.pv_nuage().is_some() {
-            parcours_du_boss_par_points(depart, entrees, &sans_secret)
+            parcours_du_boss_par_points(depart, entrees, &sans_secret, true)
         } else {
             None
         };
@@ -1360,20 +1371,50 @@ fn chercher_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Option<
 /// du plan, qui s'arrêtent à la fin ; le coup, lui, remet l'horloge du boss à zéro).
 /// Repli seulement : là où la recherche d'un seul tenant réussit (tout le Monde 1,
 /// le Grand Nuage compris), rien ne change.
+///
+/// Carte 10.7 : la Pieuvre à tour y vient directement, robot maladroit compris
+/// (`precis` choisit les plans). Le dernier coup de la phase 1 ne finit pas le
+/// niveau : il lance la phase 2. Le PILOTE de la 9.13g (`pilote_pieuvre::jouer`, le
+/// même, ni recopié ni modifié) la joue alors dans la vraie partie, de l'arène
+/// jusqu'à la plongée ; chacun de ses pas est noté puis rejoué ici. Le parcours ne
+/// garde la phase 2 que si le pilote l'a gagnée SANS MOURIR (le rejeu le vérifie
+/// encore, pas à pas).
 fn parcours_du_boss_par_points(
     mut monde: Monde,
     mut entrees: Vec<Entrees>,
     arrivee_admise: &dyn Fn(&Monde) -> bool,
+    precis: bool,
 ) -> Option<Vec<Entrees>> {
-    let tous = plans(true);
-    while let Some(pv) = monde.pv_nuage().filter(|&pv| pv > 0) {
-        let point = |m: &Monde| m.pv_nuage().is_some_and(|p| p < pv);
+    let tous = plans(precis);
+    // Carte 10.7 : le dernier coup de la phase 1 d'une Pieuvre à tour ne fait PAS
+    // baisser ses points (elle les retrouve aussitôt pour la montée) : il compte
+    // donc comme un point quand la phase 2 commence, et la boucle s'arrête là.
+    let en_phase_2 = super::pilote_pieuvre::en_phase_2;
+    while let Some(pv) = monde.pv_nuage().filter(|&pv| pv > 0 && !en_phase_2(&monde)) {
+        let point = |m: &Monde| m.pv_nuage().is_some_and(|p| p < pv) || en_phase_2(m);
         for e in chercher_avec(&monde, &tous, &point, arrivee_admise, usize::MAX)? {
             for x in &e.entrees {
                 monde.avancer(x);
             }
             entrees.extend(e.entrees);
         }
+    }
+    if en_phase_2(&monde) {
+        let mut pas_du_pilote: Vec<Entrees> = Vec::new();
+        let bilan = super::pilote_pieuvre::jouer(monde.clone(), &mut |plan| plan, |_, e| {
+            pas_du_pilote.push(*e);
+            true
+        });
+        if !bilan.victoire || bilan.morts > 0 {
+            return None;
+        }
+        for e in &pas_du_pilote {
+            monde.avancer(e);
+            if est_mort(&monde) {
+                return None;
+            }
+        }
+        entrees.extend(pas_du_pilote);
     }
     // La plongée (120 pas) : au plus 600 pas (10 s) d'attente.
     for _ in 0..600 {
