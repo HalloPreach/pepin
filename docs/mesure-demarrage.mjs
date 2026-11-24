@@ -28,13 +28,13 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 // Installé avant tout script de la page : on chronomètre chaque rappel de
 // requestAnimationFrame (une image du jeu) et l'instanciation du wasm.
 const SONDE = `
-window.__D = { images: [], wasm: null, sons: { debut: 0, fin: 0, echecs: 0, dernier: null } };
+window.__D = { images: [], wasm: null, sons: { debut: 0, fin: 0, echecs: 0, dernier: null, longueurs: [] } };
 const decoderOrig = BaseAudioContext.prototype.decodeAudioData;
 BaseAudioContext.prototype.decodeAudioData = function (octets, reussite, echec) {
   const s = window.__D.sons;
   s.debut++;
   return decoderOrig.call(this, octets,
-    (b) => { s.fin++; s.dernier = performance.now(); if (reussite) reussite(b); },
+    (b) => { s.fin++; s.dernier = performance.now(); s.longueurs.push(b.length); if (reussite) reussite(b); },
     (e) => { s.echecs++; if (echec) echec(e); });
 };
 const rafOrig = window.requestAnimationFrame.bind(window);
@@ -99,6 +99,7 @@ async function essai() {
       sons: Math.round(sons.dernier ?? -1),
       nsons: `${sons.fin}/${sons.debut}`,
       echecs: sons.echecs,
+      longueurs: sons.longueurs,
     };
   } finally {
     try { chrome.kill('SIGKILL'); } catch {}
@@ -113,5 +114,8 @@ for (let i = 0; i < ESSAIS; i++) {
   mesures.push(m);
   console.log(`essai ${i + 1} : wasm ${m.wasm} ms, titre ${m.titre} ms, plus longue image ${m.max} ms, sons décodés ${m.nsons} à ${m.sons} ms, échecs ${m.echecs}`);
 }
+// Les longueurs (en échantillons) des sons décodés par le navigateur, dans l'ordre
+// de chargement : à comparer à celles des WAV de référence (carte 10.4e).
+console.log(`longueurs décodées (essai 1) : ${mesures[0].longueurs.join(' ')}`);
 const mediane = (cle) => mesures.map((m) => m[cle]).sort((a, b) => a - b)[Math.floor(mesures.length / 2)];
 console.log(`MÉDIANES (${ESSAIS} essais) : wasm ${mediane('wasm')} ms, titre ${mediane('titre')} ms, plus longue image ${mediane('max')} ms, sons ${mediane('sons')} ms`);

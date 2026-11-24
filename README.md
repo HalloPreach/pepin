@@ -277,8 +277,8 @@ Contenu de `core/src` :
 - `faisabilite.rs` : un « robot joueur » qui prouve par simulation qu'un niveau
   peut être terminé.
 - `palette.rs`, `font.rs` (+ `font/`) : palette de 16 couleurs, police 5x7.
-- `synthese.rs`, `sons.rs` : synthèse sonore 8 bits (calcul pur de tableaux de
-  nombres).
+- `sons.rs` : la liste des bruitages (`Effet`), le nom de leur fichier et leur
+  volume (les sons eux-mêmes sont des fichiers OGG, carte 10.4e).
 
 Contenu de `game/src` (les fichiers de dessin, d'entrée et de son) :
 
@@ -718,11 +718,11 @@ compte les couleurs distinctes d'une capture.
 
 ## 9. Son et tactile
 
-- **Son** (`core/src/synthese.rs`, `core/src/sons.rs`, `game/src/audio.rs`) :
-  ondes carrée, triangle et bruit calculées échantillon par échantillon à
-  22 050 Hz, comme sur une vieille console. On obtient onze effets, une
-  musique en boucle et le bruit de la pluie, tous fabriqués en mémoire au
-  démarrage. Le son est **coupé par défaut** (un navigateur n'autorise l'audio
+- **Son** (`core/src/sons.rs`, `game/src/audio.rs`, `assets/musiques`,
+  `assets/sons`) : de vrais fichiers OGG Vorbis mono à 22 050 Hz (carte 10.4e),
+  rendus une fois par l'ancien synthé 8 bits (ondes carrée, triangle et bruit) :
+  douze bruitages, six musiques en boucle et le bruit de la pluie, embarqués dans
+  le jeu et décodés par le navigateur (voir `assets/musiques/LISEZMOI.md`). Le son est **coupé par défaut** (un navigateur n'autorise l'audio
   qu'après une première interaction) ; la touche M ou le menu l'active.
 - **Tactile** (`game/src/tactile.rs`) : quatre boutons en pixel art, plusieurs
   doigts en même temps (courir et sauter). L'écran est jugé tactile au premier

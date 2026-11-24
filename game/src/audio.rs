@@ -1,5 +1,11 @@
-//! Audio : joue les sons fabriqués par `pepin_core::sons` via l'API audio de
-//! macroquad. Aucun fichier : les WAV sont construits en mémoire au démarrage.
+//! Audio : joue les sons du jeu via l'API audio de macroquad.
+//!
+//! Les sons sont de VRAIS fichiers audio (carte 10.4e) : `assets/musiques/<id>.ogg`
+//! (une boucle par musique du catalogue `musiques`) et `assets/sons/<clé>.ogg` (un
+//! bruitage par `Effet`, plus la boucle `pluie`). `build.rs` les embarque TOUS
+//! (`include_bytes!`, aucune liste à la main) et `charger` les confie à
+//! `load_sound_from_bytes` : sur le web, c'est le navigateur qui décode l'OGG.
+//! Format et règles : `assets/musiques/LISEZMOI.md`.
 //!
 //! Le son est DÉSACTIVÉ par défaut (et un navigateur n'autorise de toute façon
 //! l'audio qu'après une première interaction : clic, touche ou toucher). Tant
@@ -21,11 +27,24 @@ use macroquad::audio::{
 use pepin_core::entities::contacts::Contact;
 use pepin_core::entities::Entite;
 use pepin_core::player::Evenements;
-use pepin_core::sons::{echantillons, pluie, vers_wav, Effet};
+use pepin_core::sons::Effet;
 use pepin_core::LARGEUR_LOGIQUE;
 
 use crate::monde::Monde;
 use crate::musiques::Musique;
+
+// `FICHIERS` : (genre, clé, octets de l'OGG) de chaque son, triés par chemin.
+include!(concat!(env!("OUT_DIR"), "/sons_embarques.rs"));
+
+/// Les octets de `assets/<genre>/<cle>.ogg`. Panique si le fichier manque (les
+/// tests `chaque_son_demande_a_son_fichier` l'attrapent avant).
+pub fn fichier(genre: &str, cle: &str) -> &'static [u8] {
+    FICHIERS
+        .iter()
+        .find(|(g, c, _)| *g == genre && *c == cle)
+        .map(|(_, _, octets)| *octets)
+        .unwrap_or_else(|| panic!("assets/{genre}/{cle}.ogg manquant"))
+}
 
 /// Volume de la boucle musicale et de la pluie douce (discrets).
 const VOLUME_MUSIQUE: f32 = 0.30;
@@ -145,21 +164,21 @@ pub struct Audio {
 }
 
 impl Audio {
-    /// Fabrique et charge tous les sons (sur le web, attend leur décodage).
+    /// Charge tous les sons embarqués (sur le web, attend leur décodage).
     pub async fn charger() -> Self {
         let mut effets = HashMap::new();
         for e in Effet::TOUS {
-            effets.insert(e, charger_son(&echantillons(e)).await);
+            effets.insert(e, charger_son("sons", e.cle()).await);
         }
         let mut musiques = HashMap::new();
         for m in Musique::TOUTES {
-            musiques.insert(m, charger_son(&m.echantillons()).await);
+            musiques.insert(m, charger_son("musiques", m.id()).await);
         }
         Self {
             effets,
             musiques,
             musique_active: Musique::Orage,
-            pluie: charger_son(&pluie()).await,
+            pluie: charger_son("sons", "pluie").await,
             etat: EtatSon::default(),
             detecteur: Detecteur::default(),
         }
@@ -245,12 +264,12 @@ fn jouer_boucle(son: &Sound, volume: f32) {
     );
 }
 
-/// Encode en WAV puis confie à macroquad. Les échantillons sont fabriqués par
-/// le code du cœur : un échec ici serait une erreur de programmation.
-async fn charger_son(donnees: &[f32]) -> Sound {
-    load_sound_from_bytes(&vers_wav(donnees))
+/// Confie à macroquad le fichier `assets/<genre>/<cle>.ogg`. Les fichiers sont
+/// contrôlés avant le build (crate `outils`) : un échec ici serait un fichier cassé.
+async fn charger_son(genre: &str, cle: &str) -> Sound {
+    load_sound_from_bytes(fichier(genre, cle))
         .await
-        .expect("WAV fabriqué en mémoire valide")
+        .unwrap_or_else(|e| panic!("assets/{genre}/{cle}.ogg illisible : {e:?}"))
 }
 
 #[cfg(test)]
@@ -258,23 +277,26 @@ mod tests {
     use super::*;
     use pepin_core::entities::contacts::CauseMort;
 
-    /// TEMPORAIRE (carte 10.4e) : rend une fois chaque son en WAV de référence.
+    /// Chaque son que le jeu demande a son fichier (chaque effet, chaque musique, la
+    /// pluie), et aucun fichier n'est orphelin : tout fichier de `assets/musiques` et
+    /// `assets/sons` est demandé. Ajouter un son = ajouter un fichier ET sa clé.
     #[test]
-    #[ignore]
-    fn rendre_les_wav_de_reference() {
-        let racine =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/sons-reference");
-        std::fs::create_dir_all(racine.join("musiques")).unwrap();
-        std::fs::create_dir_all(racine.join("sons")).unwrap();
-        for m in Musique::TOUTES {
-            let chemin = racine.join(format!("musiques/{}.wav", m.id()));
-            std::fs::write(chemin, vers_wav(&m.echantillons())).unwrap();
+    fn chaque_son_demande_a_son_fichier() {
+        let mut demandes: Vec<(&str, &str)> =
+            Effet::TOUS.iter().map(|e| ("sons", e.cle())).collect();
+        demandes.extend(Musique::TOUTES.iter().map(|m| ("musiques", m.id())));
+        demandes.push(("sons", "pluie"));
+        for (genre, cle) in &demandes {
+            let octets = fichier(genre, cle);
+            assert_eq!(&octets[..4], b"OggS", "{genre}/{cle}");
         }
-        for e in Effet::TOUS {
-            let chemin = racine.join(format!("sons/{}.wav", e.cle()));
-            std::fs::write(chemin, vers_wav(&echantillons(e))).unwrap();
+        for (genre, cle, _) in FICHIERS {
+            assert!(
+                demandes.contains(&(genre, cle)),
+                "fichier orphelin : assets/{genre}/{cle}.ogg"
+            );
         }
-        std::fs::write(racine.join("sons/pluie.wav"), vers_wav(&pluie())).unwrap();
+        assert_eq!(FICHIERS.len(), demandes.len());
     }
 
     #[test]

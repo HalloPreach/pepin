@@ -15,7 +15,6 @@ pub mod player;
 pub mod poursuite;
 pub mod sons;
 pub mod state;
-pub mod synthese;
 pub mod timestep;
 pub mod vies;
 pub mod zones;

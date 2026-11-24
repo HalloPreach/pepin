@@ -11,7 +11,8 @@
 //! - `raccord` mesure la jonction d'une boucle (fin collée au début).
 //!
 //! Notions Rust : `std::io::Cursor` (lire des octets en mémoire comme un fichier),
-//! `while let Some(..)` pour vider un décodeur paquet par paquet, `i64` pour sommer
+//! `while let Some(..)` pour vider un décodeur paquet par paquet, `as_chunks` (des
+//! paires d'octets), `i64` pour sommer
 //! des carrés sans débordement.
 
 use std::io::Cursor;
@@ -78,9 +79,12 @@ pub fn lire_wav(octets: &[u8]) -> Result<(u32, Vec<i16>), String> {
             }
             taux = u32::from_le_bytes(contenu[4..8].try_into().unwrap());
         } else if id == b"data" {
+            // `as_chunks::<2>` : le contenu vu comme des paires d'octets.
             let ech = contenu
-                .chunks_exact(2)
-                .map(|c| i16::from_le_bytes([c[0], c[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&paire| i16::from_le_bytes(paire))
                 .collect();
             return Ok((taux, ech));
         }
