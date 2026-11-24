@@ -161,20 +161,26 @@ pub const INDICE_ESSAI_ENNEMIS_EAU: usize = niveaux::NB_NIVEAUX + 12;
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_PIEUVRE: usize = niveaux::NB_NIVEAUX + 13;
 
+/// Niveau d'essai « balancement » (carte 11.1 : les crochets, prototype du Monde 3 ;
+/// touche C), tests et build de QA seulement.
+#[cfg(any(test, feature = "debug_niveaux"))]
+pub const INDICE_ESSAI_BALANCEMENT: usize = niveaux::NB_NIVEAUX + 14;
+
 /// Niveau d'essai VENU DE L'EXTÉRIEUR (carte 10.1b) : le fichier RON posé dans le
 /// `localStorage` du navigateur, lancé par `?essai=1` (voir `essai_externe.rs`).
 /// Juste après les niveaux d'essai embarqués ; build de QA et tests seulement.
 #[cfg(any(test, feature = "debug_niveaux"))]
 pub const INDICE_ESSAI_EXTERNE: usize = niveaux::NB_NIVEAUX + niveaux::NB_ESSAIS;
 
-/// Infos du niveau `indice` : la table `NIVEAUX`, puis les quatorze niveaux
+/// Infos du niveau `indice` : la table `NIVEAUX`, puis les quinze niveaux
 /// d'essai (`INDICE_ESSAI` vertical, `INDICE_ESSAI_VENT` vent,
 /// `INDICE_ESSAI_GRELE` grêle, `INDICE_ESSAI_AUVENT` auvent,
 /// `INDICE_ESSAI_VENTILATEUR` ventilateur, `INDICE_ESSAI_MONTGOLFIERE`
 /// montgolfière, `INDICE_ESSAI_ESCARGOT` escargot, `INDICE_ESSAI_CHAT` chat,
 /// `INDICE_ESSAI_HORLOGE` horloge, `INDICE_ESSAI_NUAGE` arène du Grand Nuage,
 /// `INDICE_ESSAI_EAU` eau, `INDICE_ESSAI_EAU2` eau 2, `INDICE_ESSAI_ENNEMIS_EAU` ennemis d'eau,
-/// `INDICE_ESSAI_PIEUVRE` arène de la Pieuvre, `INDICE_ESSAI_EXTERNE` le niveau
+/// `INDICE_ESSAI_PIEUVRE` arène de la Pieuvre, `INDICE_ESSAI_BALANCEMENT` les
+/// crochets du balancement, `INDICE_ESSAI_EXTERNE` le niveau
 /// posé dans le navigateur), tests et build de QA seulement. `None` au-delà. Tous
 /// sont lus dans leurs fichiers `.ron` par le crate `niveaux` (carte 10.1b).
 pub fn infos_niveau(indice: usize) -> Option<&'static InfosNiveau> {
@@ -213,6 +219,8 @@ fn niveau_essai(indice: usize) -> Option<&'static InfosNiveau> {
         Some(niveaux::par_cle("essai_ennemis_eau"))
     } else if indice == INDICE_ESSAI_PIEUVRE {
         Some(niveaux::par_cle("essai_pieuvre"))
+    } else if indice == INDICE_ESSAI_BALANCEMENT {
+        Some(niveaux::par_cle("essai_balancement"))
     } else if indice == INDICE_ESSAI_EXTERNE {
         crate::essai_externe::niveau()
     } else {
