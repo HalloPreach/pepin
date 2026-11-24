@@ -28,6 +28,7 @@
 //! Pour changer un dessin, ouvrir le sous-module de ce qu'on dessine : aucun ne
 //! connaît la progression du joueur (niveaux finis, sauvegarde).
 
+mod crochets;
 mod entites;
 mod habillage;
 mod interface;
@@ -171,6 +172,8 @@ pub(crate) fn dessiner(
     dessiner_cadrans(monde, banque, alpha, cx, cy);
     trainees.dessiner(cx, cy);
     dessiner_entites(monde, banque, alpha, cx, cy);
+    // Les crochets du balancement et la corde (carte 11.1), juste derrière Pépin.
+    crochets::dessiner_crochets(monde, banque, alpha, cx, cy);
     dessiner_pepin(monde, banque, skin, alpha, cx, cy);
     particules.dessiner(cx, cy);
     // Niveau de poursuite (cartes 8.2 et 8.2b) : le front d'orage du Grand Nuage

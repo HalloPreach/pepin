@@ -49,9 +49,11 @@ pub const FAMILLES: [&str; 16] = [
 
 /// Les dessins RÉUTILISÉS sous un autre nom : (famille, nom, nom du dessin d'origine).
 /// Aucun fichier pour eux : c'est le même dessin.
-const ALIAS: [(&str, &str, &str); 7] = [
+const ALIAS: [(&str, &str, &str); 8] = [
     // La réapparition finit par les mêmes étincelles pour les deux personnages.
     ("pepinette", "pepinette_mort2", "pepin_mort2"),
+    // Le balancement (carte 11.1, prototype) : un seul dessin pour les deux.
+    ("pepinette", "pepinette_suspendu", "pepin_suspendu"),
     // L'eau des courants (carte 9.3) se dessine comme l'eau calme : seul le
     // mouvement (les particules) change.
     ("tuiles", "eau_courant_g_haut", "eau_calme_haut"),

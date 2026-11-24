@@ -99,6 +99,15 @@
 //!   est un nouveau point de décision (`Fin::Barque`) : descendre de bassin en
 //!   bassin en barque est un chemin. Un plan « planer » le lâche (comme un
 //!   joueur qui ouvre son parapluie).
+//! - le balancement (carte 11.1, prototype) : avec la vraie physique
+//!   (`Joueur::actualiser_avec_crochets`), un plan « planer » qui passe à portée
+//!   d'un crochet s'y accroche ; c'est un point de décision (`Fin::Suspendu`,
+//!   `Noeud::accroche`). Depuis un crochet, les plans « de lâcher » (`Lacher`)
+//!   donnent de l'élan pendant quelques demi-balancements, lâchent SAUT à un angle
+//!   choisi, puis volent comme après un auvent (planer ou non). Deux arrivées au
+//!   même crochet, au même endroit, à des vitesses différentes, sont fusionnées
+//!   (la moins coûteuse reste) : le robot peut manquer un chemin, jamais en
+//!   inventer un (chaque plan est rejoué avec la vraie physique).
 //!
 //! Notions Rust illustrées ici (à reprendre dans le README) :
 //! - `struct` d'options + `Default` ; `VecDeque` et `HashSet` (collections) ;
@@ -118,7 +127,7 @@ use crate::physics::{
     eau_touchee, CourantAscendant, Eau, Environnement, VentLateral, ENFONCEMENT_BARQUE, HZ,
     JOUEUR_H, JOUEUR_L, VITESSE_PLANER_CHUTE,
 };
-use crate::player::{Direction, Entrees, Joueur};
+use crate::player::{Balancement, Direction, Entrees, Joueur};
 
 /// Ce que le robot a le droit d'utiliser.
 #[derive(Debug, Clone, Copy)]
@@ -226,7 +235,26 @@ struct Plan {
     dir_montee: bool,
     /// Direction conservée pendant la descente ?
     dir_descente: bool,
+    /// Depuis un crochet (carte 11.1) : quand et comment lâcher. `None` pour
+    /// tous les autres plans.
+    lacher: Option<Lacher>,
 }
+
+/// Le lâcher d'un plan qui part suspendu à un crochet (carte 11.1) : pousser
+/// dans le sens du mouvement pendant `pompes` demi-balancements, puis, le
+/// balancement allant vers `sens`, lâcher SAUT dès que l'angle (compté dans ce
+/// sens) atteint `angle`.
+#[derive(Clone, Copy)]
+struct Lacher {
+    sens: i8,
+    pompes: u8,
+    angle: f32,
+}
+
+/// Les demi-balancements d'élan essayés, et les angles de lâcher (degrés,
+/// comptés dans le sens du lâcher : négatif = avant le bas du cercle).
+const POMPES: [u8; 6] = [0, 1, 2, 3, 5, 8];
+const ANGLES_LACHER: [f32; 5] = [-20.0, 0.0, 20.0, 40.0, 60.0];
 
 /// Carte 9.2b : à moins de `MARGE_BAS` px au-dessus de l'eau (pieds), le robot
 /// tient BAS (le parapluie retourné), comme un joueur qui voit l'eau venir. BAS
@@ -293,6 +321,9 @@ enum Fin {
     /// Entré dans l'eau parapluie retourné (carte 9.2b) : BARQUE en `(x, y)`. Un
     /// nouveau choix commence à bord (ramer, ou sauter hors de l'eau).
     Barque(f32, f32),
+    /// Accroché à un crochet (carte 11.1) en `(x, y)`, dans l'état du
+    /// balancement : un nouveau choix commence (quand et comment lâcher).
+    Suspendu(f32, f32, Balancement),
     /// Temps écoulé ou état instable : on abandonne ce plan.
     Abandon,
 }
@@ -322,15 +353,19 @@ struct Noeud {
     /// Marée (carte 9.3) : la mer est PLEINE (chaque zone `=` remplie) ; faux
     /// à basse mer, et toujours faux dans un niveau sans marée.
     haute: bool,
+    /// Balancement (carte 11.1) : 0 = pas accroché ; `k` = suspendu au crochet
+    /// `k - 1`. L'état du balancement (angle, vitesse, corde) est rangé à part
+    /// (`suspensions`), sous la clé du noeud.
+    accroche: u16,
 }
 
 /// Clé de fusion d'un noeud (voir `Noeud::cle`).
-type CleNoeud = (i32, i32, bool, bool, u32, bool);
+type CleNoeud = (i32, i32, bool, bool, u32, bool, u16);
 
 /// Entrée de la file de priorité : `(coût en pas, x, y, lancé, barque, chats
-/// écrasés, mer pleine)` ; `x` et `y` sont rangés en bits (`f32::to_bits`) : un
+/// écrasés, mer pleine, crochet)` ; `x` et `y` sont rangés en bits (`f32::to_bits`) : un
 /// `f32` n'est pas `Ord`, ses bits si (et ils redonnent exactement le même `f32`).
-type EntreeTas = (u32, u32, u32, bool, bool, u32, bool);
+type EntreeTas = (u32, u32, u32, bool, bool, u32, bool, u16);
 
 impl Noeud {
     fn pose(x: f32, y: f32, chats: u32) -> Self {
@@ -341,6 +376,7 @@ impl Noeud {
             barque: false,
             chats,
             haute: false,
+            accroche: 0,
         }
     }
 
@@ -353,7 +389,15 @@ impl Noeud {
     /// chats écrasés et la marée.
     fn cle(self) -> CleNoeud {
         let (kx, ky) = cle((self.x, self.y));
-        (kx, ky, self.lance, self.barque, self.chats, self.haute)
+        (
+            kx,
+            ky,
+            self.lance,
+            self.barque,
+            self.chats,
+            self.haute,
+            self.accroche,
+        )
     }
 }
 
@@ -608,7 +652,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
     // Clé de fusion d'un noeud : celle de `Noeud::cle`, où seuls comptent les
     // chats écrasés PROCHES du noeud (`FENETRE_CHATS`).
     let cle_de = |n: Noeud| -> CleNoeud {
-        let (kx, ky, lance, barque, ecrases, haute) = n.cle();
+        let (kx, ky, lance, barque, ecrases, haute, accroche) = n.cle();
         let (cx, pieds) = (n.x + JOUEUR_L / 2.0, n.y + JOUEUR_H);
         let proches = places_des_chats
             .iter()
@@ -617,7 +661,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 (x - cx).abs() <= FENETRE_CHATS.0 && (y - pieds).abs() <= FENETRE_CHATS.1
             })
             .fold(0u32, |m, (k, _)| m | (1 << k));
-        (kx, ky, lance, barque, ecrases & proches, haute)
+        (kx, ky, lance, barque, ecrases & proches, haute, accroche)
     };
 
     let mut courants: Vec<CourantAscendant> = if options.courants {
@@ -738,13 +782,18 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
         sur_l_eau,
         0,
         false,
+        0,
     )));
     let tous_les_plans: Vec<Plan> = plans(options).collect();
     // Après un rebond d'auvent, on est en l'air : seuls les choix « en vol »
     // ont un sens (ni élan au sol ni saut).
     let plans_lance: Vec<Plan> = plans_en_vol(options).collect();
+    // Suspendu à un crochet (carte 11.1) : les plans de lâcher. Et l'état du
+    // balancement de chaque noeud accroché, sous sa clé.
+    let plans_crochet: Vec<Plan> = plans_de_lacher(options).collect();
+    let mut suspensions: HashMap<CleNoeud, Balancement> = HashMap::new();
 
-    while let Some(Reverse((cout, bx, by, lance, barque, ecrases, haute))) = tas.pop() {
+    while let Some(Reverse((cout, bx, by, lance, barque, ecrases, haute, accroche))) = tas.pop() {
         let noeud = Noeud {
             x: f32::from_bits(bx),
             y: f32::from_bits(by),
@@ -752,6 +801,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             barque,
             chats: ecrases,
             haute,
+            accroche,
         };
         let env_noeud = if haute { &env_haute } else { &env };
         let etat = (noeud.x, noeud.y);
@@ -765,7 +815,14 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             rapport.dernier_etat = etat;
             cle_dernier = cle_ici;
         }
-        let a_essayer = if lance { &plans_lance } else { &tous_les_plans };
+        let suspendu = suspensions.get(&cle_ici).copied();
+        let a_essayer = if suspendu.is_some() {
+            &plans_crochet
+        } else if lance {
+            &plans_lance
+        } else {
+            &tous_les_plans
+        };
         // Chaque plan est simulé à part, sur les cœurs libres (`parallele`), puis
         // les résultats sont dépouillés ici dans l'ordre des plans : la recherche
         // trouve exactement ce qu'elle trouvait en série. L'environnement est
@@ -795,7 +852,14 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
             }
             let mut touches: Vec<Contact> = Vec::new();
-            let (fin, duree) = simuler(niveau, &env_plan, noeud, *plan, &mut ents, &mut touches);
+            let (fin, duree) = simuler(
+                niveau,
+                &env_plan,
+                (noeud, suspendu),
+                *plan,
+                &mut ents,
+                &mut touches,
+            );
             if matches!(fin, Fin::Mort | Fin::Abandon) {
                 // Rien à dépouiller : on ne garde ni les entités ni les contacts.
                 return (fin, duree, Vec::new(), Vec::new());
@@ -826,22 +890,18 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                 }
             }
             let cout_plan = cout + u32::from(duree);
-            let mut ajouter = |arrive: Noeud, cout: u32| {
+            // Vrai si l'état est retenu (nouveau, ou moins coûteux qu'avant).
+            let mut ajouter = |arrive: Noeud, cout: u32| -> bool {
                 // Posé là où un chat vivant bondirait sur lui : pas un lieu
                 // d'attente (voir l'en-tête). Lancé par un auvent, il est en l'air.
-                if !arrive.lance
-                    && !arrive.barque
-                    && chat_bondirait(niveau, env.solides, &ents, (arrive.x, arrive.y))
-                {
-                    return;
+                let en_l_air = arrive.lance || arrive.barque || arrive.accroche > 0;
+                if !en_l_air && chat_bondirait(niveau, env.solides, &ents, (arrive.x, arrive.y)) {
+                    return false;
                 }
                 // Ni sous une stalactite (carte 9.3) : elle tomberait sur lui.
                 let boite = Aabb::new(arrive.x, arrive.y, JOUEUR_L, JOUEUR_H);
-                if !arrive.lance
-                    && !arrive.barque
-                    && stalactites.iter().any(|c| c.chevauche(&boite))
-                {
-                    return;
+                if !en_l_air && stalactites.iter().any(|c| c.chevauche(&boite)) {
+                    return false;
                 }
                 let k = cle_de(arrive);
                 if meilleur.get(&k).is_none_or(|&c| cout < c) {
@@ -855,7 +915,11 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         arrive.barque,
                         arrive.chats,
                         arrive.haute,
+                        arrive.accroche,
                     )));
+                    true
+                } else {
+                    false
                 }
             };
             match fin {
@@ -871,17 +935,29 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         return rapport;
                     }
                 }
-                Fin::Lance(x, y) => ajouter(
-                    Noeud {
-                        x,
-                        y,
-                        lance: true,
-                        barque: false,
-                        chats: ecrases,
-                        haute,
-                    },
-                    cout_plan,
-                ),
+                Fin::Lance(x, y) => {
+                    ajouter(
+                        Noeud {
+                            x,
+                            y,
+                            lance: true,
+                            barque: false,
+                            chats: ecrases,
+                            haute,
+                            accroche: 0,
+                        },
+                        cout_plan,
+                    );
+                }
+                Fin::Suspendu(x, y, b) => {
+                    let noeud = Noeud {
+                        accroche: b.crochet as u16 + 1,
+                        ..Noeud::pose(x, y, ecrases).a_maree(haute)
+                    };
+                    if ajouter(noeud, cout_plan) {
+                        suspensions.insert(cle_de(noeud), b);
+                    }
+                }
                 Fin::Pose(x, y) => {
                     ajouter(Noeud::pose(x, y, ecrases).a_maree(haute), cout_plan);
                     // Attendre l'autre marée (carte 9.3), si le niveau en a une.
@@ -967,6 +1043,7 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
                         barque: true,
                         chats: ecrases,
                         haute,
+                        accroche: 0,
                     };
                     ajouter(noeud, cout_plan);
                     // La barque monte (ou descend) avec la marée (carte 9.3).
@@ -1021,6 +1098,7 @@ fn plans(options: Options) -> impl Iterator<Item = Plan> {
                                 planer: p,
                                 dir_montee: montee,
                                 dir_descente: descente,
+                                lacher: None,
                             });
                         }
                     }
@@ -1052,6 +1130,7 @@ fn plans_en_vol(options: Options) -> impl Iterator<Item = Plan> {
                         planer: p,
                         dir_montee: montee,
                         dir_descente: descente,
+                        lacher: None,
                     });
                 }
             }
@@ -1064,7 +1143,45 @@ fn plans_en_vol(options: Options) -> impl Iterator<Item = Plan> {
             planer: p,
             dir_montee: false,
             dir_descente: false,
+            lacher: None,
         });
+    }
+    v.into_iter()
+}
+
+/// Les plans « de lâcher », depuis un crochet (carte 11.1) : le sens du lâcher,
+/// l'élan donné avant (`POMPES`), l'angle du lâcher (`ANGLES_LACHER`), puis le
+/// vol : la direction du lâcher gardée (montée et descente, ou montée seule) ou
+/// non, parapluie ouvert ou non en descente.
+fn plans_de_lacher(options: Options) -> impl Iterator<Item = Plan> {
+    let planer = if options.planer {
+        &[false, true][..]
+    } else {
+        &[false][..]
+    };
+    let mut v = Vec::new();
+    for &sens in &[-1i8, 1] {
+        for &pompes in &POMPES {
+            for &angle in &ANGLES_LACHER {
+                for &p in planer {
+                    for (montee, descente) in [(true, true), (true, false), (false, false)] {
+                        v.push(Plan {
+                            dir: direction(sens),
+                            elan: 0,
+                            saut: 0,
+                            planer: p,
+                            dir_montee: montee,
+                            dir_descente: descente,
+                            lacher: Some(Lacher {
+                                sens,
+                                pompes,
+                                angle: angle.to_radians(),
+                            }),
+                        });
+                    }
+                }
+            }
+        }
     }
     v.into_iter()
 }
@@ -1075,13 +1192,20 @@ fn plans_en_vol(options: Options) -> impl Iterator<Item = Plan> {
 fn simuler(
     niveau: &Niveau,
     env: &Environnement<'_>,
-    depart: Noeud,
+    (depart, suspendu): (Noeud, Option<Balancement>),
     plan: Plan,
     ents: &mut [Entite],
     touches: &mut Vec<Contact>,
 ) -> (Fin, u16) {
     let mut j = Joueur::new(depart.x, depart.y);
-    if depart.lance {
+    // Suspendu à un crochet (carte 11.1) : exactement l'état rangé à
+    // l'accroche (angle, vitesse, corde) ; le plan de lâcher commence.
+    let mut lacher = suspendu.and(plan.lacher);
+    if let Some(b) = suspendu {
+        if lacher.is_none() || !j.suspendre_a(b, env) {
+            return (Fin::Abandon, 0);
+        }
+    } else if depart.lance {
         // Exactement l'état laissé par l'auvent : seule la position compte.
         j.lancer_par_auvent();
     } else if depart.barque {
@@ -1097,7 +1221,11 @@ fn simuler(
     let pas_max = pas_max_plan(bas_monde);
     let mut en_l_air: u16 = 0;
     // Lancé : on est déjà en l'air, les commandes « en vol » s'appliquent dès le 1er pas.
-    let mut a_decolle = depart.lance;
+    let mut a_decolle = depart.lance || suspendu.is_some();
+    // Le lâcher : demi-balancements d'élan déjà donnés, et le sens du
+    // mouvement au pas d'avant (un changement de sens = un demi-balancement).
+    let mut pompes_faites: u8 = 0;
+    let mut sens_avant: f32 = 0.0;
     let mut stable: u16 = 0;
     let mut saut_envoye: u16 = 0;
     // Barque : compteur de pas sans avancer (la barque est bloquée), et la
@@ -1115,7 +1243,33 @@ fn simuler(
             ..Entrees::default()
         };
         let marche_finie = plan.saut == 0 && pas >= plan.elan;
-        if !a_decolle && stable == 0 && !marche_finie {
+        if let (Some(l), Some(b)) = (lacher, j.balancement()) {
+            // --- Suspendu (carte 11.1) : de l'élan, puis le lâcher ---
+            let sens = b.omega.signum();
+            if sens != 0.0 && sens_avant != 0.0 && sens != sens_avant {
+                pompes_faites = pompes_faites.saturating_add(1);
+            }
+            sens_avant = sens;
+            let s = f32::from(l.sens);
+            let pret = pompes_faites >= l.pompes;
+            if pompes_faites > l.pompes.saturating_add(3) {
+                // Trois demi-balancements sans atteindre l'angle : jamais.
+                return (Fin::Abandon, pas);
+            }
+            if pret && sens == s && b.theta * s >= l.angle {
+                // SAUT lâché : Pépin part ; le vol commence au pas suivant,
+                // parapluie permis aussitôt (`en_l_air`).
+                lacher = None;
+                en_l_air = 7;
+            } else {
+                entrees.saut = true;
+                entrees.direction = if pret {
+                    Direction::Immobile
+                } else {
+                    direction(if sens == 0.0 { l.sens } else { sens as i8 })
+                };
+            }
+        } else if !a_decolle && stable == 0 && !marche_finie {
             // --- Au sol : élan, puis saut ---
             entrees.direction = plan.dir;
             if pas >= plan.elan {
@@ -1143,7 +1297,7 @@ fn simuler(
         }
         // Après l'atterrissage : aucune entrée (on laisse la vitesse s'éteindre).
 
-        j.actualiser(&entrees, env);
+        j.actualiser_avec_crochets(&entrees, env, &niveau.crochets);
         let contacts = resoudre_contacts(&mut j, ents);
         let mut relance = false;
         for c in contacts {
@@ -1164,6 +1318,16 @@ fn simuler(
         }
         if relance {
             return (Fin::Lance(j.boite.x, j.boite.y), pas + 1);
+        }
+        // Accroché (carte 11.1) hors du balancement du départ : un nouveau
+        // point de décision. Décroché sans lâcher (un solide), le plan
+        // continue en l'air, sans plus rien tenir.
+        match j.balancement() {
+            Some(b) if lacher.is_none() => {
+                return (Fin::Suspendu(j.boite.x, j.boite.y, b), pas + 1)
+            }
+            None if lacher.is_some() => lacher = None,
+            _ => {}
         }
         // Barque (carte 9.2) : le plan s'arrête quand Pépin entre dans l'eau
         // (parapluie retourné, carte 9.2b) : à bord est un point de décision, comme un atterrissage.
@@ -1816,6 +1980,7 @@ mod tests {
             planer: false,
             dir_montee: true,
             dir_descente: true,
+            lacher: None,
         };
         let essayer = |n: &Niveau, ecrase: bool| {
             let solides = solides_des_entites(&n.entites);
@@ -1836,7 +2001,7 @@ mod tests {
             }
             let depart = Noeud::pose(n.depart.0, n.depart.1, 0);
             let mut touches = Vec::new();
-            let (fin, _) = simuler(n, &env, depart, sortir, &mut ents, &mut touches);
+            let (fin, _) = simuler(n, &env, (depart, None), sortir, &mut ents, &mut touches);
             (fin, touches)
         };
         let (fin, _) = essayer(&niveau_chat(true, true), false);

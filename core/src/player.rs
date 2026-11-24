@@ -16,6 +16,12 @@
 use crate::aabb::{deplacer, Aabb};
 use crate::physics::*;
 
+mod balancement;
+pub use balancement::{
+    Balancement, Crochet, ANGLE_MAX, BONUS_LACHER, CORDE_MAX, CORDE_MIN, DELAI_RACCROCHE_PAS,
+    HAUTEUR_CROSSE, PORTEE_CROCHET, POUSSEE_BALANCEMENT,
+};
+
 /// Protection après une réapparition : 1 s (60 pas), celui de la réapparition compris.
 ///
 /// Pendant ce temps, aucun DANGER (ennemi, pointe, éclair, et tout danger futur
@@ -78,6 +84,8 @@ pub enum EtatJoueur {
     /// Barque (carte 9.2) : pépin flottant sur l'eau, parapluie retourné
     /// sous lui.
     Barque,
+    /// Suspendu à un crochet par la crosse du parapluie (carte 11.1).
+    Suspendu,
 }
 
 /// Ce qui s'est passé pendant un pas : le jeu s'en sert pour les particules et le son.
@@ -133,6 +141,13 @@ pub struct Joueur {
     /// chute d'eau). Pépin garde son parapluie retourné pendant la chute, même
     /// BAS lâché, jusqu'à l'eau (barque), le sol, un plané ou un rebond.
     bateau_herite: bool,
+    /// Balancement (carte 11.1) : suspendu à un crochet, `None` sinon. Voir le
+    /// sous-module `balancement`.
+    balancement: Option<Balancement>,
+    /// Pas restants avant de pouvoir se raccrocher au crochet `crochet_quitte`
+    /// (`DELAI_RACCROCHE_PAS`, 0,3 s).
+    delai_crochet: u8,
+    crochet_quitte: Option<usize>,
 }
 
 impl Joueur {
@@ -154,6 +169,9 @@ impl Joueur {
             en_barque: false,
             noyade: false,
             bateau_herite: false,
+            balancement: None,
+            delai_crochet: 0,
+            crochet_quitte: None,
         }
     }
 
@@ -184,6 +202,8 @@ impl Joueur {
     pub fn etat(&self) -> EtatJoueur {
         if self.en_barque {
             EtatJoueur::Barque
+        } else if self.balancement.is_some() {
+            EtatJoueur::Suspendu
         } else if self.retourne {
             // Au sol comme en l'air (carte 9.2b) : le parapluie retourné se
             // voit. (`retourne` est toujours faux quand on plane.)
@@ -238,6 +258,8 @@ impl Joueur {
         self.coyote = 0;
         // Un rebond relance Pépin comme un saut : le bateau hérité est lâché.
         self.bateau_herite = false;
+        // Et le crochet aussi (carte 11.1).
+        self.quitter_le_crochet();
     }
 
     /// Lancer d'auvent : vers le haut à `VITESSE_AUVENT` et vers la droite avec

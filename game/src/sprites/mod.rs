@@ -93,6 +93,9 @@ pub struct JeuImages {
     pub retourne: &'static str,
     /// Barque (carte 9.2) : le parapluie retourné avec le personnage assis dedans.
     pub barque: &'static str,
+    /// Suspendu à un crochet (carte 11.1) : le parapluie fermé tenu à bout de
+    /// bras, la crosse en haut (16x23).
+    pub suspendu: &'static str,
     /// Réapparition après une mort (étincelles qui se rassemblent).
     pub reapparition: [&'static str; 3],
     /// Icône des vies du HUD (10x10).
@@ -101,7 +104,7 @@ pub struct JeuImages {
 
 impl JeuImages {
     #[cfg(test)]
-    /// Tous les noms du jeu (18 images du personnage, puis l'icône des vies).
+    /// Tous les noms du jeu (19 images du personnage, puis l'icône des vies).
     pub fn noms(&self) -> Vec<&'static str> {
         let mut noms = Vec::new();
         noms.extend(self.repos);
@@ -111,6 +114,7 @@ impl JeuImages {
         noms.extend(self.planer);
         noms.push(self.retourne);
         noms.push(self.barque);
+        noms.push(self.suspendu);
         noms.extend(self.reapparition);
         noms.push(self.vie);
         noms
