@@ -1968,6 +1968,13 @@ mod tests {
         assert!(n >= NB_NIVEAUX, "« {cle} » n'est pas un niveau du Monde 2");
         let rang = RANGS_DE_GRAINE.len() + (n - NB_NIVEAUX);
         let debut = std::time::Instant::now();
+        // Carte 9.13g : la Pieuvre a sa mesure en deux phases (voir
+        // `mesure_de_la_pieuvre`) ; la recherche du niveau entier ne finit pas.
+        if cle == "pieuvre" {
+            mesure_de_la_pieuvre(rang);
+            println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
+            return;
+        }
         let itineraires = Itineraires::tenter_jusqu_a(n, LIMITE_CASES_MONDE_2)
             .unwrap_or_else(|| panic!("« {cle} » : drapeau inatteignable"));
         println!(
@@ -1998,6 +2005,127 @@ mod tests {
             );
         }
         println!("(calcul : {:.0} s)", debut.elapsed().as_secs_f32());
+    }
+
+    /// La mesure de la Pieuvre du port (carte 9.13g), `CLE=pieuvre`. Avant, la
+    /// recherche des itinéraires du niveau entier (l'arène et la tour, dont
+    /// l'horloge de la mer et le cerveau de la géante ne tiennent pas dans une
+    /// case) ne finissait pas en 600 s. La mesure est donc faite en DEUX phases,
+    /// pour chaque essai (mêmes profils, graine officielle, 48 essais) :
+    /// 1. la PHASE 1 dans l'arène du niveau d'essai « pieuvre » (`essai_pieuvre`,
+    ///    la même arène, la même pieuvre, sans tour : elle est vaincue au 3e
+    ///    coup), par le joueur simulé habituel (`jouer_essai`) ;
+    /// 2. la PHASE 2, du bas de la tour à la victoire, par le pilote de la tour
+    ///    (`bot_qa::pilote_pieuvre`), dont chaque geste passe par `perturber`
+    ///    (les erreurs du profil) : intention parfaite, exécution imparfaite. La
+    ///    géante garde la graine du jeu (aucune `fixer_graine`) : la même montée
+    ///    qu'un joueur qui la découvre.
+    ///
+    /// Le total d'un essai : la somme des deux (les morts, la durée, les
+    /// événements de vie, donc les game over) ; fini si les deux le sont.
+    fn mesure_de_la_pieuvre(rang: usize) {
+        use crate::bot_qa::pilote_pieuvre::{debut_phase_2, jouer, Route};
+        use crate::monde::INDICE_ESSAI_PIEUVRE;
+        let t = std::time::Instant::now();
+        let arene = Itineraires::calculer(INDICE_ESSAI_PIEUVRE);
+        let (cases_tour, _) = Route::de_la_tour().taille();
+        println!(
+            "(phase 1 : {} cases explorées ; phase 2 : route de {cases_tour} cases ; {:.0} s)",
+            arene.cases,
+            t.elapsed().as_secs_f32()
+        );
+        let parties: Vec<(usize, u32)> = (0..PROFILS.len())
+            .flat_map(|p| (0..ESSAIS).map(move |e| (p, e)))
+            .collect();
+        let arene = &arene;
+        let essais = pepin_core::parallele::appliquer(&parties, |&(p, e)| {
+            let graine = graine_essai(GRAINE, p, rang, e);
+            let un = jouer_essai(arene, &PROFILS[p], graine);
+            // Un autre tirage pour la phase 2 (la même graine mêlée).
+            let mut hasard = Hasard::new(graine ^ 0x9136);
+            let b = jouer(
+                debut_phase_2(None, false),
+                &mut |plan| perturber(plan, &PROFILS[p], &mut hasard),
+                |_, _| true,
+            );
+            let deux = Essai {
+                morts: b.morts,
+                // Rangée de la tour (et non colonne) : affichée à part.
+                lieux: b
+                    .lieux_des_morts
+                    .iter()
+                    .map(|(r, _)| LieuMort {
+                        colonne: *r,
+                        cause: CauseMort::Pieuvre,
+                    })
+                    .collect(),
+                pas: b.pas,
+                fini: b.victoire,
+                en_serie: 0,
+                detours: 0,
+                secours: 0,
+                evenements: vec![EvenementVie::Mort; b.morts as usize],
+                vies_a_zero: false,
+            };
+            let mut total = un.clone();
+            total.morts += deux.morts;
+            total.pas += deux.pas;
+            total.fini &= deux.fini;
+            total.evenements.extend(&deux.evenements);
+            total.lieux.clear();
+            (un, deux, total)
+        });
+        let genre = niveaux::par_cle("pieuvre").genre;
+        let par_profil = |choisir: &dyn Fn(&(Essai, Essai, Essai)) -> Essai| -> Vec<Case> {
+            essais
+                .chunks(ESSAIS as usize)
+                .map(|l| bilan(&l.iter().map(choisir).collect::<Vec<_>>(), genre))
+                .collect()
+        };
+        let phases = [
+            (
+                "Phase 1 (arène, `essai_pieuvre`)",
+                par_profil(&|e| e.0.clone()),
+            ),
+            (
+                "Phase 2 (tour, pilote + erreurs)",
+                par_profil(&|e| e.1.clone()),
+            ),
+            ("Total (la Pieuvre du port)", par_profil(&|e| e.2.clone())),
+        ];
+        for (nom, cases) in &phases {
+            println!("{nom} :");
+            for (profil, c) in PROFILS.iter().zip(cases) {
+                let lieux: Vec<String> = if nom.starts_with("Phase 2") {
+                    let mut rangees: Vec<(i32, u32)> = Vec::new();
+                    for l in &c.lieux {
+                        match rangees.iter_mut().find(|(r, _)| *r == l.colonne) {
+                            Some((_, k)) => *k += 1,
+                            None => rangees.push((l.colonne, 1)),
+                        }
+                    }
+                    rangees.sort_by_key(|&(r, k)| (Reverse(k), r));
+                    rangees
+                        .iter()
+                        .map(|(r, k)| format!("rangée {r} : {k}"))
+                        .collect()
+                } else {
+                    regrouper(&c.lieux).iter().map(decrire).collect()
+                };
+                println!(
+                    "- {} : {} morts, {}/{} finis, {} s, max {}, game over {}/{} ; {}",
+                    profil.nom,
+                    centiemes(c.morts_moyennes),
+                    c.finis,
+                    c.essais,
+                    decimal(c.duree_s),
+                    c.morts_max,
+                    c.game_over,
+                    c.essais,
+                    lieux.join(" · ")
+                );
+            }
+        }
     }
 
     /// Une mesure inventée : morts moyennes du Débutant et de l'Habitué par
