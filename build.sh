@@ -182,6 +182,27 @@ done
 [ "$(head -c 4 "$DIST/game.wasm" | od -An -tx1 | tr -d ' \n')" = "0061736d" ] \
   || { echo "ERREUR : game.wasm n'est pas un module WebAssembly" >&2; exit 1; }
 
+# Carte portfolio : même contrôle des noms interdits que pour les sons, sur la page, le
+# chargeur et le wasm. Seule exception, et seulement dans index.html : le lien voulu par
+# l'auteur, texte exact « Portfolio de Lucas Tixier » et URL exacte
+# « https://portfolio.elsay.dev/ ». On retire ces deux chaînes exactes avant de
+# chercher : toute autre occurrence (autre texte, autre URL, chemin /home/…) échoue.
+LIEN_TEXTE="Portfolio de Lucas Tixier"
+LIEN_URL="https://portfolio.elsay.dev/"
+for f in index.html mq_js_bundle.js game.wasm; do
+  # grep -c lit tout (pas de -q : avec pipefail, un SIGPIPE masquerait une détection).
+  if [ "$f" = index.html ]; then
+    N_INTERDITS="$(LC_ALL=C sed -e "s#$LIEN_TEXTE##g" -e "s#https://portfolio\.elsay\.dev/##g" "$DIST/$f" \
+      | LC_ALL=C grep -caiE 'lucas|tixier|elsay|georges|jarvis|/home/' || true)"
+  else
+    N_INTERDITS="$(LC_ALL=C grep -caiE 'lucas|tixier|elsay|georges|jarvis|/home/' "$DIST/$f" || true)"
+  fi
+  [ "$N_INTERDITS" = 0 ] || { echo "ERREUR : nom interdit dans $DIST/$f" >&2; exit 1; }
+done
+grep -qF ">$LIEN_TEXTE</a>" "$DIST/index.html" && grep -qF "href=\"$LIEN_URL\"" "$DIST/index.html" \
+  || { echo "ERREUR : lien « $LIEN_TEXTE » vers $LIEN_URL absent de $DIST/index.html" >&2; exit 1; }
+echo "page, chargeur et wasm : aucun nom interdit hors du lien portfolio : OK"
+
 octets() { wc -c < "$1" | tr -d ' '; }
 gzip_octets() { gzip -9 -c "$1" | wc -c | tr -d ' '; }
 TOTAL=0

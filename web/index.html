@@ -75,6 +75,19 @@
   #chargement .point { width: 10px; height: 10px; background: #ffd84a; animation: pulse 1s steps(2) infinite; }
   @keyframes pulse { 50% { opacity: 0.2; } }
   @media (prefers-reduced-motion: reduce) { #chargement .point { animation: none; } }
+  /* Lien discret vers le portfolio, sous le contenu des écrans de chargement et d'erreur :
+     dans le flux (il ne recouvre rien) et jamais par-dessus le jeu (ces écrans disparaissent
+     quand il démarre). Même onglet. */
+  .portfolio {
+    margin-top: 18px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: #f3f1ea;
+    opacity: 0.55;
+    text-underline-offset: 3px;
+  }
+  .portfolio:hover, .portfolio:focus-visible { opacity: 1; }
+  .portfolio:focus-visible { outline: 3px solid #ffd84a; outline-offset: 3px; }
   /* Texte réservé aux lecteurs d'écran et aux moteurs de recherche. */
   .sr-only {
     position: absolute;
@@ -128,6 +141,7 @@
   <div class="titre">PÉPIN</div>
   <div class="point" aria-hidden="true"></div>
   <div class="texte" id="chargement-texte">Chargement du jeu…</div>
+  <a class="portfolio" href="https://portfolio.elsay.dev/">Portfolio de Lucas Tixier</a>
 </div>
 
 <div id="erreur" role="alert">
@@ -137,6 +151,7 @@
     (ou n'autorise pas). Essayez avec une version récente de Firefox, Chrome, Edge ou Safari.
   </p>
   <button id="recharger" type="button">Recharger</button>
+  <a class="portfolio" href="https://portfolio.elsay.dev/">Portfolio de Lucas Tixier</a>
 </div>
 
 <noscript>
