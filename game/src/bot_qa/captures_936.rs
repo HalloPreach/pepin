@@ -193,7 +193,10 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
         // Après la fin du niveau, plus rien : le bilan reste à l'écran.
         let valider = apres.is_none() && app.texte_en_attente();
         let mut e = Entrees::default();
-        if apres.is_none() && app.ecran == Ecran::Jeu && app.en_jeu() {
+        // Carte 9.36c : pendant la fuite au sommet, plus aucune entrée (Pépin est
+        // figé ; une touche de saut la passerait dans le navigateur).
+        let fuite = app.fuite_en_cours();
+        if apres.is_none() && app.ecran == Ecran::Jeu && app.en_jeu() && fuite.is_none() {
             // Le pilote prend la main dès la phase 2, et la reprend après chaque
             // mort (Pépin repart de la lanterne du bas de la tour, le départ du
             // pilote de la 9.13g) : ses pas jusqu'à sa victoire ou sa 1re mort.
@@ -281,6 +284,18 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
             sommet.is_some_and(|s| s.chevauche(&app.monde.joueur.boite)),
         );
         noter("plongee", p.phase() == PhasePieuvre::Plongee);
+        // Carte 9.36c : la séquence de la fuite. Pépin au sommet (son 1er pas, la
+        // caméra encore sur lui), la caméra à mi-descente, puis, la mer cadrée,
+        // l'encre, la plongée et les remous.
+        if let Some(f) = app.fuite_en_cours() {
+            noter("fuite-sommet", true);
+            noter("fuite-mi-descente", f.pas >= f.descente / 2);
+        }
+        let plonge = p.phase() == PhasePieuvre::Plongee;
+        let k_plongee = p.progression_plongee();
+        noter("fuite-encre", plonge && k_plongee >= 0.35);
+        noter("fuite-plongee", plonge && k_plongee >= 0.65);
+        noter("fuite-remous", plonge && k_plongee >= 0.9);
         if k % 120 == 0 {
             println!(
                 "image {k} : phase {:?}, fuite {}, Pépin y {y:.0}, mer {:?}, objets {}",

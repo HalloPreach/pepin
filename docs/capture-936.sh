@@ -21,8 +21,11 @@
 # Captures (images du script) : PREFIXE-phase1.png (le combat), -fin-phase1.png (juste
 # avant le dernier coup), -transition.png (elle se retire au large, la bâche
 # déchirée), -tour-bas.png, -chute.png et -chute-b.png (une chute annoncée par son
-# ombre, puis l'objet qui tombe), -tour-milieu.png, -tour-haut.png, -fuite-a.png et
-# -fuite-b.png (au sommet, elle plonge au large, la mer redescend), -bilan.png. En
+# ombre, puis l'objet qui tombe), -tour-milieu.png, -tour-haut.png, puis la fuite au
+# sommet (carte 9.36c) : -fuite-sommet.png (Pépin touche le sommet),
+# -fuite-mi-descente.png (la caméra descend vers la mer), -fuite-encre.png,
+# -fuite-plongee.png et -fuite-remous.png (la mer cadrée : elle plonge au large, la
+# mer redescend), -bilan.png. En
 # normal, en plus : PREFIXE-carte.png (la carte de titre de la Pieuvre).
 #
 # Usage : CHROME=chemin/de/chromium docs/capture-936.sh PORT_HTTP DOSSIER_SORTIE PREFIXE MODE [NB_N]
@@ -57,7 +60,7 @@ case "$mode" in
       etapes+=(t:KeyN:60 t:Enter:60)
     done
     etapes+=(t:KeyN:60 w:60 c:carte)
-    defaut="phase1:1200 fin-phase1:2100 transition:2190 tour-bas:2300 chute:2873 chute-b:2898 tour-milieu:3243 tour-haut:4258 fuite-a:4530 fuite-b:4590 bilan:4791"
+    defaut="phase1:1200 fin-phase1:2100 transition:2190 tour-bas:2300 chute:2873 chute-b:2898 tour-milieu:3243 tour-haut:4258 fuite-sommet:4497 fuite-mi-descente:4519 fuite-encre:4584 fuite-plongee:4620 fuite-remous:4650 bilan:4836"
     ;;
   facile)
     script="${SCRIPT:-$ici/script-pieuvre-936-facile.txt}"
@@ -68,7 +71,7 @@ case "$mode" in
       sv="$sv"$'\n'"niveau.$c=atteint:1 medaille:1"
     done
     export SAUVEGARDE="$sv"$'\n'"niveau.pieuvre=defaites:10"
-    defaut="phase1:2900 fin-phase1:3400 transition:3500 tour-bas:3610 chute:4093 chute-b:4118 tour-milieu:4784 tour-haut:5657 fuite-a:5897 fuite-b:5957 bilan:6158"
+    defaut="phase1:2900 fin-phase1:3400 transition:3500 tour-bas:3610 chute:4093 chute-b:4118 tour-milieu:4784 tour-haut:5657 fuite-sommet:5864 fuite-mi-descente:5886 fuite-encre:5951 fuite-plongee:5987 fuite-remous:6017 bilan:6203"
     ;;
   *)
     echo "MODE : normal ou facile" >&2

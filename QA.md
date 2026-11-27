@@ -8098,3 +8098,46 @@ Planches : `docs/qa/936b-planche-sprites.png` (x3 : les trois couches, chaque no
 - Le mur n'a pas de parallaxe : il défile avec les corniches (c'est le mur de la tour elle-même).
 - La phase 1, les autres niveaux et écrans : seules les captures de la Pieuvre (phase 1, carte, bilan) sont vérifiées au pixel ; le code des autres niveaux n'est pas touché (le mur et la mer ne se dessinent que si la pieuvre est « en fuite »).
 - Le lot complet, la prod. Téléphone, joueur humain.
+
+## Carte 9.36c : la fuite de la Pieuvre se voit au sommet (la caméra redescend vers la mer avant le bilan)
+
+Demande d'AGA (27/11) : « go fuite ». Le problème relevé par la 9.36b : au sommet, la caméra restait sur Pépin ; la mer et la Pieuvre étaient un écran plus bas, la fuite (surprise, encre, plongée, remous) n'était jamais vue.
+
+### Ce qui est fait
+
+- `game/src/app/fuite_au_sommet.rs` (nouveau) : la SÉQUENCE DE FIN. Dès que Pépin touche le sommet (la Pieuvre entre en plongée, `PhasePieuvre::Plongee` d'une pieuvre « en fuite » à sommet) :
+  1. DESCENTE : le monde est FIGÉ (aucun pas du monde, donc ni chrono, ni gouttes, ni Pieuvre) et la caméra descend seule, de sa place jusqu'au cadre de la fuite (la tête au loin à 70 % de la largeur, la mer à 55 % de la hauteur), sur une courbe douce (`adoucir`, « smoothstep », sans à-coup au départ ni à l'arrivée). Durée selon la distance (`duree_descente`) : de `DESCENTE_MIN_PAS` = 45 (0,75 s) à `DESCENTE_MAX_PAS` = 90 (1,5 s), pour viser `VITESSE_DESCENTE` = 16 px par pas au plus fort. `Monde::figer_interpolation` (nouveau) : Pépin et les entités ne tremblent pas à l'écran pendant que le monde est figé.
+  2. PLONGÉE : le monde reprend, EXACTEMENT comme avant la carte (les 120 pas de `PLONGEE_PAS`, la mer qui redescend), mais Pépin ne reçoit plus aucune entrée (figé) ; la caméra suit la mer qui redescend (0,8 px par pas). La goutte de surprise, l'encre, la plongée, les bulles et les remous de la 9.36b sont enfin à l'écran.
+  3. Puis le bilan (ou le niveau suivant dans une partie), comme aujourd'hui.
+  Séquence totale : de 2,75 s à 3,5 s (constantes nommées). En jeu réel, la mer est à environ un écran sous Pépin : descente de 45 pas, séquence de 3,0 s.
+- PASSER : SAUT/Entrée (`nav.valider` : Entrée, Entrée du pavé, Espace) ou un clic, ignoré pendant les 30 premiers pas (`histoire::prete`, règle de la 9.31). Les pas de la plongée qui restent sont alors joués d'un coup au pas suivant : même fin, même chrono.
+- Branchements : `app/mod.rs` (champ `fuite_au_sommet`, `pas` appelle `pas_en_jeu`), `app/camera_effets.rs` (la séquence mène la caméra), `app/entrees.rs` (l'appui qui la passe), `app/transitions.rs` (un niveau rechargé n'est plus dans la séquence), `camera.rs` (`Camera::placer`, bornée au niveau, interpolée au rendu comme `suivre`). `core` n'est pas touché.
+- Robots : le robot de partie ATTEND la séquence (elle n'est pas un « texte en attente ») ; ses entrées n'y servent plus. Les scripts de captures (`bot_qa/captures_936.rs`) n'envoient plus aucune entrée pendant la séquence et notent les nouveaux moments (`fuite-sommet`, `fuite-mi-descente`, `fuite-encre`, `fuite-plongee`, `fuite-remous`). `docs/script-pieuvre-936.txt` et `-facile.txt` régénérés : IDENTIQUES aux anciens jusqu'à l'image du sommet (4 498 et 5 865), puis 45 images de plus, sans entrée ; `docs/capture-936.sh` : les nouveaux moments.
+
+### LE CHRONO
+
+Il est le même, au pas près, avec ou sans la séquence. Précision : « aujourd'hui », le chrono ne s'arrêtait pas pile au sommet, il comptait aussi les 2 s de la plongée (121 pas du sommet jusqu'à « vaincue »). Pour garder le même chrono (23 258 pas, demandé), la plongée compte toujours ; seuls les pas AJOUTÉS (la descente, monde figé) ne comptent pas. Si AGA veut que le chrono s'arrête pile au toucher du sommet, c'est une autre carte : le temps de la Pieuvre baisserait de 2 s pour tout le monde (records, défis de chrono, course).
+
+### Preuves
+
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+- `./docker-cargo.sh carte pieuvre` : VERT en 37 s (core 325, game 457 = 451 + 6 nouveaux, niveaux 19, tous 80, `faisabilite::le_niveau_de_la_carte` ok).
+- `le_robot_finit_le_monde_2_sans_mourir` (`tests-rapides`, mémoire des parcours, sous `lourd.sh`) : VERT en 638,9 s, niveaux [1..8], 0 mort, 24 007 images, chrono 23 258 pas (LE MÊME), 11 gouttes (LES MÊMES), empreinte `a7e1943b9d3967a3` (avant : `b14c171ce3712aef`, 23 962 images). La raison : 45 images de plus, celles de la descente de la caméra (écran « jeu », niveau 8, chrono figé), et rien d'autre (24 007 - 23 962 = 45 = `DESCENTE_MIN_PAS`).
+- Nouveaux tests : `app/tests_fuite.rs` (le vrai niveau de la Pieuvre joué seul, phase 1 sautée, Pépin posé au sommet au début de la montée : la mer à 1 099 px sous lui, le pire cas) :
+  - `la_camera_descend_en_douceur_vers_la_mer_puis_le_bilan` (normal ET facile) : la séquence commence au sommet ; pendant la descente le monde ne fait aucun pas et Pépin ne bouge pas (même avec SAUT tenu) ; à l'arrivée la tête et la mer sont à l'écran ; la caméra ne bouge JAMAIS de plus de N = 20 px d'une image à l'autre sur toute la séquence (mesuré : 19,1 px dans ce pire cas, 1 099 px en 1,5 s) ; elle finit toujours sur le bilan ; 211 pas en tout.
+  - `un_appui_passe_la_fuite_apres_le_delai` : 30 appuis (un par pas) avant le délai n'y font rien ; le 31e la passe, le bilan au pas suivant.
+  - `le_chrono_enregistre_est_le_meme_avec_ou_sans_sequence` : depuis le sommet, le monde seul (comme avant la carte) compte 121 pas jusqu'à la fin ; la séquence attendue : 121 ; passée dès que possible : 121 ; et le temps enregistré du niveau (`temps_niveau`) est le même attendue ou passée.
+  - Dans `fuite_au_sommet.rs` : `la_sequence_dure_de_2_a_3_5_secondes` (toute distance), `la_courbe_part_et_arrive_sans_a_coup` (pente <= 1,5), `le_cadre_montre_la_tete_et_la_mer`.
+- Facile : la séquence ne dessine rien de nouveau (les sprites pâles de la 9.36b) ; `chaque_image_dessinee_pale_a_sa_version_pale` (9.33) vert dans la carte.
+
+### Captures de la vraie suite (`docs/capture-936.sh`, build `dist-qa` de ce commit, scripts régénérés)
+
+`docs/qa/936c/normal-*.png` et `facile-*.png` : `fuite-sommet` (Pépin touche le sommet, la caméra encore sur lui), `fuite-mi-descente` (la tour défile, la mer et la tête de la Pieuvre apparaissent en bas), `fuite-encre` (la mer cadrée, la tête et son nuage d'encre), `fuite-plongee` (la tête s'enfonce dans l'encre ; en facile, pâle), `fuite-remous` (elle a disparu, trace et remous, la mer plus bas), `bilan` (« LE SOLEIL ! », temps 1:16,9 en normal). Regardées.
+Avant la séquence, rien ne bouge : les captures `phase1`, `fin-phase1`, `transition`, `tour-bas`, `chute`, `chute-b`, `tour-milieu`, `tour-haut` (et `carte` en normal) de ce build sont IDENTIQUES OCTET POUR OCTET à celles de `docs/qa/936b/` dans les deux modes (16 + 1 fichiers comparés avec `cmp`) ; elles n'ont donc pas été gardées en double.
+
+### Pas fait, pas testé, à regarder
+
+- Pendant la descente, le monde est figé : les reflets de la mer et les embruns ne bougent pas pendant 0,75 à 1,5 s (c'est ce qui garde la règle intacte). À juger en jeu.
+- Le chrono du HUD continue pendant la plongée (comme avant) : voir « LE CHRONO » ci-dessus.
+- Les touches de saut autres qu'Espace (Haut, W, Z) ne passent pas la séquence : seulement `valider` et le clic, comme la carte du niveau et « PLUS DE VIES ».
+- Le lot complet, la prod, téléphone (toucher : le clic passe la séquence, non essayé sur un vrai téléphone), joueur humain.
