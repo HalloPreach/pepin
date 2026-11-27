@@ -527,3 +527,49 @@ fn chaque_vignette_est_un_vrai_sprite() {
     // La table des sprites est bien celle des fichiers (335 au moment de la 10.4a).
     assert!(crate::SPRITES.len() >= 300, "{}", crate::SPRITES.len());
 }
+
+/// Carte 9.34 : la phrase du mode facile (`facile_texte`) est obligatoire pour un
+/// boss, interdite ailleurs, et tient en 2 lignes ; les refus sont lisibles.
+#[test]
+fn la_phrase_du_mode_facile_est_verifiee() {
+    use crate::facile::ErreurFacile;
+    let cyclone = fichier("monde_1/cyclone.ron");
+    let ligne = cyclone
+        .lines()
+        .find(|l| l.starts_with("    facile_texte: "))
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        charger_fichier("monde_1/cyclone.ron", cyclone)
+            .unwrap()
+            .facile_texte,
+        "MODE FACILE : LE NUAGE N'A QUE 2 VIES"
+    );
+    // Un boss sans sa phrase.
+    let sans = cyclone.replace(&format!("{ligne}\n"), "");
+    let e = charger_fichier("monde_1/cyclone.ron", &sans).unwrap_err();
+    assert_eq!(e.genre, GenreErreur::Facile(ErreurFacile::Manquant));
+    assert!(e.to_string().contains("facile_texte"), "{e}");
+    assert!(e.to_string().contains("boss"), "{e}");
+    // Trois lignes : trop pour la bannière.
+    let long = "mot ".repeat(30);
+    let trop = cyclone.replace(&ligne, &format!("    facile_texte: \"{}\",", long.trim()));
+    assert_eq!(
+        charger_fichier("monde_1/cyclone.ron", &trop)
+            .unwrap_err()
+            .genre,
+        GenreErreur::Facile(ErreurFacile::TropLong { lignes: 3 })
+    );
+    // Un niveau sans boss qui en a une.
+    let toits = fichier("monde_1/toits.ron");
+    let astuce = toits
+        .lines()
+        .find(|l| l.starts_with("    intro_astuce: "))
+        .unwrap();
+    let avec = toits.replace(
+        astuce,
+        &format!("{astuce}\n    facile_texte: \"MODE FACILE\","),
+    );
+    let e = charger_fichier("monde_1/toits.ron", &avec).unwrap_err();
+    assert_eq!(e.genre, GenreErreur::Facile(ErreurFacile::SansBoss));
+}

@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lireNiveau, ecrireNiveau, rangees, versAscii, flottant, erreursIntro, lignesIntro } from './ron.js';
+import { lireNiveau, ecrireNiveau, rangees, versAscii, flottant, erreursIntro, erreursFacile, lignesIntro } from './ron.js';
 
 const racine = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'levels');
 const fichiers = [];
@@ -64,6 +64,24 @@ verifier('coupure comme le jeu', JSON.stringify(lignesIntro('un deux')) === '["u
 let ancien = '';
 try { lireNiveau(toits.replace(/    intro_texte: .*\n    intro_astuce: .*\n/, '    intro: "Vieux.",\n')); } catch (e) { ancien = e.message; }
 verifier('ancien champ intro refusé clairement', ancien.includes('intro_texte') && ancien.includes('intro_astuce'), ancien);
+
+// La phrase du mode facile (carte 9.34) : chaque boss du dépôt a la sienne, les
+// autres niveaux n'en ont pas ; saisie puis exportée à sa place ; les refus.
+let boss = 0;
+for (const f of fichiers) {
+  const n = lireNiveau(fs.readFileSync(f, 'utf8'));
+  if (n.facile_texte) boss++;
+  verifier(`facile_texte de ${path.relative(racine, f)}`, erreursFacile(n).length === 0, erreursFacile(n).join(' ; '));
+}
+verifier('quatre boss (cyclone, pieuvre, deux essais)', boss === 4, `${boss}`);
+const cyclone = lireNiveau(fs.readFileSync(path.join(racine, 'monde_1/cyclone.ron'), 'utf8'));
+verifier('facile_texte relu', cyclone.facile_texte === "MODE FACILE : LE NUAGE N'A QUE 2 VIES", cyclone.facile_texte);
+cyclone.facile_texte = 'MODE FACILE : un autre texte';
+verifier('facile_texte saisi exporté', ecrireNiveau(cyclone).includes('    facile_texte: "MODE FACILE : un autre texte",\n    mecanique:'));
+verifier('boss sans facile_texte refusé', erreursFacile({ ...cyclone, facile_texte: '' }).length === 1);
+verifier('facile_texte de 3 lignes refusé', erreursFacile({ ...cyclone, facile_texte: 'mot '.repeat(30) }).length === 1);
+verifier('facile_texte sans boss refusé', erreursFacile({ ...saisi, facile_texte: 'MODE FACILE' }).length === 1);
+verifier('sans boss : pas de facile_texte exporté', !ecrireNiveau(saisi).includes('facile_texte'));
 
 // Nombres f32 écrits comme Rust (`{:?}`).
 for (const [x, attendu] of [[3, '3.0'], [0.1, '0.1'], [-0.5, '-0.5'], [-0, '-0.0'], [57.6, '57.6']]) {

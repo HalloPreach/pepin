@@ -7863,3 +7863,47 @@ Vérifié :
   - Avec la marée (`8da5621`) contre le même avec le correctif : 17/23 identiques (les égouts, le caniveau et tout le chapitre 1) ; les 6 différentes sont les vues du haut du chapitre 2 (Pieuvre, marée, port, rivière, grotte, cascade), là où la bande du port grandit et celle de la mer recule. Regardées : avant (`docs/qa/932b-carte-pieuvre-avant.png`), la Pieuvre est sous le soleil levant, en pleine mer, le port écrasé sous elle ; après (`932b-carte-pieuvre-apres.png`), elle est à la même place que la Pieuvre d'avant la marée (sur la ligne de la mer, sous l'horizon), la marée dans l'eau du port au-dessus de la grue. `932b-carte-port-avant/apres.png` : le port sur son quai, la marée au-dessus, plus de soleil coupé en haut de la vue.
 
 Pas testé : le lot complet (`./docker-cargo.sh lot`) ; téléphone ; joueur humain. Rien d'autre à refaire pour la marée (le niveau, la mesure, le robot et les captures de la 9.32 ne dépendent pas de ce dessin).
+
+## Carte 9.34 : la proposition du mode facile n'arrive plus trop vite au 2e passage ; la bannière nomme le bon boss
+
+Signalement d'AGA (27/11) : « le passage au mode facile apparaît trop vite quand c'est la deuxième fois qu'on joue le niveau, c'est aussi le cas sur le nuage », puis « c'est marqué nuage dans le mode facile de la pieuvre non ? ».
+
+Fait (commit 390303f pour les défaites, puis le commit de ce rapport pour le texte) :
+- Cause 1 : `ProgresNiveau::defaites` (enregistré dans la sauvegarde) décidait de la bannière. Il ne revenait à zéro qu'après une victoire. Donc 10 défaites d'une ancienne session faisaient proposer le facile dès la 1re mort du retour, voire dès JOUER sur la carte des niveaux.
+- Règle nouvelle (`game/src/facile.rs`, `app/progression.rs`, `app/transitions.rs`) :
+  1. Un compte de VISITE, `EtatFacile::defaites_visite`, remis à zéro dans `Application::recharger`, donc à toute entrée dans le niveau (carte des niveaux, CONTINUER, suite de la partie). « Recommencer » et « plus de vies » restent dans la même visite (`relancer`). La bannière après une mort passe par `proposer_apres_une_mort` : 10 défaites dans la visite, pas de NON dans la visite, pas sur la dernière vie, boss pas encore battu en normal. Avec 5 vies, la 10e mort est un « plus de vies » : la bannière arrive donc à la 11e mort, comme avant la carte (règle 8.14 inchangée sur ce point).
+  2. Carte des niveaux : `proposer` ne lit plus les défaites. Seul compte « battu en facile et pas en normal » (le raccourci).
+  3. Un NON tient pour la visite (`refusee`, remis à zéro à la visite suivante).
+  4. Format de SAUVEGARDE inchangé : `defaites` est toujours lu et écrit (`noter_defaite` continue de compter). Il est documenté comme simple statistique (`sauvegarde.rs`, `facile.rs`). Une vieille sauvegarde à 15 défaites ne déclenche plus rien.
+- Cause 2 : `contenu::MODE_FACILE_PROPOSE` (« LE NUAGE N'A QUE 2 VIES ») servait pour tous les boss. Il est supprimé. La phrase est maintenant une DONNÉE DU NIVEAU (dans l'esprit de la 11.3) :
+  - Champ `facile_texte` dans le `.ron` (`niveaux/src/format.rs`, `#[serde(default)]`, écrit seulement s'il n'est pas vide, juste après `intro_astuce`) et dans `InfosNiveau` (`core/src/zones.rs`).
+  - Vérifié au chargement (`niveaux/src/facile.rs`, `GenreErreur::Facile`). Un niveau dont la grille a un boss (entité à points de boss : Grand Nuage `O`, Pieuvre `8`) DOIT l'avoir, avec un message clair (« ce niveau a un boss : il lui faut « facile_texte »... »). Un niveau sans boss ne l'a pas. Limite : 2 lignes de 46 caractères.
+  - Textes : cyclone et essai_nuage gardent « MODE FACILE : LE NUAGE N'A QUE 2 VIES ». Pieuvre et essai_pieuvre ont « MODE FACILE : LA PIEUVRE N'A QUE 2 VIES, ATTAQUE MOINS ET LA MER MONTE MOINS VITE » (2 lignes, coupure après « VIES, »). La géante pâle n'est pas mentionnée : c'est un dessin, pas une règle.
+  - Bannière (`game/src/ecrans/facile.rs`) : elle lit le `facile_texte` du niveau joué (après une mort) ou du niveau choisi (carte des niveaux). Sur 1 ligne, mise en page 8.14 au pixel près. Sur 2 lignes : y + 25 et + 35, « pas de médaille » en + 46 (test `les_lignes_tiennent_dans_la_banniere`).
+  - Éditeur : champ `facile_texte` avec l'aperçu des lignes (`editeur.html`, `editeur.js`) ; `erreursFacile` dans `ron.js` applique les mêmes règles (boss lu dans la grille dessinée) ; lecture et écriture canoniques. `assets/levels/LISEZMOI.md` documenté.
+- Tests nouveaux (`game/src/app/tests_facile.rs`). Chacun est joué pour le Grand Nuage ET la Pieuvre, par la vraie carte des niveaux et de vraies morts :
+  - 15 défaites anciennes : aucune bannière, ni à la carte ni à la 1re mort ;
+  - 10 défaites dans la visite (11e mort) ouvrent la bannière ;
+  - 9 défaites, sortie, retour : le compte repart de zéro ;
+  - un NON tient pour la visite (12 morts de plus sans bannière), la visite suivante repropose ;
+  - boss battu en facile : proposition à la carte, et OUI lance le boss à 2 points ;
+  - boss battu en normal (même avec `facile:1 defaites:40`) : jamais de proposition, ni à la carte ni en 15 morts ;
+  - aucun texte d'un boss (nom, intro, `facile_texte`, lignes communes de la bannière) ne nomme un autre boss ;
+  - la bannière nomme le bon boss (après une mort et sur la carte) ;
+  - une vieille sauvegarde v3 (`defaites:15`, `defaites:23 lettre:1`) est relue à l'identique, et reste inchangée après une visite sans mort.
+  Côté `niveaux` : `la_phrase_du_mode_facile_est_verifiee` (phrase manquante, trop longue, ou sans boss). Côté éditeur : 4 boss avec leur phrase, saisie exportée à sa place, les trois refus, rien d'écrit sans boss.
+
+Vérifié :
+- `lourd.sh ./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+- `lourd.sh ./docker-cargo.sh carte cyclone` : VERT (core 324, game 446, niveaux 19, tous 90 + 1). `carte pieuvre` : VERT, mêmes comptes.
+- `node editeur/test-aller-retour.mjs` : 35 fichiers relus et réécrits, ALLER-RETOUR OK (les 31 `.ron` sans boss sont identiques à l'octet près).
+- Navigateur (Chromium 1208 sans écran). Script nouveau `docs/capture-934.sh`, sur le pilote de `capture-102.mjs`, qui accepte maintenant `SAUVEGARDE=fichier`. Sauvegarde utilisée : `docs/qa/934-sauvegarde.txt` (cyclone et Pieuvre battus en facile seulement, 15 défaites chacun). Build de QA de cette branche comparé à celui de la base 420da59 (`git archive`, construit à part) :
+  - carte des niveaux sur la Pieuvre, carte sur le cyclone, bannière du cyclone : 3/3 IDENTIQUES au pixel (`comparer-captures.py`) ;
+  - bannière de la Pieuvre : seule différence, dans le rectangle du texte (x 123..842, y 213..299).
+  Captures regardées : `docs/qa/934-banniere-pieuvre.png` (les deux lignes, rien ne touche les boutons), `934-banniere-pieuvre-avant.png` (l'ancien « LE NUAGE »), `934-banniere-cyclone.png`, `934-carte-*.png`. Sur les deux builds : sauvegarde relue à l'identique après la visite (OUI), 0 erreur de console, 0 erreur du pilote.
+
+Pas testé :
+- le lot complet (`./docker-cargo.sh lot`) ;
+- une vraie sauvegarde de joueur (aucune n'est accessible ici : les sauvegardes sont écrites à la main au format de la prod) ;
+- le téléphone et un joueur humain ;
+- la bannière de la Pieuvre APRÈS UNE MORT dans le navigateur. Elle est couverte par le test `la_banniere_nomme_le_bon_boss`, et c'est la même fonction de dessin que la capture prise sur la carte.

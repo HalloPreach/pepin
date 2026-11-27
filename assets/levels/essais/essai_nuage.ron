@@ -22,6 +22,7 @@
     duree_cible_s: 40,
     intro_texte: "Le Grand Nuage ne veut pas te laisser passer.",
     intro_astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
+    facile_texte: "MODE FACILE : LE NUAGE N'A QUE 2 VIES",
     mecanique: "Éviter ses éclairs, monter dans son courant quand il s'essouffle, lui sauter sur la tête trois fois.",
     aiguilles: [],
     poissons_hauts: [],

@@ -104,7 +104,11 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, devic
 // dans le `localStorage` (clé `pepin.niveau_essai`) et la page s'ouvre avec `?essai=1` :
 // le build de QA le lance directement (voir `game/src/essai_externe.rs`).
 const essai = process.env.ESSAI_RON ? fs.readFileSync(process.env.ESSAI_RON, 'utf8') : null;
-const poser = essai ? `localStorage.setItem('pepin.niveau_essai', ${JSON.stringify(essai)});` : '';
+// Carte 9.34 : avec la variable SAUVEGARDE (chemin d'un texte de sauvegarde v3), elle
+// est posée dans le `localStorage` (clé `pepin.sauvegarde`) au lieu d'une sauvegarde vide.
+const sauvegarde = process.env.SAUVEGARDE ? fs.readFileSync(process.env.SAUVEGARDE, 'utf8') : null;
+const poser = (essai ? `localStorage.setItem('pepin.niveau_essai', ${JSON.stringify(essai)});` : '')
+  + (sauvegarde ? `localStorage.setItem('pepin.sauvegarde', ${JSON.stringify(sauvegarde)});` : '');
 await cdp('Page.addScriptToEvaluateOnNewDocument', {
   source: `Date.now = () => 1e6; try { localStorage.clear(); ${poser} } catch (e) {}`,
 });
@@ -141,6 +145,11 @@ for (const e of etapes) {
     fs.writeFileSync(fichier, Buffer.from(r.result.data, 'base64'));
     console.log('capture', fichier, '| image de jeu', await evalue('window.__P.n'));
   } else { console.error('commande inconnue :', e); await finir(2); }
+}
+// Carte 9.34 : la sauvegarde posée est-elle encore la même, octet pour octet ?
+if (sauvegarde !== null) {
+  const relue = await evalue("localStorage.getItem('pepin.sauvegarde')");
+  console.log('sauvegarde relue à l\'identique :', relue === sauvegarde ? 'OUI' : `NON\n${relue}`);
 }
 const errPilote = await evalue('JSON.stringify(window.__P.erreurs)');
 console.log('erreurs du pilote :', errPilote, '| erreurs console :', erreurs.length, JSON.stringify(erreurs));

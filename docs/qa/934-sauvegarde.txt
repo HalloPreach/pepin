@@ -1,0 +1,7 @@
+version=3
+gouttes_en_poche=0
+gouttes_total_gagnees=0
+meilleur_score=0
+parties_finies=0
+niveau.cyclone=atteint:1 gouttes:000 defis:000 medaille:0 defaites:15 facile:1
+niveau.pieuvre=atteint:1 gouttes:000 defis:000 medaille:0 defaites:15 facile:1

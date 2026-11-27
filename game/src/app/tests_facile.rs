@@ -135,7 +135,7 @@ fn mourir_jusqu_a_la_banniere(app: &mut Application, max: u32) -> u32 {
 /// avant), donc c'est la 11e.
 fn premiere_mort_proposee() -> u32 {
     let mut n = DEFAITES_AVANT_FACILE;
-    while n % u32::from(pepin_core::vies::VIES_DEPART) == 0 {
+    while n.is_multiple_of(u32::from(pepin_core::vies::VIES_DEPART)) {
         n += 1;
     }
     n
@@ -284,4 +284,95 @@ fn boss_battu_en_normal_jamais_de_proposition() {
         }
         assert_eq!(app.facile.defaites_visite, 15, "{cle}");
     }
+}
+
+/// Carte 9.34 (AGA : « c'est marqué nuage dans le mode facile de la pieuvre non ? ») :
+/// aucun texte affiché pour un boss (nom du niveau, intro, phrase de la bannière du
+/// mode facile, lignes communes de la bannière) ne nomme un AUTRE boss. Le boss est
+/// lu dans la grille de chaque niveau (parcours et essais) ; la liste des mots est
+/// celle du test seulement.
+#[test]
+fn aucun_texte_d_un_boss_ne_nomme_un_autre_boss() {
+    use pepin_core::entities::Entite;
+    // (mot qui nomme le boss, boss)
+    let noms = |e: &Entite| match e {
+        Entite::Nuage(_) => Some("NUAGE"),
+        Entite::Pieuvre(_) => Some("PIEUVRE"),
+        _ => None,
+    };
+    let tous = ["NUAGE", "PIEUVRE"];
+    let mut vus = 0;
+    for n in niveaux::niveaux().iter().chain(niveaux::essais()) {
+        let niveau = n.charger().unwrap();
+        let Some(boss) = niveau.entites.iter().find_map(noms) else {
+            assert!(n.facile_texte.is_empty(), "{} : pas de boss", n.cle);
+            continue;
+        };
+        vus += 1;
+        assert!(
+            n.facile_texte.to_uppercase().contains(boss),
+            "{} : {}",
+            n.cle,
+            n.facile_texte
+        );
+        let textes = [
+            n.nom,
+            n.intro_texte,
+            n.intro_astuce,
+            n.facile_texte,
+            crate::contenu::TROP_DUR,
+            crate::contenu::FACILE_SANS_MEDAILLE,
+        ];
+        for autre in tous.iter().filter(|&&m| m != boss) {
+            for t in textes {
+                assert!(
+                    !t.to_uppercase().contains(autre),
+                    "{} nomme {autre} : {t}",
+                    n.cle
+                );
+            }
+        }
+    }
+    assert_eq!(vus, 4, "cyclone, pieuvre et leurs deux essais");
+}
+
+/// La bannière ouverte nomme le boss du niveau : après une mort (le niveau joué)
+/// comme sur la carte des niveaux (le niveau choisi).
+#[test]
+fn la_banniere_nomme_le_bon_boss() {
+    for (cle, mot) in [("cyclone", "NUAGE"), ("pieuvre", "PIEUVRE")] {
+        let mut app = avec_sauvegarde(cle, &format!("version=3\nniveau.{cle}=atteint:1\n"));
+        entrer_par_la_carte(&mut app, cle);
+        mourir_jusqu_a_la_banniere(&mut app, 20);
+        assert!(app.facile_texte(Origine::Mort).contains(mot), "{cle}");
+        assert!(
+            app.facile_texte(Origine::Plan(indice(cle))).contains(mot),
+            "{cle}"
+        );
+    }
+}
+
+/// Une vieille sauvegarde v3 (celle des captures de la carte 8.14 telle que le jeu
+/// d'aujourd'hui l'écrit, avec 15 défaites au cyclone au lieu de 9, et la Pieuvre
+/// déjà tentée) est relue À L'IDENTIQUE (format
+/// inchangé, champ `defaites` compris) ; une visite du cyclone sans mort, sans
+/// bannière, ne change pas un octet de son texte.
+#[test]
+fn une_vieille_sauvegarde_se_relit_a_l_identique() {
+    let texte = "version=3\ngouttes_en_poche=0\ngouttes_total_gagnees=0\nmeilleur_score=0\n\
+                 parties_finies=0\n\
+                 inventaire=skin:pepin,skin:pepinette,musique:orage,musique:zone,trainee:aucune,motif:uni\n\
+                 equipe=motif:uni,musique:zone,skin:pepin,trainee:aucune\nbonus_credites=\n\
+                 niveau.clocher=atteint:1 gouttes:000 defis:000 medaille:0 temps:3000\n\
+                 niveau.cyclone=atteint:1 gouttes:000 defis:000 medaille:0 defaites:15\n\
+                 niveau.pieuvre=atteint:1 gouttes:101 defis:000 medaille:0 defaites:23 lettre:1\n";
+    let mut app = Application::new(true);
+    app.charger_sauvegarde_qa(texte);
+    assert_eq!(app.sauvegarde.vers_texte(), texte, "relue telle quelle");
+    entrer_par_la_carte(&mut app, "cyclone");
+    // Une seconde de jeu (le nuage gronde encore : pas d'éclair, pas de mort).
+    avancer(&mut app, 60);
+    assert_eq!(app.monde.etat.morts, 0);
+    assert_eq!(app.facile.proposition, None);
+    assert_eq!(app.sauvegarde.vers_texte(), texte, "après la visite");
 }

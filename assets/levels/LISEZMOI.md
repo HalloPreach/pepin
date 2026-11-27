@@ -62,6 +62,7 @@ la faisabilité et la reprise de CE niveau, et son module `par_niveau::<clé>::`
 | `duree_cible_s` | durée visée en secondes |
 | `intro_texte` | la phrase de la carte du niveau (en blanc sous le nom) ; obligatoire, 3 lignes au plus |
 | `intro_astuce` | le conseil de la carte du niveau (en corail dessous) ; obligatoire, 2 lignes au plus |
+| `facile_texte` | niveau à boss seulement (obligatoire pour lui, interdit ailleurs) : ce que le mode facile change pour CE boss, la ligne de la bannière « TROP DUR ? » ; 2 lignes au plus |
 | `mecanique` | note de conception : ce que le niveau apprend (pas affichée en jeu) |
 | `aiguilles` | facultatif : `(rayon: 3.0, vitesse: 30.0, phase: 0.0)` par pivot `h`, dans l'ordre de lecture |
 | `poissons_hauts` | facultatif : `(colonne, rangée, hauteur_px)` d'un poisson `i`, comptées depuis 0 |
@@ -77,6 +78,13 @@ et les deux ensemble sur 4 (3 pour un bonus, qui ajoute la ligne « sans perte d
 vie »). Un champ vide ou trop long est refusé au chargement, avec le nom du champ et
 son nombre de lignes ; l'éditeur montre les lignes et les mêmes refus pendant la
 saisie (`niveaux/src/intro.rs`, `editeur/ron.js`).
+
+La phrase du mode facile d'un boss (carte 9.34), `facile_texte`, est elle aussi dans
+le fichier : un niveau dont la grille a un boss (Grand Nuage `O`, Pieuvre `8`) DOIT
+l'avoir, un niveau sans boss ne l'a pas. Elle dit ce que le facile change pour ce
+boss-là (`"MODE FACILE : LE NUAGE N'A QUE 2 VIES"`), coupée comme l'intro en lignes
+de 46 caractères, 2 au plus (`niveaux/src/facile.rs`, `erreursFacile` de
+`editeur/ron.js`). Elle s'écrit juste après `intro_astuce`.
 
 ## Exemple minimal
 

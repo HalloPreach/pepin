@@ -264,10 +264,11 @@ pub const NON: &str = "NON";
 pub const OK: &str = "OK";
 pub const IL_TE_MANQUE: &str = "IL TE MANQUE";
 
-// --- Mode facile du Grand Nuage (carte 8.14) ------------------------------------
+// --- Mode facile des boss (carte 8.14) --------------------------------------------
+// Ce que le facile change pour CHAQUE boss (« MODE FACILE : LE NUAGE N'A QUE 2
+// VIES ») est dans le fichier de son niveau depuis la carte 9.34 (`facile_texte`).
 
 pub const TROP_DUR: &str = "TROP DUR ?";
-pub const MODE_FACILE_PROPOSE: &str = "MODE FACILE : LE NUAGE N'A QUE 2 VIES";
 pub const FACILE_SANS_MEDAILLE: &str = "Pas de médaille ni de record en facile.";
 /// Mention du bilan et de la carte des niveaux : boss vaincu en facile.
 pub const FACILE: &str = "FACILE";
@@ -478,7 +479,6 @@ pub(crate) mod tests {
             OK,
             IL_TE_MANQUE,
             TROP_DUR,
-            MODE_FACILE_PROPOSE,
             FACILE_SANS_MEDAILLE,
             FACILE,
             AIDE_BOUTIQUE,
@@ -515,6 +515,10 @@ pub(crate) mod tests {
         for n in niveaux::niveaux().iter().chain(niveaux::essais()) {
             t.push(n.intro_texte);
             t.push(n.intro_astuce);
+            // La phrase du mode facile des boss (carte 9.34), absente ailleurs.
+            if !n.facile_texte.is_empty() {
+                t.push(n.facile_texte);
+            }
         }
         t
     }

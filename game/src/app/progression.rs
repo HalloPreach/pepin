@@ -169,4 +169,15 @@ impl Application {
             self.facile.proposition = Some(Proposition::new(Origine::Mort));
         }
     }
+
+    /// La phrase de la bannière (carte 9.34) : le `facile_texte` du niveau du boss,
+    /// celui qu'on joue (après une mort) ou celui choisi sur la carte des niveaux.
+    pub(super) fn facile_texte(&self, origine: Origine) -> &'static str {
+        match origine {
+            Origine::Mort => self.monde.infos.facile_texte,
+            Origine::Plan(indice) => niveaux::niveaux()
+                .get(indice)
+                .map_or("", |n| n.facile_texte),
+        }
+    }
 }
