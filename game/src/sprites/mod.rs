@@ -202,6 +202,14 @@ fn texture_tramee(image: &[&str], theme: Option<Theme>, trame: bool) -> Texture2
     t
 }
 
+/// Une image a-t-elle sa version PÂLE (tramée en damier, `Banque::dessiner_pale`) ?
+/// Les boss du mode facile seulement : le Grand Nuage (`nuage_...`), la tête de la
+/// Pieuvre (`pieuvre_...`) et la géante de la phase 2 (`geante...`, carte 9.33 : sans
+/// elle, la géante du mode facile n'était pas dessinée du tout).
+fn a_une_version_pale(nom: &str) -> bool {
+    nom.starts_with("nuage_") || nom.starts_with("pieuvre_") || nom.starts_with("geante")
+}
+
 /// Toutes les textures du jeu, rangées par nom.
 pub struct Banque {
     /// Sprites (Pépin, ennemis, objets, décor) : les mêmes pour tous les niveaux.
@@ -270,11 +278,15 @@ impl Banque {
                 }
             }
         }
-        // Le boss du mode facile, plus pâle : le Grand Nuage et la tête de la Pieuvre.
+        // Le boss du mode facile, plus pâle : le Grand Nuage, la tête de la Pieuvre, et
+        // (carte 9.33) la GÉANTE de la phase 2 : `dessin_montee` la dessine pâle en
+        // facile, mais ses images (`geante0`...) n'avaient pas de version pâle, et
+        // `dessiner_pale` ne dessinait alors RIEN (la géante absente, ses yeux et ses
+        // veines flottant seuls).
         let nuages_trames = [ennemis::sprites(), pieuvre::sprites()]
             .concat()
             .iter()
-            .filter(|(nom, _)| nom.starts_with("nuage_") || nom.starts_with("pieuvre_"))
+            .filter(|(nom, _)| a_une_version_pale(nom))
             .map(|&(nom, dessin)| (nom, texture_tramee(dessin, None, true)))
             .collect();
         let personnages_trames = personnages()
@@ -468,6 +480,49 @@ mod tests {
         let total = noms.len();
         noms.dedup();
         assert_eq!(noms.len(), total, "nom de sprite en double");
+    }
+
+    /// Carte 9.33 : chaque image que le jeu dessine PÂLE (`dessiner_pale`, boss du mode
+    /// facile) a sa version pâle, sinon `dessiner_pale` ne dessine rien du tout (la
+    /// géante de la phase 2 de la Pieuvre était invisible en facile). On relit les
+    /// appels dans les fichiers de dessin : le nom (lu de la ligne `let nom = ...` à
+    /// l'appel) doit exister ET avoir sa version pâle.
+    #[test]
+    fn chaque_image_dessinee_pale_a_sa_version_pale() {
+        let sources = [
+            include_str!("../dessin_montee.rs"),
+            include_str!("../dessin_pieuvre.rs"),
+            include_str!("../scene/nuage.rs"),
+        ];
+        let noms: Vec<&str> = tous().iter().map(|(n, _)| *n).collect();
+        let mut vus = 0;
+        for source in sources {
+            let lignes: Vec<&str> = source.lines().collect();
+            for (i, l) in lignes.iter().enumerate() {
+                if !l.contains("dessiner_pale(nom") {
+                    continue;
+                }
+                // Le `nom` vient de la ligne `let nom = ...` la plus proche au-dessus :
+                // on lit de là jusqu'à l'appel.
+                let debut = (i.saturating_sub(12)..i)
+                    .rev()
+                    .find(|&j| lignes[j].contains("let nom ="))
+                    .unwrap_or(i);
+                for p in &lignes[debut..i] {
+                    for (k, morceau) in p.split('"').enumerate() {
+                        if k % 2 == 1 && noms.contains(&morceau) {
+                            vus += 1;
+                            assert!(a_une_version_pale(morceau), "{morceau} sans version pâle");
+                        }
+                    }
+                }
+            }
+        }
+        // geante0/1, geante_furieuse0/1, pieuvre_colere0/1 au moins.
+        assert!(vus >= 6, "{vus} noms vérifiés");
+        for nom in ["geante0", "geante1", "geante_furieuse0", "geante_furieuse1"] {
+            assert!(noms.contains(&nom) && a_une_version_pale(nom), "{nom}");
+        }
     }
 
     #[test]

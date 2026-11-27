@@ -324,7 +324,7 @@ fn zone_annoncee(p: &Pieuvre, b: &Aabb) -> bool {
 }
 
 /// Pépin est-il debout sur la vigie (ses pieds au niveau de son dessus) ?
-fn sur_la_vigie(m: &Monde) -> bool {
+pub(crate) fn sur_la_vigie(m: &Monde) -> bool {
     let v = pieuvre(m).tete_finale.map_or(f32::MAX, |v| v.bas());
     (m.joueur.boite.bas() - v).abs() < 2.0
 }
