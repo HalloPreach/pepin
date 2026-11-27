@@ -1331,8 +1331,8 @@ fn chercher_parcours_mode(indice: usize, precis: bool, ng_plus: bool) -> Option<
         |m: &Monde| gouttes_avant_la_victoire(m) && !m.caches_reveles.iter().any(|&r| r);
     // Carte 10.7 : la Pieuvre du port À TOUR (sa phase 2, « fuite et montée »).
     // La recherche d'un seul tenant n'y finit jamais : après le dernier coup de la
-    // phase 1, la montée (plus de 60 s, la mer, l'humeur et le cerveau de la
-    // géante hors de la case) multiplie les états sans fin (voir la tête de
+    // phase 1, la montée (la mer et le tirage des objets hors de la case, carte
+    // 9.36a) multiplie les états sans fin (voir la tête de
     // `pilote_pieuvre`). On va donc tout de suite au point par point, qui passe la
     // main au pilote pour la phase 2.
     if super::pilote_pieuvre::a_une_phase_2(&depart) {

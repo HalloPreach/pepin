@@ -589,11 +589,11 @@ pub fn analyser(niveau: &Niveau, depart: (f32, f32), options: Options) -> Rappor
             }
             // La Pieuvre du port (carte 9.12a) : sa tête TOUJOURS sortie, à ses trois
             // places à la fois (trois copies), sans tentacule. Voir l'en-tête.
-            // Carte 9.13a : dans une arène à tour, la tête du HAUT de la tour
-            // seulement (la phase 1 mène à la trombe : un joueur patient attend
-            // la furie), et la mer ne monte pas pour le robot (voir
-            // `Pieuvre::pour_le_robot`).
-            Entite::Pieuvre(p) if p.tete_finale.is_some() => {
+            // Carte 9.13a : dans une arène à tour, le SOMMET de la tour seulement
+            // (carte 9.36a : y entrer la fait fuir ; la phase 1 mène à la
+            // trombe : un joueur patient attend la furie), et la mer ne monte
+            // pas pour le robot (voir `Pieuvre::pour_le_robot`).
+            Entite::Pieuvre(p) if p.sommet.is_some() => {
                 let mut sommet = p.clone();
                 sommet.pour_le_robot();
                 entites.push(Entite::Pieuvre(sommet));

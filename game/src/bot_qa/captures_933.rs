@@ -26,7 +26,7 @@ use pepin_core::entities::pieuvre::PhasePieuvre;
 use pepin_core::player::Entrees;
 
 use super::parcours::trouver_parcours;
-use super::pilote_pieuvre::{en_phase_2, indice_pieuvre, pieuvre, sur_la_vigie};
+use super::pilote_pieuvre::{au_sommet, en_phase_2, indice_pieuvre, pieuvre};
 use super::{code_entrees, SAUVEGARDE_MONDE_2_OUVERT};
 use crate::app::Application;
 use crate::ecrans::Ecran;
@@ -149,7 +149,7 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
     let debut = script.len();
     let mut moments: Vec<(&str, usize)> = Vec::new();
     let mut bas_de_la_tour: Option<f32> = None;
-    let vigie = pieuvre(&app.monde).tete_finale.map(|v| v.bas());
+    let vigie = pieuvre(&app.monde).sommet.map(|v| v.bas());
     let morts = app.monde.etat.morts;
     for k in debut..debut + 60 * 60 * 5 {
         let valider = app.texte_en_attente();
@@ -220,7 +220,7 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
             noter("tour-milieu", montee && y < (b + v) / 2.0);
             noter("tour-haut", montee && y < v + (b - v) / 6.0);
         }
-        noter("vigie", sur_la_vigie(&app.monde));
+        noter("vigie", au_sommet(&app.monde));
         noter("plongee", p.phase() == PhasePieuvre::Plongee);
         if k % 120 == 0 {
             println!(

@@ -147,9 +147,9 @@ pub(crate) fn dessiner(
     // La bâche de l'arène, et la mer qui monte de la phase 2 (carte 9.13a).
     crate::dessin_pieuvre::dessiner_bache(monde, banque, cx, cy);
     crate::dessin_pieuvre::dessiner_mer(monde, banque, cx, cy);
-    // La montée (carte 9.13c) : la géante et ses attaques, qui partent de son corps.
+    // La phase 2 (carte 9.36a) : la Pieuvre au loin et les objets qu'elle lance.
     crate::dessin_montee::dessiner(monde, banque, cx, cy);
-    // Carte 9.13e : la mer toujours sensible, DEVANT la géante (elle y plonge) :
+    // Carte 9.13e : la mer toujours sensible, DEVANT la Pieuvre au loin :
     // sa crête et ses embruns, ou la bande d'écume au bas de l'écran.
     crate::mer_montee::dessiner_devant(monde, cx, cy);
     // Les stries du courant (carte 9.6b), sur l'eau qui coule.
