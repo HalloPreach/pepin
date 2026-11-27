@@ -326,6 +326,8 @@ impl Application {
     /// course reste à armes égales.
     fn nouvelle_tentative(&mut self) {
         self.tentative = Tentative::default();
+        // Un niveau (re)chargé n'est plus dans la fuite de la Pieuvre (carte 9.36c).
+        self.fuite_au_sommet = None;
         self.morts_debut_tentative = self.monde.etat.morts;
         if let Some(f) = &mut self.fantome {
             *f = Fantome::new(self.monde.indice, f.force);

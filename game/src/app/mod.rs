@@ -26,6 +26,8 @@
 //! - `progression` : un pas du niveau en cours (fin de niveau, gouttes, défis, plus
 //!   de vies, mode facile du Grand Nuage).
 //! - `camera_effets` : la caméra et les effets visuels branchés sur ce pas.
+//! - `fuite_au_sommet` : la courte séquence de fin du niveau de la Pieuvre (carte
+//!   9.36c) : la caméra descend vers la mer, on la voit fuir, puis le bilan.
 //! - `transitions` : `ouvrir`, `lancer` et `appliquer_suite`, le seul chemin qui
 //!   change d'écran ; la `Suite` à appliquer derrière les volets.
 //! - `demo_titre` : la démo du robot sur l'écran titre.
@@ -65,12 +67,15 @@ use crate::transition::Transition;
 mod camera_effets;
 mod demo_titre;
 mod entrees;
+mod fuite_au_sommet;
 mod progression;
 mod rendu;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_facile;
+#[cfg(test)]
+mod tests_fuite;
 mod transitions;
 
 use transitions::Suite;
@@ -230,6 +235,9 @@ pub struct Application {
     /// Robot de QA (carte 8.8) : rouvre la NOUVELLE PARTIE + même quand
     /// `NOUVELLE_PARTIE_PLUS_OUVERTE` est faux, pour continuer à la vérifier.
     ng_plus_qa: bool,
+    /// Carte 9.36c : la séquence de la fuite de la Pieuvre au sommet, en cours
+    /// (`None` le reste du temps). Voir `fuite_au_sommet`.
+    fuite_au_sommet: Option<fuite_au_sommet::FuiteAuSommet>,
 }
 
 impl Application {
@@ -281,6 +289,7 @@ impl Application {
             temps_course: TempsCourse::default(),
             ng_plus: false,
             ng_plus_qa: false,
+            fuite_au_sommet: None,
         };
         app.appliquer_skin();
         app.ouvrir(Ecran::Titre);
@@ -432,8 +441,9 @@ impl Application {
                         // Focus perdu pendant la carte : on s'arrête avant le premier pas.
                         self.ouvrir(Ecran::Pause);
                     } else {
-                        self.pas_jeu(entrees);
-                        monde_avance = true;
+                        // Carte 9.36c : pendant la fuite de la Pieuvre au sommet, le
+                        // monde peut rester figé (la caméra descend seule).
+                        monde_avance = self.pas_en_jeu(entrees);
                     }
                 }
                 Ecran::Fin => fin::confettis(&mut self.particules, self.anim),
