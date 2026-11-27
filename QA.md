@@ -8141,3 +8141,37 @@ Avant la séquence, rien ne bouge : les captures `phase1`, `fin-phase1`, `transi
 - Le chrono du HUD continue pendant la plongée (comme avant) : voir « LE CHRONO » ci-dessus.
 - Les touches de saut autres qu'Espace (Haut, W, Z) ne passent pas la séquence : seulement `valider` et le clic, comme la carte du niveau et « PLUS DE VIES ».
 - Le lot complet, la prod, téléphone (toucher : le clic passe la séquence, non essayé sur un vrai téléphone), joueur humain.
+
+## Carte 9.36d : la « bande sombre » sur la mer pendant la plongée de la Pieuvre : ARRÊT, ce n'est pas un défaut de couches, c'est la corniche noyée de la 9.36b
+
+Rien n'est changé dans le jeu. Ajouts : `docs/mesure-bande-936d.py` (la mesure ci-dessous) et `docs/qa/936d/` (15 captures choisies). Arrêt pour l'avis du coordinateur (`kanban_block`, needs_input).
+
+### Reproduction (build `dist-qa` de `3b5bb92`, `docs/capture-936.sh` avec `MOMENTS`, UNE capture par image)
+
+Toute la séquence de fin, du sommet jusqu'au bilan : normal images 4497 à 4683 (187 captures), facile images 5864 à 6050 (187 captures). Mesure : `python3 docs/mesure-bande-936d.py` (dans les lignes où le turquoise de sous l'écume couvre au moins 64 px du jeu, la plus longue suite d'ardoise (45, 58, 84) sur une ligne).
+
+- Normal : la bande (suite de 128 à 224 px) est sur les images 4602 à 4643 (42 images, au milieu de la plongée) ; 4584 (`fuite-encre`) à 4601 propres, 4644 et après propres (16 px au plus : une case). Avant, pendant la descente et le début de la plongée (4525 à 4584), une silhouette de 48 px (3 cases) plus bas, pas une bande.
+- Facile : deux passages. Images 5893 à 5942 (50 images : la fin de la descente de la caméra et le début de la plongée), bande de 224 px ; puis 6021 à 6042 (22 images, fin de la plongée), bande de 112 px (deux morceaux, une autre corniche). Le reste propre.
+- Gardées dans `docs/qa/936d/` : `normal-image-4584, 4601` (propres), `4602` (la bande apparaît), `4620` (= `fuite-plongee` de la 9.36c), `4643` (la dernière), `4644` (propre) ; `facile-image-5892` (propre), `5893, 5920, 5942` (bande), `5943` (propre), `6020` (propre), `6021, 6042` (2e bande), `6043` (propre). Regardées.
+
+### Cause : la silhouette des corniches noyées (`dessin_montee::dessiner_mer`, carte 9.36b), voulue, pas l'ordre des couches
+
+- La bande fait EXACTEMENT une case de haut (16 px du jeu) et va de x 16 à x 240 du niveau (14 cases) : c'est la longue corniche de la tour (son platelage orange et ses piliers) que l'on voit HORS de l'eau sur `normal-fuite-remous.png` (30 images plus tard, la caméra 24 px plus bas : son haut tombe pile sur le haut de la bande). Pendant la plongée, la mer redescend (`mer_montee`) et passe sur cette corniche : de 4602 à 4643 elle est à moins de 24 px sous la surface, dans la bande turquoise de `pieuvre_mer0/1` ; `dessiner_mer` la redessine alors en SILHOUETTE avec la tranche de `pieuvre_mer_noyee` à sa profondeur, qui est l'ardoise (45, 58, 84) sur ses lignes 5 à 24 (« un cran plus sombre que l'eau »). Le turquoise reste à droite parce que la corniche s'arrête à x 240.
+- Ce n'est pas la bande du bas de l'écran (`mer_montee::dessiner_bande`) : elle ne se dessine que quand la vraie mer est SOUS l'écran (`mer >= cy + H`), et ici la mer est cadrée au milieu. Ce n'est pas un ordre de couches : la crête et l'écume sont bien devant, la silhouette est à sa place (sur la case solide, entre l'eau et la crête).
+- C'est le dessin validé à la 9.36b (« une corniche noyée passe en SILHOUETTE (un cran plus sombre) », planche, `pieuvre_mer_noyee`, et la capture `docs/qa/936b/normal-mer-et-corniches-noyees.png`, image 2732 de la MONTÉE : la même mesure y trouve une suite de 112 px sur 11 lignes ; `normal-tour-bas.png` : 32 px). La montée a donc déjà ce rendu ; la plongée le montre en plus grand parce que la corniche est longue et que la mer passe dessus lentement.
+- Pourquoi `fuite-encre` et `fuite-remous` sont propres : à 4584 la corniche est encore profonde (ardoise sombre (28, 35, 54) dans l'ardoise, peu de contraste) ; à 4650 elle est sortie de l'eau.
+
+### Pourquoi je m'arrête
+
+La carte demande de s'arrêter si ce n'est pas un défaut. Le corriger, c'est changer le dessin des corniches noyées, donc AUSSI la montée (`docs/qa/936b/normal-mer-et-corniches-noyees.png` changerait), alors que la carte veut la montée identique au pixel : c'est une décision de dessin, pas une réparation. Pistes, au choix du coordinateur ou d'AGA (aucune faite) :
+
+- A. Garder tel quel (le dessin validé de la 9.36b).
+- B. Dans la bande turquoise seulement (les 24 premières lignes de `pieuvre_mer_noyee`), une silhouette en cyan sombre au lieu de l'ardoise : la corniche se lit encore, sans rectangle sombre juste sous l'écume. Change aussi les images de la montée où une corniche est à moins de 24 px sous la surface (à reprendre : 936b `mer-et-corniches-noyees`, `tour-bas`). Une ligne dans `docs/dessins-936.py` et le PNG régénéré ; règles, robot et empreinte inchangés (rendu seul).
+- C. Ne silhouetter que le haut de la corniche (son platelage, 4 à 6 px), pas toute la case : plus fidèle à ce qu'on voyait hors de l'eau. Même conséquence sur la montée.
+- D. Ne pas dessiner de silhouette pendant la séquence de fin seulement : déconseillé (la corniche disparaîtrait d'un coup quand Pépin touche le sommet).
+- Pour la vérification demandée au point 4 : `python3 docs/mesure-bande-936d.py --seuil 96 FICHIERS` sort en erreur si une image a une suite d'ardoise de 96 px ou plus sous l'écume (aujourd'hui : 42 images en normal, 72 en facile, et la capture de montée de la 9.36b).
+
+### Preuves
+
+- Pas de code changé : pas de nouveau lint, tests, robot ni `carte pieuvre` (l'empreinte reste celle de la 9.36c, `a7e1943b9d3967a3`, le build est celui de `3b5bb92`).
+- Captures : `./build.sh --qa` (OK), `docs/capture-936.sh` en normal et facile avec `MOMENTS` image par image, 374 captures, erreurs du pilote et de la console : 0. Toutes mesurées ; les 15 gardées et les 6 de la 9.36c regardées.
