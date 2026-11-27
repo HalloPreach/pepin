@@ -42,6 +42,7 @@ Même chaîne que les sprites (`assets/sprites/LISEZMOI.md`, carte 10.4a) :
 | `riviere/ciel_vallee.png` | 2 x 89 | Le ciel de la vallée au soleil couchant (carte 10.4f) : six bandes (ardoise, violet, corail, orange, or pâle, brume), chacune ouverte par deux rangées en damier. Sa période est de DEUX colonnes (la trame) ; il va de la première rangée pleine du haut à la première rangée pleine de la brume. | La pose tous les 2 px, la parallaxe verticale (`V_CIEL`), et le prolongement de sa première et de sa dernière rangée au-dessus et au-dessous du fichier (couleurs LUES dans le fichier). |
 | `riviere/soleil_couchant.png` | 31 x 31 | Le disque du soleil couchant : l'or pâle (rayon 15) et son cœur blanc (rayon 11). | Sa position (parallaxe lente), son halo orange qui respire et les deux nuages fins qui passent devant (plans calculés autour de lui). |
 | `riviere/moulin.png` | 36 x 38 | UN vieux moulin : murs de pierre, toit en gradins, cheminée, fenêtre allumée, porte. Le pied de son mur gauche est à la colonne 3, son sol à la rangée 36. | Sa pose (un moulin tous les 760 px du plan de la forêt), et sa roue qui tourne et l'eau qu'elle verse (plan « roue du moulin »). |
+| `port/tour_bas.png`, `port/tour_milieu.png`, `port/tour_haut.png` | 288 x 96 chacune | Le MUR de la tour de la Pieuvre (carte 9.36b), une période (6 tuiles) entre les deux murs de côté : trois baies de 96 px, des arcades ouvertes sur un crépuscule froid (nuit, violet, un fil de corail à l'horizon, la mer de nuit) entre des pans de mur de pierre pleins (fenêtres éclairées ou éteintes, lanterne, bandeaux de bois). Bas : une arcade sur trois ; haut : deux sur trois, l'horizon plus bas dans la baie. La baie de droite (derrière la Pieuvre) est toujours un pan plein sans couleur chaude. Hors pile (elles dépendent du niveau). Sources : `docs/dessins-936.py`. | L'empilement au-dessus de la bâche, une période par 96 px, la couche choisie selon la hauteur (`dessin_tour::couche_de_la_periode`), en phase 2 seulement. Tests (`dessin_tour::tests`) : contraste de 3:1 au moins entre chaque objet qui tombe (et son repère) et le mur derrière lui, partout ; rien de chaud derrière la Pieuvre ; raccord des couches. |
 | `grotte/cristaux.png` | 40 x 24 | Les cinq cristaux cyan de la grotte, rangés côte à côte (une bande de 8 px chacun, de gauche à droite dans l'ordre de `CRISTAUX`) : pointes en trois gradins, liseré clair sur l'arête, le bas du fichier sur le pied de l'écran. | Leur pose : chacun en UN exemplaire à son abscisse (`CRISTAUX`) modulo la largeur de l'écran (coupé au bord droit, sans copie à gauche, `fonds::dessiner_bande`), la parallaxe de la couche proche (`FACTEUR_PROCHE`, `VERT_PROCHE` fois le vertige). |
 
 La poursuite reprend le ciel des vents d'altitude (`altitude/ciel.png`) ; la descente,
@@ -133,10 +134,14 @@ Monde 2 (carte 10.4d) :
   `jetee_*`, déjà des fichiers). Seul dessin FIXE resté en code : l'îlot du phare,
   deux rectangles d'une seule couleur collés au sprite du phare ; un fichier de
   26 x 5 pour deux rectangles n'apporterait rien (choix de la carte 10.4f).
-- La montée de la Pieuvre (`dessin_montee`, `mer_montee`) : la géante est faite de
-  sprites (`sprites/pieuvre`) posés selon son état ; la mer qui monte suit la
-  simulation ; le fond sous la tour suit la hauteur de la caméra (ci-dessus). Rien
-  de FIXE non plus.
+- La montée de la Pieuvre (`dessin_montee`, `mer_montee`, `dessin_tour`, carte
+  9.36b) : le MUR de la tour est en couches PNG (`port/tour_*.png`, ci-dessus),
+  seulement EMPILÉES par le code. La Pieuvre au loin, son bras, les objets, leur
+  repère, la mer (bande dégradée, corniches noyées, crête) et la fuite sont des
+  sprites (`sprites/pieuvre/pieuvre_*`) posés selon l'état : la hauteur de la mer,
+  la place des objets et le moment de l'annonce viennent de la simulation. Restent
+  calculés : les embruns, la bande d'écume du bas de l'écran (la mer sous l'écran)
+  et la jauge, qui suivent la mer pixel par pixel.
 - Tout ce qui est posé d'après la grille (habillage des quais, gouttières, bords de
   toits, chutes jouables, mobilier du trottoir) reste du code.
 - Hors Monde 2, toujours ouverts depuis la carte 10.4c : la carte des niveaux
