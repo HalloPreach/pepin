@@ -253,13 +253,13 @@ pub(crate) fn verifier_infos(infos: &InfosNiveau) -> pepin_core::faisabilite::Ra
         // ramène au début de l'arène).
         // Carte 9.13a : l'arène à tour de la Pieuvre a une seconde lanterne,
         // au début de la tour (la reprise de la phase 2).
-        let tour = niv.entites.iter().any(
-            |e| matches!(e, pepin_core::entities::Entite::Pieuvre(p) if p.tete_finale.is_some()),
-        );
-        // Carte 9.13b : et une troisième à mi-hauteur de la tour ; carte
-        // 9.13e : une quatrième juste après le 2e jeté (69 % de la montée) ;
-        // carte 9.13f : une cinquième juste sous la vigie.
-        let attendues = if tour { 5 } else { 1 };
+        let tour = niv
+            .entites
+            .iter()
+            .any(|e| matches!(e, pepin_core::entities::Entite::Pieuvre(p) if p.sommet.is_some()));
+        // Carte 9.36a : et une lanterne tous les 20 à 25 % de la tour (4 de
+        // plus ; voir `les_lanternes_de_la_tour_sont_regulieres`).
+        let attendues = if tour { 6 } else { 1 };
         assert_eq!(niv.nb_lanternes(), attendues, "niveau {n} : arène du boss");
     }
 
@@ -355,13 +355,13 @@ fn verifier_duree(infos: &InfosNiveau, r: &pepin_core::faisabilite::Rapport) {
     let tour = niv
         .entites
         .iter()
-        .any(|e| matches!(e, pepin_core::entities::Entite::Pieuvre(p) if p.tete_finale.is_some()));
+        .any(|e| matches!(e, pepin_core::entities::Entite::Pieuvre(p) if p.sommet.is_some()));
     let pas = if niv.arrivee.is_some() {
         r.pas_arrivee.unwrap()
     } else if tour {
         // Carte 9.13a : la phase 1 (le combat le plus court, sans la plongée :
         // le 3e coup donne la furie) et la phase 2 (la furie, la course du
-        // robot jusqu'à la tête du haut, la plongée) se vérifient CHACUNE
+        // robot jusqu'au sommet, la fuite : carte 9.36a) se vérifient CHACUNE
         // comme un niveau : le boss final dure deux niveaux.
         let pv = pieuvre::PV_PIEUVRE;
         let motifs: u32 = (0..pv as usize)
@@ -411,7 +411,16 @@ fn verifier_duree(infos: &InfosNiveau, r: &pepin_core::faisabilite::Rapport) {
     // courts ») vise 50 à 70 s pour l'Habitué de la mesure : ses longues
     // traversées en barque comptent autant pour le robot que pour l'Habitué
     // (peu d'attente), d'où une course rapide permise jusqu'à 60 s.
-    let max = if infos.monde >= 2 { 60.0 } else { 45.0 };
+    // Carte 9.36a : la Pieuvre à tour dure DEUX niveaux (chaque phase est
+    // vérifiée plus haut, 60 s au plus chacune) : la montée allongée à la
+    // demande de la carte (50 à 70 s pour l'Habitué) dépasse sinon le total.
+    let max = if tour {
+        120.0
+    } else if infos.monde >= 2 {
+        60.0
+    } else {
+        45.0
+    };
     assert!(
         (12.0..=max).contains(&s),
         "niveau {} : {s:.1} s",

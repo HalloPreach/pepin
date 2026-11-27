@@ -111,13 +111,10 @@ pub(super) fn analyser(
     let mut nuages: Vec<Case> = Vec::new();
     // Pieuvre du port (carte 9.12a, au plus un boss en tout) : son bassin entier.
     let mut pieuvres: Vec<Case> = Vec::new();
-    // Sa phase 2 (carte 9.13a) : la bâche `_` (plafond de l'arène) et la tête du
-    // haut de la tour `&`.
+    // Sa phase 2 (carte 9.13a) : la bâche `_` (plafond de l'arène) et le sommet
+    // de la tour `&` (carte 9.36a).
     let mut bache: Vec<Case> = Vec::new();
-    let mut tetes_finales: Vec<Case> = Vec::new();
-    // La montée (cartes 9.13b et 9.13c) : jetés `$`, balayeurs `!`, secousses
-    // `+`, arrachables `%`.
-    let mut tour = ReperesTour::default();
+    let mut sommets: Vec<Case> = Vec::new();
     let mut gouttes = 0usize;
     let mut lettres = 0usize;
     // Secrets (carte 8.5) : faux murs `m` et sortie secrète `x`.
@@ -239,17 +236,7 @@ pub(super) fn analyser(
                 // Phase 2 de la Pieuvre (carte 9.13a) : cases LIBRES de la grille ;
                 // la bâche est une boîte solide de la pieuvre (`Entite::solide`).
                 '_' => bache.push(case),
-                '&' => tetes_finales.push(case),
-                // Cartes 9.13b et 9.13c : la tête d'un jeté, le balayeur et la
-                // secousse (cases libres de la grille), les plateformes
-                // arrachables (solides, comme un toit).
-                '$' => tour.jetes.push(case),
-                '!' => tour.balayeurs.push(case),
-                '+' => tour.secousses.push(case),
-                '%' => {
-                    tuiles[ty * largeur + tx] = Tuile::Toit;
-                    tour.arrachables.push(case);
-                }
+                '&' => sommets.push(case),
                 'D' => panneau(GenrePanneau::Deplacer),
                 'S' => panneau(GenrePanneau::Sauter),
                 'G' => panneau(GenrePanneau::Planer),
@@ -303,9 +290,9 @@ pub(super) fn analyser(
             nombre: nuages.len() + pieuvres.len(),
         });
     }
-    // Une bâche `_` ou une tête finale `&` sans Pieuvre n'a pas de sens.
+    // Une bâche `_` ou un sommet `&` sans Pieuvre n'a pas de sens.
     if pieuvres.is_empty() {
-        if let Some(&(tx, ty)) = bache.first().or(tetes_finales.first()).or(tour.premier()) {
+        if let Some(&(tx, ty)) = bache.first().or(sommets.first()) {
             return Err(ErreurNiveau::PieuvreSansPlace {
                 ligne: ty + 1,
                 colonne: tx + 1,
@@ -528,7 +515,7 @@ pub(super) fn analyser(
     }
     // Pieuvre du port : voir `poser_pieuvre`.
     for &case in &pieuvres {
-        let p = poser_pieuvre(&tuiles, largeur, case, &bache, &tetes_finales, &tour)?;
+        let p = poser_pieuvre(&tuiles, largeur, case, &bache, &sommets)?;
         entites.push(Entite::Pieuvre(Box::new(p)));
     }
 
@@ -831,19 +818,18 @@ fn poser_nuage(
 /// - ses 3 places de tête (`PLACES_TETE` : milieu, gauche, droite), 48 x 32,
 ///   centrées sur leur colonne et posées sur l'eau, ne touchent aucun solide.
 ///
-/// Phase 2 (carte 9.13a), si la grille a une bâche `_` ET une tête finale `&` :
+/// Phase 2 (carte 9.13a), si la grille a une bâche `_` ET un sommet `&` :
 /// - la bâche (une seule rangée, au-dessus de l'arène) devient une boîte solide ;
 ///   les tentacules de la phase 1 et les plateformes à saisir s'arrêtent dessous ;
-/// - la tête finale (48 x 32) a son coin bas-gauche sur le `&`, ses 6 cases libres ;
-///   la mer s'arrête 3 tuiles sous elle ;
-/// - les paliers de la mer : sous chaque corniche large de la tour.
+/// - le sommet (carte 9.36a, 64 x 48) a son coin bas-gauche sur le `&`, ses 4 x 3
+///   cases libres : Pépin qui y entre fait fuir la Pieuvre ; la mer s'arrête 3
+///   tuiles sous lui.
 fn poser_pieuvre(
     tuiles: &[Tuile],
     largeur: usize,
     (tx, ty): Case,
     bache: &[Case],
-    tetes_finales: &[Case],
-    tour: &ReperesTour,
+    sommets: &[Case],
 ) -> Result<Pieuvre, ErreurNiveau> {
     let erreur = ErreurNiveau::PieuvreSansPlace {
         ligne: ty + 1,
@@ -858,16 +844,21 @@ fn poser_pieuvre(
     }
     let t = TAILLE_TUILE;
     // Phase 2 : les deux repères vont ensemble, la bâche sur une rangée au-dessus
-    // du bassin, une seule tête finale au-dessus de la bâche.
-    let rangee_bache = match (bache, tetes_finales) {
+    // du bassin, un seul sommet au-dessus de la bâche, avec ses cases libres
+    // (`TAILLE_SOMMET`, carte 9.36a).
+    let (cases_l, cases_h) = (
+        (pieuvre::TAILLE_SOMMET.0 / TAILLE_TUILE) as usize,
+        (pieuvre::TAILLE_SOMMET.1 / TAILLE_TUILE) as usize,
+    );
+    let rangee_bache = match (bache, sommets) {
         ([], []) => None,
         ([premiere, ..], [(fx, fy)]) => {
             let y = premiere.1;
             let libre = |x: usize, y: usize| !tuiles[y * largeur + x].est_solide();
-            let place = *fy >= 1
+            let place = *fy + 1 >= cases_h
                 && *fy < y
-                && fx + 2 < largeur
-                && (*fy - 1..=*fy).all(|yy| (*fx..fx + 3).all(|xx| libre(xx, yy)));
+                && fx + cases_l <= largeur
+                && (*fy + 1 - cases_h..=*fy).all(|yy| (*fx..fx + cases_l).all(|xx| libre(xx, yy)));
             if bache.iter().any(|c| c.1 != y) || y + 2 >= ty || !place {
                 return Err(erreur);
             }
@@ -912,7 +903,7 @@ fn poser_pieuvre(
         (tx - portee, tx + portee + 1),
         (haut_arene, ty),
     );
-    if let (Some(y), [(fx, fy)]) = (rangee_bache, tetes_finales) {
+    if let (Some(y), [(fx, fy)]) = (rangee_bache, sommets) {
         let x0 = bache.iter().map(|c| c.0).min().unwrap_or(0);
         let x1 = bache.iter().map(|c| c.0).max().unwrap_or(0);
         p.bache = Some(Aabb::new(
@@ -921,122 +912,14 @@ fn poser_pieuvre(
             (x1 + 1 - x0) as f32 * t,
             t,
         ));
-        // Carte 9.13c : la tête de la GÉANTE, posée sur la vigie.
-        let (w, h) = pieuvre::TAILLE_GEANTE;
-        let tete = Aabb::new(*fx as f32 * t, (*fy + 1) as f32 * t - h, w, h);
-        p.tete_finale = Some(tete);
-        p.arret_mer = tete.bas() + pieuvre::SOUS_LA_CORNICHE;
-        // Les paliers : au-dessus de la corniche du bas de la tour (2 rangées
-        // au-dessus de la bâche), et sous la vigie.
-        let solide = |x: usize, y: usize| tuiles[y * largeur + x].est_solide();
-        p.paliers = pieuvre::paliers_de_la_tour(solide, largeur, y.saturating_sub(2))
-            .into_iter()
-            .filter(|&s| s > p.arret_mer)
-            .collect();
-    }
-    if !tour.est_vide() && rangee_bache.is_none() {
-        return Err(erreur);
-    }
-    p.tour = tour.poser(tuiles, largeur).ok_or(erreur)?;
-    // Carte 9.13c : le couloir de la géante, contre le mur droit de la tour.
-    if p.tete_finale.is_some() {
-        let bord = largeur.saturating_sub(1);
-        p.tour.couloir = Some((
-            bord.saturating_sub(pieuvre::COULOIR_TUILES) as f32 * t,
-            bord as f32 * t,
-        ));
+        // Carte 9.36a : le SOMMET, la zone d'arrivée posée sur la plateforme du
+        // haut ; la mer s'arrête 3 tuiles sous elle.
+        let (w, h) = pieuvre::TAILLE_SOMMET;
+        let sommet = Aabb::new(*fx as f32 * t, (*fy + 1) as f32 * t - h, w, h);
+        p.sommet = Some(sommet);
+        p.arret_mer = sommet.bas() + pieuvre::SOUS_LE_SOMMET;
     }
     Ok(p)
-}
-
-/// Les repères de la montée de la carte 9.13b, tels que lus dans la grille.
-#[derive(Default)]
-struct ReperesTour {
-    jetes: Vec<Case>,
-    secousses: Vec<Case>,
-    arrachables: Vec<Case>,
-    balayeurs: Vec<Case>,
-}
-
-/// Les suites de cases voisines sur une même rangée (dans l'ordre de lecture).
-fn suites(cases: &[Case]) -> Vec<Vec<Case>> {
-    let mut suites: Vec<Vec<Case>> = Vec::new();
-    for &c in cases {
-        match suites.last_mut() {
-            Some(s) if s.last().is_some_and(|d| d.1 == c.1 && d.0 + 1 == c.0) => s.push(c),
-            _ => suites.push(vec![c]),
-        }
-    }
-    suites
-}
-
-impl ReperesTour {
-    fn est_vide(&self) -> bool {
-        self.premier().is_none()
-    }
-
-    fn premier(&self) -> Option<&Case> {
-        self.jetes
-            .first()
-            .or(self.secousses.first())
-            .or(self.arrachables.first())
-            .or(self.balayeurs.first())
-    }
-
-    /// La montée de la Pieuvre (`pieuvre::Tour`) :
-    /// - chaque `$` est le coin bas-gauche de la tête de la géante quand elle se
-    ///   jette (64 x 40 : ses 4 x 3 cases libres, posée sur une case solide) ;
-    /// - chaque `+` est une secousse : la rangée sous la case (son bas) ;
-    /// - chaque suite de `%` est une plateforme arrachable ;
-    /// - chaque `!` est un balayage, au-dessus du bout DROIT d'une corniche (la
-    ///   case à sa droite est libre : le couloir) : il balaie la corniche jusqu'à
-    ///   son bout gauche.
-    ///
-    /// Jetés et secousses sont rangés du bas vers le haut. `None` si un repère
-    /// est mal placé.
-    fn poser(&self, tuiles: &[Tuile], largeur: usize) -> Option<pieuvre::Tour> {
-        let t = TAILLE_TUILE;
-        let solide = |x: usize, y: usize| tuiles[y * largeur + x].est_solide();
-        let mut tour = pieuvre::Tour::default();
-        let mut jetes = self.jetes.clone();
-        jetes.sort_by_key(|c| std::cmp::Reverse(c.1));
-        let (w, h) = pieuvre::TAILLE_GEANTE;
-        let (cases_l, cases_h) = ((w / t).ceil() as usize, (h / t).ceil() as usize);
-        for (fx, fy) in jetes {
-            let libre = fy + 1 >= cases_h
-                && fx + cases_l <= largeur
-                && (fy + 1 - cases_h..=fy).all(|y| (fx..fx + cases_l).all(|x| !solide(x, y)))
-                && solide(fx, fy + 1);
-            if !libre {
-                return None;
-            }
-            tour.jetes
-                .push(Aabb::new(fx as f32 * t, (fy + 1) as f32 * t - h, w, h));
-        }
-        let mut secousses = self.secousses.clone();
-        secousses.sort_by_key(|c| std::cmp::Reverse(c.1));
-        tour.secousses = secousses.iter().map(|c| (c.1 + 1) as f32 * t).collect();
-        tour.arrachables = suites(&self.arrachables)
-            .into_iter()
-            .map(|s| s.iter().map(|&(x, y)| (x as i32, y as i32)).collect())
-            .collect();
-        for &(bx, by) in &self.balayeurs {
-            let corniche = |x: usize| solide(x, by + 1) && !solide(x, by);
-            if by + 1 >= tuiles.len() / largeur || !corniche(bx) || corniche(bx + 1) {
-                return None;
-            }
-            let mut g = bx;
-            while g > 0 && corniche(g - 1) {
-                g -= 1;
-            }
-            tour.balayeurs.push(pieuvre::Balayeur {
-                y: (by + 1) as f32 * t,
-                depart: (bx + 1) as f32 * t,
-                arrivee: g as f32 * t,
-            });
-        }
-        Some(tour)
-    }
 }
 
 /// Les plateformes que la Pieuvre peut saisir (carte 9.12f) : chaque groupe de

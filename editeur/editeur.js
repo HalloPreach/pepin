@@ -457,7 +457,7 @@ function avertissements() {
   if (boss === 0 && nb('X') === 0) liste.push(['pas d\'arrivée X (seule une arène de boss O ou 8 s\'en passe)', true]);
   if (boss > 0 && nb('X') > 0) liste.push(['arène de boss : pas de drapeau X, vaincre le boss finit le niveau', true]);
   if (nb('8') === 0) {
-    for (const c of ['_', '&', '$', '!', '+']) {
+    for (const c of ['_', '&']) {
       if (nb(c) > 0) liste.push([`« ${c} » ${etat.parLettre.get(c).nom} sans la Pieuvre 8`, true]);
     }
   }
@@ -500,7 +500,7 @@ function avertissements() {
     if (x < 0 || x >= largeur()) return true;
     if (y < 0 || y >= g.length) return false;
     return Boolean(etat.parLettre.get(g[y][x])?.solide) && etat.parLettre.get(g[y][x]).categorie === 'tuile'
-      && !['F', '%', '_', 'm'].includes(g[y][x]);
+      && !['F', '_', 'm'].includes(g[y][x]);
   };
   // Poche de vide close : coiffée d'un solide et bordée de solide jusqu'en bas (`aucune_poche_de_vide_close`).
   poches: for (let y = 1; y < g.length; y++) {

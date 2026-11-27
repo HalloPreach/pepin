@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# OBSOLÈTE depuis la carte 9.36a : la phase 2 qu'il montre (la géante, la vigie, la
+# plongée) n'existe plus. Il ne vaut que pour un build d'avant la 9.36a (son script
+# normal sert encore de référence pour la PHASE 1, identique jusqu'à son image 2419 :
+# voir `docs/capture-936.sh`). Les tests qui écrivaient ses scripts s'appellent
+# maintenant `ecrire_script_pieuvre_936[_facile]`.
+#
 # Captures de la carte 9.33 : la VRAIE phase 2 de la Pieuvre (« Fuite et montée »),
 # jouée APRÈS la phase 1 dans le niveau de la Pieuvre, pas dans un niveau d'essai posé
 # dans la tour (les captures de « montée » des cartes 10.4 le faisaient). Parcours

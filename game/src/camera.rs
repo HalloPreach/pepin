@@ -152,6 +152,15 @@ impl Camera {
         self.precedente = (self.x, self.y);
     }
 
+    /// Carte 9.36c : la caméra MENÉE (la fuite de la Pieuvre au sommet) : posée en
+    /// `(x, y)`, bornée au niveau ; le rendu interpole depuis la position d'avant,
+    /// comme pour `suivre` (la descente est donc douce entre deux pas aussi).
+    pub fn placer(&mut self, x: f32, y: f32, largeur_niveau: f32, hauteur_niveau: f32) {
+        self.precedente = (self.x, self.y);
+        self.x = Self::borner(x, largeur_niveau, LARGEUR_LOGIQUE as f32);
+        self.y = Self::borner(y, hauteur_niveau, HAUTEUR_LOGIQUE as f32);
+    }
+
     /// Point visé : Pépin légèrement décentré, plus l'anticipation.
     fn cible(joueur: &Joueur, avance: f32, haut: f32) -> (f32, f32) {
         let (px, py) = joueur.boite.centre();

@@ -46,7 +46,7 @@
 //! maison (empreinte reproductible du jeu, pour comparer deux builds).
 
 #[cfg(test)]
-mod captures_933;
+mod captures_936;
 #[cfg(test)]
 mod captures_99;
 mod essais;

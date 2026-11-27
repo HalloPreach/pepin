@@ -174,6 +174,8 @@ impl Application {
             Ecran::Jeu => {
                 if commandes.pause {
                     self.ouvrir(Ecran::Pause);
+                } else if self.passer_la_fuite(nav) {
+                    // Carte 9.36c : la fuite de la Pieuvre passée, comme un texte.
                 } else if let Some(indice) = raccourci.and_then(|r| {
                     entrees::cible_raccourci(r, self.monde.indice, niveaux::NB_NIVEAUX)
                 }) {

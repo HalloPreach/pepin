@@ -2310,6 +2310,13 @@ mod tests {
             .iter()
             .flat_map(|&t| pile(t))
             .filter_map(Couche::fichier)
+            // Carte 9.36b : les couches du mur de la tour de la Pieuvre, posées
+            // hors pile (elles dépendent du niveau, `dessin_tour`).
+            .chain(
+                crate::dessin_tour::COUCHES
+                    .iter()
+                    .map(|n| format!("port/{n}.png")),
+            )
             .collect();
         demandes.sort();
         demandes.dedup();
@@ -2354,6 +2361,10 @@ mod tests {
                 // px, sur la ligne de flottaison) et le phare au large sur sa jetée.
                 "cargos" => (66, 14),
                 "phare" => (77, 31),
+                // Carte 9.36b : une période du mur de la tour de la Pieuvre.
+                "tour_bas" | "tour_milieu" | "tour_haut" => {
+                    (crate::dessin_tour::L_MUR, crate::dessin_tour::H_MUR)
+                }
                 _ => panic!("{f} : couche inconnue"),
             };
             assert_eq!(crate::fonds::taille(d, n), attendue, "{f}");

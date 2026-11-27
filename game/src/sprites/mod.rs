@@ -203,11 +203,10 @@ fn texture_tramee(image: &[&str], theme: Option<Theme>, trame: bool) -> Texture2
 }
 
 /// Une image a-t-elle sa version PÂLE (tramée en damier, `Banque::dessiner_pale`) ?
-/// Les boss du mode facile seulement : le Grand Nuage (`nuage_...`), la tête de la
-/// Pieuvre (`pieuvre_...`) et la géante de la phase 2 (`geante...`, carte 9.33 : sans
-/// elle, la géante du mode facile n'était pas dessinée du tout).
+/// Les boss du mode facile seulement : le Grand Nuage (`nuage_...`) et la tête de la
+/// Pieuvre (`pieuvre_...`, phase 1 et, carte 9.36a, au loin pendant la phase 2).
 fn a_une_version_pale(nom: &str) -> bool {
-    nom.starts_with("nuage_") || nom.starts_with("pieuvre_") || nom.starts_with("geante")
+    nom.starts_with("nuage_") || nom.starts_with("pieuvre_")
 }
 
 /// Toutes les textures du jeu, rangées par nom.
@@ -278,11 +277,9 @@ impl Banque {
                 }
             }
         }
-        // Le boss du mode facile, plus pâle : le Grand Nuage, la tête de la Pieuvre, et
-        // (carte 9.33) la GÉANTE de la phase 2 : `dessin_montee` la dessine pâle en
-        // facile, mais ses images (`geante0`...) n'avaient pas de version pâle, et
-        // `dessiner_pale` ne dessinait alors RIEN (la géante absente, ses yeux et ses
-        // veines flottant seuls).
+        // Le boss du mode facile, plus pâle : le Grand Nuage et la tête de la Pieuvre
+        // (carte 9.33 : une image dessinée pâle sans version pâle n'est pas dessinée
+        // du tout ; voir `chaque_image_dessinee_pale_a_sa_version_pale`).
         let nuages_trames = [ennemis::sprites(), pieuvre::sprites()]
             .concat()
             .iter()
@@ -428,6 +425,14 @@ impl Banque {
         Self::poser_haut(t, x, y, hauteur);
     }
 
+    /// Les `hauteur` premières rangées de la version PÂLE de `nom` (carte 9.36b : la
+    /// tête de la Pieuvre au loin, à moitié dans l'eau, en mode facile).
+    pub fn dessiner_pale_haut(&self, nom: &str, x: f32, y: f32, hauteur: f32) {
+        if let Some(t) = self.nuages_trames.get(nom) {
+            Self::poser_haut(t, x, y, hauteur);
+        }
+    }
+
     fn poser_haut(t: &Texture2D, x: f32, y: f32, hauteur: f32) {
         let h = hauteur.round().clamp(0.0, t.height());
         if h <= 0.0 {
@@ -484,7 +489,7 @@ mod tests {
 
     /// Carte 9.33 : chaque image que le jeu dessine PÂLE (`dessiner_pale`, boss du mode
     /// facile) a sa version pâle, sinon `dessiner_pale` ne dessine rien du tout (la
-    /// géante de la phase 2 de la Pieuvre était invisible en facile). On relit les
+    /// géante de l'ancienne phase 2 de la Pieuvre était invisible en facile). On relit les
     /// appels dans les fichiers de dessin : le nom (lu de la ligne `let nom = ...` à
     /// l'appel) doit exister ET avoir sa version pâle.
     #[test]
@@ -499,7 +504,8 @@ mod tests {
         for source in sources {
             let lignes: Vec<&str> = source.lines().collect();
             for (i, l) in lignes.iter().enumerate() {
-                if !l.contains("dessiner_pale(nom") {
+                // Carte 9.36b : aussi la version coupée à la surface.
+                if !l.contains("dessiner_pale(nom") && !l.contains("dessiner_pale_haut(nom") {
                     continue;
                 }
                 // Le `nom` vient de la ligne `let nom = ...` la plus proche au-dessus :
@@ -518,10 +524,49 @@ mod tests {
                 }
             }
         }
-        // geante0/1, geante_furieuse0/1, pieuvre_colere0/1 au moins.
-        assert!(vus >= 6, "{vus} noms vérifiés");
-        for nom in ["geante0", "geante1", "geante_furieuse0", "geante_furieuse1"] {
+        // Carte 9.36a : pieuvre_colere0/1 (phase 1, et au loin en phase 2) et
+        // pieuvre_touchee (sa fuite) au moins ; carte 9.36b : son bras, son encre,
+        // ses bulles et sa goutte.
+        assert!(vus >= 15, "{vus} noms vérifiés");
+        for nom in [
+            "pieuvre_colere0",
+            "pieuvre_colere1",
+            "pieuvre_touchee",
+            "pieuvre_bras_repos",
+            "pieuvre_bras_prepare",
+            "pieuvre_bras_lance",
+            "pieuvre_encre0",
+            "pieuvre_encre1",
+            "pieuvre_encre2",
+            "pieuvre_bulles0",
+            "pieuvre_bulles1",
+            "pieuvre_goutte",
+        ] {
             assert!(noms.contains(&nom) && a_une_version_pale(nom), "{nom}");
+        }
+        // Et CHAQUE nouvelle image de la carte 9.36b est dans la famille `pieuvre`
+        // (celle qui nourrit la banque pâle) avec sa version pâle, même celles qu'on
+        // ne dessine pas pâles (objets, repère, mer : un danger reste plein).
+        let famille: Vec<&str> = super::pieuvre::sprites().iter().map(|(n, _)| *n).collect();
+        for nom in [
+            "pieuvre_mer0",
+            "pieuvre_mer1",
+            "pieuvre_mer_fond",
+            "pieuvre_mer_noyee",
+            "pieuvre_mer_noyee_fond",
+            "pieuvre_crete0",
+            "pieuvre_crete1",
+            "pieuvre_caisse",
+            "pieuvre_tonneau",
+            "pieuvre_epave",
+            "pieuvre_eclats_caisse",
+            "pieuvre_eclats_tonneau",
+            "pieuvre_eclats_epave",
+            "pieuvre_trainee",
+            "pieuvre_repere0",
+            "pieuvre_repere1",
+        ] {
+            assert!(famille.contains(&nom) && a_une_version_pale(nom), "{nom}");
         }
     }
 

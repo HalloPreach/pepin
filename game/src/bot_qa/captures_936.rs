@@ -1,39 +1,44 @@
-//! Captures de la carte 9.33 (l'affichage de la Pieuvre en phase 2 était cassé) :
-//! les scripts de la VRAIE phase 2, jouée APRÈS la phase 1 dans le niveau de la
-//! Pieuvre (pas un niveau d'essai posé dans la tour). Tests ignorés, lancés à la main :
-//! `./docker-cargo.sh test -p game --no-default-features ecrire_script_pieuvre_933 -- --ignored --nocapture`
+//! Captures de la carte 9.36a (la nouvelle phase 2 de la Pieuvre : la montée
+//! contre la mer, les objets qui tombent, sa fuite au sommet ; d'abord écrites
+//! pour la carte 9.33) : les scripts de la VRAIE suite, phase 1 puis phase 2,
+//! jouée dans le niveau de la Pieuvre (pas un niveau d'essai posé dans la tour).
+//! Tests ignorés, lancés à la main :
+//! `./docker-cargo.sh test -p game --no-default-features ecrire_script_pieuvre_936 -- --ignored --nocapture`
 //!
 //! Deux scripts, un caractère par image (`code_entrees`, base 32), rejoués par
-//! `docs/capture-933.sh` (commande `s:` de `docs/capture-102.mjs`) :
-//! - `docs/script-pieuvre-933.txt`, mode NORMAL : il part de la carte de titre du
+//! `docs/capture-936.sh` (commande `s:` de `docs/capture-102.mjs`) :
+//! - `docs/script-pieuvre-936.txt`, mode NORMAL : il part de la carte de titre du
 //!   niveau de la Pieuvre, une fois la carte prête (son 1er caractère est l'appui
 //!   Entrée qui la passe) ;
-//! - `docs/script-pieuvre-933-facile.txt`, mode FACILE (c'est là que le défaut de la
-//!   9.33 se voyait) : il part du TITRE, avec la sauvegarde `SAUVEGARDE_FACILE` (tout
-//!   le Monde 2 fini sauf la Pieuvre, 10 défaites à la Pieuvre) : JOUER ouvre la carte
-//!   des niveaux sur la Pieuvre, Entrée l'ouvre, la bannière « TROP DUR ? » propose le
-//!   mode facile, Gauche puis Entrée répondent OUI.
+//! - `docs/script-pieuvre-936-facile.txt`, mode FACILE : il part du TITRE, avec la
+//!   sauvegarde `SAUVEGARDE_FACILE` (tout le Monde 2 fini sauf la Pieuvre, 10
+//!   défaites à la Pieuvre) : JOUER ouvre la carte des niveaux sur la Pieuvre,
+//!   Entrée l'ouvre, la bannière « TROP DUR ? » propose le mode facile, Gauche puis
+//!   Entrée répondent OUI.
 //!
 //! Le parcours est celui du robot de QA de partie : la phase 1 du robot (carte
-//! 10.7, par points), puis, dès que la phase 2 commence, le PILOTE de la 9.13g
+//! 10.7, par points), puis, dès que la phase 2 commence, le PILOTE
 //! (`pilote_pieuvre::jouer`) depuis l'état réel de la partie. Tout est rejoué image
-//! par image dans l'APPLICATION, comme la partie du robot (`jouer_depuis_le_titre`).
-//! Chaque test écrit aussi `target/qa/moments-933[-facile].txt` : une ligne
-//! `nom image` par moment (la fuite, le bas, le milieu et le haut de la tour, la
-//! vigie, la plongée), d'où viennent les images de `docs/capture-933.sh`.
+//! par image dans l'APPLICATION, comme la partie du robot (`jouer_depuis_le_titre`),
+//! jusqu'au BILAN du niveau. Chaque test écrit aussi
+//! `target/qa/moments-936[-facile].txt` : une ligne `nom image` par moment (la fin
+//! de la phase 1, la transition, le bas, le milieu et le haut de la tour, une chute
+//! annoncée, la fuite, le bilan), d'où viennent les images de `docs/capture-936.sh`.
 
 use pepin_core::entities::pieuvre::PhasePieuvre;
 use pepin_core::player::Entrees;
 
 use super::parcours::trouver_parcours;
-use super::pilote_pieuvre::{en_phase_2, indice_pieuvre, pieuvre, sur_la_vigie};
+use pepin_core::entities::pieuvre::EtatChute;
+
+use super::pilote_pieuvre::{en_phase_2, indice_pieuvre, pieuvre};
 use super::{code_entrees, SAUVEGARDE_MONDE_2_OUVERT};
 use crate::app::Application;
 use crate::ecrans::Ecran;
 use crate::entrees::{Commandes, RaccourciNiveau};
 use crate::navigation::Navigation;
 
-/// La sauvegarde du script FACILE (même texte dans `docs/capture-933.sh`) : tous les
+/// La sauvegarde du script FACILE (même texte dans `docs/capture-936.sh`) : tous les
 /// niveaux avant la Pieuvre finis, et 10 défaites d'affilée à la Pieuvre
 /// (`facile::DEFAITES_AVANT_FACILE`) : le mode facile y est proposé.
 pub const SAUVEGARDE_FACILE: &str = "version=3\n\
@@ -49,8 +54,8 @@ niveau.riviere=atteint:1 medaille:1\nniveau.port=atteint:1 medaille:1\n\
 niveau.maree=atteint:1 medaille:1\nniveau.pieuvre=defaites:10";
 
 #[test]
-#[ignore = "captures de la carte 9.33 : se lance à la main"]
-fn ecrire_script_pieuvre_933() {
+#[ignore = "captures de la carte 9.36a : se lance à la main"]
+fn ecrire_script_pieuvre_936() {
     let indice = indice_pieuvre();
     // L'application amenée sur la carte de titre du niveau de la Pieuvre, comme le
     // build de QA : JOUER, puis le raccourci « niveau suivant » (touche N) jusqu'à
@@ -74,30 +79,60 @@ fn ecrire_script_pieuvre_933() {
         image += 1;
     }
     assert!(!pieuvre(&app.monde).est_facile());
-    derouler(app, String::new(), "933");
+    derouler(app, String::new(), "936");
 }
 
-/// Le même en mode FACILE, depuis le titre (voir l'en-tête du module), comme un
-/// joueur qui a déjà perdu 10 fois contre la Pieuvre : JOUER (image 0) ouvre la carte
-/// de titre de la Pieuvre, Entrée (60) la passe, Pépin court à droite (120 à 159)
-/// et tombe à l'eau ; à sa mort, la bannière « TROP DUR ? » ; Gauche (400) choisit
-/// OUI, Entrée (420) : le niveau recommence en facile.
+/// Le même en mode FACILE, depuis le titre (voir l'en-tête du module) : JOUER
+/// (image 0) ouvre la carte de titre de la Pieuvre, Entrée (60) la passe. Depuis la
+/// carte 9.34, la bannière « TROP DUR ? » ne s'ouvre qu'après 10 défaites de la
+/// VISITE (la sauvegarde n'y suffit plus) : Pépin court à droite et tombe dans le
+/// bassin, dix fois ; à la 10e mort, la bannière s'ouvre ; Gauche choisit OUI,
+/// Entrée : le niveau recommence en facile.
 #[test]
-#[ignore = "captures de la carte 9.33 : se lance à la main"]
-fn ecrire_script_pieuvre_933_facile() {
+#[ignore = "captures de la carte 9.36a : se lance à la main"]
+fn ecrire_script_pieuvre_936_facile() {
+    use crate::facile::DEFAITES_AVANT_FACILE;
     use pepin_core::player::Direction;
     let indice = indice_pieuvre();
     let mut app = Application::new(true);
     app.charger_sauvegarde_qa(SAUVEGARDE_FACILE);
     let mut script = String::new();
-    for image in 0..480 {
-        let valider = matches!(image, 0 | 60 | 420);
-        let gauche = image == 400;
-        let droite = (120..160).contains(&image);
+    // L'image où la bannière s'est ouverte (Pépin n'est plus en jeu après la 10e
+    // mort), et la fin de la mise en place.
+    let mut banniere: Option<u32> = None;
+    let mut fin = None;
+    for image in 0..60 * 120 {
+        let morts = app.monde.etat.morts;
+        let en_jeu = app.ecran == Ecran::Jeu && app.en_jeu();
+        if banniere.is_none() && morts >= DEFAITES_AVANT_FACILE && !en_jeu && image > 60 {
+            banniere = Some(image);
+        }
+        // La bannière s'ouvre une fois le rideau de la mort fermé : on répond
+        // (Gauche : OUI, puis Entrée) toutes les secondes jusqu'au mode facile.
+        let b = banniere.map(|b| (image - b) % 60);
+        // « Plus de vies » (après la 5e mort) : Entrée continue, dans la même
+        // visite. Une fois par seconde tant que Pépin n'est pas en jeu.
+        let relancer = banniere.is_none()
+            && image > 120
+            && !en_jeu
+            && morts < DEFAITES_AVANT_FACILE
+            && image % 60 == 0;
+        if relancer {
+            println!(
+                "image {image} : écran {}, morts {morts}, Entrée",
+                super::nom_ecran(app.ecran)
+            );
+        }
+        let valider = image == 0 || image == 60 || b == Some(40) || relancer;
+        let gauche = b == Some(20);
+        let droite = banniere.is_none()
+            && image > 60
+            && en_jeu
+            && morts < DEFAITES_AVANT_FACILE
+            && app.monde.reapparition == 0;
         let nav = Navigation {
             valider,
             gauche,
-            droite: image == 120,
             ..Navigation::default()
         };
         let e = Entrees {
@@ -113,22 +148,22 @@ fn ecrire_script_pieuvre_933_facile() {
         app.reagir(&nav, &Commandes::default(), None);
         app.pas(&e);
         script.push(code_entrees(&e, valider));
-        if matches!(image, 1 | 59 | 61 | 119 | 161 | 399 | 401 | 421 | 479) {
-            println!(
-                "image {image} : écran {}, niveau {}, en jeu {}, morts {}",
-                super::nom_ecran(app.ecran),
-                app.monde.indice,
-                app.en_jeu(),
-                app.monde.etat.morts
-            );
+        if banniere.is_some() && pieuvre(&app.monde).est_facile() && app.en_jeu() {
+            fin = Some(image);
+            break;
         }
     }
+    println!(
+        "mise en place : {} images, bannière à l'image {banniere:?}, fin {fin:?}, morts {}",
+        script.len(),
+        app.monde.etat.morts
+    );
     assert_eq!(app.monde.indice, indice, "JOUER ouvre la Pieuvre");
     assert!(
         pieuvre(&app.monde).est_facile(),
         "la Pieuvre en mode facile"
     );
-    derouler(app, script, "933-facile");
+    derouler(app, script, "936-facile");
 }
 
 /// Joue le niveau de la Pieuvre dans `app` (déjà chargé, sa carte de titre à
@@ -149,12 +184,19 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
     let debut = script.len();
     let mut moments: Vec<(&str, usize)> = Vec::new();
     let mut bas_de_la_tour: Option<f32> = None;
-    let vigie = pieuvre(&app.monde).tete_finale.map(|v| v.bas());
+    let sommet = pieuvre(&app.monde).sommet;
+    let vigie = sommet.map(|v| v.bas());
+    // Les images jouées après la fin du niveau (le bilan).
+    let mut apres: Option<usize> = None;
     let morts = app.monde.etat.morts;
     for k in debut..debut + 60 * 60 * 5 {
-        let valider = app.texte_en_attente();
+        // Après la fin du niveau, plus rien : le bilan reste à l'écran.
+        let valider = apres.is_none() && app.texte_en_attente();
         let mut e = Entrees::default();
-        if app.ecran == Ecran::Jeu && app.en_jeu() {
+        // Carte 9.36c : pendant la fuite au sommet, plus aucune entrée (Pépin est
+        // figé ; une touche de saut la passerait dans le navigateur).
+        let fuite = app.fuite_en_cours();
+        if apres.is_none() && app.ecran == Ecran::Jeu && app.en_jeu() && fuite.is_none() {
             // Le pilote prend la main dès la phase 2, et la reprend après chaque
             // mort (Pépin repart de la lanterne du bas de la tour, le départ du
             // pilote de la 9.13g) : ses pas jusqu'à sa victoire ou sa 1re mort.
@@ -200,8 +242,16 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
             facile || app.monde.etat.morts == morts,
             "mort à l'image {k}"
         );
+        // Le niveau fini : encore 4 s d'images, pour le bilan.
         if app.ecran != Ecran::Jeu || app.monde.indice != indice {
-            break;
+            let a = *apres.get_or_insert(k);
+            if k == a {
+                moments.push(("bilan", k + 150));
+            }
+            if k >= a + 240 {
+                break;
+            }
+            continue;
         }
         let p = pieuvre(&app.monde);
         let y = app.monde.joueur.boite.bas();
@@ -211,6 +261,12 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
             }
         };
         noter("fuite", p.en_fuite());
+        // Une chute annoncée près de Pépin, son ombre à l'écran (au plus 4
+        // tuiles sous ses pieds), passé le premier quart de la tour.
+        let annonce = p.chutes().iter().any(|c| {
+            matches!(c.etat(p.ecoule()), Some(EtatChute::Annonce(a)) if a > 0.4)
+                && (c.sol - y).abs() < 64.0
+        });
         let montee = p.en_fuite() && p.phase() == PhasePieuvre::Montee;
         noter("montee", montee);
         if montee && bas_de_la_tour.is_none() {
@@ -220,15 +276,33 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
             noter("tour-milieu", montee && y < (b + v) / 2.0);
             noter("tour-haut", montee && y < v + (b - v) / 6.0);
         }
-        noter("vigie", sur_la_vigie(&app.monde));
+        if let (Some(b), Some(v)) = (bas_de_la_tour, vigie) {
+            noter("chute", montee && annonce && y < b - (b - v) / 4.0);
+        }
+        noter(
+            "sommet",
+            sommet.is_some_and(|s| s.chevauche(&app.monde.joueur.boite)),
+        );
         noter("plongee", p.phase() == PhasePieuvre::Plongee);
+        // Carte 9.36c : la séquence de la fuite. Pépin au sommet (son 1er pas, la
+        // caméra encore sur lui), la caméra à mi-descente, puis, la mer cadrée,
+        // l'encre, la plongée et les remous.
+        if let Some(f) = app.fuite_en_cours() {
+            noter("fuite-sommet", true);
+            noter("fuite-mi-descente", f.pas >= f.descente / 2);
+        }
+        let plonge = p.phase() == PhasePieuvre::Plongee;
+        let k_plongee = p.progression_plongee();
+        noter("fuite-encre", plonge && k_plongee >= 0.35);
+        noter("fuite-plongee", plonge && k_plongee >= 0.65);
+        noter("fuite-remous", plonge && k_plongee >= 0.9);
         if k % 120 == 0 {
             println!(
-                "image {k} : phase {:?}, fuite {}, Pépin y {y:.0}, mer {:?}, têtes {}",
+                "image {k} : phase {:?}, fuite {}, Pépin y {y:.0}, mer {:?}, objets {}",
                 p.phase(),
                 p.en_fuite(),
                 p.surface_mer().map(|m| m.round()),
-                p.pv()
+                p.chutes().len()
             );
         }
     }
@@ -237,7 +311,7 @@ fn derouler(mut app: Application, mut script: String, nom: &str) {
     let lignes: String = moments.iter().map(|(n, k)| format!("{n} {k}\n")).collect();
     std::fs::write(format!("../target/qa/moments-{nom}.txt"), &lignes).unwrap();
     println!(
-        "script-{nom}.txt : {} images ; morts {} ; vigie à y = {vigie:?}\n{lignes}",
+        "script-{nom}.txt : {} images ; morts {} ; sommet à y = {vigie:?}\n{lignes}",
         script.len(),
         app.monde.etat.morts - morts
     );

@@ -299,6 +299,14 @@ impl Monde {
         (b.x, b.y)
     }
 
+    /// Carte 9.36c : le monde reste figé quelques pas (la caméra descend vers la
+    /// fuite de la Pieuvre) : plus d'interpolation entre le pas d'avant et celui-ci,
+    /// sinon Pépin et les entités trembleraient sur place à l'écran.
+    pub fn figer_interpolation(&mut self) {
+        self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);
+        self.precedent_entites = self.entites.iter().map(Self::coin).collect();
+    }
+
     /// Un pas de simulation (1/60 s) avec les entrées données.
     pub fn avancer(&mut self, entrees: &Entrees) {
         self.precedent_joueur = (self.joueur.boite.x, self.joueur.boite.y);

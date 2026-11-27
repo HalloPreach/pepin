@@ -25,7 +25,10 @@ impl Application {
         // est fermé.
         // Carte 9.13e : la mer de la montée, que la caméra garde dans le cadre.
         self.camera.mer = crate::mer_montee::surface(&self.monde);
-        if self.monde.reapparition > mort::RIDEAU_FERME {
+        // Carte 9.36c : la fuite de la Pieuvre au sommet mène la caméra (vers la mer).
+        if self.fuite_au_sommet.is_some() {
+            self.mener_la_camera();
+        } else if self.monde.reapparition > mort::RIDEAU_FERME {
             self.camera.figer();
         } else if self.monde.reapparition == mort::RIDEAU_FERME {
             self.camera.recentrer(&self.monde.joueur, largeur, hauteur);

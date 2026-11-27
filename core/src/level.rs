@@ -110,18 +110,9 @@
 //!      saute dessus, trois coups. Pas de drapeau `X` : la vaincre finit le niveau
 //!   _  la bâche de l'arène de la Pieuvre (carte 9.13a, une rangée) : solide en
 //!      phase 1, déchirée au 3e coup ; la tour de la phase 2 est au-dessus
-//!   &  la vigie de la Pieuvre en haut de la tour (carte 9.13a) : coin bas-gauche
-//!      de sa tête de géante (4 x 3 cases, carte 9.13c), où elle se jette pour
-//!      le coup final ; un saut dessus finit le niveau. Va avec `_`
-//!   La montée de la Pieuvre (cartes 9.13b et 9.13c, avec `&`) :
-//!   $  un JETÉ : coin bas-gauche de la tête de la géante (4 x 3 cases libres,
-//!      posée sur la corniche) quand elle se jette au bout d'une corniche large
-//!   !  un BALAYAGE : au-dessus du bout droit d'une corniche, contre le couloir
-//!      de la géante ; son tentacule balaie la corniche vers la gauche
-//!   +  une SECOUSSE : quand les pieds de Pépin passent au-dessus de cette
-//!      rangée, elle secoue la tour et des caisses tombent (case libre)
-//!   %  une plateforme ARRACHABLE (solide, comme un toit) : elle la tire dans
-//!      la mer quand Pépin arrive dessous
+//!   &  le SOMMET de la tour de la Pieuvre (carte 9.36a) : coin bas-gauche de
+//!      sa zone d'arrivée (4 x 3 cases libres, posée sur la plateforme du haut) ;
+//!      Pépin qui y entre la fait fuir, ce qui finit le niveau. Va avec `_`
 //!   Mobilier de rue du Monde 2 (carte 9.20f) : des cases SOLIDES (des toits
 //!   pour la collision) que le jeu dessine comme un seul objet par groupe de
 //!   cases voisines de la même lettre (`Mobilier`) :
