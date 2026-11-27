@@ -5,15 +5,10 @@
 use crate::commun::*;
 use pepin_core::aabb::{Aabb, TAILLE_TUILE};
 use pepin_core::entities::contacts::{resoudre_contacts, Contact};
-use pepin_core::entities::pieuvre::{
-    EtatArrachage, EtatBalai, EtatFrappe, EtatJete, EtatSecousse, PhasePieuvre, Pieuvre,
-    ANNONCE_BALAI_PAS, ANNONCE_FRAPPE_PAS, ANNONCE_SAISIE_PAS, ANNONCE_SECOUSSE_PAS, BOUT_BALAI,
-    CABRE_PAS, CHUTE_JETE_PAS, FURIE_PAS, PLONGEE_PAS, RECUL_MER, REPIT_PAS, RYTHME_FRAPPE_PAS,
-    SOUS_PEPIN, TAILLE_GEANTE, VISEE_MAX, VITESSE_BALAI,
-};
+use pepin_core::entities::pieuvre::{PhasePieuvre, Pieuvre, FURIE_PAS, TAILLE_SOMMET};
 use pepin_core::entities::{Actualisable, Entite};
 use pepin_core::level::Niveau;
-use pepin_core::physics::{Environnement, JOUEUR_H, JOUEUR_L};
+use pepin_core::physics::Environnement;
 use pepin_core::player::Joueur;
 
 /// Le niveau de ce module, lu dans son fichier `.ron`.
@@ -24,14 +19,12 @@ fn infos() -> &'static InfosNiveau {
 /// Première rangée de l'arène : la tour et la bâche sont au-dessus.
 const HAUT_ARENE: i32 = 69;
 
-/// L'arène du boss : pas de drapeau, une seule pieuvre, cinq lanternes (au
-/// départ, au début de la tour : carte 9.13a, à 29 % : carte 9.13b, à 69 % :
-/// carte 9.13e, sous la vigie : carte 9.13f),
-/// trois gouttes ; et, dans ses
-/// 11 dernières rangées, EXACTEMENT la géométrie du niveau d'essai « pieuvre »
-/// (mêmes cases vides ou pleines, même pieuvre, même bassin, mêmes pontons,
-/// mêmes gouttes, même départ), sur laquelle le combat a été réglé et le robot
-/// de QA entraîné.
+/// L'arène du boss : pas de drapeau, une seule pieuvre, six lanternes (au
+/// départ, au début de la tour : carte 9.13a, puis tous les 20 à 25 % de la
+/// tour : carte 9.36a), trois gouttes ; et, dans ses 11 dernières rangées,
+/// EXACTEMENT la géométrie du niveau d'essai « pieuvre » (mêmes cases vides ou
+/// pleines, même pieuvre, même bassin, mêmes pontons, mêmes gouttes, même
+/// départ), sur laquelle le combat a été réglé et le robot de QA entraîné.
 #[test]
 fn l_arene_de_la_pieuvre_reprend_celle_du_niveau_d_essai() {
     let n = infos().charger().unwrap();
@@ -39,7 +32,7 @@ fn l_arene_de_la_pieuvre_reprend_celle_du_niveau_d_essai() {
     let dy = HAUT_ARENE as f32 * TAILLE_TUILE;
     assert_eq!((n.largeur(), n.hauteur()), (20, 80));
     assert!(n.arrivee.is_none(), "l'arène n'a pas de drapeau");
-    assert_eq!(n.nb_lanternes(), 5);
+    assert_eq!(n.nb_lanternes(), 6);
     assert_eq!(n.depart, (e.depart.0, e.depart.1 + dy));
     for ty in 0..11 {
         for tx in 0..20 {
@@ -89,30 +82,21 @@ fn l_arene_de_la_pieuvre_reprend_celle_du_niveau_d_essai() {
                 .collect::<Vec<_>>())
             .collect::<Vec<_>>()
     );
-    // Carte 9.13a : la tour a sa tête finale et sa bâche ; carte 9.13c : deux
-    // jetés, deux balayages, deux secousses, deux plateformes arrachables, et
-    // le couloir de la géante (5 colonnes contre le mur droit), toujours
-    // vide ; carte 9.13e : cinq paliers (sous ses cinq corniches larges sous
-    // la vigie) ; carte 9.13f : six (la corniche large de la rangée 16).
-    assert!(p.tete_finale.is_some() && p.bache.is_some());
-    assert_eq!(p.paliers.len(), 6, "{:?}", p.paliers);
-    assert_eq!(p.tour.jetes.len(), 2);
-    assert_eq!(p.tour.balayeurs.len(), 2);
-    assert_eq!(p.tour.secousses.len(), 2);
-    assert_eq!(p.tour.arrachables.len(), 2);
-    assert_eq!(
-        p.tour.couloir,
-        Some((14.0 * TAILLE_TUILE, 19.0 * TAILLE_TUILE))
+    // Carte 9.13a : la tour a sa bâche ; carte 9.36a : son SOMMET (4 x 3
+    // cases), posé sur la plateforme du haut, et la mer s'arrête dessous.
+    assert!(p.sommet.is_some() && p.bache.is_some());
+    let sommet = p.sommet.unwrap();
+    assert_eq!((sommet.w, sommet.h), TAILLE_SOMMET);
+    let (sx, sy) = (
+        (sommet.x / TAILLE_TUILE) as i32,
+        (sommet.bas() / TAILLE_TUILE) as i32,
     );
-    for ty in 0..HAUT_ARENE - 1 {
-        for tx in 14..19 {
-            assert!(!n.tuile_decor(tx, ty).est_solide(), "couloir ({tx}, {ty})");
-        }
-    }
     assert!(
-        q.tete_finale.is_none(),
-        "le niveau d'essai reste en une phase"
+        (sx..sx + 4).all(|x| n.tuile_decor(x, sy).est_solide()),
+        "posé sur la plateforme"
     );
+    assert!(p.arret_mer > sommet.bas());
+    assert!(q.sommet.is_none(), "le niveau d'essai reste en une phase");
 }
 
 fn pieuvre(n: &Niveau) -> Pieuvre {
@@ -177,9 +161,10 @@ fn au_troisieme_coup_elle_entre_en_furie() {
     assert_eq!(q.phase(), PhasePieuvre::Plongee);
 }
 
-/// La mer monte (vite dans l'arène, puis d'une tuile toutes les 1,3 s, avec
-/// ses paliers), jusque sous la vigie ; elle TUE au contact, barque comprise
-/// (des pieds 3 px sous la surface) ; en mode facile, elle monte moins vite.
+/// La mer monte (vite dans l'arène, puis d'une tuile en 1,17 s, carte 9.36a :
+/// plus vite qu'avant, sans palier), jusque sous le sommet ; elle TUE au
+/// contact, barque comprise (des pieds 3 px sous la surface) ; en mode facile,
+/// elle monte moins vite.
 #[test]
 fn la_mer_monte_et_tue() {
     let n = infos().charger().unwrap();
@@ -194,8 +179,8 @@ fn la_mer_monte_et_tue() {
     assert!((p.surface_mer_a(5999) - p.arret_mer).abs() < 0.01);
     let crue = p.fin_de_crue();
     assert!((p.surface_mer_a(crue) - bache.bas()).abs() < 1.0);
-    // Une tuile en 1,3 s (78 pas) hors palier.
-    let une_tuile = p.surface_mer_a(crue) - p.surface_mer_a(crue + 78);
+    // Une tuile en 70 pas (1,17 s ; la 9.13f : en 1,3 s).
+    let une_tuile = p.surface_mer_a(crue) - p.surface_mer_a(crue + 70);
     assert!((une_tuile - TAILLE_TUILE).abs() < 0.5, "{une_tuile}");
     let s = p.surface_mer().unwrap();
     let pied = |bas: f32| Aabb::new(100.0, bas - 14.0, 10.0, 14.0);
@@ -208,7 +193,7 @@ fn la_mer_monte_et_tue() {
         f.toucher();
     }
     assert_eq!(f.phase(), PhasePieuvre::Furie);
-    let lent = f.surface_mer_a(crue) - f.surface_mer_a(crue + 78);
+    let lent = f.surface_mer_a(crue) - f.surface_mer_a(crue + 70);
     assert!((lent - 0.75 * TAILLE_TUILE).abs() < 0.5, "{lent}");
 }
 
@@ -249,511 +234,4 @@ fn pieuvre_de(entites: &[Entite]) -> &Pieuvre {
             _ => None,
         })
         .unwrap()
-}
-
-/// Pépin debout à `x` (milieu), les pieds en `bas`.
-fn pepin_debout(x: f32, bas: f32) -> Aabb {
-    Aabb::new(x - JOUEUR_L / 2.0, bas - JOUEUR_H, JOUEUR_L, JOUEUR_H)
-}
-
-/// Un saut qui retombe sur `tete`.
-fn saut_sur(tete: Aabb) -> Joueur {
-    let mut j = Joueur::new(tete.x + 19.0, tete.y - 12.0);
-    j.vitesse.y = 100.0;
-    j
-}
-
-/// Avance pas à pas (au plus `max`) jusqu'à ce que `fini` soit vrai.
-fn jusqu_a(p: &mut Pieuvre, n: &Niveau, max: u32, fini: impl Fn(&Pieuvre) -> bool) {
-    for _ in 0..max {
-        if fini(p) {
-            return;
-        }
-        pas(p, n, 1);
-    }
-    assert!(fini(p), "jamais en {max} pas");
-}
-
-/// Carte 9.13c : la géante monte AVEC la mer dans son couloir ; son corps
-/// tue (pas la tour à côté), dès que la mer est dans la tour.
-#[test]
-fn la_geante_monte_avec_la_mer() {
-    let n = infos().charger().unwrap();
-    let p = en_montee(&n, 1);
-    assert!(p.corps().is_none(), "pendant la crue, elle sort du bassin");
-    let (g, d) = p.tour.couloir.unwrap();
-    for t in [p.fin_de_crue() + 5, 900, 1500] {
-        let mut q = en_montee(&n, 0);
-        pas(&mut q, &n, u32::from(t));
-        let mer = q.surface_mer().unwrap();
-        let (corps, tete) = (q.corps().unwrap(), q.geante().unwrap());
-        assert!(corps.x >= g && corps.droite() <= d, "dans le couloir");
-        assert!((tete.bas() - mer).abs() <= 1.0 && tete.h == TAILLE_GEANTE.1);
-        assert!(
-            q.blesse(&pepin_debout(g + 30.0, mer - 20.0)),
-            "son corps tue"
-        );
-        assert!(
-            !q.blesse(&pepin_debout(g - 20.0, mer - 20.0)),
-            "la tour, non"
-        );
-    }
-    // Pépin loin devant la mer : elle grimpe hors de l'eau, à 4 tuiles sous
-    // ses pieds (toujours à l'écran), et tout le couloir sous sa tête tue.
-    let mut q = en_montee(&n, 0);
-    let pieds = 31.0 * TAILLE_TUILE;
-    q.voir_pepin(pepin_debout(3.0 * TAILLE_TUILE, pieds));
-    let crue = u32::from(q.fin_de_crue());
-    pas(&mut q, &n, crue + 400);
-    let tete = q.geante().unwrap();
-    assert!(q.grimpe(), "{tete:?}");
-    assert!((tete.bas() - (pieds + SOUS_PEPIN)).abs() <= 1.0, "{tete:?}");
-    let mer = q.surface_mer().unwrap();
-    assert!(q.blesse(&pepin_debout(g + 30.0, (tete.bas() + mer) / 2.0)));
-}
-
-/// Chaque frappe visée laisse une issue : pour CHAQUE place de Pépin (au px
-/// près) sur chaque appui de la tour, la place visée est à moins de 3 tuiles
-/// de lui (le plus souvent sur lui), et sur chaque appui qu'elle touche il
-/// reste une place épargnée, que Pépin rejoint en courant pendant l'annonce
-/// (1,6 px par pas). En jeu : annoncée 1,4 s sans danger, puis elle frappe
-/// la place visée, toutes les 2,5 s.
-#[test]
-fn chaque_frappe_visee_laisse_une_issue() {
-    let n = infos().charger().unwrap();
-    let p = en_montee(&n, 0);
-    let appuis = p.appuis(&n);
-    let (mut places, mut sur_lui) = (0, 0);
-    for &(y, a, b) in &appuis {
-        for q in (a as i32..=(b - JOUEUR_L) as i32).map(|q| q as f32) {
-            let pepin = Aabb::new(q, y - JOUEUR_H, JOUEUR_L, JOUEUR_H);
-            let cible = p.viser(&n, &pepin);
-            places += 1;
-            sur_lui += usize::from(cible.chevauche(&pepin));
-            let milieu = |c: &Aabb| c.x + c.w / 2.0;
-            assert!((milieu(&cible) - milieu(&pepin)).abs() <= VISEE_MAX + 0.01);
-            for &(y2, a2, b2) in &appuis {
-                let debout = |r: f32| Aabb::new(r, y2 - JOUEUR_H, JOUEUR_L, JOUEUR_H);
-                let touchees: Vec<f32> = (a2 as i32..=(b2 - JOUEUR_L) as i32)
-                    .map(|r| r as f32)
-                    .collect();
-                for &r in touchees.iter().filter(|&&r| cible.chevauche(&debout(r))) {
-                    let issue = touchees.iter().any(|&s| {
-                        !cible.chevauche(&debout(s))
-                            && (s - r).abs() <= 1.6 * f32::from(ANNONCE_FRAPPE_PAS)
-                    });
-                    assert!(
-                        issue,
-                        "Pépin en {q} sur {:?} : appui {:?}",
-                        (y, a, b),
-                        (y2, a2, b2)
-                    );
-                }
-            }
-        }
-    }
-    assert!(
-        sur_lui * 10 >= places * 8,
-        "{sur_lui} visées sur lui pour {places}"
-    );
-    // En jeu, sur la caisse de la rangée 64.
-    let mut p = en_montee(&n, 0);
-    let pepin = pepin_debout(11.0 * TAILLE_TUILE, 64.0 * TAILLE_TUILE);
-    p.voir_pepin(pepin);
-    jusqu_a(&mut p, &n, 900, |p| p.etat_frappe().is_some());
-    let (cible, _) = p.etat_frappe().unwrap();
-    assert_eq!(cible, p.viser(&n, &pepin));
-    let debut = p.ecoule();
-    for _ in 1..ANNONCE_FRAPPE_PAS {
-        assert!(matches!(p.etat_frappe(), Some((_, EtatFrappe::Annonce(_)))));
-        assert!(
-            p.annonce_en_cours() && !p.blesse(&pepin),
-            "l'annonce ne tue pas"
-        );
-        pas(&mut p, &n, 1);
-    }
-    pas(&mut p, &n, 1);
-    assert_eq!(p.etat_frappe(), Some((cible, EtatFrappe::Frappe)));
-    assert!(p.blesse(&pepin), "elle frappe la place visée");
-    jusqu_a(&mut p, &n, 900, |p| {
-        matches!(p.etat_frappe(), Some((_, EtatFrappe::Annonce(_))))
-    });
-    // Carte 9.13d : au moins sa recharge (le cerveau tire au sort ensuite).
-    assert!(p.ecoule() - debut >= RYTHME_FRAPPE_PAS);
-}
-
-/// Les balayages et les caisses sont annoncés. Un balayage : 1 s sans danger
-/// (le tentacule recule et se tend), puis il glisse sur toute sa corniche, de
-/// droite à gauche, au ras du sol ; un saut le passe. Une secousse : 1 s sans
-/// danger (l'ombre des caisses), puis les caisses tombent ; l'une sur Pépin,
-/// jamais sur les places à une colonne de lui.
-#[test]
-fn balayages_et_caisses_sont_annonces() {
-    use pepin_core::physics::{GRAVITE, VITESSE_SAUT};
-    let n = infos().charger().unwrap();
-    let p0 = en_montee(&n, 0);
-    let t = TAILLE_TUILE;
-    for (k, b) in p0.tour.balayeurs.iter().enumerate() {
-        // Carte 9.13f : celui de la vigie ne part que dans ses cycles
-        // (`pieuvre_montee::trois_cycles_de_vigie_differents`).
-        if (b.y - p0.tete_finale.unwrap().bas()).abs() < 1.0 {
-            continue;
-        }
-        assert!(
-            (b.depart - p0.tour.couloir.unwrap().0).abs() < 0.01,
-            "du couloir"
-        );
-        let mut p = p0.clone();
-        let x = b.arrivee + 2.0 * t;
-        p.voir_pepin(pepin_debout(x, b.y));
-        jusqu_a(&mut p, &n, 1500, |p| p.etat_balayeur(k).is_some());
-        for _ in 1..ANNONCE_BALAI_PAS {
-            assert!(matches!(p.etat_balayeur(k), Some(EtatBalai::Annonce(_))));
-            assert!(!p.blesse(&pepin_debout(x, b.y)), "l'annonce ne tue pas");
-            pas(&mut p, &n, 1);
-        }
-        let mut touche = false;
-        let mut avant = f32::MAX;
-        for _ in 0..b.course_pas() {
-            pas(&mut p, &n, 1);
-            let Some(EtatBalai::Balaie(bout)) = p.etat_balayeur(k) else {
-                panic!("balayage {k} : il glisse");
-            };
-            assert!(bout.bas() <= b.y + 0.01 && bout.y >= b.y - 12.01);
-            assert!(bout.x <= avant, "de droite à gauche");
-            avant = bout.x;
-            touche |= p.blesse(&pepin_debout(x, b.y));
-        }
-        assert!(touche, "balayage {k} : il balaie toute la corniche");
-    }
-    // Le saut : les pieds au-dessus du bout (12 px) pendant plus longtemps
-    // que le bout ne met à passer sous Pépin.
-    let (v, g) = (VITESSE_SAUT / 60.0, GRAVITE / 3600.0);
-    let (mut y, mut vy, mut au_dessus) = (0.0, v, 0);
-    while y >= 0.0 {
-        y += vy;
-        vy -= g;
-        if y > BOUT_BALAI.1 {
-            au_dessus += 1;
-        }
-    }
-    let passage = ((BOUT_BALAI.0 + JOUEUR_L) / VITESSE_BALAI).ceil() as i32;
-    assert!(au_dessus > 2 * passage, "{au_dessus} pas contre {passage}");
-    // La secousse 1 : Pépin arrive sur la caisse de la rangée 37.
-    let mut p = p0.clone();
-    let sol = 37.0 * t;
-    let x = 2.5 * t;
-    p.voir_pepin(pepin_debout(x, sol));
-    jusqu_a(&mut p, &n, 1500, |p| p.etat_secousse().is_some());
-    let caisses = p.etat_secousse().unwrap().0.to_vec();
-    assert!((2..=3).contains(&caisses.len()), "{caisses:?}");
-    for _ in 1..ANNONCE_SECOUSSE_PAS {
-        assert!(matches!(
-            p.etat_secousse(),
-            Some((_, EtatSecousse::Annonce(_)))
-        ));
-        assert!(p.annonce_en_cours() && !p.blesse(&pepin_debout(x, sol)));
-        pas(&mut p, &n, 1);
-    }
-    let (mut sur_lui, mut a_cote) = (false, false);
-    while p.etat_secousse().is_some() {
-        pas(&mut p, &n, 1);
-        sur_lui |= p.blesse(&pepin_debout(x, sol));
-        a_cote |= p.blesse(&pepin_debout(x + t, sol)) || p.blesse(&pepin_debout(x - t, sol));
-    }
-    assert!(sur_lui && !a_cote, "sur lui : {sur_lui}, à côté : {a_cote}");
-}
-
-/// Les arrachages : annoncés 1,3 s (elle porte encore), puis emportés pour de
-/// bon ; et après CHAQUE arrachage (et tous à la fois), le robot de
-/// faisabilité trouve encore un chemin jusqu'à la vigie.
-#[test]
-fn apres_chaque_arrachage_un_chemin_existe() {
-    use pepin_core::faisabilite::{analyser, Options};
-    let n = infos().charger().unwrap();
-    let mut p = en_montee(&n, 300);
-    assert!((1..=2).contains(&p.tour.arrachables.len()));
-    let cases = p.tour.arrachables[0].clone();
-    let (x, y) = cases[0];
-    let dessous = pepin_debout(x as f32 * TAILLE_TUILE, (y + 3) as f32 * TAILLE_TUILE);
-    p.voir_pepin(dessous);
-    // Carte 9.13d : quand son cerveau la choisit.
-    jusqu_a(&mut p, &n, 900, |p| p.etat_arrachage(0).is_some());
-    assert!(matches!(
-        p.etat_arrachage(0),
-        Some(EtatArrachage::Annonce(_))
-    ));
-    assert!(p.annonce_en_cours());
-    assert!(
-        !p.cases_englouties().contains(&cases[0]),
-        "elle porte encore"
-    );
-    pas(&mut p, &n, u32::from(ANNONCE_SAISIE_PAS));
-    assert!(p.cases_englouties().contains(&cases[0]), "emportée");
-    pas(&mut p, &n, 600);
-    assert_eq!(p.etat_arrachage(0), Some(EtatArrachage::Partie));
-    assert!(
-        p.cases_englouties().contains(&cases[0]),
-        "elle ne revient pas"
-    );
-    // L'autre chemin : la grille sans la plateforme arrachée.
-    let lignes: Vec<&str> = infos().ascii.lines().skip(1).collect();
-    let sans = |garde: &dyn Fn(usize, usize) -> bool| {
-        let texte: String = lignes
-            .iter()
-            .enumerate()
-            .map(|(ty, l)| {
-                let l: String = l
-                    .chars()
-                    .enumerate()
-                    .map(|(tx, c)| if c == '%' && !garde(tx, ty) { '.' } else { c })
-                    .collect();
-                l + "\n"
-            })
-            .collect();
-        pepin_core::level::Niveau::depuis_ascii(&texte).unwrap()
-    };
-    let mut grilles = vec![sans(&|_, _| false)];
-    for cases in &p.tour.arrachables {
-        let cases = cases.clone();
-        grilles.push(sans(&move |tx, ty| {
-            !cases.contains(&(tx as i32, ty as i32))
-        }));
-    }
-    let depart = p.bache.unwrap();
-    for (k, g) in grilles.iter().enumerate() {
-        let r = analyser(
-            g,
-            (depart.x + 40.0, depart.y - 40.0),
-            Options::arrivee_seule(),
-        );
-        assert!(r.arrivee, "grille {k} : plus de chemin");
-    }
-}
-
-/// Le jeté `k` gagné comme en jeu : Pépin arrive sur sa corniche (loin du
-/// bout), elle se cabre, se jette, le rate, reste sonnée, et il lui saute
-/// dessus. Vérifie au passage : l'annonce sans danger, la mer arrêtée, la
-/// chute mortelle au bout de la corniche, la mer qui RECULE de 3 tuiles et
-/// 3 s sans attaque.
-fn jeter_et_frapper(p: &mut Pieuvre, n: &Niveau, k: usize) {
-    let tete = p.tour.jetes[k];
-    let pepin = pepin_debout(tete.x - 3.0 * TAILLE_TUILE, tete.bas());
-    p.voir_pepin(pepin);
-    jusqu_a(p, n, 900, |p| p.etat_jete().is_some());
-    let mer = p.surface_mer().unwrap();
-    for _ in 1..CABRE_PAS {
-        assert!(matches!(p.etat_jete(), Some((_, EtatJete::Cabre(_)))));
-        assert!(p.annonce_en_cours() && !p.blesse(&pepin), "elle se cabre");
-        assert!(!p.recoit(&saut_sur(tete)), "pas frappable cabrée");
-        pas(p, n, 1);
-    }
-    pas(p, n, 1);
-    assert!(matches!(p.etat_jete(), Some((_, EtatJete::Chute(_)))));
-    assert!(
-        p.blesse(&pepin_debout(tete.x + 30.0, tete.bas())),
-        "au bout : mortelle"
-    );
-    assert!(!p.blesse(&pepin), "elle le rate");
-    pas(p, n, u32::from(CHUTE_JETE_PAS));
-    assert!(matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_)))));
-    assert_eq!(p.geante(), Some(tete), "la tête posée sur la corniche");
-    assert_eq!(p.surface_mer().unwrap(), mer, "la mer s'arrête");
-    let pv = p.pv();
-    assert!(p.recoit(&saut_sur(tete)));
-    p.toucher();
-    assert_eq!(p.pv(), pv - 1);
-    assert!(p.etat_jete().is_none() && p.tete_lachee().is_some());
-    // Le plus bas où elle redescend (puis elle remonte) ; aucune attaque.
-    let mut plus_bas = mer;
-    for _ in 0..REPIT_PAS - 1 {
-        pas(p, n, 1);
-        plus_bas = plus_bas.max(p.surface_mer().unwrap());
-        assert!(p.attaque().is_none(), "3 s sans attaque");
-    }
-    let recul = plus_bas - mer;
-    assert!(
-        (recul - RECUL_MER).abs() < 2.0,
-        "jeté {k} : la mer recule ({recul})"
-    );
-    assert!(p.surface_mer().unwrap() < plus_bas, "puis elle remonte");
-}
-
-/// Carte 9.13c : à chaque jeté, sonnée, un saut sur sa tête la fait retomber
-/// et la mer recule (un point de vie chacun, puis le coup final). Si on ne la
-/// frappe pas, elle repart et la mer reste haute.
-#[test]
-fn jete_sonnee_coup_sur_la_tete_la_mer_recule() {
-    let n = infos().charger().unwrap();
-    let mut p = en_montee(&n, 0);
-    assert_eq!(p.pv(), 3);
-    let mut q = p.clone();
-    // Carte 9.13d : deux coups pendant la montée (la 3e tête est pour la vigie).
-    for k in 0..2 {
-        jeter_et_frapper(&mut p, &n, k);
-    }
-    assert_eq!((p.pv(), p.jetes_frappes()), (1, 2));
-    // Ratée et pas frappée : elle repart, le jeté est passé.
-    let tete = q.tour.jetes[0];
-    q.voir_pepin(pepin_debout(tete.x - 3.0 * TAILLE_TUILE, tete.bas()));
-    jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_some());
-    let mer = q.surface_mer().unwrap();
-    jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_none());
-    assert_eq!((q.jetes_faits(), q.jetes_frappes(), q.pv()), (1, 0, 3));
-    assert!(q.surface_mer().unwrap() <= mer, "la mer reste haute");
-}
-
-/// Le coup final : sur la vigie, elle se jette DEUX fois (carte 9.13d), et
-/// recommence si on la rate ; sonnée, un saut sur sa tête lui prend une
-/// tête ; à la dernière (ici les 3, aucune prise pendant la montée), elle
-/// plonge, puis elle est vaincue : le niveau est fini.
-#[test]
-fn le_dernier_coup_finit_le_niveau() {
-    let n = infos().charger().unwrap();
-    let mut p = en_montee(&n, 300);
-    let tete = p.tete_finale.unwrap();
-    p.voir_pepin(pepin_debout(tete.x - 3.0 * TAILLE_TUILE, tete.bas()));
-    jusqu_a(&mut p, &n, 400, |p| p.etat_jete().is_some());
-    assert_eq!(p.etat_jete().unwrap().0, tete);
-    // Ratée : elle repart, puis se jette de nouveau.
-    let mut q = p.clone();
-    jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_none());
-    jusqu_a(&mut q, &n, 900, |q| q.etat_jete().is_some());
-    for reste in (1..=3).rev() {
-        jusqu_a(&mut p, &n, 900, |p| {
-            matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_))))
-        });
-        assert_eq!(p.tete(), Some(tete));
-        assert!(p.recoit(&saut_sur(tete)));
-        p.toucher();
-        let phase = if reste > 1 {
-            PhasePieuvre::Montee
-        } else {
-            PhasePieuvre::Plongee
-        };
-        assert_eq!(p.phase(), phase, "{reste} têtes");
-    }
-    pas(&mut p, &n, u32::from(PLONGEE_PAS));
-    assert!(p.est_vaincue());
-    assert!(Entite::Pieuvre(Box::new(p)).boss_vaincu());
-    // Jamais d'attaque sans la montée.
-    let q = pieuvre(&n);
-    assert!(q.attaque().is_none() && q.geante().is_none());
-}
-
-/// Une mort après la lanterne de mi-hauteur y ramène ; le 1er jeté reste
-/// fait (et frappé), le 2e repart à neuf, la mer revient sous la lanterne
-/// (pas tout en bas).
-#[test]
-fn reprise_a_la_lanterne_de_mi_hauteur() {
-    let n = infos().charger().unwrap();
-    let mut p = en_montee(&n, 0);
-    jeter_et_frapper(&mut p, &n, 0);
-    let bache = p.bache.unwrap();
-    // Les lanternes de la tour, du haut vers le bas : sous la vigie (carte
-    // 9.13f), 69 %, 29 %, le bas.
-    let mut de_la_tour: Vec<(f32, f32)> = n
-        .entites
-        .iter()
-        .filter_map(|e| match e {
-            Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.point_de_reapparition()),
-            _ => None,
-        })
-        .collect();
-    de_la_tour.sort_by(|a, b| a.1.total_cmp(&b.1));
-    let (haut, mi) = (de_la_tour[1], de_la_tour[2]);
-    let jetes = p.tour.jetes.clone();
-    assert!(
-        mi.1 < jetes[0].y && mi.1 > jetes[1].y,
-        "entre les deux jetés"
-    );
-    // Carte 9.13e : la 2e lanterne, juste après le 2e jeté, vers 65 % de la
-    // montée (de la lanterne du bas à la vigie).
-    assert!(haut.1 < jetes[1].y, "après le 2e jeté");
-    let (bas, sommet) = (de_la_tour[3].1, p.tete_finale.unwrap().bas());
-    let part = (bas - haut.1) / (bas - sommet);
-    assert!((0.6..0.75).contains(&part), "{part}");
-    let mut entites = n.entites.clone();
-    // Carte 9.13d : Pépin est passé par la lanterne (elle garde l'état de
-    // ce moment-là).
-    p.voir_pepin(Joueur::new(mi.0, mi.1).boite);
-    pas(&mut p, &n, 1);
-    for e in &mut entites {
-        if let Entite::Pieuvre(q) = e {
-            **q = p.clone();
-        }
-    }
-    let j = Joueur::new(mi.0, mi.1);
-    pepin_core::entities::reprendre_apres_une_mort(&mut entites, &j.boite);
-    let q = pieuvre_de(&entites);
-    assert_eq!((q.jetes_faits(), q.jetes_frappes(), q.pv()), (1, 1, 2));
-    let mer = q.surface_mer().unwrap();
-    assert!(mer > j.boite.bas() && mer <= j.boite.bas() + 3.0 * TAILLE_TUILE + 1.0);
-    // Depuis la lanterne du bas : tout repart à neuf.
-    let mut entites2 = entites.clone();
-    let bas = Joueur::new(40.0, bache.y - 40.0);
-    pepin_core::entities::reprendre_apres_une_mort(&mut entites2, &bas.boite);
-    let q = pieuvre_de(&entites2);
-    assert_eq!((q.jetes_faits(), q.horloge_mer(), q.pv()), (0, 0, 3));
-    // La lanterne de la tour s'allume d'office une seule fois : celle de
-    // mi-hauteur, allumée à la main, ne s'éteint pas au pas suivant.
-    let mut j = Joueur::new(mi.0, mi.1);
-    resoudre_contacts(&mut j, &mut entites);
-    resoudre_contacts(&mut j, &mut entites);
-    let allumee = entites.iter().find_map(|e| match e {
-        Entite::Lanterne(l) if l.est_active() => Some(l.point_de_reapparition()),
-        _ => None,
-    });
-    assert_eq!(allumee, Some(mi));
-}
-
-/// Carte 9.13e : une mort après la lanterne de 69 % (juste après le 2e jeté)
-/// y ramène : les deux jetés restent faits et frappés, la mer revient SOUS la
-/// lanterne (3 tuiles au plus sous ses pieds), et ne la noie pas d'emblée :
-/// la seconde suivante, elle est encore sous ses pieds.
-#[test]
-fn reprise_a_la_lanterne_de_69_pour_cent() {
-    let n = infos().charger().unwrap();
-    let mut p = en_montee(&n, 0);
-    jeter_et_frapper(&mut p, &n, 0);
-    jeter_et_frapper(&mut p, &n, 1);
-    let bache = p.bache.unwrap();
-    // La 2e lanterne en partant du haut (la 1re est sous la vigie, carte 9.13f).
-    let mut de_la_tour: Vec<(f32, f32)> = n
-        .entites
-        .iter()
-        .filter_map(|e| match e {
-            Entite::Lanterne(l) if l.boite.y < bache.y => Some(l.point_de_reapparition()),
-            _ => None,
-        })
-        .collect();
-    de_la_tour.sort_by(|a, b| a.1.total_cmp(&b.1));
-    let haut = de_la_tour[1];
-    // Carte 9.13d : la reprise rend l'état de la Pieuvre « au passage de la
-    // lanterne », noté quand elle VOIT Pépin à cette hauteur (`observer`).
-    // Il faut donc qu'elle l'y ait vu au moins une fois avant la mort.
-    let j = Joueur::new(haut.0, haut.1);
-    p.voir_pepin(j.boite);
-    pas(&mut p, &n, 1);
-    let mut entites = n.entites.clone();
-    for e in &mut entites {
-        if let Entite::Pieuvre(q) = e {
-            **q = p.clone();
-        }
-    }
-    pepin_core::entities::reprendre_apres_une_mort(&mut entites, &j.boite);
-    let mut q = pieuvre_de(&entites).clone();
-    assert_eq!((q.jetes_faits(), q.jetes_frappes(), q.pv()), (2, 2, 1));
-    let mer = q.surface_mer().unwrap();
-    assert!(
-        mer > j.boite.bas() && mer <= j.boite.bas() + 3.0 * TAILLE_TUILE + 1.0,
-        "mer {mer}, pieds {}",
-        j.boite.bas()
-    );
-    q.voir_pepin(j.boite);
-    pas(&mut q, &n, 60);
-    assert!(
-        q.surface_mer().unwrap() > j.boite.bas(),
-        "pas noyé d'emblée"
-    );
 }

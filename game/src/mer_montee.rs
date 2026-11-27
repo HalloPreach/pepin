@@ -1,19 +1,19 @@
 //! La MER de la montée de la Pieuvre, toujours sensible à l'écran (carte 9.13e).
 //! AGA : « On ne voit pas la mer. Sur les 4 captures il n'y a pas d'eau à l'écran,
-//! et la géante flotte dans le noir. Ce qui presse le joueur est hors champ : il
+//! et la géante flotte dans le noir » (la géante de l'époque, remplacée par la
+//! Pieuvre au loin à la carte 9.36a). Ce qui presse le joueur est hors champ : il
 //! faut de l'écume en bas de l'écran ou une jauge. »
 //!
 //! Rendu seulement : la mer elle-même (sa hauteur, ce qui tue) ne change pas.
 //! - La caméra garde la surface proche dans le cadre, au bas de l'écran
 //!   (`camera::cadrer_la_mer`, alimentée par `surface`).
 //! - Surface à l'écran : une CRÊTE d'écume et des EMBRUNS, dessinés DEVANT la
-//!   géante (`dessiner_devant`, juste après elle) : son corps plonge dans l'eau.
-//!   Autour d'elle, dans son couloir, l'eau bouillonne plus fort.
+//!   Pieuvre au loin (`dessiner_devant`, juste après elle, carte 9.36a) : elle
+//!   est à moitié dans l'eau, qui bouillonne plus fort autour d'elle.
 //! - Surface sous l'écran : une BANDE D'ÉCUME qui bouillonne au bas de l'écran,
-//!   plus haute et plus agitée quand la mer se rapproche (`hauteur_bande`) ; le
-//!   cou de la géante, quand elle grimpe, y plonge.
-//! - La JAUGE, sur le mur gauche (`dessiner_jauge`) : en haut la vigie (la tête
-//!   rouge de la géante), les lanternes de la tour, Pépin (la flèche blanche, qui
+//!   plus haute et plus agitée quand la mer se rapproche (`hauteur_bande`).
+//! - La JAUGE, sur le mur gauche (`dessiner_jauge`) : en haut le sommet (une
+//!   petite tête rouge), les lanternes de la tour, Pépin (la flèche blanche, qui
 //!   clignote en corail quand la mer est à moins de deux tuiles), et la mer qui
 //!   monte par le bas.
 //!
@@ -92,7 +92,7 @@ pub fn hauteur_bande(d: f32) -> i32 {
     BANDE_MIN + ((BANDE_MAX - BANDE_MIN) as f32 * proximite(d)).round() as i32
 }
 
-/// Devant la géante et les tuiles, derrière Pépin : la crête et les embruns si la
+/// Devant la Pieuvre au loin et les tuiles, derrière Pépin : la crête et les embruns si la
 /// surface est à l'écran, sinon la bande d'écume du bas de l'écran.
 pub fn dessiner_devant(monde: &Monde, cx: i32, cy: i32) {
     let Some(p) = en_montee(monde) else {
@@ -105,10 +105,10 @@ pub fn dessiner_devant(monde: &Monde, cx: i32, cy: i32) {
     if surface >= H - 1 {
         dessiner_bande(mer - (cy + H) as f32, monde.pas);
     } else {
+        // Carte 9.36a : l'eau bouillonne autour de la Pieuvre au loin.
         let couloir = p
-            .tour
-            .couloir
-            .map(|(g, d)| (g.round() as i32 - cx, d.round() as i32 - cx));
+            .au_loin()
+            .map(|b| (b.x.round() as i32 - cx, b.droite().round() as i32 - cx));
         let largeur = monde.niveau.largeur_px() as i32;
         dessiner_crete(
             surface,
@@ -120,8 +120,9 @@ pub fn dessiner_devant(monde: &Monde, cx: i32, cy: i32) {
 }
 
 /// La crête d'écume sur la surface (à l'écran, `surface`), de `bords.0` à
-/// `bords.1`, et les embruns ; dans le couloir de la géante, l'eau bouillonne et
-/// éclabousse plus haut (son corps y entre dans la mer).
+/// `bords.1`, et les embruns ; autour de la Pieuvre au loin (`couloir`, carte
+/// 9.36a), l'eau bouillonne et éclabousse plus haut (elle y est à moitié
+/// immergée).
 fn dessiner_crete(surface: i32, (x0, x1): (i32, i32), couloir: Option<(i32, i32)>, pas: u32) {
     let dans_le_couloir = |x: i32| couloir.is_some_and(|(g, d)| x >= g && x < d);
     let t = (pas / 6) as i32;
@@ -191,12 +192,12 @@ fn dessiner_bande(d: f32, pas: u32) {
 }
 
 /// La jauge de la montée, sur le mur gauche, en coordonnées d'écran : le sommet
-/// (la vigie), les lanternes de la tour, Pépin et la mer.
+/// (le sommet), les lanternes de la tour, Pépin et la mer.
 pub fn dessiner_jauge(monde: &Monde) {
     let Some(p) = en_montee(monde).filter(|p| p.phase() == PhasePieuvre::Montee) else {
         return;
     };
-    let (Some(mer), Some(sommet), Some(bache)) = (p.surface_mer(), p.tete_finale, p.bache) else {
+    let (Some(mer), Some(sommet), Some(bache)) = (p.surface_mer(), p.sommet, p.bache) else {
         return;
     };
     let (haut, bas) = (sommet.bas(), bache.y);
@@ -226,7 +227,7 @@ pub fn dessiner_jauge(monde: &Monde) {
             }
         }
     }
-    // Le sommet : la tête rouge de la géante, son œil blanc.
+    // Le sommet (carte 9.36a : là où elle abandonne) : la petite tête rouge.
     rect(x - 2, JAUGE_HAUT - 6, 7, 4, ARDOISE_OMBRE);
     rect(x - 1, JAUGE_HAUT - 5, 5, 3, CORAIL);
     rect(x + 1, JAUGE_HAUT - 4, 1, 1, BLANC_CASSE);

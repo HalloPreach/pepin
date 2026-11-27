@@ -98,9 +98,9 @@ pub fn dessiner_bache(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
 }
 
 /// La mer qui monte (carte 9.13a), devant la tour : les tuiles d'eau du thème
-/// jusqu'au bas de l'écran, la surface qui ondule ; aux murs, la graduation qui
-/// clignote quand un palier s'annonce (et reste allumée pendant le répit). La
-/// trombe de la furie : des bulles qui montent.
+/// jusqu'au bas de l'écran, la surface qui ondule (carte 9.36a : plus de
+/// paliers, donc plus de graduation aux murs). La trombe de la furie : des
+/// bulles qui montent.
 pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     let Some(p) = la_pieuvre(monde) else {
         return;
@@ -159,15 +159,6 @@ pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
         };
         banque.dessiner(nom, (x - cx) as f32, (surface - cy) as f32, false);
     }
-    if let Some(a) = p.annonce_palier() {
-        let clignote = a >= 1.0 || (monde.pas / (8 - (a * 6.0) as u32).max(2)).is_multiple_of(2);
-        if clignote {
-            for x in [t, largeur - 2 * t] {
-                let y = surface - 3 * t;
-                banque.dessiner("graduation", (x - cx) as f32, (y - cy) as f32, false);
-            }
-        }
-    }
 }
 
 /// Un tentacule de `h` px dressé au-dessus de `surface` (à l'écran) : des tronçons
@@ -208,18 +199,9 @@ fn dessiner_tete(p: &Pieuvre, banque: &Banque, pas: u32, cx: f32, cy: f32) {
                 banque.dessiner(remous, x + dx, surface - 5.0, false);
             }
         }
-        // Phase 2 (carte 9.13a) : la furie, elle hurle (la colère, plus vite) ;
-        // la montée, elle attend en haut de la tour.
-        PhasePieuvre::Furie => {
-            banque.dessiner(
-                image(["pieuvre_colere0", "pieuvre_colere1"], pas, 4),
-                x,
-                y,
-                false,
-            );
-        }
-        // Carte 9.13c : en phase 2, la géante (montée, plongée finale) est
-        // dessinée par `dessin_montee`.
+        // Phase 2 (carte 9.36a) : de la furie (elle se retire au large) à sa
+        // fuite, elle est dessinée par `dessin_montee` (`Pieuvre::au_loin`).
+        PhasePieuvre::Furie => {}
         PhasePieuvre::Montee | PhasePieuvre::Plongee | PhasePieuvre::Vaincue if p.en_fuite() => {}
         PhasePieuvre::Tete => {
             let nom = image(["pieuvre_colere0", "pieuvre_colere1"], pas, 20);
@@ -282,11 +264,8 @@ pub fn case_saisie(monde: &Monde, tx: i32, ty: i32) -> bool {
         .and_then(|p| {
             p.saisie()
                 .map(|s| p.plateformes[s.cible].contains(&(tx, ty)))
-                // Le quai cassé de la phase 2 (carte 9.13a) : tombé à l'eau ;
-                // les plateformes arrachées de la tour (carte 9.13b).
-                .or(Some(
-                    p.case_engloutie(tx, ty) || crate::dessin_montee::case_arrachee(p, tx, ty),
-                ))
+                // Le quai cassé de la phase 2 (carte 9.13a) : tombé à l'eau.
+                .or(Some(p.case_engloutie(tx, ty)))
         })
         .unwrap_or(false)
 }

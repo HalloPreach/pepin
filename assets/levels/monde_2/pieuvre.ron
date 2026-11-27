@@ -19,30 +19,17 @@
 // Une mort ramène à la lanterne (au début de l'arène) ; la pieuvre
 // reprend son calme mais GARDE les points perdus.
 //
-// PHASE 2 (carte 9.13a, demande d'AGA : « J'aime pas la pieuvre, elle manque
-// toujours de quelque chose pour un boss final… Une phase deux ? », il a choisi
-// « fuite et montée ») : au 3e coup, elle entre en furie, la bâche du plafond se
-// déchire, une trombe monte au-dessus du trou du milieu et le quai casse. La mer
-// monte (elle tue, barque comprise) ; on grimpe la tour du port en fuyant les
-// tentacules qui jaillissent de dessous ; en haut, sur la vigie, un saut sur la
-// tête l'achève. Une mort en phase 2 ramène à la lanterne du bas de la tour, au
-// début de la phase 2 (voir `entities::pieuvre::fuite`).
-//
-// LA MONTÉE (carte 9.13b, AGA : « la montée est trop simple et trop courte, il
-// faudrait des interactions avec la pieuvre ») : une tour deux fois plus haute,
-// deux RENCONTRES avec la tête (au tiers et aux deux tiers : elle bloque le
-// passage jusqu'à ce qu'on lui saute dessus, la mer recule alors de 2 tuiles),
-// deux BALAYEURS qui glissent sur une corniche, deux plateformes ARRACHÉES sous
-// le nez de Pépin, et une lanterne de mi-hauteur.
-//
-// LA GÉANTE (carte 9.13c, AGA : « je n'aime pas la montée, les attaques n'ont
-// pas de sens », il a choisi « la Pieuvre géante et visible qui grimpe à côté
-// de la tour ») : la tour n'a plus que 13 colonnes ; dans le couloir de 5
-// colonnes à sa droite, la géante monte avec la mer, son œil suit Pépin, et
-// chaque attaque part de son corps : frappe visée, balayage, secousse (des
-// caisses tombent), arrachage, et deux JETÉS où, sonnée, elle se laisse frapper
-// (la mer recule). Plus de trappe ni de gardes (voir
-// `entities::pieuvre::montee`).
+// PHASE 2 (carte 9.36a, décision d'AGA du 27/11 : « supprimer la p2 telle
+// qu'elle est actuellement, et juste faire une montée contre l'eau qui avance
+// plus vite avec des objets qui tombent du ciel envoyés par la pieuvre. on ne la
+// tue pas à la fin, comme le nuage juste elle finit par s'enfuir ») : au 3e
+// coup, elle se retire au large, la bâche du plafond se déchire, une trombe
+// monte au-dessus du trou du milieu et le quai casse. La mer monte, plus vite
+// qu'avant (elle tue, barque comprise, et ne reste jamais plus de 8 tuiles sous
+// le plus haut de Pépin) ; de loin, la Pieuvre lance des caisses, des tonneaux
+// et des morceaux d'épave, chacun annoncé par son ombre. Au SOMMET (`&`), elle
+// abandonne et s'enfuit : le niveau est fini. Une mort en phase 2 ramène à la
+// dernière lanterne de la tour (voir `entities::pieuvre::fuite` et `montee`).
 //
 // L'arène reprend la géométrie du niveau d'essai « pieuvre » (`essai_pieuvre`),
 // sur laquelle le robot de QA a appris à battre la pieuvre : mêmes murs, même
@@ -53,7 +40,7 @@
 // Le rendu (carte 9.20e, `game/src/dessin_port.rs`) en fait le BOUT D'UNE JETÉE
 // au milieu du port : les murs `B` des bords se dessinent en quais (grue à
 // gauche, pile de caisses à droite), le port au fond (mer, phare rayé, bateaux),
-// le bassin en eau profonde. La grille n'a pas changé.
+// le bassin en eau profonde. La grille de l'arène n'a pas changé.
 (
     monde: 2,
     // Sa place dans le Monde 2 de SA branche (recette de l'étape 9) : après le
@@ -70,8 +57,8 @@
     duree_cible_s: 75,
     intro_texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
     intro_astuce: "Elle frappe là où l'eau tremble.",
-    facile_texte: "MODE FACILE : LA PIEUVRE N'A QUE 2 VIES, ATTAQUE MOINS ET LA MER MONTE MOINS VITE",
-    mecanique: "La Pieuvre du port (boss) : quitter la colonne du tentacule annoncé, sauter sur la tête sortie trois fois (jamais la toucher de côté) ; puis fuir la mer qui monte en haut de la tour, et l'achever là-haut.",
+    facile_texte: "MODE FACILE : LA PIEUVRE N'A QUE 2 VIES, LA MER MONTE MOINS VITE ET MOINS D'OBJETS TOMBENT",
+    mecanique: "La Pieuvre du port (boss) : quitter la colonne du tentacule annoncé, sauter sur la tête sortie trois fois (jamais la toucher de côté) ; puis grimper la tour plus vite que la mer, en évitant les objets qu'elle lance (leur ombre les annonce), jusqu'au sommet où elle s'enfuit.",
     aiguilles: [],
     poissons_hauts: [],
     // 20 x 80 tuiles (7,5 écrans de haut, caméra verticale), thème Port.
@@ -84,40 +71,33 @@
     // trois gouttes sous le départ (prises en tombant) et la lanterne.
     //
     // Au-dessus, la phase 2 : la BÂCHE `_` (le plafond de l'arène, carte 9.13a),
-    // puis la TOUR du port (66 rangées, carte 9.13b), resserrée par la carte 9.13c
-    // sur les 13 colonnes de gauche : les 5 colonnes de droite sont le COULOIR de
-    // la géante, toujours vide. Carte 9.13e (AGA : « la tour est monotone, c'est
-    // le même zigzag environ huit fois ») : des SECTIONS différentes, aucune plus
-    // de deux fois. Du bas vers le haut :
-    // - la corniche du bas (rangée 66) et sa lanterne, la reprise de la phase 2 ;
+    // puis la TOUR du port (66 rangées, carte 9.13b), refaite par la carte 9.36a
+    // pour la montée contre la mer : plus de géante ni de couloir, plus de
+    // repères d'attaque, toute la largeur. Les corniches LONGUES se recouvrent en
+    // lacets (on court de l'autre côté avant de monter : la montée dure), entre
+    // des passages courts en zigzag, aucun deux fois de suite. Du bas vers le
+    // haut :
+    // - la corniche du bas (rangée 66) et sa LANTERNE, la reprise de la phase 2 ;
     // - PILE DE CONTENEURS en escalier : un ponton (64), deux piles de caisses de
-    //   deux étages (61, 55) et, entre elles, un NUAGE FRIABLE `F` (58) ;
-    // - QUAI DE PIERRE : JETÉ 1 (`$`) sur la corniche large 52 (des pierres `B`),
-    //   puis la LANTERNE de 29 % (49) sur son môle ;
-    // - MÂT ET VERGUE : deux caisses (46) dont une ARRACHABLE `%` à droite (l'autre
-    //   chemin passe à gauche), la vergue (43) sur son mât d'une case ;
-    // - la corniche large 40, que BALAIE un tentacule (`!`, contre le couloir) ;
-    // - CHEMINÉE DE CARGO : SECOUSSE 1 (`+`) en arrivant sur la caisse 37, puis le
-    //   haut d'une cheminée de pierre (34), un NUAGE FRIABLE (31) ;
-    // - JETÉ 2 sur la corniche large 28, puis la LANTERNE de 69 % (carte 9.13e :
-    //   « j'en ajouterais une juste après le deuxième jeté ») sur la corniche
-    //   large et CALME 25 (aucune attaque n'y est liée), la corniche large 22
-    //   BALAYÉE ;
-    // - SECOUSSE 2 en arrivant sur la caisse 19 ; carte 9.13f (AGA : « au-dessus
-    //   de 80 %, presque seule la frappe visée est possible ») : à la rangée 16,
-    //   une caisse ARRACHABLE à gauche (cases 2 à 4) et une CORNICHE LARGE qui
-    //   touche son couloir (6 à 13 : balayage, secousse et jeté y sont possibles
-    //   quand elle est furieuse ; l'autre chemin si la caisse est arrachée) ; un
-    //   NUAGE FRIABLE (13), une caisse (10) et, dessus, la LANTERNE de la vigie
-    //   (carte 9.13f : une mort à la vigie ne renvoie plus à 69 %), puis la
-    //   VIGIE (7), où elle se jette pour le coup final (`&`).
+    //   deux étages (61, 55) et, entre elles, une caisse (58 ; le nuage friable
+    //   d'avant, sous une mer plus rapide, était un piège) ;
+    // - QUAI DE PIERRE : la corniche 52 et sa LANTERNE (24 % de la tour), puis
+    //   le quai 49 qu'on court vers la gauche (une caisse à sauter) ;
+    // - MÂT ET VERGUE : la corniche 46 qu'on court vers la droite (une caisse à
+    //   sauter), la vergue (43) sur son mât ;
+    // - LACETS DE BOIS : la corniche 40 et sa LANTERNE (44 %), vers la gauche,
+    //   puis la 37 vers la droite, un NUAGE FRIABLE (34), une caisse (31) ;
+    // - la corniche 28 en deux morceaux (un trou à sauter) et sa LANTERNE
+    //   (64 %), la 25 vers la droite (une caisse à sauter), la 22 vers la
+    //   gauche ;
+    // - DEUX CHEMINS pour finir : une caisse (19), puis à gauche (16, un nuage
+    //   friable 13, la caisse 10) ou à droite (la corniche 16 et sa LANTERNE à
+    //   85 %, un nuage friable 13, la caisse 10) ; la plateforme du haut (7) et
+    //   le SOMMET (`&`, 4 x 3 cases sur elle), où la Pieuvre s'enfuit.
     //
-    // Sept corniches larges (52, 40, 28, 25, 22, 16 et la vigie) : un palier de
-    // la mer sous chacune, et la place d'un jeté.
-    //
-    // Chaque saut monte de 2 ou 3 rangées et passe par une colonne libre à côté de
-    // l'appui suivant (le robot de faisabilité le vérifie, avec et sans les
-    // plateformes arrachables).
+    // Une lanterne tous les 20 à 25 % de la hauteur (12 à 14 rangées). Chaque
+    // saut monte de 3 rangées au plus et passe par une colonne libre à côté de
+    // l'appui suivant (le robot de faisabilité et le pilote le vérifient).
     ascii: r#"
 B..................B
 B..................B
@@ -128,56 +108,56 @@ B..................B
 B.........&........B
 B....#########.....B
 B..................B
-B.L................B
+B..................B
+B###...........###.B
+B..................B
+B..................B
+B...FFF......FFF...B
+B..................B
+B......L...........B
+B##..#########.....B
+B..................B
+B..................B
 B###...............B
 B..................B
 B..................B
-B...FFF............B
+B##############....B
 B..................B
-B..................B
-B.%%%.########.....B
-B..................B
-B.+................B
-B####..............B
-B..................B
-B............!.....B
-B.....########.....B
+B..........#.......B
+B...###############B
 B..................B
 B.L................B
-B########..........B
-B..................B
-B.........$........B
-B.....########.....B
+B######..#######...B
 B..................B
 B..................B
-B.FFF..............B
+B....######........B
 B..................B
 B..................B
-B.....BBB..........B
-B.....BBB..........B
-B.+................B
-B####..............B
-B..................B
-B............!.....B
-B.....########.....B
+B...........FFF....B
 B..................B
 B..................B
-B..###.............B
-B...#..............B
-B...#..............B
-B##...%%%..........B
+B....#############.B
 B..................B
-B.L................B
-BBBBB..............B
+B........L.........B
+B.###########......B
 B..................B
-B.........$........B
+B..................B
+B.............###..B
+B..............#...B
+B........#.....#...B
+B...##############.B
+B..................B
+B.....#............B
+BBBBBBBBBBBB.......B
+B..................B
+B......L...........B
 B.....BBBBBBBB.....B
 B..................B
 B..................B
 B..###.............B
 B..###.............B
 B..................B
-BFF................B
+B##................B
 B..................B
 B..................B
 B....###...........B

@@ -2009,16 +2009,16 @@ mod tests {
 
     /// La mesure de la Pieuvre du port (carte 9.13g), `CLE=pieuvre`. Avant, la
     /// recherche des itinéraires du niveau entier (l'arène et la tour, dont
-    /// l'horloge de la mer et le cerveau de la géante ne tiennent pas dans une
-    /// case) ne finissait pas en 600 s. La mesure est donc faite en DEUX phases,
+    /// l'horloge de la mer et le tirage des objets qui tombent, carte 9.36a, ne
+    /// tiennent pas dans une case) ne finissait pas en 600 s. La mesure est donc faite en DEUX phases,
     /// pour chaque essai (mêmes profils, graine officielle, 48 essais) :
     /// 1. la PHASE 1 dans l'arène du niveau d'essai « pieuvre » (`essai_pieuvre`,
     ///    la même arène, la même pieuvre, sans tour : elle est vaincue au 3e
     ///    coup), par le joueur simulé habituel (`jouer_essai`) ;
     /// 2. la PHASE 2, du bas de la tour à la victoire, par le pilote de la tour
     ///    (`bot_qa::pilote_pieuvre`), dont chaque geste passe par `perturber`
-    ///    (les erreurs du profil) : intention parfaite, exécution imparfaite. La
-    ///    géante garde la graine du jeu (aucune `fixer_graine`) : la même montée
+    ///    (les erreurs du profil) : intention parfaite, exécution imparfaite. Les
+    ///    objets gardent la graine du jeu (aucune `fixer_graine`) : la même montée
     ///    qu'un joueur qui la découvre.
     ///
     /// Le total d'un essai : la somme des deux (les morts, la durée, les

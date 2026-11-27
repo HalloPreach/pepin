@@ -7950,3 +7950,70 @@ Captures (Chromium 1208 sans écran, 0 erreur de console), builds de QA faits su
 - Le lot complet, la prod (le coordinateur s'en charge : le correctif part en prod, `game.wasm` change, les textures pâles de la géante en plus).
 - Téléphone, joueur humain.
 - Les références de `docs/qa/933-ref/` sont celles de monde-2 (24 gouttes au Monde 2) : sur `main` (21 gouttes), comparer avec `COMPARER=0` et `comparer-captures.py`, ou refaire les références.
+
+## Carte 9.36a : nouvelle phase 2 de la Pieuvre, la montée contre la mer, des objets qui tombent, elle s'enfuit à la fin (règles, niveau, robots)
+
+Décision d'AGA (27/11) : « je pense supprimer la p2 telle qu'elle est actuellement, et juste faire une montée contre l'eau qui avance plus vite avec des objets qui tombent du ciel envoyés par la pieuvre. on ne la tue pas à la fin, comme le nuage juste elle finit par s'enfuir ». Worktree `carte-9.36`, depuis monde-2 `0ed7daf`.
+
+### Ce qui a changé
+
+- SUPPRIMÉ : toute la géante (corps et couloir, contact mortel, frappe visée, balayage, secousse, arrachage, jetés, vigie et ses cycles, têtes à prendre, humeurs, coup final), `core/src/entities/pieuvre/montee/cerveau.rs` en entier, les paliers de la mer, les repères `$ ! + %` de la grille (parseur, légende de l'éditeur, LISEZMOI), les tests de l'ancienne montée (`pieuvre_montee.rs` refait, 7 tests de `par_niveau/pieuvre.rs` retirés). Plus rien n'appelle la géante. Les PNG `geante*`, `bras_*`, `repere_frappe*`, `oeil_*`, `pupille_*`... restent dans `assets/sprites/pieuvre/` sans être dessinés : leur sort revient à la carte 9.36b (dessin).
+- LA TRANSITION : au dernier coup de la phase 1, la Pieuvre SE RETIRE AU LARGE (2 s de furie, sa tête glisse de sa place jusqu'à droite de la tour, `Pieuvre::au_loin`), la bâche se déchire, la trombe, le quai casse, la mer monte (`core/src/entities/pieuvre/fuite.rs`).
+- LA MER (`fuite.rs`, `montee.rs`) : une tuile en 1,17 s (`VITESSE_MER = TAILLE_TUILE / 70`, avant 1,3 s), sans palier ; jamais plus de 8 tuiles sous le plus haut de Pépin (`ECART_MER_MAX`, avant 8 aussi ; 10 en facile), rattrapage à vitesse triple sans saut brusque, jamais à moins de 4 tuiles de ses pieds, jamais de descente (sauf à la fuite). Facile : 0,75 fois moins vite.
+- LES OBJETS (`montee.rs`, `Chute`, `Objet::{Caisse, Tonneau, Epave}`) : la mécanique des caisses de l'ancienne secousse, lancés de loin. Chaque chute est annoncée 1 s par son ombre sur le sol où elle se brisera (`ANNONCE_CHUTE_PAS` 60, jamais moins de 48 : `ANNONCE_MIN_PAS`), tombe (mortelle), se brise (0,3 s d'éclats sans danger), disparaît. Un lancer toutes les 2,8 s en bas de la tour à 1,8 s en haut (à 20 % près, tiré au sort), le 1er dans la colonne de Pépin ; passé 60 % de la tour, un second objet à 2 à 5 colonnes (jamais en facile) ; 3 objets au plus ; toujours 2 cases de suite libres sur la corniche d'arrivée (`laisse_une_issue`). Facile : annonces et intervalles 0,75 fois moins rapides, un seul objet par lancer.
+- LA PIEUVRE AU LOIN : sa tête de la phase 1 (`pieuvre_colere0/1`, pâle en facile), à moitié dans la mer à droite de la tour ; un bout de tentacule se lève quand elle lance. Aucune boîte mortelle, pas attaquable (`Pieuvre::tete` est `None` en phase 2).
+- LA FIN : le SOMMET `&` (4 x 3 cases sur la plateforme du haut, `Pieuvre::sommet`). Pépin y entre : elle plonge au large, la mer redescend de 6 tuiles et ne tue plus (`PhasePieuvre::Plongee`, 2 s), puis `Vaincue` : la même suite qu'avant (bilan, gouttes, déblocage, sauvegarde).
+- LA TOUR (`assets/levels/monde_2/pieuvre.ron`, rangées 0 à 58 ; l'arène et les rangées 59 à 79 inchangées) : toute la largeur (plus de couloir), des corniches LONGUES qui se recouvrent en lacets (on court de l'autre côté avant de monter) entre des passages courts (mât et vergue, nuages friables, caisses), un trou à sauter, deux caisses à sauter, deux chemins pour finir (rangées 16 à 10). Le nuage friable de la rangée 58 est devenu une caisse (sous la mer plus rapide, il piégeait le pilote). Six lanternes : l'arène, le bas de la tour, puis 24 %, 44 %, 64 %, 85 % de la tour (écarts de 20 à 24 %). Les 3 gouttes de l'arène, comme avant.
+- `facile_texte` : « MODE FACILE : LA PIEUVRE N'A QUE 2 VIES, LA MER MONTE MOINS VITE ET MOINS D'OBJETS TOMBENT » (2 lignes de 46). `mecanique` mise à jour.
+- Le dessin (provisoire, la carte 9.36b le refait) : `game/src/dessin_montee.rs` réécrit, seulement des sprites existants (la tête de la phase 1, `tentacule_bout`, `caisse_chute` retournée pour le tonneau, `eclats_caisse` sur l'épave, `ombre_caisse`). La crête d'écume bouillonne autour de la Pieuvre au loin (`mer_montee.rs`), la jauge garde le sommet.
+- Robot de faisabilité : la Pieuvre « pour le robot » fait du sommet son arrivée. `faisabilite.rs` (tests) : la Pieuvre à tour dure deux niveaux, le total de sa course rapide est permis jusqu'à 120 s (chaque phase reste à 60 s au plus) : phase 1 35,3 s, phase 2 25,4 s.
+- Le pilote (`game/src/bot_qa/pilote_pieuvre.rs`) refait pour la nouvelle montée : la route mène au sommet, il évite les colonnes sous un objet annoncé ou qui tombe. Les captures : `captures_933.rs` devient `captures_936.rs` (scripts `docs/script-pieuvre-936[-facile].txt`, `docs/capture-936.sh`) ; le script facile refait sa mise en place (depuis la carte 9.34, il faut 10 défaites de la VISITE : Pépin tombe 10 fois dans le bassin, « plus de vies » au 5e, puis la bannière). `docs/capture-933.sh` marqué obsolète.
+
+### Tests nouveaux (`niveaux/tests/tous_les_niveaux/pieuvre_montee.rs`, `montee.rs`)
+
+`la_mer_suit_pepin_sans_jamais_descendre` (normal et facile, deux allures : écart au plus N, jamais de descente, jamais plus de 3 vitesses par pas), `le_rattrapage_ne_tue_pas`, `toute_chute_est_annoncee_et_laisse_une_issue` (12 graines x normal/facile, Pépin sur chaque appui : annonce >= 0,8 s, 2 cases libres de suite ; 264 objets dont 36 doubles en normal, 180 sans double en facile), `les_objets_tombent_pres_de_pepin`, `la_pieuvre_au_loin_ne_blesse_jamais`, `au_sommet_elle_s_enfuit_puis_le_niveau_finit`, `meme_suite_meme_resultat`, `le_facile_est_plus_lent`, `reprise_a_une_lanterne`, `les_lanternes_de_la_tour_sont_regulieres`, et `une_chute_s_annonce_tombe_puis_se_brise` (core). `chaque_image_dessinee_pale_a_sa_version_pale` (9.33) vérifie maintenant `pieuvre_colere0/1` et `pieuvre_touchee`. `qui_a_battu_la_pieuvre_garde_son_chapitre_et_trouve_la_maree_non_jouee` : VERT, format de sauvegarde inchangé.
+
+### Mesure de difficulté (`CLE=pieuvre`, 48 essais par profil)
+
+| | Débutant | Habitué | Expert |
+|---|---|---|---|
+| AVANT (0ed7daf), phase 2 | 7,44 morts, 47/48, 159,5 s | 2,12 morts, 97,8 s | 0,75 morts, 77,5 s |
+| AVANT, total | 9,75 morts, 47/48 finis, game over 38/48 | 2,79 morts | 0,83 morts |
+| APRÈS, phase 1 (inchangée) | 2,31 morts | 0,67 morts | 0,08 morts |
+| APRÈS, phase 2 | 1,12 morts, 48/48, 47,9 s | 0,48 morts, 48/48, 42,6 s | 0,08 morts, 38,9 s |
+| APRÈS, total | 3,44 morts, 48/48 finis, game over 13/48 | 1,15 morts, game over 1/48 | 0,17 morts |
+
+Lieux des morts APRÈS (phase 2, rangée des pieds) : Habitué rangée 22 : 5, 65 : 4, 19 : 2, 57 : 2, 64 : 2, puis 1 à 16, 21, 25, 36, 37, 49, 58, 63 ; Débutant 65 : 9, 37 : 5, 19 : 4, 66 : 4, 69 : 4, 22 : 3, 36 : 3... ; Expert 19 : 2, 37 : 2. AVANT, l'Habitué mourait surtout à la rangée 62 (23) et à la vigie (5 à 10 : 29).
+
+Cible : Habitué entre 0,6 et 1,2 mort pour tout le niveau : 1,15, ATTEINTE ; Débutant fini au moins 40 fois sur 48 : 48/48, ATTEINTE.
+
+Toutes les mesures faites (phase 1 identique partout : Habitué 0,67) :
+
+| essai | tour | mer | objets | Habitué total | Habitué montée | Débutant finis |
+|---|---|---|---|---|---|---|
+| 1 | l'ancienne, sans géante | 1/60 | 2,5 à 1,4 s, 1er à 1 s, doubles à 50 % | 1,04 | 28,6 s | 48/48 |
+| 2 | 1res lacets | 1/60 | idem | 1,25 | 36,8 s | 48/48 |
+| 3 | lacets + trou + caisses | 1/70 | idem | 1,40 | 42,9 s | 48/48 |
+| 4 | lacets sans raccourcis | 1/70 | idem | 1,29 | 50,7 s (un Habitué non fini) | 47/48 |
+| 5 | idem | 1/70 | 2,8 à 1,8 s, 1er à 2 s | 1,21 | 43,2 s | 48/48 |
+| 6 (final) | + lacets 40/37 | 1/70 | idem, doubles à 60 % | 1,15 | 42,6 s | 48/48 |
+
+PAS ATTEINT : la durée de la montée pour un Habitué. La carte demande 50 à 70 s ; la mesure finale donne 42,6 s (phase 2 de l'Habitué, morts comprises ; le pilote seul : 34 à 39 s). Le seul essai au-dessus de 50 s (essai 4) faisait 1,29 mort : allonger la tour ajoute des morts, il faudrait alors baisser encore la mer ou les objets. Je me suis arrêté là, après deux réglages de difficulté (essai 5 : objets plus espacés ; essai 6 : un lacet de plus et les doubles plus haut).
+
+### Robots
+
+- `le_pilote_finit_la_phase_2` (10 graines, normal et facile, `tests-rapides`) : 20/20 victoires, 0 mort, 18 s de calcul. Normal : 34,6 à 39,2 s, 13 à 21 objets, mer au plus près 0,2 à 4,0 tuiles. Facile : 34,2 à 38,9 s, 9 à 11 objets, mer au plus près 3,9 à 7,1 tuiles.
+- `le_robot_finit_le_monde_2_sans_mourir` (`tests-rapides`, mémoire des parcours, sous `lourd.sh`) : VERT en 594,8 s. Niveaux [1, 2, 3, 4, 5, 6, 7, 8], 0 mort, 23 962 images, chrono 23 258 pas, 11 gouttes, empreinte `b14c171ce3712aef` (nouvelle : la phase 2 a changé).
+- `./docker-cargo.sh carte pieuvre` : VERT (core 325, game 447, niveaux 19, tous 80, `faisabilite::le_niveau_de_la_carte`). `./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+
+### Captures (la vraie suite, `docs/capture-936.sh`, build `dist-qa` de ce commit)
+
+`docs/qa/936/normal-*.png` et `docs/qa/936/facile-*.png` : `phase1`, `fin-phase1`, `transition` (elle se retire, la bâche déchirée), `tour-bas`, `chute` et `chute-b` (une chute annoncée par son ombre, puis la caisse qui tombe), `tour-milieu`, `tour-haut`, `fuite-a` et `fuite-b` (au sommet, elle plonge, la mer redescend), `bilan` ; `normal-carte`. Regardées : la Pieuvre au loin à moitié dans la mer, pâle en facile ; les caisses et leurs éclats ; le bilan du niveau. L'ombre d'annonce (`ombre_caisse`, 16 x 4, sombre) se voit mal sur les corniches de pierre sombres : à reprendre au dessin (9.36b).
+
+PHASE 1 IDENTIQUE AU PIXEL : le build de `0ed7daf` (copie `git archive`, `./build.sh --qa`) et celui de ce commit, mêmes entrées (le script normal 936 est identique au 933 jusqu'à son image 2419 ; en facile, le script 936 rejoué sur les deux builds) : NORMAL carte de titre et images 600, 1200, 1800, 2100, 2130 (le dernier coup est à 2132) : 6/6 IDENTIQUES ; FACILE images 1700, 2400, 2900, 3400, 3435 (dernier coup à 3440) : 5/5 IDENTIQUES (`docs/comparer-captures.py`, 0 pixel différent).
+
+### Pas fait, pas testé
+
+- La durée visée de la montée (voir plus haut).
+- Le lot complet, la prod. Téléphone, joueur humain.
+- Le vrai dessin (tour, mer, Pieuvre au loin, objets, fuite) : carte 9.36b.

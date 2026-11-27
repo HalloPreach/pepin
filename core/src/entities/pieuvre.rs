@@ -49,14 +49,16 @@
 //! motif ; quand la tête remonte, elle lâche la plateforme. La grille du niveau ne change pas : le jeu
 //! l'enveloppe d'une `GrilleSaisie` qui perce les cases englouties.
 //!
-//! LA PHASE 2, « fuite et montée » (carte 9.13a, demande d'AGA : « J'aime pas la
-//! pieuvre, elle manque toujours de quelque chose pour un boss final… Une phase
-//! deux ? »). Seulement dans une arène qui a une TOUR (une tête finale `&` dans
-//! la grille, `Pieuvre::tete_finale`) : au dernier coup de la phase 1, au lieu de
-//! plonger, elle entre en FURIE, casse le quai et la mer monte. Tout est dans le
-//! sous-module `fuite` ; sans tour (le niveau d'essai), rien ne change. La
-//! montée (carte 9.13c) : la Pieuvre GÉANTE grimpe avec la mer à côté de la
-//! tour, et toutes ses attaques partent de son corps (sous-module `montee`).
+//! LA PHASE 2 (carte 9.36a, décision d'AGA du 27/11 : « supprimer la p2 telle
+//! qu'elle est actuellement, et juste faire une montée contre l'eau qui avance
+//! plus vite avec des objets qui tombent du ciel envoyés par la pieuvre. on ne la
+//! tue pas à la fin, comme le nuage juste elle finit par s'enfuir »). Seulement
+//! dans une arène qui a une TOUR (le sommet `&` dans la grille,
+//! `Pieuvre::sommet`) : au dernier coup de la phase 1, au lieu de plonger, elle
+//! SE RETIRE AU LARGE, la bâche se déchire et la mer monte (sous-module `fuite`) ;
+//! Pépin grimpe la tour sous les objets qu'elle lance de loin, et, au sommet,
+//! elle abandonne et s'enfuit (sous-module `montee`). Sans tour (le niveau
+//! d'essai), rien ne change.
 //!
 //! Notions Rust : on RÉUTILISE la `Salve` du Grand Nuage (`use super::nuage::Salve`)
 //! au lieu de la recopier ; un `enum` à données (`EtatTentacule::Annonce(f32)`) ; des
@@ -413,11 +415,12 @@ pub enum PhasePieuvre {
     Touchee,
     Plongee,
     Vaincue,
-    /// Phase 2 (carte 9.13a) : elle hurle, l'écran tremble, la bâche se déchire
-    /// et un jet d'eau emporte Pépin dans la tour ; le quai casse à la fin.
+    /// Phase 2 (carte 9.13a) : elle hurle et se retire au large (carte 9.36a),
+    /// l'écran tremble, la bâche se déchire et un jet d'eau emporte Pépin dans la
+    /// tour ; le quai casse à la fin.
     Furie,
-    /// Phase 2 : la mer monte, les tentacules jaillissent de dessous, la tête
-    /// attend en haut de la tour.
+    /// Phase 2 (carte 9.36a) : la mer monte, les objets qu'elle lance de loin
+    /// tombent sur la tour ; au sommet, elle s'enfuit (`Plongee`, puis `Vaincue`).
     Montee,
 }
 
@@ -449,17 +452,16 @@ pub struct Pieuvre {
     /// Phase 2 (carte 9.13a) : la BÂCHE (`_`), le plafond de l'arène : une boîte
     /// solide (`Entite::solide`) tant que la phase 1 dure, déchirée dès la furie.
     pub bache: Option<Aabb>,
-    /// La tête en haut de la tour (`&`, 48 x 32) ; `None` : pas de phase 2.
-    pub tete_finale: Option<Aabb>,
-    /// Ordonnées (px) où la mer marque un palier de répit (sous les corniches
-    /// larges de la tour, posées par le parseur), de la plus basse à la plus haute.
-    pub paliers: Vec<f32>,
-    /// Ordonnée (px) où la mer s'arrête pour de bon, sous la vigie.
+    /// Le SOMMET de la tour (`&`, carte 9.36a) : la zone d'arrivée posée sur la
+    /// plateforme du haut ; y entrer fait fuir la Pieuvre. `None` : pas de phase 2.
+    pub sommet: Option<Aabb>,
+    /// Ordonnée (px) où la mer s'arrête pour de bon, sous le sommet (puis, à la
+    /// fuite, d'où elle redescend).
     pub arret_mer: f32,
     /// La phase 2 a commencé (la bâche est déchirée, puis le quai cassé).
     fuite: bool,
-    /// La montée (cartes 9.13b et 9.13c) : la géante et ses attaques
-    /// (`pieuvre::montee`).
+    /// La montée (carte 9.36a) : la mer qui suit Pépin et les objets qui
+    /// tombent (`pieuvre::montee`).
     pub tour: Tour,
 }
 
@@ -480,8 +482,7 @@ impl Pieuvre {
             avant_saisie: PREMIERE_SAISIE_PAS,
             pepin: None,
             bache: None,
-            tete_finale: None,
-            paliers: Vec::new(),
+            sommet: None,
             arret_mer: 0.0,
             fuite: false,
             tour: Tour::default(),
@@ -640,11 +641,10 @@ impl Pieuvre {
             | PhasePieuvre::Tete
             | PhasePieuvre::Touchee
             | PhasePieuvre::Furie => Some(self.places[self.place]),
-            // Phase 2 (carte 9.13a) : la tête en haut de la tour, où elle
-            // replonge. Carte 9.13c : en montée, la tête de la géante quand on
-            // peut la frapper (sonnée après un jeté ; dessin : `geante`).
-            PhasePieuvre::Montee => self.tete_a_frapper(),
-            PhasePieuvre::Plongee if self.fuite => self.tete_finale,
+            // Phase 2 (carte 9.36a) : elle est au large, jamais à portée (le
+            // dessin la montre de loin : `montee::au_loin`).
+            PhasePieuvre::Montee => None,
+            PhasePieuvre::Plongee if self.fuite => None,
             PhasePieuvre::Plongee => Some(self.places[self.place]),
             _ => None,
         }
@@ -665,12 +665,13 @@ impl Pieuvre {
     pub fn recoit(&self, joueur: &Joueur) -> bool {
         let tete = match self.phase {
             PhasePieuvre::Tete => self.places[self.place],
-            // Le coup final (carte 9.13a) : la tête du haut de la tour ; carte
-            // 9.13c : la tête de la géante, sonnée après un jeté.
-            PhasePieuvre::Montee => match self.tete_a_frapper() {
-                Some(t) => t,
-                None => return false,
-            },
+            // Carte 9.36a : en montée, seulement pour le robot de faisabilité
+            // (le sommet atteint compte comme un coup : `montee::sommet_pour_le_robot`).
+            PhasePieuvre::Montee => {
+                return self
+                    .sommet_pour_le_robot()
+                    .is_some_and(|s| joueur.boite.chevauche(&s));
+            }
             _ => return false,
         };
         joueur.vitesse.y > 0.0
@@ -680,8 +681,8 @@ impl Pieuvre {
 
     /// `boite` meurt-elle ? Un tentacule dressé la touche, ou la tête sortie la
     /// touche (autrement qu'en tombant dessus : `recoit` est vérifié avant). En
-    /// phase 2 : la mer en furie (`fuite`), la géante ou une de ses attaques
-    /// (`montee`).
+    /// phase 2 : la mer en furie (`fuite`) ou un objet qui tombe (`montee`) ; la
+    /// Pieuvre au large, elle, ne touche jamais Pépin.
     pub fn blesse(&self, boite: &Aabb) -> bool {
         if self.blesse_en_fuite(boite) || self.blesse_en_montee(boite) {
             return true;
@@ -695,11 +696,13 @@ impl Pieuvre {
     /// Un saut sur la tête : un point en moins ; touchée, ou, au dernier point, la
     /// plongée. Sans effet si la tête n'est pas sortie. Carte 9.13a : dans une
     /// arène à tour, le dernier point de la phase 1 donne la FURIE (la phase 2) ;
-    /// le coup sur la tête du haut de la tour, la plongée.
+    /// en montée (carte 9.36a), seul le robot de faisabilité « touche » : le
+    /// sommet atteint, elle s'enfuit.
     pub fn toucher(&mut self) {
         if self.phase == PhasePieuvre::Montee {
-            // Carte 9.13c : un jeté (elle retombe), ou la vigie (la plongée).
-            self.frapper_en_montee();
+            if self.sommet_pour_le_robot().is_some() {
+                self.s_enfuir();
+            }
             return;
         }
         if self.phase != PhasePieuvre::Tete {
@@ -708,7 +711,7 @@ impl Pieuvre {
         self.pv = self.pv.saturating_sub(1);
         let phase = if self.pv > 0 {
             PhasePieuvre::Touchee
-        } else if self.tete_finale.is_some() {
+        } else if self.sommet.is_some() {
             self.commencer_la_fuite();
             PhasePieuvre::Furie
         } else {
@@ -773,8 +776,8 @@ impl Pieuvre {
     }
 
     fn avancer(&mut self) {
-        // La montée (carte 9.13a) n'a pas de fin fixée : elle dure jusqu'au coup
-        // final. Son temps fait monter la mer (`fuite::surface_mer`).
+        // La montée (carte 9.13a) n'a pas de fin fixée : elle dure jusqu'à ce
+        // que Pépin atteigne le sommet (carte 9.36a, `montee::avancer_tour`).
         if self.phase == PhasePieuvre::Montee {
             self.ecoule = self.ecoule.saturating_add(1);
             return;
@@ -812,7 +815,7 @@ impl Actualisable for Pieuvre {
     fn actualiser(&mut self, env: &Environnement<'_>) {
         self.avancer_saisie();
         self.avancer();
-        self.avancer_tour(env.grille);
+        self.avancer_tour(env);
     }
 }
 

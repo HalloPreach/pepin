@@ -334,7 +334,7 @@ export function erreursIntro(n) {
 // n'en a pas, et la bannière n'a la place que pour 2 lignes de 46 caractères.
 export const LIGNES_MAX_FACILE = 2;
 /// Les lettres des boss EUX-MÊMES dans la grille (légende : niveaux/src/legende.rs) :
-/// le Grand Nuage et la Pieuvre. Leurs vigies, jetés et balayages n'en sont pas.
+/// le Grand Nuage et la Pieuvre. Le sommet de sa tour (`&`) n'en est pas un.
 export const LETTRES_BOSS = ['O', '8'];
 
 /// La grille `ascii` a-t-elle un boss ?

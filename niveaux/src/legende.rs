@@ -158,7 +158,6 @@ pub const LETTRES: &[Lettre] = &[
     l('N', "nuage (solide)", Tuile, true, Libre, "#c8d0e0"),
     l('F', "plateforme friable", Tuile, true, Libre, "#b08a5a"),
     l('m', "faux mur (case libre)", Tuile, false, Libre, "#7a4a3a"),
-    l('%', "plateforme arrachable", Tuile, true, Libre, "#9a7a5a"),
     l('_', "bâche de l'arène", Tuile, true, Libre, "#5a7a9a"),
     taille(l('q', "voiture garée", Tuile, true, Libre, "#c04848"), 4, 2),
     l('a', "autobus garé", Tuile, true, Libre, "#d8a030"),
@@ -297,17 +296,17 @@ pub const LETTRES: &[Lettre] = &[
         Nombre::AuPlus(1),
     ),
     taille(
-        l('&', "vigie de la Pieuvre", Boss, false, Libre, "#c060c0"),
+        l(
+            '&',
+            "sommet de la tour de la Pieuvre",
+            Boss,
+            false,
+            Libre,
+            "#c060c0",
+        ),
         4,
         3,
     ),
-    taille(
-        l('$', "jeté de la Pieuvre", Boss, false, Libre, "#b050b0"),
-        4,
-        3,
-    ),
-    l('!', "balayage de la Pieuvre", Boss, false, Libre, "#b050b0"),
-    l('+', "secousse de la tour", Boss, false, Libre, "#b050b0"),
     // --- Panneaux et décor ---
     l('D', "panneau « déplacer »", Decor, false, Libre, "#c0a080"),
     l('S', "panneau « sauter »", Decor, false, Libre, "#c0a080"),

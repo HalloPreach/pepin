@@ -1,36 +1,32 @@
-//! Le PILOTE de la phase 2 de la Pieuvre (carte 9.13g) : un joueur automatique
-//! qui grimpe la tour du port, du bas de la tour jusqu'à `Vaincue`, dans la
-//! VRAIE simulation (`Monde::avancer`, sans raccourci : aucune règle, aucun
-//! timing, aucune case de la grille ne change pour lui).
+//! Le PILOTE de la phase 2 de la Pieuvre (carte 9.13g, refait pour la montée
+//! de la carte 9.36a) : un joueur automatique qui grimpe la tour du port, du bas
+//! de la tour jusqu'au sommet (la fuite de la Pieuvre), dans la VRAIE
+//! simulation (`Monde::avancer`, sans raccourci : aucune règle, aucun timing,
+//! aucune case de la grille ne change pour lui).
 //!
-//! Pourquoi aucun robot existant ne le faisait (diagnostic de la carte) :
-//! - `core::faisabilite` et le robot de QA (`parcours.rs`) cherchent un plus
-//!   court chemin entre des CASES ; une mécanique qui a une horloge met son temps
-//!   dans la case (`nuage_de_la_case` : phase, 63 tranches, têtes). La montée
-//!   dure plus de 60 s, sa mer, son humeur, son attaque en cours et sa graine ne
-//!   sont pas dans la case : les états se confondent ou se multiplient, et la
-//!   recherche dépasse 600 s sans parcours ;
-//! - la mesure de difficulté (`difficulte.rs`) part des mêmes itinéraires.
+//! Pourquoi aucun robot existant ne le fait : `core::faisabilite` et le robot de
+//! QA (`parcours.rs`) cherchent un plus court chemin entre des CASES ; la montée
+//! a une horloge (la mer) et un tirage (les objets) qui ne sont pas dans la
+//! case : les états se confondent ou se multiplient sans fin.
 //!
 //! Le pilote sépare donc l'ESPACE et le TEMPS :
 //! 1. L'espace, une seule fois (`Route`, mise en cache dans un `OnceLock`) : la
-//!    tour SANS la géante (`Pieuvre::pour_le_robot` : aucune attaque, la mer en
-//!    bas), explorée par les plans du robot de QA (`plans`, `simuler`) depuis la
-//!    lanterne du bas ; chaque case posée connaît ses sauts possibles et son coût
-//!    jusqu'à la vigie (Dijkstra à l'envers, sur la durée). Le temps n'y est
-//!    pas : quelques centaines de cases au lieu de millions.
+//!    tour SANS la mer ni les objets (`Pieuvre::pour_le_robot`), explorée par les
+//!    plans du robot de QA (`plans`, `simuler`) depuis la lanterne du bas ;
+//!    chaque case posée connaît ses sauts possibles et son coût jusqu'au sommet
+//!    (Dijkstra à l'envers, sur la durée). Le temps n'y est pas : quelques
+//!    centaines de cases au lieu de millions.
 //! 2. Le temps, à chaque décision, dans la vraie partie : il lit l'état PUBLIC
-//!    de la géante (frappe visée annoncée, balayeur, caisses, arrachage, jeté,
-//!    tête sonnée, mer) et choisit comme un joueur : frapper la tête sonnée si
-//!    un saut l'atteint ; sinon le saut de sa route qui le rapproche de la
-//!    vigie et ne se pose pas dans une zone annoncée ; sinon attendre sur place ;
+//!    de la montée (les objets annoncés par leur ombre, ceux qui tombent, la mer)
+//!    et choisit comme un joueur : le saut de sa route qui le rapproche du
+//!    sommet et ne se pose pas sous un objet annoncé ; sinon attendre sur place ;
 //!    sinon s'écarter (n'importe quel geste qui survit).
 //!
 //! Comme le joueur simulé de la mesure, il ESSAIE chaque geste sur une copie du
-//! monde avant de le jouer (`simuler`) : il voit donc une attaque que la géante
-//! choisirait PENDANT le geste (au plus la durée du geste, environ 1 s ; un
-//! humain la voit à l'annonce, 0,8 s au moins). C'est sa seule avance sur un
-//! humain ; la graine de la géante, elle, il ne la lit pas.
+//! monde avant de le jouer (`simuler`) : il voit donc un objet lancé PENDANT le
+//! geste (au plus la durée du geste, environ 1 s ; un humain le voit à son
+//! ombre, 1 s avant). C'est sa seule avance sur un humain ; le tirage des
+//! objets, lui, il ne le lit pas.
 //!
 //! Pourquoi ici (`bot_qa`, module de test) : il réutilise les plans et la
 //! simulation du robot de QA (`parcours.rs`) et la mesure (`difficulte.rs`,
@@ -45,9 +41,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::sync::OnceLock;
 
 use pepin_core::aabb::Aabb;
-use pepin_core::entities::pieuvre::{
-    Attaque, EtatArrachage, EtatBalai, EtatFrappe, EtatJete, EtatSecousse, PhasePieuvre, Pieuvre,
-};
+use pepin_core::entities::pieuvre::{EtatChute, PhasePieuvre, Pieuvre, TAILLE_OBJET};
 use pepin_core::entities::Entite;
 use pepin_core::player::{Direction, Entrees, Joueur};
 
@@ -107,7 +101,7 @@ pub(crate) fn pieuvre(m: &Monde) -> &Pieuvre {
 
 /// Le niveau a-t-il une Pieuvre À TOUR, donc une phase 2 (carte 10.7 : le robot de
 /// QA de partie passe alors la main au pilote après la phase 1) ? Sa trombe (la
-/// bâche et la vigie) n'existe que dans ce cas.
+/// bâche et le sommet) n'existe que dans ce cas.
 pub(crate) fn a_une_phase_2(m: &Monde) -> bool {
     m.entites
         .iter()
@@ -138,7 +132,7 @@ fn pieuvre_mut(m: &mut Monde) -> &mut Pieuvre {
 /// faisabilité et les tests (`sortir_la_tete`, `toucher`), autant de fois que la
 /// pieuvre a de points (3, ou 2 en facile : `passer_nuage_en_facile`, comme le
 /// jeu). Pépin est posé à la lanterne du bas de la tour (celle où une mort de la
-/// phase 2 le ramène). La graine du cerveau est fixée (`fixer_graine`) ; `None` :
+/// phase 2 le ramène). La graine des objets est fixée (`fixer_graine`) ; `None` :
 /// celle du jeu, comme pour un joueur.
 pub(crate) fn debut_phase_2(graine: Option<u32>, facile: bool) -> Monde {
     let mut m = Monde::new(indice_pieuvre());
@@ -169,13 +163,13 @@ pub(crate) fn debut_phase_2(graine: Option<u32>, facile: bool) -> Monde {
 }
 
 /// L'ESPACE de la tour, calculé une fois : pour chaque case posée, les gestes
-/// qui en partent (plan, case d'arrivée, durée) et son coût (pas) jusqu'à la
-/// vigie.
+/// qui en partent (plan, case d'arrivée, durée) et son coût (pas) jusqu'au
+/// sommet.
 pub(crate) struct Route {
     gestes: HashMap<Case, Vec<(Plan, Case, u16)>>,
     cout: HashMap<Case, u32>,
-    /// Le dessus de la vigie (px) : les pieds de Pépin y sont à la fin.
-    vigie: f32,
+    /// Le bas du sommet (px) : les pieds de Pépin y sont à la fin.
+    sommet: f32,
 }
 
 impl Route {
@@ -189,7 +183,10 @@ impl Route {
         let mut m = debut_phase_2(Some(1), false);
         let p = pieuvre_mut(&mut m);
         p.pour_le_robot();
-        let vigie = p.tete_finale.expect("la tour a sa vigie").bas();
+        // Sans sommet pour la Pieuvre du robot (sinon y entrer serait un coup sur
+        // la tête, et Pépin y rebondirait) : on le garde pour les buts.
+        let boite_sommet = p.sommet.take().expect("la tour a son sommet");
+        let sommet = boite_sommet.bas();
         for _ in 0..40 {
             m.avancer(&Entrees::default());
         }
@@ -201,7 +198,9 @@ impl Route {
         let mut buts: HashSet<Case> = HashSet::new();
         while let Some(m) = file.pop() {
             let ici = case(&m);
-            if (m.joueur.boite.bas() - vigie).abs() < 1.0 {
+            if (m.joueur.boite.bas() - sommet).abs() < 1.0
+                && m.joueur.boite.chevauche(&boite_sommet)
+            {
                 buts.insert(ici);
             }
             if vus.len() > CASES_MAX {
@@ -228,7 +227,7 @@ impl Route {
             }
             gestes.insert(ici, sortants);
         }
-        // Dijkstra à l'envers : coût (pas) de chaque case jusqu'à la vigie.
+        // Dijkstra à l'envers : coût (pas) de chaque case jusqu'au sommet.
         let mut entrants: HashMap<Case, Vec<(Case, u16)>> = HashMap::new();
         for (&de, sortants) in &gestes {
             for &(_, vers, duree) in sortants {
@@ -256,11 +255,11 @@ impl Route {
         Route {
             gestes,
             cout,
-            vigie,
+            sommet,
         }
     }
 
-    /// Nombre de cases connues, et de cases qui mènent à la vigie.
+    /// Nombre de cases connues, et de cases qui mènent au sommet.
     pub(crate) fn taille(&self) -> (usize, usize) {
         (self.gestes.len(), self.cout.len())
     }
@@ -293,55 +292,20 @@ impl Route {
     }
 }
 
-/// Ce que la géante a ANNONCÉ (état public) : la boîte `b` (Pépin posé à
-/// l'arrivée d'un geste) est-elle dans une zone qui va devenir mortelle ? Frappe
-/// visée annoncée, colonne d'une caisse annoncée, corniche d'un balayeur
-/// annoncé, plateforme qui va être arrachée, place d'un jeté qui se cabre.
+/// Ce que la montée a ANNONCÉ (état public) : la boîte `b` (Pépin posé à
+/// l'arrivée d'un geste) est-elle sous un objet annoncé par son ombre, ou qui
+/// tombe encore au-dessus d'elle ?
 fn zone_annoncee(p: &Pieuvre, b: &Aabb) -> bool {
-    let frappe = matches!(p.etat_frappe(), Some((c, EtatFrappe::Annonce(_))) if c.chevauche(b));
-    let caisse = match p.etat_secousse() {
-        Some((caisses, EtatSecousse::Annonce(_))) => caisses
-            .iter()
-            .any(|c| b.x < c.x + 16.0 && b.droite() > c.x && b.bas() <= c.sol + 1.0),
-        _ => false,
-    };
-    let balai = p.tour.balayeurs.iter().enumerate().any(|(k, bal)| {
-        matches!(p.etat_balayeur(k), Some(EtatBalai::Annonce(_)))
-            && (b.bas() - bal.y).abs() < 2.0
-            && b.droite() > bal.arrivee
-            && b.x < bal.depart
-    });
-    let arrachage = p.tour.arrachables.iter().enumerate().any(|(k, cases)| {
-        matches!(p.etat_arrachage(k), Some(EtatArrachage::Annonce(_)))
-            && cases.iter().any(|&(tx, ty)| {
-                (b.bas() - ty as f32 * 16.0).abs() < 2.0
-                    && b.droite() > tx as f32 * 16.0
-                    && b.x < (tx + 1) as f32 * 16.0
-            })
-    });
-    let jete = matches!(p.etat_jete(), Some((t, EtatJete::Cabre(_))) if t.chevauche(b));
-    frappe || caisse || balai || arrachage || jete
-}
-
-/// Pépin est-il debout sur la vigie (ses pieds au niveau de son dessus) ?
-pub(crate) fn sur_la_vigie(m: &Monde) -> bool {
-    let v = pieuvre(m).tete_finale.map_or(f32::MAX, |v| v.bas());
-    (m.joueur.boite.bas() - v).abs() < 2.0
-}
-
-/// Le nom de l'attaque en cours (pour dire ce qui a tué Pépin).
-fn nom_attaque(p: &Pieuvre) -> &'static str {
-    let combo = matches!(p.etat_frappe(), Some((_, EtatFrappe::Frappe)))
-        && !matches!(p.attaque(), Some(Attaque::Frappe { .. }));
-    match p.attaque() {
-        _ if combo => "frappe de combo",
-        Some(Attaque::Frappe { .. }) => "frappe",
-        Some(Attaque::Balayage { .. }) => "balayage",
-        Some(Attaque::Secousse { .. }) => "secousse",
-        Some(Attaque::Arrachage { .. }) => "arrachage",
-        Some(Attaque::Jete { .. }) => "jeté",
-        None => "aucune attaque",
-    }
+    let t = p.ecoule();
+    p.chutes().iter().any(|c| {
+        let colonne = b.x < c.x + TAILLE_OBJET && b.droite() > c.x;
+        let a_venir = match c.etat(t) {
+            Some(EtatChute::Annonce(_)) => true,
+            Some(EtatChute::Chute(o)) => o.y < b.bas(),
+            _ => false,
+        };
+        colonne && a_venir && b.bas() <= c.sol + 1.0 && b.bas() > c.depart
+    })
 }
 
 /// Ce qui s'est passé pendant une partie (le tableau de QA.md).
@@ -351,90 +315,44 @@ pub(crate) struct Bilan {
     pub(crate) morts: u32,
     /// Pas joués (60 par seconde), du bas de la tour à la fin.
     pub(crate) pas: u32,
-    /// Attaques vues, par genre : frappe (seule), frappe de combo, balayage,
-    /// secousse, arrachage, jeté (hors vigie), étape d'un cycle de la vigie.
-    pub(crate) attaques: [u32; 7],
-    /// Les cycles de vigie joués jusqu'à leur jeté vif : têtes qui lui
-    /// restaient à chacun.
-    pub(crate) cycles: Vec<u8>,
-    /// Têtes prises pendant la montée (jetés) et sur la vigie.
-    pub(crate) coups_montee: u32,
-    pub(crate) coups_vigie: u32,
-    /// Où Pépin est mort (les pieds, en rangées), la cause et l'attaque en
-    /// cours (ou la mer).
+    /// Objets lancés pendant la partie (toutes tentatives).
+    pub(crate) objets: u32,
+    /// Le plus petit écart vu entre la mer et les pieds de Pépin (px).
+    pub(crate) mer_au_plus_pres: f32,
+    /// Où Pépin est mort (les pieds, en rangées) et la cause (la mer ou un
+    /// objet).
     pub(crate) lieux_des_morts: Vec<(i32, String)>,
 }
 
-/// Les noms des colonnes de `Bilan::attaques`.
-pub(crate) const NOMS_ATTAQUES: [&str; 7] = [
-    "frappe",
-    "combo",
-    "balayage",
-    "secousse",
-    "arrachage",
-    "jete",
-    "vigie",
-];
-
-/// Suit les attaques publiques d'un pas à l'autre (une nouvelle attaque : un
-/// nouveau début).
+/// Compte les objets lancés d'un pas à l'autre (le compteur de la tentative
+/// repart à 0 à chaque reprise).
 #[derive(Default)]
 struct Observateur {
-    derniere: Option<(u32, u16)>,
-    /// Une frappe de combo était-elle annoncée au pas d'avant ?
-    combo: bool,
-    /// Les têtes qu'il lui restait au pas d'avant.
-    pv: u8,
-    /// L'attaque du pas d'avant était-elle le jeté de la vigie ?
-    jete_vigie: bool,
+    lances: u32,
+    tentative: u32,
 }
 
 impl Observateur {
     fn regarder(&mut self, m: &Monde, bilan: &mut Bilan) {
         let p = pieuvre(m);
-        // Une tête prise (même la dernière, qui la fait plonger) : sur la
-        // vigie si le jeté du pas d'avant était celui de la vigie.
-        if p.pv() < self.pv {
-            if self.jete_vigie {
-                bilan.coups_vigie += 1;
-            } else {
-                bilan.coups_montee += 1;
-            }
-        }
-        self.pv = p.pv();
-        self.jete_vigie =
-            matches!(p.attaque(), Some(Attaque::Jete { k, .. }) if *k == p.tour.jetes.len());
         if p.phase() != PhasePieuvre::Montee {
             return;
         }
-        let t = p.tentative();
-        let vigie = p.tour.jetes.len();
-        if let Some(a) = p.attaque() {
-            let cle = (t, a.debut());
-            if self.derniere != Some(cle) {
-                self.derniere = Some(cle);
-                // Sur la vigie, une frappe ou un balayage est une étape de son
-                // cycle : compté en « vigie ».
-                let rang = match a {
-                    Attaque::Frappe { .. } | Attaque::Balayage { .. } if sur_la_vigie(m) => 6,
-                    Attaque::Frappe { .. } => 0,
-                    Attaque::Balayage { .. } => 2,
-                    Attaque::Secousse { .. } => 3,
-                    Attaque::Arrachage { .. } => 4,
-                    Attaque::Jete { k, .. } if *k < vigie => 5,
-                    Attaque::Jete { .. } => 6,
-                };
-                bilan.attaques[rang] += 1;
+        if p.tentative() != self.tentative {
+            self.tentative = p.tentative();
+            self.lances = 0;
+        }
+        let n = p.objets_lances();
+        bilan.objets += n.saturating_sub(self.lances);
+        self.lances = n;
+        if let Some(mer) = p.surface_mer() {
+            if m.reapparition == 0 {
+                let ecart = mer - m.joueur.boite.bas();
+                if bilan.mer_au_plus_pres == 0.0 || ecart < bilan.mer_au_plus_pres {
+                    bilan.mer_au_plus_pres = ecart;
+                }
             }
         }
-        // Une frappe visée de combo (pas l'attaque en cours) : comptée au pas
-        // où son annonce commence.
-        let annonce = matches!(p.etat_frappe(), Some((_, EtatFrappe::Annonce(_))))
-            && !matches!(p.attaque(), Some(Attaque::Frappe { .. }));
-        if annonce && !self.combo {
-            bilan.attaques[1] += 1;
-        }
-        self.combo = annonce;
     }
 }
 
@@ -469,7 +387,6 @@ impl Pilote {
 
     /// Le geste à jouer maintenant (Pépin posé, `m` la vraie partie).
     pub(crate) fn choisir(&mut self, m: &Monde) -> Plan {
-        let p = pieuvre(m);
         let ici = case(m);
         self.bloque = if self.bloque.0 == ici {
             (ici, self.bloque.1 + 1)
@@ -478,27 +395,8 @@ impl Pilote {
         };
         let bloque = self.bloque.1;
         let cout_ici = self.route.cout(ici);
-        let pv = p.pv();
-        // 1. Une tête sonnée : un saut qui la prend.
-        if matches!(p.etat_jete(), Some((_, EtatJete::Sonnee(_)))) {
-            let mut meilleur: Option<(usize, Plan)> = None;
-            for &plan in self.plans(true) {
-                let (fin, suite, script) = simuler(m, plan);
-                if fin == Fin::Mort || est_mort(&suite) {
-                    continue;
-                }
-                let q = pieuvre(&suite);
-                let pris = q.pv() < pv || q.phase() != PhasePieuvre::Montee;
-                if pris && meilleur.is_none_or(|(d, _)| script.len() < d) {
-                    meilleur = Some((script.len(), plan));
-                }
-            }
-            if let Some((_, plan)) = meilleur {
-                return plan;
-            }
-        }
-        // 2. Un geste de sa route qui le rapproche de la vigie, sans se poser
-        //    dans une zone annoncée, et sûr encore un instant après.
+        // 1. Un geste de sa route qui le rapproche du sommet, sans se poser
+        //    sous un objet annoncé, et sûr encore un instant après.
         let mut gestes: Vec<&(Plan, Case, u16)> = self
             .route
             .gestes(ici)
@@ -513,8 +411,8 @@ impl Pilote {
                 }
             }
         }
-        // 2 bis. Aucun geste de la route ne marche (une plateforme arrachée,
-        //    un nuage tombé : la grille n'est plus celle de la route) : tous
+        // 1 bis. Aucun geste de la route ne marche (un nuage friable tombé :
+        //    la grille n'est plus celle de la route ; un objet annoncé) : tous
         //    les plans, essayés dans la vraie partie (les grossiers, puis les
         //    précis s'il le faut : c'est le plus coûteux du pilote, donc
         //    seulement quand il reste sur la même case : les grossiers deux
@@ -539,13 +437,13 @@ impl Pilote {
                 return plan;
             }
         }
-        // 3. Attendre sur place, si c'est sûr.
+        // 2. Attendre sur place, si c'est sûr.
         let attente = plan_attente(ATTENTE);
         if let Some((_, _, true)) = essayer(m, attente) {
             return attente;
         }
-        // 4. S'écarter : n'importe quel geste qui survit ; d'abord sûr ensuite,
-        //    puis hors des zones annoncées, puis le plus près de la vigie.
+        // 3. S'écarter : n'importe quel geste qui survit ; d'abord sûr ensuite,
+        //    puis hors des zones annoncées, puis le plus près du sommet.
         let mut meilleur: Option<((bool, bool, u32), Plan)> = None;
         for &plan in self.plans(false) {
             let Some((suite, duree, sur)) = essayer(m, plan) else {
@@ -584,7 +482,7 @@ fn essayer(m: &Monde, plan: Plan) -> Option<(Monde, usize, bool)> {
 /// Une partie de la phase 2, du bas de la tour à la fin : chaque geste choisi
 /// par le pilote est d'abord passé à `executer` (la mesure de difficulté y
 /// glisse les erreurs de son profil ; le pilote seul le rend tel quel), puis
-/// joué pas à pas dans la vraie partie.
+/// joué pas à pas dans la vraie partie. Gagnée dès que la Pieuvre s'enfuit.
 pub(crate) fn jouer(
     mut m: Monde,
     executer: &mut dyn FnMut(Plan) -> Plan,
@@ -592,13 +490,9 @@ pub(crate) fn jouer(
 ) -> Bilan {
     let mut pilote = Pilote::new();
     let mut bilan = Bilan::default();
-    let mut obs = Observateur {
-        pv: pieuvre(&m).pv(),
-        ..Observateur::default()
-    };
+    let mut obs = Observateur::default();
     let depart = m.pas;
     let morts_avant = m.etat.morts;
-    let mut vif_vu: Option<(u32, u16)> = None;
     while m.pas - depart < PAS_MAX_PARTIE {
         let p = pieuvre(&m);
         if p.est_vaincue() || m.termine || p.phase() == PhasePieuvre::Plongee {
@@ -611,14 +505,14 @@ pub(crate) fn jouer(
                 break;
             }
             let avant = m.joueur.boite;
+            let mer = pieuvre(&m).surface_mer();
             m.avancer(&Entrees::default());
             obs.regarder(&m, &mut bilan);
-            // Une mort pendant l'attente (la mer, une caisse sur la lanterne...).
+            // Une mort pendant l'attente (la mer, un objet sur la lanterne...).
             if let Some(cause) = m.derniere_mort.take() {
-                bilan.lieux_des_morts.push((
-                    (avant.bas() / 16.0).round() as i32,
-                    format!("{cause:?}, en attente"),
-                ));
+                bilan
+                    .lieux_des_morts
+                    .push((rangee(&avant), format!("{cause:?}, {}", quoi(mer, &avant))));
             }
             continue;
         }
@@ -632,32 +526,12 @@ pub(crate) fn jouer(
             }
             let avant = m.joueur.boite;
             let mer = pieuvre(&m).surface_mer();
-            let attaque = nom_attaque(pieuvre(&m));
             m.avancer(e);
             obs.regarder(&m, &mut bilan);
-            // Chaque cycle de la vigie finit par un seul jeté VIF : on le
-            // compte à son début, avec les têtes qui lui restent.
-            let p = pieuvre(&m);
-            if let Some(&Attaque::Jete {
-                k,
-                debut,
-                vif: true,
-                ..
-            }) = p.attaque()
-            {
-                let cle = (p.tentative(), debut);
-                if k == p.tour.jetes.len() && vif_vu != Some(cle) {
-                    vif_vu = Some(cle);
-                    bilan.cycles.push(p.pv());
-                }
-            }
             if let Some(cause) = m.derniere_mort.take() {
-                let noye = mer.is_some_and(|y| avant.bas() + 4.0 > y);
-                let quoi = if noye { "mer" } else { attaque };
-                bilan.lieux_des_morts.push((
-                    (avant.bas() / 16.0).round() as i32,
-                    format!("{cause:?}, {quoi}"),
-                ));
+                bilan
+                    .lieux_des_morts
+                    .push((rangee(&avant), format!("{cause:?}, {}", quoi(mer, &avant))));
                 break;
             }
         }
@@ -673,28 +547,35 @@ pub(crate) fn jouer(
     bilan
 }
 
+/// La rangée des pieds de `b`.
+fn rangee(b: &Aabb) -> i32 {
+    (b.bas() / 16.0).round() as i32
+}
+
+/// Ce qui a tué Pépin, pieds en `b` juste avant : la mer (`mer`) si ses pieds
+/// y étaient presque, sinon un objet.
+fn quoi(mer: Option<f32>, b: &Aabb) -> &'static str {
+    if mer.is_some_and(|y| b.bas() + 4.0 > y) {
+        "mer"
+    } else {
+        "objet"
+    }
+}
+
 /// Le dessin du tableau de QA.md : une ligne par partie.
 pub(crate) fn ligne(mode: &str, graine: u32, b: &Bilan) -> String {
-    let attaques: Vec<String> = NOMS_ATTAQUES
-        .iter()
-        .zip(b.attaques)
-        .map(|(n, k)| format!("{n} {k}"))
-        .collect();
-    let cycles: Vec<String> = b.cycles.iter().map(|t| format!("{t} t")).collect();
     let morts: Vec<String> = b
         .lieux_des_morts
         .iter()
         .map(|(r, c)| format!("rangée {r} ({c})"))
         .collect();
     format!(
-        "| {mode} | {graine} | {} | {} | {}+{} | {:.1} s | {} | {} | {} |",
+        "| {mode} | {graine} | {} | {} | {:.1} s | {} | {:.1} | {} |",
         if b.victoire { "OUI" } else { "NON" },
         b.morts,
-        b.coups_montee,
-        b.coups_vigie,
         b.pas as f32 / 60.0,
-        attaques.join(", "),
-        cycles.join(", "),
+        b.objets,
+        b.mer_au_plus_pres / 16.0,
         if morts.is_empty() {
             "-".to_string()
         } else {
@@ -707,13 +588,14 @@ pub(crate) fn ligne(mode: &str, graine: u32, b: &Bilan) -> String {
 mod tests {
     use super::*;
 
-    /// Les graines de la preuve (carte 9.13g).
-    const GRAINES: [u32; 5] = [1, 2, 3, 4, 5];
+    /// Les graines de la preuve (carte 9.36a : 10 graines, en normal et en
+    /// facile).
+    const GRAINES: [u32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-    /// La route de la tour mène du bas de la tour à la vigie.
+    /// La route de la tour mène du bas de la tour au sommet.
     #[test]
-    #[ignore = "pilote de la Pieuvre (carte 9.13g) : se lance à la main"]
-    fn la_route_mene_a_la_vigie() {
+    #[ignore = "pilote de la Pieuvre (cartes 9.13g et 9.36a) : se lance à la main"]
+    fn la_route_mene_au_sommet() {
         println!(
             "plans : {} grossiers, {} précis",
             plans(false).len(),
@@ -730,54 +612,26 @@ mod tests {
             m
         });
         println!(
-            "route : {cases} cases, {menent} mènent à la vigie (dessus {}), départ {depart:?} coût {} ; {:.1} s",
-            route.vigie,
+            "route : {cases} cases, {menent} mènent au sommet (bas {}), départ {depart:?} coût {} ; {:.1} s",
+            route.sommet,
             route.cout(depart),
             debut.elapsed().as_secs_f32()
         );
         assert!(
             route.cout(depart) < HORS_ROUTE,
-            "le bas de la tour ne mène pas à la vigie"
+            "le bas de la tour ne mène pas au sommet"
         );
     }
 
-    /// Le script des entrées du pilote (graine 1, normal), du début du niveau
-    /// jusqu'à un jeté de la vigie qui se cabre, Pépin sur la vigie : un
-    /// caractère par pas (`code_entrees`), dans `target/qa/913g-pilote-vigie.txt`.
-    /// Pour la capture `docs/qa/913g-pilote-vigie.png` (build jetable qui
-    /// prépare la phase 2 comme `debut_phase_2` et rejoue ce script).
-    #[test]
-    #[ignore = "pilote de la Pieuvre (carte 9.13g) : se lance à la main"]
-    fn ecrire_script_pilote_vigie() {
-        let mut script = String::new();
-        let mut fin = None;
-        jouer(debut_phase_2(Some(1), false), &mut |p| p, |m, e| {
-            let cabre = matches!(pieuvre(m).etat_jete(), Some((_, EtatJete::Cabre(k))) if k > 0.6);
-            if sur_la_vigie(m) && cabre {
-                fin = Some((m.pas, m.joueur.boite, pieuvre(m).pv()));
-                return false;
-            }
-            script.push(super::super::code_entrees(e, false));
-            true
-        });
-        let (pas, boite, pv) = fin.expect("le pilote arrive sur la vigie");
-        std::fs::create_dir_all("../target/qa").expect("dossier target/qa");
-        std::fs::write("../target/qa/913g-pilote-vigie.txt", &script).expect("écriture du script");
-        println!(
-            "script : {} pas (pas du monde {pas}), Pépin {boite:?}, {pv} têtes",
-            script.len()
-        );
-        assert_eq!(script.len() as u32, pas);
-    }
-
-    /// LA PREUVE (carte 9.13g) : la phase 2 complète, du bas de la tour à la
-    /// victoire, pour 5 graines en normal et 5 en facile. Lancer avec :
+    /// LA PREUVE (cartes 9.13g et 9.36a) : la phase 2 complète, du bas de la
+    /// tour à la fuite de la Pieuvre, pour 10 graines en normal et 10 en facile.
+    /// Lancer avec :
     /// `timeout 600 ./docker-cargo.sh test -p game --no-default-features --profile tests-rapides le_pilote_finit_la_phase_2 -- --ignored --nocapture`
     #[test]
-    #[ignore = "pilote de la Pieuvre (carte 9.13g) : se lance à la main"]
+    #[ignore = "pilote de la Pieuvre (cartes 9.13g et 9.36a) : se lance à la main"]
     fn le_pilote_finit_la_phase_2() {
         let debut = std::time::Instant::now();
-        // Les 10 parties sur les fils libres (`PEPIN_FILS`), dans l'ordre.
+        // Les 20 parties sur les fils libres (`PEPIN_FILS`), dans l'ordre.
         let parties: Vec<(bool, u32)> = [false, true]
             .iter()
             .flat_map(|&f| GRAINES.iter().map(move |&g| (f, g)))
@@ -792,14 +646,19 @@ mod tests {
             victoires += usize::from(b.victoire);
             lignes.push(ligne(mode, g, b));
         }
-        println!("| mode | graine | victoire | morts | têtes montée+vigie | durée | attaques vues | cycles de vigie (têtes) | morts (lieu, cause) |");
+        println!("| mode | graine | victoire | morts | durée | objets lancés | mer au plus près (tuiles) | morts (lieu, cause) |");
         for l in &lignes {
             println!("{l}");
         }
         println!(
-            "{victoires}/10 victoires ({:.0} s)",
+            "{victoires}/{} victoires ({:.0} s)",
+            parties.len(),
             debut.elapsed().as_secs_f32()
         );
-        assert_eq!(victoires, 10, "le pilote ne finit pas toutes les parties");
+        assert_eq!(
+            victoires,
+            parties.len(),
+            "le pilote ne finit pas toutes les parties"
+        );
     }
 }

@@ -203,11 +203,10 @@ fn texture_tramee(image: &[&str], theme: Option<Theme>, trame: bool) -> Texture2
 }
 
 /// Une image a-t-elle sa version PÂLE (tramée en damier, `Banque::dessiner_pale`) ?
-/// Les boss du mode facile seulement : le Grand Nuage (`nuage_...`), la tête de la
-/// Pieuvre (`pieuvre_...`) et la géante de la phase 2 (`geante...`, carte 9.33 : sans
-/// elle, la géante du mode facile n'était pas dessinée du tout).
+/// Les boss du mode facile seulement : le Grand Nuage (`nuage_...`) et la tête de la
+/// Pieuvre (`pieuvre_...`, phase 1 et, carte 9.36a, au loin pendant la phase 2).
 fn a_une_version_pale(nom: &str) -> bool {
-    nom.starts_with("nuage_") || nom.starts_with("pieuvre_") || nom.starts_with("geante")
+    nom.starts_with("nuage_") || nom.starts_with("pieuvre_")
 }
 
 /// Toutes les textures du jeu, rangées par nom.
@@ -278,11 +277,9 @@ impl Banque {
                 }
             }
         }
-        // Le boss du mode facile, plus pâle : le Grand Nuage, la tête de la Pieuvre, et
-        // (carte 9.33) la GÉANTE de la phase 2 : `dessin_montee` la dessine pâle en
-        // facile, mais ses images (`geante0`...) n'avaient pas de version pâle, et
-        // `dessiner_pale` ne dessinait alors RIEN (la géante absente, ses yeux et ses
-        // veines flottant seuls).
+        // Le boss du mode facile, plus pâle : le Grand Nuage et la tête de la Pieuvre
+        // (carte 9.33 : une image dessinée pâle sans version pâle n'est pas dessinée
+        // du tout ; voir `chaque_image_dessinee_pale_a_sa_version_pale`).
         let nuages_trames = [ennemis::sprites(), pieuvre::sprites()]
             .concat()
             .iter()
@@ -484,7 +481,7 @@ mod tests {
 
     /// Carte 9.33 : chaque image que le jeu dessine PÂLE (`dessiner_pale`, boss du mode
     /// facile) a sa version pâle, sinon `dessiner_pale` ne dessine rien du tout (la
-    /// géante de la phase 2 de la Pieuvre était invisible en facile). On relit les
+    /// géante de l'ancienne phase 2 de la Pieuvre était invisible en facile). On relit les
     /// appels dans les fichiers de dessin : le nom (lu de la ligne `let nom = ...` à
     /// l'appel) doit exister ET avoir sa version pâle.
     #[test]
@@ -518,9 +515,10 @@ mod tests {
                 }
             }
         }
-        // geante0/1, geante_furieuse0/1, pieuvre_colere0/1 au moins.
+        // Carte 9.36a : pieuvre_colere0/1 (phase 1, et au loin en phase 2) et
+        // pieuvre_touchee (sa fuite) au moins.
         assert!(vus >= 6, "{vus} noms vérifiés");
-        for nom in ["geante0", "geante1", "geante_furieuse0", "geante_furieuse1"] {
+        for nom in ["pieuvre_colere0", "pieuvre_colere1", "pieuvre_touchee"] {
             assert!(noms.contains(&nom) && a_une_version_pale(nom), "{nom}");
         }
     }

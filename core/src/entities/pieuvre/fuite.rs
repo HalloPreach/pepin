@@ -1,73 +1,64 @@
-//! La phase 2 de la Pieuvre du port, « fuite et montée » (carte 9.13a).
+//! La phase 2 de la Pieuvre du port : la RETRAITE et la MER (cartes 9.13a et
+//! 9.36a).
 //!
-//! Demande d'AGA : « J'aime pas la pieuvre, elle manque toujours de quelque chose
-//! pour un boss final… Une phase deux ? ». Il a choisi : « Fuite et montée : elle
-//! casse le quai, la mer monte, on grimpe sur des caisses et des mâts en fuyant
-//! les tentacules qui montent par-dessous, et on l'achève en haut (caméra
-//! verticale). »
+//! Décision d'AGA (27/11, carte 9.36a) : « je pense supprimer la p2 telle qu'elle
+//! est actuellement, et juste faire une montée contre l'eau qui avance plus vite
+//! avec des objets qui tombent du ciel envoyés par la pieuvre. on ne la tue pas à
+//! la fin, comme le nuage juste elle finit par s'enfuir ».
 //!
 //! ```text
-//!   phase 1 (inchangée) ── 3e coup ──► FURIE (2 s) ──► MONTÉE ── coup final ──► plongée ──► vaincue
-//!                                       la bâche se       la mer monte, la
-//!                                       déchire, la       géante grimpe avec elle
-//!                                       trombe s'élève    et attaque (`montee`)
+//!   phase 1 (inchangée) ── 3e coup ──► FURIE (2 s) ──► MONTÉE ── le sommet ──► fuite ──► vaincue
+//!                                       elle se retire   la mer monte, les        elle plonge au
+//!                                       au large, la     objets tombent           large, la mer
+//!                                       bâche se déchire (`montee`)               redescend
 //! ```
 //!
-//! - FURIE (`FURIE_PAS`, 2 s, sans danger hors de l'eau) : elle hurle, l'écran
-//!   tremble. La BÂCHE (le plafond de l'arène, `_` dans la grille : une boîte
-//!   solide pendant la phase 1, pour qu'on ne monte pas avant) se déchire, et une
-//!   TROMBE (un courant ascendant, la règle des bulles) monte du bassin, au-dessus
-//!   du trou du milieu, jusqu'à la corniche du bas de la tour. À la fin de la
-//!   furie, le QUAI de l'arène casse : toutes ses plateformes tombent à l'eau.
+//! - FURIE (`FURIE_PAS`, 2 s, sans danger hors de l'eau) : vaincue en phase 1,
+//!   elle hurle et SE RETIRE AU LARGE ; l'écran tremble. La BÂCHE (le plafond de
+//!   l'arène, `_` dans la grille : une boîte solide pendant la phase 1, pour qu'on
+//!   ne monte pas avant) se déchire, et une TROMBE (un courant ascendant, la règle
+//!   des bulles) monte du bassin, au-dessus du trou du milieu, jusqu'à la
+//!   corniche du bas de la tour. À la fin de la furie, le QUAI de l'arène casse :
+//!   toutes ses plateformes tombent à l'eau.
 //! - MONTÉE : la mer monte (`surface_mer`), d'abord vite (la CRUE remplit l'arène
-//!   jusqu'à la bâche), puis d'environ 1 tuile toutes les 1,3 s, avec un court
-//!   palier de répit, annoncé, sous chaque corniche large de la tour. Sa surface
-//!   en furie TUE au contact, BARQUE COMPRISE : pas de bateau en phase 2 (elle
-//!   noierait la barque comme Pépin : `blesse_en_fuite` regarde seulement si les
-//!   pieds passent sous la surface). Carte 9.13c : la Pieuvre GÉANTE monte avec
-//!   la mer, dans un couloir à droite de la tour, et toutes ses attaques partent
-//!   visiblement de son corps (frappe visée, balayage, secousse, arrachage,
-//!   jeté) : voir `montee`. Plus aucun tentacule ne jaillit de la surface sans
-//!   corps. Carte 9.13d : c'est son CERVEAU qui choisit ses attaques (plus aucune
-//!   rangée fixe ; une graine qui change à chaque tentative), la frappe vise
-//!   l'appui où Pépin va atterrir, et son humeur monte (`montee::cerveau`).
-//! - COUP FINAL : sur la vigie (`&`), elle se jette deux fois de suite (la
-//!   seconde plus vive) ; sonnée, un saut sur sa tête lui prend une tête. Il faut
-//!   lui prendre toutes celles qui restent (3 moins les coups de la montée) ;
-//!   à la dernière, la plongée, puis vaincue : le niveau est fini comme avant.
+//!   jusqu'à la bâche), puis d'une tuile par seconde (`VITESSE_MER`), sans palier,
+//!   jusque sous le sommet (`arret_mer`). Sa surface TUE au contact, BARQUE
+//!   COMPRISE (`blesse_en_fuite` regarde seulement si les pieds passent sous la
+//!   surface). Elle SUIT Pépin et ne descend jamais : voir `montee`.
+//! - LA FUITE : Pépin au sommet, elle plonge et disparaît au large
+//!   (`PLONGEE_PAS`, 2 s) pendant que la mer REDESCEND (`DESCENTE_MER`), puis
+//!   elle est « vaincue » : le niveau est fini comme avant (bilan, gouttes,
+//!   déblocage, sauvegarde). On ne la tue pas.
 //!
-//! Une mort pendant la phase 2 ramène au DÉBUT DE LA PHASE 2 : la lanterne de la
-//! tour s'allume d'elle-même dès la furie (`entities::contacts`), et `reprendre`
-//! remet la mer en bas (carte 9.13b : ou sous n'importe quelle lanterne plus
-//! haute, voir `montee::reprendre_a`).
+//! Une mort pendant la phase 2 ramène à la dernière lanterne de la tour : celle
+//! du bas s'allume d'elle-même dès la furie (`entities::contacts`), et
+//! `montee::reprendre_a` remet la mer sous la lanterne.
 //!
-//! MODE FACILE : la mer monte 0,75 fois moins vite, les attaques s'annoncent et
-//! reviennent 0,75 fois moins vite.
+//! MODE FACILE : la mer monte 0,75 fois moins vite (`FACTEUR_FACILE`).
 //!
 //! Notions Rust : un sous-module qui ajoute des méthodes à la structure de son
 //! parent (un second bloc `impl Pieuvre`) et voit ses champs privés ; une
-//! fonction pure du temps (`surface_mer_a`) parcourue segment par segment.
+//! fonction pure du temps (`surface_mer_a`).
 
-use super::{PhasePieuvre, Pieuvre};
+use super::{PhasePieuvre, Pieuvre, PLONGEE_PAS};
 use crate::aabb::{Aabb, Grille, Tuile, TAILLE_TUILE};
 use crate::physics::CourantAscendant;
 
-/// La furie : 2 s, elle hurle et l'écran tremble ; le quai casse à la fin.
+/// La furie : 2 s, elle hurle et se retire ; l'écran tremble ; le quai casse à
+/// la fin.
 pub const FURIE_PAS: u16 = 120;
 /// La crue qui remplit l'arène (px par pas) : une tuile en 0,5 s.
 pub const VITESSE_CRUE: f32 = TAILLE_TUILE / 30.0;
-/// La mer dans la tour (px par pas) : une tuile toutes les 1,3 s.
-pub const VITESSE_MER: f32 = TAILLE_TUILE / 78.0;
+/// Carte 9.36a : la mer dans la tour (px par pas), une tuile par seconde (la
+/// 9.13f : une tuile toutes les 1,3 s). C'est la menace principale ; réglée par
+/// la mesure de difficulté (`CLE=pieuvre`).
+pub const VITESSE_MER: f32 = TAILLE_TUILE / 70.0;
 /// Mode facile : la mer monte 0,75 fois moins vite.
 pub const FACTEUR_FACILE: f32 = 0.75;
-/// Un palier de répit : la mer s'arrête 2,5 s.
-pub const PALIER_PAS: u16 = 150;
-/// Annonce d'un palier : la dernière seconde de montée avant lui.
-pub const ANNONCE_PALIER_PAS: u16 = 60;
-/// Largeur (en tuiles) d'une corniche LARGE, qui a son palier.
-pub const CORNICHE_LARGE: usize = 8;
-/// Le palier : la mer s'arrête 3 tuiles sous la corniche.
-pub const SOUS_LA_CORNICHE: f32 = 3.0 * TAILLE_TUILE;
+/// La mer s'arrête 3 tuiles sous le sommet.
+pub const SOUS_LE_SOMMET: f32 = 3.0 * TAILLE_TUILE;
+/// À la fuite, la mer redescend de 6 tuiles pendant la plongée.
+pub const DESCENTE_MER: f32 = 6.0 * TAILLE_TUILE;
 
 impl Pieuvre {
     /// La phase 2 commence (le dernier coup de la phase 1) : plus de saisie.
@@ -91,10 +82,7 @@ impl Pieuvre {
     /// la furie à la fin du niveau.
     pub(super) fn cases_de_la_fuite(&self) -> Vec<(i32, i32)> {
         if self.quai_casse() {
-            let mut cases: Vec<(i32, i32)> = self.plateformes.iter().flatten().copied().collect();
-            // Carte 9.13b : les plateformes arrachées de la tour.
-            cases.extend(self.cases_arrachees());
-            cases
+            self.plateformes.iter().flatten().copied().collect()
         } else {
             Vec::new()
         }
@@ -129,76 +117,46 @@ impl Pieuvre {
         ((self.depart_mer() - haut) / VITESSE_CRUE).ceil() as u16
     }
 
-    /// Ordonnée (px) de la mer au pas `t` de la montée. Fonction pure : la crue
-    /// jusqu'à la bâche, puis la montée lente, arrêtée `PALIER_PAS` à chaque
-    /// palier, jusqu'à `arret_mer`.
+    /// Ordonnée (px) de la mer au pas `t` de son horloge. Fonction pure : la crue
+    /// jusqu'à la bâche, puis la montée régulière (`vitesse_mer`), jusqu'à
+    /// `arret_mer`. Elle ne descend jamais quand `t` grandit.
     pub fn surface_mer_a(&self, t: u16) -> f32 {
         let crue = self.fin_de_crue();
         if t < crue {
             return self.depart_mer() - f32::from(t) * VITESSE_CRUE;
         }
-        let v = self.vitesse_mer();
-        let mut y = self.bache.map_or(self.depart_mer(), |b| b.bas());
-        let mut reste = f32::from(t - crue);
-        for &p in self.paliers.iter().filter(|&&p| p > self.arret_mer) {
-            let d = (y - p).max(0.0) / v;
-            if reste < d {
-                return y - reste * v;
-            }
-            reste -= d;
-            y = p;
-            if reste < f32::from(PALIER_PAS) {
-                return p;
-            }
-            reste -= f32::from(PALIER_PAS);
-        }
-        (y - reste * v).max(self.arret_mer)
+        let y = self.bache.map_or(self.depart_mer(), |b| b.bas());
+        (y - f32::from(t - crue) * self.vitesse_mer()).max(self.arret_mer)
     }
 
-    /// La mer en ce moment (`None` hors de la phase 2). Elle tue au contact.
+    /// La mer en ce moment (`None` hors de la phase 2). Elle tue au contact,
+    /// pendant la furie et la montée.
     pub fn surface_mer(&self) -> Option<f32> {
         if !self.fuite {
             return None;
         }
         Some(match self.phase {
-            // Carte 9.13b : l'horloge de la mer s'arrête pendant un jeté et
-            // recule après chaque coup (`montee`).
             PhasePieuvre::Montee => self.surface_mer_a(self.horloge_mer()),
-            // Après le coup final, elle reste où elle était (`arret_mer`).
-            PhasePieuvre::Plongee | PhasePieuvre::Vaincue => self.arret_mer,
+            // La fuite (carte 9.36a) : la mer redescend de `DESCENTE_MER`
+            // depuis là où elle était, pendant la plongée.
+            PhasePieuvre::Plongee | PhasePieuvre::Vaincue => {
+                let k = (f32::from(self.ecoule()) / f32::from(PLONGEE_PAS)).min(1.0);
+                let k = if self.phase == PhasePieuvre::Vaincue {
+                    1.0
+                } else {
+                    k
+                };
+                self.arret_mer + k * DESCENTE_MER
+            }
             _ => self.depart_mer(),
         })
     }
 
-    /// Le coup final : la mer se fige où elle est.
+    /// La fuite commence : la mer se fige où elle est (elle redescendra d'ici).
     pub(super) fn figer_la_mer(&mut self) {
         if let Some(s) = self.surface_mer() {
             self.arret_mer = s;
         }
-    }
-
-    /// La mer est-elle à un palier au pas `t` de la montée ?
-    pub(super) fn au_palier(&self, t: u16) -> bool {
-        let s = self.surface_mer_a(t);
-        t >= self.fin_de_crue()
-            && self.paliers.iter().any(|&p| (s - p).abs() < 0.01)
-            && (self.surface_mer_a(t.saturating_sub(1)) - s).abs() < 0.01
-    }
-
-    /// Annonce d'un palier : `Some(progression)` (de 0 à 1) pendant la dernière
-    /// seconde avant que la mer s'arrête, puis `Some(1.0)` tant qu'elle est
-    /// arrêtée ; `None` sinon. Le dessin la montre aux murs.
-    pub fn annonce_palier(&self) -> Option<f32> {
-        if self.phase != PhasePieuvre::Montee {
-            return None;
-        }
-        let t = self.horloge_mer();
-        if self.au_palier(t) {
-            return Some(1.0);
-        }
-        (1..=ANNONCE_PALIER_PAS)
-            .find(|&k| self.au_palier(t.saturating_add(k)))
-            .map(|k| 1.0 - f32::from(k) / f32::from(ANNONCE_PALIER_PAS))
     }
 
     /// La place de la trombe : au-dessus du trou du milieu (la place du milieu de
@@ -206,7 +164,7 @@ impl Pieuvre {
     /// de la bâche). `None` sans phase 2.
     pub fn zone_trombe(&self) -> Option<Aabb> {
         let bache = self.bache?;
-        self.tete_finale?;
+        self.sommet?;
         let milieu = self.places[0];
         let haut = bache.y - 2.0 * TAILLE_TUILE;
         Some(Aabb::new(
@@ -227,9 +185,11 @@ impl Pieuvre {
     }
 
     /// Phase 2 : la mer en furie touche-t-elle `boite` (ses pieds sous la
-    /// surface) ?
+    /// surface) ? Pendant la furie et la montée seulement : à la fuite, elle
+    /// redescend, calmée.
     pub(super) fn blesse_en_fuite(&self, boite: &Aabb) -> bool {
-        self.surface_mer().is_some_and(|mer| boite.bas() > mer)
+        matches!(self.phase, PhasePieuvre::Furie | PhasePieuvre::Montee)
+            && self.surface_mer().is_some_and(|mer| boite.bas() > mer)
     }
 
     /// Les appuis de la tour au-dessus de la bâche : `(dessus, gauche, droite)` en
@@ -261,40 +221,14 @@ impl Pieuvre {
     }
 
     /// Pour le robot de faisabilité, qui ne connaît pas le temps : la pieuvre est
-    /// déjà en montée, la tête offerte sur la vigie, en haut de la tour ; la mer ne
-    /// monte pas pour lui et la géante n'attaque pas (un joueur patient de la
-    /// phase 1 attend la furie, et la mer laisse le temps de grimper :
-    /// `levels::pieuvre::tests`). Sans tour, rien ne change.
+    /// déjà en montée ; la mer ne monte pas pour lui et rien ne tombe, et entrer
+    /// dans le sommet compte comme un coup (un joueur patient de la phase 1
+    /// attend la furie ; la vraie montée est vérifiée par le pilote et les tests
+    /// du niveau). Sans tour, rien ne change.
     pub fn pour_le_robot(&mut self) {
-        if self.tete_finale.is_some() {
+        if self.sommet.is_some() {
             self.entrer(PhasePieuvre::Montee);
-            self.offrir_la_vigie();
+            self.tour.pour_le_robot();
         }
     }
-}
-
-/// Les paliers de la mer dans une tour : 3 tuiles sous chaque corniche LARGE
-/// (au moins `CORNICHE_LARGE` cases solides de suite, libres au-dessus), au-dessus
-/// de la corniche du bas (`plus_bas`, en rangées). De la plus basse à la plus haute.
-pub fn paliers_de_la_tour(
-    solide: impl Fn(usize, usize) -> bool,
-    largeur: usize,
-    plus_bas: usize,
-) -> Vec<f32> {
-    let mut paliers = Vec::new();
-    for y in (1..plus_bas).rev() {
-        let mut suite = 0;
-        let large = (0..largeur).any(|x| {
-            suite = if solide(x, y) && !solide(x, y - 1) {
-                suite + 1
-            } else {
-                0
-            };
-            suite >= CORNICHE_LARGE
-        });
-        if large {
-            paliers.push(y as f32 * TAILLE_TUILE + SOUS_LA_CORNICHE);
-        }
-    }
-    paliers
 }
