@@ -7907,3 +7907,46 @@ Pas testé :
 - une vraie sauvegarde de joueur (aucune n'est accessible ici : les sauvegardes sont écrites à la main au format de la prod) ;
 - le téléphone et un joueur humain ;
 - la bannière de la Pieuvre APRÈS UNE MORT dans le navigateur. Elle est couverte par le test `la_banniere_nomme_le_bon_boss`, et c'est la même fonction de dessin que la capture prise sur la carte.
+
+## Carte 9.33 : l'affichage de la Pieuvre en phase 2 était cassé (en MODE FACILE seulement)
+
+Worktree `carte-9.33`, depuis monde-2 `420da59`. Signalement d'AGA du 24/11 sur la prod (`ffe6a4f`, arbre de `dd45fb2`) : pendant la montée, aucun corps de Pieuvre géante, seulement un dôme rouge plat qui flotte, des traits violets, deux taches blanches et un tentacule.
+
+### Ce qui était cassé, en clair
+
+En MODE FACILE (proposé après 10 défaites d'affilée à la Pieuvre, puis « TROP DUR ? » OUI), la géante de la phase 2 n'était PAS DESSINÉE : son corps (`geante0`/`geante1`, ou `geante_furieuse*`) manquait, et on ne voyait que ce qui se pose PAR-DESSUS : l'œil injecté de sang (le « dôme rouge plat »), les veines du front (les « traits violets »), les bouffées de vapeur (les « taches blanches »), la pupille, la bouche, et ses tentacules (`agripper`, `bras_*`), qui, eux, n'ont pas de version pâle. C'est exactement la capture d'AGA. En mode NORMAL, rien n'est cassé.
+
+### La cause, et le commit qui a cassé
+
+- `game/src/dessin_montee.rs`, `dessiner_geante` : en facile, la tête entière est dessinée PÂLE (`banque.dessiner_pale(nom, ...)`, tramée en damier comme le Grand Nuage du mode facile).
+- `Banque::dessiner_pale` (`game/src/sprites/mod.rs`) ne dessine que les images rangées dans `nuages_trames`, et ne dessine RIEN pour un nom absent (pas d'erreur). Or `nuages_trames` ne gardait que les noms `nuage_...` et `pieuvre_...` : les images `geante...` n'y étaient pas.
+- Le commit : `2b4fc30` (carte 9.13c, 22/11, « la Pieuvre géante, visible, grimpe à côté de la tour ») : il a ajouté les sprites `geante0`, `geante1`... et l'appel `dessiner_pale` pour eux, sans les ajouter au filtre. Le défaut est donc là DEPUIS la création de la géante : il est dans `c4d715b` (ancienne prod), `dd45fb2` (prod actuelle), `c4cc6a2` et `420da59`. Aucune carte de 10.4 à 11.x ni la 9.32 ne l'a causé.
+- Pourquoi personne ne l'a vu : toutes les captures et tous les tests de la phase 2 étaient en mode normal (le pilote de la 9.13g gagne aussi en facile, mais ses tests ne dessinent rien). AGA a dû voir la phase 2 en normal sur `c4d715b`, puis, après 10 défaites, en facile sur la prod.
+
+### Reproduit dans la VRAIE suite du jeu (phase 1, fuite, montée)
+
+- `game/src/bot_qa/captures_933.rs` (nouveau, tests ignorés `ecrire_script_pieuvre_933` et `ecrire_script_pieuvre_933_facile`) : la partie jouée image par image dans l'APPLICATION (comme `jouer_depuis_le_titre`). Normal : depuis la carte de titre de la Pieuvre, le parcours du robot de partie (phase 1 par points puis le pilote de la tour, carte 10.7), 6 417 images, aucune mort. Facile : depuis le TITRE, sauvegarde « tout fini avant la Pieuvre, 10 défaites à la Pieuvre », JOUER, Pépin tombe à l'eau, la bannière, OUI ; la phase 1 du robot (la Pieuvre n'a que 2 têtes) puis le pilote dès la phase 2 (il meurt une fois au début de la fuite, repart de la lanterne du bas, puis gagne) : 5 613 images. Les scripts sont dans `docs/script-pieuvre-933.txt` et `docs/script-pieuvre-933-facile.txt`.
+- `docs/capture-933.sh PORT DOSSIER PREFIXE normal|facile [NB_N]` (nouveau) : rejoue le script dans le build de QA et photographie la fuite (2 images), le bas, le milieu et le haut de la tour, la vigie (2 images) et la plongée, puis COMPARE AU PIXEL avec les références `docs/qa/933-ref/` (code de sortie 1 si une image diffère ; `COMPARER=0` pour s'en passer).
+- `docs/capture-102.mjs` : commande `s:fichier:n` (rejoue n images d'un script, base 32, par `P.script` de `pilote-qa.js`) et variable `SAUVEGARDE` (une sauvegarde posée dans `localStorage` au lieu d'une vide). Sans elles, rien ne change pour les scripts d'avant.
+- `pilote_pieuvre::sur_la_vigie` passe `pub(crate)` (lecture seule, pour noter le moment « vigie »).
+
+Captures (Chromium 1208 sans écran, 0 erreur de console), builds de QA faits sur des extractions propres (`git archive`) :
+- FACILE, `c4d715b`, `dd45fb2` et `420da59` : la géante absente sur la tour au milieu, en haut et sur la vigie, seuls l'œil, les veines, la vapeur et les tentacules (`docs/qa/933-c4d715b-facile-tour-milieu.png`, `933-avant-facile-tour-milieu.png`, `933-avant-facile-vigie.png`). `dd45fb2` et `420da59` ne diffèrent que par le compteur de gouttes du HUD (162 à 207 pixels, x 105..122, y 18..38 : 21 gouttes au Monde 2 avant la marée, 24 après).
+- NORMAL : la géante est là partout, sur les trois commits. `c4d715b` et `dd45fb2` diffèrent beaucoup (la mer qui suit Pépin de la 9.13f et les fonds PNG arrivent entre les deux, la montée n'est plus la même partie) ; `dd45fb2` et `420da59` : le compteur de gouttes seulement. Aucun défaut d'affichage de ce côté.
+
+### Le correctif (le plus petit)
+
+`game/src/sprites/mod.rs` : le filtre des images pâles devient `a_une_version_pale(nom)` : `nuage_...`, `pieuvre_...` et `geante...`. Rien d'autre : ni le niveau, ni la Pieuvre, ni le gameplay. Test nouveau `sprites::tests::chaque_image_dessinee_pale_a_sa_version_pale` : relit les appels `dessiner_pale(nom` de `dessin_montee.rs`, `dessin_pieuvre.rs` et `scene/nuage.rs`, et vérifie que chaque nom d'image qui les prépare a sa version pâle (il échoue sans le correctif, sur `geante_furieuse0`).
+
+### Preuves
+
+- Correctif contre `420da59`, mêmes scripts : NORMAL 9/9 captures IDENTIQUES au pixel (carte de titre, fuite x2, tour bas, milieu, haut, vigie x2, plongée). FACILE : fuite x2, tour bas et plongée IDENTIQUES ; tour milieu, tour haut, vigie x2 : 5 661 à 5 760 pixels différents, tous dans le rectangle de la tête de la géante (x 705..875) : la géante pâle (tramée en damier) est maintenant dessinée sous son œil et ses veines (`docs/qa/933-apres-facile-tour-milieu.png`, `933-apres-facile-vigie.png`). Regardées : la géante entière, pâle, l'œil à sa place, la vapeur au-dessus d'elle.
+- Pas de « dernier commit bon » au pixel en facile : le défaut existe depuis la création de la géante. La référence est donc le dessin voulu par la 9.13c (`dessiner_pale` : la tête tramée, comme le Grand Nuage du mode facile), et le mode normal, identique au pixel.
+- `docs/capture-933.sh 8934 ... v facile` sur le build corrigé : 8/8 IDENTIQUES aux références, code de sortie 0 ; sur le build de `dd45fb2` : 0/8 (4 images à 5 800 pixels environ dans la géante, les 4 autres au compteur de gouttes) : le script voit le défaut.
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK. `./docker-cargo.sh carte pieuvre` : VERT en 34 s (core 324, game 437 dont le test nouveau, niveaux 18, tous 90, `faisabilite::le_niveau_de_la_carte`).
+
+### Pas fait, pas testé
+
+- Le lot complet, la prod (le coordinateur s'en charge : le correctif part en prod, `game.wasm` change, les textures pâles de la géante en plus).
+- Téléphone, joueur humain.
+- Les références de `docs/qa/933-ref/` sont celles de monde-2 (24 gouttes au Monde 2) : sur `main` (21 gouttes), comparer avec `COMPARER=0` et `comparer-captures.py`, ou refaire les références.

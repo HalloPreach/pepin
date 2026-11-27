@@ -19,7 +19,10 @@
 // Avec des commandes en plus, on remplace le parcours par le sien (mise au point d'un
 // parcours) : `t:Code:n` tape la touche (code DOM) puis attend n images ; `m:masque:n` tient
 // le masque n images (1 Entrée, 2 gauche, 4 droite, 8 saut, 16 bas) ; `w:n` attend n images ;
-// `c:nom` capture PREFIXE-nom.png.
+// `c:nom` capture PREFIXE-nom.png ; `s:fichier:n` (carte 9.33) rejoue les n caractères
+// suivants d'un script (un caractère par image, base 32, voir `pilote-qa.js`), écrit par
+// exemple par le test `ecrire_script_pieuvre_933` ; le fichier est relu depuis son début
+// quand il change.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -104,9 +107,14 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, devic
 // dans le `localStorage` (clé `pepin.niveau_essai`) et la page s'ouvre avec `?essai=1` :
 // le build de QA le lance directement (voir `game/src/essai_externe.rs`).
 const essai = process.env.ESSAI_RON ? fs.readFileSync(process.env.ESSAI_RON, 'utf8') : null;
-// Carte 9.34 : avec la variable SAUVEGARDE (chemin d'un texte de sauvegarde v3), elle
-// est posée dans le `localStorage` (clé `pepin.sauvegarde`) au lieu d'une sauvegarde vide.
-const sauvegarde = process.env.SAUVEGARDE ? fs.readFileSync(process.env.SAUVEGARDE, 'utf8') : null;
+// Cartes 9.33 et 9.34 : avec la variable SAUVEGARDE, une sauvegarde v3 est posée dans le
+// `localStorage` (clé `pepin.sauvegarde`) au lieu d'une sauvegarde vide. SAUVEGARDE est soit
+// le CHEMIN d'un fichier texte (9.34), soit le TEXTE lui-même (9.33).
+const sauvegarde = process.env.SAUVEGARDE
+  ? (fs.existsSync(process.env.SAUVEGARDE)
+    ? fs.readFileSync(process.env.SAUVEGARDE, 'utf8')
+    : process.env.SAUVEGARDE)
+  : null;
 const poser = (essai ? `localStorage.setItem('pepin.niveau_essai', ${JSON.stringify(essai)});` : '')
   + (sauvegarde ? `localStorage.setItem('pepin.sauvegarde', ${JSON.stringify(sauvegarde)});` : '');
 await cdp('Page.addScriptToEvaluateOnNewDocument', {
@@ -133,12 +141,29 @@ const vide = async () => {
   await dormir(200);
 };
 const pousser = async (s) => { await evalue(`window.__P.file.push(${JSON.stringify(s)}); 1`); await vide(); };
+// Commande `s:` : le script est confié au pilote (`P.script`), qui joue `P.cible - P.pos`
+// images ; on attend qu'il les ait jouées.
+let scriptCharge = null;
+const rejouer = async (fichier, n) => {
+  if (scriptCharge !== fichier) {
+    const texte = fs.readFileSync(fichier, 'utf8').trim();
+    await evalue(`window.__P.script = ${JSON.stringify(texte)}; window.__P.pos = 0; window.__P.cible = 0; 1`);
+    scriptCharge = fichier;
+  }
+  await evalue(`window.__P.cible = window.__P.pos + ${n}; 1`);
+  for (let i = 0; i < 40000; i++) {
+    if (await evalue('window.__P.pos >= Math.min(window.__P.cible, window.__P.script.length)')) break;
+    await dormir(25);
+  }
+  await dormir(200);
+};
 fs.mkdirSync(sortie, { recursive: true });
 for (const e of etapes) {
   const [k, a, b] = e.split(':');
   if (k === 't') await pousser({ n: Number(b || 20), m: 0, taper: [a] });
   else if (k === 'm') await pousser({ n: Number(b), m: Number(a) });
   else if (k === 'w') await pousser({ n: Number(a), m: 0 });
+  else if (k === 's') await rejouer(a, Number(b));
   else if (k === 'c') {
     const r = await cdp('Page.captureScreenshot', { format: 'png' });
     const fichier = path.join(sortie, `${prefixe}-${a}.png`);
