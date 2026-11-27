@@ -308,12 +308,6 @@ fn zone_annoncee(p: &Pieuvre, b: &Aabb) -> bool {
     })
 }
 
-/// Pépin est-il debout au sommet (ses pieds au niveau de son bas) ?
-pub(crate) fn au_sommet(m: &Monde) -> bool {
-    let s = pieuvre(m).sommet.map_or(f32::MAX, |s| s.bas());
-    (m.joueur.boite.bas() - s).abs() < 2.0
-}
-
 /// Ce qui s'est passé pendant une partie (le tableau de QA.md).
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Bilan {
