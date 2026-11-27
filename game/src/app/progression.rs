@@ -140,10 +140,12 @@ impl Application {
 
     // --- Mode facile du Grand Nuage (carte 8.14) ------------------------------------
 
-    /// Une mort au boss en mode normal : une défaite de plus (enregistrée) ; à partir
-    /// de `DEFAITES_AVANT_FACILE`, la bannière « TROP DUR ? » s'ouvre (pas pendant
-    /// « plus de vies », ni si NON a déjà été répondu dans ce niveau). La démo du
-    /// titre ne passe pas par ici (`pas_demo`), et une course ne compte pas.
+    /// Une mort au boss en mode normal : une défaite de plus dans la visite (et dans
+    /// la statistique enregistrée) ; à partir de `DEFAITES_AVANT_FACILE` défaites de
+    /// la VISITE (carte 9.34), la bannière « TROP DUR ? » s'ouvre (pas pendant « plus
+    /// de vies », ni si NON a déjà été répondu dans la visite, ni pour un boss déjà
+    /// battu en normal). La démo du titre ne
+    /// passe pas par ici (`pas_demo`), et une course ne compte pas.
     fn compter_defaite_au_boss(&mut self) {
         // Une fois l'animation de la mort jouée, le rideau fermé (carte 9.24) : la
         // bannière ne la cache pas.
@@ -152,12 +154,18 @@ impl Application {
         if !mort || self.facile.actif || self.fantome.is_some() || self.monde.pv_nuage().is_none() {
             return;
         }
-        let n = mode_facile::noter_defaite(&mut self.sauvegarde, self.monde.infos.cle);
+        mode_facile::noter_defaite(&mut self.sauvegarde, self.monde.infos.cle);
         self.sauvegarde.enregistrer();
-        if n >= mode_facile::DEFAITES_AVANT_FACILE
-            && !self.facile.refusee
-            && !self.monde.etat.vies.plus_de_vies()
-        {
+        self.facile.defaites_visite = self.facile.defaites_visite.saturating_add(1);
+        if mode_facile::proposer_apres_une_mort(mode_facile::ApresUneMort {
+            defaites_visite: self.facile.defaites_visite,
+            refusee: self.facile.refusee,
+            plus_de_vies: self.monde.etat.vies.plus_de_vies(),
+            battu_en_normal: self
+                .sauvegarde
+                .progres(self.monde.infos.cle)
+                .battu_en_normal(),
+        }) {
             self.facile.proposition = Some(Proposition::new(Origine::Mort));
         }
     }

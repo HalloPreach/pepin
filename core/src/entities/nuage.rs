@@ -30,8 +30,8 @@
 //! points perdus : on ne recommence pas le combat depuis le début.
 //!
 //! MODE FACILE (carte 8.14) : proposé au joueur après `DEFAITES_AVANT_FACILE`
-//! défaites d'affilée (côté jeu), il se règle À LA CONSTRUCTION du combat, sans
-//! état global : `passer_en_facile` donne au nuage `PV_NUAGE_FACILE` points de vie
+//! défaites d'affilée dans sa visite du niveau (côté jeu, carte 9.34), il se règle
+//! À LA CONSTRUCTION du combat, sans état global : `passer_en_facile` donne au nuage `PV_NUAGE_FACILE` points de vie
 //! (2 au lieu de 3), et il ne joue que ses deux PREMIERS motifs, les plus doux
 //! (`motif` compte les points perdus depuis le maximum du nuage, pas depuis 3). Le
 //! mode normal ne change pas d'un octet.
