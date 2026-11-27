@@ -283,3 +283,65 @@ pub fn dessiner_mer(monde: &Monde, banque: &Banque, mer: f32, cx: i32, cy: i32) 
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BANDE_MER;
+    use crate::sprites::fichiers::dessin;
+
+    /// Profondeur (px sous la surface) où finit la bande TURQUOISE de la mer : le
+    /// cyan sombre (`E`) de `pieuvre_mer0/1`, juste sous l'écume.
+    const FIN_TURQUOISE: usize = 24;
+
+    /// Carte 9.36d (décision B d'AGA) : une corniche noyée juste sous l'écume ne
+    /// fait plus de RECTANGLE UNI SOMBRE sur la mer (la « bande sombre » de la
+    /// plongée de la Pieuvre). Dans la bande turquoise, sa silhouette est un
+    /// turquoise plus sombre fait en damier (cyan sombre `E` et ardoise `2`) : sur
+    /// aucune ligne, deux pixels voisins d'ardoise ou plus sombres (`0`, `1`, `2`).
+    /// Elle reste VISIBLE : chaque ligne sous l'écume a de l'ardoise, que l'eau
+    /// n'a pas. Plus bas, rien ne change (le dégradé un cran plus sombre).
+    #[test]
+    fn la_corniche_noyee_ne_fait_pas_de_bande_sombre_sous_l_ecume() {
+        let noyee = dessin("pieuvre_mer_noyee");
+        assert_eq!(
+            noyee.len(),
+            BANDE_MER as usize,
+            "la silhouette suit la bande"
+        );
+        let sombre = |c: char| matches!(c, '0' | '1' | '2');
+        for (j, ligne) in noyee.iter().take(FIN_TURQUOISE).enumerate() {
+            let suite = ligne
+                .chars()
+                .fold((0, 0), |(s, m), c| {
+                    let s = if sombre(c) { s + 1 } else { 0 };
+                    (s, m.max(s))
+                })
+                .1;
+            assert!(
+                suite <= 1,
+                "ligne {j} : {suite} px sombres de suite ({ligne})"
+            );
+            assert!(
+                ligne.chars().all(|c| c == 'E' || c == '2'),
+                "ligne {j} : turquoise sombre ou ardoise seulement ({ligne})"
+            );
+            if j >= 3 {
+                assert!(
+                    ligne.contains('2'),
+                    "ligne {j} : la corniche se devine ({ligne})"
+                );
+            }
+        }
+        // L'eau autour, dans la même bande : turquoise (et ses reflets), jamais
+        // d'ardoise ; la silhouette s'en distingue donc toujours.
+        for nom in ["pieuvre_mer0", "pieuvre_mer1"] {
+            for (j, ligne) in dessin(nom).iter().take(FIN_TURQUOISE).enumerate() {
+                assert!(!ligne.chars().any(sombre), "{nom} ligne {j} : {ligne}");
+            }
+        }
+        // Plus bas que la bande turquoise : la silhouette d'avant, un cran plus
+        // sombre que l'eau (ardoise sur la nuit, puis l'ombre).
+        assert_eq!(noyee[30], "1111111111111111");
+        assert_eq!(noyee[BANDE_MER as usize - 1], "0000000000000000");
+    }
+}
