@@ -97,15 +97,13 @@ pub fn dessiner_bache(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     }
 }
 
-/// La mer qui monte (carte 9.13a), devant la tour : les tuiles d'eau du thème
-/// jusqu'au bas de l'écran, la surface qui ondule (carte 9.36a : plus de
-/// paliers, donc plus de graduation aux murs). La trombe de la furie : des
-/// bulles qui montent.
+/// La mer qui monte (carte 9.13a), devant la tour : depuis la carte 9.36b, la
+/// vraie masse d'eau (`dessin_montee::dessiner_mer`, des sprites). La trombe de la
+/// furie : des bulles qui montent.
 pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     let Some(p) = la_pieuvre(monde) else {
         return;
     };
-    let t = TAILLE_TUILE as i32;
     let mer = p.surface_mer().map(|m| m.round() as i32);
     if let Some(z) = p.trombe().map(|c| c.zone) {
         // Carte 9.13f (AGA : « des crêtes d'écume en escalier dans le vide ») :
@@ -142,23 +140,8 @@ pub fn dessiner_mer(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
     let Some(mer) = p.surface_mer() else {
         return;
     };
-    let surface = mer.round() as i32;
-    let bas = cy + HAUTEUR_LOGIQUE as i32;
-    let largeur = monde.niveau.largeur_px() as i32;
-    for x in (t..largeur - t).step_by(t as usize) {
-        let mut y = surface + t;
-        while y < bas {
-            banque.dessiner("jetee_eau_plein", (x - cx) as f32, (y - cy) as f32, false);
-            y += t;
-        }
-        let vague = (monde.pas / 10) as i32 + x / t;
-        let nom = if vague.rem_euclid(2) == 1 {
-            "jetee_eau_vague"
-        } else {
-            "jetee_eau_haut"
-        };
-        banque.dessiner(nom, (x - cx) as f32, (surface - cy) as f32, false);
-    }
+    // Carte 9.36b : la vraie masse d'eau de la montée (sprites `pieuvre_mer*`).
+    crate::dessin_montee::dessiner_mer(monde, banque, mer, cx, cy);
 }
 
 /// Un tentacule de `h` px dressé au-dessus de `surface` (à l'écran) : des tronçons

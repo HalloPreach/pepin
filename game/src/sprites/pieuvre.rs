@@ -117,6 +117,72 @@
 
 // `vapeur_geante1.png` : La vapeur, 2e image.
 
+// Carte 9.36b : le DESSIN de la nouvelle phase 2 (la montée contre la mer), d'après
+// la planche acceptée par AGA ; sources de ces fichiers : `docs/dessins-936.py`.
+// Tous ont leur version pâle (préfixe `pieuvre_`) ; le corps de la Pieuvre (bras,
+// encre, bulles, goutte) se dessine pâle en facile, pas les objets ni la mer.
+
+// `pieuvre_mer0.png` : La MER qui monte, sous sa surface (64 x 56, se répète en largeur) : cyan
+// de la pluie sur 3 rangées, cyan sombre, ardoise, nuit, avec des passages tramés d'une
+// bande à l'autre ; des reflets en tirets clairs, plus sombres en profondeur. 1re image.
+
+// `pieuvre_mer1.png` : La mer, 2e image : les reflets ont bougé.
+
+// `pieuvre_mer_fond.png` : L'eau de nuit unie sous les 56 px de la bande (16 x 16).
+
+// `pieuvre_mer_noyee.png` : Une corniche NOYÉE (16 x 56) : le même dégradé que la mer, un cran plus
+// sombre ; le jeu en découpe la tranche à la profondeur de la case (silhouette).
+
+// `pieuvre_mer_noyee_fond.png` : La corniche noyée plus bas que la bande (16 x 16, ombre d'ardoise).
+
+// `pieuvre_crete0.png` : La CRÊTE d'écume (64 x 6) posée sur la surface, devant la Pieuvre : écume
+// blanche et nuage, une vague de 16 px ; ses trois dernières rangées sur l'eau. 1re image.
+
+// `pieuvre_crete1.png` : La crête, 2e image : la vague a avancé de 4 px.
+
+// `pieuvre_bras_repos.png` : Le BRAS de la Pieuvre au loin, au repos (36 x 42, le bas sur la
+// surface, posé 16 px à gauche de la tête) : un tentacule d'un seul tenant, corail,
+// reflet corail clair, ombre violette, ventouses d'or pâle, contour sombre.
+
+// `pieuvre_bras_prepare.png` : Le bras qui PRÉPARE le lancer : dressé, le bout recourbé tient l'objet.
+
+// `pieuvre_bras_lance.png` : Le bras qui LANCE : tendu vers le ciel, l'objet s'envole.
+
+// `pieuvre_caisse.png` : Une CAISSE qui tombe (16 x 16) : cadre de bois clair, planches orange,
+// écharpe corail en diagonale, clous d'ardoise, contour sombre.
+
+// `pieuvre_tonneau.png` : Un TONNEAU qui tombe (16 x 16) : douelles orange, cerclages d'ardoise.
+
+// `pieuvre_epave.png` : Un morceau d'ÉPAVE (16 x 16) : bordés cassés en dents de scie, membrures
+// violettes, un hublot de laiton et sa vitre cyan.
+
+// `pieuvre_eclats_caisse.png` : Les éclats d'une caisse brisée (16 x 6), sur son sol.
+
+// `pieuvre_eclats_tonneau.png` : Les éclats d'un tonneau (douelles et cerclages).
+
+// `pieuvre_eclats_epave.png` : Les éclats d'une épave (bois, membrure, laiton).
+
+// `pieuvre_trainee.png` : La traînée d'un objet qui tombe (16 x 10, juste au-dessus de lui) :
+// deux filets blancs et un de nuage.
+
+// `pieuvre_repere0.png` : Le REPÈRE « ! » d'une chute annoncée (8 x 11), dans le style de
+// l'interface : un écriteau d'or, contour sombre, la pointe vers le bas. 1re image.
+
+// `pieuvre_repere1.png` : Le repère, 2e image (or pâle) : il palpite, plus vite à la fin.
+
+// `pieuvre_encre0.png` : L'ENCRE de la fuite, 1er nuage (34 x 16, sa dernière rangée sur l'eau) :
+// des bulles violettes d'un seul tenant, un reflet d'ardoise, contour sombre.
+
+// `pieuvre_encre1.png` : L'encre, 2e nuage, plus grand (50 x 16) : elle plonge dedans.
+
+// `pieuvre_encre2.png` : La trace d'encre sur l'eau là où elle a disparu (32 x 2).
+
+// `pieuvre_bulles0.png` : Les bulles de la plongée (16 x 14) : quatre bulles cyan. 1re image.
+
+// `pieuvre_bulles1.png` : Les bulles, 2e image : elles sont montées.
+
+// `pieuvre_goutte.png` : La goutte de la SURPRISE (3 x 4), quand Pépin atteint le sommet.
+
 /// Les sprites de ce fichier : (nom, dessin), lus dans `assets/sprites/pieuvre/`
 /// (carte 10.4a : les dessins sont des fichiers PNG, voir `super::fichiers`).
 pub fn sprites() -> &'static [(&'static str, crate::sprites::Image)] {

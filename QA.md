@@ -8055,3 +8055,46 @@ Points à trancher par AGA :
 
 - L'étape 2 (aucun sprite ni fond ajouté au jeu, aucune capture du jeu modifié) : elle attend l'accord.
 - Les montages sont des images peintes sur une capture : le défilement du mur, l'animation des reflets et la lisibilité en mouvement ne sont pas vérifiés en jeu.
+
+## Carte 9.36b, étape 2 : le dessin de la nouvelle phase 2 réalisé (variante B « avec un peu de A »)
+
+Décision d'AGA sur la planche `1e68994` : B (arcades sur le port), « mais avec un peu de A » (pans de mur plein, fenêtres éclairées, lanternes) ; repère « ! » ET ombre ; encre gardée ; pas d'orange vif derrière la Pieuvre, contraste de 3:1 au moins entre chaque objet, son repère et le fond (avec un test). SEUL LE RENDU change : aucune boîte, durée, annonce ni position touchée (core inchangé).
+
+### Le mélange, d'abord montré dans une scène
+
+`docs/qa/936-melange-scene.png` (960 x 540, x3) : la vraie capture `normal-tour-milieu` de la 9.36a, son ciel remplacé par les couches du mur EXACTEMENT comme le jeu les empile, la nouvelle mer, la Pieuvre au loin qui lance un tonneau, un repère « ! » avec son ombre, une caisse qui tombe devant une arcade. Puis réalisé sans s'arrêter (consigne).
+
+### Ce qui est fait
+
+- LA TOUR : trois couches PNG (`assets/fonds/port/tour_bas.png`, `tour_milieu.png`, `tour_haut.png`, 288 x 96, une période de 6 tuiles entre les murs de côté ; 1 176, 1 073 et 1 246 octets). Par période, trois baies de 96 px : arcade (B : cintre de claveaux, vue sur un crépuscule FROID, nuit, violet, un fil de corail pointillé à l'horizon, la mer de nuit, le port lointain en ombre en bas de la tour, étoiles, garde-corps de bois) ou pan de mur plein (A : pierre en assises, bandeau de bois, une fenêtre allumée corail et orange, une éteinte, une lanterne). Bas : une arcade sur trois (deux couches qui alternent sa place) ; milieu : une et deux en alternance ; haut et dernière période : deux sur trois, l'horizon plus bas dans la baie (on est monté). La baie de DROITE, où la Pieuvre se tient au loin, est toujours un pan plein sans aucune couleur chaude (fenêtres éteintes). `game/src/dessin_tour.rs` empile les couches au-dessus de la bâche, en phase 2 seulement (`couche_de_la_periode`, pure). Les couches sont hors de la pile du thème (elles dépendent du niveau) : ajoutées à la liste des couches demandées (`decor::tests`, aucune orpheline) et à leur taille attendue ; `assets/fonds/LISEZMOI.md` à jour.
+- LA MER (`dessin_montee::dessiner_mer`, appelée par `dessin_pieuvre::dessiner_mer` à la place des tuiles `jetee_eau_*`) : `pieuvre_mer0/1` (64 x 56 : cyan, cyan sombre, ardoise, nuit, trames entre les bandes, reflets en tirets qui bougent), `pieuvre_mer_fond` plus bas ; chaque corniche sous l'eau redessinée en SILHOUETTE (`pieuvre_mer_noyee`, sa tranche à la profondeur de la case, puis `pieuvre_mer_noyee_fond`). La crête (`mer_montee::dessiner_devant`) : `pieuvre_crete0/1` (64 x 6) devant la Pieuvre, les remous de la phase 1 autour d'elle, les embruns (calculés, inchangés) ; elle se dessine aussi pendant la fuite. La bande du bas de l'écran (mer sous l'écran) : le haut de la vraie mer et sa crête qui dépassent, plus haute quand la mer approche ; ses bulles calculées.
+- LA PIEUVRE AU LOIN : sa tête de la phase 1, à moitié dans l'eau, et son BRAS d'un seul tenant à sa gauche (`pieuvre_bras_repos`, `_prepare`, `_lance`, 36 x 42) : au repos, puis à chaque lancer (`Pieuvre::lance`, 0,5 s) il prépare (l'objet au bout) puis lance (l'objet file vers le ciel).
+- LES OBJETS (16 x 16, contour sombre) : `pieuvre_caisse`, `pieuvre_tonneau`, `pieuvre_epave` (fini la caisse retournée de la 9.36a), leurs éclats (`pieuvre_eclats_*`, 16 x 6), une traînée au-dessus de l'objet qui tombe (`pieuvre_trainee`). L'ANNONCE : l'ombre `ombre_caisse` clignote toujours sur le sol, et le REPÈRE « ! » (`pieuvre_repere0/1`, or puis or pâle, au rythme de l'ombre) palpite en haut de la colonne, là où l'objet apparaîtra (jamais plus haut que y = 20, sous l'interface).
+- LA FUITE : la goutte de surprise (`pieuvre_goutte`), deux nuages d'encre derrière la tête qui plonge (`pieuvre_encre0`, `pieuvre_encre1`), des bulles (`pieuvre_bulles0/1`), puis une trace d'encre sur l'eau (`pieuvre_encre2`) et les remous.
+- FACILE : le corps de la Pieuvre (tête coupée à la surface, bras, encre, bulles, goutte) se dessine PÂLE (nouvelle `Banque::dessiner_pale_haut` : la tête à moitié dans l'eau était dessinée pleine en 9.36a dès qu'elle n'était pas entière). Les objets, le repère et la mer restent pleins (un danger reste lisible).
+- 25 sprites `assets/sprites/pieuvre/pieuvre_*.png` (tous avec leur version pâle, préfixe `pieuvre_`), commentés dans `game/src/sprites/pieuvre.rs`. Source de tous les nouveaux dessins : `docs/dessins-936.py` (Python seul ; écrit les PNG par l'outil `sprite ecrire`, format canonique, et refait la scène du mélange et la planche).
+
+### Preuves
+
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+- `./docker-cargo.sh carte pieuvre` : VERT en 27 s (core 325, game 451, niveaux 19, tous 80, `faisabilite::le_niveau_de_la_carte` ok). Mêmes chiffres qu'à la 9.36a sauf game : 447 + les 4 nouveaux tests de `dessin_tour`.
+- `le_robot_finit_le_monde_2_sans_mourir` (`tests-rapides`, mémoire des parcours, sous `lourd.sh`) : VERT en 656,3 s, niveaux [1..8], 0 mort, 23 962 images, chrono 23 258 pas, 11 gouttes, empreinte `b14c171ce3712aef` : LA MÊME qu'à la fin de la 9.36a.
+- Nouveaux tests (`game/src/dessin_tour.rs`) : `chaque_objet_et_son_repere_se_detachent_du_mur` (la demande d'AGA : pour CHAQUE place possible, au pixel, de la caisse, du tonneau, de l'épave et des deux images du repère sur le mur assemblé comme dans le jeu, tours de 3 à 16 périodes, raccords compris, contraste WCAG entre le remplissage de l'objet et la moyenne du mur derrière lui >= 3:1 ; le plus faible mesuré : 3,26:1, le repère devant une fenêtre allumée) ; `rien_de_chaud_derriere_la_pieuvre` (aucun corail, corail clair, orange, or ni or pâle dans la bande où passent sa tête et son bras, sur les trois couches) ; `les_couches_du_mur_se_raccordent` ; `plus_d_arcades_en_montant`. `chaque_image_dessinee_pale_a_sa_version_pale` étendu (appels `dessiner_pale_haut`, 15 noms au moins vus, et chaque nouvelle image de la famille a sa version pâle). Les tests existants vérifient les nouveaux PNG (décodage, blocs permis, aucun orphelin, aucun nom demandé manquant, 16 Ko au plus par couche).
+- Pour y arriver (contraste) : le premier essai échouait (repère sur une fenêtre trop claire, 2,73:1 ; puis l'appui d'ardoise pâle des arcades derrière un tonneau, 3,01:1). Fenêtre allumée réduite au corail (un pixel d'or, un coin orange), lanterne sans or pâle, appui des arcades un cran plus sombre.
+
+### Captures de la vraie suite (`docs/capture-936.sh`, build `dist-qa` de ce commit, mêmes scripts que la 9.36a)
+
+`docs/qa/936b/normal-*.png` et `facile-*.png` (APRÈS), à comparer avec `docs/qa/936/` (AVANT, 9.36a), mêmes images. `docs/comparer-captures.py` : IDENTIQUES AU PIXEL normal carte, phase1, fin-phase1, bilan (4/4) et facile phase1, fin-phase1, bilan (3/3) ; différentes (attendu) : transition, tour-bas, chute, chute-b, tour-milieu, tour-haut, fuite-a, fuite-b dans les deux modes. Plus deux images de la même partie normale : `normal-caisse-devant-arcade.png` (image 2556 : la caisse qui tombe devant l'arcade du milieu, demandé par AGA) et `normal-mer-et-corniches-noyees.png` (image 2732 : la mer, la crête, une corniche noyée en silhouette, la Pieuvre et son bras).
+
+Regardées : le mur (arcades et pans pleins) derrière toutes les corniches, la mer et sa crête au bas de l'écran pendant la montée, la Pieuvre au loin et son bras, les trois objets (une série de 279 images, toutes les 8 images de la montée, cherchées au pixel : caisse, tonneau, épave lancés puis tombés, repère « ! » en haut de leur colonne), pâle en facile.
+
+Mesures (`docs/mesure-936.py`, sur la scène du mélange, la planche et les 27 captures APRÈS) : 0 couleur hors de la palette, 0 carré 3 x 3 non uni (aucun flou). Les 28 nouveaux PNG du jeu : 0 pixel hors palette ; 8 977 octets en tout (couches de 1 à 1,3 Ko, sous les 16 Ko). `game.wasm` (build de QA) : 1 083 086 octets (gzip 444 679).
+
+Planches : `docs/qa/936b-planche-sprites.png` (x3 : les trois couches, chaque nouveau sprite, l'aperçu pâle du corps) ; `docs/planche-sprites.png` régénérée par son test (les nouveaux sprites y sont).
+
+### Pas fait, pas testé, à regarder
+
+- LA FUITE N'EST PAS À L'ÉCRAN dans la vraie partie (`fuite-a`, `fuite-b`) : au sommet, la mer est 8 tuiles sous Pépin et la caméra ne la cadre que pendant la montée (`mer_montee::surface`, 9.13e). Le dessin de la fuite (goutte, encre, bulles, trace) existe et se voit sur la planche, mais le joueur ne le voit pas. Le montrer demanderait de cadrer la mer pendant la plongée (caméra, hors de « seul le rendu change » au sens strict) : à décider par AGA.
+- Le mur n'a pas de parallaxe : il défile avec les corniches (c'est le mur de la tour elle-même).
+- La phase 1, les autres niveaux et écrans : seules les captures de la Pieuvre (phase 1, carte, bilan) sont vérifiées au pixel ; le code des autres niveaux n'est pas touché (le mur et la mer ne se dessinent que si la pieuvre est « en fuite »).
+- Le lot complet, la prod. Téléphone, joueur humain.

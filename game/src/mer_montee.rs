@@ -9,7 +9,10 @@
 //!   (`camera::cadrer_la_mer`, alimentée par `surface`).
 //! - Surface à l'écran : une CRÊTE d'écume et des EMBRUNS, dessinés DEVANT la
 //!   Pieuvre au loin (`dessiner_devant`, juste après elle, carte 9.36a) : elle
-//!   est à moitié dans l'eau, qui bouillonne plus fort autour d'elle.
+//!   est à moitié dans l'eau, qui bouillonne plus fort autour d'elle. Carte
+//!   9.36b : la crête est un sprite (`pieuvre_crete0/1`) et les remous de la
+//!   phase 1 bouillonnent autour d'elle ; la masse d'eau elle-même est dans
+//!   `dessin_montee::dessiner_mer`.
 //! - Surface sous l'écran : une BANDE D'ÉCUME qui bouillonne au bas de l'écran,
 //!   plus haute et plus agitée quand la mer se rapproche (`hauteur_bande`).
 //! - La JAUGE, sur le mur gauche (`dessiner_jauge`) : en haut le sommet (une
@@ -17,7 +20,8 @@
 //!   clignote en corail quand la mer est à moins de deux tuiles), et la mer qui
 //!   monte par le bas.
 //!
-//! Couleurs de la palette seulement, rectangles au pixel entier : aucun flou.
+//! Couleurs de la palette seulement, sprites et rectangles au pixel entier : aucun
+//! flou.
 //!
 //! Notion Rust : `Option::filter` et `and_then` enchaînés pour dire « la pieuvre,
 //! si elle est en montée, puis sa mer, si elle en a une » sans `if` imbriqués.
@@ -35,6 +39,7 @@ use pepin_core::{HAUTEUR_LOGIQUE, LARGEUR_LOGIQUE};
 use crate::dessin_pieuvre::la_pieuvre;
 use crate::monde::Monde;
 use crate::rendu::couleur_mq;
+use crate::sprites::Banque;
 
 const L: i32 = LARGEUR_LOGIQUE as i32;
 const H: i32 = HAUTEUR_LOGIQUE as i32;
@@ -93,50 +98,72 @@ pub fn hauteur_bande(d: f32) -> i32 {
 }
 
 /// Devant la Pieuvre au loin et les tuiles, derrière Pépin : la crête et les embruns si la
-/// surface est à l'écran, sinon la bande d'écume du bas de l'écran.
-pub fn dessiner_devant(monde: &Monde, cx: i32, cy: i32) {
-    let Some(p) = en_montee(monde) else {
+/// surface est à l'écran, sinon (pendant la montée) la bande d'écume du bas de
+/// l'écran. Carte 9.36b : la crête est faite de sprites (`pieuvre_crete0/1`) et se
+/// dessine aussi pendant la fuite (la mer redescend, la Pieuvre plonge).
+pub fn dessiner_devant(monde: &Monde, banque: &Banque, cx: i32, cy: i32) {
+    let Some(p) = la_pieuvre(monde).filter(|p| p.en_fuite()) else {
         return;
     };
     let Some(mer) = p.surface_mer() else {
         return;
     };
+    let montee = en_montee(monde).is_some();
     let surface = mer.round() as i32 - cy;
     if surface >= H - 1 {
-        dessiner_bande(mer - (cy + H) as f32, monde.pas);
-    } else {
-        // Carte 9.36a : l'eau bouillonne autour de la Pieuvre au loin.
-        let couloir = p
-            .au_loin()
-            .map(|b| (b.x.round() as i32 - cx, b.droite().round() as i32 - cx));
-        let largeur = monde.niveau.largeur_px() as i32;
-        dessiner_crete(
-            surface,
-            (TAILLE_TUILE as i32 - cx, largeur - 16 - cx),
-            couloir,
-            monde.pas,
-        );
+        if montee {
+            dessiner_bande(banque, mer - (cy + H) as f32, monde.pas);
+        }
+        return;
     }
+    // Carte 9.36a : l'eau bouillonne autour de la Pieuvre au loin.
+    let couloir = p
+        .au_loin()
+        .filter(|_| montee)
+        .map(|b| (b.x.round() as i32 - cx, b.droite().round() as i32 - cx));
+    let largeur = monde.niveau.largeur_px() as i32;
+    dessiner_crete(
+        banque,
+        surface,
+        (TAILLE_TUILE as i32 - cx, largeur - 16 - cx),
+        couloir,
+        monde.pas,
+    );
 }
 
 /// La crête d'écume sur la surface (à l'écran, `surface`), de `bords.0` à
-/// `bords.1`, et les embruns ; autour de la Pieuvre au loin (`couloir`, carte
-/// 9.36a), l'eau bouillonne et éclabousse plus haut (elle y est à moitié
-/// immergée).
-fn dessiner_crete(surface: i32, (x0, x1): (i32, i32), couloir: Option<(i32, i32)>, pas: u32) {
-    let dans_le_couloir = |x: i32| couloir.is_some_and(|(g, d)| x >= g && x < d);
-    let t = (pas / 6) as i32;
-    for x in (x0.max(0)..x1.min(L)).step_by(2) {
-        let fort = dans_le_couloir(x);
-        let vague = [0, 1, 1, 0, 0, -1][((x / 2 + t) as usize) % 6];
-        let haut = if fort {
-            2 + vague + (hache(x / 2 + t) % 2) as i32
+/// `bords.1` : le sprite `pieuvre_crete0/1` (64 px, ses trois dernières rangées
+/// sur l'eau) répété, et les embruns ; autour de la Pieuvre au loin (`couloir`,
+/// carte 9.36a), l'eau bouillonne (les remous de la phase 1) et éclabousse plus
+/// haut (elle y est à moitié immergée).
+fn dessiner_crete(
+    banque: &Banque,
+    surface: i32,
+    (x0, x1): (i32, i32),
+    couloir: Option<(i32, i32)>,
+    pas: u32,
+) {
+    let nom = if (pas / 10).is_multiple_of(2) {
+        "pieuvre_crete0"
+    } else {
+        "pieuvre_crete1"
+    };
+    let mut x = x0;
+    while x < x1 {
+        let l = (x1 - x).min(64) as f32;
+        let ecran = (x as f32, (surface - 3) as f32);
+        banque.dessiner_partie(nom, ecran, (0.0, 0.0, l, 6.0), 0, false);
+        x += 64;
+    }
+    if let Some((g, d)) = couloir {
+        let remous = if (pas / 6).is_multiple_of(2) {
+            "remous_pieuvre0"
         } else {
-            1 + vague
+            "remous_pieuvre1"
         };
-        rect(x, surface - haut, 2, haut + 2, NUAGE);
-        rect(x, surface - haut, 2, 1, BLANC_CASSE);
-        rect(x, surface + 2, 2, 1, PLUIE);
+        for rx in [g - 18, g + 8, d - 24] {
+            banque.dessiner(remous, rx as f32, (surface - 4) as f32, false);
+        }
     }
     // Les embruns : des gouttes qui jaillissent et retombent (une parabole),
     // nombreuses dans le couloir, quelques-unes le long de la tour.
@@ -162,21 +189,31 @@ fn dessiner_crete(surface: i32, (x0, x1): (i32, i32), couloir: Option<(i32, i32)
 
 /// La bande d'écume qui bouillonne au bas de l'écran, la mer étant `d` px plus
 /// bas : plus haute et plus agitée (houle plus ample, bulles plus nombreuses et
-/// plus rapides) quand elle se rapproche.
-fn dessiner_bande(d: f32, pas: u32) {
+/// plus rapides) quand elle se rapproche. Carte 9.36b : c'est le HAUT de la vraie
+/// mer (la crête `pieuvre_crete0/1` et les premières rangées de `pieuvre_mer0/1`)
+/// qui dépasse du bas de l'écran, plus une frise calculée.
+fn dessiner_bande(banque: &Banque, d: f32, pas: u32) {
     let k = proximite(d);
-    let haut = hauteur_bande(d);
     let lenteur = (8.0 - 5.0 * k).round() as u32;
     let t = (pas / lenteur) as i32;
     let ample = 1 + (2.0 * k).round() as i32;
-    for x in (0..L).step_by(2) {
-        let houle = [0, 1, 2, 2, 1, 0, -1, -1][((x / 2 + t) as usize) % 8];
-        let bouillon = (hache(x / 2 * 3 + t) % 2) as i32;
-        let h = (haut + houle * ample / 2 + bouillon).max(2);
-        let y = H - h;
-        rect(x, y, 2, h, ARDOISE_NUIT);
-        rect(x, y + 1, 2, 2.min(h - 1), PLUIE_SOMBRE);
-        rect(x, y, 2, 1, if bouillon == 1 { BLANC_CASSE } else { NUAGE });
+    // La houle soulève toute la bande d'un ou deux pixels.
+    let houle = [0, 1, 2, 2, 1, 0, -1, -1][(t as usize / 4) % 8] * ample / 2;
+    let haut = (hauteur_bande(d) + houle).max(2);
+    let mer = if (pas / 20).is_multiple_of(2) {
+        "pieuvre_mer0"
+    } else {
+        "pieuvre_mer1"
+    };
+    let crete = if (pas / 10).is_multiple_of(2) {
+        "pieuvre_crete0"
+    } else {
+        "pieuvre_crete1"
+    };
+    for x in (0..L).step_by(64) {
+        let y = (H - haut) as f32;
+        banque.dessiner_partie(mer, (x as f32, y), (0.0, 0.0, 64.0, haut as f32), 0, false);
+        banque.dessiner(crete, x as f32, y - 3.0, false);
     }
     // Les bulles qui montent de l'écume et éclatent.
     let n = 6 + (14.0 * k).round() as i32;
@@ -185,7 +222,7 @@ fn dessiner_bande(d: f32, pas: u32) {
         let x = (h % L as u32) as i32;
         let vie = 24 + (h >> 10) as i32 % 16;
         let age = (pas as i32 * (1 + ample) / 2 + (h >> 3) as i32).rem_euclid(vie);
-        let y = H - haut - 1 - age * (2 + ample) / 8;
+        let y = H - haut - 4 - age * (2 + ample) / 8;
         let c = if age + 3 >= vie { BLANC_CASSE } else { NUAGE };
         rect(x, y, 1 + (age + 3 >= vie) as i32, 1, c);
     }
