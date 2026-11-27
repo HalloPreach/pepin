@@ -8017,3 +8017,41 @@ PHASE 1 IDENTIQUE AU PIXEL : le build de `0ed7daf` (copie `git archive`, `./buil
 - La durée visée de la montée (voir plus haut).
 - Le lot complet, la prod. Téléphone, joueur humain.
 - Le vrai dessin (tour, mer, Pieuvre au loin, objets, fuite) : carte 9.36b.
+
+## Carte 9.36b, étape 1 : proposition du dessin de la nouvelle phase 2 (planche x3), ARRÊT pour l'avis d'AGA
+
+Rien n'a changé dans le jeu (ni code, ni sprite, ni fond) : seulement un script de planche et trois PNG de proposition. L'étape 2 (la réalisation) attend l'accord d'AGA.
+
+### Les fichiers
+
+- `docs/qa/936-proposition-planche.png` (1680 x 1410, x3) : les éléments, un par cadre.
+- `docs/qa/936-proposition-scene-a.png` et `-scene-b.png` (960 x 540, x3) : une scène complète de montée, une par variante de la tour.
+- `docs/planche-936.py` : le script qui les fabrique (`python3 docs/planche-936.py`, Python seul, sans bibliothèque, 2 s). Les sprites existants sont LUS dans `assets/sprites/` (tête de la Pieuvre de la phase 1, tuiles du quai, Pépin, lanterne, écume, ombre, remous) ; les nouveaux dessins y sont décrits (grilles de texte ou formes, contour sombre de 1 px ajouté).
+
+Les montages partent d'une VRAIE capture de la 9.36a (`docs/qa/936/normal-tour-milieu.png`, réduite au pixel près, la caméra recalée sur la grille du niveau) : tuiles, Pépin, lanternes, bittes, jauge et interface sont ceux du jeu, au pixel ; seuls le ciel noir (remplacé par le mur), la mer et les ajouts (la Pieuvre au loin qui lance, une caisse en l'air, un tonneau qui tombe, un repère d'annonce et son ombre) sont peints par-dessus.
+
+### Ce que la planche propose
+
+1. LA TOUR, un mur derrière les corniches, qui défile avec la caméra (période de 96 px, 6 tuiles) :
+   - A, mur plein : pierre en assises décalées (16 x 8, joints sombres, arête plus claire), deux bandeaux de poutres violettes par période, fenêtres en plein cintre (deux allumées or et orange, une éteinte), une lanterne de mur sur sa potence ;
+   - B, arcades ouvertes sur le crépuscule du port : trois baies par période, le ciel de `port/crepuscule.png` (nuit, violet, corail) et la mer au loin dedans, cintres de claveaux, garde-corps de bois, une lanterne sur un pilier.
+2. LA MER qui monte : une masse d'eau (crête `ecume0`/`ecume1` au-dessus, puis cyan, cyan sombre, ardoise, nuit, avec deux rangées de trame à chaque palier), des reflets en tirets clairs qui s'assombrissent avec la profondeur, quelques embruns ; une corniche noyée passe en SILHOUETTE (un cran plus sombre). Deux images.
+3. LA PIEUVRE AU LOIN : sa tête de la phase 1 (`pieuvre_colere0`), à moitié dans l'eau, avec des remous ; un tentacule D'UN SEUL TENANT (plus de chapelet de ronds) avec volume (corail clair à gauche, violet à droite), ventouses or pâle et contour : REPOS (le bout dépasse à peine), PRÉPARE (il se lève, la caisse au bout), LANCE (tendu, la caisse part). Et l'aperçu pâle du FACILE.
+4. LES OBJETS (16 x 16, contour sombre, bois de la palette) : la CAISSE (comme `por_caisse`, écharpe en diagonale), le TONNEAU (douelles et cercles d'ardoise), l'ÉPAVE (bordés cassés, membrure, hublot de laiton) ; leurs aperçus pâles ; le REPÈRE d'annonce dans le style de l'interface (un écriteau or « ! » à contour sombre, pointe vers la colonne, deux images pour clignoter) en haut de l'écran, ET l'ombre `ombre_caisse` sur le sol où l'objet tombe (gardée : seul le rendu change).
+5. LA FUITE en 4 images : 1 surprise (la tête `pieuvre_touchee` sort, une bulle) ; 2 un nuage d'ENCRE violette, elle s'enfonce, un tentacule s'agite ; 3 l'encre s'étale, il ne reste que le haut de sa tête, des bulles ; 4 partie : des remous, une traînée d'encre, des bulles.
+
+Mesures (sur les trois PNG, décodés à la main) : 16 couleurs, toutes de `pepin_core::palette`, 0 hors palette ; chaque carré 3 x 3 d'une seule couleur (0 bloc non uni : aucun flou) ; poids 34,8 Ko (planche), 12,5 Ko et 12,6 Ko (scènes).
+
+### Ma recommandation
+
+VARIANTE A (le mur plein). Les corniches de quai, les caisses et Pépin s'y lisent nettement mieux : le fond reste sombre et peu contrasté, comme les autres fonds du jeu derrière les plateformes. La B est plus belle en image fixe (le crépuscule du port, cohérent avec la phase 1) mais ses grandes baies corail et violettes rivalisent avec la Pieuvre et les objets (même corail), et les garde-corps à hauteur de corniche ressemblent à des plateformes. Possible compromis : la A avec, une fois par écran, une seule petite baie ouverte sur le port.
+
+Points à trancher par AGA :
+- A ou B (ou le compromis) ;
+- le repère « ! » en haut de l'écran EN PLUS de l'ombre au sol (l'ombre seule se voit mal sur la pierre sombre, voir la 9.36a) ;
+- l'encre de la fuite (une nouveauté : la Pieuvre de la phase 1 n'en crache pas).
+
+### Pas fait, pas testé
+
+- L'étape 2 (aucun sprite ni fond ajouté au jeu, aucune capture du jeu modifié) : elle attend l'accord.
+- Les montages sont des images peintes sur une capture : le défilement du mur, l'animation des reflets et la lisibilité en mouvement ne sont pas vérifiés en jeu.
