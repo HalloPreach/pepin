@@ -189,7 +189,7 @@ impl Application {
         }
         // Bannière du mode facile (carte 8.14), par-dessus le jeu ou la carte des niveaux.
         if let Some(p) = &self.facile.proposition {
-            ecrans::facile::dessiner(p);
+            ecrans::facile::dessiner(p, self.facile_texte(p.origine));
         }
         self.transition.dessiner();
     }

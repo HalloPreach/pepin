@@ -101,7 +101,9 @@ pub struct ProgresNiveau {
     /// 3 = or).
     pub medaille: u8,
     /// Carte 8.14 (boss) : morts d'affilée dans ce niveau, en mode normal, depuis la
-    /// dernière victoire (voir `facile`).
+    /// dernière victoire (voir `facile`). Depuis la carte 9.34, une simple statistique
+    /// gardée pour ne pas changer le format : elle ne déclenche plus la bannière du
+    /// mode facile (c'est le compte de la VISITE, `EtatFacile::defaites_visite`).
     pub defaites: u32,
     /// Carte 8.14 : le boss a été vaincu en MODE FACILE (le niveau compte comme fini,
     /// sans médaille ni meilleur temps).

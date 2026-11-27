@@ -33,6 +33,10 @@ pub struct FichierNiveau {
     /// La carte de présentation du niveau (carte 11.3) : phrase, puis conseil.
     pub intro_texte: String,
     pub intro_astuce: String,
+    /// Facultatif (vide par défaut), obligatoire pour un niveau à boss (carte
+    /// 9.34) : la ligne de la bannière du mode facile.
+    #[serde(default)]
+    pub facile_texte: String,
     pub mecanique: String,
     /// Facultatif (vide par défaut) : une ligne par pivot `h` de la grille.
     #[serde(default)]
@@ -197,6 +201,7 @@ impl FichierNiveau {
             genre: self.genre.into(),
             intro_texte: laisser_fuir(self.intro_texte),
             intro_astuce: laisser_fuir(self.intro_astuce),
+            facile_texte: laisser_fuir(self.facile_texte),
             mecanique: laisser_fuir(self.mecanique),
             duree_cible_s: self.duree_cible_s,
             ascii: laisser_fuir(self.ascii),
@@ -239,6 +244,13 @@ pub fn ecrire(infos: &InfosNiveau) -> String {
         "    intro_astuce: {},\n",
         chaine(infos.intro_astuce)
     ));
+    // Écrit seulement s'il y en a un (les niveaux sans boss n'ont pas ce champ).
+    if !infos.facile_texte.is_empty() {
+        s.push_str(&format!(
+            "    facile_texte: {},\n",
+            chaine(infos.facile_texte)
+        ));
+    }
     s.push_str(&format!("    mecanique: {},\n", chaine(infos.mecanique)));
     if infos.aiguilles.is_empty() {
         s.push_str("    aiguilles: [],\n");

@@ -300,6 +300,7 @@ mod tests {
             genre,
             intro_texte: "",
             intro_astuce: "",
+            facile_texte: "",
             mecanique: "",
             duree_cible_s: 0,
             ascii: "",

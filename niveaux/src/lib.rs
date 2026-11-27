@@ -20,6 +20,7 @@
 //! `sort_by_key` sur un tuple, `?` qui convertit les erreurs.
 
 pub mod erreur;
+pub mod facile;
 pub mod format;
 pub mod intro;
 pub mod legende;
@@ -73,7 +74,7 @@ pub fn charger_fichier(fichier: &str, texte: &str) -> Result<InfosNiveau, Erreur
     })?;
     let infos = lu.vers_infos();
     // La grille est lue par le parseur du jeu : mêmes règles, mêmes erreurs typées.
-    infos.charger().map_err(|e| {
+    let niveau = infos.charger().map_err(|e| {
         erreur(GenreErreur::Grille {
             erreur: e,
             premiere_ligne: premiere_ligne_de_grille(texte, infos.ascii),
@@ -81,6 +82,9 @@ pub fn charger_fichier(fichier: &str, texte: &str) -> Result<InfosNiveau, Erreur
     })?;
     // L'intro de la carte du niveau (carte 11.3) : présente, et à la taille de l'écran.
     intro::verifier(&infos).map_err(|e| erreur(GenreErreur::Intro(e)))?;
+    // La ligne du mode facile (carte 9.34) : là où il y a un boss, et seulement là.
+    let a_un_boss = niveau.entites.iter().any(|e| e.points_du_boss().is_some());
+    facile::verifier(&infos, a_un_boss).map_err(|e| erreur(GenreErreur::Facile(e)))?;
     Ok(infos)
 }
 

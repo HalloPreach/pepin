@@ -309,8 +309,11 @@ impl Application {
         self.camera = camera;
         self.eclat_vie = 0;
         // Un niveau chargé : en facile seulement si on vient de le choisir (carte 8.14).
+        // C'est une nouvelle VISITE (carte 9.34) : ses défaites repartent de zéro, et
+        // un NON d'avant ne tient plus.
         self.facile.actif = std::mem::take(&mut self.facile.au_prochain);
         self.facile.refusee = false;
+        self.facile.defaites_visite = 0;
         self.facile.proposition = None;
         if self.facile.actif {
             self.monde.passer_nuage_en_facile();
