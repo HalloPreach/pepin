@@ -17,9 +17,7 @@
 //! `rev`), `f32::clamp`, trait pour les zones cliquables (`Zones`) que l'écran
 //! fournit (la logique ne connaît pas la mise en page exacte).
 
-use pepin_core::levels::{
-    debut_monde, gouttes_pour_le_bonus, indice_de_cle, niveaux_du_monde, GenreNiveau,
-};
+use pepin_core::levels::{debut_monde, gouttes_pour_le_bonus, niveaux_du_monde, GenreNiveau};
 use pepin_core::zones::InfosNiveau;
 
 use crate::navigation::Navigation;
@@ -106,32 +104,49 @@ pub fn selon_la_vraie_progression<T>(f: impl FnOnce() -> T) -> T {
     }
 }
 
-/// La clé du niveau qui ouvre les mondes suivants (carte 9.1) : « Le retour du
-/// Grand Nuage » (`poursuite`), terminé au moins une fois. Tant qu'il n'est pas fini,
-/// la carte des niveaux ne montre que le Monde 1 et une partie ne peut pas s'y lancer.
-pub const CLE_ACCES_MONDES_SUIVANTS: &str = "poursuite";
+/// La PORTE du monde `monde` (cartes 9.1 et 11.2) : le dernier niveau NORMAL du
+/// monde précédent (ni son bonus ni son épilogue), à finir au moins une fois. Pour
+/// le Monde 2, c'est « Le retour du Grand Nuage » (`poursuite`), la règle de la
+/// carte 9.1 (test `la_porte_du_monde_2_est_poursuite`). Une donnée lue dans la
+/// table, aucun numéro de monde écrit : la porte d'un Monde 3 serait le dernier
+/// niveau normal du Monde 2. `None` pour le Monde 1 (il n'a pas de porte) ou si le
+/// monde précédent n'a aucun niveau normal. Pure.
+pub fn porte_du_monde(niveaux: &[InfosNiveau], monde: u8) -> Option<&InfosNiveau> {
+    let precedent = monde.checked_sub(1).filter(|&m| m >= 1)?;
+    niveaux_du_monde(niveaux, precedent)
+        .iter()
+        .rev()
+        .find(|n| n.genre == GenreNiveau::Normal)
+}
 
-/// Le Monde 2 (et les mondes suivants) est-il ouvert ? Le niveau de clé
-/// `CLE_ACCES_MONDES_SUIVANTS` est terminé au moins une fois (la règle du Monde 2,
-/// carte 9.1). Pure (la sauvegarde est en lecture).
-pub fn mondes_suivants_ouverts(niveaux: &[InfosNiveau], s: &Sauvegarde) -> bool {
-    if tout_ouvert_qa() {
+/// Le monde `monde` est-il ouvert ? Le Monde 1 toujours ; un monde suivant quand sa
+/// porte (`porte_du_monde`) est finie. Tant qu'elle ne l'est pas, la carte des
+/// niveaux ne montre pas ce monde et une partie ne peut pas s'y lancer. Pure (la
+/// sauvegarde est en lecture).
+pub fn monde_ouvert(niveaux: &[InfosNiveau], s: &Sauvegarde, monde: u8) -> bool {
+    if monde <= 1 || tout_ouvert_qa() {
         return true;
     }
-    let Some(n) = indice_de_cle(niveaux, CLE_ACCES_MONDES_SUIVANTS).and_then(|i| niveaux.get(i))
-    else {
-        return false;
-    };
-    s.progres(n.cle).fini()
+    porte_du_monde(niveaux, monde).is_some_and(|n| s.progres(n.cle).fini())
 }
 
 /// Le monde `monde` peut-il se jouer (carte 9.1) ? Le Monde 1 toujours ; un monde
-/// suivant seulement s'il a au moins un niveau dans `niveaux` ET que la porte est
-/// ouverte (`mondes_suivants_ouverts`). C'est la règle de la carte des niveaux (le
-/// monde y apparaît) et de JOUER au titre (carte 9.1b : il reprend au Monde 2). Pure.
+/// suivant seulement s'il a au moins un niveau dans `niveaux` ET que sa porte est
+/// ouverte (`monde_ouvert`). C'est la règle de la carte des niveaux (le monde y
+/// apparaît) et de JOUER au titre (carte 9.1b : il reprend au dernier monde
+/// ouvert). Pure.
 pub fn monde_jouable(niveaux: &[InfosNiveau], s: &Sauvegarde, monde: u8) -> bool {
-    monde == 1
-        || (!niveaux_du_monde(niveaux, monde).is_empty() && mondes_suivants_ouverts(niveaux, s))
+    monde == 1 || (!niveaux_du_monde(niveaux, monde).is_empty() && monde_ouvert(niveaux, s, monde))
+}
+
+/// Le dernier monde jouable (cartes 9.1b et 11.2) : celui où JOUER reprend. Les
+/// mondes s'ouvrent l'un après l'autre (`porte_du_monde`), on monte donc tant que le
+/// suivant est jouable. Le Monde 1 au moins. Pure.
+pub fn dernier_monde_jouable(niveaux: &[InfosNiveau], s: &Sauvegarde) -> u8 {
+    (2..=u8::MAX)
+        .take_while(|&m| monde_jouable(niveaux, s, m))
+        .last()
+        .unwrap_or(1)
 }
 
 /// Le joueur est-il déjà allé AU-DELÀ de l'étape `i` de la tranche `niveaux`
@@ -217,13 +232,15 @@ fn etat_etape_monde(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEt
 /// État de l'étape `i` de la table `niveaux` (indice TABLE) d'après la sauvegarde :
 /// la règle du MONDE de l'étape (les indices sont convertis en indices locaux de la
 /// tranche du monde), et, pour tout monde autre que le Monde 1, la PORTE
-/// (`mondes_suivants_ouverts`) : tant que le niveau « poursuite » n'est pas fini,
-/// toute la tranche du monde est verrouillée (carte 9.1).
+/// (`monde_ouvert`) : tant que la porte du monde n'est pas finie (pour le Monde 2,
+/// « poursuite »), toute la tranche du monde est verrouillée (cartes 9.1 et 11.2).
 pub fn etat_etape(niveaux: &[InfosNiveau], s: &Sauvegarde, i: usize) -> EtatEtape {
     let Some(n) = niveaux.get(i) else {
         return EtatEtape::Verrouillee;
     };
-    if n.monde > 1 && !mondes_suivants_ouverts(niveaux, s) {
+    // Règle générale « il existe un monde précédent » (carte 11.2) : `monde_ouvert`
+    // laisse toujours passer le Monde 1 et lit la porte de tout monde suivant.
+    if !monde_ouvert(niveaux, s, n.monde) {
         return EtatEtape::Verrouillee;
     }
     let Some(debut) = debut_monde(niveaux, n.monde) else {
@@ -548,6 +565,8 @@ impl EtatPlan {
                 self.centrer();
             }
         }
+        // Bas, au bout du chemin : `monde > 1` est la règle générale « il existe un
+        // monde précédent » (carte 11.2) ; le Monde 1 est le premier.
         if nav.bas {
             if local > 0 {
                 self.selection -= 1;
@@ -566,7 +585,8 @@ impl EtatPlan {
             }
         }
         // Gauche : COURSE → JOUER, puis (en JOUER, hors du Monde 1) vers le monde
-        // précédent (en COURSE).
+        // précédent (en COURSE). `monde > 1` : la même règle générale « il existe un
+        // monde précédent » que pour Bas (carte 11.2).
         if nav.gauche {
             if self.course {
                 self.course = false;
@@ -764,7 +784,7 @@ mod tests {
         let t = table_deux_mondes();
         let idx = t.len() - 1;
         let vide = Sauvegarde::default();
-        assert!(!mondes_suivants_ouverts(&t, &vide));
+        assert!(!monde_ouvert(&t, &vide, 2));
         assert!(!monde_jouable(&t, &vide, 2));
         assert_eq!(etat_etape(&t, &vide, idx), EtatEtape::Verrouillee);
         let mut e = EtatPlan::new(&t, idx - 1);
@@ -782,6 +802,28 @@ mod tests {
         assert!(monde_jouable(niveaux::niveaux(), &poursuite_finie(), 2));
     }
 
+    /// Le Monde 1 est le seul monde ouvert pour qui commence : JOUER y reprend.
+    /// « poursuite » fini, JOUER reprend au Monde 2 (carte 9.1b).
+    #[test]
+    fn jouer_reprend_au_dernier_monde_ouvert() {
+        let t = table_deux_mondes();
+        assert_eq!(dernier_monde_jouable(&t, &Sauvegarde::default()), 1);
+        assert_eq!(dernier_monde_jouable(&t, &poursuite_finie()), 2);
+    }
+
+    /// Carte 11.2 : la porte du Monde 2, lue dans la table (le dernier niveau normal
+    /// du Monde 1), est bien « Le retour du Grand Nuage », la règle de la carte 9.1.
+    /// Le Monde 1 n'a pas de porte.
+    #[test]
+    fn la_porte_du_monde_2_est_poursuite() {
+        assert_eq!(
+            porte_du_monde(niveaux::niveaux(), 2).map(|n| n.cle),
+            Some("poursuite")
+        );
+        assert!(porte_du_monde(niveaux::niveaux(), 1).is_none());
+        assert!(porte_du_monde(niveaux::niveaux(), 0).is_none());
+    }
+
     /// « poursuite » fini : le Monde 2 s'ouvre ; la carte est une seule suite (carte
     /// 9.1b) : on y va par Droite (après COURSE) ou Haut au bout du Monde 1, on en
     /// revient par Gauche ou Bas.
@@ -790,7 +832,7 @@ mod tests {
         let t = table_deux_mondes();
         let idx = t.len() - 1;
         let s = poursuite_finie();
-        assert!(mondes_suivants_ouverts(&t, &s) && monde_jouable(&t, &s, 2));
+        assert!(monde_ouvert(&t, &s, 2) && monde_jouable(&t, &s, 2));
         // La première étape du Monde 2 est ouverte, le Monde 1 n'a pas bougé.
         assert_eq!(etat_etape(&t, &s, idx), EtatEtape::Ouverte);
         assert_eq!(etat_etape(&t, &s, 0), EtatEtape::Ouverte);

@@ -195,9 +195,20 @@ pub struct InfosNiveau {
     pub theme: Theme,
     /// Normal, bonus ou épilogue (voir `levels`).
     pub genre: GenreNiveau,
-    /// Texte d'introduction (placeholder), une ou deux phrases courtes.
-    pub intro: &'static str,
-    /// Mécanique introduite (documentation et écran d'aide).
+    /// Carte de présentation du niveau (carte 11.3) : la phrase d'ambiance, affichée
+    /// en blanc sous le nom. Jamais vide (refusé au chargement) ; elle doit tenir
+    /// sur l'écran d'intro (limites : `assets/levels/LISEZMOI.md`).
+    pub intro_texte: &'static str,
+    /// Carte de présentation : le conseil, affiché en corail sous la phrase. Jamais
+    /// vide non plus.
+    pub intro_astuce: &'static str,
+    /// Niveau à boss (carte 9.34) : ce que le mode facile change POUR CE BOSS, la
+    /// ligne de la bannière « TROP DUR ? » (par exemple « MODE FACILE : LE NUAGE N'A
+    /// QUE 2 VIES »). Obligatoire pour un boss, vide pour les autres niveaux (vérifié
+    /// au chargement, limites : `assets/levels/LISEZMOI.md`).
+    pub facile_texte: &'static str,
+    /// Mécanique introduite (note de conception : ce que le niveau apprend ; n'est
+    /// pas affichée en jeu).
     pub mecanique: &'static str,
     /// Durée visée en secondes (de jeu normal, sans mort).
     pub duree_cible_s: u16,

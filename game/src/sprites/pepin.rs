@@ -38,6 +38,8 @@ use super::JeuImages;
 // l'eau : posé dessus, Pépin s'y assied (3 px plus bas). Image 16x16, comme la
 // barque ; la scène la pose sur les pieds au sol, à la place de la barque en l'air.
 
+// `pepin_suspendu.png` : Suspendu à un crochet (carte 11.1, prototype) : 16x23, le parapluie
+// fermé tenu à deux mains au-dessus de la tête, la crosse orange en haut (le bout de la corde).
 // `pepin_barque.png` : Barque (carte 9.2) : le parapluie corail RETOURNÉ devient une coque, et Pépin
 // s'assied dedans : la tête (yeux, joues) dépasse du bord, le bord clair (9) est
 // festonné comme le bord de la toile, deux baleines (9) descendent vers le fond,
@@ -75,6 +77,7 @@ pub const IMAGES: JeuImages = JeuImages {
     planer: PLANER,
     retourne: "pepin_retourne",
     barque: "pepin_barque",
+    suspendu: "pepin_suspendu",
     reapparition: REAPPARITION,
     vie: "vie",
 };

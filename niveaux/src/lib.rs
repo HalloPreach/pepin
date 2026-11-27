@@ -20,7 +20,9 @@
 //! `sort_by_key` sur un tuple, `?` qui convertit les erreurs.
 
 pub mod erreur;
+pub mod facile;
 pub mod format;
+pub mod intro;
 pub mod legende;
 pub mod lisezmoi;
 #[cfg(test)]
@@ -67,18 +69,37 @@ pub fn charger_fichier(fichier: &str, texte: &str) -> Result<InfosNiveau, Erreur
         erreur(GenreErreur::Syntaxe {
             ligne: e.position.line,
             colonne: e.position.col,
-            message: e.code.to_string(),
+            message: avec_conseil(e.code.to_string()),
         })
     })?;
     let infos = lu.vers_infos();
     // La grille est lue par le parseur du jeu : mêmes règles, mêmes erreurs typées.
-    infos.charger().map_err(|e| {
+    let niveau = infos.charger().map_err(|e| {
         erreur(GenreErreur::Grille {
             erreur: e,
             premiere_ligne: premiere_ligne_de_grille(texte, infos.ascii),
         })
     })?;
+    // L'intro de la carte du niveau (carte 11.3) : présente, et à la taille de l'écran.
+    intro::verifier(&infos).map_err(|e| erreur(GenreErreur::Intro(e)))?;
+    // La ligne du mode facile (carte 9.34) : là où il y a un boss, et seulement là.
+    let a_un_boss = niveau.entites.iter().any(|e| e.points_du_boss().is_some());
+    facile::verifier(&infos, a_un_boss).map_err(|e| erreur(GenreErreur::Facile(e)))?;
     Ok(infos)
+}
+
+/// Le message de `ron`, plus un conseil quand l'erreur vient d'un fichier écrit
+/// avant la carte 11.3 : son champ `intro` est devenu `intro_texte` et
+/// `intro_astuce` (ron ne dit que « champ inconnu » ou « champ manquant »).
+fn avec_conseil(message: String) -> String {
+    if message.contains("`intro`")
+        || message.contains("`intro_texte`")
+        || message.contains("`intro_astuce`")
+    {
+        format!("{message} (l'intro du niveau s'écrit en deux champs, après duree_cible_s : intro_texte, la phrase, puis intro_astuce, le conseil)")
+    } else {
+        message
+    }
 }
 
 /// Ligne du FICHIER (à partir de 1) où commence la grille (sa première ligne

@@ -66,11 +66,17 @@ impl Application {
         self.anim = 0;
         self.choix = choix_pour(ecran);
         // AGA : « quand on a fini le monde 1, le niveau d'après [doit être] le premier
-        // du monde 2, même si on n'a pas ouvert la carte ». À la fin du Monde 1, Monde 2
-        // ouvert : CONTINUER en premier (sélectionné), qui enchaîne sur le chapitre 2.
+        // du monde 2, même si on n'a pas ouvert la carte ». À la fin d'un monde dont le
+        // suivant est ouvert (carte 11.2 : tout monde, pas seulement le Monde 1) :
+        // CONTINUER en premier (sélectionné), qui enchaîne sur le chapitre suivant. Un
+        // bilan de monde 0 (celui par défaut, jamais celui d'une vraie partie) : rien.
         if ecran == Ecran::Fin
-            && self.bilan.monde == 1
-            && plan::monde_jouable(niveaux::niveaux(), &self.sauvegarde, 2)
+            && self.bilan.monde >= 1
+            && plan::monde_jouable(
+                niveaux::niveaux(),
+                &self.sauvegarde,
+                self.bilan.monde.saturating_add(1),
+            )
         {
             self.choix.insert(0, Choix::Continuer);
         }
@@ -234,11 +240,11 @@ impl Application {
                 };
                 // Un boss vaincu en facile (carte 8.14) : partie finie, mais pas de record ;
                 // une nouvelle partie + (carte 8.8) a ses records à part.
-                // Une partie du Monde 2 (carte 9.1) a ses records à part : `partie.monde2`.
+                // Une partie d'un monde suivant (cartes 9.1 et 11.2) a ses records à
+                // part : `partie.mondeN`.
                 self.nouveau_record = if monde > 1 {
                     self.sauvegarde
-                        .partie_monde2
-                        .noter_partie(e.score, self.pas_partie)
+                        .noter_partie_monde(monde, e.score, self.pas_partie)
                 } else if self.ng_plus {
                     self.sauvegarde
                         .ng_plus
@@ -303,8 +309,11 @@ impl Application {
         self.camera = camera;
         self.eclat_vie = 0;
         // Un niveau chargé : en facile seulement si on vient de le choisir (carte 8.14).
+        // C'est une nouvelle VISITE (carte 9.34) : ses défaites repartent de zéro, et
+        // un NON d'avant ne tient plus.
         self.facile.actif = std::mem::take(&mut self.facile.au_prochain);
         self.facile.refusee = false;
+        self.facile.defaites_visite = 0;
         self.facile.proposition = None;
         if self.facile.actif {
             self.monde.passer_nuage_en_facile();

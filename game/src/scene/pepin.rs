@@ -146,6 +146,13 @@ fn poser_pepin(
             );
             dessiner_eau_devant_barque(monde, (milieu, bas), (cx, cy));
         }
+        // Suspendu à un crochet (carte 11.1) : le haut de la crosse (colonnes 5
+        // à 8 du dessin, 7 à 10 en miroir) sous le bout de la corde, au milieu
+        // de Pépin, `HAUTEUR_CROSSE` au-dessus de sa tête.
+        EtatJoueur::Suspendu => {
+            let x = if miroir { milieu - 9 } else { milieu - 7 };
+            poser(images.suspendu, x as f32, (bas - 23) as f32, miroir);
+        }
         etat => {
             let nom = match etat {
                 EtatJoueur::Montee => images.saut,

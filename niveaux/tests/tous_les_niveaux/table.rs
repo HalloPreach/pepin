@@ -21,7 +21,12 @@ fn les_niveaux_sont_numerotes_dans_l_ordre() {
         let p = par_monde.iter_mut().find(|(m, _)| *m == n.monde).unwrap();
         p.1 += 1;
         assert_eq!(n.numero, p.1 as u8, "{}", n.nom);
-        assert!(!n.nom.is_empty() && !n.intro.is_empty() && !n.mecanique.is_empty());
+        assert!(
+            !n.nom.is_empty()
+                && !n.intro_texte.is_empty()
+                && !n.intro_astuce.is_empty()
+                && !n.mecanique.is_empty()
+        );
     }
     let mut dernier = 0u8;
     for n in niveaux() {
@@ -61,6 +66,7 @@ fn tous_les_niveaux_se_chargent() {
         par_cle("essai_eau2"),
         par_cle("essai_ennemis_eau"),
         par_cle("essai_pieuvre"),
+        par_cle("essai_balancement"),
     ]) {
         let niv = n
             .charger()

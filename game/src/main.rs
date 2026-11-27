@@ -55,11 +55,17 @@ mod entrees;
 #[cfg(any(test, feature = "debug_niveaux"))]
 mod essai_externe;
 mod facile;
+// Un faux Monde 3 (carte 11.2) : un monde de plus par des données, en test seulement.
+#[cfg(test)]
+mod faux_monde_3;
 mod focus;
 mod fond_egouts;
 mod fonds;
 mod grele;
 mod hud;
+// La marée (carte 9.32) : la sauvegarde d'un joueur qui avait battu la Pieuvre.
+#[cfg(test)]
+mod maree_sauvegarde;
 mod menu;
 mod mer_montee;
 mod mobilier_rue;

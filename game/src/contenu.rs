@@ -1,4 +1,5 @@
-//! Tous les textes du jeu, rangés ici et nulle part ailleurs.
+//! Tous les textes du jeu, rangés ici et nulle part ailleurs (sauf ceux d'un
+//! niveau, écrits dans son fichier `.ron` : nom, intro et conseil).
 //!
 //! Ce module ne contient que des DONNÉES (plus quelques toutes petites
 //! fonctions de choix de phrase) : l'interface (`ui/`) les affiche, elle ne
@@ -152,318 +153,10 @@ pub const RECIT: [[&str; 2]; 4] = [
 /// Invitation sous une image de l'histoire.
 pub const APPUIE_POUR_CONTINUER: &str = "APPUIE POUR CONTINUER";
 
-/// Texte d'accueil d'un niveau : une phrase d'ambiance et un conseil.
-#[derive(Debug, Clone, Copy)]
-pub struct Intro {
-    pub texte: &'static str,
-    pub astuce: &'static str,
-}
-
-/// Une intro par niveau du MONDE 1, dans l'ordre. Le type `[Intro; NB_NIVEAUX_MONDE_1]`
-/// fait échouer la compilation si on ajoute un niveau au Monde 1 sans écrire son
-/// texte. Le Monde 2 a sa propre liste, rangée par clé : `INTROS_MONDE_2`.
-pub const INTROS: [Intro; niveaux::NB_NIVEAUX_MONDE_1] = [
-    Intro {
-        texte: "La pluie tambourine sur les toits. Pépin ouvre son parapluie : en route vers le soleil !",
-        astuce: "Maintiens SAUT en l'air pour planer.",
-    },
-    Intro {
-        texte: "L'averse redouble. Les flaques rôdent entre les cheminées.",
-        astuce: "Saute-leur dessus pour les écraser.",
-    },
-    Intro {
-        texte: "Sous les toiles, tout rebondit.",
-        astuce:
-            "Tombe sur un auvent : il te relance. Écrase le chat endormi : au « ! », il bondit.",
-    },
-    Intro {
-        texte: "L'orage éclate. Chaque éclair est annoncé : garde la tête froide !",
-        astuce: "Oui, tenir un parapluie ici est audacieux.",
-    },
-    Intro {
-        texte: "Une seule direction : en haut.",
-        astuce: "L'escargot est un tremplin. Sur une aiguille, laisse-toi porter.",
-    },
-    Intro {
-        texte: "C'est lui qui cache le soleil : le Grand Nuage ne veut pas te laisser passer.",
-        astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
-    },
-    Intro {
-        texte: "Le Grand Nuage s'est enfui. Les courants montent : laisse-toi porter, puis plane.",
-        astuce: "Les brins de vent montrent où ça monte.",
-    },
-    Intro {
-        texte: "Laisse le vent choisir, puis reprends la main.",
-        astuce: "Parapluie ouvert, le vent te porte ; fermé, tu lui résistes.",
-    },
-    Intro {
-        texte: "Là-haut, le soleil. Prends ton temps : l'orage gronde encore en bas.",
-        astuce: "Le champignon t'aide à monter.",
-    },
-    // Le sommet (cartes 8.2 et 8.2b) : le Grand Nuage, enfui au niveau 6, revient.
-    Intro {
-        texte: "Le Grand Nuage remonte de la mer : il veut garder le soleil endormi.",
-        astuce: "Ne t'arrête pas : il avance !",
-    },
-    // Le bonus (carte 5.16) : seulement avec toutes les gouttes.
-    Intro {
-        texte: "Il ne tient que le temps de le traverser.",
-        astuce: "Ne t'arrête pas : tout s'effrite derrière toi.",
-    },
-    // L'épilogue (carte 5.17) : la descente, du soleil jusqu'aux toits.
-    Intro {
-        texte: "Le soleil est réveillé : on redescend lui montrer la ville.",
-        astuce: "Parapluie ouvert, la grêle ne te touche pas.",
-    },
-];
-
-/// Les intros du MONDE 2 (carte 9.6), rangées par CLÉ de niveau et non par place :
-/// les niveaux du Monde 2 arrivent en parallèle (cartes 9.7 à 9.13), chacun ajoute
-/// sa ligne sans se soucier de l'ordre des autres. Un niveau du Monde 2 sans sa
-/// ligne ici empêche le jeu de COMPILER (`intros_du_monde_2_completes`), comme le
-/// tableau du Monde 1.
-pub const INTROS_MONDE_2: &[(&str, Intro)] = &[
-    (
-        "caniveau",
-        Intro {
-            // Carte 9.20a : le niveau suit l'eau jusqu'à la bouche d'égout (sa sortie).
-            texte: "La pluie file dans le caniveau, jusqu'à la bouche d'égout. Pépin la suit.",
-            // Carte 9.2b (demande d'AGA) : c'est BAS, plus le saut, qui fait la barque.
-            // Carte 9.2d : au sol, BAS assied Pépin, il ne bouge plus.
-            astuce: "BAS : barque sur l'eau. Au sol, Pépin ne bouge pas.",
-        },
-    ),
-    (
-        "cascade",
-        Intro {
-            // Carte 9.20c : le départ est le bout du grand tuyau des égouts.
-            texte:
-                "L'eau ressort du grand tuyau au bord de la falaise et tombe de bassin en bassin.",
-            astuce: "Dans une chute, plane pour aller doucement.",
-        },
-    ),
-    (
-        "grotte",
-        Intro {
-            texte:
-                "Derrière la cascade, une grotte. Des sources bouillonnent : les bulles te portent.",
-            astuce: "Une stalactite tremble : ne t'arrête pas dessous.",
-        },
-    ),
-    (
-        "riviere",
-        Intro {
-            texte: "L'orage est passé. La rivière descend la vallée : par les ponts, ou en barque.",
-            astuce: "Les ponts du haut sont plus sûrs, la barque du bas va plus vite.",
-        },
-    ),
-    (
-        "port",
-        Intro {
-            texte: "La pluie arrive au port. Au bout de la jetée, quelque chose remue dans l'eau.",
-            astuce: "Un bateau va et vient : attends-le au bord du quai.",
-        },
-    ),
-    (
-        "pieuvre",
-        Intro {
-            texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
-            astuce: "Elle frappe là où l'eau tremble.",
-        },
-    ),
-    (
-        "egouts",
-        Intro {
-            texte: "Sous la rue, l'eau de pluie file dans les tunnels. Les rats aussi.",
-            astuce: "Un rat qui se dresse va foncer : saute-lui dessus ou par-dessus.",
-        },
-    ),
-];
-
-// Vérifié À LA COMPILATION : chaque niveau du Monde 2 de la table a son intro.
-const _: () = assert!(
-    intros_du_monde_2_completes(),
-    "un niveau du Monde 2 n'a pas son intro dans INTROS_MONDE_2"
-);
-
-/// Chaque niveau hors du Monde 1 a-t-il sa ligne dans `INTROS_MONDE_2` ? Fonction
-/// `const` (boucles `while`, `==` sur `&str` n'étant pas permis en `const`).
-const fn intros_du_monde_2_completes() -> bool {
-    // Les clés viennent des NOMS des fichiers `.ron` (`niveaux::CLES_HORS_MONDE_1`,
-    // écrite par le `build.rs` du crate `niveaux`) : la vérification reste faite
-    // à la compilation, même si les niveaux eux-mêmes sont lus au lancement.
-    let cles = niveaux::CLES_HORS_MONDE_1;
-    let mut i = 0;
-    while i < cles.len() {
-        let mut k = 0;
-        while k < INTROS_MONDE_2.len() && !meme_texte(INTROS_MONDE_2[k].0, cles[i]) {
-            k += 1;
-        }
-        if k == INTROS_MONDE_2.len() {
-            return false;
-        }
-        i += 1;
-    }
-    true
-}
-
-/// Deux textes identiques, octet par octet (utilisable en `const`).
-const fn meme_texte(a: &str, b: &str) -> bool {
-    let (a, b) = (a.as_bytes(), b.as_bytes());
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut k = 0;
-    while k < a.len() {
-        if a[k] != b[k] {
-            return false;
-        }
-        k += 1;
-    }
-    true
-}
-
-/// Intro du niveau `indice` (0 pour le premier) ; un indice trop grand donne le dernier,
-/// sauf, dans les tests et le build de QA, ceux des niveaux d'essai (vertical, vent,
-/// grêle, auvent, ventilateur, montgolfière).
-pub fn intro(indice: usize) -> &'static Intro {
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI {
-        return &INTRO_ESSAI;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_VENT {
-        return &INTRO_ESSAI_VENT;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_GRELE {
-        return &INTRO_ESSAI_GRELE;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_AUVENT {
-        return &INTRO_ESSAI_AUVENT;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_VENTILATEUR {
-        return &INTRO_ESSAI_VENTILATEUR;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_MONTGOLFIERE {
-        return &INTRO_ESSAI_MONTGOLFIERE;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_ESCARGOT {
-        return &INTRO_ESSAI_ESCARGOT;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_CHAT {
-        return &INTRO_ESSAI_CHAT;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_HORLOGE {
-        return &INTRO_ESSAI_HORLOGE;
-    }
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_NUAGE {
-        return &INTRO_ESSAI_NUAGE;
-    }
-    // Le niveau posé par l'éditeur (carte 10.3b) : SON intro et SA mécanique.
-    #[cfg(any(test, feature = "debug_niveaux"))]
-    if indice == crate::monde::INDICE_ESSAI_EXTERNE {
-        if let Some(intro) = crate::essai_externe::intro() {
-            return intro;
-        }
-    }
-    // Le Monde 1 par sa place ; les autres mondes par la clé du niveau ; hors de la
-    // table, le dernier niveau.
-    let i = indice.min(niveaux::NB_NIVEAUX - 1);
-    if i < niveaux::NB_NIVEAUX_MONDE_1 {
-        return &INTROS[i];
-    }
-    INTROS_MONDE_2
-        .iter()
-        .find(|(cle, _)| *cle == niveaux::niveaux()[i].cle)
-        .map_or(&INTROS[niveaux::NB_NIVEAUX_MONDE_1 - 1], |(_, intro)| intro)
-}
-
-/// Intro du niveau d'essai vertical (build de QA seulement, voir `monde::INDICE_ESSAI`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI: Intro = Intro {
-    texte: "Niveau d'essai : quatre écrans de haut. La caméra suit Pépin en hauteur.",
-    astuce: "Grimpe, saute sur le champignon, redescends.",
-};
-
-/// Intro du niveau d'essai « vent » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_VENT`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_VENT: Intro = Intro {
-    texte: "Le vent latéral pousse Pépin : 60 px par seconde, deux fois plus fort en planant.",
-    astuce: "Planer avec le vent, sauter contre.",
-};
-
-/// Intro du niveau d'essai « grêle » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_GRELE`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_GRELE: Intro = Intro {
-    texte: "La grêle tombe sans arrêt : parapluie fermé, elle est mortelle.",
-    astuce: "Saute tôt et plane dessous.",
-};
-
-/// Intro du niveau d'essai « auvent » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_AUVENT`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_AUVENT: Intro = Intro {
-    texte: "Un auvent relance Pépin en diagonale : quatre tuiles plus loin.",
-    astuce: "Droite : plus loin. Gauche : plus près.",
-};
-
-/// Intro du niveau d'essai « ventilateur » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_VENTILATEUR`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_VENTILATEUR: Intro = Intro {
-    texte: "Un ventilateur souffle vers le haut : il porte Pépin bien plus haut qu'un saut.",
-    astuce: "Attends le souffle (la lampe clignote), reste dans la colonne.",
-};
-
-/// Intro du niveau d'essai « montgolfière » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_MONTGOLFIERE`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_MONTGOLFIERE: Intro = Intro {
-    texte: "Une montgolfière monte quand Pépin est dans sa nacelle, et redescend sans lui.",
-    astuce: "Attends en haut qu'elle s'arrête, puis avance vers l'étage.",
-};
-
-/// Intro du niveau d'essai « escargot » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_ESCARGOT`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_ESCARGOT: Intro = Intro {
-    texte: "L'escargot est un champignon qui marche : impossible à écraser, il fait rebondir.",
-    astuce: "Attends-le au pied de la falaise, puis saute-lui dessus.",
-};
-
-/// Intro du niveau d'essai « chat » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_CHAT`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_CHAT: Intro = Intro {
-    texte: "Le chat dort, puis se réveille. Endormi, on l'écrase ; réveillé, il bondit sur toi.",
-    astuce: "Attends les « z », puis tombe-lui dessus.",
-};
-
-/// Intro du niveau d'essai « horloge » (build de QA seulement, voir
-/// `monde::INDICE_ESSAI_HORLOGE`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_HORLOGE: Intro = Intro {
-    texte: "Les aiguilles de l'horloge tournent et emportent ce qui est posé dessus.",
-    astuce: "Saute dessus quand elle passe en bas, saute en haut.",
-};
-
-/// Intro du niveau d'essai « nuage » : l'arène du Grand Nuage (build de QA seulement,
-/// voir `monde::INDICE_ESSAI_NUAGE`).
-#[cfg(any(test, feature = "debug_niveaux"))]
-pub const INTRO_ESSAI_NUAGE: Intro = Intro {
-    texte: "Le Grand Nuage ne veut pas te laisser passer.",
-    astuce: "Quand il s'essouffle, monte dans son vent et saute-lui sur la tête.",
-};
+// Les textes de la carte de présentation d'un niveau (la phrase et le conseil)
+// sont dans le FICHIER du niveau depuis la carte 11.3 (`intro_texte`,
+// `intro_astuce` : voir `assets/levels/LISEZMOI.md`), plus ici : un niveau s'ajoute
+// avec son seul fichier.
 
 /// Étiquette de la carte de présentation d'un niveau : « NIVEAU 2/5 » pour un niveau
 /// normal (`nb_normaux` : nombre de niveaux normaux du jeu ; le bonus et l'épilogue ne
@@ -476,6 +169,9 @@ pub const INTRO_ESSAI_NUAGE: Intro = Intro {
 /// d'avant, sans le mot chapitre.
 pub fn etiquette_niveau(infos: &InfosNiveau, nb_normaux: usize) -> String {
     let base = etiquette_dans_le_chapitre(infos, nb_normaux);
+    // Règle GÉNÉRALE (carte 11.2), pas un cas du Monde 2 : seul le Monde 1 n'a pas de
+    // chapitre écrit ; tout monde suivant (2, 3...) affiche le sien, numéroté par
+    // `libelle_chapitre`.
     if infos.monde > 1 {
         format!("{} · {base}", libelle_chapitre(infos.monde))
     } else {
@@ -568,10 +264,11 @@ pub const NON: &str = "NON";
 pub const OK: &str = "OK";
 pub const IL_TE_MANQUE: &str = "IL TE MANQUE";
 
-// --- Mode facile du Grand Nuage (carte 8.14) ------------------------------------
+// --- Mode facile des boss (carte 8.14) --------------------------------------------
+// Ce que le facile change pour CHAQUE boss (« MODE FACILE : LE NUAGE N'A QUE 2
+// VIES ») est dans le fichier de son niveau depuis la carte 9.34 (`facile_texte`).
 
 pub const TROP_DUR: &str = "TROP DUR ?";
-pub const MODE_FACILE_PROPOSE: &str = "MODE FACILE : LE NUAGE N'A QUE 2 VIES";
 pub const FACILE_SANS_MEDAILLE: &str = "Pas de médaille ni de record en facile.";
 /// Mention du bilan et de la carte des niveaux : boss vaincu en facile.
 pub const FACILE: &str = "FACILE";
@@ -782,7 +479,6 @@ pub(crate) mod tests {
             OK,
             IL_TE_MANQUE,
             TROP_DUR,
-            MODE_FACILE_PROPOSE,
             FACILE_SANS_MEDAILLE,
             FACILE,
             AIDE_BOUTIQUE,
@@ -815,9 +511,14 @@ pub(crate) mod tests {
             t.push(effet);
         }
         t.extend(ASTUCES_AIDE);
-        for i in INTROS.iter().chain(INTROS_MONDE_2.iter().map(|(_, i)| i)) {
-            t.push(i.texte);
-            t.push(i.astuce);
+        // Les intros de TOUS les niveaux (parcours et essais), lues dans leurs fichiers.
+        for n in niveaux::niveaux().iter().chain(niveaux::essais()) {
+            t.push(n.intro_texte);
+            t.push(n.intro_astuce);
+            // La phrase du mode facile des boss (carte 9.34), absente ailleurs.
+            if !n.facile_texte.is_empty() {
+                t.push(n.facile_texte);
+            }
         }
         t
     }
@@ -870,20 +571,6 @@ pub(crate) mod tests {
                 !tout.contains(interdit),
                 "« {interdit} » ne doit pas figurer"
             );
-        }
-    }
-
-    #[test]
-    fn l_intro_hors_bornes_donne_le_dernier_niveau() {
-        assert_eq!(intro(99).texte, intro(niveaux::NB_NIVEAUX - 1).texte);
-        assert_eq!(intro(0).texte, INTROS[0].texte);
-        // Le Monde 2 (carte 9.6) : par la clé, quelle que soit sa place dans la table.
-        let caniveau = pepin_core::levels::indice_de_cle(niveaux::niveaux(), "caniveau").unwrap();
-        assert_eq!(intro(caniveau).astuce, INTROS_MONDE_2[0].1.astuce);
-        // Chaque intro du Monde 2 désigne un niveau du Monde 2 de la table.
-        for (cle, _) in INTROS_MONDE_2 {
-            let i = pepin_core::levels::indice_de_cle(niveaux::niveaux(), cle).expect(cle);
-            assert!(i >= niveaux::NB_NIVEAUX_MONDE_1, "{cle}");
         }
     }
 
@@ -951,11 +638,10 @@ pub(crate) mod tests {
         assert_eq!(etiquette_niveau(&infos, 9), "NIVEAU BONUS");
         infos.genre = GenreNiveau::Epilogue;
         assert_eq!(etiquette_niveau(&infos, 9), "ÉPILOGUE");
-        // Le niveau d'essai vertical (numéro 0, hors de la table) et son intro.
+        // Le niveau d'essai vertical (numéro 0, hors de la table).
         let essai = *niveaux::par_cle("essai_vertical");
         assert_eq!(essai.numero, 0);
         assert_eq!(etiquette_niveau(&essai, 5), "NIVEAU D'ESSAI");
-        assert_eq!(intro(crate::monde::INDICE_ESSAI).texte, INTRO_ESSAI.texte);
         // Monde 2 (cartes 9.1 et 9.1b) : le CHAPITRE devant, compté PAR MONDE ; le
         // Monde 1 inchangé (`etiquette` compte les normaux du monde dans la vraie table).
         let m2 = *niveaux::par_cle("caniveau");
@@ -984,10 +670,6 @@ pub(crate) mod tests {
                 TITRE_CHAPITRE_1,
                 TITRE_CHAPITRE_2,
             ])
-            .chain([INTRO_ESSAI.texte, INTRO_ESSAI.astuce])
-            .chain([INTRO_ESSAI_CHAT.texte, INTRO_ESSAI_CHAT.astuce])
-            .chain([INTRO_ESSAI_HORLOGE.texte, INTRO_ESSAI_HORLOGE.astuce])
-            .chain([INTRO_ESSAI_NUAGE.texte, INTRO_ESSAI_NUAGE.astuce])
         {
             for c in e.chars() {
                 assert!(pepin_core::font::glyphe(c).is_some(), "{c:?}");

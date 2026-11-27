@@ -138,12 +138,9 @@ impl Application {
                     }
                 }
                 match self.ecran {
-                    Ecran::Carte(_) => carte::dessiner(
-                        self.monde.indice,
-                        self.monde.infos,
-                        self.anim,
-                        &self.sauvegarde.lettres(),
-                    ),
+                    Ecran::Carte(_) => {
+                        carte::dessiner(self.monde.infos, self.anim, &self.sauvegarde.lettres())
+                    }
                     Ecran::Pause => {
                         pause::dessiner(self.anim, &libelles, &self.menu, &dispo);
                         // En jeu, pas d'icône : le coin est aux commandes tactiles et au HUD.
@@ -192,7 +189,7 @@ impl Application {
         }
         // Bannière du mode facile (carte 8.14), par-dessus le jeu ou la carte des niveaux.
         if let Some(p) = &self.facile.proposition {
-            ecrans::facile::dessiner(p);
+            ecrans::facile::dessiner(p, self.facile_texte(p.origine));
         }
         self.transition.dessiner();
     }

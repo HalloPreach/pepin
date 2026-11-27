@@ -215,20 +215,16 @@ pub fn dessiner(banque: &Banque, skin: Skin, anim: u32, s: &Sauvegarde, e: &Etat
     // Ordonnée écran d'une ordonnée de la carte.
     let ecran = |y: f32| (Y_VUE + y - e.defil).round();
     // Le fond du chapitre (carte 9.28) : l'ascension au chapitre 1, la descente de
-    // l'eau au chapitre 2.
+    // l'eau au chapitre 2. Carte 11.2 : choisi d'après les THÈMES des niveaux du
+    // monde (`fond_en_descente`), pas d'après son numéro.
     let vue = fond_plan::Vue {
         y_vue: Y_VUE,
         l: L_CARTE,
         defil: e.defil,
     };
-    if e.monde >= 2 {
-        fond_plan::chapitre_2(
-            banque,
-            &vue,
-            g,
-            niveaux_du_monde(niveaux::niveaux(), e.monde),
-            anim,
-        );
+    let tranche = niveaux_du_monde(niveaux::niveaux(), e.monde);
+    if fond_plan::fond_en_descente(tranche) {
+        fond_plan::chapitre_2(banque, &vue, g, tranche, anim);
     } else {
         fond_plan::chapitre_1(banque, &vue, g, anim);
     }

@@ -1,0 +1,67 @@
+// Niveau de PÉPIN. Format : voir assets/levels/LISEZMOI.md.
+//
+// Monde 2, niveau 7 : « La marée » (carte 9.32), entre le port et la Pieuvre.
+// Dessiné, réglé, essayé et exporté dans l'éditeur de niveaux (gestes :
+// docs/maree-gestes.json, rejoués par docs/capture-932.mjs) ; seul ce
+// commentaire a été écrit à la main (l'éditeur garde les commentaires, il ne
+// sait pas en écrire).
+//
+// La marée en vedette : la mer monte et descend dans les bassins du port (la
+// mécanique `=` de la carte 9.3 : 3 s de mer basse, 2 s de montée, 3 s de
+// pleine mer, 2 s de descente, annoncées par le repère qui clignote).
+//
+// Lecture du niveau (166 x 11 tuiles, un écran de haut ; quais en rangée 4,
+// l'eau du port en rangées 8 et 9), de gauche à droite :
+// 1. le QUAI DU DÉPART (colonnes 0 à 11), un oiseau posé (décor) ;
+// 2. le BASSIN SEC (12 à 25, 3 tuiles de fond) : à mer basse on y descend à
+//    pied ; la 1re goutte attend dans une niche du mur du départ (colonne 11,
+//    rangée 6, visible dès l'écran de départ), et on remonte avant l'eau. À mer haute : la barque ;
+// 3. le QUAI 2 (lanterne 1, colonne 29) ;
+// 4. L'ÉCLUSE (37 à 62) : deux bassins de 12 tuiles, trop larges pour un
+//    plané, séparés par un duc d'Albe (49-50). Tombé dedans en planant, on est
+//    en barque ; à mer basse, le quai est trop haut (67 px) : on ATTEND que la
+//    mer monte, la barque monte avec elle, puis on saute sur le duc d'Albe,
+//    et de même jusqu'au quai 3. La 2e goutte flotte au-dessus du 1er bassin ;
+// 5. le QUAI 3 (lanterne 2, colonne 66), une caisse (68) qui garde la
+//    lanterne du crabe de la colonne 73 ;
+// 6. le CHENAL DES NÉNUPHARS (77 à 100) : quatre nénuphars, deux poissons
+//    entre eux, puis un ponton (98 à 100) pour remonter au quai ;
+// 7. le QUAI 4 (lanterne 3, colonne 104) ;
+// 8. le PASSAGE DE BASSE MER (113 à 126) : un bassin sec sous une VOÛTE
+//    (116 à 123) qu'on ne peut pas survoler. À mer basse, à pied au fond ; à
+//    mer haute, en barque sous la voûte (une tuile d'air). La 3e goutte
+//    attend sous la voûte (colonne 119) ;
+// 9. le QUAI 5 (lanterne 4, colonne 130), puis deux PONTONS à crabe au-dessus
+//    de l'eau, un poisson entre eux, et le QUAI 6 : le drapeau (colonne 162), un oiseau posé (159).
+//
+// Aucune case à plus de 45 colonnes d'un point de reprise (départ 2,
+// lanternes 29, 66, 104, 130, drapeau 162). Ennemis loin des lanternes : les
+// crabes patrouillent leur ponton ou leur bout de quai.
+(
+    monde: 2,
+    numero: 7,
+    cle: "maree",
+    nom: "La marée",
+    theme: Port,
+    genre: Normal,
+    sans_planer: true,
+    duree_cible_s: 70,
+    intro_texte: "Dans le port, la mer monte et descend. Au fond des bassins, l'eau n'attend personne.",
+    intro_astuce: "Mer basse : on marche au fond. Mer haute : la barque monte avec elle.",
+    mecanique: "La marée en vedette : traverser un bassin à pied quand la mer est basse ; attendre en barque que la mer monte pour remonter au quai ; passer sous une voûte au fond à mer basse, ou en barque à mer haute ; puis les nénuphars, les poissons et les crabes des pontons.",
+    aiguilles: [],
+    poissons_hauts: [],
+    ascii: r#"
+....................................................................................................................BBBBBBBB..........................................
+....................................................................................................................BBBBBBBB..........................................
+...........................................o........................................................................BBBBBBBB..........................................
+..@....K.....................L....................................L.#....k..............................L..............o..........L............................K..X...
+BBBBBBBBBBBB==============BBBBBBBBBBB............BB............BBBBBBBBBBBBBB........................BBBBBBBBBBBB==============BBBBBBBBBB..................BBBBBBBBBBB
+BBBBBBBBBBBB==============BBBBBBBBBBB============BB============BBBBBBBBBBBBBB........................BBBBBBBBBBBB==============BBBBBBBBBB....k.......k.....BBBBBBBBBBB
+BBBBBBBBBBBo==============BBBBBBBBBBB============BB============BBBBBBBBBBBBBB.....................###BBBBBBBBBBBB==============BBBBBBBBBB...###.....###....BBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB============BB============BBBBBBBBBBBBBB....n..i.n....n..i.n....BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB........i.........BBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB~~~~~~~~~~~~BB~~~~~~~~~~~~BBBBBBBBBBBBBB~~~~~~~~~~~~~~~~~~~~~~~~BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB~~~~~~~~~~~~~~~~~~BBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB~~~~~~~~~~~~BB~~~~~~~~~~~~BBBBBBBBBBBBBB~~~~~~~~~~~~~~~~~~~~~~~~BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB~~~~~~~~~~~~~~~~~~BBBBBBBBBBB
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+"#,
+)

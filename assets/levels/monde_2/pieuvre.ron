@@ -60,7 +60,7 @@
     // caniveau (numéro 1), donc 2 ici. Sa place finale est la 7e (avant la marée) :
     // à la fusion, le coordinateur range la ligne et corrige les numéros
     // (`verifier_ordre` refuse un 7 tant que les niveaux 2 à 6 manquent).
-    numero: 7,
+    numero: 8,
     cle: "pieuvre",
     nom: "La Pieuvre du port",
     theme: Port,
@@ -68,7 +68,9 @@
     sans_planer: false,
     // Carte 9.13a : le boss final dure deux niveaux (la phase 1 et la montée).
     duree_cible_s: 75,
-    intro: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
+    intro_texte: "La Pieuvre garde le port. Elle ne te laissera pas passer.",
+    intro_astuce: "Elle frappe là où l'eau tremble.",
+    facile_texte: "MODE FACILE : LA PIEUVRE N'A QUE 2 VIES, ATTAQUE MOINS ET LA MER MONTE MOINS VITE",
     mecanique: "La Pieuvre du port (boss) : quitter la colonne du tentacule annoncé, sauter sur la tête sortie trois fois (jamais la toucher de côté) ; puis fuir la mer qui monte en haut de la tour, et l'achever là-haut.",
     aiguilles: [],
     poissons_hauts: [],

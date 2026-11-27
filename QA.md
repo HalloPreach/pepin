@@ -7454,3 +7454,499 @@ Liste reprise de la 2e étape (`t_be104fce`) et rendue finale :
 - Démarrage (`node docs/mesure-demarrage.mjs PORT 5`, navigateur neuf, deux séries alternées avant / après, machine à une charge de 50 à 68 : mesures très bruitées) : premier dessin, médianes : série 1, avant 1 333 ms, après 1 330 ms ; série 2, avant 876 ms, après 655 ms. Avant, les 19 sons étaient décodés à 1,6 s à 2,6 s ; après, aucun son n'est téléchargé tant que le son est coupé. Le titre n'apparaît pas plus tard ; il n'a plus 3 Mo de sons en concurrence sur le réseau.
 - Captures (build de QA copié AVANT toute modification de cette carte, `fbd5f8c`, puis celui de la fin, servis côte à côte, `docs/capture-104d.sh` et `docs/capture-104f.sh`, `comparer-captures.py` par paires), deux passages de chaque build, machine à une charge de 40 à 68 : 48 images (départ et milieu des 7 niveaux du Monde 2, Pieuvre 300 et 900 images plus tard, montée à deux hauteurs, rue x 8, cascade x 6, grotte x 6, rivière x 8 ; le port montre le phare et les cargos, désormais en PNG). 1er passage d'avant contre 2e passage d'après : 48/48 IDENTIQUES au pixel. Les autres croisements ont 2 ou 3 images différentes (rivière 1 et 2 ; montée haute b), mais des écarts du même genre apparaissent entre deux passages du MÊME build (avant contre avant : rivière 1 et 2 ; après contre après : rivière 1, 2 et montée haute b) : c'est Pépin (une autre image de son animation) et les lucioles, le pilote n'étant pas parfaitement déterministe sous forte charge (déjà noté à la 2e étape), pas le fond. Aucune image d'après qui ne soit identique à une image d'avant.
 - Rien de personnel dans le dépôt : ni nom, ni chemin `/home`, ni IP dans le diff, `assets/`, `dist/` et `dist-qa/` (vérifié par `grep`).
+
+## Carte 10.5 (AGA) : mise en prod du lot « refonte, assets et Pieuvre » : ARRÊTÉE AVANT LA PUBLICATION (lot ROUGE)
+
+- RIEN N'EST PUBLIÉ : ni fusion de `monde-2` dans `main`, ni `publier-prod.sh`, ni push. La prod reste `c4d715b` (wasm en ligne `605ea9a4…`, vérifié identique au dossier `www` du site).
+- Raison : critère « lot complet » ROUGE. `./docker-cargo.sh lot` sur une extraction propre du commit gelé : core 314 + 5 de lot, niveaux 16, `tous` 89 + 57 de lot, game 424 rapides : tout VERT ; tests de lot de game : 18 VERTS, 1 ROUGE : `le_robot_finit_le_monde_2_sans_mourir` (5 678 s) : « le robot ne trouve aucun parcours au niveau 19 » (`game/src/bot_qa/mod.rs:348`), c'est-à-dire la PIEUVRE (Monde 2, niveau 7), robot précis comme maladroit. Même échec, au même endroit, dans le `lot` de la carte 11.1 lancé en parallèle sur sa propre branche (`target/lot/` de son dossier, 4 899 s) : l'échec est reproductible. `le_robot_bat_la_pieuvre_sans_mourir` (niveau d'ESSAI de la Pieuvre) est vert ; la faisabilité du vrai niveau (`faisabilite::monde_2_niveau_7_faisable` et `_reprise`, `par_niveau::pieuvre`, `pieuvre_montee`, dans `tous`) aussi : c'est le robot de QA de PARTIE qui ne trouve plus de chemin dans la vraie Pieuvre. Les cartes 9.13a et 9.31 l'avaient noté « PAS testé : robots de partie complète (lot) » ; la phase 2 (9.13a à e) est déjà en prod, 9.13f et 9.13g (la mer qui suit Pépin, la vigie) partiraient avec ce lot. Non vérifié : si `c4d715b` (la prod actuelle) échoue aussi (1 h 30 de calcul sur cette machine).
+- Décision demandée à AGA : publier quand même (le reste est vert, voir plus bas), ou d'abord une carte « robot de QA de partie : Pieuvre phase 2 » (puis relancer cette carte sur un nouveau gel).
+- Commit gelé : `monde-2` = `dd45fb2` (« Fusion carte 10.4f (Monde 2) » ; `merge-base --is-ancestor carte-10.4f monde-2` vrai au départ ; `monde-2` n'a pas bougé pendant la carte). 33 commits de `monde-2` absents de `main` : 9.13f, 9.13g, 10-niveaux (10.1a à c), 10-scene (10.2a à c), 10.4a à 10.4f (assets en fichiers, sons à la demande), éditeur (10.3a à c, site de test seulement).
+- Étiquette `prod-avant-10.5` créée sur `c4d715b` (la prod du 2026-11-23), dans le dépôt local seulement (pas poussée, puisque rien n'est publié).
+- Retour arrière prévu (à utiliser seulement après une publication) :
+  - site : recopier la sauvegarde écrite par `publier-prod.sh` dans le dossier servi : `cp -a <site>/www.bak-<date>/. <site>/www/` (`<site>` : le dossier du site, celui de `publier-prod.sh`), puis `curl -s "<adresse de la prod>/game.wasm?v=$(date +%s)" | sha256sum` doit redonner `605ea9a4137849a5…` ;
+  - git : `git -C ~/projects/pepin revert -m 1 <commit de fusion>` puis `git -C ~/projects/pepin push origin main`.
+- Vérifications AVANT, sur une extraction propre (`git archive dd45fb2`, pas de checkout) :
+  - `./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+  - `./build.sh` : OK ; 19 WAV canoniques, aucun nom interdit ; contrôle refait à part sur tout `dist/` : 22 fichiers, 0 nom ni chemin ni IP, 0 balise de métadonnée, WAV mono 22 050 Hz 16 bits ; éditeur absent ; `?essai=1` absent du wasm de prod (aucun import `pepin_niveau_essai*` ; présent dans celui de QA). `./build.sh --qa` OK.
+  - Navigateur (Chromium 1208 sans écran, `dist/` servi en local, horloge virtuelle de `docs/pilote-qa.js`, pilote de recette hors dépôt) : 0 erreur de console, 0 requête en échec ; 0 couleur hors palette et 0 flou sur toutes les captures au clavier, regardées :
+    - sauvegarde vide : titre, histoire, carte du niveau qui ATTEND (10 s sans appui : toujours affichée), jeu, pause, M (son), quitter au titre ;
+    - Monde 2 ouvert : carte des niveaux, chapitres 1 et 2, caniveau, son ;
+    - boutique ;
+    - téléphone (844 x 390, DPR 3, tactile émulé) : JOUER au doigt, boutons, droite et saut au doigt, pause au doigt, menu de pause au doigt ; debout (390 x 844) : « Tourne ton téléphone », puis retour en paysage. Les captures EN JEU au téléphone ont des pixels hors palette et du flou : les boutons sont translucides (comme aux cartes 9.2c et 9.30), attendu.
+  - Sons à la demande (`node docs/sons-a-la-demande.mjs`, sur `dist/`) : SONS-A-LA-DEMANDE-OK ; 0 requête audio son coupé ; après M, musique lancée en 230 à 445 ms (machine chargée), 14 fichiers ; la musique d'une autre zone arrive en entrant dans son niveau. Sonde sur `AudioBufferSourceNode.start` : au titre 2 sons lancés (musique 9,6 s et pluie 2 s, en boucle), en jeu 7, contexte audio `running` à chaque lancement.
+  - Robot du Monde 1 (`ecrire_script_navigateur`) : 21 801 images, 0 mort, 13 gouttes, empreinte `efffa02569f3d66a`. Son rejeu complet dans le navigateur, commencé, a été arrêté (trop lent sous la charge) : non fait.
+- Sauvegardes (prod actuelle servie en local À CÔTÉ du nouveau build, même parcours, captures comparées au pixel par `docs/comparer-captures.py`) :
+  - sauvegarde v3 riche (212 gouttes, 3 skins dont le doré équipé, traînée étoiles, musique orage, `bonus_credites=fin`, médailles 0 à 3, temps, `defaites`, `facile`, `lettre`, Monde 2 commencé, record de course) : carte des niveaux (2 chapitres, niveau voisin), boutique (puis Droite) : 5/5 captures IDENTIQUES ; texte de la sauvegarde relu à l'identique après la visite, sur les deux builds ;
+  - ancienne sauvegarde v2 (`niveau_max_atteint`, niveaux par numéro, celle du test `la_migration_v2_range_chaque_niveau_sous_sa_cle`) : carte, niveau voisin, boutique : 3/3 IDENTIQUES ; texte inchangé ;
+  - seul l'écran titre diffère (64 206 et 66 582 pixels) : la pluie et le personnage animés ne tombent pas à la même image d'un build à l'autre ; gouttes, RECORD, lignes du menu et skin identiques à l'œil.
+  - Pas une vraie sauvegarde de joueur : des sauvegardes écrites à la main au format de la prod (aucune sauvegarde de joueur n'est accessible ici).
+- Poids (son coupé, titre puis 1er niveau, navigateur neuf sans cache, octets reçus d'après CDP, en-têtes compris) :
+
+| | prod actuelle `c4d715b` | nouveau `dd45fb2` |
+|---|---|---|
+| `game.wasm` brut | 904 301 | 1 069 153 (+164 852 : sprites et fonds en PNG embarqués, niveaux RON, serde et ron) |
+| `game.wasm` gzip | 352 501 (reçu en ligne) | 442 515 (tableau de `./build.sh`) |
+| html + js gzip | 18 125 (reçu en ligne) | 16 874 (tableau de `./build.sh`) |
+| images à part | 0 (dans le wasm) | 0 (PNG dans le wasm) |
+| audio son coupé | 0 (sons synthétisés DANS le wasm au démarrage) | 0 |
+| audio au premier M | 0 | 686 à 771 Ko (14 fichiers : bruitages, pluie, musique de la zone) |
+| total son coupé | 958 122 brut ; 370 626 reçus en ligne | 1 125 061 brut ; environ 459 400 en gzip |
+| `musiques/` + `sons/` servis | absents | 3 096 644 (gzip 2 399 431), jamais tous d'un coup |
+
+- Démarrage (`node docs/mesure-demarrage.mjs PORT 4`, deux séries alternées, médianes ; charge de la machine 60 à 150 : mesures très bruitées) : premier dessin 2 697 et 2 870 ms avant (le titre attendait la synthèse des 19 sons), 1 589 et 1 854 ms après ; fin de la 3e image 1 272 et 1 648 avant, 1 599 et 1 931 après ; plus longue des 10 premières images 254 et 283 avant, 560 et 696 après (décodage des PNG, une fois, sous forte charge). L'écran titre apparaît plus tôt.
+- PAS fait (la publication n'a pas eu lieu) : fusion, `publier-prod.sh`, empreintes en ligne, recette sur le site en ligne (titre, un niveau par chapitre, la Pieuvre jusqu'à la tour, boutique, son). PAS testé du tout : vrai téléphone, iPhone et Safari, joueur humain, la Pieuvre dans le navigateur (le script du robot du Monde 2, `ecrire_script_monde_2_96`, était encore en calcul à l'arrêt de la carte, après 2 h : il cherche aussi un parcours dans la vraie Pieuvre).
+
+## Carte 10.5 (AGA, reprise après la décision « A ») : lot « refonte, assets et Pieuvre » PUBLIÉ (`main` = `ffe6a4f`)
+
+- Décision d'AGA (2026-11-24, réponse « A ») : on publie malgré le seul test rouge, `le_robot_finit_le_monde_2_sans_mourir` (« le robot ne trouve aucun parcours au niveau 19 », la vraie Pieuvre). C'est le robot de QA de PARTIE qui ne sait pas jouer la phase 2 ; le jeu n'est pas en cause (le pilote de la 9.13g la gagne 10 fois sur 10, et la phase 2 est en prod depuis `c4d715b`). La carte 10.7 apprendra la phase 2 au robot. TEST ROUGE ACCEPTÉ, pas corrigé ici. Les vérifications « avant » de la section précédente restent valables (le lot n'est pas relancé) : `monde-2` n'a pas bougé.
+- Gel revérifié juste avant la publication : `monde-2` local et `origin/monde-2` valent toujours `dd45fb2`, dépôt principal propre.
+- Pendant : `publier-prod.sh` (code 0) : fusion `--no-ff` de `monde-2` dans `main` = `ffe6a4f` ; arbre de `ffe6a4f` IDENTIQUE à celui de `dd45fb2` (`git diff --stat` vide) ; 0 nom interdit dans le wasm et les sons ; sauvegarde du site `www.bak-20261124-181716` ; empreintes en ligne : `game.wasm` `ad2c65e5ef1bdd37` en local, sur la prod et sur son adresse en `www` (le même wasm que celui vérifié AVANT sur l'extraction propre de `dd45fb2`), `musiques/orage.wav` `834a91ae8da1d2ff` des deux côtés, site de test `c660bc0620021dba` des deux côtés ; 0 secret ; `main` poussé (`c4d715b..ffe6a4f`), `monde-2` déjà à jour. Étiquette `prod-avant-10.5` (sur `c4d715b`) poussée.
+- Après, sur le site en ligne :
+  - Fichiers servis : les 22 fichiers de `dist/` (html, js, wasm, `musiques/`, `sons/`) téléchargés un par un en ligne (requête sans cache) : 22/22 sha256 identiques. `editeur.html` absent de la prod (404), présent sur le site de test.
+  - Navigateur (Chromium 1208 sans écran, pilote de recette de la carte, horloge virtuelle de `docs/pilote-qa.js`, navigateur neuf à chaque parcours) : 0 erreur de console, 0 requête en échec, cadre d'erreur de la page caché, 0 couleur hors palette et 0 flou sur les 18 captures, regardées :
+    - écran titre, carte du niveau « Les toits », jeu, M, pause ;
+    - chapitre 1 : « Les toits » joué ; chapitre 2 : carte des niveaux (chapitre 2), carte du niveau « Le caniveau », caniveau joué, M ;
+    - la Pieuvre (sauvegarde écrite à la main, Monde 2 fini jusqu'au port) : carte des niveaux (niveau 7/7), carte du niveau « La Pieuvre du port », arène de la phase 1 au départ, 5 s plus tard (frappes dans l'eau), puis Pépin vers la droite ;
+    - boutique (skins, puis traînées), retour au titre.
+  - Son activé (M) : 14 fichiers audio arrivent (bruitages, pluie, musique de la zone : `toits_de_nuit` aux toits comme au caniveau, comme prévu par `musiques.rs` ; `orage` au titre), 0 requête audio son coupé (boutique et Pieuvre : 3 requêtes seulement). Les sons JOUENT : sonde sur les `AudioContext` créés par la page, en ligne comme en local avec le même build, au titre et en jeu, avec un appui du pilote ou un vrai appui clavier (CDP) : contextes `running`, horloge audio qui avance (3,6 s, puis 6,2 s, puis 10,4 s), 2 à 4 sons lancés (musique 9,6 ou 11,5 s et pluie 2 s en boucle). Note : la première sonde (état lu à l'instant du lancement de chaque son) disait `suspended` en ligne et `running` en local ; la sonde sur les contextes montre `running` dans les deux cas, horloge qui avance : écart de mesure, pas un défaut.
+  - Poids réellement reçus en ligne (son coupé, titre puis 1er niveau, octets encodés d'après CDP) : wasm 443 946 (gzip), html et js 18 655, total 462 582 (prod d'avant : 370 626) ; au premier M, 779 193 de plus (14 fichiers).
+- Critères d'arrêt : aucun. Pas de sauvegarde qui ne se recharge pas (vérifié avant, captures identiques au pixel), pas d'erreur au chargement du site. Pas de retour arrière.
+- Retour arrière, si besoin plus tard (commandes exactes) :
+  - site : `cp -a <site>/www.bak-20261124-181716/. <site>/www/` (`<site>` : le dossier du site de `publier-prod.sh`) ; le `game.wasm` de cette sauvegarde a l'empreinte `605ea9a4137849a5` (vérifié), `curl -s "<adresse de la prod>/game.wasm?v=$(date +%s)" | sha256sum` doit la redonner. Les dossiers `musiques/` et `sons/` resteraient dans `www`, sans gêne (l'ancien build ne les demande pas).
+  - git : `git -C ~/projects/pepin revert -m 1 ffe6a4f` puis `git -C ~/projects/pepin push origin main`.
+- PAS testé : la Pieuvre JUSQU'À LA TOUR en ligne (le parcours s'arrête dans l'arène de la phase 1 : pour monter dans la tour il faut battre la phase 1, et aucun robot ne sait encore jouer la vraie Pieuvre en entier dans le navigateur, carte 10.7) ; vrai téléphone, iPhone et Safari, joueur humain ; une vraie sauvegarde de joueur (seulement des sauvegardes écrites au format de la prod) ; écoute réelle des sons (navigateur muet : on vérifie qu'ils se lancent et que l'horloge audio avance).
+
+## Carte 11.1 (AGA) : prototype, se balancer au parapluie (crochet, corde, élan, lâcher)
+- Verdict sur les deux conditions d'arrêt : le geste ne demande AUCUN bouton de plus (SAUT tenu près d'un crochet : la crosse s'accroche au lieu de planer ; GAUCHE/DROITE : l'élan ; SAUT lâché : le lancer), et le robot de faisabilité FINIT le niveau d'essai. Pas d'arrêt.
+- Le cœur (`core/src/player/balancement.rs`, sous-module de `player`) : nouvel état `EtatJoueur::Suspendu`, `Joueur::actualiser_avec_crochets` (sans crochet et sans balancement, c'est `actualiser` au bit près : un test le vérifie ; le Monde 1 et le Monde 2 ne changent pas). Pendule : angle et vitesse angulaire, Euler semi-implicite (la vitesse, puis l'angle avec la nouvelle vitesse : pas d'énergie fabriquée), léger frottement.
+- Règles d'AGA, en constantes nommées (à régler en jouant) : `PORTEE_CROCHET` 2,5 cases (40 px, de la crosse au crochet, crochet plus haut que la crosse) ; `CORDE_MIN` / `CORDE_MAX` 1,5 et 3 cases (la corde = la distance à l'accroche, bornée) ; `ANGLE_MAX` 80° (arrêt net, la pesanteur ramène) ; `BONUS_LACHER` 1,10 ; `DELAI_RACCROCHE_PAS` 18 pas (0,3 s, au même crochet seulement : un autre crochet prend tout de suite) ; décrochage au contact d'un solide ou de l'eau (il garde sa vitesse le long du cercle, sans bonus). Les ennemis blessent comme d'habitude (`resoudre_contacts` inchangé ; un rebond décroche).
+- Réglages ajoutés par moi (non fixés par AGA) : `POUSSEE_BALANCEMENT` 250 px/s² le long du cercle, `FROTTEMENT_BALANCEMENT` 2 % de vitesse par seconde, `HAUTEUR_CROSSE` 8 px au-dessus de la tête (le bout de la corde). Au lâcher, la part horizontale au-delà de la course (96 px/s) passe dans l'élan (le même que celui des auvents : les commandes en l'air s'y ajoutent, il s'éteint en ligne droite). Pendant le balancement, ni courant ascendant ni vent ne poussent Pépin (hors du prototype).
+- Le crochet : lettre `y` (libre), dans la légende de `core/src/level.rs` (recopiée dans `assets/levels/LISEZMOI.md` par `cargo run -p niveaux --bin lisezmoi`) et dans l'éditeur (`niveaux/src/legende.rs` : lettre, couleur, vignette `crochet`). `Niveau::crochets` (le point d'accroche au milieu de la case), vide partout ailleurs.
+- Dessin (`game/src/scene/crochets.rs`) : trois PNG, pas plus : `objets/crochet.png` (anneau de fer 10x8), `objets/crochet_allume.png` (le même, doré : la crosse est à portée, ou Pépin y pend), `pepin/pepin_suspendu.png` (16x23, parapluie fermé tenu à deux mains, crosse orange en haut ; Pépinette prend le même dessin par un ALIAS, `fichiers.rs`). La corde : une ligne de pixels pleins (Bresenham, testée) couleur brume (le contour sombre de la 1re capture se perdait dans le ciel de nuit), du crochet à la crosse. Planche des sprites régénérée.
+- Le niveau d'essai `assets/levels/essais/essai_balancement.ron` (touche C du build de QA, `INDICE_ESSAI_BALANCEMENT`), 104 x 14 : un crochet au-dessus du sol (10, 7) ; au-dessus d'un trou (23, 7) ; deux enchaînés (41, 7) et (47, 7) au-dessus d'un trou de 16 cases ; trois en montée (63, 7), (67, 5), (71, 3) jusqu'à une corniche 112 px au-dessus du sol (hors de portée d'un saut) ; un lâcher suivi d'un plané depuis (81, 3), au bord de la corniche, au-dessus d'un trou de 16 cases jusqu'au drapeau. 3 gouttes (une en l'air près du 1er crochet, une sous le 2e crochet enchaîné, une sur la corniche), 4 lanternes.
+- Fait à l'éditeur : `node docs/capture-111.mjs PORT DOSSIER` (CHROME=chromium-1208, build de QA servi en local sur un port libre) ouvre `editeur.html`, clique Nouveau, « + à droite » x44, « + en haut » x2, choisit les lettres dans la palette et pose tout à la souris (outil Rectangle pour les trous, le sol et la corniche ; Pinceau pour X, L, o, y), tape le formulaire au clavier (cle, nom, durée, intro, mécanique), clique Valider (« accepté par le chargeur du jeu »), ROBOT, puis « Exporter le .ron » (téléchargé). Le fichier rangé dans le dépôt est cet export, octet pour octet sous l'en-tête (vérifié par `diff` sur une seconde construction complète).
+- Fait HORS de l'éditeur : (1) les commentaires de conception en tête du fichier, ajoutés à la main (l'éditeur ne sait pas en écrire ; il les garde à la relecture : `./build.sh --qa` relit et réécrit les 34 fichiers sans écart) ; (2) les positions des crochets, gouttes et lanternes, mises au point AVANT avec un petit script jetable qui écrivait la grille et le robot de faisabilité (2 essais : la 1re goutte, placée trop haut, n'était pas prise), puis saisies à l'éditeur ; (3) la première construction à l'éditeur avait posé des `o` au lieu des `y` (le bouton `y`, en bas de la palette, était hors de la fenêtre et le clic tombait à côté) : le pilote amène désormais chaque bouton à l'écran avant de cliquer.
+- Robot de faisabilité (`core/src/faisabilite.rs`) : il se balance avec la VRAIE physique (`actualiser_avec_crochets`). Un plan « planer » qui passe à portée d'un crochet s'y accroche : nouveau point de décision (`Fin::Suspendu`, `Noeud::accroche`, l'état du pendule rangé sous la clé du noeud). Depuis un crochet : 360 plans de lâcher (sens, 0 à 8 demi-balancements d'élan, angle de lâcher de -20° à 60°, vol direction gardée ou non, plané ou non). Sans crochet, rien ne change (mêmes plans, `lacher: None`).
+- Robot sur le niveau d'essai : ARRIVÉE, 3 gouttes sur 3, 4 lanternes sur 4, 958 états, course rapide 18,8 s ; 6,4 s de recherche (test natif en release, `par_niveau::essai_balancement::le_robot_de_faisabilite_finit_le_niveau`) et 15 à 17 s dans le navigateur (bouton ROBOT de l'éditeur, wasm : « arrivée atteinte en 18.8 s de jeu, 19 sauts, lanternes allumables 4/4, gouttes 3/3 [robot : 17.3 s, 958 états] », capture `docs/qa/111-editeur-robot.png`). Sans les crochets (`y` remplacés par du vide), l'arrivée est hors d'atteinte (test `sans_crochet_l_arrivee_est_hors_d_atteinte`). Reprise depuis chaque lanterne des niveaux d'essai : verte.
+- Tests du cœur (`player::balancement::tests`, 10) : conditions d'accroche (SAUT tenu en l'air, portée, crochet plus haut, au sol c'est un saut), corde bornée, sans appui pas d'énergie gagnée (l'amplitude de chaque demi-balancement ne grandit jamais sur 10 s ; l'énergie mesurée, elle, oscille d'environ 0,4 % autour de sa valeur : c'est le schéma numérique, pas un gain), élan jusqu'à 80° et pas plus, direction et vitesse au lâcher (+10 % exactement, le déplacement du pas du lâcher aussi, plané possible aussitôt), délai de raccroche (18e pas au même crochet, 1er pas à un autre), décrochage sur un mur, même suite d'entrées = même résultat au bit près, sans crochet = `actualiser`.
+- Captures (`docs/qa/111-*.png`, cadre d'essai de l'éditeur : clic droit « partir d'ici » près du crochet, puis le clavier en temps réel ; regardées une à une) : `111-1-sol` (balancé au-dessus du sol, crochet allumé, corde), `111-2-trou` (balancé au-dessus du trou), `111-3-enchaines` (accroché au 2e crochet après avoir lâché le 1er, éteint derrière), `111-4-montee` (au crochet du milieu, le 1er en bas, le 3e en haut ; la montée complète à la main au clavier en temps réel n'a pas été réussie par le pilote : le robot, lui, la fait), `111-5-plane` (plané au-dessus du trou après le lâcher du crochet de la corniche). Zone de jeu : 0 pixel hors palette, 0 bloc flou (`docs/mesure-capture.py`, K = 4, sur la zone recadrée).
+- Preuves : `lint` FMT-OK, LINT-OK ; `carte toits` VERTE (core 324, game 416, niveaux 16 + 90, `le_niveau_de_la_carte`) ; game avec `debug_niveaux,qa_plantage` 415 VERTS ; tests ignorés du niveau d'essai et reprise des essais VERTS ; `./build.sh --qa` OK (game.wasm de QA 1 099 776 octets). Un test a dû suivre : `chaque_skin_fournit_toutes_les_images_aux_tailles_de_pepin` compte maintenant 19 images + l'icône.
+- Suite `lot` du coordinateur (le robot de faisabilité a changé : vérifier qu'il trouve toujours tout ailleurs) : core-lot 5/5, tous-lot 59/59 (faisabilité et reprise de TOUS les niveaux, 680 s), rapides verts ; game-lot (robots de QA, mémoire des parcours invalidée par le changement de code, machine partagée) : 18/19 verts (tous les niveaux du Monde 1, NG+, bonus, clocher, tous les essais, Grand Nuage, Pieuvre), le 19e, `le_robot_finit_le_monde_2_sans_mourir`, n'avait pas fini quand la limite de 50 min a coupé la suite (code 124) : NON VÉRIFIÉ ici. Sans crochet, `actualiser_avec_crochets` est `actualiser` au bit près (test), le Monde 2 n'a aucun crochet.
+- « Niveau jouable sur dev en build de QA » : vérifié en LOCAL sur le build de QA (`dist-qa/`, touche C ou l'éditeur). PAS publié sur dev : consignes du chantier (local seulement, le coordinateur publie).
+- Hors périmètre, pas fait : niveaux du Monde 3, crochets mobiles, mesure de difficulté ; le robot de QA du jeu (`bot_qa`) ne connaît pas les crochets (il n'a pas été demandé). Pas testé : un joueur humain (le « est-ce agréable ? » reste à juger par AGA), téléphone, Safari.
+
+## Carte 11.2 (AGA) : plus aucun « monde 2 » écrit en dur (un Monde 3 par des données)
+
+But : un troisième monde s'ajoute par des fichiers `.ron`, sans retoucher le code. Les huit endroits de l'audit (numéros de `cd2a559`, retrouvés par grep), et la décision pour chacun :
+
+| Endroit | Avant | Décision |
+| --- | --- | --- |
+| `defis.rs:269` (`bonus_fin_du_monde`) | `if monde > 1` : les trois constantes `BONUS_*_MONDE2` | CAS DU MONDE 2, remplacé par une règle : `LigneBonus` porte son `monde`, `cle_sauvegarde()` vaut l'identifiant au Monde 1 (`fin`...) et `monde{N}_{id}` ailleurs. Le Monde 2 retrouve EXACTEMENT ses clés (`monde2_fin`...), un Monde 3 a les siennes (`monde3_fin`...). Constantes `BONUS_*_MONDE2` supprimées. |
+| `contenu.rs:479` (`etiquette_niveau`) | `if infos.monde > 1` : « CHAPITRE N · » devant | RÈGLE GÉNÉRALE (« il existe un monde précédent » : seul le Monde 1 n'écrit pas son chapitre), laissée et commentée. |
+| `app/transitions.rs:238` (records de fin de partie) | `monde > 1` puis le champ `partie_monde2` | Le test `monde > 1` est une règle générale (le Monde 1 garde ses champs d'avant) ; le champ du Monde 2 devient `Sauvegarde::parties_mondes` (`BTreeMap<u8, RecordsPartie>`), `noter_partie_monde(monde, ...)`, `records_partie(monde)`. Ligne `partie.mondeN=...` pour tout N ≥ 2 (lue par `monde_de_cle_partie`, qui refuse `partie.monde1`, `partie.monde`, `partie.monde+3`, `partie.monde2x`). |
+| `scene/entites.rs:298` (`images_corbeau`) | `monde >= 2` : chauve-souris | CAS DU MONDE 2, remplacé par une donnée du NIVEAU : son thème (`images_corbeau(theme)`, `match` complet : un thème ajouté devra choisir). Les 7 thèmes du chapitre 2 donnent la chauve-souris, les 12 du Monde 1 le corbeau. Test : pour chaque niveau de la vraie table, la même image qu'avant. Aucun niveau d'essai d'un thème du chapitre 2 n'a de corbeau (vérifié dans leurs grilles) : rien ne change non plus en QA. |
+| `ecrans/plan.rs:224` (fond de la carte des niveaux) | `if e.monde >= 2` : `chapitre_2` | CAS DU MONDE 2, remplacé par une donnée des niveaux : `fond_plan::fond_en_descente(tranche)` (un de ses niveaux a un thème avec une bande, `bande_du_theme`). Monde 1 : non, Monde 2 : oui (testé). |
+| `plan.rs:226` (`etat_etape`) | `n.monde > 1 && !mondes_suivants_ouverts(...)` | Le `monde > 1` est la règle générale ; la PORTE était un cas du Monde 2 (la constante `CLE_ACCES_MONDES_SUIVANTS = "poursuite"` ouvrait tous les mondes suivants). Remplacée par `porte_du_monde(niveaux, monde)` : le dernier niveau NORMAL du monde précédent, lu dans la table. Pour le Monde 2 c'est `poursuite` (test `la_porte_du_monde_2_est_poursuite`) ; pour un Monde 3, la fin du Monde 2. `monde_ouvert(niveaux, s, monde)` remplace `mondes_suivants_ouverts`. |
+| `plan.rs:555` (Bas au bout du chemin) | `self.monde > 1 && aller_monde(monde - 1)` | RÈGLE GÉNÉRALE (« il existe un monde précédent »), laissée et commentée. |
+| `plan.rs:573` (Gauche en JOUER) | `self.monde > 1` | RÈGLE GÉNÉRALE, même commentaire. |
+
+Deux endroits VOISINS qui écrivaient encore « 2 » (hors des huit, mais un Monde 3 n'aurait jamais été atteint par JOUER) :
+- `app/mod.rs` `monde_de_jouer` : `monde_jouable(..., 2)` devient `plan::dernier_monde_jouable` (on monte tant que le monde suivant est jouable ; Monde 1 au moins). Avec deux mondes : le même résultat (test `jouer_reprend_au_dernier_monde_ouvert`, et `app::tests` inchangés).
+- `app/transitions.rs` (écran de fin, ligne CONTINUER) : `bilan.monde == 1 && monde_jouable(2)` devient `bilan.monde >= 1 && monde_jouable(bilan.monde + 1)`. À la fin du Monde 2, `monde_jouable(3)` est faux dans la vraie table : rien ne change.
+
+Faux Monde 3 (test seulement, `game/src/faux_monde_3.rs`, `#[cfg(test)]`) : `essai_chat`, `essai_escargot`, `essai_eau` recopiés après la vraie table avec `monde: 3`, numéros 1 à 3, genre normal (ce que donneraient trois fichiers `monde_3/*.ron`). Tests :
+- `la_porte_du_monde_3_est_la_fin_du_monde_2` : fermé tant que le dernier niveau normal du Monde 2 n'est pas fini, puis jouable, 1re étape ouverte, les autres verrouillées puis ouvertes une à une ; JOUER y reprend ;
+- `la_carte_des_niveaux_affiche_le_monde_3` : Haut au bout du Monde 2 y mène (géométrie de 3 étapes), flèche de chapitre vers lui, pas de Monde 4, Bas en revient ; « CHAPITRE 3 · NIVEAU 2/3 » ; titre de chapitre absent (le bandeau garde « CARTE DES NIVEAUX », voir limites) ;
+- `le_faux_monde_3_a_un_fond_de_carte` (`ecrans/fond_plan.rs`) : fond en descente (il a un niveau du caniveau), bandes jointives du pied au haut ; sans thème du chapitre 2, fond de l'ascension ;
+- `les_defis_et_bonus_du_monde_3_existent` : 3 défis par niveau, bonus `monde3_*` crédités une fois, le Monde 2 pas touché ;
+- `les_records_du_monde_3_s_enregistrent` : `partie.monde3=...`, progression de ses niveaux, relue à l'identique, Monde 1 intact ;
+- `les_entites_du_faux_monde_3_se_dessinent` (`scene/entites.rs`) : ses niveaux se chargent, les images du chat, de l'escargot et du corbeau de son thème sont dans la banque de sprites ; plus rien dans le dessin ne lit le numéro du monde (grep de `infos.monde` dans `game/src` : seuls l'étiquette et les comptes par monde restent) ;
+- `une_sauvegarde_actuelle_se_recharge_a_l_identique` : les lignes écrites avant la carte (`bonus_credites=fin,monde2_fin,monde2_toutes_les_gouttes`, `partie.monde2=parties:3 score:700 temps:4000`) se relisent dans les nouvelles structures et se réécrivent pareil ; les bonus du Monde 2 déjà crédités le restent ; aller-retour texte → sauvegarde → texte exact à l'octet.
+
+Format de sauvegarde : INCHANGÉ (pas d'arrêt nécessaire). Mêmes clés, même place des lignes, `version=3` ; les lignes d'un futur Monde 3 (`partie.monde3`, `monde3_*`) sont de simples clés en plus, qu'un jeu plus ancien ignore.
+
+- Preuves : `lint` LINT-OK ; `test --workspace --no-default-features` VERT (core 314, game 424, niveaux 16 + 89, outils 9, robot 4) ; game avec `debug_niveaux,qa_plantage` 423 VERTS. Captures (`docs/capture-112.sh` : départ et milieu, après 150 images de course, des 19 niveaux des Mondes 1 et 2, plus 6 vues de la carte des niveaux tout ouverte du build de QA, chapitre 2 de la Pieuvre à la rue puis chapitre 1 jusqu'aux toits), build de QA de `e6f77de` construit à part AVANT toute modification puis celui de la fin, `comparer-captures.py` par paires : 44/44 IDENTIQUES, 0 pixel différent. Regardées : chauve-souris en vol à la rivière (`n16-milieu`, copiée dans `docs/qa/112-riviere-chauve-souris.png`), fond de l'ascension au chapitre 1 (`carte-e`, `carte-f`), fond de la descente au chapitre 2 (`carte-a` à `carte-c`, `docs/qa/112-carte-chapitre-2.png`).
+- Limites : le TITRE d'un chapitre 3 (`contenu::titre_chapitre`) et l'INTRO de ses niveaux (`contenu::INTROS_MONDE_2`, rangées par clé) sont du texte du jeu, pas une donnée des `.ron` : sans eux, le bandeau affiche « CARTE DES NIVEAUX » et l'intro retombe sur celle du dernier niveau du Monde 1 (pas de plantage, mais un texte faux ; une carte de suite pourrait porter l'intro dans le `.ron`, le champ `intro` y existe déjà). Un Monde 3 qui voudrait un AUTRE fond de carte que l'ascension ou la descente, ou de nouveaux thèmes, demande du code (les thèmes sont un `enum`). La porte d'un monde suit désormais la table : si un niveau normal s'ajoute un jour APRÈS `poursuite` au Monde 1, il deviendra la porte du Monde 2 (le test `la_porte_du_monde_2_est_poursuite` le signalera).
+- Pas testé : joueur humain, téléphone, Safari.
+
+## Carte 11.3 (AGA) : le texte d'intro et l'astuce dans le fichier du niveau (plus de `INTROS` en Rust)
+
+But : plus aucune donnée d'un niveau écrite en Rust ; un niveau s'ajoute avec son seul fichier. Origine : la carte 9.32 (la marée, faite à l'éditeur) bloquait sur l'astuce, qui n'existait que dans `INTROS_MONDE_2`.
+
+Fait :
+- Format : le champ `intro` devient DEUX champs, `intro_texte` (la phrase, en blanc) et `intro_astuce` (le conseil, en corail), juste après `duree_cible_s`, dans les 34 fichiers `.ron` (12 du Monde 1, 7 du Monde 2, 15 essais, dont `essai_balancement` de la 11.1). Textes recopiés par script des listes du jeu (`INTROS`, `INTROS_MONDE_2`, `INTRO_ESSAI_*`), à l'octet. `mecanique` reste (note de conception, jamais affichée).
+- Cinq essais n'avaient AUCUNE intro dans le code (eau, eau2, ennemis_eau, pieuvre, balancement : leur carte affichait celle du dernier niveau) : ils ont maintenant la leur, tirée de leur ancien champ `intro` et de leur `mecanique`, raccourcie pour tenir sur la carte.
+- Chargeur (`niveaux/src/intro.rs`, nouveau) : un niveau dont `intro_texte` ou `intro_astuce` est vide (ou blanc) est REFUSÉ, de même qu'une intro trop longue pour l'écran : lignes de 46 caractères coupées entre les mots (comme `couper_lignes`), phrase sur 3 lignes au plus, conseil sur 2, 4 lignes ensemble (la ligne « sans perte de vie » du bonus comptée). Ces limites sont celles de la mise en page de `ecrans/carte.rs` (y = 88, 10 px par ligne, fin avant « continuer » à y = 134), qui lit maintenant `niveaux::intro::LIGNE_MAX_INTRO`. Messages : « monde_1/toits.ron : « intro_texte » est vide : chaque niveau a son intro (la phrase dans intro_texte, le conseil dans intro_astuce) », « « intro_astuce » prend 3 lignes sur la carte du niveau, 2 au plus (lignes de 46 caractères) » ; un ancien fichier avec `intro` reçoit en plus « l'intro du niveau s'écrit en deux champs, après duree_cible_s : intro_texte, la phrase, puis intro_astuce, le conseil ».
+- Jeu : `contenu::Intro`, `INTROS`, `INTROS_MONDE_2`, les 10 `INTRO_ESSAI_*`, `contenu::intro(indice)`, `essai_externe::intro()`, le contrôle de compilation (`intros_du_monde_2_completes`, `meme_texte`) et la constante générée `CLES_HORS_MONDE_1` (qui ne servait qu'à lui) sont SUPPRIMÉS. `carte::dessiner(infos, ...)` lit `infos.intro_texte` et `infos.intro_astuce` (plus d'indice). Le niveau posé par l'éditeur montre donc SA phrase et SON conseil (avant : `intro` et `mecanique`).
+- Éditeur : champs `intro_texte` (3 lignes) et `intro_astuce` (2 lignes) dans le formulaire, avec sous chacun l'aperçu des lignes coupées comme dans le jeu et le compte « 2/3 lignes de 46 car. » (rouge au-delà) ; mêmes refus que le chargeur dans les avertissements (`erreursIntro` de `editeur/ron.js`) ; export canonique des deux champs à leur place ; un fichier avec l'ancien `intro` est refusé avec le nom des deux nouveaux. Le test `l_editeur_a_les_memes_limites_d_intro` relit les constantes de `ron.js` (46, 3, 2, 4) depuis le Rust. `niveaux/outils/reporter_commentaires.py`, `LISEZMOI.md` (tableau des champs, exemple, règles) et `README.md` mis à jour.
+
+Tests :
+- AVANT la suppression (commit `b82c22f`) : `l_intro_du_fichier_est_celle_des_listes` : pour les 19 niveaux du parcours et les 10 essais qui avaient une intro, (`intro_texte`, `intro_astuce`) lu dans le fichier = (`texte`, `astuce`) de `contenu::intro(indice)` : VERT (29/29). Le test est parti avec les listes au commit suivant.
+- `un_niveau_sans_intro_est_refuse_clairement` (niveaux) : texte vide, conseil en blancs, conseil de 3 lignes, 3 + 2 lignes, champ manquant, ancien champ `intro` ; message exact vérifié ; comptage des lignes aux bornes (46 car., 44 + 1 + 1, 44 + 1 + 2).
+- Aller-retour de l'éditeur : `node editeur/test-aller-retour.mjs` : « 34 fichiers relus et réécrits : ALLER-RETOUR OK » (les 34 `.ron` présents, octet pour octet), plus : chaque fichier passe `erreursIntro`, saisie puis export puis relecture, et les quatre refus.
+- Dans le navigateur (build de QA, `editeur.html`) : formulaire avec `intro_texte` et `intro_astuce`, le caniveau ouvert montre « 2/2 lignes » et ses deux lignes ; une astuce de 23 mots passe l'aperçu en rouge (« 3/2 lignes ») et ajoute l'avertissement « « intro_astuce » prend 3 lignes sur la carte du niveau, 2 au plus ».
+
+Inventaire : données propres à un niveau encore écrites en Rust (grep des 19 clés et de `cle ==` hors tests)
+
+| Donnée | Où | Décision |
+| --- | --- | --- |
+| Intro et astuce | `contenu.rs` (`INTROS`, `INTROS_MONDE_2`, `INTRO_ESSAI_*`) | DÉPLACÉE (cette carte). |
+| Musique | `musiques.rs` `musique_du_niveau` | Reste, parce que c'est une donnée du THÈME (`match niveau.theme`) : un nouveau niveau d'un thème existant a sa musique sans code ; un nouveau thème demande du code de toute façon (`Theme` est un `enum`). |
+| Défis | `defis.rs` `defis_du_niveau` | Reste, parce que c'est une RÈGLE qui lit déjà le fichier (`sans_planer`, `duree_cible_s`) ; la clé de prime `course_expert_{cle}` est calculée. |
+| Records, progression, médailles, lettre trouvée | `sauvegarde.rs` (par clé) | Reste, parce que ce sont des données du JOUEUR rangées par clé, pas des données du niveau. |
+| `ORDRE_V2` (11 clés) | `sauvegarde.rs:51` | Reste, parce que c'est la table FIGÉE de migration des sauvegardes v2 vers v3 : la changer casserait la relecture des anciennes sauvegardes. |
+| Décors et fonds (rue, égouts, cascade, grotte, rivière, port, ciels, `fonds::dessiner("caniveau", ...)`) | `decor.rs` (`match theme`), `decor_*.rs`, `fond_egouts.rs` | Reste, parce que c'est une donnée du THÈME (dossier `assets/fonds/<thème>`), choisie par `infos.theme`. |
+| Dessin de la jetée (phare, 3 bateaux amarrés à des x fixes) | `dessin_port.rs` `CLE_JETEE = "pieuvre"`, `BATEAUX` | À DÉPLACER : vrai cas d'UN niveau (le port et la Pieuvre ont le même thème `Port`). Proposition : un champ facultatif du `.ron` (par ex. `habillage: [Jetee]`, les bateaux en cases). |
+| Plateformes mobiles dessinées en bateaux et caisse de grue | `dessin_port.rs` `CLE_PORT = "port"`, `sprite_du_port` | À DÉPLACER, même raison (même thème que la Pieuvre) : champ facultatif (par ex. `mobiles: Bateaux`). |
+| Lettres cachées P-É-P-I-N (toits, marché, orage, clocher, mer) | `core/src/lettres.rs` `LETTRES` | À DÉPLACER : quelle lettre porte un niveau est une donnée du niveau (la case `*` est déjà dans sa grille). Proposition : champ `lettre: 'P'`, le rang suivant l'ordre du parcours. Sans changer la sauvegarde (la lettre trouvée y est notée par clé de niveau, `lettre:1`). |
+| Variantes de nouvelle partie + (ennemis déplacés, ajoutés, 10 niveaux) et vent de face des 4 niveaux de toits | `core/src/levels/variantes.rs` `VARIANTES`, `NIVEAUX_DE_TOITS` | À DÉPLACER : cases de LA grille d'un niveau, écrites à la main en Rust ; proposition : un champ facultatif `ng_plus: (deplaces: [...], ajouts: [...], vent_de_face: true)`. Rien de sauvegardé (la sauvegarde ne note que `ng_plus=...` et les temps par clé). |
+| Mesure de difficulté (`RANGS_DE_GRAINE`, `BANDES_HABITUE`, `DUREE_BONUS_EXPERT_S`) | `difficulte.rs` | Reste, parce que c'est l'outil de mesure de la courbe du Monde 1, compilé en TEST seulement (`#[cfg(test)] mod difficulte`) : rien dans le jeu ; un niveau ajouté au Monde 1 doit y être mesuré exprès (le test le demande). |
+| Parcours du robot QA (`scripts.rs`, `pilote_pieuvre.rs`, `captures_99.rs`) | `game/src/bot_qa/` | Reste, parce que ce sont des outils de vérification (build de QA), pas des données du jeu. |
+| Titres de chapitre | `contenu.rs` `titre_chapitre` | Hors périmètre : donnée du MONDE, pas d'un niveau (déjà signalé en 11.2). |
+
+Format de sauvegarde : aucune donnée de l'inventaire ne demande de le changer (les quatre « à déplacer » sont des données de dessin ou de grille, jamais sauvegardées, ou, pour les lettres, déjà notées par clé de niveau). Pas d'arrêt nécessaire. Les quatre déplacements sont des cartes de suite (format `.ron` élargi, éditeur, tests), pas faites ici.
+
+Preuves :
+- `lint` : FMT-OK, clippy core, niveaux, robot (natif et wasm32), outils, game (wasm32, natif, natif QA, wasm32 QA) : LINT-OK.
+- `test --workspace --no-default-features` VERT : core 324, game 433, niveaux 18 + 90, outils 9, robot 4 ; game avec `debug_niveaux,qa_plantage` : 432 VERTS.
+- Captures (`docs/capture-113.sh`, nouveau : la carte de présentation de chacun des 19 niveaux des Mondes 1 et 2, 60 images après son ouverture, pilote de `capture-102.mjs`) : build de QA de `6c99c23` (avant la carte, tiré par `git archive` et construit à part) puis celui de la fin, `comparer-captures.py` : 19/19 IDENTIQUES, 0 pixel différent, 0 erreur console (Monde 1 : les toits ; Monde 2 : le caniveau, la Pieuvre... vérifiés à l'œil).
+- `./build.sh` : OK, « sons : 19 WAV canoniques, aucun nom interdit : OK », « éditeur absent de dist/ : OK », `game.wasm` 1 079 818 octets.
+- Limites : la marée (9.32) n'est pas faite ici ; elle peut maintenant porter son intro et son astuce dans son fichier. Les cinq intros d'essai nouvelles sont de mon écriture (niveaux de QA seulement, jamais vus par le joueur).
+- Pas testé : joueur humain, téléphone, Safari.
+
+## Carte 10.7 : le robot de QA de PARTIE joue la phase 2 de la Pieuvre (le test de lot rouge de la 10.5 redevient VERT)
+
+Worktree `carte-10.7`, depuis monde-2 `dd45fb2`. Rien du jeu, du niveau ni de la Pieuvre ne change : seulement le robot de QA (`game/src/bot_qa/`, compilé pour les tests seulement).
+
+### Pourquoi le robot échouait au niveau 19 (la vraie Pieuvre, n°7 du Monde 2)
+
+`trouver_parcours` cherche d'un seul tenant un plus court chemin de CASES jusqu'à l'arrivée (`chercher_avec`), puis, en repli au dernier essai, point par point (`parcours_du_boss_par_points`). Deux raisons, l'une derrière l'autre :
+1. Recherche d'un seul tenant : après le dernier coup de la phase 1, la montée (plus de 60 s ; la mer, l'humeur, l'attaque en cours et la graine du cerveau ne sont pas dans la case) multiplie les états sans fin (diagnostic déjà fait à la 9.13g, tête de `pilote_pieuvre.rs`).
+2. Repli point par point : son but était « les points de vie baissent ». Or le dernier coup de la phase 1 d'une Pieuvre à tour ne les fait PAS baisser : `toucher` les met à 0, puis `commencer_la_fuite` -> `remettre_la_tour` les remet aussitôt à `pv_de_la_fuite` (3), dans le même appel. Ce coup n'était donc jamais reconnu comme un point, et la recherche continuait dans la phase 2, où elle ne finit pas non plus.
+
+### Ce qui change (le robot seulement)
+
+- `parcours.rs`, `trouver_parcours_mode` : une Pieuvre À TOUR (`pilote_pieuvre::a_une_phase_2` : sa trombe existe, donc bâche et vigie) va tout de suite au point par point, robot maladroit compris (`parcours_du_boss_par_points` reçoit maintenant `precis`). Le Grand Nuage et la Pieuvre d'essai gardent exactement leur chemin d'avant (repli au dernier essai, plans précis).
+- `parcours_du_boss_par_points` : un point compte aussi quand la phase 2 commence (`pilote_pieuvre::en_phase_2` : en fuite, furie ou montée), et la boucle des points s'arrête là. Puis le PILOTE de la 9.13g joue la phase 2 : `pilote_pieuvre::jouer` appelé tel quel (ni recopié ni modifié ; `executer` rend le plan tel quel, comme `le_pilote_finit_la_phase_2`), depuis la vraie partie, dans l'arène juste après le dernier coup (la trombe l'emmène dans la tour), jusqu'à la plongée. Chaque pas qu'il joue est noté (`avant_chaque_pas`) puis rejoué sur le monde du robot ; le parcours est refusé si le pilote n'a pas gagné, s'il est mort une seule fois, ou si le rejeu meurt. Ensuite, comme avant : la plongée, puis l'arrivée admise (`gouttes_avant_la_victoire`).
+- `pilote_pieuvre.rs` : deux petites fonctions ouvertes au module, `a_une_phase_2` et `en_phase_2` (lecture seule de l'état de la Pieuvre).
+- `empreinte_du_code` (mémoire des parcours) lit aussi `pilote_pieuvre.rs` : un pilote modifié refait la recherche. Ce changement-ci (parcours.rs modifié) invalide de toute façon toute la mémoire : le prochain `lot` refait toutes les recherches une fois.
+
+### Preuves
+
+- `./docker-cargo.sh lint` : FMT-OK puis LINT-OK.
+- `./docker-cargo.sh carte pieuvre robot` : VERT, 118 s en tout. core-rapides 314 ok, game-rapides 424 ok, niveaux-rapides 16 ok, tous-rapides 89 ok, `faisabilite::le_niveau_de_la_carte` ok (23,5 s), `bot_qa::tests::le_robot_finit_le_niveau_de_la_carte` (CLE=pieuvre : phase 1 puis phase 2, rejouées dans la vraie simulation, aucune mort, arrivée atteinte) ok en 87,2 s.
+- `le_robot_finit_le_monde_2_sans_mourir` (profil `tests-rapides` comme le lot, SANS mémoire des parcours, sous `lourd.sh`) : VERT en 1 221 s (20 min 21 s). Niveaux [1, 2, 3, 4, 5, 6, 7], 0 mort (assertion du test), 23 665 images, chrono 23 016 pas, 9 gouttes, empreinte `5b8fb62a1da726a0`. Lancé juste avant un seul changement de mise en forme demandé par `cargo fmt` (une ligne `while let` jointe, parcours.rs) : mêmes instructions, mêmes décisions.
+- `game.wasm` (build de prod, `./build.sh`) AVANT (extraction propre `git archive dd45fb2`) et APRÈS : 1 069 153 octets, sha256 `ad2c65e5ef1bdd37ba251306e223743187f718576c2adcf406ec8885081eabe3`, IDENTIQUES. Attendu : `bot_qa` est `#[cfg(test)]` (`game/src/main.rs`), rien n'entre dans le jeu publié.
+- Aucune capture : le jeu ne change pas.
+
+### PAS fait, PAS testé
+
+- La partie COMPLÈTE du Monde 2 (`tous_les_parcours_complets_du_monde(2)`, tests ignorés d'écriture de scripts `ecrire_script_monde_2_96` et `captures_99`, PAS au lot) : `parcours_complet_par_etapes` cherche encore l'arrivée d'un seul tenant après les gouttes, donc dans la phase 2 de la vraie Pieuvre ; son repli (`trouver_parcours`) est maintenant bon, mais la recherche par étapes qui passe d'abord peut ne pas finir. Non lancé ; à traiter si ces scripts resservent (le même aiguillage `a_une_phase_2` vers `trouver_parcours` suffirait, la Pieuvre n'ayant pas de lettre).
+- Le `lot` complet n'est pas relancé ici (le coordinateur le lance) : seulement le test rouge de la 10.5 et `carte pieuvre robot`.
+- Mode facile et nouvelle partie + de la vraie Pieuvre par le robot de partie : non demandés, non testés (le pilote, lui, gagne en facile depuis la 9.13g).
+
+## Carte 10.8 : lot complet sur monde-2 après les fusions du 24/11 (vérification seule)
+
+Commit vérifié : monde-2 `c4cc6a2` (« Fusion carte 10.7 (Monde 2) »), qui contient ensemble la 11.1 (robot de faisabilité, balancement) et la 10.7 (robot de partie, Pieuvre). monde-2 n'a pas bougé pendant la carte (toujours `c4cc6a2` à la fin). Aucune modification du code : seul ce rapport est commité.
+
+Comment : extraction propre `git archive c4cc6a2 | tar -x -C <dossier temporaire>`, puis `PEPIN_FILS=6 lourd.sh ./docker-cargo.sh lot` en arrière-plan, sans aucune limite de temps (place 1 de `lourd.sh`, prise tout de suite). Lancé le 24/11 à 19:39:17, fini à 20:06:32, code de sortie 0. Machine très chargée pendant tout le lot (charge moyenne entre 38 et 63 pour 20 cœurs).
+
+Résultat : **lot VERT, 1 633 s en tout** (27 min 13 s ; compilation 27 s). Aucun test rouge : la vérification sur `dd45fb2` n'a donc pas été nécessaire.
+
+### Résultat de chaque suite
+
+| Suite | Résultat |
+|---|---|
+| core, tests rapides | VERT : 324 ok, 0 échec, 6 ignorés (17,0 s) |
+| game, tests rapides | VERT : 433 ok, 0 échec, 62 ignorés (1,9 s) |
+| niveaux, tests rapides | VERT : 18 ok, 0 échec |
+| niveaux `tous_les_niveaux`, tests rapides | VERT : 90 ok, 0 échec, 61 ignorés (75,8 s) |
+| core, tests de lot | VERT : 5 ok sur 5 (36,0 s) |
+| niveaux `tous_les_niveaux`, tests de lot (faisabilité et reprise de chaque niveau, mécaniques exigées, essais, nouvelle partie +) | VERT : 59 ok sur 59 (313,0 s) |
+| game, tests de lot (robots de partie du Monde 1, du Monde 2, bonus, nouvelle partie +, essais, joueur simulé) | VERT : 19 ok sur 19 (1 605,7 s) |
+
+Les tests de lot tournent en parallèle dans chaque suite : la durée d'un test est mesurée par libtest (`--report-time`) depuis le début de sa suite, sur une machine chargée.
+
+### Chaque test lourd : résultat et durée
+
+game (19) :
+
+| Test | Résultat | Durée |
+|---|---|---|
+| `bot_qa::tests::le_robot_finit_le_monde_2_sans_mourir` | VERT | 1605,7 s |
+| `bot_qa::essais_tests::le_robot_bat_la_pieuvre_sans_mourir` | VERT | 1050,9 s |
+| `bot_qa::tests::le_robot_finit_la_nouvelle_partie_plus_sans_mourir` | VERT | 970,4 s |
+| `bot_qa::tests::le_robot_finit_tous_les_niveaux_sans_mourir` | VERT | 937,9 s |
+| `bot_qa::tests::au_clocher_le_parcours_allume_les_trois_lanternes` | VERT | 937,8 s |
+| `bot_qa::tests::la_partie_complete_joue_le_bonus` | VERT | 747,1 s |
+| `bot_qa::essais_tests::le_robot_bat_le_grand_nuage` | VERT | 665,1 s |
+| `bot_qa::essais_tests::le_parcours_du_grand_nuage_tient_a_une_image_pres` | VERT | 665,1 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_ennemis_eau` | VERT | 444,4 s |
+| `bot_qa::essais_tests::le_parcours_de_l_horloge_tient_a_une_image_pres` | VERT | 295,6 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_horloge` | VERT | 295,6 s |
+| `bot_qa::tests::le_robot_traverse_l_arc_en_ciel_sans_mourir` | VERT | 244,7 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_eau2` | VERT | 219,4 s |
+| `difficulte::tests::niveau_1_sans_erreur_aucune_mort_et_essais_reproductibles` | VERT | 78,7 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_escargot` | VERT | 65,5 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_montgolfiere` | VERT | 57,0 s |
+| `bot_qa::essais_tests::le_robot_monte_jusqu_en_haut_des_deux_montgolfieres` | VERT | 48,4 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_vertical` | VERT | 32,3 s |
+| `bot_qa::essais_tests::le_robot_finit_le_niveau_d_essai_chat` | VERT | 16,7 s |
+
+core (5) :
+
+| Test | Résultat | Durée |
+|---|---|---|
+| `faisabilite::tests::le_robot_monte_au_balcon_par_l_aiguille` | VERT | 36,0 s |
+| `faisabilite::tests::le_parapluie_allonge_nettement_la_portee` | VERT | 30,3 s |
+| `faisabilite::tests::le_robot_traverse_le_vide_par_les_auvents` | VERT | 19,3 s |
+| `faisabilite::tests::le_robot_resiste_au_vent_de_face_au_sol` | VERT | 17,1 s |
+| `faisabilite::tests::un_rideau_de_grele_au_dessus_du_vide_oblige_a_planer` | VERT | 15,1 s |
+
+niveaux `tous_les_niveaux` (59) :
+
+| Test | Résultat | Durée |
+|---|---|---|
+| `faisabilite::monde_2_niveau_3_reprise` | VERT | 313,0 s |
+| `faisabilite::monde_2_niveau_5_reprise` | VERT | 208,0 s |
+| `faisabilite::monde_2_niveau_3_faisable` | VERT | 198,7 s |
+| `faisabilite::monde_2_niveau_2_reprise` | VERT | 187,7 s |
+| `faisabilite::monde_2_niveau_7_reprise` | VERT | 186,5 s |
+| `faisabilite::monde_2_niveau_4_reprise` | VERT | 166,4 s |
+| `faisabilite::niveau_3_reprise` | VERT | 158,1 s |
+| `faisabilite::reprise_depuis_chaque_lanterne_des_niveaux_d_essai` | VERT | 155,0 s |
+| `variantes::chaque_variante_ng_plus_est_finissable` | VERT | 146,7 s |
+| `faisabilite::monde_2_niveau_6_reprise` | VERT | 146,0 s |
+| `faisabilite::monde_2_niveau_1_reprise` | VERT | 139,1 s |
+| `faisabilite::monde_2_niveau_5_faisable` | VERT | 133,5 s |
+| `faisabilite::monde_2_niveau_4_faisable` | VERT | 124,0 s |
+| `faisabilite::niveau_5_faisable` | VERT | 106,7 s |
+| `faisabilite::niveau_11_faisable` | VERT | 106,6 s |
+| `faisabilite::monde_2_niveau_2_faisable` | VERT | 99,6 s |
+| `faisabilite::niveau_3_faisable` | VERT | 88,8 s |
+| `faisabilite::monde_2_niveau_7_faisable` | VERT | 87,6 s |
+| `par_niveau::clocher::le_clocher_exige_ses_deux_aiguilles` | VERT | 86,1 s |
+| `par_niveau::essai_balancement::le_robot_de_faisabilite_finit_le_niveau` | VERT | 82,3 s |
+| `faisabilite::niveau_4_reprise` | VERT | 79,1 s |
+| `faisabilite::niveau_7_reprise` | VERT | 79,1 s |
+| `faisabilite::monde_2_niveau_6_faisable` | VERT | 73,5 s |
+| `faisabilite::niveau_5_reprise` | VERT | 70,0 s |
+| `par_niveau::clocher::le_clocher_exige_ses_escargots` | VERT | 65,9 s |
+| `faisabilite::niveau_10_reprise` | VERT | 61,8 s |
+| `essais::niveau_d_essai_horloge_faisable` | VERT | 60,6 s |
+| `faisabilite::monde_2_niveau_1_faisable` | VERT | 60,3 s |
+| `faisabilite::niveau_2_reprise` | VERT | 55,6 s |
+| `faisabilite::niveau_3_le_marche_exige_ses_six_auvents` | VERT | 52,1 s |
+| `faisabilite::niveau_4_faisable` | VERT | 47,6 s |
+| `faisabilite::niveau_3_le_chat_de_la_fente_garde_la_goutte_cachee` | VERT | 46,3 s |
+| `faisabilite::niveau_10_faisable` | VERT | 46,3 s |
+| `faisabilite::niveau_3_on_ressort_de_la_cachette_du_chat` | VERT | 45,4 s |
+| `faisabilite::niveau_9_reprise` | VERT | 43,0 s |
+| `faisabilite::niveau_8_reprise` | VERT | 39,4 s |
+| `essais::niveau_d_essai_vertical_faisable` | VERT | 39,2 s |
+| `faisabilite::niveau_1_reprise` | VERT | 37,5 s |
+| `faisabilite::niveau_2_faisable` | VERT | 35,7 s |
+| `faisabilite::niveau_7_faisable` | VERT | 35,0 s |
+| `faisabilite::niveau_8_faisable` | VERT | 33,2 s |
+| `essais::niveau_d_essai_horloge_exige_les_deux_aiguilles` | VERT | 31,7 s |
+| `faisabilite::niveau_1_faisable` | VERT | 30,1 s |
+| `faisabilite::niveau_12_reprise` | VERT | 29,7 s |
+| `faisabilite::niveau_12_faisable` | VERT | 28,0 s |
+| `faisabilite::niveau_9_faisable` | VERT | 23,4 s |
+| `par_niveau::clocher::le_clocher_exige_le_ventilateur` | VERT | 21,7 s |
+| `par_niveau::mer::on_repart_de_chaque_marche` | VERT | 18,3 s |
+| `essais::niveau_d_essai_escargot_exige_les_deux_escargots` | VERT | 17,3 s |
+| `essais::niveau_d_essai_nuage_chaque_courant_mene_a_la_tete` | VERT | 14,9 s |
+| `essais::niveau_d_essai_chat_faisable` | VERT | 14,4 s |
+| `essais::niveau_d_essai_nuage_faisable` | VERT | 8,8 s |
+| `essais::niveau_d_essai_ventilateur_faisable` | VERT | 7,3 s |
+| `faisabilite::niveau_6_faisable` | VERT | 2,5 s |
+| `par_niveau::essai_balancement::sans_crochet_l_arrivee_est_hors_d_atteinte` | VERT | 2,4 s |
+| `faisabilite::niveau_6_reprise` | VERT | 0,2 s |
+| `faisabilite::monde_2_niveau_8_faisable` | VERT | 0,0 s |
+| `faisabilite::monde_2_niveau_8_reprise` | VERT | 0,0 s |
+| `faisabilite::niveau_11_reprise` | VERT | 0,0 s |
+
+`monde_2_niveau_8_faisable` et `monde_2_niveau_8_reprise` passent en 0,0 s parce que la 8e place du Monde 2 est encore vide (le Monde 2 a 7 niveaux ; la macro `tests_de_faisabilite!` laisse passer une place réservée sans rien vérifier). Ce n'est pas un niveau sauté.
+
+### Robots de partie : niveaux joués, morts, gouttes, empreinte
+
+Les lignes imprimées par les robots ne sont pas gardées par le lot (sortie capturée). Je les ai relues en relançant les 19 tests de lot de game avec `--nocapture`, même profil `tests-rapides`, même extraction, même mémoire des parcours (relue : 6 s pour les 19, aucune recherche refaite). Les morts sont vérifiées par l'assertion `partie.morts == 0` de chaque test de partie (VERT).
+
+| Partie | Niveaux joués | Morts | Gouttes | Images, chrono | Empreinte |
+|---|---|---|---|---|---|
+| Monde 1 (`le_robot_finit_tous_les_niveaux_sans_mourir`) | 1 à 10 puis 12 (bonus sauté, épilogue joué : assertion du test) | 0 | 13 (le bonus n'est pas atteint) | 21 801 images, 20 770 pas | `efffa02569f3d66a` |
+| Monde 2 (`le_robot_finit_le_monde_2_sans_mourir`) | [1, 2, 3, 4, 5, 6, 7] | 0 | 9 | 23 665 images, 23 016 pas | `5b8fb62a1da726a0` |
+| Partie complète (`la_partie_complete_joue_le_bonus`) | 1 à 12, bonus joué (assertion : 3 gouttes de plus à chaque niveau) | 0 | 36 (toutes celles du Monde 1, assertion) | 26 919 images, 25 779 pas | `f704082a2e1ae5f1` |
+| Nouvelle partie + (`le_robot_finit_la_nouvelle_partie_plus_sans_mourir`) | 1 à 10 puis 12 (assertion) | 0 | non imprimées par le test | 22 570 images, 21 700 pas | `dbff618420d2552a` |
+| Arc-en-ciel (`le_robot_traverse_l_arc_en_ciel_sans_mourir`) | le bonus seul | 0 | [oui, oui, oui] | 2 988 pas (49,8 s) | non imprimée |
+
+Les 13 gouttes du Monde 1 sont celles de la carte 10.5 (« Robot du Monde 1 : 21 801 images, 0 mort, 13 gouttes ») ; la ligne du test ne les imprime pas.
+
+Comparaison avec les empreintes déjà notées : Monde 1 `efffa02569f3d66a`, la même qu'à la 10.5 (21 801 images) ; Monde 2 `5b8fb62a1da726a0`, 23 665 images, 23 016 pas, 9 gouttes, exactement ce que la 10.7 avait trouvé sur sa branche. La fusion avec la 11.1 n'a donc rien changé aux deux parties. Les empreintes de la partie complète et de la nouvelle partie + n'étaient notées nulle part dans QA.md : elles servent de référence à partir d'ici.
+
+Essais (lignes des robots, mêmes tests) : Pieuvre d'essai 2 251 images ; eau 2 1 129 images ; horloge 737 images (aiguilles portées 56 et 178 images) ; chat 543 images, chat écrasé à l'image 336 ; vertical 948 images, 1 goutte ; escargot 1 209 images, rebonds aux images 876 et 1 127 ; ennemis d'eau 738 images, 3 gouttes ; montgolfière 399 images (jusqu'en haut : 563) ; Grand Nuage d'essai 1 442 images, coups aux images 396, 805 et 1 322.
+
+### Mémoire des parcours
+
+Le lot a tourné AVEC la mémoire des parcours (`PEPIN_MEMOIRE_PARCOURS`, `~/.cache/pepin-cargo-home/parcours-du-robot/`, comme tout `lot`). Elle a dû être refaite : 514 fichiers avant le lot, 568 après, soit 54 parcours écrits pendant le lot (de 19:40 à 20:06), aucun ancien fichier réécrit. C'est attendu : l'empreinte du code lue par le robot (`empreinte_du_code` : `core/src`, `game/src/monde.rs`, `parcours.rs`, `pilote_pieuvre.rs`) change avec ces fusions. Les durées des robots ci-dessus sont donc celles de vraies recherches (Monde 2 : 1 605,7 s ici contre 1 221 s à la 10.7, machine plus chargée). Je ne peux pas exclure qu'une petite partie des parcours ait été relue d'un fichier écrit avant le lot (le dernier ancien date de 19:27, après la fusion de 19:22) : le lot n'indique pas les parcours relus. Le robot de faisabilité de `niveaux` n'utilise pas cette mémoire.
+
+### Aucune suite sautée
+
+Relu après le lot : la liste des tests ignorés de chaque binaire (`--list --ignored --format json`, celle que lit `tests-carte-lot.sh`), comparée à ce que le lot a lancé.
+- core : 5 tests « lot : ... », 5 lancés. Le seul autre ignoré écrit `docs/police-test.png` (hors lot par conception).
+- niveaux `tous_les_niveaux` : 59 tests « lot : ... » (20 faisabilité, 20 reprise, 9 faisabilité des essais et d'autres, 8 mécaniques exigées, 1 reprise des essais, 1 nouvelle partie +), 59 lancés. Autres ignorés : `le_niveau_de_la_carte` (commande `carte`) et un `#[ignore]` sans raison de `table.rs`.
+- game : 19 tests « lot : ... » (18 robots de QA, 1 joueur simulé), 19 lancés. Autres ignorés, hors lot par conception : 3 pilotes de la Pieuvre « se lance à la main », 3 mesures de difficulté facultatives, 1 robot d'un seul niveau (commande `carte`), et 36 `#[ignore]` sans raison (écriture de scripts et de captures du navigateur, mesures).
+- Les binaires `editeur`, `lisezmoi`, `valider` n'ont aucun test ; `robot` et `outils` ne sont pas dans le lot (aucun test de lot, ils ont leurs tests rapides habituels).
+- Aucune commande n'a été coupée, aucune n'a passé la nuit.
+
+### PAS fait, PAS testé
+
+- Aucun build, aucun navigateur, aucune capture : la carte ne vérifie que le lot.
+- `lint`, tests de `robot` et `outils` : pas dans le lot, non relancés.
+- Le lot sans mémoire (`lot sans-memoire`) : non lancé (la mémoire a de toute façon été refaite, voir plus haut).
+- Mode facile et partie complète du Monde 2 : hors lot, non testés (voir la 10.7).
+
+## Carte 9.32 : le niveau de la marée, fait entièrement à l'éditeur (ARRÊT : un test de la carte des niveaux, du code)
+
+Fait :
+- `assets/levels/monde_2/maree.ron` (clé `maree`, Monde 2 n° 7, thème `Port`, 166 x 11, `duree_cible_s: 70`) : dessiné, réglé, validé, essayé (TESTER), passé au ROBOT et exporté DANS L'ÉDITEUR du build de QA, piloté par Chromium sans écran (`node docs/capture-932.mjs PORT DOSSIER`, `CHROME=…/chromium-1208`, `dist-qa/` servi sur 127.0.0.1, port libre). Les gestes (rectangles et coups de pinceau à la souris) sont dans `docs/maree-gestes.json` ; le script vérifie que la grille de l'éditeur est celle du plan. Le fichier du dépôt est l'export, octet pour octet sous l'en-tête de commentaires (écrite à la main, voir le journal) ; l'aller-retour `lireNiveau`/`ecrireNiveau` de `editeur/ron.js` le redonne identique.
+- La marée en vedette (`=`, thème existant, mécaniques existantes) : bassin sec (à pied à mer basse, goutte dans une niche) ; écluse (deux bassins sur l'eau du port, trop larges pour un plané : en barque, on ATTEND que la mer monte pour remonter au quai) ; chenal des nénuphars (deux poissons) ; passage de basse mer sous une voûte (à pied au fond, ou en barque à mer haute) ; deux pontons à crabe et un poisson. Lanternes 29, 66, 104, 130 (départ 2, drapeau 162 : au plus 38 colonnes sans point de reprise). Trois gouttes.
+- La Pieuvre passe 8e : ouverte dans l'éditeur (liste des niveaux du jeu), `numero` 7 -> 8, exportée (seule cette ligne change, vérifié par le script).
+- Intro et astuce saisies dans l'éditeur (aperçu : 2/3 et 2/2 lignes). `sans_planer: true` : verdict du ROBOT « sans planer », recopié par le bouton de l'éditeur.
+- Test du niveau (`game/src/maree_sauvegarde.rs`, test seulement, une ligne `mod` dans `main.rs`) : une sauvegarde d'un joueur qui avait fini les 7 niveaux d'avant (Pieuvre comprise) et une partie du Monde 2 se relit et se réécrit à l'identique, ses 7 étapes restent « Finie », le Monde 2 jouable, ses records gardés, la porte d'un monde suivant reste la Pieuvre (faux Monde 3 de la 11.2) ; la marée est « Ouverte » et sa progression vide (jamais jouée) ; la carte des niveaux le remet sur la Pieuvre. Et la marée est bien entre le port et la Pieuvre.
+
+Preuves :
+- Éditeur (`capture-932.mjs`, CAPTURE-932-OK, 0 erreur de console) : Valider « accepté par le chargeur du jeu » ; ROBOT « arrivée atteinte en 35.1 s de jeu, 32 sauts, lanternes allumables 4/4, gouttes 3/3 » (10 s de calcul, 729 états) ; ROBOT sans planer : arrivée (35.1 s). Chemin du robot : bassin sec à pied au fond, écluse en barque avec une attente de marée (pieds de rangée 8,2 à 5,2 avant le duc d'Albe), nénuphars, voûte en barque à mer haute.
+- `lourd.sh ./docker-cargo.sh carte maree robot` : ROUGE pour UN test seulement (voir l'arrêt). core 324, niveaux 18, `tous` 90 rapides + `faisabilite::le_niveau_de_la_carte` (faisabilité, durée, reprise depuis chaque lanterne) VERTS ; game 434 rapides verts, 1 rouge ; robot de QA `le_robot_finit_le_niveau_de_la_carte` VERT (244 s : arrivée sans mourir).
+- Mesure, une fois (`CLE=maree timeout 600 lourd.sh ./docker-cargo.sh test -p game --release --no-default-features mesure_d_un_niveau_du_monde_2 -- --ignored --nocapture`, 15 989 cases, 177 s) : Débutant 0,35 morts (39/48 finis, 110,2 s ; col. 148-150 ennemi 4, 70-71 ennemi 3, 144-145 ennemi 3, 44-45 noyade 2, 94 ennemi 2) ; Habitué 0,19 (42/48 finis, 85,3 s, max 1 ; col. 149 ennemi 3, 75 ennemi 2, 144-145 ennemi 2, 14 noyade 1, 72 ennemi 1) ; Expert 0,02 (42/48, 82,6 s). CIBLE NON ATTEINTE : Habitué 0,19, sous le port (0,69) au lieu d'être entre le port et la Pieuvre (1,90), et 85 s au lieu de 60 à 75. Pas retouché, pas remesuré (une seule mesure). Les morts sont aux crabes et poissons des pontons ; la marée elle-même ne tue presque pas (2 noyades sur 48 Habitués) : le joueur simulé attend la bonne marée. Pistes si AGA le veut : bassins secs plus longs (la fenêtre de mer basse serrée), ou un poisson dans l'écluse.
+- Captures (`docs/qa/932-*.png`, regardées) : l'éditeur (`932-editeur-dessin`, `932-editeur-robot` avec le chemin du robot), la carte du niveau (titre « LA MARÉE », intro en blanc, astuce en corail, 4 lignes), le départ, le bassin sec, l'écluse (barque, quais de pierre, duc d'Albe), les nénuphars, Pépin à pied sous la voûte à mer basse (goutte sous la voûte), les pontons. Rien de cassé à l'œil ; dans l'essai de l'éditeur la carte dit « NIVEAU 7/7 » (l'essai joue le niveau seul).
+
+ARRÊT (règle de la carte : « si le code doit changer, s'arrêter et dire pourquoi ») :
+- Test rouge : `ecrans::fond_plan::tests::les_bandes_du_chapitre_2_suivent_les_niveaux` : « pieuvre (Port) : 70 hors de 92..158 ».
+- Cause : le fond du chapitre 2 de la carte des niveaux (`bandes_chapitre_2`, `game/src/ecrans/fond_plan.rs:465`) centre chaque bande de décor sur la MOYENNE des étapes de son thème, et la bande du port s'arrête 22 px (`AU_DESSUS_DU_PORT`) au-dessus de ce centre. Avec trois niveaux dans la bande du port (port, marée, Pieuvre : thèmes `Port` ou `Maree`, tous deux dans `Bande::Port`), le centre descend d'une étape (44 px) et l'étape de la Pieuvre tombe dans la bande de la mer. Aucun thème ne passe : calcul fait pour les 7 thèmes du Monde 2 (copie en Python de `Geometrie::new` et de `bandes_chapitre_2`) : chacun rend le test rouge (un thème d'une autre bande casse l'ordre des bandes). Ce n'est donc pas une donnée du niveau : « ajouter un niveau = ajouter un fichier » ne tient pas quand un chapitre a plus de deux niveaux d'un même thème.
+- Correctif proposé (carte de code, petite) : borner chaque bande par les étapes EXTRÊMES de son thème (haut = étape la plus haute - `AU_DESSUS_DU_PORT`, et les limites entre bandes au milieu de deux étapes voisines de thèmes différents) au lieu de la moyenne. Puis relancer `carte maree` (rien d'autre à refaire : le niveau, la mesure, le robot et les captures ne dépendent pas de ce dessin).
+- Commité : tout le reste (niveau, Pieuvre 8e, test de sauvegarde, script et gestes, captures, ce rapport).
+- RÉSOLU par la carte 9.32b (plus bas) : `bandes_chapitre_2` accepte N niveaux par thème ; le test est vert.
+
+Journal de l'éditeur (tout ce qui a été fait hors de l'éditeur, ou qui a gêné ; la liste des corrections avant le Monde 3) :
+1. (1er arrêt, résolu par la carte 11.3) L'astuce d'intro d'un niveau hors Monde 1 était écrite en Rust (`INTROS_MONDE_2`) et l'éditeur ne la voyait pas. Depuis la 11.3, `intro_texte` et `intro_astuce` se saisissent dans l'éditeur, avec l'aperçu des lignes : ça a marché du premier coup.
+2. (2e arrêt) La carte des niveaux du chapitre 2 refuse un 3e niveau du même thème (ci-dessus) : du code, invisible depuis l'éditeur, découvert seulement par `carte maree`.
+3. L'en-tête de commentaires de conception (le POURQUOI du niveau) a été écrite À LA MAIN : l'éditeur garde les commentaires d'un fichier ouvert mais ne sait pas en écrire. Seul geste hors de l'éditeur dans le `.ron`.
+4. L'export part dans le dossier de téléchargement : le copier dans `assets/levels/monde_2/` (et la Pieuvre aussi) se fait hors de l'éditeur.
+5. La hauteur : ma 1re version faisait 13 rangées. L'éditeur n'a rien dit ; `carte maree` a échoué (`camera::tests::les_niveaux_d_un_ecran_gardent_la_meme_camera`) : un niveau de plus d'un écran de haut doit être dans une LISTE DE CLÉS écrite en Rust (`game/src/camera.rs`, test). Refait à 11 rangées. Pour le Monde 3 : un niveau haut demandera une ligne de Rust (de test), ou l'éditeur devrait le dire.
+6. Deux règles des tests de tout niveau ne sont pas dans les avertissements de l'éditeur : « quelque chose d'intéressant sur l'écran de départ » (`premier_defi_visible_des_le_premier_ecran` : ma 1re goutte était à la colonne 26, hors des 320 px) et « au moins un objet de décor » (`le_decor_ne_change_rien_a_la_collision`) ; découvertes par `carte`, corrigées dans l'éditeur (goutte dans la niche de gauche, deux oiseaux posés `K`).
+7. Rien dans l'éditeur pour les règles de rythme : « au plus 45 cases sans lanterne » compté à la main ; la durée vient du ROBOT (35,1 s de course), pas de repère de la cible 60 à 75 s ni de la difficulté (la mesure n'existe qu'en Rust, une fois, à la fin : ici elle a dit « trop facile » trop tard pour retoucher).
+8. La marée ne se voit pas dans l'éditeur : les cases `=` sont une couleur, sans le niveau de mer basse et haute ni la hauteur de saut ; les hauteurs (saut 57 px, barque 11 px au-dessus de l'eau, quai à 67 px de l'eau basse) ont été calculées à la main depuis `core/src/physics.rs`. Un calque « mer haute / mer basse » et la portée d'un saut aideraient.
+9. TESTER et « partir d'ici » ouvrent d'abord la carte du niveau (Entrée à chaque essai) ; l'essai dit « NIVEAU 7/7 » (il ne connaît pas la table). Gênes mineures.
+10. Le test de sauvegarde du niveau vit dans le jeu (crate binaire, pas de `tests/`) : une ligne `mod maree_sauvegarde;` dans `game/src/main.rs`, hors des fichiers du niveau.
+11. Hors éditeur, normal : `./build.sh --qa` (le build de QA à servir), un serveur local, `carte`, le robot de QA et la mesure en ligne de commande.
+
+Pas testé : joueur humain, téléphone ; le lot complet (`./docker-cargo.sh lot`) ; la carte des niveaux à l'écran (test rouge seulement).
+
+## Carte 9.32b : la carte des niveaux accepte plusieurs niveaux du même thème (levée du 2e arrêt de la 9.32)
+
+Fait :
+- `game/src/ecrans/fond_plan.rs`, `bandes_chapitre_2` : la règle pour N niveaux par thème (écrite dans le commentaire de la fonction).
+  1. Le centre d'une bande reste la moyenne de ses étapes. Une bande sans niveau se place entre les étapes les plus PROCHES de ses voisines (avant : entre leurs centres), ou, au bout, à des demi-écarts de l'étape la plus proche.
+  2. La limite entre deux bandes voisines reste le milieu de leurs centres, puis elle est poussée pour laisser `MARGE_ETAPE` (11 px, un quart d'écart) entre elle et les étapes des DEUX bandes ; la bande du dessous l'emporte si les deux ne tiennent pas.
+  3. Le haut de la dernière bande (le port) reste `AU_DESSUS_DU_PORT` (22 px) au-dessus de son centre, mais jamais sous sa plus haute étape : la Pieuvre se tient sur la ligne de la mer, comme avant la marée (avec 2 niveaux au port, les deux valeurs sont égales : rien ne bouge).
+- Le Monde 2 d'aujourd'hui (8 niveaux, port + marée + Pieuvre au port) : étapes du port à 158, 114 et 70 ; rivière/port à 169 (milieu des centres 158, poussé à 158 + 11) ; haut du port à 70 (au lieu de 92 : la Pieuvre, à 70, était dans la mer) ; la mer de 0 à 70.
+- Test nouveau `trois_niveaux_d_un_meme_theme_puis_un_autre` (même fichier) : quatre mondes d'essai (3 caniveaux puis égouts ; 3 grottes puis port, la rivière vide entre les deux ; 3 rivières puis port ; rivière, port, marée, port). Chaque étape est dans la bande de son thème, à 11 px au moins de chaque limite (sauf la plus haute du port, sur la ligne de la mer), les bandes se touchent, couvrent la carte, aucune n'est à l'envers. Les tests d'avant (`les_bandes_du_chapitre_2_suivent_les_niveaux`, `le_faux_monde_3_a_un_fond_de_carte`, `aucun_theme_du_monde_1_n_a_de_bande`) n'ont pas changé.
+- `docs/capture-932b.sh` (nouveau) : la carte des niveaux du build de QA (tout ouverte), une capture à l'ouverture (la Pieuvre) puis après chaque Bas, 23 en tout, du haut du chapitre 2 aux toits du chapitre 1 (pilote de `capture-102.mjs`).
+
+Vérifié :
+- `lourd.sh ./docker-cargo.sh carte maree` : VERT (core 324, game 436 rapides dont `les_bandes_du_chapitre_2_suivent_les_niveaux` et le test nouveau, niveaux 18, `tous` 90 + `faisabilite::le_niveau_de_la_carte`). `carte pieuvre` : VERT, mêmes comptes.
+- `lourd.sh ./docker-cargo.sh lint` : FMT-OK, LINT-OK (clippy natif, wasm32 et fonctionnalités de QA).
+- Captures (`docs/capture-932b.sh`, Chromium 1208 sans écran, 0 erreur de console sur les quatre passages), quatre builds de QA construits à part (`git archive`) :
+  - Avant la marée (`c4cc6a2`, 7 niveaux au chapitre 2) contre le même avec le nouveau `fond_plan.rs` : 23/23 IDENTIQUES au pixel (`comparer-captures.py`). La règle ne change rien aux cartes d'avant (Monde 1 et Monde 2 à 7 niveaux).
+  - Avec la marée (`8da5621`) contre le même avec le correctif : 17/23 identiques (les égouts, le caniveau et tout le chapitre 1) ; les 6 différentes sont les vues du haut du chapitre 2 (Pieuvre, marée, port, rivière, grotte, cascade), là où la bande du port grandit et celle de la mer recule. Regardées : avant (`docs/qa/932b-carte-pieuvre-avant.png`), la Pieuvre est sous le soleil levant, en pleine mer, le port écrasé sous elle ; après (`932b-carte-pieuvre-apres.png`), elle est à la même place que la Pieuvre d'avant la marée (sur la ligne de la mer, sous l'horizon), la marée dans l'eau du port au-dessus de la grue. `932b-carte-port-avant/apres.png` : le port sur son quai, la marée au-dessus, plus de soleil coupé en haut de la vue.
+
+Pas testé : le lot complet (`./docker-cargo.sh lot`) ; téléphone ; joueur humain. Rien d'autre à refaire pour la marée (le niveau, la mesure, le robot et les captures de la 9.32 ne dépendent pas de ce dessin).
+
+## Carte 9.34 : la proposition du mode facile n'arrive plus trop vite au 2e passage ; la bannière nomme le bon boss
+
+Signalement d'AGA (27/11) : « le passage au mode facile apparaît trop vite quand c'est la deuxième fois qu'on joue le niveau, c'est aussi le cas sur le nuage », puis « c'est marqué nuage dans le mode facile de la pieuvre non ? ».
+
+Fait (commit 390303f pour les défaites, puis le commit de ce rapport pour le texte) :
+- Cause 1 : `ProgresNiveau::defaites` (enregistré dans la sauvegarde) décidait de la bannière. Il ne revenait à zéro qu'après une victoire. Donc 10 défaites d'une ancienne session faisaient proposer le facile dès la 1re mort du retour, voire dès JOUER sur la carte des niveaux.
+- Règle nouvelle (`game/src/facile.rs`, `app/progression.rs`, `app/transitions.rs`) :
+  1. Un compte de VISITE, `EtatFacile::defaites_visite`, remis à zéro dans `Application::recharger`, donc à toute entrée dans le niveau (carte des niveaux, CONTINUER, suite de la partie). « Recommencer » et « plus de vies » restent dans la même visite (`relancer`). ÉCART à la carte, à trancher par le coordinateur ou AGA : la carte demandait aussi un compte remis à zéro après PLUS DE VIES ; mais avec 5 vies (9 au plus), aucune visite n'atteindrait alors 10 défaites et la bannière ne s'ouvrirait plus jamais en jeu (contraire au test demandé « 10 morts d'affilée dans une même visite »). Si on veut ce comportement, il faut aussi baisser `DEFAITES_AVANT_FACILE` sous `VIES_DEPART`. La bannière après une mort passe par `proposer_apres_une_mort` : 10 défaites dans la visite, pas de NON dans la visite, pas sur la dernière vie, boss pas encore battu en normal. Avec 5 vies, la 10e mort est un « plus de vies » : la bannière arrive donc à la 11e mort, comme avant la carte (règle 8.14 inchangée sur ce point).
+  2. Carte des niveaux : `proposer` ne lit plus les défaites. Seul compte « battu en facile et pas en normal » (le raccourci).
+  3. Un NON tient pour la visite (`refusee`, remis à zéro à la visite suivante).
+  4. Format de SAUVEGARDE inchangé : `defaites` est toujours lu et écrit (`noter_defaite` continue de compter). Il est documenté comme simple statistique (`sauvegarde.rs`, `facile.rs`). Une vieille sauvegarde à 15 défaites ne déclenche plus rien.
+- Cause 2 : `contenu::MODE_FACILE_PROPOSE` (« LE NUAGE N'A QUE 2 VIES ») servait pour tous les boss. Il est supprimé. La phrase est maintenant une DONNÉE DU NIVEAU (dans l'esprit de la 11.3) :
+  - Champ `facile_texte` dans le `.ron` (`niveaux/src/format.rs`, `#[serde(default)]`, écrit seulement s'il n'est pas vide, juste après `intro_astuce`) et dans `InfosNiveau` (`core/src/zones.rs`).
+  - Vérifié au chargement (`niveaux/src/facile.rs`, `GenreErreur::Facile`). Un niveau dont la grille a un boss (entité à points de boss : Grand Nuage `O`, Pieuvre `8`) DOIT l'avoir, avec un message clair (« ce niveau a un boss : il lui faut « facile_texte »... »). Un niveau sans boss ne l'a pas. Limite : 2 lignes de 46 caractères.
+  - Textes : cyclone et essai_nuage gardent « MODE FACILE : LE NUAGE N'A QUE 2 VIES ». Pieuvre et essai_pieuvre ont « MODE FACILE : LA PIEUVRE N'A QUE 2 VIES, ATTAQUE MOINS ET LA MER MONTE MOINS VITE » (2 lignes, coupure après « VIES, »). La géante pâle n'est pas mentionnée : c'est un dessin, pas une règle.
+  - Bannière (`game/src/ecrans/facile.rs`) : elle lit le `facile_texte` du niveau joué (après une mort) ou du niveau choisi (carte des niveaux). Sur 1 ligne, mise en page 8.14 au pixel près. Sur 2 lignes : y + 25 et + 35, « pas de médaille » en + 46 (test `les_lignes_tiennent_dans_la_banniere`).
+  - Éditeur : champ `facile_texte` avec l'aperçu des lignes (`editeur.html`, `editeur.js`) ; `erreursFacile` dans `ron.js` applique les mêmes règles (boss lu dans la grille dessinée) ; lecture et écriture canoniques. `assets/levels/LISEZMOI.md` documenté.
+- Tests nouveaux (`game/src/app/tests_facile.rs`). Chacun est joué pour le Grand Nuage ET la Pieuvre, par la vraie carte des niveaux et de vraies morts :
+  - 15 défaites anciennes : aucune bannière, ni à la carte ni à la 1re mort ;
+  - 10 défaites dans la visite (11e mort) ouvrent la bannière ;
+  - 9 défaites, sortie, retour : le compte repart de zéro ;
+  - un NON tient pour la visite (12 morts de plus sans bannière), la visite suivante repropose ;
+  - boss battu en facile : proposition à la carte, et OUI lance le boss à 2 points ;
+  - boss battu en normal (même avec `facile:1 defaites:40`) : jamais de proposition, ni à la carte ni en 15 morts ;
+  - aucun texte d'un boss (nom, intro, `facile_texte`, lignes communes de la bannière) ne nomme un autre boss ;
+  - la bannière nomme le bon boss (après une mort et sur la carte) ;
+  - une vieille sauvegarde v3 (`defaites:15`, `defaites:23 lettre:1`) est relue à l'identique, et reste inchangée après une visite sans mort.
+  Côté `niveaux` : `la_phrase_du_mode_facile_est_verifiee` (phrase manquante, trop longue, ou sans boss). Côté éditeur : 4 boss avec leur phrase, saisie exportée à sa place, les trois refus, rien d'écrit sans boss.
+
+Vérifié :
+- `lourd.sh ./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+- `lourd.sh ./docker-cargo.sh carte cyclone` : VERT (core 324, game 446, niveaux 19, tous 90 + 1). `carte pieuvre` : VERT, mêmes comptes.
+- `node editeur/test-aller-retour.mjs` : 35 fichiers relus et réécrits, ALLER-RETOUR OK (les 31 `.ron` sans boss sont identiques à l'octet près).
+- Navigateur (Chromium 1208 sans écran). Script nouveau `docs/capture-934.sh`, sur le pilote de `capture-102.mjs`, qui accepte maintenant `SAUVEGARDE=fichier`. Sauvegarde utilisée : `docs/qa/934-sauvegarde.txt` (cyclone et Pieuvre battus en facile seulement, 15 défaites chacun). Build de QA de cette branche comparé à celui de la base 420da59 (`git archive`, construit à part) :
+  - carte des niveaux sur la Pieuvre, carte sur le cyclone, bannière du cyclone : 3/3 IDENTIQUES au pixel (`comparer-captures.py`) ;
+  - bannière de la Pieuvre : seule différence, dans le rectangle du texte (x 123..842, y 213..299).
+  Captures regardées : `docs/qa/934-banniere-pieuvre.png` (les deux lignes, rien ne touche les boutons), `934-banniere-pieuvre-avant.png` (l'ancien « LE NUAGE »), `934-banniere-cyclone.png`, `934-carte-*.png`. Sur les deux builds : sauvegarde relue à l'identique après la visite (OUI), 0 erreur de console, 0 erreur du pilote.
+
+Pas testé :
+- le lot complet (`./docker-cargo.sh lot`) ;
+- une vraie sauvegarde de joueur (aucune n'est accessible ici : les sauvegardes sont écrites à la main au format de la prod) ;
+- le téléphone et un joueur humain ;
+- la bannière de la Pieuvre APRÈS UNE MORT dans le navigateur. Elle est couverte par le test `la_banniere_nomme_le_bon_boss`, et c'est la même fonction de dessin que la capture prise sur la carte.
+
+## Carte 9.33 : l'affichage de la Pieuvre en phase 2 était cassé (en MODE FACILE seulement)
+
+Worktree `carte-9.33`, depuis monde-2 `420da59`. Signalement d'AGA du 24/11 sur la prod (`ffe6a4f`, arbre de `dd45fb2`) : pendant la montée, aucun corps de Pieuvre géante, seulement un dôme rouge plat qui flotte, des traits violets, deux taches blanches et un tentacule.
+
+### Ce qui était cassé, en clair
+
+En MODE FACILE (proposé après 10 défaites d'affilée à la Pieuvre, puis « TROP DUR ? » OUI), la géante de la phase 2 n'était PAS DESSINÉE : son corps (`geante0`/`geante1`, ou `geante_furieuse*`) manquait, et on ne voyait que ce qui se pose PAR-DESSUS : l'œil injecté de sang (le « dôme rouge plat »), les veines du front (les « traits violets »), les bouffées de vapeur (les « taches blanches »), la pupille, la bouche, et ses tentacules (`agripper`, `bras_*`), qui, eux, n'ont pas de version pâle. C'est exactement la capture d'AGA. En mode NORMAL, rien n'est cassé.
+
+### La cause, et le commit qui a cassé
+
+- `game/src/dessin_montee.rs`, `dessiner_geante` : en facile, la tête entière est dessinée PÂLE (`banque.dessiner_pale(nom, ...)`, tramée en damier comme le Grand Nuage du mode facile).
+- `Banque::dessiner_pale` (`game/src/sprites/mod.rs`) ne dessine que les images rangées dans `nuages_trames`, et ne dessine RIEN pour un nom absent (pas d'erreur). Or `nuages_trames` ne gardait que les noms `nuage_...` et `pieuvre_...` : les images `geante...` n'y étaient pas.
+- Le commit : `2b4fc30` (carte 9.13c, 22/11, « la Pieuvre géante, visible, grimpe à côté de la tour ») : il a ajouté les sprites `geante0`, `geante1`... et l'appel `dessiner_pale` pour eux, sans les ajouter au filtre. Le défaut est donc là DEPUIS la création de la géante : il est dans `c4d715b` (ancienne prod), `dd45fb2` (prod actuelle), `c4cc6a2` et `420da59`. Aucune carte de 10.4 à 11.x ni la 9.32 ne l'a causé.
+- Pourquoi personne ne l'a vu : toutes les captures et tous les tests de la phase 2 étaient en mode normal (le pilote de la 9.13g gagne aussi en facile, mais ses tests ne dessinent rien). AGA a dû voir la phase 2 en normal sur `c4d715b`, puis, après 10 défaites, en facile sur la prod.
+
+### Reproduit dans la VRAIE suite du jeu (phase 1, fuite, montée)
+
+- `game/src/bot_qa/captures_933.rs` (nouveau, tests ignorés `ecrire_script_pieuvre_933` et `ecrire_script_pieuvre_933_facile`) : la partie jouée image par image dans l'APPLICATION (comme `jouer_depuis_le_titre`). Normal : depuis la carte de titre de la Pieuvre, le parcours du robot de partie (phase 1 par points puis le pilote de la tour, carte 10.7), 6 417 images, aucune mort. Facile : depuis le TITRE, sauvegarde « tout fini avant la Pieuvre, 10 défaites à la Pieuvre », JOUER, Pépin tombe à l'eau, la bannière, OUI ; la phase 1 du robot (la Pieuvre n'a que 2 têtes) puis le pilote dès la phase 2 (il meurt une fois au début de la fuite, repart de la lanterne du bas, puis gagne) : 5 613 images. Les scripts sont dans `docs/script-pieuvre-933.txt` et `docs/script-pieuvre-933-facile.txt`.
+- `docs/capture-933.sh PORT DOSSIER PREFIXE normal|facile [NB_N]` (nouveau) : rejoue le script dans le build de QA et photographie la fuite (2 images), le bas, le milieu et le haut de la tour, la vigie (2 images) et la plongée, puis COMPARE AU PIXEL avec les références `docs/qa/933-ref/` (code de sortie 1 si une image diffère ; `COMPARER=0` pour s'en passer).
+- `docs/capture-102.mjs` : commande `s:fichier:n` (rejoue n images d'un script, base 32, par `P.script` de `pilote-qa.js`) et variable `SAUVEGARDE` (une sauvegarde posée dans `localStorage` au lieu d'une vide). Sans elles, rien ne change pour les scripts d'avant.
+- `pilote_pieuvre::sur_la_vigie` passe `pub(crate)` (lecture seule, pour noter le moment « vigie »).
+
+Captures (Chromium 1208 sans écran, 0 erreur de console), builds de QA faits sur des extractions propres (`git archive`) :
+- FACILE, `c4d715b`, `dd45fb2` et `420da59` : la géante absente sur la tour au milieu, en haut et sur la vigie, seuls l'œil, les veines, la vapeur et les tentacules (`docs/qa/933-c4d715b-facile-tour-milieu.png`, `933-avant-facile-tour-milieu.png`, `933-avant-facile-vigie.png`). `dd45fb2` et `420da59` ne diffèrent que par le compteur de gouttes du HUD (162 à 207 pixels, x 105..122, y 18..38 : 21 gouttes au Monde 2 avant la marée, 24 après).
+- NORMAL : la géante est là partout, sur les trois commits. `c4d715b` et `dd45fb2` diffèrent beaucoup (la mer qui suit Pépin de la 9.13f et les fonds PNG arrivent entre les deux, la montée n'est plus la même partie) ; `dd45fb2` et `420da59` : le compteur de gouttes seulement. Aucun défaut d'affichage de ce côté.
+
+### Le correctif (le plus petit)
+
+`game/src/sprites/mod.rs` : le filtre des images pâles devient `a_une_version_pale(nom)` : `nuage_...`, `pieuvre_...` et `geante...`. Rien d'autre : ni le niveau, ni la Pieuvre, ni le gameplay. Test nouveau `sprites::tests::chaque_image_dessinee_pale_a_sa_version_pale` : relit les appels `dessiner_pale(nom` de `dessin_montee.rs`, `dessin_pieuvre.rs` et `scene/nuage.rs`, et vérifie que chaque nom d'image qui les prépare a sa version pâle (il échoue sans le correctif, sur `geante_furieuse0`).
+
+### Preuves
+
+- Correctif contre `420da59`, mêmes scripts : NORMAL 9/9 captures IDENTIQUES au pixel (carte de titre, fuite x2, tour bas, milieu, haut, vigie x2, plongée). FACILE : fuite x2, tour bas et plongée IDENTIQUES ; tour milieu, tour haut, vigie x2 : 5 661 à 5 760 pixels différents, tous dans le rectangle de la tête de la géante (x 705..875) : la géante pâle (tramée en damier) est maintenant dessinée sous son œil et ses veines (`docs/qa/933-apres-facile-tour-milieu.png`, `933-apres-facile-vigie.png`). Regardées : la géante entière, pâle, l'œil à sa place, la vapeur au-dessus d'elle.
+- Pas de « dernier commit bon » au pixel en facile : le défaut existe depuis la création de la géante. La référence est donc le dessin voulu par la 9.13c (`dessiner_pale` : la tête tramée, comme le Grand Nuage du mode facile), et le mode normal, identique au pixel.
+- `docs/capture-933.sh 8934 ... v facile` sur le build corrigé : 8/8 IDENTIQUES aux références, code de sortie 0 ; sur le build de `dd45fb2` : 0/8 (4 images à 5 800 pixels environ dans la géante, les 4 autres au compteur de gouttes) : le script voit le défaut.
+- `./docker-cargo.sh lint` : FMT-OK, LINT-OK. `./docker-cargo.sh carte pieuvre` : VERT en 34 s (core 324, game 437 dont le test nouveau, niveaux 18, tous 90, `faisabilite::le_niveau_de_la_carte`).
+
+### Pas fait, pas testé
+
+- Le lot complet, la prod (le coordinateur s'en charge : le correctif part en prod, `game.wasm` change, les textures pâles de la géante en plus).
+- Téléphone, joueur humain.
+- Les références de `docs/qa/933-ref/` sont celles de monde-2 (24 gouttes au Monde 2) : sur `main` (21 gouttes), comparer avec `COMPARER=0` et `comparer-captures.py`, ou refaire les références.

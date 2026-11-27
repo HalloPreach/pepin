@@ -69,6 +69,8 @@ mod progression;
 mod rendu;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_facile;
 mod transitions;
 
 use transitions::Suite;
@@ -312,15 +314,11 @@ impl Application {
     }
 
     /// Le monde que lance JOUER au titre (carte 9.1b, AGA : « c'est juste la suite du
-    /// jeu ») : le Monde 2 dès que sa porte est ouverte (« poursuite » fini, règle
-    /// `plan::monde_jouable`), le Monde 1 sinon, exactement comme avant. Tout fini,
-    /// JOUER relance donc le Monde 2. Aucune ligne de menu de plus.
+    /// jeu ») : le dernier monde jouable (`plan::dernier_monde_jouable`, carte 11.2),
+    /// donc le Monde 2 dès que sa porte est ouverte (« poursuite » fini), le Monde 1
+    /// sinon, exactement comme avant. Aucune ligne de menu de plus.
     fn monde_de_jouer(&self) -> u8 {
-        if plan::monde_jouable(niveaux::niveaux(), &self.sauvegarde, 2) {
-            2
-        } else {
-            1
-        }
+        plan::dernier_monde_jouable(niveaux::niveaux(), &self.sauvegarde)
     }
 
     /// Robot de QA (carte 8.8) : une première partie est finie, le titre est rouvert

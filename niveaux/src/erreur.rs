@@ -6,6 +6,8 @@
 //! recopier ; `Display` écrit le message, `std::error::Error` le rend compatible
 //! avec `?` et `Box<dyn Error>`.
 
+use crate::facile::{ErreurFacile, LIGNES_MAX_FACILE};
+use crate::intro::{ErreurIntro, LIGNES_MAX_INTRO, LIGNE_MAX_INTRO};
 use pepin_core::level::ErreurNiveau;
 use pepin_core::levels::ErreurOrdre;
 use std::fmt;
@@ -38,6 +40,12 @@ pub enum GenreErreur {
         erreur: ErreurNiveau,
         premiere_ligne: usize,
     },
+    /// L'intro du niveau (`intro_texte`, `intro_astuce`, carte 11.3) est vide ou
+    /// trop longue pour l'écran d'intro.
+    Intro(ErreurIntro),
+    /// La ligne de la bannière du mode facile (`facile_texte`, carte 9.34) manque à
+    /// un boss, est donnée à un niveau sans boss, ou est trop longue.
+    Facile(ErreurFacile),
     /// Le fichier n'est pas dans un dossier connu (`monde_<N>` ou `essais`).
     DossierInconnu,
     /// Le champ `monde` ne correspond pas au dossier `monde_<N>`.
@@ -69,6 +77,8 @@ impl fmt::Display for ErreurChargement {
                 f,
                 "grille (sa ligne 1 est la ligne {premiere_ligne} du fichier) : {erreur}"
             ),
+            GenreErreur::Intro(e) => write!(f, "{}", intro_lisible(e)),
+            GenreErreur::Facile(e) => write!(f, "{}", facile_lisible(e)),
             GenreErreur::DossierInconnu => write!(
                 f,
                 "dossier inconnu (attendu : monde_1/, monde_2/... ou essais/)"
@@ -94,6 +104,32 @@ impl fmt::Display for ErreurChargement {
 }
 
 impl std::error::Error for ErreurChargement {}
+
+/// Une phrase pour chaque erreur d'intro.
+fn intro_lisible(e: &ErreurIntro) -> String {
+    match e {
+        ErreurIntro::Vide { champ } => format!(
+            "« {champ} » est vide : chaque niveau a son intro (la phrase dans intro_texte, le conseil dans intro_astuce)"
+        ),
+        ErreurIntro::TropLongue { champ, lignes, max } => format!(
+            "« {champ} » prend {lignes} lignes sur la carte du niveau, {max} au plus (lignes de {LIGNE_MAX_INTRO} caractères)"
+        ),
+        ErreurIntro::TropLongueEnTout { lignes } => format!(
+            "intro_texte et intro_astuce prennent {lignes} lignes ensemble sur la carte du niveau, {LIGNES_MAX_INTRO} au plus (ligne « sans perte de vie » du bonus comprise)"
+        ),
+    }
+}
+
+/// Une phrase pour chaque erreur de `facile_texte`.
+fn facile_lisible(e: &ErreurFacile) -> String {
+    match e {
+        ErreurFacile::Manquant => "ce niveau a un boss : il lui faut « facile_texte », la ligne de la bannière du mode facile qui dit ce qui change pour CE boss (par exemple \"MODE FACILE : LE NUAGE N'A QUE 2 VIES\"), après intro_astuce".into(),
+        ErreurFacile::SansBoss => "« facile_texte » n'a de sens que pour un niveau à boss (Grand Nuage O, Pieuvre 8) : retirez-le".into(),
+        ErreurFacile::TropLong { lignes } => format!(
+            "« facile_texte » prend {lignes} lignes dans la bannière du mode facile, {LIGNES_MAX_FACILE} au plus (lignes de {LIGNE_MAX_INTRO} caractères)"
+        ),
+    }
+}
 
 /// Une phrase pour chaque règle d'ordre de `core::levels::verifier_ordre`.
 fn ordre_lisible(e: &ErreurOrdre) -> String {

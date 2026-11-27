@@ -102,7 +102,11 @@ mod tests {
                 .1
         };
         let modele = Skin::Pepin.images().noms();
-        assert_eq!(modele.len(), 19, "18 images + l'icône des vies");
+        assert_eq!(
+            modele.len(),
+            20,
+            "19 images (suspendu compris, carte 11.1) + l'icône des vies"
+        );
         let mut noms_vus = std::collections::HashSet::new();
         for skin in Skin::TOUS {
             assert!(!skin.nom().is_empty());

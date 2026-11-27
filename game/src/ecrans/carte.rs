@@ -22,8 +22,11 @@ pub const DUREE_PAS: u16 = 180;
 /// pas suivant, sans avancer pendant ce pas-là (comme avant la carte 9.31, quand la
 /// carte finissait seule), pour que les parcours du robot QA gardent leur premier pas.
 pub const PASSEE: u16 = 0;
-/// Largeur maximale d'une ligne de texte, en caractères (320 px / 6 px = 53 ; marge comprise).
-const LIGNE_MAX: usize = 46;
+/// Largeur maximale d'une ligne de texte, en caractères (320 px / 6 px = 53 ; marge
+/// comprise). Elle vient du chargeur des niveaux, qui refuse une intro trop longue
+/// pour cette carte (carte 11.3) : une seule valeur pour le jeu, le chargeur et
+/// l'éditeur.
+const LIGNE_MAX: usize = niveaux::intro::LIGNE_MAX_INTRO;
 
 /// Largeur utile du cadre de la carte, en pixels logiques.
 const LARGEUR_CADRE: u32 = LARGEUR_LOGIQUE - 24;
@@ -44,10 +47,11 @@ fn echelle_nom(nom: &str) -> u32 {
     }
 }
 
-/// `indice` : place du niveau dans la table ; `infos` : le niveau ; `anim` : pas écoulés
+/// `infos` : le niveau (sa phrase et son conseil sont dans son fichier, carte 11.3) ;
+/// `anim` : pas écoulés
 /// (clignotement) ; `lettres` : les lettres cachées déjà trouvées (carte 8.6), en
 /// petit en haut à droite, celle de ce niveau en corail tant qu'elle n'est pas trouvée.
-pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32, lettres: &[bool; NB_LETTRES]) {
+pub fn dessiner(infos: &InfosNiveau, anim: u32, lettres: &[bool; NB_LETTRES]) {
     let nom = titre_niveau(infos.nom);
     let nom = nom.as_str();
     trame();
@@ -64,14 +68,13 @@ pub fn dessiner(indice: usize, infos: &InfosNiveau, anim: u32, lettres: &[bool; 
         56.0 + if echelle_nom(nom) == 3 { 0.0 } else { 4.0 },
         Style::simple(OR_PALE, echelle_nom(nom)).avec_ombre(ARDOISE_OMBRE),
     );
-    let intro = contenu::intro(indice);
     let mut y = 88.0;
-    for ligne in couper_lignes(intro.texte, LIGNE_MAX) {
+    for ligne in couper_lignes(infos.intro_texte, LIGNE_MAX) {
         texte::dessiner_centre(&ligne, y, ombre(BLANC_CASSE));
         y += 10.0;
     }
     y += 4.0;
-    for ligne in couper_lignes(intro.astuce, LIGNE_MAX) {
+    for ligne in couper_lignes(infos.intro_astuce, LIGNE_MAX) {
         texte::dessiner_centre(&ligne, y, ombre(CORAIL_CLAIR));
         y += 10.0;
     }
@@ -96,59 +99,19 @@ mod tests {
     use super::*;
     use pepin_core::zones::InfosNiveau;
 
-    /// Les niveaux d'essai du build de QA (hors de la table), avec leur indice.
-    fn essais() -> [(usize, &'static InfosNiveau); 10] {
-        [
-            (
-                crate::monde::INDICE_ESSAI,
-                niveaux::par_cle("essai_vertical"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_VENT,
-                niveaux::par_cle("essai_vent"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_GRELE,
-                niveaux::par_cle("essai_grele"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_AUVENT,
-                niveaux::par_cle("essai_auvent"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_VENTILATEUR,
-                niveaux::par_cle("essai_ventilateur"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_MONTGOLFIERE,
-                niveaux::par_cle("essai_montgolfiere"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_ESCARGOT,
-                niveaux::par_cle("essai_escargot"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_CHAT,
-                niveaux::par_cle("essai_chat"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_HORLOGE,
-                niveaux::par_cle("essai_horloge"),
-            ),
-            (
-                crate::monde::INDICE_ESSAI_NUAGE,
-                niveaux::par_cle("essai_nuage"),
-            ),
-        ]
+    /// Tous les niveaux : le parcours, puis les niveaux d'essai (build de QA).
+    fn tous() -> impl Iterator<Item = &'static InfosNiveau> {
+        niveaux::niveaux().iter().chain(niveaux::essais())
     }
 
     #[test]
     fn toutes_les_cartes_tiennent_dans_leur_cadre() {
         // Les niveaux de la table, puis les niveaux d'essai (build de QA).
-        for (i, n) in niveaux::niveaux().iter().enumerate().chain(essais()) {
-            let intro = contenu::intro(i);
-            let a = couper_lignes(intro.texte, LIGNE_MAX);
-            let b = couper_lignes(intro.astuce, LIGNE_MAX);
+        // Le chargeur refuse déjà une intro trop longue (`niveaux::intro`) : ce test
+        // vérifie que ses règles correspondent bien à CE dessin, en pixels.
+        for n in tous() {
+            let a = couper_lignes(n.intro_texte, LIGNE_MAX);
+            let b = couper_lignes(n.intro_astuce, LIGNE_MAX);
             assert!(a.len() <= 3, "{} : intro sur {} lignes", n.nom, a.len());
             assert!(b.len() <= 2, "{} : conseil sur {} lignes", n.nom, b.len());
             // Le texte commence en y = 88 ; la dernière ligne (celle des vies du
@@ -174,7 +137,7 @@ mod tests {
 
     #[test]
     fn les_noms_de_niveau_sont_en_capitales_avec_un_glyphe_chacun() {
-        for n in niveaux::niveaux().iter().chain(essais().map(|(_, n)| n)) {
+        for n in tous() {
             let nom = titre_niveau(n.nom);
             assert!(!nom.chars().any(|c| c.is_lowercase()), "{nom}");
             for c in nom.chars() {
@@ -193,9 +156,8 @@ mod tests {
 
     #[test]
     fn aucune_ligne_de_carte_ne_commence_par_une_ponctuation_seule() {
-        for (i, n) in niveaux::niveaux().iter().enumerate().chain(essais()) {
-            let intro = contenu::intro(i);
-            for texte in [intro.texte, intro.astuce] {
+        for n in tous() {
+            for texte in [n.intro_texte, n.intro_astuce] {
                 for ligne in couper_lignes(texte, LIGNE_MAX) {
                     assert!(
                         !ligne.starts_with([':', '!', '?', ';', '.']),
@@ -212,7 +174,7 @@ mod tests {
     fn les_coupures_signalees_par_l_audit_sont_corrigees() {
         // L'orage (niveau 4 depuis l'arrivée du marché couvert).
         assert_eq!(
-            couper_lignes(contenu::intro(3).texte, LIGNE_MAX),
+            couper_lignes(niveaux::par_cle("orage").intro_texte, LIGNE_MAX),
             [
                 "L'orage éclate. Chaque éclair est annoncé :",
                 "garde la tête froide !"
@@ -222,14 +184,18 @@ mod tests {
         // nuages ; ce n'est plus la dernière ligne droite depuis la carte 8.2) : une
         // seule ligne.
         assert_eq!(
-            couper_lignes(contenu::intro(8).astuce, LIGNE_MAX),
+            couper_lignes(niveaux::par_cle("nuages").intro_astuce, LIGNE_MAX),
             ["Le champignon t'aide à monter."]
         );
-        assert!(!contenu::intro(3).texte.to_lowercase().contains("flash"));
+        assert!(!niveaux::par_cle("orage")
+            .intro_texte
+            .to_lowercase()
+            .contains("flash"));
         // Le bonus (carte 5.16) : la phrase d'AGA et le conseil tiennent chacun sur
         // une ligne (une première version laissait « toi. » seul sur la seconde).
         // (11e niveau depuis la carte 8.2.)
-        for texte in [contenu::intro(10).texte, contenu::intro(10).astuce] {
+        let arc = niveaux::par_cle("arc");
+        for texte in [arc.intro_texte, arc.intro_astuce] {
             assert_eq!(couper_lignes(texte, LIGNE_MAX), [texte]);
         }
     }

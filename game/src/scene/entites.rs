@@ -10,6 +10,7 @@ use pepin_core::entities::montgolfiere::{EtatMontgolfiere, HAUT_BALLON};
 use pepin_core::entities::{Entite, TypeEnnemi};
 use pepin_core::palette::*;
 use pepin_core::player::EtatJoueur;
+use pepin_core::zones::Theme;
 
 use super::habillage::SOMMET_DU_MAT;
 use super::nuage::{annonce_allumee, dessiner_eclair, dessiner_nuage};
@@ -233,10 +234,11 @@ pub(super) fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i
                     TypeEnnemi::Corbeau => {
                         // Le corbeau du dessin regarde à droite. Sprite 18x14 centré
                         // sur la boîte 12x10 (3 px de chaque côté, 2 px en haut et en
-                        // bas) : le miroir garde le corps sur la boîte. Au Monde 2
-                        // (carte 9.26b), même ennemi dessiné en chauve-souris.
+                        // bas) : le miroir garde le corps sur la boîte. Dans les thèmes
+                        // du chapitre 2 (cartes 9.26b et 11.2), même ennemi dessiné en
+                        // chauve-souris.
                         banque.dessiner(
-                            image(images_corbeau(monde.infos.monde), pas, 10),
+                            image(images_corbeau(monde.infos.theme), pas, 10),
                             sx - 3.0,
                             sy - 2.0,
                             !e.vers_la_droite,
@@ -291,14 +293,33 @@ pub(super) fn dessiner_entites(monde: &Monde, banque: &Banque, alpha: f32, cx: i
     }
 }
 
-/// Images du corbeau selon le monde du niveau (carte 9.26b) : un corbeau au
-/// Monde 1, une chauve-souris à partir du Monde 2 (grotte, égouts…). Même ennemi,
-/// même boîte : seul le dessin change. Fonction pure.
-pub(crate) fn images_corbeau(monde: u8) -> &'static [&'static str; 2] {
-    if monde >= 2 {
-        &ennemis::CHAUVE_SOURIS
-    } else {
-        &ennemis::CORBEAU
+/// Images du corbeau selon le THÈME du niveau (cartes 9.26b et 11.2) : un corbeau
+/// dans le ciel du chapitre 1, une chauve-souris dans les thèmes où l'eau descend
+/// (rue, égouts, grotte, rivière, port). Une donnée portée par le niveau (son
+/// thème), plus le numéro du monde : un monde suivant dessine l'ennemi selon les
+/// thèmes qu'il reprend. Le `match` est complet : un thème ajouté devra choisir.
+/// Même ennemi, même boîte : seul le dessin change. Fonction pure.
+pub(crate) fn images_corbeau(theme: Theme) -> &'static [&'static str; 2] {
+    match theme {
+        Theme::Toits
+        | Theme::Gouttieres
+        | Theme::Marche
+        | Theme::Orage
+        | Theme::Clocher
+        | Theme::Cyclone
+        | Theme::Altitude
+        | Theme::Mer
+        | Theme::Soleil
+        | Theme::ArcEnCiel
+        | Theme::Descente
+        | Theme::Poursuite => &ennemis::CORBEAU,
+        Theme::Caniveau
+        | Theme::Egouts
+        | Theme::Cascade
+        | Theme::Grotte
+        | Theme::Riviere
+        | Theme::Port
+        | Theme::Maree => &ennemis::CHAUVE_SOURIS,
     }
 }
 
@@ -436,13 +457,58 @@ mod tests {
 
     // --- Corbeau / chauve-souris (carte 9.26b) ---
 
-    /// Le corbeau reste un corbeau au Monde 1 ; à partir du Monde 2 il est
-    /// dessiné en chauve-souris, avec le même battement (2 images, même taille).
+    /// Le corbeau reste un corbeau dans les thèmes du Monde 1 ; dans ceux du Monde 2
+    /// il est dessiné en chauve-souris, avec le même battement (2 images, même
+    /// taille). Carte 11.2 : la règle suit le THÈME, et redonne exactement l'image
+    /// d'avant (règle par monde) pour chaque niveau de la vraie table.
     #[test]
     fn le_corbeau_devient_une_chauve_souris_au_monde_2() {
-        assert_eq!(images_corbeau(1), &ennemis::CORBEAU);
-        assert_eq!(images_corbeau(2), &ennemis::CHAUVE_SOURIS);
-        assert_eq!(images_corbeau(3), &ennemis::CHAUVE_SOURIS);
+        assert_eq!(images_corbeau(Theme::Toits), &ennemis::CORBEAU);
+        assert_eq!(images_corbeau(Theme::Grotte), &ennemis::CHAUVE_SOURIS);
+        for n in niveaux::niveaux() {
+            let avant = if n.monde >= 2 {
+                &ennemis::CHAUVE_SOURIS
+            } else {
+                &ennemis::CORBEAU
+            };
+            assert_eq!(images_corbeau(n.theme), avant, "{}", n.cle);
+        }
+    }
+
+    /// Les entités du faux Monde 3 (carte 11.2) se dessinent : ses niveaux se
+    /// chargent, et les images choisies pour leurs ennemis (le chat, l'escargot, le
+    /// corbeau selon le thème de chaque niveau) sont dans la banque de sprites. Le
+    /// dessin ne lit plus nulle part le numéro du monde.
+    #[test]
+    fn les_entites_du_faux_monde_3_se_dessinent() {
+        let noms: Vec<&str> = crate::sprites::tous().iter().map(|(n, _)| *n).collect();
+        let t = crate::faux_monde_3::table_trois_mondes();
+        let (mut chats, mut escargots) = (0, 0);
+        for n in crate::faux_monde_3::faux_monde_3(&t) {
+            let niveau = n.charger().unwrap_or_else(|e| panic!("{} : {e:?}", n.cle));
+            assert!(!niveau.entites.is_empty(), "{}", n.cle);
+            for nom in images_corbeau(n.theme) {
+                assert!(noms.contains(nom), "{} : {nom}", n.cle);
+            }
+            for ent in &niveau.entites {
+                let nom = match ent {
+                    Entite::Escargot(_) => {
+                        escargots += 1;
+                        image_escargot(false, 0)
+                    }
+                    Entite::Ennemi(e) if e.type_ennemi == TypeEnnemi::Chat => {
+                        chats += 1;
+                        image_chat(e.phase_chat(), false, PostureChat::default(), 0)
+                    }
+                    _ => continue,
+                };
+                assert!(noms.contains(&nom), "{} : {nom}", n.cle);
+            }
+        }
+        assert!(
+            chats > 0 && escargots > 0,
+            "{chats} chats, {escargots} escargots"
+        );
     }
 
     // --- Escargot (carte 5.8) ---

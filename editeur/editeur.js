@@ -10,7 +10,7 @@
 // courantes ; le juge reste le chargeur du jeu : boutons Valider et TESTER (carte
 // 10.3b, plus bas : le jeu de QA vérifie et joue le niveau), ou
 // `./docker-cargo.sh run -p niveaux --bin valider -- fichier.ron`.
-import { lireNiveau, ecrireNiveau, rangees, versAscii } from './ron.js';
+import { lireNiveau, ecrireNiveau, rangees, versAscii, lignesIntro, erreursIntro, erreursFacile, LIGNES_MAX, LIGNES_MAX_FACILE, LIGNE_MAX_INTRO } from './ron.js';
 
 const $ = (s) => document.querySelector(s);
 const etat = {
@@ -89,7 +89,9 @@ function nouveau() {
     entete: [], commentaires: {}, commentairesFin: [],
     monde: 1, numero: 0, cle: 'mon_essai', nom: 'Mon niveau',
     theme: etat.legende.themes[0], genre: 'Normal', sans_planer: false, duree_cible_s: 60,
-    intro: 'Une phrase pour la carte du niveau.', mecanique: 'Ce que le niveau apprend.',
+    intro_texte: 'Une phrase pour la carte du niveau.', intro_astuce: 'Un conseil, en corail dessous.',
+    facile_texte: '',
+    mecanique: 'Ce que le niveau apprend.',
     aiguilles: [], poissons_hauts: [], ascii: '',
   };
   etat.grille = grille;
@@ -487,6 +489,12 @@ function avertissements() {
       }
     }
   }
+  // L'intro de la carte du niveau (carte 11.3) : le chargeur refuse un champ vide ou
+  // trop long pour l'écran (mêmes règles : `erreursIntro` de ron.js).
+  for (const e of erreursIntro(n)) liste.push([e, true]);
+  // La phrase du mode facile d'un boss (carte 9.34) : `erreursFacile` de ron.js,
+  // sur la grille telle qu'elle est dessinée.
+  for (const e of erreursFacile({ ...n, ascii: g.map((r) => r.join('')).join('\n') })) liste.push([e, true]);
   // Les règles de `core/src/zones.rs` qui se voient sans le robot (avertissements doux).
   const solideZones = (x, y) => {
     if (x < 0 || x >= largeur()) return true;
@@ -547,7 +555,20 @@ function avertissements() {
 
 // --- Formulaire des propriétés ---------------------------------------------------
 
-const CHAMPS_FORM = ['monde', 'numero', 'cle', 'nom', 'theme', 'genre', 'sans_planer', 'duree_cible_s', 'intro', 'mecanique'];
+const CHAMPS_FORM = ['monde', 'numero', 'cle', 'nom', 'theme', 'genre', 'sans_planer', 'duree_cible_s', 'intro_texte', 'intro_astuce', 'facile_texte', 'mecanique'];
+
+/// Sous chaque champ de l'intro (carte 11.3) : ses lignes sur la carte du niveau,
+/// coupées comme dans le jeu, et le compte « 2/3 lignes » (en rouge au-delà).
+function majApercuIntro() {
+  for (const champ of ['intro_texte', 'intro_astuce', 'facile_texte']) {
+    const lignes = lignesIntro($('#formulaire').elements[champ].value);
+    const max = champ === 'facile_texte' ? LIGNES_MAX_FACILE : LIGNES_MAX[champ];
+    const apercu = $(`#apercu-${champ}`);
+    apercu.textContent = `${lignes.length}/${max} lignes de ${LIGNE_MAX_INTRO} car.` + (lignes.length ? '\n' + lignes.join('\n') : '');
+    // `facile_texte` peut être vide (niveau sans boss : la liste des erreurs le dit).
+    apercu.classList.toggle('erreur', (lignes.length === 0 && champ !== 'facile_texte') || lignes.length > max);
+  }
+}
 
 function remplirListes() {
   const f = $('#formulaire');
@@ -568,6 +589,7 @@ function remplirFormulaire() {
     if (champ.type === 'checkbox') champ.checked = n[nom];
     else champ.value = n[nom];
   }
+  majApercuIntro();
   tableau('#aiguilles', n.aiguilles, ['rayon', 'vitesse', 'phase']);
   tableau('#poissons', n.poissons_hauts, ['colonne', 'rangee', 'hauteur']);
   const com = [...(n.entete || []), ...Object.entries(n.commentaires || {}).flatMap(([c, l]) => l.map((x) => `${x}   (avant ${c})`))];
@@ -918,6 +940,7 @@ function brancher() {
   $('#zoom-moins').addEventListener('click', () => zoomer(-2));
   $('#lettres').addEventListener('change', dessiner);
   $('#affichage').addEventListener('click', basculerAffichage);
+  $('#formulaire').addEventListener('input', majApercuIntro);
   $('#formulaire').addEventListener('change', (e) => {
     const champ = e.target;
     if (!CHAMPS_FORM.includes(champ.name)) return;

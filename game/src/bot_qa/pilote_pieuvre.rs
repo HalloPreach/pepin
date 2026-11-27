@@ -105,6 +105,24 @@ pub(crate) fn pieuvre(m: &Monde) -> &Pieuvre {
         .expect("le niveau a sa pieuvre")
 }
 
+/// Le niveau a-t-il une Pieuvre À TOUR, donc une phase 2 (carte 10.7 : le robot de
+/// QA de partie passe alors la main au pilote après la phase 1) ? Sa trombe (la
+/// bâche et la vigie) n'existe que dans ce cas.
+pub(crate) fn a_une_phase_2(m: &Monde) -> bool {
+    m.entites
+        .iter()
+        .any(|e| matches!(e, Entite::Pieuvre(p) if p.zone_trombe().is_some()))
+}
+
+/// La phase 2 est-elle commencée et pas encore gagnée (furie ou montée) ? C'est
+/// là que le pilote prend la main.
+pub(crate) fn en_phase_2(m: &Monde) -> bool {
+    m.entites.iter().any(|e| {
+        matches!(e, Entite::Pieuvre(p)
+            if p.en_fuite() && matches!(p.phase(), PhasePieuvre::Furie | PhasePieuvre::Montee))
+    })
+}
+
 fn pieuvre_mut(m: &mut Monde) -> &mut Pieuvre {
     m.entites
         .iter_mut()
@@ -306,7 +324,7 @@ fn zone_annoncee(p: &Pieuvre, b: &Aabb) -> bool {
 }
 
 /// Pépin est-il debout sur la vigie (ses pieds au niveau de son dessus) ?
-fn sur_la_vigie(m: &Monde) -> bool {
+pub(crate) fn sur_la_vigie(m: &Monde) -> bool {
     let v = pieuvre(m).tete_finale.map_or(f32::MAX, |v| v.bas());
     (m.joueur.boite.bas() - v).abs() < 2.0
 }

@@ -7,6 +7,7 @@ mod cascade;
 mod clocher;
 mod cyclone;
 mod descente;
+mod essai_balancement;
 mod essai_chat;
 mod essai_escargot;
 mod essai_horloge;

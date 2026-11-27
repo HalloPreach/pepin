@@ -101,7 +101,9 @@ pub struct ProgresNiveau {
     /// 3 = or).
     pub medaille: u8,
     /// Carte 8.14 (boss) : morts d'affilée dans ce niveau, en mode normal, depuis la
-    /// dernière victoire (voir `facile`).
+    /// dernière victoire (voir `facile`). Depuis la carte 9.34, une simple statistique
+    /// gardée pour ne pas changer le format : elle ne déclenche plus la bannière du
+    /// mode facile (c'est le compte de la VISITE, `EtatFacile::defaites_visite`).
     pub defaites: u32,
     /// Carte 8.14 : le boss a été vaincu en MODE FACILE (le niveau compte comme fini,
     /// sans médaille ni meilleur temps).
@@ -207,8 +209,20 @@ pub struct RecordsPartie {
     pub meilleur_temps: Option<u32>,
 }
 
-/// Clé de sauvegarde des records de partie du Monde 2 (carte 9.1).
-pub const CLE_PARTIE_MONDE2: &str = "partie.monde2";
+/// Clé de sauvegarde des records de partie du monde `monde` (cartes 9.1 et 11.2) :
+/// `partie.monde2`, `partie.monde3`... (le Monde 2 garde la clé de la carte 9.1).
+pub fn cle_partie_monde(monde: u8) -> String {
+    format!("partie.monde{monde}")
+}
+
+/// Le monde d'une clé `partie.mondeN` (N ≥ 2), sinon `None`.
+fn monde_de_cle_partie(cle: &str) -> Option<u8> {
+    let n = cle.strip_prefix("partie.monde")?;
+    if n.is_empty() || !n.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    n.parse().ok().filter(|&m| m >= 2)
+}
 
 impl RecordsPartie {
     /// Une partie du monde finie : `true` si c'est un record de score (ou la première).
@@ -279,8 +293,10 @@ pub struct Sauvegarde {
     pub courses: BTreeMap<String, [Option<i32>; 3]>,
     /// Records de la nouvelle partie + (carte 8.8).
     pub ng_plus: RecordsNgPlus,
-    /// Records des parties complètes du Monde 2 (carte 9.1), à part du Monde 1.
-    pub partie_monde2: RecordsPartie,
+    /// Records des parties complètes des mondes suivants (Monde 2, carte 9.1 ; tout
+    /// monde ≥ 2 depuis la carte 11.2), par MONDE, à part du Monde 1 (ses champs
+    /// d'avant). Seuls les mondes qui ont une partie finie y figurent.
+    pub parties_mondes: BTreeMap<u8, RecordsPartie>,
 }
 
 impl Default for Sauvegarde {
@@ -302,7 +318,7 @@ impl Default for Sauvegarde {
                 .collect(),
             courses: BTreeMap::new(),
             ng_plus: RecordsNgPlus::default(),
-            partie_monde2: RecordsPartie::default(),
+            parties_mondes: BTreeMap::new(),
         }
     }
 }
@@ -422,6 +438,20 @@ impl Sauvegarde {
     /// alors noté), `false` s'il l'avait déjà été.
     pub fn crediter_bonus(&mut self, id: &str) -> bool {
         self.bonus_credites.insert(id.to_string())
+    }
+
+    /// Records de partie du monde `monde` ≥ 2 (vides tant qu'aucune n'y est finie).
+    pub fn records_partie(&self, monde: u8) -> RecordsPartie {
+        self.parties_mondes.get(&monde).copied().unwrap_or_default()
+    }
+
+    /// Une partie du monde `monde` ≥ 2 finie (cartes 9.1 et 11.2) : ses records, à
+    /// part du Monde 1. `true` si c'est un record de score (ou la première).
+    pub fn noter_partie_monde(&mut self, monde: u8, score: u32, temps: u32) -> bool {
+        self.parties_mondes
+            .entry(monde)
+            .or_default()
+            .noter_partie(score, temps)
     }
 
     /// Meilleur résultat de course (écart signé, voir `courses`) sur le niveau de clé
@@ -573,7 +603,9 @@ impl Sauvegarde {
             }
         }
         s.ng_plus.vers_texte(&mut t);
-        s.partie_monde2.vers_texte(CLE_PARTIE_MONDE2, &mut t);
+        for (&monde, r) in &s.parties_mondes {
+            r.vers_texte(&cle_partie_monde(monde), &mut t);
+        }
         t
     }
 
@@ -646,8 +678,15 @@ impl Sauvegarde {
                 }
                 // Carte 8.8 : les records de la nouvelle partie +.
                 _ if cle.starts_with("ng_plus") => s.ng_plus.lire(cle, valeur),
-                // Carte 9.1 : les records de partie du Monde 2.
-                CLE_PARTIE_MONDE2 => s.partie_monde2.lire(valeur),
+                // Cartes 9.1 et 11.2 : les records de partie des mondes suivants.
+                _ if monde_de_cle_partie(cle).is_some() => {
+                    let mut r = RecordsPartie::default();
+                    r.lire(valeur);
+                    let monde = monde_de_cle_partie(cle);
+                    if let Some(m) = monde.filter(|_| r != RecordsPartie::default()) {
+                        s.parties_mondes.insert(m, r);
+                    }
+                }
                 _ => {
                     // Courses (carte 8.7) : un champ de plus en v3, ignoré par les
                     // versions d'avant (pas de changement de version).
@@ -984,15 +1023,16 @@ mod tests {
 
     /// Carte 9.1 : les records de partie du Monde 2 vivent sous `partie.monde2`, à part
     /// de ceux du Monde 1 ; une sauvegarde sans partie du Monde 2 n'a pas la ligne
-    /// (le texte du Monde 1 ne change pas d'un octet).
+    /// (le texte du Monde 1 ne change pas d'un octet). Carte 11.2 : même règle pour
+    /// tout monde suivant (`partie.monde3`...), sans code de plus.
     #[test]
     fn les_records_du_monde_2_sont_a_part() {
         let mut s = Sauvegarde::default();
-        assert!(!s.vers_texte().contains(CLE_PARTIE_MONDE2));
-        assert!(s.partie_monde2.noter_partie(500, 4000));
-        assert!(!s.partie_monde2.noter_partie(300, 3000));
+        assert!(!s.vers_texte().contains("partie.monde"));
+        assert!(s.noter_partie_monde(2, 500, 4000));
+        assert!(!s.noter_partie_monde(2, 300, 3000));
         assert_eq!(
-            s.partie_monde2,
+            s.records_partie(2),
             RecordsPartie {
                 parties_finies: 2,
                 meilleur_score: 500,
@@ -1007,6 +1047,26 @@ mod tests {
         let texte = s.vers_texte();
         assert!(texte.contains("partie.monde2=parties:2 score:500 temps:3000\n"));
         assert_eq!(Sauvegarde::depuis_texte(&texte), s);
+        // Un Monde 3 : ses records à lui, le Monde 2 intact, relus à l'identique.
+        assert_eq!(s.records_partie(3), RecordsPartie::default());
+        assert!(s.noter_partie_monde(3, 100, 9000));
+        assert_eq!(s.records_partie(2).meilleur_score, 500);
+        let texte = s.vers_texte();
+        assert!(texte.ends_with(
+            "partie.monde2=parties:2 score:500 temps:3000\n\
+             partie.monde3=parties:1 score:100 temps:9000\n"
+        ));
+        assert_eq!(Sauvegarde::depuis_texte(&texte), s);
+        // Clés voisines ignorées (pas de monde 1 ni de monde illisible).
+        for cle in [
+            "partie.monde1",
+            "partie.monde",
+            "partie.monde+3",
+            "partie.monde2x",
+        ] {
+            let lu = Sauvegarde::depuis_texte(&format!("version=3\n{cle}=parties:1 score:5\n"));
+            assert!(lu.parties_mondes.is_empty(), "{cle}");
+        }
     }
 
     /// Carte 8.13 : un niveau v2 avec une médaille ou un défi, mais SANS temps, est

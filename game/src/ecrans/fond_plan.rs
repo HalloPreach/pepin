@@ -447,25 +447,65 @@ pub fn bande_du_theme(t: Theme) -> Option<Bande> {
     }
 }
 
+/// Le chapitre se dessine-t-il en DESCENTE de l'eau (le fond `chapitre_2`) plutôt
+/// qu'en ascension (`chapitre_1`) ? Oui si un de ses niveaux a un thème qui a sa
+/// bande (`bande_du_theme`) : une donnée portée par les niveaux (carte 11.2), plus
+/// le numéro du monde. Monde 1 : non ; Monde 2 : oui. Pure.
+pub fn fond_en_descente(tranche: &[InfosNiveau]) -> bool {
+    tranche.iter().any(|n| bande_du_theme(n.theme).is_some())
+}
+
 /// Hauteur de la bande de la mer au-dessus du centre du port, au moins.
 const AU_DESSUS_DU_PORT: f32 = 22.0;
 
+/// Distance minimale entre une limite de bandes et une étape (un quart d'écart,
+/// 11 px) : une limite ne passe jamais SUR une étape d'une des deux bandes qu'elle
+/// sépare. (Avant la carte 9.32b, la limite entre la rivière et le port tombait déjà
+/// à 11 px de l'étape du port : rien ne bouge pour les cartes d'avant.)
+const MARGE_ETAPE: f32 = ECART / 4.0;
+
 /// Les bandes du chapitre 2 : `(bande, haut, bas)` en ordonnées de la carte, du bas
-/// (la rue, jusqu'au pied de la carte) vers le haut (la mer, jusqu'à 0). Chaque bande
-/// est centrée sur les étapes de son thème ; une bande sans niveau (la rivière et le
-/// port, tant qu'ils n'existent pas) prend sa place entre ses voisines.
+/// (la rue, jusqu'au pied de la carte) vers le haut (la mer, jusqu'à 0).
+///
+/// La règle, pour N niveaux par thème (carte 9.32b) :
+/// 1. Le CENTRE d'une bande est la moyenne de ses étapes ; une bande sans niveau se
+///    place entre ses voisines (ou, au bout, à des demi-écarts de leur étape la plus
+///    proche).
+/// 2. La LIMITE entre deux bandes voisines est au milieu de leurs centres, puis
+///    poussée si besoin pour laisser `MARGE_ETAPE` entre elle et les étapes des deux
+///    bandes : chaque étape reste dans SA bande, même quand un thème a trois niveaux
+///    ou plus (avec la seule moyenne, le centre descend et la dernière étape du
+///    thème sort par le haut de sa bande).
+/// 3. Le HAUT de la dernière bande (le port) est `AU_DESSUS_DU_PORT` au-dessus de
+///    son centre, mais jamais sous sa plus haute étape : la Pieuvre, tout en haut,
+///    se tient sur la ligne de la mer.
 pub fn bandes_chapitre_2(tranche: &[InfosNiveau], g: &Geometrie) -> Vec<(Bande, f32, f32)> {
-    let mut centres: Vec<Option<f32>> = ORDRE_2
+    // Les ordonnées des étapes de chaque bande (vide si aucun niveau du monde n'est
+    // de son thème).
+    let ys: Vec<Vec<f32>> = ORDRE_2
         .iter()
         .map(|&b| {
-            let ys: Vec<f32> = tranche
+            tranche
                 .iter()
                 .zip(&g.etapes)
                 .filter(|(n, _)| bande_du_theme(n.theme) == Some(b))
                 .map(|(_, &(_, y))| y)
-                .collect();
-            (!ys.is_empty()).then(|| ys.iter().sum::<f32>() / ys.len() as f32)
+                .collect()
         })
+        .collect();
+    // L'étendue de chaque bande : (sa plus haute étape, sa plus basse). Sur la carte,
+    // le haut est le `y` le plus PETIT.
+    let etendues: Vec<Option<(f32, f32)>> = ys
+        .iter()
+        .map(|y| {
+            let haut = y.iter().copied().reduce(f32::min)?;
+            let bas = y.iter().copied().reduce(f32::max)?;
+            Some((haut, bas))
+        })
+        .collect();
+    let mut centres: Vec<Option<f32>> = ys
+        .iter()
+        .map(|y| (!y.is_empty()).then(|| y.iter().sum::<f32>() / y.len() as f32))
         .collect();
     let connus: Vec<usize> = (0..centres.len())
         .filter(|&i| centres[i].is_some())
@@ -477,21 +517,25 @@ pub fn bandes_chapitre_2(tranche: &[InfosNiveau], g: &Geometrie) -> Vec<(Bande, 
             *c = Some(g.hauteur - (i as f32 + 1.0) * pas);
         }
     }
-    // Les trous : entre deux voisines connues, à parts égales ; aux bouts, un écart.
-    let connu = |c: &[Option<f32>], i: usize| c[i];
+    // Les trous : entre deux voisines connues, à parts égales entre leurs étapes les
+    // plus proches ; aux bouts, un demi-écart par bande depuis l'étape la plus proche.
+    // (Depuis l'étape et non depuis le centre : sinon, avec un thème de trois niveaux
+    // au bord, la bande vide se poserait sur ses étapes.)
     for i in 0..centres.len() {
         if centres[i].is_some() {
             continue;
         }
-        let avant = (0..i).rev().find(|&k| centres[k].is_some());
-        let apres = (i + 1..centres.len()).find(|&k| centres[k].is_some());
+        let avant = (0..i).rev().find(|&k| etendues[k].is_some());
+        let apres = (i + 1..centres.len()).find(|&k| etendues[k].is_some());
         centres[i] = Some(match (avant, apres) {
             (Some(a), Some(b)) => {
-                let (ya, yb) = (connu(&centres, a).unwrap(), connu(&centres, b).unwrap());
+                // `a` est plus bas sur la carte : on part de sa plus HAUTE étape,
+                // vers la plus BASSE étape de `b`.
+                let (ya, yb) = (etendues[a].unwrap().0, etendues[b].unwrap().1);
                 ya + (yb - ya) * (i - a) as f32 / (b - a) as f32
             }
-            (Some(a), None) => connu(&centres, a).unwrap() - (i - a) as f32 * ECART / 2.0,
-            (None, Some(b)) => connu(&centres, b).unwrap() + (b - i) as f32 * ECART / 2.0,
+            (Some(a), None) => etendues[a].unwrap().0 - (i - a) as f32 * ECART / 2.0,
+            (None, Some(b)) => etendues[b].unwrap().1 + (b - i) as f32 * ECART / 2.0,
             (None, None) => g.hauteur / 2.0,
         });
     }
@@ -500,8 +544,22 @@ pub fn bandes_chapitre_2(tranche: &[InfosNiveau], g: &Geometrie) -> Vec<(Bande, 
     let mut bas = g.hauteur;
     for (i, &b) in ORDRE_2.iter().enumerate() {
         let haut = match c.get(i + 1) {
-            Some(&suivant) => (c[i] + suivant) / 2.0,
-            None => c[i] - AU_DESSUS_DU_PORT,
+            Some(&suivant) => {
+                let mut limite = (c[i] + suivant) / 2.0;
+                // Sous la plus basse étape de la bande du dessus...
+                if let Some((_, plus_basse)) = etendues[i + 1] {
+                    limite = limite.max(plus_basse + MARGE_ETAPE);
+                }
+                // ... et au-dessus de la plus haute de celle-ci (elle l'emporte).
+                if let Some((plus_haute, _)) = etendues[i] {
+                    limite = limite.min(plus_haute - MARGE_ETAPE);
+                }
+                limite
+            }
+            None => {
+                let au_dessus = c[i] - AU_DESSUS_DU_PORT;
+                etendues[i].map_or(au_dessus, |(plus_haute, _)| au_dessus.min(plus_haute))
+            }
         }
         .clamp(0.0, bas)
         .round();
@@ -985,11 +1043,100 @@ mod tests {
         assert!(riviere.2 - riviere.1 >= 10.0, "{riviere:?}");
     }
 
-    /// Le Monde 1 n'a aucun thème du chapitre 2.
+    /// Le Monde 1 n'a aucun thème du chapitre 2. Carte 11.2 : le fond choisi par les
+    /// thèmes redonne celui d'avant (choisi par le numéro du monde).
     #[test]
     fn aucun_theme_du_monde_1_n_a_de_bande() {
         for n in niveaux_du_monde(niveaux::niveaux(), 1) {
             assert_eq!(bande_du_theme(n.theme), None, "{}", n.cle);
+        }
+        assert!(!fond_en_descente(niveaux_du_monde(niveaux::niveaux(), 1)));
+        assert!(fond_en_descente(niveaux_du_monde(niveaux::niveaux(), 2)));
+    }
+
+    /// Le faux Monde 3 (carte 11.2) a un niveau du caniveau parmi ses thèmes : sa
+    /// carte se dessine en descente, avec des bandes qui couvrent toute la carte.
+    #[test]
+    fn le_faux_monde_3_a_un_fond_de_carte() {
+        let t = crate::faux_monde_3::table_trois_mondes();
+        let tranche = crate::faux_monde_3::faux_monde_3(&t);
+        assert!(fond_en_descente(tranche));
+        let g = Geometrie::new(tranche);
+        let bandes = bandes_chapitre_2(tranche, &g);
+        assert_eq!(bandes[0].2, g.hauteur, "la première bande touche le pied");
+        assert_eq!(
+            bandes.last().map(|b| b.1),
+            Some(0.0),
+            "la mer touche le haut"
+        );
+        for w in bandes.windows(2) {
+            assert_eq!(w[0].1, w[1].2, "{:?} et {:?} se touchent", w[0].0, w[1].0);
+        }
+        // Sans thème du chapitre 2, un monde garde le fond de l'ascension.
+        assert!(!fond_en_descente(&tranche[..2]));
+    }
+
+    /// Un monde d'essai de niveaux normaux, un par thème donné, dans l'ordre du chemin.
+    fn monde_d_essai(themes: &[Theme]) -> Vec<InfosNiveau> {
+        themes
+            .iter()
+            .enumerate()
+            .map(|(k, &theme)| InfosNiveau {
+                monde: 3,
+                numero: k as u8 + 1,
+                genre: GenreNiveau::Normal,
+                theme,
+                ..*niveaux::par_cle("caniveau")
+            })
+            .collect()
+    }
+
+    /// Carte 9.32b : un thème peut avoir trois niveaux (ou plus), puis le chemin passe
+    /// à un autre thème. Chaque étape reste dans la bande de son thème, à
+    /// `MARGE_ETAPE` au moins de la limite avec une bande voisine (sauf la plus haute
+    /// étape du port, sur la ligne de la mer), et les bandes couvrent toute la carte.
+    #[test]
+    fn trois_niveaux_d_un_meme_theme_puis_un_autre() {
+        use Theme::*;
+        let cas: [&[Theme]; 4] = [
+            &[Caniveau, Caniveau, Caniveau, Egouts],
+            // La rivière, entre les deux, n'a pas de niveau : elle garde une place.
+            &[Grotte, Grotte, Grotte, Port],
+            &[Riviere, Riviere, Riviere, Port],
+            // Le port du Monde 2 depuis la marée : port, marée, Pieuvre.
+            &[Riviere, Port, Maree, Port],
+        ];
+        for themes in cas {
+            let tranche = monde_d_essai(themes);
+            let g = Geometrie::new(&tranche);
+            let bandes = bandes_chapitre_2(&tranche, &g);
+            assert_eq!(bandes.len(), 7, "{themes:?}");
+            assert_eq!(bandes[0].2, g.hauteur, "{themes:?} : la rue touche le pied");
+            assert_eq!(bandes.last().map(|b| (b.0, b.1)), Some((Bande::Mer, 0.0)));
+            for w in bandes.windows(2) {
+                assert_eq!(w[0].1, w[1].2, "{themes:?} : {:?} et {:?}", w[0].0, w[1].0);
+                assert!(w[1].1 <= w[1].2, "{themes:?} : {:?} à l'envers", w[1].0);
+            }
+            let plus_haute_du_port = tranche
+                .iter()
+                .zip(&g.etapes)
+                .filter(|(n, _)| bande_du_theme(n.theme) == Some(Bande::Port))
+                .map(|(_, &(_, y))| y)
+                .reduce(f32::min);
+            for (n, &(_, y)) in tranche.iter().zip(&g.etapes) {
+                let b = bande_du_theme(n.theme).unwrap();
+                let &(_, haut, bas) = bandes.iter().find(|x| x.0 == b).unwrap();
+                let marge_haut = if Some(y) == plus_haute_du_port {
+                    0.0
+                } else {
+                    MARGE_ETAPE
+                };
+                assert!(
+                    haut + marge_haut <= y && y + MARGE_ETAPE <= bas,
+                    "{themes:?} : étape {} ({b:?}) à {y}, bande {haut}..{bas} : {bandes:?}",
+                    n.numero
+                );
+            }
         }
     }
 

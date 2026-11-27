@@ -62,5 +62,6 @@ pub fn niveaux_et_essai() -> impl Iterator<Item = &'static InfosNiveau> {
         par_cle("essai_eau2"),
         par_cle("essai_ennemis_eau"),
         par_cle("essai_pieuvre"),
+        par_cle("essai_balancement"),
     ])
 }
