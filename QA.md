@@ -8175,3 +8175,33 @@ La carte demande de s'arrêter si ce n'est pas un défaut. Le corriger, c'est ch
 
 - Pas de code changé : pas de nouveau lint, tests, robot ni `carte pieuvre` (l'empreinte reste celle de la 9.36c, `a7e1943b9d3967a3`, le build est celui de `3b5bb92`).
 - Captures : `./build.sh --qa` (OK), `docs/capture-936.sh` en normal et facile avec `MOMENTS` image par image, 374 captures, erreurs du pilote et de la console : 0. Toutes mesurées ; les 15 gardées et les 6 de la 9.36c regardées.
+
+### Suite : décision d'AGA (27/11) : « B », faite
+
+La silhouette d'une corniche noyée, dans la bande TURQUOISE sous l'écume, n'est plus un aplat d'ardoise : c'est un turquoise plus sombre, pris dans la palette. La palette n'a rien entre le cyan sombre (`E`, 47, 143, 157 : l'eau elle-même à cette profondeur) et l'ardoise (`2`) : le « turquoise plus sombre » est donc un DAMIER `E`/`2`, comme les passages tramés que la mer a déjà entre ses bandes. On devine la corniche sous l'eau, sans rectangle gris. Plus bas que la bande turquoise (rangée 24 et après), rien ne change.
+
+- `docs/dessins-936.py`, `mer_noyee()` : rangées 3 à 23 en damier `E`/`2` (avant : rangées 5 à 23 en ardoise unie, 3 et 4 déjà en damier `E`/`2`) ; `assets/sprites/pieuvre/pieuvre_mer_noyee.png` régénéré par le script (outil `sprite`), ainsi que la planche `docs/qa/936b-planche-sprites.png`, la scène `docs/qa/936-melange-scene.png` et la grande planche `docs/planche-sprites.png` (refaite par `./build.sh --qa`). Le code du jeu ne change pas (`dessin_montee::dessiner_mer` découpe toujours la tranche à la profondeur de la case) ; commentaire du sprite à jour dans `game/src/sprites/pieuvre.rs`.
+- Le facile : la mer n'est jamais dessinée pâle (un danger reste plein) ; sa version pâle est tirée du même PNG à la construction de la banque, elle suit donc. `chaque_image_dessinee_pale_a_sa_version_pale` (9.33) vert.
+- Test de rendu (point 4) : `dessin_montee::tests::la_corniche_noyee_ne_fait_pas_de_bande_sombre_sous_l_ecume` : dans les 24 rangées turquoise de `pieuvre_mer_noyee`, jamais deux pixels voisins d'ardoise ou plus sombres sur une ligne, seulement `E` et `2`, et de l'ardoise sur chaque rangée dès la 3e (la corniche se devine) ; l'eau (`pieuvre_mer0/1`) n'a aucune ardoise dans cette bande ; plus bas, la silhouette d'avant. ROUGE sur l'ancien PNG (« ligne 5 : 16 px sombres de suite »), vert sur le nouveau.
+
+### Preuves
+
+- `lourd.sh ./docker-cargo.sh lint` : FMT-OK, LINT-OK.
+- `lourd.sh ./docker-cargo.sh carte pieuvre` : VERT en 49 s (core 325, game 458 = 457 + le nouveau test, niveaux 19, tous 80, `faisabilite::le_niveau_de_la_carte` ok).
+- Robot de partie `le_robot_finit_le_monde_2_sans_mourir` (`tests-rapides`, mémoire des parcours, sous `lourd.sh`, avec le nouveau PNG) : VERT en 935 s, niveaux [1..8], 24 007 images, chrono 23 258 pas, 11 gouttes, empreinte `a7e1943b9d3967a3` : LES MÊMES qu'à la 9.36c (seul le rendu change).
+- Build `./build.sh --qa` de ce commit ; `game.wasm` ne diffère de l'ancien que de 38 octets (le PNG embarqué).
+
+### Captures avant / après (build `dist-qa` de `3b5bb92` contre celui-ci, `docs/capture-936.sh`), comparées AU PIXEL
+
+Outil : seul changement permis, un pixel d'ardoise (45, 58, 84) devenu cyan sombre (47, 143, 157) ; toute autre différence est une faute.
+
+- Les 14 + 15 moments par défaut (normal avec la carte, facile) contre `docs/qa/936c` et `docs/qa/936b` : 0 faute. Identiques octet pour octet : `carte`, `phase1`, `fin-phase1`, `chute`, `chute-b`, `tour-milieu`, `fuite-sommet`, `fuite-mi-descente`, `bilan` (et les autres du facile) ; ne diffèrent QUE par l'ombre : en normal `transition`, `tour-bas`, `tour-haut`, `fuite-plongee`, `fuite-remous` ; en facile `transition`, `fuite-encre`, `fuite-plongee` (les autres moments du facile identiques).
+- Toute la séquence de fin image par image (normal 4497 à 4683, facile 5864 à 6050, 374 images), même procédure que la mesure d'avant (`MOMENTS` image par image depuis le sommet) : 0 faute ; 275 ne diffèrent que par l'ombre, 99 identiques.
+- La montée, une image sur 10 (normal 2200 à 4490, facile 3510 à 5860) avec la phase 1 et la transition, sur les deux builds : 0 faute sur 473 images ; 114 ne diffèrent que par l'ombre (jusqu'à 1 152 px du jeu), les autres identiques. Attention : avec une capture toutes les 10 images, le rejeu du script DÉRIVE pendant la montée (même image de jeu, mais Pépin n'est plus au même endroit, en normal il finit sans vie à l'image 4497) ; il dérive pareil sur les deux builds, la comparaison tient, mais ces images-là ne sont pas le parcours du robot. Les images fidèles sont celles des moments par défaut et de la séquence ci-dessus.
+- Mesure (`docs/mesure-bande-936d.py`, la plus longue suite d'ardoise dans une ligne turquoise) : APRÈS, 0 image à 96 px ou plus et 0 à 32 px ou plus, sur les 375 + 29 + 849 images (suite max 25 px : un détail d'une seule ligne à x 22 à 46, déjà là avant, pas une bande). AVANT : 114 images à 96 px ou plus dans la séquence (176 à 32 px ou plus), 38 dans la montée.
+- Gardées dans `docs/qa/936d/` : `apres-normal-image-4584 ... 4644` et `apres-facile-image-5892 ... 6043` (les mêmes images que les 15 « avant », même nom sans `apres-`), `apres-normal-fuite-plongee`, `apres-facile-fuite-plongee`, `apres-normal-tour-bas`, `apres-normal-tour-haut`, `apres-facile-transition` (à comparer à `docs/qa/936c` et `936b`), et la montée `montee-avant-` / `montee-apres-normal-m3150` (la transition, la corniche noyée de gauche) et `-facile-m4680` (la longue corniche du bas). Regardées : la corniche se lit en turquoise tramé sous l'écume, plus de bande grise ; à droite l'eau claire, inchangée.
+- Non refaites : `docs/qa/936b/normal-mer-et-corniches-noyees.png` (prise à la 9.36b à un autre moment de la partie, que le script d'aujourd'hui ne rejoue pas à l'identique) : la montée avant/après est dans `docs/qa/936d/montee-*`.
+
+### Pas fait, pas testé
+
+- Joueur humain, téléphone (le damier à l'échelle d'un petit écran).

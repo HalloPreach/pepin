@@ -295,9 +295,23 @@ def mer(frame):
 
 def mer_noyee():
     """Une corniche sous l'eau, en SILHOUETTE (16 x 56) : le même dégradé, un cran
-    plus sombre (le jeu en découpe la tranche à la profondeur de la case)."""
+    plus sombre (le jeu en découpe la tranche à la profondeur de la case).
+
+    Carte 9.36d (décision B d'AGA) : dans la bande turquoise (`p` de 3 à 23), la
+    silhouette est un TURQUOISE PLUS SOMBRE et non plus de l'ardoise unie, qui
+    faisait un rectangle gris plaqué juste sous l'écume. La palette n'a pas de
+    turquoise plus sombre que le cyan sombre (14) : on le fait en DAMIER, un pixel
+    de cyan sombre (14), un pixel d'ardoise (2), comme les passages tramés de la mer
+    elle-même. La corniche se devine sous l'eau, sans aplat. Plus bas, inchangé."""
     plus_sombre = {13: 14, 14: 2, 2: 1, 1: 0}
-    return [[plus_sombre[bande_mer(j, (i + j) % 2 == 0)] for i in range(16)] for j in range(56)]
+
+    def couleur(i, j):
+        damier = (i + j) % 2 == 0
+        if 3 <= j < 24:
+            return 14 if damier else 2
+        return plus_sombre[bande_mer(j, damier)]
+
+    return [[couleur(i, j) for i in range(16)] for j in range(56)]
 
 
 def crete(frame):

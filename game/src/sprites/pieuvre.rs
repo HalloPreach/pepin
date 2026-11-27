@@ -131,7 +131,9 @@
 // `pieuvre_mer_fond.png` : L'eau de nuit unie sous les 56 px de la bande (16 x 16).
 
 // `pieuvre_mer_noyee.png` : Une corniche NOYÉE (16 x 56) : le même dégradé que la mer, un cran plus
-// sombre ; le jeu en découpe la tranche à la profondeur de la case (silhouette).
+// sombre ; le jeu en découpe la tranche à la profondeur de la case (silhouette). Carte 9.36d :
+// dans la bande turquoise (ses 24 premières rangées), un damier cyan sombre et ardoise (un
+// turquoise plus sombre), plus d'aplat d'ardoise sous l'écume.
 
 // `pieuvre_mer_noyee_fond.png` : La corniche noyée plus bas que la bande (16 x 16, ombre d'ardoise).
 
